@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -19,6 +20,7 @@ export function AutomationAttachmentPreviewDialog({
   attachment: PreviewAttachment | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("automation.attachmentPreview");
   const previewDialogRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -87,7 +89,7 @@ export function AutomationAttachmentPreviewDialog({
       ref={previewDialogRef}
       role="dialog"
       aria-modal="true"
-      aria-label={`Preview attachment ${attachment.filename}`}
+      aria-label={t("dialogAria", { filename: attachment.filename })}
       tabIndex={-1}
       className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
@@ -98,7 +100,7 @@ export function AutomationAttachmentPreviewDialog({
         onClick={onClose}
       >
         <X className="size-5" />
-        <span className="sr-only">Close preview</span>
+        <span className="sr-only">{t("close")}</span>
       </button>
       {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object URLs and must not go through Next image optimization. */}
       <img

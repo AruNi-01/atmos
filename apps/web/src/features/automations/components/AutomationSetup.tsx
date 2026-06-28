@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import { Button, TooltipProvider } from "@workspace/ui";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
@@ -15,9 +16,7 @@ import {
 } from "@/features/automations/components/AutomationSetupControls";
 import { buildTargetInput } from "@/features/automations/lib/automation-format";
 import {
-  DAY_OPTIONS,
   validationMessage,
-  type TriggerChoice,
 } from "@/features/automations/lib/automation-schedule";
 import {
   createAutomationWithGithubRoute,
@@ -77,6 +76,15 @@ const AUTOMATION_HEADLINES: AutomationHeadline[] = [
   "keep_running",
 ];
 const DEFAULT_AUTOMATION_HEADLINE: AutomationHeadline = "automate_next";
+const DAY_LABEL_KEYS: Record<number, string> = {
+  0: "sunday",
+  1: "monday",
+  2: "tuesday",
+  3: "wednesday",
+  4: "thursday",
+  5: "friday",
+  6: "saturday",
+};
 
 export function AutomationSetup({
   mode,
@@ -105,6 +113,7 @@ export function AutomationSetup({
   onCreate: (request: AutomationCreateRequest) => Promise<AutomationDetail>;
   onUpdate: (request: AutomationUpdateRequest) => Promise<AutomationDetail>;
 }) {
+  const t = useTranslations("automation.setup");
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const {
     attachments,
@@ -196,14 +205,14 @@ export function AutomationSetup({
         launchCommand: "",
         iconType: "built-in",
         description: agent.automation_supported
-          ? "Automation-ready"
-          : "Unavailable",
+          ? t("agentOptions.ready")
+          : t("agentOptions.unavailable"),
         disabledReason: agent.automation_supported
           ? null
           : (agent.unavailable_reason ??
-            "Agent is not available for automations."),
+            t("agentOptions.unavailableReason")),
       })),
-    [agents],
+    [agents, t],
   );
   const { filteredAgents, filteredProjects, filteredSkills, isSkillsLoading } =
     useWelcomeSlashSearch({
@@ -342,17 +351,53 @@ export function AutomationSetup({
       });
     }
   }, [initialAutomation, mode]);
+  const wordmark = (
+    <span className="inline-flex items-center">
+      <AtmosWordmark
+        className="gap-0"
+        logoClassName="size-10 sm:size-12 md:size-14"
+        letterClassName="text-4xl sm:text-5xl md:text-6xl leading-none font-semibold"
+        sloganClassName="hidden"
+      />
+    </span>
+  );
+  const headlineContent = React.useMemo(() => {
+    switch (headline) {
+      case "automate_next":
+        return t.rich("headlines.automateNext", { wordmark: () => wordmark });
+      case "run_on_schedule":
+        return t.rich("headlines.runOnSchedule", { wordmark: () => wordmark });
+      case "handle_later":
+        return t.rich("headlines.handleLater", { wordmark: () => wordmark });
+      case "keep_running":
+        return t.rich("headlines.keepRunning", { wordmark: () => wordmark });
+    }
+  }, [headline, t, wordmark]);
   const triggerLabel = React.useMemo(() => {
-    return formatTriggerControlLabel({
-      trigger,
-      timezone,
-      hour,
-      minute,
-      dayOfWeek,
-      dayOfMonth,
-      cronExpr,
-      githubRepositoryFullName,
-    });
+    const time = `${twoDigit(hour)}:${twoDigit(minute)}`;
+
+    switch (trigger) {
+      case "manual":
+        return t("triggerLabel.manual");
+      case "github":
+        return githubRepositoryFullName
+          ? t("triggerLabel.githubWithRepository", { repositoryFullName: githubRepositoryFullName })
+          : t("triggerLabel.github");
+      case "hourly":
+        return t("triggerLabel.hourly", { minute: twoDigit(minute), timezone });
+      case "daily":
+        return t("triggerLabel.daily", { time, timezone });
+      case "weekly": {
+        const dayLabel = t(`days.${DAY_LABEL_KEYS[dayOfWeek] ?? "weekday"}`);
+        return t("triggerLabel.weekly", { dayLabel, time, timezone });
+      }
+      case "monthly":
+        return t("triggerLabel.monthly", { dayOfMonth, time, timezone });
+      case "cron":
+        return cronExpr.trim()
+          ? t("triggerLabel.cron", { cronExpr: cronExpr.trim(), timezone })
+          : t("triggerLabel.cronFallback", { timezone });
+    }
   }, [
     cronExpr,
     dayOfMonth,
@@ -360,6 +405,7 @@ export function AutomationSetup({
     githubRepositoryFullName,
     hour,
     minute,
+    t,
     timezone,
     trigger,
   ]);
@@ -380,14 +426,14 @@ export function AutomationSetup({
               scheduleValid,
               previewError,
             })
-          : "Choose a repository and required GitHub filters.",
+          : t("errors.githubFiltersRequired"),
       );
       return;
     }
 
     const target = buildTargetInput(targetKind, projectGuid, workspaceGuid);
     if (trigger !== "manual" && trigger !== "github" && !requestSchedule) {
-      setSubmitError("Choose a valid schedule.");
+      setSubmitError(t("errors.invalidSchedule"));
       return;
     }
     const githubConfig = trigger === "github" ? buildGithubConfig() : null;
@@ -458,7 +504,7 @@ export function AutomationSetup({
       clearAttachments();
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Failed to save automation",
+        err instanceof Error ? err.message : t("errors.saveFailed"),
       );
     } finally {
       setSubmitting(false);
@@ -479,7 +525,7 @@ export function AutomationSetup({
       <div className="flex h-full items-center justify-center bg-background">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" />
-          Loading automation
+          {t("loading")}
         </div>
       </div>
     );
@@ -488,8 +534,8 @@ export function AutomationSetup({
   const disabledSubmit =
     !formValid || (trigger === "github" && !githubRouteReady) || submitting;
   const placeholder = selectedAgent?.label
-    ? `What should ${selectedAgent.label} do when this automation runs?`
-    : "What should this automation do when it runs?";
+    ? t("placeholder.withAgent", { agentName: selectedAgent.label })
+    : t("placeholder.default");
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -504,13 +550,13 @@ export function AutomationSetup({
           className="absolute left-4 top-4 z-20 gap-2 sm:left-6"
         >
           <ArrowLeft className="size-4" />
-          Automations
+          {t("backButton")}
         </Button>
 
         <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 sm:-translate-y-8 md:-translate-y-16">
           <div className="mb-10 flex w-full max-w-4xl flex-col items-center">
             <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-              {renderAutomationHeadline(headline)}
+              {headlineContent}
             </h1>
           </div>
 
@@ -747,103 +793,6 @@ export function AutomationSetup({
       </div>
     </TooltipProvider>
   );
-}
-
-function renderAutomationHeadline(
-  headline: AutomationHeadline,
-): React.ReactNode {
-  const logo = (
-    <span className="inline-flex items-center">
-      <AtmosWordmark
-        className="gap-0"
-        logoClassName="size-10 sm:size-12 md:size-14"
-        letterClassName="text-4xl sm:text-5xl md:text-6xl leading-none font-semibold"
-        sloganClassName="hidden"
-      />
-    </span>
-  );
-
-  switch (headline) {
-    case "automate_next":
-      return (
-        <>
-          <span>What should</span>
-          {logo}
-          <span className="whitespace-nowrap">automate next?</span>
-        </>
-      );
-    case "run_on_schedule":
-      return (
-        <>
-          <span>What should</span>
-          {logo}
-          <span className="whitespace-nowrap">run on schedule?</span>
-        </>
-      );
-    case "handle_later":
-      return (
-        <>
-          <span>What should</span>
-          {logo}
-          <span className="whitespace-nowrap">handle later?</span>
-        </>
-      );
-    case "keep_running":
-      return (
-        <>
-          <span>What should</span>
-          {logo}
-          <span className="whitespace-nowrap">keep running?</span>
-        </>
-      );
-  }
-}
-
-function formatTriggerControlLabel({
-  trigger,
-  timezone,
-  hour,
-  minute,
-  dayOfWeek,
-  dayOfMonth,
-  cronExpr,
-  githubRepositoryFullName,
-}: {
-  trigger: TriggerChoice;
-  timezone: string;
-  hour: number;
-  minute: number;
-  dayOfWeek: number;
-  dayOfMonth: number;
-  cronExpr: string;
-  githubRepositoryFullName: string;
-}) {
-  const time = `${twoDigit(hour)}:${twoDigit(minute)}`;
-
-  switch (trigger) {
-    case "manual":
-      return "manual";
-    case "github":
-      return githubRepositoryFullName
-        ? `GitHub events in ${githubRepositoryFullName}`
-        : "GitHub events";
-    case "hourly":
-      return `every hour at :${twoDigit(minute)} ${timezone}`;
-    case "daily":
-      return `daily at ${time} ${timezone}`;
-    case "weekly": {
-      const dayLabel =
-        DAY_OPTIONS.find((option) => option.value === dayOfWeek)?.label ??
-        "weekday";
-      return `weekly on ${dayLabel} at ${time} ${timezone}`;
-    }
-    case "monthly":
-      return `monthly on day ${dayOfMonth} at ${time} ${timezone}`;
-    case "cron":
-      return cronExpr.trim()
-        ? `cron ${cronExpr.trim()} ${timezone}`
-        : `cron schedule ${timezone}`;
-  }
 }
 
 function twoDigit(value: number) {

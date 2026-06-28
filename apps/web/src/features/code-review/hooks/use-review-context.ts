@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQueryState, parseAsString } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import {
@@ -52,6 +53,7 @@ export function useReviewContext({
   initialSessionGuid = null,
   initialRevisionGuid = null,
 }: UseReviewContextArgs) {
+  const t = useTranslations("codeReview.reviewContext");
   const [storedReviewAgentId, setStoredReviewAgentId] = useReviewDefaultAgentId();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
@@ -154,15 +156,17 @@ export function useReviewContext({
     } catch (error) {
       console.error("Failed to load review sessions", error);
       toastManager.add({
-        title: "Failed to load review sessions",
+        title: t("loadSessions.errorTitle"),
         description:
-          error instanceof Error ? error.message : "Unknown review session error",
+          error instanceof Error
+            ? error.message
+            : t("errors.unknownReviewSession"),
         type: "error",
       });
     } finally {
       setIsLoading(false);
     }
-  }, [target]);
+  }, [t, target]);
 
   useEffect(() => {
     void loadSessions();
@@ -388,7 +392,9 @@ export function useReviewContext({
       const dd = String(now.getDate()).padStart(2, "0");
       const hh = String(now.getHours()).padStart(2, "0");
       const min = String(now.getMinutes()).padStart(2, "0");
-      const defaultTitle = `Review_${mm}.${dd}-${hh}:${min}`;
+      const defaultTitle = t("createSession.defaultTitle", {
+        timestamp: `${mm}.${dd}-${hh}:${min}`,
+      });
       const session = await reviewWsApi.createSession({
         target,
         title: defaultTitle,
@@ -398,21 +404,25 @@ export function useReviewContext({
       setSessions((prev) => [session, ...prev]);
       const targetKind = target.kind === "workspace" ? "workspace" : "project";
       toastManager.add({
-        title: "Review session started",
-        description: `Comments and reviewed file state are now tracked for this ${targetKind}.`,
+        title: t("createSession.successTitle"),
+        description: t("createSession.successDescription", {
+          targetKind: t(`targetKinds.${targetKind}`),
+        }),
         type: "success",
       });
     } catch (error) {
       toastManager.add({
-        title: "Failed to create review session",
+        title: t("createSession.errorTitle"),
         description:
-          error instanceof Error ? error.message : "Unknown review session error",
+          error instanceof Error
+            ? error.message
+            : t("errors.unknownReviewSession"),
         type: "error",
       });
     } finally {
       setIsCreating(false);
     }
-  }, [setSelectedRevisionGuid, setSelectedSessionGuid, target]);
+  }, [setSelectedRevisionGuid, setSelectedSessionGuid, t, target]);
 
   const handleCloseSession = useCallback(async () => {
     if (!currentSession) return;
@@ -421,12 +431,13 @@ export function useReviewContext({
       await loadSessions();
     } catch (error) {
       toastManager.add({
-        title: "Failed to close session",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("closeSession.errorTitle"),
+        description:
+          error instanceof Error ? error.message : t("errors.unknown"),
         type: "error",
       });
     }
-  }, [currentSession, loadSessions]);
+  }, [currentSession, loadSessions, t]);
 
   const handleArchiveSession = useCallback(async () => {
     if (!currentSession) return;
@@ -435,12 +446,13 @@ export function useReviewContext({
       await loadSessions();
     } catch (error) {
       toastManager.add({
-        title: "Failed to archive session",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("archiveSession.errorTitle"),
+        description:
+          error instanceof Error ? error.message : t("errors.unknown"),
         type: "error",
       });
     }
-  }, [currentSession, loadSessions]);
+  }, [currentSession, loadSessions, t]);
 
   const handleRenameSession = useCallback(
     async (title: string) => {
@@ -449,20 +461,20 @@ export function useReviewContext({
         await reviewWsApi.renameSession(currentSession.guid, title);
         await loadSessions();
         toastManager.add({
-          title: "Session renamed",
-          description: `Session renamed to "${title}"`,
+          title: t("renameSession.successTitle"),
+          description: t("renameSession.successDescription", { title }),
           type: "success",
         });
       } catch (error) {
         toastManager.add({
-          title: "Failed to rename session",
+          title: t("renameSession.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown error",
+            error instanceof Error ? error.message : t("errors.unknown"),
           type: "error",
         });
       }
     },
-    [currentSession, loadSessions],
+    [currentSession, loadSessions, t],
   );
 
   const handleToggleReviewed = useCallback(
@@ -475,14 +487,16 @@ export function useReviewContext({
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to update file review state",
+          title: t("toggleReviewed.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review state error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewState"),
           type: "error",
         });
       }
     },
-    [loadSessions],
+    [loadSessions, t],
   );
 
   const handleUpdateCommentStatus = useCallback(
@@ -493,14 +507,16 @@ export function useReviewContext({
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to update comment status",
+          title: t("updateCommentStatus.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review comment error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewComment"),
           type: "error",
         });
       }
     },
-    [loadSessions, loadComments],
+    [loadSessions, loadComments, t],
   );
 
   const handleReplyToComment = useCallback(
@@ -508,8 +524,8 @@ export function useReviewContext({
       const trimmedBody = body.trim();
       if (!trimmedBody) {
         toastManager.add({
-          title: "Reply is empty",
-          description: "Write a short reply before sending.",
+          title: t("reply.emptyTitle"),
+          description: t("reply.emptyDescription"),
           type: "error",
         });
         return;
@@ -529,15 +545,17 @@ export function useReviewContext({
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to reply to comment",
+          title: t("reply.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review comment error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewComment"),
           type: "error",
         });
         throw error;
       }
     },
-    [loadSessions, loadComments],
+    [loadSessions, loadComments, t],
   );
 
   const handleDeleteMessage = useCallback(
@@ -547,21 +565,23 @@ export function useReviewContext({
         await loadComments();
         await loadSessions();
         toastManager.add({
-          title: "Comment deleted",
-          description: "The comment message was removed.",
+          title: t("deleteMessage.successTitle"),
+          description: t("deleteMessage.successDescription"),
           type: "success",
         });
       } catch (error) {
         toastManager.add({
-          title: "Failed to delete comment",
+          title: t("deleteMessage.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review comment error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewComment"),
           type: "error",
         });
         throw error;
       }
     },
-    [loadSessions, loadComments],
+    [loadSessions, loadComments, t],
   );
 
   const handleUpdateMessage = useCallback(
@@ -574,9 +594,11 @@ export function useReviewContext({
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to update comment",
+          title: t("updateMessage.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review comment error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewComment"),
           type: "error",
         });
         throw error;
@@ -606,10 +628,13 @@ export function useReviewContext({
   );
 
   const handleMarkAgentRunFailed = useCallback(
-    async (run: ReviewAgentRunModel, message = "Marked failed by user") => {
+    async (
+      run: ReviewAgentRunModel,
+      message = t("markAgentRunFailed.defaultMessage"),
+    ) => {
       if (
         typeof window !== "undefined" &&
-        !window.confirm("Mark this review fix run as failed?")
+        !window.confirm(t("markAgentRunFailed.confirm"))
       ) {
         return;
       }
@@ -621,20 +646,22 @@ export function useReviewContext({
         });
         await loadSessions();
         toastManager.add({
-          title: "Fix run marked failed",
-          description: "You can start another review fix run now.",
+          title: t("markAgentRunFailed.successTitle"),
+          description: t("markAgentRunFailed.successDescription"),
           type: "success",
         });
       } catch (error) {
         toastManager.add({
-          title: "Failed to update fix run",
+          title: t("markAgentRunFailed.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review fix error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewFix"),
           type: "error",
         });
       }
     },
-    [loadSessions],
+    [loadSessions, t],
   );
 
   const handleCopyAgentPrompt = useCallback(
@@ -646,23 +673,23 @@ export function useReviewContext({
         setSelectedRevisionGuid(result.revision.guid);
         await navigator.clipboard.writeText(result.prompt);
         toastManager.add({
-          title: "Fix prompt copied",
-          description: "Paste it into your agent CLI or chat to process the review comments.",
+          title: t("copyAgentPrompt.successTitle"),
+          description: t("copyAgentPrompt.successDescription"),
           type: "success",
         });
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to create fix run",
+          title: t("copyAgentPrompt.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown fix run error",
+            error instanceof Error ? error.message : t("errors.unknownFixRun"),
           type: "error",
         });
       } finally {
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, loadSessions, setSelectedRevisionGuid],
+    [createAgentRun, loadSessions, setSelectedRevisionGuid, t],
   );
 
   const handleSendAgentRunToAgentChat = useCallback(
@@ -681,22 +708,26 @@ export function useReviewContext({
           projectId,
           mode: "default",
           origin: "review_session",
-          sessionTitle: `Review Fix ${filePath.split("/").pop() || filePath}`,
+          sessionTitle: t("agentChat.sessionTitle", {
+            fileName: filePath.split("/").pop() || filePath,
+          }),
           forceNewSession: false,
         });
         setPendingAgentChatMode("default");
         await setAgentChatOpen(true);
         toastManager.add({
-          title: "Queued in Agent Chat",
-          description: "The review fix prompt has been added to the current workspace chat queue.",
+          title: t("agentChat.successTitle"),
+          description: t("agentChat.successDescription"),
           type: "success",
         });
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to queue fix run",
+          title: t("agentChat.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review fix error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewFix"),
           type: "error",
         });
       } finally {
@@ -711,6 +742,7 @@ export function useReviewContext({
       setSelectedRevisionGuid,
       setAgentChatOpen,
       setPendingAgentChatMode,
+      t,
       target,
     ],
   );
@@ -729,35 +761,39 @@ export function useReviewContext({
         const agentId = agentIdOverride ?? terminalAgentId;
         const runConfig = runConfigOverride ?? terminalAgentRunConfigs[agentId] ?? null;
         const command = buildCommand(agentId, result.prompt, runConfig);
-        const label = `Review Fix ${filePath.split("/").pop() || "Run"}`;
+        const label = t("terminal.label", {
+          fileName: filePath.split("/").pop() || t("terminal.fallbackRunName"),
+        });
         if (terminalRunner) {
           await terminalRunner(command, label);
           toastManager.add({
-            title: "Started in terminal",
-            description: "A terminal agent session was opened with the review-fix prompt.",
+            title: t("terminal.startedTitle"),
+            description: t("terminal.startedDescription"),
             type: "success",
           });
         } else {
           await navigator.clipboard.writeText(command);
           toastManager.add({
-            title: "Terminal command copied",
-            description: "Paste the command into a terminal agent to execute the review fix run.",
+            title: t("terminal.copiedTitle"),
+            description: t("terminal.copiedDescription"),
             type: "success",
           });
         }
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to launch terminal fix run",
+          title: t("terminal.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review fix error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewFix"),
           type: "error",
         });
       } finally {
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, filePath, loadSessions, setSelectedRevisionGuid, terminalAgentId, terminalAgentRunConfigs, terminalRunner],
+    [createAgentRun, filePath, loadSessions, setSelectedRevisionGuid, t, terminalAgentId, terminalAgentRunConfigs, terminalRunner],
   );
 
   const handleRunAgentReview = useCallback(
@@ -772,8 +808,8 @@ export function useReviewContext({
         if (executionMode === "copy_prompt") {
           await navigator.clipboard.writeText(result.prompt);
           toastManager.add({
-            title: "Review prompt copied",
-            description: "Paste it into your agent CLI or chat to process the review.",
+            title: t("runAgentReview.copySuccessTitle"),
+            description: t("runAgentReview.copySuccessDescription"),
             type: "success",
           });
         } else if (executionMode === "agent_chat" && target) {
@@ -787,23 +823,25 @@ export function useReviewContext({
             projectId,
             mode: "default",
             origin: "review_session",
-            sessionTitle: `Review ${filePath.split("/").pop() || filePath}`,
+            sessionTitle: t("runAgentReview.sessionTitle", {
+              fileName: filePath.split("/").pop() || filePath,
+            }),
             forceNewSession: false,
           });
         }
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to create review run",
+          title: t("runAgentReview.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review error",
+            error instanceof Error ? error.message : t("errors.unknownReview"),
           type: "error",
         });
       } finally {
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, currentRevision, currentSession, filePath, loadSessions, setSelectedRevisionGuid, target, enqueueAgentChatPrompt, setAgentChatOpen, setPendingAgentChatMode],
+    [createAgentRun, currentRevision, currentSession, enqueueAgentChatPrompt, filePath, loadSessions, setSelectedRevisionGuid, setAgentChatOpen, setPendingAgentChatMode, t, target],
   );
 
   const handleCopyAgentReviewPrompt = useCallback(
@@ -819,30 +857,34 @@ export function useReviewContext({
       try {
         const result = await reviewWsApi.finalizeAgentRun({
           runGuid: run.guid,
-          title: `Fix Result ${new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}`,
+          title: t("finalizeRun.resultTitle", {
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          }),
         });
         await loadSessions();
         setSelectedRevisionGuid(result.revision.guid);
         toastManager.add({
-          title: "Fix run finalized",
-          description: "The review revision snapshot has been updated with the current workspace.",
+          title: t("finalizeRun.successTitle"),
+          description: t("finalizeRun.successDescription"),
           type: "success",
         });
       } catch (error) {
         toastManager.add({
-          title: "Failed to finalize fix run",
+          title: t("finalizeRun.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown finalize error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownFinalize"),
           type: "error",
         });
       } finally {
         setIsFinalizingRun(null);
       }
     },
-    [loadSessions, setSelectedRevisionGuid],
+    [loadSessions, setSelectedRevisionGuid, t],
   );
 
   const handlePreviewArtifact = useCallback(
@@ -857,16 +899,18 @@ export function useReviewContext({
         });
       } catch (error) {
         toastManager.add({
-          title: "Failed to load run artifact",
+          title: t("previewArtifact.errorTitle"),
           description:
-            error instanceof Error ? error.message : "Unknown review artifact error",
+            error instanceof Error
+              ? error.message
+              : t("errors.unknownReviewArtifact"),
           type: "error",
         });
       } finally {
         setArtifactLoading(false);
       }
     },
-    [],
+    [t],
   );
 
   return {

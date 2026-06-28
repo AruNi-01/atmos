@@ -1,5 +1,6 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import {
   BaseBoxShapeUtil,
   T,
@@ -8,6 +9,9 @@ import {
   type TLShape,
   type TLShapeId,
 } from "tldraw";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 import type { CanvasCenterTab } from "./canvas-center-tabs";
 import { createCanvasCardIndicatorPath } from "./canvas-shape-indicator";
@@ -108,6 +112,22 @@ export const CANVAS_WIDGET_DEFAULT_SIZES: Record<CanvasWidgetType, { w: number; 
   "agent-chat": { w: 520, h: 680 },
 };
 
+let cachedCanvasWidgetShapeLocale: "en" | "zh" | null = null;
+let cachedCanvasWidgetShapeTranslator: any = null;
+
+function canvasWidgetShapeT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedCanvasWidgetShapeTranslator || cachedCanvasWidgetShapeLocale !== locale) {
+    cachedCanvasWidgetShapeLocale = locale;
+    cachedCanvasWidgetShapeTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.widgetShape",
+    });
+  }
+  return cachedCanvasWidgetShapeTranslator(key as never);
+}
+
 export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetShape> {
   static override type = CANVAS_WIDGET_SHAPE_TYPE;
 
@@ -134,7 +154,7 @@ export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetSh
   getDefaultProps(): CanvasWidgetShape["props"] {
     return createCanvasWidgetShapeProps({
       widgetType: "workspace-context",
-      title: "Workspace Context",
+      title: canvasWidgetShapeT("titles.workspaceContext"),
       source: {
         type: "workspace-context",
         context: createEmptyCanvasContextRef(),
@@ -175,8 +195,8 @@ export function createGlobalCanvasContextRef(): CanvasContextRef {
     contextScope: "workspace",
     projectId: null,
     workspaceId: null,
-    projectName: "Global",
-    workspaceName: "Global",
+    projectName: canvasWidgetShapeT("context.global"),
+    workspaceName: canvasWidgetShapeT("context.global"),
     localPath: "",
     repoPath: null,
   };
@@ -242,12 +262,12 @@ export function isGlobalCanvasContext(context: CanvasContextRef): boolean {
 
 export function getCanvasContextLabel(context: CanvasContextRef): string {
   if (isGlobalCanvasContext(context)) {
-    return context.workspaceName || context.projectName || "Global";
+    return context.workspaceName || context.projectName || canvasWidgetShapeT("context.global");
   }
 
   return context.contextScope === "project"
-    ? context.projectName || "Project"
-    : context.workspaceName || context.projectName || "Workspace";
+    ? context.projectName || canvasWidgetShapeT("context.project")
+    : context.workspaceName || context.projectName || canvasWidgetShapeT("context.workspace");
 }
 
 export function buildCanvasWidgetPinKey(source: CanvasWidgetSourceRef, frameId?: string | null) {
@@ -285,21 +305,21 @@ export function buildCanvasWidgetPinKey(source: CanvasWidgetSourceRef, frameId?:
 export function createCanvasWidgetTitle(source: CanvasWidgetSourceRef): string {
   switch (source.type) {
     case "workspace-context":
-      return "Workspace Context";
+      return canvasWidgetShapeT("titles.workspaceContext");
     case "files":
-      return "Files";
+      return canvasWidgetShapeT("titles.files");
     case "changes":
-      return "Changes";
+      return canvasWidgetShapeT("titles.changes");
     case "review":
-      return "Review";
+      return canvasWidgetShapeT("titles.review");
     case "center":
-      return "Main Operating Area";
+      return canvasWidgetShapeT("titles.center");
     case "agent-status":
-      return "Agent Status Board";
+      return canvasWidgetShapeT("titles.agentStatus");
     case "ai-quota-usage":
-      return "AI Quota Usage";
+      return canvasWidgetShapeT("titles.aiQuotaUsage");
     case "agent-chat":
-      return "Agent ACP Chat";
+      return canvasWidgetShapeT("titles.agentChat");
   }
 }
 

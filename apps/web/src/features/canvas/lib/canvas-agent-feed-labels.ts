@@ -2,6 +2,10 @@
  * Maps `atmos canvas <verb>` commands to human-facing labels for the agent
  * activity island. Pure functions — safe to unit test without tldraw.
  */
+import { createTranslator } from "next-intl";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export type CanvasAgentFeedKind =
   | "read"
@@ -16,6 +20,22 @@ export type CanvasAgentFeedKind =
 export interface CanvasAgentCommandDescriptor {
   kind: CanvasAgentFeedKind;
   label: string;
+}
+
+let cachedCanvasAgentFeedLocale: "en" | "zh" | null = null;
+let cachedCanvasAgentFeedTranslator: any = null;
+
+function canvasAgentFeedT(key: string, values?: Record<string, unknown>): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedCanvasAgentFeedTranslator || cachedCanvasAgentFeedLocale !== locale) {
+    cachedCanvasAgentFeedLocale = locale;
+    cachedCanvasAgentFeedTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.agentFeedLabels",
+    });
+  }
+  return cachedCanvasAgentFeedTranslator(key as never, values);
 }
 
 function normalizeCommand(command: string): string {
@@ -57,7 +77,7 @@ function withCreateWriting(
   label: string,
   args: Record<string, unknown> | null | undefined,
 ): string {
-  return hasCreateTextArg(args) ? `${label} and writing` : label;
+  return hasCreateTextArg(args) ? canvasAgentFeedT("withWriting", { label }) : label;
 }
 
 export function describeCanvasAgentCommand(
@@ -67,20 +87,20 @@ export function describeCanvasAgentCommand(
   const verb = normalizeCommand(command);
 
   if (verb === "get-state" || verb === "status" || verb === "lint") {
-    return { kind: "read", label: "Reading canvas" };
+    return { kind: "read", label: canvasAgentFeedT("readingCanvas") };
   }
   if (verb === "extract-text") {
-    return { kind: "read", label: "Extracting shape text" };
+    return { kind: "read", label: canvasAgentFeedT("extractingShapeText") };
   }
 
   if (verb === "create-note") {
     return {
       kind: "create",
-      label: withCreateWriting("Creating sticky note", args),
+      label: withCreateWriting(canvasAgentFeedT("creatingStickyNote"), args),
     };
   }
   if (verb === "create-frame") {
-    return { kind: "create", label: "Creating frame" };
+    return { kind: "create", label: canvasAgentFeedT("creatingFrame") };
   }
   if (verb === "create-geo") {
     const geo =
@@ -93,32 +113,35 @@ export function describeCanvasAgentCommand(
             : null;
     return {
       kind: "create",
-      label: withCreateWriting(geo ? `Creating ${geo}` : "Creating shape", args),
+      label: withCreateWriting(
+        geo ? canvasAgentFeedT("creatingNamedShape", { shape: geo }) : canvasAgentFeedT("creatingShape"),
+        args,
+      ),
     };
   }
   if (verb === "create-arrow") {
     return {
       kind: "create",
-      label: withCreateWriting("Creating arrow", args),
+      label: withCreateWriting(canvasAgentFeedT("creatingArrow"), args),
     };
   }
   if (verb === "create-draw") {
-    return { kind: "create", label: "Drawing stroke" };
+    return { kind: "create", label: canvasAgentFeedT("drawingStroke") };
   }
 
   if (verb === "update-shape") {
-    const base = "Editing shape";
+    const base = canvasAgentFeedT("editingShape");
     return {
       kind: "edit",
-      label: patchTouchesText(args) ? `${base} and writing` : base,
+      label: patchTouchesText(args) ? canvasAgentFeedT("editingShapeAndWriting") : base,
     };
   }
 
   if (verb === "delete") {
-    return { kind: "delete", label: "Deleting shapes" };
+    return { kind: "delete", label: canvasAgentFeedT("deletingShapes") };
   }
   if (verb === "move") {
-    return { kind: "move", label: "Moving shapes" };
+    return { kind: "move", label: canvasAgentFeedT("movingShapes") };
   }
 
   if (
@@ -130,25 +153,25 @@ export function describeCanvasAgentCommand(
     verb === "distribute" ||
     verb === "place"
   ) {
-    return { kind: "layout", label: "Arranging layout" };
+    return { kind: "layout", label: canvasAgentFeedT("arrangingLayout") };
   }
 
   if (verb === "apply") {
-    return { kind: "edit", label: "Applying canvas commands" };
+    return { kind: "edit", label: canvasAgentFeedT("applyingCanvasCommands") };
   }
 
   if (verb === "set-agent-view") {
-    return { kind: "navigate", label: "Setting agent view" };
+    return { kind: "navigate", label: canvasAgentFeedT("settingAgentView") };
   }
 
   if (verb === "viewport") {
-    return { kind: "navigate", label: "Adjusting viewport" };
+    return { kind: "navigate", label: canvasAgentFeedT("adjustingViewport") };
   }
 
   if (verb === "select" || verb === "clear-selection") {
     return {
       kind: "select",
-      label: verb === "clear-selection" ? "Clearing selection" : "Selecting shapes",
+      label: verb === "clear-selection" ? canvasAgentFeedT("clearingSelection") : canvasAgentFeedT("selectingShapes"),
     };
   }
 
@@ -157,10 +180,10 @@ export function describeCanvasAgentCommand(
     const status =
       typeof raw === "string" ? raw.trim().toLowerCase() : "idle";
     if (status === "active") {
-      return { kind: "read", label: "Canvas session active" };
+      return { kind: "read", label: canvasAgentFeedT("canvasSessionActive") };
     }
-    return { kind: "read", label: "Finished on canvas" };
+    return { kind: "read", label: canvasAgentFeedT("finishedOnCanvas") };
   }
 
-  return { kind: "edit", label: "Working on canvas" };
+  return { kind: "edit", label: canvasAgentFeedT("workingOnCanvas") };
 }

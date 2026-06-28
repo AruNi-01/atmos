@@ -1,3 +1,5 @@
+import { createTranslator } from "next-intl";
+
 import type {
   AutomationAgentCapability,
   AutomationScheduleInput,
@@ -5,6 +7,32 @@ import type {
   AutomationSummary,
 } from "@/features/automations/types";
 import { clampNumber } from "@/features/automations/lib/automation-format";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+
+type AutomationsLocale = "en" | "zh";
+
+let cachedLocale: AutomationsLocale | null = null;
+let cachedTranslator: any = null;
+
+function automationsT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale: AutomationsLocale =
+    currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "automation" as never,
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
+}
 
 export type TriggerChoice = "manual" | AutomationScheduleKind | "github";
 
@@ -13,23 +41,114 @@ export const TRIGGER_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "manual", label: "Manual", description: "Run only when started" },
-  { value: "github", label: "GitHub", description: "React to repository events" },
-  { value: "hourly", label: "Hourly", description: "At a minute each hour" },
-  { value: "daily", label: "Daily", description: "At a time each day" },
-  { value: "weekly", label: "Weekly", description: "On a weekday" },
-  { value: "monthly", label: "Monthly", description: "On a day of month" },
-  { value: "cron", label: "Cron", description: "Five-field expression" },
+  {
+    value: "manual",
+    get label() {
+      return automationsT("schedule.triggerOptions.manual.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.manual.description");
+    },
+  },
+  {
+    value: "github",
+    get label() {
+      return automationsT("schedule.triggerOptions.github.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.github.description");
+    },
+  },
+  {
+    value: "hourly",
+    get label() {
+      return automationsT("schedule.triggerOptions.hourly.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.hourly.description");
+    },
+  },
+  {
+    value: "daily",
+    get label() {
+      return automationsT("schedule.triggerOptions.daily.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.daily.description");
+    },
+  },
+  {
+    value: "weekly",
+    get label() {
+      return automationsT("schedule.triggerOptions.weekly.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.weekly.description");
+    },
+  },
+  {
+    value: "monthly",
+    get label() {
+      return automationsT("schedule.triggerOptions.monthly.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.monthly.description");
+    },
+  },
+  {
+    value: "cron",
+    get label() {
+      return automationsT("schedule.triggerOptions.cron.label");
+    },
+    get description() {
+      return automationsT("schedule.triggerOptions.cron.description");
+    },
+  },
 ];
 
 export const DAY_OPTIONS = [
-  { value: 0, label: "Sunday" },
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
+  {
+    value: 0,
+    get label() {
+      return automationsT("schedule.days.sunday");
+    },
+  },
+  {
+    value: 1,
+    get label() {
+      return automationsT("schedule.days.monday");
+    },
+  },
+  {
+    value: 2,
+    get label() {
+      return automationsT("schedule.days.tuesday");
+    },
+  },
+  {
+    value: 3,
+    get label() {
+      return automationsT("schedule.days.wednesday");
+    },
+  },
+  {
+    value: 4,
+    get label() {
+      return automationsT("schedule.days.thursday");
+    },
+  },
+  {
+    value: 5,
+    get label() {
+      return automationsT("schedule.days.friday");
+    },
+  },
+  {
+    value: 6,
+    get label() {
+      return automationsT("schedule.days.saturday");
+    },
+  },
 ];
 
 export function buildScheduleInput(
@@ -134,11 +253,13 @@ export function validationMessage({
   scheduleValid: boolean;
   previewError: string | null;
 }) {
-  if (!displayName.trim()) return "Display name is required.";
-  if (!instructions.trim()) return "Instructions are required.";
-  if (!selectedAgent?.automation_supported) return "Select a supported non-interactive agent.";
-  if (!targetValid) return "Choose a valid run environment.";
-  if (!scheduleValid) return "Choose a valid trigger schedule.";
+  if (!displayName.trim()) return automationsT("validation.displayNameRequired");
+  if (!instructions.trim()) return automationsT("validation.instructionsRequired");
+  if (!selectedAgent?.automation_supported) {
+    return automationsT("validation.supportedAgentRequired");
+  }
+  if (!targetValid) return automationsT("validation.targetRequired");
+  if (!scheduleValid) return automationsT("validation.scheduleRequired");
   if (previewError) return previewError;
-  return "Complete the required setup fields.";
+  return automationsT("validation.completeRequiredFields");
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 
 import type { ReviewTarget } from "@/api/ws-api";
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
@@ -57,6 +58,7 @@ function CanvasReviewWidgetBody({
   shapeId: TLShapeId;
   source: CanvasReviewWidgetSource;
 }) {
+  const t = useTranslations("Canvas.chrome");
   const contextId = getCanvasContextId(source.context);
   const openCenterTab = useOpenCanvasCenterTab(shapeId, source.context);
 
@@ -65,7 +67,7 @@ function CanvasReviewWidgetBody({
       openCenterTab(
         createCanvasCenterTab({
           kind: "review-group",
-          title: "Review",
+          title: t("reviewWidget.review"),
           groupPath: args.groupPath,
           diffFilePath: args.filePath,
           line: args.line,
@@ -78,7 +80,7 @@ function CanvasReviewWidgetBody({
         }),
       );
     },
-    [openCenterTab, source.revisionGuid, source.sessionGuid],
+    [openCenterTab, source.revisionGuid, source.sessionGuid, t],
   );
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createTranslator } from "next-intl";
 import { toastManager } from "@workspace/ui";
 
 import {
@@ -15,6 +16,32 @@ import type {
   AutomationRunUpdatedEvent,
 } from "@/features/automations/types";
 import type { AutomationsView } from "@/shared/lib/nuqs/searchParams";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+
+type AutomationsLocale = "en" | "zh";
+
+let cachedLocale: AutomationsLocale | null = null;
+let cachedTranslator: any = null;
+
+function automationsT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale: AutomationsLocale =
+    currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "automation" as never,
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
+}
 
 interface UseAutomationRunHistoryStateOptions {
   pageView: AutomationsView | null;
@@ -83,8 +110,11 @@ export function useAutomationRunHistoryState({
         if (isCurrentRequest()) {
           setRuns([]);
           toastManager.add({
-            title: "Failed to load run history",
-            description: err instanceof Error ? err.message : "Unknown error",
+            title: automationsT("runHistory.failedToLoadTitle"),
+            description:
+              err instanceof Error
+                ? err.message
+                : automationsT("runHistory.unknownError"),
             type: "error",
           });
         }
@@ -218,8 +248,11 @@ export function useAutomationRunHistoryState({
         );
       } catch (err) {
         toastManager.add({
-          title: "Failed to fetch artifact",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: automationsT("runHistory.failedToFetchArtifactTitle"),
+          description:
+            err instanceof Error
+              ? err.message
+              : automationsT("runHistory.unknownError"),
           type: "error",
         });
       } finally {

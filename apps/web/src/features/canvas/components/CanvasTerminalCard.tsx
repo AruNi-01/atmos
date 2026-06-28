@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import {
   HTMLContainer,
@@ -76,6 +77,7 @@ function CanvasTerminalCard({ shape }: { shape: CanvasTerminalShape }) {
 }
 
 function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
+  const t = useTranslations("Canvas.chrome");
   const [sessionId] = React.useState(() => crypto.randomUUID());
   const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
   const [terminalViewport, setTerminalViewport] =
@@ -308,8 +310,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       const result = await createRelatedTerminal();
       if (result.status === "placement-failed") {
         toastManager.add({
-          title: "Canvas",
-          description: "Could not place the new terminal on Canvas",
+          title: t("common.canvas"),
+          description: t("terminalCard.couldNotPlaceNewTerminal"),
           type: "error",
         });
         return;
@@ -317,21 +319,22 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 
       if (result.status === "terminal-create-failed") {
         toastManager.add({
-          title: "Canvas",
-          description: "Could not create a new terminal tab",
+          title: t("common.canvas"),
+          description: t("terminalCard.couldNotCreateNewTerminalTab"),
           type: "error",
         });
         return;
       }
 
       toastManager.add({
-        title: "Canvas",
-        description: "New terminal created",
+        title: t("common.canvas"),
+        description: t("terminalCard.newTerminalCreated"),
         type: "success",
       });
     },
     [
       createRelatedTerminal,
+      t,
     ],
   );
 
@@ -439,7 +442,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               onTitleChange={onTitleChange}
               onSessionError={(_, error) => {
                 toastManager.add({
-                  title: "Canvas",
+                  title: t("common.canvas"),
                   description: error,
                   type: "error",
                 });
@@ -480,8 +483,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleCreateRelatedTerminal}
-            aria-label="New terminal"
-            title="New Terminal"
+            aria-label={t("terminalCard.newTerminal")}
+            title={t("terminalCard.newTerminal")}
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <Plus className="size-3.5" />
@@ -491,8 +494,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={handleUnpin}
-              aria-label="Unpin from canvas"
-              title="Unpin"
+              aria-label={t("terminalCard.unpinFromCanvas")}
+              title={t("common.unpin")}
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <PinOff className="size-3.5" />
@@ -502,8 +505,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleCloseTerminal}
-            aria-label="Close terminal"
-            title="Close Terminal"
+            aria-label={t("terminalCard.closeTerminal")}
+            title={t("terminalCard.closeTerminal")}
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/12 hover:text-destructive"
           >
             <X className="size-3.5" />
@@ -512,8 +515,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleRevealSource}
-            aria-label="Open source terminal"
-            title="Source"
+            aria-label={t("terminalCard.openSourceTerminal")}
+            title={t("common.source")}
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <ArrowUpRight className="size-3.5" />
@@ -543,11 +546,11 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             <div className="space-y-1">
               <div className="text-sm font-medium text-foreground">
                 {isSelected
-                  ? "Activate this card to open the live terminal"
-                  : "Select this card to activate the live terminal"}
+                  ? t("terminalCard.activateThisCardToOpenLiveTerminal")
+                  : t("terminalCard.selectThisCardToActivateLiveTerminal")}
               </div>
               <div className="text-xs text-muted-foreground">
-                {shape.props.localPath || "Attached tmux window"}
+                {shape.props.localPath || t("terminalCard.attachedTmuxWindow")}
               </div>
             </div>
           </div>

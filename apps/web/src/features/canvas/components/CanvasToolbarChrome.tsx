@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
   DefaultToolbar,
@@ -150,6 +151,7 @@ function CanvasCollapsibleMenuPanel({
 }
 
 export function CanvasMenuPanel() {
+  const t = useTranslations("canvas.toolbarChrome");
   const { isCollapsed } = React.useContext(CanvasTopLeftToolbarContext);
   const topChromePadding = React.useContext(CanvasTopChromePaddingContext);
   const breakpoint = useBreakpoint();
@@ -171,13 +173,15 @@ export function CanvasMenuPanel() {
     return null;
   }
 
+  const menuLabel = t("menuLabel");
+
   return (
     <div
       ref={ref}
       className="tlui-menu-zone pointer-events-auto"
       style={topChromePadding ? { marginTop: topChromePadding } : undefined}
     >
-      <TldrawUiToolbar label="Canvas menu" className="tlui-buttons__horizontal">
+      <TldrawUiToolbar label={menuLabel} className="tlui-buttons__horizontal">
         <CanvasCollapsibleMenuPanel isCollapsed={isCollapsed}>
           <TldrawUiRow>
             {MainMenu && <MainMenu />}
@@ -197,8 +201,11 @@ export function CanvasMenuPanel() {
 }
 
 function CanvasTopLeftToolbarToggle() {
+  const t = useTranslations("canvas.toolbarChrome");
   const { isCollapsed, toggle } = React.useContext(CanvasTopLeftToolbarContext);
-  const label = isCollapsed ? "Expand toolbar" : "Collapse toolbar";
+  const label = isCollapsed
+    ? t("topLeftToggle.expand")
+    : t("topLeftToggle.collapse");
 
   return (
     <TldrawUiButton
@@ -263,6 +270,7 @@ function CanvasToolbarIconFrame({
 }
 
 export function CanvasBottomToolbarPeek() {
+  const t = useTranslations("canvas.toolbarChrome");
   const { isBottomToolbarDocked, setIsBottomToolbarDocked } = useCanvasChromePrefs();
   const [isDocked, setIsDocked] = React.useState(isBottomToolbarDocked);
   const [isOpen, setIsOpen] = React.useState(!isBottomToolbarDocked);
@@ -360,6 +368,10 @@ export function CanvasBottomToolbarPeek() {
     };
   }, []);
 
+  const bottomToolbarLabel = isDocked
+    ? t("bottomToggle.expand")
+    : t("bottomToggle.collapse");
+
   return (
     <div className="pointer-events-auto flex justify-center pb-3">
       <div className="relative flex items-end justify-center">
@@ -385,8 +397,8 @@ export function CanvasBottomToolbarPeek() {
               <DefaultToolbarContent />
               <TldrawUiButton
                 type="tool"
-                aria-label={isDocked ? "Expand bottom toolbar" : "Collapse bottom toolbar"}
-                tooltip={isDocked ? "Expand toolbar" : "Collapse toolbar"}
+                aria-label={bottomToolbarLabel}
+                tooltip={bottomToolbarLabel}
                 onClick={handleToggleDocked}
                 className="canvas-bottom-toolbar-toggle"
               >

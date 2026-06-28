@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -39,57 +40,35 @@ import type { GithubEventFamily, GithubInt64 } from "@/features/automations/type
 
 const EVENT_OPTIONS: Array<{
   value: GithubEventFamily;
-  label: string;
-  description: string;
   Icon: LucideIcon;
 }> = [
-  {
-    value: "pull_request",
-    label: "Pull request",
-    description: "Opened, reopened, ready, closed, or merged",
-    Icon: GitPullRequest,
-  },
-  {
-    value: "issues",
-    label: "Issue",
-    description: "Opened, labeled, assigned, or updated",
-    Icon: CircleDot,
-  },
-  {
-    value: "pull_request_comment",
-    label: "PR comment",
-    description: "Issue comments on pull requests",
-    Icon: MessageSquare,
-  },
-  { value: "push", label: "Push", description: "Branch updates", Icon: GitBranch },
-  {
-    value: "workflow_run",
-    label: "Workflow run",
-    description: "GitHub Actions completion",
-    Icon: Workflow,
-  },
+  { value: "pull_request", Icon: GitPullRequest },
+  { value: "issues", Icon: CircleDot },
+  { value: "pull_request_comment", Icon: MessageSquare },
+  { value: "push", Icon: GitBranch },
+  { value: "workflow_run", Icon: Workflow },
 ];
 
 const PR_ACTIONS = [
-  { value: "opened", label: "Opened", Icon: GitPullRequest },
-  { value: "reopened", label: "Reopened", Icon: RotateCcw },
-  { value: "ready_for_review", label: "Ready for review", Icon: Eye },
-  { value: "closed", label: "Closed", Icon: GitPullRequestClosed },
-  { value: "merged", label: "Merged", Icon: GitMerge },
+  { value: "opened", Icon: GitPullRequest },
+  { value: "reopened", Icon: RotateCcw },
+  { value: "ready_for_review", Icon: Eye },
+  { value: "closed", Icon: GitPullRequestClosed },
+  { value: "merged", Icon: GitMerge },
 ];
 
 const ISSUE_ACTIONS = [
-  { value: "labeled", label: "Labeled", Icon: CircleDot },
-  { value: "opened", label: "Opened", Icon: GitPullRequest },
-  { value: "reopened", label: "Reopened", Icon: RotateCcw },
-  { value: "closed", label: "Closed", Icon: XCircle },
+  { value: "labeled", Icon: CircleDot },
+  { value: "opened", Icon: GitPullRequest },
+  { value: "reopened", Icon: RotateCcw },
+  { value: "closed", Icon: XCircle },
 ];
 
 const WORKFLOW_CONCLUSIONS = [
-  { value: "any", label: "Any conclusion", Icon: CircleDot },
-  { value: "success", label: "Success", Icon: CheckCircle2 },
-  { value: "failure", label: "Failure", Icon: XCircle },
-  { value: "cancelled", label: "Cancelled", Icon: XCircle },
+  { value: "any", Icon: CircleDot },
+  { value: "success", Icon: CheckCircle2 },
+  { value: "failure", Icon: XCircle },
+  { value: "cancelled", Icon: XCircle },
 ];
 
 export function AutomationGithubTriggerPanel({
@@ -161,13 +140,48 @@ export function AutomationGithubTriggerPanel({
   onWorkflowNameChange: (value: string) => void;
   onWorkflowConclusionChange: (value: string) => void;
 }) {
+  const t = useTranslations("automation.githubTrigger");
+  const eventOptions = React.useMemo(
+    () =>
+      EVENT_OPTIONS.map((option) => ({
+        ...option,
+        label: t(`events.${option.value}.label`),
+        description: t(`events.${option.value}.description`),
+      })),
+    [t],
+  );
+  const prActions = React.useMemo(
+    () =>
+      PR_ACTIONS.map((option) => ({
+        ...option,
+        label: t(`prActions.${option.value}`),
+      })),
+    [t],
+  );
+  const issueActions = React.useMemo(
+    () =>
+      ISSUE_ACTIONS.map((option) => ({
+        ...option,
+        label: t(`issueActions.${option.value}`),
+      })),
+    [t],
+  );
+  const workflowConclusions = React.useMemo(
+    () =>
+      WORKFLOW_CONCLUSIONS.map((option) => ({
+        ...option,
+        label: t(`workflowConclusions.${option.value}`),
+      })),
+    [t],
+  );
+
   return (
     <div className="mt-4 space-y-3 rounded-md border border-border bg-muted/15 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Github className="size-4" />
-            GitHub App
+            {t("title")}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{setupMessage}</div>
         </div>
@@ -187,7 +201,7 @@ export function AutomationGithubTriggerPanel({
             ) : (
               <ExternalLink className="size-4" />
             )}
-            {setupRefreshAvailable ? "Refresh" : "Connect"}
+            {setupRefreshAvailable ? t("actions.refresh") : t("actions.connect")}
           </Button>
         ) : (
           <Button
@@ -198,7 +212,7 @@ export function AutomationGithubTriggerPanel({
             className="shrink-0"
           >
             <Computer className="size-4" />
-            Open Settings
+            {t("actions.openSettings")}
           </Button>
         )}
       </div>
@@ -208,21 +222,24 @@ export function AutomationGithubTriggerPanel({
       {relayReady ? (
         <>
           <div className="space-y-2">
-            <Label>Installation</Label>
+            <Label>{t("fields.installation")}</Label>
             <Select
               value={selectedInstallationId ?? ""}
               onValueChange={onInstallationChange}
               disabled={loading || installations.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={loading ? "Loading installations" : "Select installation"} />
+                <SelectValue placeholder={loading ? t("placeholders.loadingInstallations") : t("placeholders.selectInstallation")} />
               </SelectTrigger>
               <SelectContent>
                 {installations.map((installation) => (
                   <SelectItem key={installation.installation_id} value={String(installation.installation_id)}>
                     {installation.account_login
-                      ? `${installation.account_login} (#${installation.installation_id})`
-                      : `Installation ${installation.installation_id}`}
+                      ? t("installationOption.withLogin", {
+                          login: installation.account_login,
+                          id: installation.installation_id,
+                        })
+                      : t("installationOption.fallback", { id: installation.installation_id })}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -230,14 +247,14 @@ export function AutomationGithubTriggerPanel({
           </div>
 
           <div className="space-y-2">
-            <Label>Repository</Label>
+            <Label>{t("fields.repository")}</Label>
             <Select
               value={selectedRepositoryFullName}
               onValueChange={onRepositoryChange}
               disabled={!selectedInstallationId || repositoriesLoading || repositories.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={repositoriesLoading ? "Loading repositories" : "Select repository"} />
+                <SelectValue placeholder={repositoriesLoading ? t("placeholders.loadingRepositories") : t("placeholders.selectRepository")} />
               </SelectTrigger>
               <SelectContent>
                 {repositories.map((repo) => (
@@ -250,13 +267,13 @@ export function AutomationGithubTriggerPanel({
           </div>
 
           <div className="space-y-2">
-            <Label>Event</Label>
+            <Label>{t("fields.event")}</Label>
             <Select value={eventFamily} onValueChange={(value) => onEventFamilyChange(value as GithubEventFamily)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {EVENT_OPTIONS.map((option) => (
+                {eventOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value} textValue={option.label}>
                     <IconOptionLabel Icon={option.Icon} label={option.label} />
                   </SelectItem>
@@ -264,15 +281,15 @@ export function AutomationGithubTriggerPanel({
               </SelectContent>
             </Select>
             <div className="text-xs text-muted-foreground">
-              {EVENT_OPTIONS.find((option) => option.value === eventFamily)?.description}
+              {eventOptions.find((option) => option.value === eventFamily)?.description}
             </div>
           </div>
 
           {eventFamily === "pull_request" ? (
             <SelectField
-              label="Action"
+              label={t("fields.action")}
               value={pullRequestAction}
-              options={PR_ACTIONS}
+              options={prActions}
               onChange={onPullRequestActionChange}
             />
           ) : null}
@@ -280,16 +297,16 @@ export function AutomationGithubTriggerPanel({
           {eventFamily === "issues" ? (
             <div className="grid gap-2">
               <SelectField
-                label="Action"
+                label={t("fields.action")}
                 value={issueAction}
-                options={ISSUE_ACTIONS}
+                options={issueActions}
                 onChange={onIssueActionChange}
               />
               {issueAction === "labeled" ? (
                 <TextField
-                  label="Issue label"
+                  label={t("fields.issueLabel")}
                   value={issueLabel}
-                  placeholder="atmos-judge-approve"
+                  placeholder={t("placeholders.issueLabel")}
                   onChange={onIssueLabelChange}
                 />
               ) : null}
@@ -299,16 +316,16 @@ export function AutomationGithubTriggerPanel({
           {eventFamily === "pull_request_comment" ? (
             <div className="grid gap-2">
               <TokenField
-                label="GitHub users"
+                label={t("fields.githubUsers")}
                 value={senderLogins}
-                placeholder="alice, dependabot[bot]"
+                placeholder={t("placeholders.githubUsers")}
                 onChange={onSenderLoginsChange}
                 caseInsensitive
               />
               <TokenField
-                label="Comment contains"
+                label={t("fields.commentContains")}
                 value={commentContains}
-                placeholder="/atmos review"
+                placeholder={t("placeholders.commentContains")}
                 onChange={onCommentContainsChange}
               />
             </div>
@@ -316,9 +333,9 @@ export function AutomationGithubTriggerPanel({
 
           {eventFamily === "push" ? (
             <TextField
-              label="Branch"
+              label={t("fields.branch")}
               value={branchFilter}
-              placeholder="main or release/*"
+              placeholder={t("placeholders.branch")}
               onChange={onBranchFilterChange}
             />
           ) : null}
@@ -326,15 +343,15 @@ export function AutomationGithubTriggerPanel({
           {eventFamily === "workflow_run" ? (
             <div className="grid gap-2">
               <TextField
-                label="Workflow name"
+                label={t("fields.workflowName")}
                 value={workflowName}
-                placeholder="CI"
+                placeholder={t("placeholders.workflowName")}
                 onChange={onWorkflowNameChange}
               />
               <SelectField
-                label="Conclusion"
+                label={t("fields.conclusion")}
                 value={workflowConclusion}
-                options={WORKFLOW_CONCLUSIONS}
+                options={workflowConclusions}
                 onChange={onWorkflowConclusionChange}
               />
             </div>
@@ -377,6 +394,7 @@ function TokenField({
   onChange: (value: string) => void;
   caseInsensitive?: boolean;
 }) {
+  const t = useTranslations("automation.githubTrigger");
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = React.useState("");
   const tokens = React.useMemo(
@@ -434,7 +452,7 @@ function TokenField({
             <button
               type="button"
               className="rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={`Remove ${token}`}
+              aria-label={t("removeTokenAria", { token })}
               onClick={(event) => {
                 event.stopPropagation();
                 removeToken(index);

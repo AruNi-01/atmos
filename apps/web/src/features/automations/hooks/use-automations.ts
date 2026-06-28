@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { wsRequest } from "@/api/ws/request";
 import type {
   AutomationAgentCapabilitiesResponse,
@@ -20,6 +21,7 @@ import type {
 } from "@/features/automations/types";
 
 export function useAutomations() {
+  const t = useTranslations("automation.store");
   const [automations, setAutomations] = React.useState<AutomationSummary[]>([]);
   const [agents, setAgents] = React.useState<AutomationAgentCapability[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -47,11 +49,11 @@ export function useAutomations() {
     try {
       await Promise.all([reloadAutomations(), reloadAgents()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load automations");
+      setError(err instanceof Error ? err.message : t("errors.loadAutomations"));
     } finally {
       setLoading(false);
     }
-  }, [reloadAgents, reloadAutomations]);
+  }, [reloadAgents, reloadAutomations, t]);
 
   React.useEffect(() => {
     void reload();

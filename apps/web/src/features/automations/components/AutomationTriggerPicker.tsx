@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   Input,
   Label,
@@ -52,6 +53,15 @@ const TRIGGER_ICON_BY_VALUE: Record<TriggerChoice, LucideIcon> = {
   weekly: CalendarDays,
   monthly: CalendarRange,
   cron: Braces,
+};
+const DAY_LABEL_KEYS: Record<number, string> = {
+  0: "sunday",
+  1: "monday",
+  2: "tuesday",
+  3: "wednesday",
+  4: "thursday",
+  5: "friday",
+  6: "saturday",
 };
 
 export function AutomationTriggerPicker({
@@ -159,8 +169,18 @@ export function AutomationTriggerPicker({
   onGithubWorkflowConclusionChange: (value: string) => void;
   surface?: "card" | "plain";
 }) {
+  const t = useTranslations("automation.triggerPicker");
+  const translatedTriggerOptions = React.useMemo(
+    () =>
+      TRIGGER_OPTIONS.map((option) => ({
+        ...option,
+        label: t(`options.${option.value}.label`),
+        description: t(`options.${option.value}.description`),
+      })),
+    [t],
+  );
   const selectedTriggerOption =
-    TRIGGER_OPTIONS.find((option) => option.value === trigger) ?? TRIGGER_OPTIONS[0];
+    translatedTriggerOptions.find((option) => option.value === trigger) ?? translatedTriggerOptions[0];
 
   return (
     <section
@@ -173,12 +193,12 @@ export function AutomationTriggerPicker({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <CalendarClock className="size-4 text-muted-foreground" />
-          <div className="text-sm font-semibold text-foreground">Trigger</div>
+          <div className="text-sm font-semibold text-foreground">{t("title")}</div>
         </div>
         <TimezoneSelect timezone={timezone} onTimezoneChange={onTimezoneChange} />
       </div>
       <div className="mt-4 grid gap-2">
-        <Label htmlFor="automation-trigger-kind">Trigger type</Label>
+        <Label htmlFor="automation-trigger-kind">{t("fields.triggerType")}</Label>
         <Select
           value={trigger}
           onValueChange={(value) => onTriggerChange(value as TriggerChoice)}
@@ -188,10 +208,10 @@ export function AutomationTriggerPicker({
             className="w-full bg-background/35 [&_[data-trigger-option-description]]:hidden"
             onPointerDownCapture={(event) => event.stopPropagation()}
           >
-            <SelectValue placeholder="Select trigger" />
+            <SelectValue placeholder={t("selectTrigger")} />
           </SelectTrigger>
           <SelectContent>
-            {TRIGGER_OPTIONS.map((option) => {
+            {translatedTriggerOptions.map((option) => {
               const TriggerIcon = TRIGGER_ICON_BY_VALUE[option.value];
 
               return (
@@ -261,17 +281,17 @@ export function AutomationTriggerPicker({
       ) : trigger !== "manual" ? (
         <div className="mt-4 space-y-3">
           {trigger === "hourly" ? (
-            <NumberField label="Minute" value={minute} min={0} max={59} onChange={onMinuteChange} />
+            <NumberField label={t("fields.minute")} value={minute} min={0} max={59} onChange={onMinuteChange} />
           ) : null}
           {trigger === "daily" || trigger === "weekly" || trigger === "monthly" ? (
             <div className="grid grid-cols-2 gap-2">
-              <NumberField label="Hour" value={hour} min={0} max={23} onChange={onHourChange} />
-              <NumberField label="Minute" value={minute} min={0} max={59} onChange={onMinuteChange} />
+              <NumberField label={t("fields.hour")} value={hour} min={0} max={23} onChange={onHourChange} />
+              <NumberField label={t("fields.minute")} value={minute} min={0} max={59} onChange={onMinuteChange} />
             </div>
           ) : null}
           {trigger === "weekly" ? (
             <div className="space-y-2">
-              <Label>Day</Label>
+              <Label>{t("fields.day")}</Label>
               <Select value={String(dayOfWeek)} onValueChange={(value) => onDayOfWeekChange(Number(value))}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -279,7 +299,7 @@ export function AutomationTriggerPicker({
                 <SelectContent>
                   {DAY_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={String(option.value)}>
-                      {option.label}
+                      {t(`days.${DAY_LABEL_KEYS[option.value]}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -287,23 +307,23 @@ export function AutomationTriggerPicker({
             </div>
           ) : null}
           {trigger === "monthly" ? (
-            <NumberField label="Day of month" value={dayOfMonth} min={1} max={31} onChange={onDayOfMonthChange} />
+            <NumberField label={t("fields.dayOfMonth")} value={dayOfMonth} min={1} max={31} onChange={onDayOfMonthChange} />
           ) : null}
           {trigger === "cron" ? (
             <div className="space-y-2">
-              <Label htmlFor="automation-cron">Cron expression</Label>
+              <Label htmlFor="automation-cron">{t("fields.cronExpression")}</Label>
               <Input
                 id="automation-cron"
                 value={cronExpr}
                 onChange={(event) => onCronExprChange(event.target.value)}
-                placeholder="0 9 * * 1"
+                placeholder={t("cronPlaceholder")}
               />
             </div>
           ) : null}
           <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {previewLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Clock3 className="size-3.5" />}
-              Next runs
+              {t("nextRuns")}
             </div>
             {previewError ? (
               <div className="mt-2 text-xs text-destructive">{previewError}</div>
@@ -314,13 +334,13 @@ export function AutomationTriggerPicker({
                 ))}
               </div>
             ) : (
-              <div className="mt-2 text-xs text-muted-foreground">Preview will appear after a valid schedule.</div>
+              <div className="mt-2 text-xs text-muted-foreground">{t("previewPlaceholder")}</div>
             )}
           </div>
         </div>
       ) : (
         <div className="mt-4 rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-sm text-muted-foreground">
-          No schedule is saved. Use Run Now from the detail view.
+          {t("manualHint")}
         </div>
       )}
     </section>
@@ -334,6 +354,7 @@ function TimezoneSelect({
   timezone: string;
   onTimezoneChange: (timezone: string) => void;
 }) {
+  const t = useTranslations("automation.triggerPicker");
   const groupedOptions = React.useMemo(
     () => groupTimezoneOptions(timezoneOptionsWithCurrent(timezone)),
     [timezone],
@@ -342,13 +363,13 @@ function TimezoneSelect({
   return (
     <Select value={timezone} onValueChange={onTimezoneChange}>
       <SelectTrigger
-        aria-label="Trigger timezone"
+        aria-label={t("timezoneAria")}
         size="sm"
         className="h-8 max-w-[13rem] border-border/60 bg-background/35 px-2.5 text-xs [&_[data-timezone-option-value]]:hidden"
         onPointerDownCapture={(event) => event.stopPropagation()}
       >
         <Globe2 className="size-3.5" />
-        <SelectValue placeholder="Timezone" />
+        <SelectValue placeholder={t("timezonePlaceholder")} />
       </SelectTrigger>
       <SelectContent align="end" className="max-h-[18rem] w-[18rem]">
         {groupedOptions.map((group, index) => (

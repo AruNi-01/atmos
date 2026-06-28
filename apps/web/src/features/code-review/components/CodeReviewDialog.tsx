@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Dialog,
@@ -39,33 +40,6 @@ export interface CodeReviewSkill {
   description: string;
   bestFor: string;
 }
-
-export const CODE_REVIEW_SKILLS: CodeReviewSkill[] = [
-  {
-    id: "fullstack-reviewer",
-    label: "Fullstack Reviewer",
-    badge: "Fullstack",
-    description:
-      "Fullstack code review, automatically detects the project tech stack, covering frontend and backend. Outputs a P0-P3 structured report including security, performance, architecture, and code quality.",
-    bestFor: "Fullstack review for any project",
-  },
-  {
-    id: "code-review-expert",
-    label: "Backend Arch Expert",
-    badge: "Backend",
-    description:
-      "A senior backend engineer specializing in architecture and comprehensive reviews. Focuses on database design, caching, concurrency, API design, security, and backend performance.",
-    bestFor: "Complex backend logic, API, and DB architectural reviews",
-  },
-  {
-    id: "typescript-react-reviewer",
-    label: "TypeScript React Expert",
-    badge: "TS/React",
-    description:
-      "A specialized code reviewer for TypeScript and React projects. Focuses on typed hooks, functional components, state management, render optimization, and Next.js / React server components practices.",
-    bestFor: "React/Next.js frontend applications",
-  },
-];
 
 import { useAgentUiPrefs, useCodeReviewDefaults } from "@/shared/stores/use-ui-pref-hooks";
 
@@ -136,7 +110,12 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   workspacePath,
   projectMainPath,
 }) => {
-  const [skillsList, setSkillsList] = useState<CodeReviewSkill[]>(CODE_REVIEW_SKILLS);
+  const t = useTranslations("codeReview.dialog");
+  const defaultSkills = React.useMemo(
+    () => getDefaultCodeReviewSkills(t),
+    [t],
+  );
+  const [skillsList, setSkillsList] = useState<CodeReviewSkill[]>(defaultSkills);
   const [loadingSkillsList, setLoadingSkillsList] = useState(false);
   const [codeReviewDefaults, setCodeReviewDefaults] = useCodeReviewDefaults();
   const [agentPrefs] = useAgentUiPrefs();
@@ -152,7 +131,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     return (stored as AgentId) || "claude";
   };
   const [skillId, setSkillId] = useState<CodeReviewSkillId>(() =>
-    resolveStoredSkillId(CODE_REVIEW_SKILLS),
+    resolveStoredSkillId(defaultSkills),
   );
   const [agentId, setAgentId] = useState<AgentId>(() => resolveStoredAgentId());
   const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
@@ -270,7 +249,9 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         const pad = (value: number) => String(value).padStart(2, "0");
         session = await reviewWsApi.createSession({
           target: effectiveTarget,
-          title: `Review_${pad(now.getMonth() + 1)}.${pad(now.getDate())}-${pad(now.getHours())}:${pad(now.getMinutes())}`,
+          title: t("reviewRun.sessionTitle", {
+            timestamp: `${pad(now.getMonth() + 1)}.${pad(now.getDate())}-${pad(now.getHours())}:${pad(now.getMinutes())}`,
+          }),
         });
       }
       return reviewWsApi.createAgentRun({
@@ -281,7 +262,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         skillId,
       });
     },
-    [skillId, workspaceId, reviewTarget],
+    [reviewTarget, skillId, t, workspaceId],
   );
 
   /** Generate report file path: {projectMainPath}/.atmos/reviews/{workspaceId}/{project}_{branch}_{timestamp}_{topic}.md */
@@ -319,23 +300,23 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         onStartTerminalMode(command);
         onOpenChange(false);
         toastManager.add({
-          title: "Code Review Started",
+          title: t("toasts.startSuccess.title"),
           description: reviewRun
-            ? "Agent Review run created for the active Review Session."
-            : `Report will be written to .atmos/reviews/`,
+            ? t("toasts.startSuccess.descriptionReviewRun")
+            : t("toasts.startSuccess.descriptionReportPath"),
           type: "success",
         });
       } catch (err) {
         toastManager.add({
-          title: "Failed to start code review",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: t("toasts.startError.title"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
         setIsStarting(false);
       }
     },
-    [isStarting, buildReportPath, agentId, currentAgentRunConfig, skillId, onStartTerminalMode, onOpenChange, createReviewAgentRun]
+    [isStarting, buildReportPath, agentId, currentAgentRunConfig, skillId, onStartTerminalMode, onOpenChange, createReviewAgentRun, t]
   );
 
   const handleReplace = useCallback(
@@ -351,15 +332,15 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         onOpenChange(false);
       } catch (err) {
         toastManager.add({
-          title: "Failed to restart code review",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: t("toasts.restartError.title"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
         setIsStarting(false);
       }
     },
-    [isStarting, buildReportPath, agentId, currentAgentRunConfig, skillId, onReplaceTerminalAndRun, onOpenChange, createReviewAgentRun]
+    [isStarting, buildReportPath, agentId, currentAgentRunConfig, skillId, onReplaceTerminalAndRun, onOpenChange, createReviewAgentRun, t]
   );
 
   const handleStartInAgent = useCallback(async () => {
@@ -370,8 +351,11 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       const prompt = reviewRun?.prompt ?? buildCodeReviewPrompt(skillId, buildReportPath());
       const now = new Date();
       const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      const titleName = projectName || "Project";
-      const sessionTitle = `${titleName}_CodeReview_${timeStr}`;
+      const titleName = projectName || t("sessionTitle.defaultProjectName");
+      const sessionTitle = t("sessionTitle.value", {
+        projectName: titleName,
+        timestamp: timeStr,
+      });
       enqueueAgentChatPrompt({
         prompt,
         workspaceId,
@@ -385,22 +369,22 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       onOpenChange(false);
       setAgentChatOpen(true);
       toastManager.add({
-        title: "Code Review Queued",
+        title: t("toasts.queueSuccess.title"),
         description: reviewRun
-          ? "The Agent Review prompt was added to the chat queue."
-          : "The ACP code review prompt was added to the chat queue.",
+          ? t("toasts.queueSuccess.descriptionReviewRun")
+          : t("toasts.queueSuccess.descriptionAcp"),
         type: "success",
       });
     } catch (err) {
       toastManager.add({
-        title: "Failed to queue code review",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: t("toasts.queueError.title"),
+        description: err instanceof Error ? err.message : t("errors.unknown"),
         type: "error",
       });
     } finally {
       setIsStarting(false);
     }
-  }, [isStarting, acpAgentId, buildReportPath, skillId, projectName, enqueueAgentChatPrompt, workspaceId, setPendingAgentChatMode, onOpenChange, setAgentChatOpen, createReviewAgentRun]);
+  }, [isStarting, acpAgentId, buildReportPath, skillId, projectName, enqueueAgentChatPrompt, workspaceId, setPendingAgentChatMode, onOpenChange, setAgentChatOpen, createReviewAgentRun, t]);
 
   const handleSyncSkills = useCallback(async () => {
     if (isSyncing) return;
@@ -408,8 +392,8 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     try {
       await skillsApi.syncSystemSkills();
       toastManager.add({
-        title: "Sync Started",
-        description: "System skills synchronization has been triggered.",
+        title: t("toasts.syncStarted.title"),
+        description: t("toasts.syncStarted.description"),
         type: "success",
       });
       // Poll for status or wait
@@ -420,13 +404,13 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       }, 5000);
     } catch (err) {
       toastManager.add({
-        title: "Sync Failed",
-        description: err instanceof Error ? err.message : "Failed to trigger sync",
+        title: t("toasts.syncFailed.title"),
+        description: err instanceof Error ? err.message : t("toasts.syncFailed.descriptionFallback"),
         type: "error",
       });
       setIsSyncing(false);
     }
-  }, [isSyncing]);
+  }, [isSyncing, t]);
 
   const handleCreateCustomSkill = useCallback(async () => {
     if (isCreatingSkill) return;
@@ -446,24 +430,26 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       router.push(href);
 
       toastManager.add({
-        title: "Custom Review Skill Created",
-        description: `Opened ${result.path} in the Skills detail page for editing.${
+        title: t("toasts.createSkillSuccess.title"),
+        description: `${t("toasts.createSkillSuccess.description", {
+          path: result.path,
+        })}${
           result.needs_sync
-            ? " The shared Atmos CLI reference is not yet on disk — open the Agent Review dialog and click 'Sync Skills Manually' to install atmos-review-fix, otherwise the references/atmos-review-cli.md symlink will be dangling."
+            ? ` ${t("toasts.createSkillSuccess.needsSyncWarning")}`
             : ""
         }`,
         type: result.needs_sync ? "warning" : "success",
       });
     } catch (err) {
       toastManager.add({
-        title: "Failed to Create Custom Skill",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: t("toasts.createSkillError.title"),
+        description: err instanceof Error ? err.message : t("errors.unknown"),
         type: "error",
       });
     } finally {
       setIsCreatingSkill(false);
     }
-  }, [isCreatingSkill, onOpenChange, router]);
+  }, [isCreatingSkill, onOpenChange, router, t]);
 
   const selectedSkill = skillsList.find((s) => s.id === skillId) ?? skillsList[0];
 
@@ -473,10 +459,10 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="size-4" />
-            Code Agent Review
+            {t("dialog.title")}
           </DialogTitle>
           <DialogDescription>
-            Select a Review Skill and Agent to start the automated code review. The review report will be automatically written to your project workspace.
+            {t("dialog.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -487,7 +473,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
               <div className="flex items-start gap-2">
                 <AlertTriangle className="size-4 mt-0.5 shrink-0" />
                 <span>
-                  Code Review Skills are initializing, please wait a moment and try again. They sync automatically on service startup.
+                  {t("skillsWarning.description")}
                 </span>
               </div>
               <Button
@@ -498,7 +484,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                 disabled={isSyncing}
               >
                 {isSyncing ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
-                {isSyncing ? "Syncing..." : "Sync Skills Manually"}
+                {isSyncing ? t("skillsWarning.syncing") : t("skillsWarning.action")}
               </Button>
             </div>
           )}
@@ -506,7 +492,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
           {/* Skill Selector */}
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-              Review Skill
+              {t("skillSelector.label")}
             </label>
             <Select value={skillId} onValueChange={handleSkillChange}>
               <SelectTrigger className="w-full cursor-pointer">
@@ -531,7 +517,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                 {loadingSkillsList && (
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground w-full justify-center">
                     <Loader2 className="size-3 animate-spin" />
-                    <span>Loading other review skills...</span>
+                    <span>{t("skillSelector.loading")}</span>
                   </div>
                 )}
               </SelectContent>
@@ -542,12 +528,16 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
               <div>
                 <p>{selectedSkill?.description}</p>
                 <p className="font-medium text-foreground/70 mt-1">
-                  Great for: {selectedSkill?.bestFor}
+                  {t("skillSelector.bestForLabel")} {selectedSkill?.bestFor}
                 </p>
               </div>
               <div className="pt-2 border-t border-border/50 text-[10px] text-muted-foreground/80 flex items-center justify-between gap-2">
                 <span className="flex-1">
-                  Built-in skills do not fit? Click <span className="font-medium text-foreground/80">Create</span> to scaffold your own.
+                  {t.rich("skillSelector.createHint", {
+                    strong: (chunks) => (
+                      <span className="font-medium text-foreground/80">{chunks}</span>
+                    ),
+                  })}
                 </span>
                 <Button
                   variant="outline"
@@ -555,14 +545,14 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                   className="h-6 px-1.5 text-[10px] shrink-0 gap-1"
                   onClick={handleCreateCustomSkill}
                   disabled={isCreatingSkill}
-                  title="Create a new custom review skill scaffold"
+                  title={t("skillSelector.createButtonTitle")}
                 >
                   {isCreatingSkill ? (
                     <Loader2 className="size-3 animate-spin" />
                   ) : (
                     <Plus className="size-3" />
                   )}
-                  {isCreatingSkill ? "Creating..." : "Create"}
+                  {isCreatingSkill ? t("skillSelector.creating") : t("skillSelector.create")}
                 </Button>
               </div>
             </div>
@@ -570,19 +560,19 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
 
           <Tabs value={executionMode} onValueChange={(v) => setExecutionMode(v as "acp" | "cli")}>
             <TabsList className="w-full grid mx-auto mb-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <TabsTrigger value="acp">ACP Agent Panel</TabsTrigger>
-              <TabsTrigger value="cli">Code Agent CLI</TabsTrigger>
+              <TabsTrigger value="acp">{t("executionTabs.acp")}</TabsTrigger>
+              <TabsTrigger value="cli">{t("executionTabs.cli")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="acp" className="mt-0">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-                ACP AI Agent
+                {t("acp.label")}
               </label>
               <Select value={acpAgentId} onValueChange={setAcpAgentId} disabled={loadingAcpAgents || installedAcpAgents.length === 0}>
                 <SelectTrigger className="w-full cursor-pointer">
                   <SelectValue placeholder={
-                    loadingAcpAgents ? "Loading agents..." :
-                      (installedAcpAgents.length === 0 ? "No ACP agents installed" : "Select an Agent")
+                    loadingAcpAgents ? t("acp.placeholderLoading") :
+                      (installedAcpAgents.length === 0 ? t("acp.placeholderEmpty") : t("acp.placeholderReady"))
                   } />
                 </SelectTrigger>
                 <SelectContent>
@@ -597,7 +587,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground mt-1.5 h-6">
-                Runs inside the right sidebar ACP Agent Chat panel natively.
+                {t("acp.helper")}
               </p>
             </TabsContent>
 
@@ -615,7 +605,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                   }));
                   handleAgentChange(nextAgentId);
                 }}
-                helperText="Any installed Code Agent CLI works. Prefer a reasoning-capable model (e.g. Claude, Gemini, GPT) for deeper architectural and security findings."
+                helperText={t("cli.helper")}
               />
             </TabsContent>
           </Tabs>
@@ -623,22 +613,22 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
           {/* Report path preview */}
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1.5 mt-2">
-              Report Save Path
+              {t("reportPath.label")}
             </label>
             <p className="text-[11px] text-muted-foreground font-mono bg-muted/50 rounded px-2 py-1.5 break-all">
               {projectMainPath || workspacePath || "."}/
-              <span className="text-foreground/80">.atmos/reviews/{workspaceId || "default"}/</span>
+              <span className="text-foreground/80">.atmos/reviews/{workspaceId || t("reportPath.defaultContextId")}/</span>
               <br />
               {[
-                (projectName || "project").replace(/[^a-zA-Z0-9_\-]/g, "_"),
-                (currentBranch || "branch").replace(/[^a-zA-Z0-9_\-]/g, "_"),
+                (projectName || t("reportPath.defaultProjectName")).replace(/[^a-zA-Z0-9_\-]/g, "_"),
+                (currentBranch || t("reportPath.defaultBranchName")).replace(/[^a-zA-Z0-9_\-]/g, "_"),
                 "YYYYMMDD-HHMMSS",
                 "code_review"
               ].join("_")}
               .md
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Once the review is complete, the Agent will automatically write the report file to the path above. No manual saving is required.
+              {t("reportPath.help")}
             </p>
           </div>
         </div>
@@ -652,7 +642,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
               disabled={isStarting || skillsReady === false || !acpAgentId}
             >
               <Bot className="size-4" />
-              Start via ACP Agent Chat
+              {t("actions.startViaAcp")}
             </Button>
           ) : (
             <>
@@ -666,7 +656,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                 ) : (
                   <Terminal className="size-4" />
                 )}
-                Start in New Terminal
+                {t("actions.startInNewTerminal")}
               </Button>
               <Button
                 variant="ghost"
@@ -674,10 +664,10 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                 onClick={handleReplace}
                 disabled={isStarting || skillsReady === false}
               >
-                Restart (Replace existing Code Review terminal)
+                {t("actions.restart")}
               </Button>
               <p className="text-center text-[10px] text-muted-foreground">
-                Terminal mode creates an isolated Code Review pane inside the main center stage.
+                {t("actions.terminalHint")}
               </p>
             </>
           )}
@@ -686,3 +676,31 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     </Dialog>
   );
 };
+
+function getDefaultCodeReviewSkills(
+  t: ReturnType<typeof useTranslations>,
+): CodeReviewSkill[] {
+  return [
+    {
+      id: "fullstack-reviewer",
+      label: t("defaultSkills.fullstack.label"),
+      badge: t("defaultSkills.fullstack.badge"),
+      description: t("defaultSkills.fullstack.description"),
+      bestFor: t("defaultSkills.fullstack.bestFor"),
+    },
+    {
+      id: "code-review-expert",
+      label: t("defaultSkills.backend.label"),
+      badge: t("defaultSkills.backend.badge"),
+      description: t("defaultSkills.backend.description"),
+      bestFor: t("defaultSkills.backend.bestFor"),
+    },
+    {
+      id: "typescript-react-reviewer",
+      label: t("defaultSkills.tsReact.label"),
+      badge: t("defaultSkills.tsReact.badge"),
+      description: t("defaultSkills.tsReact.description"),
+      bestFor: t("defaultSkills.tsReact.bestFor"),
+    },
+  ];
+}

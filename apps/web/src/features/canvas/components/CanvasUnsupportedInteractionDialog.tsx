@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, Compass } from "lucide-react";
 import { Button } from "@workspace/ui";
@@ -27,6 +28,7 @@ function removeCanvasParam(path: string): string {
  * the `z-[150]` Canvas overlay so it is never hidden behind the board.
  */
 export function CanvasUnsupportedInteractionDialog() {
+  const t = useTranslations("canvas.unsupportedInteraction");
   const notice = useCanvasRuntimeStore((state) => state.unsupportedInteractionNotice);
   const dismiss = useCanvasRuntimeStore((state) => state.dismissUnsupportedInteraction);
   const router = useAppRouter();
@@ -62,7 +64,7 @@ export function CanvasUnsupportedInteractionDialog() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Action not available on canvas"
+      aria-label={t("dialogAria")}
       className="fixed inset-0 z-[300] flex items-center justify-center p-6"
     >
       <div
@@ -76,21 +78,22 @@ export function CanvasUnsupportedInteractionDialog() {
             <Compass className="size-4.5" />
           </span>
           <div className="min-w-0 space-y-1.5">
-            <h2 className="text-base font-semibold text-foreground">Not available on the canvas</h2>
+            <h2 className="text-base font-semibold text-foreground">{t("title")}</h2>
             <p className="text-sm text-muted-foreground">
-              {notice.widgetLabel ? `The ${notice.widgetLabel} widget` : "This widget"} tried to open
-              a view that the canvas doesn&apos;t host yet. Open it from the main app to continue.
+              {notice.widgetLabel
+                ? t("descriptionNamed", { widgetLabel: notice.widgetLabel })
+                : t("descriptionFallback")}
             </p>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button size="sm" variant="ghost" onClick={dismiss}>
-            Got it
+            {t("actions.dismiss")}
           </Button>
           {notice.targetPath ? (
             <Button size="sm" onClick={handleOpenInMainApp}>
               <ArrowUpRight className="mr-1.5 size-3.5" />
-              Open in main app
+              {t("actions.openInMainApp")}
             </Button>
           ) : null}
         </div>

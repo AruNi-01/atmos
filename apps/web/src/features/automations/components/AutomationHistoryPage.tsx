@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -85,6 +86,7 @@ export function AutomationHistoryPage({
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
 }) {
+  const t = useTranslations("automation.historyPage");
   const visibleAutomation = detail ?? automation;
   const agent = visibleAutomation
     ? (agents.find((item) => item.agent_id === visibleAutomation.agent_id) ?? null)
@@ -95,15 +97,15 @@ export function AutomationHistoryPage({
       <div className="shrink-0 border-b border-border bg-background px-6 py-4">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-start gap-4">
-            <Button variant="ghost" size="icon" className="mt-0.5 size-9 shrink-0" onClick={onBack} aria-label="Back">
+            <Button variant="ghost" size="icon" className="mt-0.5 size-9 shrink-0" onClick={onBack} aria-label={t("actions.back")}>
               <ArrowLeft className="size-4" />
             </Button>
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h2 className="truncate text-xl font-semibold tracking-tight text-foreground">
-                  {visibleAutomation?.display_name ?? "Automation history"}
+                  {visibleAutomation?.display_name ?? t("title")}
                 </h2>
-                {visibleAutomation?.schedule_paused ? <Badge variant="outline">Paused</Badge> : null}
+                {visibleAutomation?.schedule_paused ? <Badge variant="outline">{t("badges.paused")}</Badge> : null}
                 {visibleAutomation?.last_status ? <StatusBadge status={visibleAutomation.last_status} /> : null}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -117,14 +119,14 @@ export function AutomationHistoryPage({
                     {visibleAutomation.next_run_at ? (
                       <>
                         <span className="text-border">/</span>
-                        <span>next {formatDateTime(visibleAutomation.next_run_at)}</span>
+                        <span>{t("nextRun", { value: formatDateTime(visibleAutomation.next_run_at) })}</span>
                       </>
                     ) : null}
                   </>
                 ) : detailLoading ? (
-                  <span>Loading automation...</span>
+                  <span>{t("loadingAutomation")}</span>
                 ) : (
-                  <span>Automation not found</span>
+                  <span>{t("notFound")}</span>
                 )}
               </div>
             </div>
@@ -137,7 +139,7 @@ export function AutomationHistoryPage({
               disabled={runsLoading || !visibleAutomation}
             >
               {runsLoading ? <LoaderCircle className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
-              Refresh
+              {t("actions.refresh")}
             </Button>
             <Button
               size="sm"
@@ -149,7 +151,7 @@ export function AutomationHistoryPage({
               ) : (
                 <Play className="size-4" />
               )}
-              Run Now
+              {t("actions.runNow")}
             </Button>
           </div>
         </div>
@@ -183,8 +185,8 @@ export function AutomationHistoryPage({
               <div className="flex h-full min-h-0 items-center justify-center text-center">
                 <div>
                   <Timer className="mx-auto size-8 text-muted-foreground" />
-                  <div className="mt-3 text-sm font-medium text-foreground">Automation unavailable</div>
-                  <div className="mt-1 text-xs text-muted-foreground">Return to the list and choose another item.</div>
+                  <div className="mt-3 text-sm font-medium text-foreground">{t("empty.unavailableTitle")}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{t("empty.unavailableDescription")}</div>
                 </div>
               </div>
             )}
@@ -193,10 +195,10 @@ export function AutomationHistoryPage({
             <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-md border border-border bg-background xl:min-h-0">
               <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-foreground">Standalone Conversation</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Continue this automation without a project terminal.</div>
+                  <div className="text-sm font-semibold text-foreground">{t("standalone.title")}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{t("standalone.description")}</div>
                 </div>
-                <Button variant="ghost" size="icon" className="size-8" onClick={onCloseStandaloneChat} aria-label="Close conversation">
+                <Button variant="ghost" size="icon" className="size-8" onClick={onCloseStandaloneChat} aria-label={t("actions.closeConversation")}>
                   <X className="size-4" />
                 </Button>
               </div>

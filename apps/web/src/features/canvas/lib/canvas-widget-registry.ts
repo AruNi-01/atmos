@@ -9,6 +9,10 @@ import {
   PanelTop,
   type LucideIcon,
 } from "lucide-react";
+import { createTranslator } from "next-intl";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 import type { CanvasWidgetType } from "./canvas-widget-shape";
 import { CANVAS_WIDGET_DEFAULT_SIZES } from "./canvas-widget-shape";
@@ -33,19 +37,35 @@ export type CanvasWidgetRegistryEntry = {
   requiresContext: boolean;
 };
 
+let cachedCanvasWidgetRegistryLocale: "en" | "zh" | null = null;
+let cachedCanvasWidgetRegistryTranslator: any = null;
+
+function canvasWidgetRegistryT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedCanvasWidgetRegistryTranslator || cachedCanvasWidgetRegistryLocale !== locale) {
+    cachedCanvasWidgetRegistryLocale = locale;
+    cachedCanvasWidgetRegistryTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.widgetRegistry",
+    });
+  }
+  return cachedCanvasWidgetRegistryTranslator(key as never);
+}
+
 export const CANVAS_WIDGET_GROUPS: CanvasWidgetGroup[] = [
-  { id: "workspace", label: "Workspace" },
-  { id: "code-review", label: "Code & Review" },
-  { id: "agents", label: "Agents" },
-  { id: "usage", label: "Usage" },
+  { id: "workspace", label: canvasWidgetRegistryT("groups.workspace") },
+  { id: "code-review", label: canvasWidgetRegistryT("groups.codeReview") },
+  { id: "agents", label: canvasWidgetRegistryT("groups.agents") },
+  { id: "usage", label: canvasWidgetRegistryT("groups.usage") },
 ];
 
 export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegistryEntry> = {
   "workspace-context": {
     type: "workspace-context",
     group: "workspace",
-    label: "Workspace Context",
-    description: "Notes, tasks, and requirements for a project or workspace.",
+    label: canvasWidgetRegistryT("items.workspaceContext.label"),
+    description: canvasWidgetRegistryT("items.workspaceContext.description"),
     icon: ListChecks,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES["workspace-context"],
     addable: true,
@@ -54,8 +74,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   files: {
     type: "files",
     group: "code-review",
-    label: "Files",
-    description: "Browse files and open them into Main Operating Area tabs.",
+    label: canvasWidgetRegistryT("items.files.label"),
+    description: canvasWidgetRegistryT("items.files.description"),
     icon: Files,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES.files,
     addable: true,
@@ -64,8 +84,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   changes: {
     type: "changes",
     group: "code-review",
-    label: "Changes",
-    description: "Review staged, unstaged, untracked, and compare diffs.",
+    label: canvasWidgetRegistryT("items.changes.label"),
+    description: canvasWidgetRegistryT("items.changes.description"),
     icon: FolderGit2,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES.changes,
     addable: true,
@@ -74,8 +94,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   review: {
     type: "review",
     group: "code-review",
-    label: "Review",
-    description: "Inspect review sessions, comments, and reviewed state.",
+    label: canvasWidgetRegistryT("items.review.label"),
+    description: canvasWidgetRegistryT("items.review.description"),
     icon: GitPullRequest,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES.review,
     addable: true,
@@ -84,8 +104,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   center: {
     type: "center",
     group: "workspace",
-    label: "Main Operating Area",
-    description: "Overview, files, diffs, and review tabs for a workspace.",
+    label: canvasWidgetRegistryT("items.center.label"),
+    description: canvasWidgetRegistryT("items.center.description"),
     icon: PanelTop,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES.center,
     addable: true,
@@ -94,8 +114,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   "agent-status": {
     type: "agent-status",
     group: "agents",
-    label: "Agent Status Board",
-    description: "Monitor running, idle, and permission-waiting agent sessions.",
+    label: canvasWidgetRegistryT("items.agentStatus.label"),
+    description: canvasWidgetRegistryT("items.agentStatus.description"),
     icon: Activity,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES["agent-status"],
     addable: true,
@@ -104,8 +124,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   "ai-quota-usage": {
     type: "ai-quota-usage",
     group: "usage",
-    label: "AI Quota Usage",
-    description: "Inspect provider quota, usage, refresh state, and footer sources.",
+    label: canvasWidgetRegistryT("items.aiQuotaUsage.label"),
+    description: canvasWidgetRegistryT("items.aiQuotaUsage.description"),
     icon: Gauge,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES["ai-quota-usage"],
     addable: true,
@@ -114,8 +134,8 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
   "agent-chat": {
     type: "agent-chat",
     group: "agents",
-    label: "Agent ACP Chat",
-    description: "Use the existing ACP agent chat panel inside the canvas.",
+    label: canvasWidgetRegistryT("items.agentChat.label"),
+    description: canvasWidgetRegistryT("items.agentChat.description"),
     icon: BotMessageSquare,
     defaultSize: CANVAS_WIDGET_DEFAULT_SIZES["agent-chat"],
     addable: true,

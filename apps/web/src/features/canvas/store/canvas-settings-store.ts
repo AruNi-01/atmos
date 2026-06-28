@@ -1,9 +1,13 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { toastManager } from '@workspace/ui';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 interface CanvasSettingsState {
   autoSaveInterval: number; // in seconds
@@ -25,6 +29,21 @@ export const MIN_CANVAS_MAX_RENDERED_TERMINALS = 1;
 export const MAX_CANVAS_MAX_RENDERED_TERMINALS = 50;
 export const MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES = 50;
 export const MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES = 2_000;
+let cachedCanvasLocale: 'en' | 'zh' | null = null;
+let cachedCanvasTranslator: any = null;
+
+function canvasT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedCanvasTranslator || cachedCanvasLocale !== locale) {
+    cachedCanvasLocale = locale;
+    cachedCanvasTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Canvas.chrome',
+    });
+  }
+  return cachedCanvasTranslator(key as never);
+}
 
 export function normalizeCanvasMaxRenderedTerminals(value: number | null | undefined) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -94,8 +113,8 @@ export const useCanvasSettingsStore = create<CanvasSettingsState>((set, get) => 
     } catch {
       set({ loading: false });
       toastManager.add({
-        title: 'Settings Load Failed',
-        description: 'Could not load canvas preferences from the server.',
+        title: canvasT('settingsStore.settingsLoadFailed'),
+        description: canvasT('settingsStore.couldNotLoadCanvasPreferencesFromServer'),
         type: 'error',
       });
     }
@@ -110,8 +129,8 @@ export const useCanvasSettingsStore = create<CanvasSettingsState>((set, get) => 
     } catch {
       set({ autoSaveInterval: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the canvas auto-save interval.',
+        title: canvasT('settingsStore.settingsSyncFailed'),
+        description: canvasT('settingsStore.failedToUpdateCanvasAutoSaveInterval'),
         type: 'error',
       });
     }
@@ -136,8 +155,8 @@ export const useCanvasSettingsStore = create<CanvasSettingsState>((set, get) => 
         set({ maxRenderedTerminals: lastPersistedMaxRenderedTerminals });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the canvas rendered terminal limit.',
+        title: canvasT('settingsStore.settingsSyncFailed'),
+        description: canvasT('settingsStore.failedToUpdateCanvasRenderedTerminalLimit'),
         type: 'error',
       });
     }
@@ -162,8 +181,8 @@ export const useCanvasSettingsStore = create<CanvasSettingsState>((set, get) => 
         set({ terminalContextMaxLines: lastPersistedTerminalContextMaxLines });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the canvas terminal context line limit.',
+        title: canvasT('settingsStore.settingsSyncFailed'),
+        description: canvasT('settingsStore.failedToUpdateCanvasTerminalContextLineLimit'),
         type: 'error',
       });
     }

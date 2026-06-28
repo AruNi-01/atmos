@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Collapsible,
@@ -51,6 +52,7 @@ export function RunDetailPanel({
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
 }) {
+  const t = useTranslations("automation.runDetailPanel");
   const [metadataOpen, setMetadataOpen] = React.useState(false);
   const [activeArtifact, setActiveArtifact] = React.useState<AutomationArtifactKind>("final");
   const runAgentId = run?.agent_id ?? null;
@@ -103,8 +105,8 @@ export function RunDetailPanel({
       <div className="flex min-h-0 items-center justify-center p-6 text-center">
         <div>
           <FileText className="mx-auto size-8 text-muted-foreground" />
-          <div className="mt-3 text-sm font-medium text-foreground">Select a run</div>
-          <div className="mt-1 text-xs text-muted-foreground">Artifacts and terminal metadata appear here.</div>
+          <div className="mt-3 text-sm font-medium text-foreground">{t("empty.title")}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t("empty.description")}</div>
         </div>
       </div>
     );
@@ -119,7 +121,7 @@ export function RunDetailPanel({
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <FileText className="size-4" />
-              Run Detail
+              {t("title")}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{formatShortId(run.guid)}</div>
           </div>
@@ -136,7 +138,7 @@ export function RunDetailPanel({
                 ) : (
                   <Square className="size-4" />
                 )}
-                Cancel
+                {t("actions.cancel")}
               </Button>
             ) : null}
             {run.status !== "running" ? (
@@ -151,7 +153,7 @@ export function RunDetailPanel({
                 ) : (
                   <Terminal className="size-4" />
                 )}
-                Continue
+                {t("actions.continue")}
               </Button>
             ) : null}
           </div>
@@ -169,7 +171,9 @@ export function RunDetailPanel({
               {run.exit_code !== null ? (
                 <>
                   <span className="text-xs text-border">/</span>
-                  <span className="text-xs tabular-nums text-muted-foreground">exit {run.exit_code}</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {t("inline.exitCode", { code: run.exit_code })}
+                  </span>
                 </>
               ) : null}
             </div>
@@ -177,31 +181,31 @@ export function RunDetailPanel({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="grid gap-3 border-t border-border p-3 md:grid-cols-2">
-              <MetadataItem label="Status" value={<StatusBadge status={run.status} />} />
-              <MetadataItem label="Trigger" value={run.trigger_kind} />
+              <MetadataItem label={t("metadata.status")} value={<StatusBadge status={run.status} />} />
+              <MetadataItem label={t("metadata.trigger")} value={run.trigger_kind} />
               {githubSource?.repository ? (
-                <MetadataItem label="Repository" value={githubSource.repository} />
+                <MetadataItem label={t("metadata.repository")} value={githubSource.repository} />
               ) : null}
-              {githubSource?.event ? <MetadataItem label="Event" value={githubSource.event} /> : null}
+              {githubSource?.event ? <MetadataItem label={t("metadata.event")} value={githubSource.event} /> : null}
               {githubSource?.sourceUrl ? (
-                <MetadataItem label="Source" value={githubSource.sourceUrl} />
+                <MetadataItem label={t("metadata.source")} value={githubSource.sourceUrl} />
               ) : null}
-              <MetadataItem label="Started" value={formatDateTime(run.started_at)} />
-              <MetadataItem label="Completed" value={formatDateTime(run.completed_at)} />
-              <MetadataItem label="Exit code" value={run.exit_code === null ? "None" : String(run.exit_code)} />
+              <MetadataItem label={t("metadata.started")} value={formatDateTime(run.started_at)} />
+              <MetadataItem label={t("metadata.completed")} value={formatDateTime(run.completed_at)} />
+              <MetadataItem label={t("metadata.exitCode")} value={run.exit_code === null ? t("metadata.none") : String(run.exit_code)} />
               <MetadataItem
-                label="Runner"
+                label={t("metadata.runner")}
                 value={
                   runAgentId ? (
                     <AutomationAgentLabel agent={runnerAgent} agentId={runAgentId} iconSize={16} />
                   ) : run.tmux_window_name ? (
-                    run.terminal_display_name || "Terminal"
+                    run.terminal_display_name || t("metadata.terminal")
                   ) : (
-                    "Background process"
+                    t("metadata.backgroundProcess")
                   )
                 }
               />
-              {run.error_message ? <MetadataItem label="Error" value={run.error_message} /> : null}
+              {run.error_message ? <MetadataItem label={t("metadata.error")} value={run.error_message} /> : null}
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -249,6 +253,7 @@ function ArtifactContent({
   loading: boolean;
   running: boolean;
 }) {
+  const t = useTranslations("automation.runDetailPanel");
   const content = artifact?.content ?? "";
   const isJson = activeArtifact === "run_json";
   const scrollRef = React.useRef<HTMLElement | null>(null);
@@ -288,7 +293,7 @@ function ArtifactContent({
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
         <LoaderCircle className="mr-2 size-4 animate-spin" />
-        Loading artifact...
+        {t("artifact.loading")}
       </div>
     );
   }
@@ -296,7 +301,7 @@ function ArtifactContent({
   if (!artifact) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-        No artifact selected.
+        {t("artifact.noneSelected")}
       </div>
     );
   }
@@ -320,7 +325,7 @@ function ArtifactContent({
       className={cn("min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-foreground")}
     >
       <MarkdownRenderer className="prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 [&_pre]:max-w-full [&_pre]:overflow-x-auto">
-        {formatted || (running ? "Waiting for agent output..." : "No content.")}
+        {formatted || (running ? t("artifact.waitingForOutput") : t("artifact.noContent"))}
       </MarkdownRenderer>
     </div>
   );

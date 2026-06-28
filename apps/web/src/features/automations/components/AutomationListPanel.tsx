@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Badge,
@@ -56,12 +57,7 @@ import type {
 import type { AutomationTargetFilter } from "@/shared/lib/nuqs/searchParams";
 import type { Project } from "@/shared/types/domain";
 
-const TARGET_FILTERS: Array<{ value: AutomationTargetFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "project", label: "Project" },
-  { value: "workspace", label: "Workspace" },
-  { value: "standalone", label: "Standalone" },
-];
+const TARGET_FILTER_VALUES: AutomationTargetFilter[] = ["all", "project", "workspace", "standalone"];
 
 export function AutomationListPanel({
   automations,
@@ -102,16 +98,25 @@ export function AutomationListPanel({
   onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
   onToggleEnabled: (automation: AutomationSummary, enabled: boolean) => Promise<void>;
 }) {
+  const t = useTranslations("automation.listPanel");
   const [deleteTarget, setDeleteTarget] = React.useState<AutomationSummary | null>(null);
   const agentById = React.useMemo(
     () => new Map(agents.map((agent) => [agent.agent_id, agent])),
     [agents],
   );
+  const targetFilters = React.useMemo(
+    () =>
+      TARGET_FILTER_VALUES.map((value) => ({
+        value,
+        label: t(`filters.${value}`),
+      })),
+    [t],
+  );
 
   const filterCounts = React.useMemo(() => {
-    return TARGET_FILTERS.reduce<Record<AutomationTargetFilter, number>>(
+    return TARGET_FILTER_VALUES.reduce<Record<AutomationTargetFilter, number>>(
       (acc, filter) => {
-        acc[filter.value] = automations.filter((automation) => matchesTargetFilter(automation, filter.value)).length;
+        acc[filter] = automations.filter((automation) => matchesTargetFilter(automation, filter)).length;
         return acc;
       },
       { all: 0, project: 0, workspace: 0, standalone: 0 },
@@ -154,9 +159,12 @@ export function AutomationListPanel({
                 <Timer className="size-5" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground">Automations</h2>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {automations.length} automations · {supportedAgentCount} supported agents
+                  {t("summary", {
+                    automationCount: automations.length,
+                    supportedAgentCount,
+                  })}
                 </p>
               </div>
             </div>
@@ -169,7 +177,7 @@ export function AutomationListPanel({
                 <Input
                   value={searchQuery}
                   onChange={(event) => onSearchQueryChange(event.target.value)}
-                  placeholder="Search by name, target, or agent..."
+                  placeholder={t("searchPlaceholder")}
                   className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
                 />
               </div>
@@ -180,7 +188,7 @@ export function AutomationListPanel({
                   className="shrink-0"
                 >
                   <TabsList className="h-9">
-                    {TARGET_FILTERS.map((filter) => (
+                    {targetFilters.map((filter) => (
                       <TabsTab
                         key={filter.value}
                         value={filter.value}
@@ -200,13 +208,13 @@ export function AutomationListPanel({
                   className="size-9 rounded-xl"
                   onClick={onReload}
                   disabled={loading}
-                  aria-label="Refresh automations"
+                  aria-label={t("refreshAria")}
                 >
                   {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                 </Button>
                 <Button size="sm" disabled={createDisabled} onClick={onCreate}>
                   <Timer className="size-4" />
-                  New
+                  {t("newButton")}
                 </Button>
               </div>
             </div>
@@ -264,14 +272,16 @@ export function AutomationListPanel({
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="w-[min(92vw,420px)]">
           <DialogHeader>
-            <DialogTitle>Delete automation?</DialogTitle>
+            <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
             <DialogDescription>
-              {deleteTarget?.display_name ?? "This automation"} will be removed with its schedule and trigger route.
+              {deleteTarget?.display_name
+                ? t("deleteDialog.descriptionNamed", { name: deleteTarget.display_name })
+                : t("deleteDialog.descriptionFallback")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
             <Button variant="outline" disabled={deleteBusy} onClick={() => setDeleteTarget(null)}>
-              Cancel
+              {t("deleteDialog.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -285,7 +295,7 @@ export function AutomationListPanel({
               }}
             >
               {deleteBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-              Delete
+              {t("deleteDialog.confirm")}
             </Button>
           </div>
         </DialogContent>
@@ -317,6 +327,7 @@ function AutomationListRow({
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
 }) {
+  const t = useTranslations("automation.listPanel");
   const status = statusMeta(automation.last_status);
   const scheduleLabel = formatScheduleLabel(automation);
   const targetLabel = formatTarget(automation, projects);
@@ -347,8 +358,8 @@ function AutomationListRow({
             <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
               {automation.display_name}
             </h3>
-            {isAutomationPaused(automation) ? <Badge variant="outline">Paused</Badge> : null}
-            {status ? <StatusBadge status={status.status} /> : <Badge variant="secondary">Never run</Badge>}
+            {isAutomationPaused(automation) ? <Badge variant="outline">{t("row.paused")}</Badge> : null}
+            {status ? <StatusBadge status={status.status} /> : <Badge variant="secondary">{t("row.neverRun")}</Badge>}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="inline-flex min-w-0 items-center gap-1">
@@ -360,7 +371,7 @@ function AutomationListRow({
             <span className="text-border">/</span>
             <span className="inline-flex items-center gap-1">
               <Clock3 className="size-3.5" />
-              {automation.run_count} runs
+              {t("row.runs", { count: automation.run_count })}
             </span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground/80">
@@ -371,7 +382,9 @@ function AutomationListRow({
             {automation.next_run_at ? (
               <>
                 <span className="text-border">/</span>
-                <span className="tabular-nums">next {formatDateTime(automation.next_run_at)}</span>
+                <span className="tabular-nums">
+                  {t("row.nextRun", { dateTime: formatDateTime(automation.next_run_at) })}
+                </span>
               </>
             ) : null}
           </div>
@@ -383,28 +396,31 @@ function AutomationListRow({
           <Switch
             checked={enabled}
             disabled={toggleBusy}
-            aria-label={`${enabled ? "Disable" : "Enable"} automation ${automation.display_name}`}
+            aria-label={t("row.toggleAria", {
+              action: enabled ? t("row.disableAction") : t("row.enableAction"),
+              name: automation.display_name,
+            })}
             onCheckedChange={(checked) => onToggleEnabled(Boolean(checked))}
           />
         ) : null}
         <Button variant="outline" size="sm" disabled={runBusy} onClick={onRun}>
           {runBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
-          Run Now
+          {t("row.runNow")}
         </Button>
         <Button variant="outline" size="sm" onClick={onHistory}>
           <History className="size-4" />
-          History
+          {t("row.history")}
         </Button>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-9" aria-label="Automation actions">
+            <Button variant="ghost" size="icon" className="size-9" aria-label={t("row.actionsAria")}>
               {deleteBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Ellipsis className="size-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem className="cursor-pointer" onClick={onEdit}>
               <Pencil className="size-4" />
-              Edit
+              {t("row.edit")}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-pointer text-destructive focus:text-destructive"
@@ -412,7 +428,7 @@ function AutomationListRow({
               onClick={onDelete}
             >
               <Trash2 className="size-4" />
-              Delete
+              {t("row.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -434,6 +450,7 @@ function EmptyAutomationList({
   onClear: () => void;
   onCreate: () => void;
 }) {
+  const t = useTranslations("automation.listPanel");
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -444,23 +461,23 @@ function EmptyAutomationList({
         {hasQuery || hasAutomations ? <Search className="size-8" /> : <Timer className="size-8" />}
       </div>
       <h3 className="text-lg font-semibold text-foreground">
-        {hasQuery || hasAutomations ? "No matching automations" : "No automations yet"}
+        {hasQuery || hasAutomations ? t("empty.queryTitle") : t("empty.defaultTitle")}
       </h3>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
         {hasQuery || hasAutomations
-          ? "Adjust the search or target filter to find another automation."
-          : "Create an automation after at least one non-interactive agent is available."}
+          ? t("empty.queryDescription")
+          : t("empty.defaultDescription")}
       </p>
       <div className="mt-5 flex items-center gap-2">
         {hasQuery ? (
           <Button variant="outline" onClick={onClear}>
-            Clear search
+            {t("empty.clearSearch")}
           </Button>
         ) : null}
         {!hasAutomations ? (
           <Button disabled={createDisabled} onClick={onCreate}>
             <Timer className="size-4" />
-            New Automation
+            {t("empty.newAutomation")}
           </Button>
         ) : null}
       </div>
