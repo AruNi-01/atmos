@@ -1,0 +1,22 @@
+name: Setup E2E
+description: Install Atmos E2E runtime dependencies (Bun, Rust, just, Playwright browsers)
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust (stable)
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ". -> target"
+
+    - name: Install just
+      uses: taiki-e/install-action@just
+
+    - uses: ./.github/actions/setup-bun
+
+    - name: Install Playwright browsers and system dependencies
+      run: bun run --cwd e2e install:browsers:with-deps
+      shell: bash

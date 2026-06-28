@@ -13,6 +13,8 @@ export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.e2e.ts",
   outputDir: "./test-results",
+  globalSetup: "./fixtures/global-setup.ts",
+  globalTeardown: "./fixtures/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

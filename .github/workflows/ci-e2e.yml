@@ -1,0 +1,610 @@
+name: CI - E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "apps/api/**"
+      - "crates/**"
+      - "packages/**"
+      - "e2e/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Justfile"
+      - "justfile"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/ci-e2e.yml"
+      - ".github/actions/setup-bun/**"
+      - ".github/actions/setup-e2e/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "apps/api/**"
+      - "crates/**"
+      - "packages/**"
+      - "e2e/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Justfile"
+      - "justfile"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/ci-e2e.yml"
+      - ".github/actions/setup-bun/**"
+      - ".github/actions/setup-e2e/**"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "E2E target to run"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - all-smoke
+          - smoke-stateless
+          - smoke-stateful
+          - smoke-routes
+          - smoke-onboarding
+          - smoke-app-shell
+          - smoke-project
+          - smoke-settings
+          - smoke-workspace
+          - specs
+          - full
+      publish_report:
+        description: "Publish merged HTML report to GitHub Pages"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Plan suites
+    runs-on: ubuntu-latest
+    outputs:
+      suites: ${{ steps.plan.outputs.suites }}
+      should_run: ${{ steps.plan.outputs.should_run }}
+      publish_report: ${{ steps.plan.outputs.publish_report }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            any_frontend:
+              - "apps/web/**"
+              - "apps/api/**"
+              - "crates/**"
+              - "packages/**"
+              - "e2e/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "Justfile"
+              - "justfile"
+              - "package.json"
+              - "bun.lock"
+              - ".github/workflows/ci-e2e.yml"
+              - ".github/actions/setup-bun/**"
+              - ".github/actions/setup-e2e/**"
+            global:
+              - "e2e/fixtures/**"
+              - "e2e/package.json"
+              - "e2e/scripts/**"
+              - "e2e/playwright.config.ts"
+              - "e2e/tests/smoke/support/**"
+              - "apps/web/package.json"
+              - "apps/api/**"
+              - "crates/**"
+              - "apps/web/src/app-shell/**"
+              - "apps/web/src/app/[[]locale[]]/**"
+              - "apps/web/src/providers/**"
+              - "apps/web/src/shared/**"
+              - "packages/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "Justfile"
+              - "justfile"
+              - "package.json"
+              - "bun.lock"
+              - ".github/workflows/ci-e2e.yml"
+              - ".github/actions/setup-bun/**"
+              - ".github/actions/setup-e2e/**"
+            routes:
+              - "e2e/tests/smoke/routes/**"
+            onboarding:
+              - "e2e/tests/smoke/onboarding/**"
+              - "apps/web/src/app/[[]locale[]]/setup/**"
+              - "apps/web/src/features/atmos-computer/**"
+              - "apps/web/src/features/connection/**"
+              - "apps/web/src/features/local-services/**"
+              - "apps/web/src/features/tunnel-connector/**"
+              - "apps/web/src/features/welcome/**"
+            app_shell:
+              - "e2e/tests/smoke/app-shell/**"
+              - "apps/web/src/app-shell/**"
+            project:
+              - "e2e/tests/smoke/project/**"
+              - "apps/web/src/features/project/**"
+            settings:
+              - "e2e/tests/smoke/settings/**"
+              - "apps/web/src/features/settings/**"
+            workspace:
+              - "e2e/tests/smoke/workspace/**"
+              - "apps/web/src/features/canvas/**"
+              - "apps/web/src/features/editor/**"
+              - "apps/web/src/features/files/**"
+              - "apps/web/src/features/git/**"
+              - "apps/web/src/features/selection/**"
+              - "apps/web/src/features/terminal/**"
+              - "apps/web/src/features/wiki/**"
+              - "apps/web/src/features/workspace/**"
+            specs:
+              - "e2e/tests/specs/**"
+
+      - name: Build suite plan
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'true' || 'false' }}
+          TARGET: ${{ github.event.inputs.target || 'auto' }}
+          REQUESTED_PUBLISH_REPORT: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_report && 'true' || 'false' }}
+          ANY_FRONTEND: ${{ steps.changes.outputs.any_frontend }}
+          GLOBAL: ${{ steps.changes.outputs.global }}
+          ROUTES: ${{ steps.changes.outputs.routes }}
+          ONBOARDING: ${{ steps.changes.outputs.onboarding }}
+          APP_SHELL: ${{ steps.changes.outputs.app_shell }}
+          PROJECT: ${{ steps.changes.outputs.project }}
+          SETTINGS: ${{ steps.changes.outputs.settings }}
+          WORKSPACE: ${{ steps.changes.outputs.workspace }}
+          SPECS: ${{ steps.changes.outputs.specs }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const smokeSuites = [
+            "smoke-routes",
+            "smoke-onboarding",
+            "smoke-app-shell",
+            "smoke-project",
+            "smoke-settings",
+            "smoke-workspace",
+          ];
+
+          const manualTargets = {
+            "all-smoke": smokeSuites,
+            "smoke-stateless": ["smoke-stateless"],
+            "smoke-stateful": ["smoke-stateful"],
+            "smoke-routes": ["smoke-routes"],
+            "smoke-onboarding": ["smoke-onboarding"],
+            "smoke-app-shell": ["smoke-app-shell"],
+            "smoke-project": ["smoke-project"],
+            "smoke-settings": ["smoke-settings"],
+            "smoke-workspace": ["smoke-workspace"],
+            specs: ["specs"],
+            full: ["full"],
+          };
+
+          const eventName = process.env.EVENT_NAME;
+          const gitRef = process.env.GITHUB_REF || "";
+          const isForkPr = process.env.IS_FORK_PR === "true";
+          const target = process.env.TARGET || "auto";
+          const flags = {
+            anyFrontend: process.env.ANY_FRONTEND === "true",
+            global: process.env.GLOBAL === "true",
+            routes: process.env.ROUTES === "true",
+            onboarding: process.env.ONBOARDING === "true",
+            appShell: process.env.APP_SHELL === "true",
+            project: process.env.PROJECT === "true",
+            settings: process.env.SETTINGS === "true",
+            workspace: process.env.WORKSPACE === "true",
+            specs: process.env.SPECS === "true",
+          };
+
+          const suites = [];
+          const add = (suite) => {
+            if (!suites.includes(suite)) {
+              suites.push(suite);
+            }
+          };
+          const addMany = (items) => items.forEach(add);
+
+          if (target !== "auto") {
+            addMany(manualTargets[target] || []);
+          } else if (eventName === "workflow_dispatch") {
+            addMany(smokeSuites);
+          } else if (flags.global) {
+            addMany(smokeSuites);
+            if (flags.specs) {
+              add("specs");
+            }
+          } else {
+            if (flags.routes) add("smoke-routes");
+            if (flags.onboarding) add("smoke-onboarding");
+            if (flags.appShell) add("smoke-app-shell");
+            if (flags.project) add("smoke-project");
+            if (flags.settings) add("smoke-settings");
+            if (flags.workspace) add("smoke-workspace");
+            if (flags.specs) add("specs");
+
+            if (flags.anyFrontend && suites.length === 0) {
+              addMany(smokeSuites);
+            }
+          }
+
+          const shouldRun = suites.length > 0;
+          const publishReport =
+            shouldRun &&
+            !isForkPr &&
+            ((process.env.REQUESTED_PUBLISH_REPORT === "true" &&
+              eventName === "workflow_dispatch") ||
+              eventName === "pull_request" ||
+              (eventName === "push" && gitRef === "refs/heads/main"));
+
+          const output = [
+            `suites=${JSON.stringify(suites)}`,
+            `should_run=${shouldRun}`,
+            `publish_report=${publishReport}`,
+          ].join("\n");
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `${output}\n`);
+
+          const summaryLines = [
+            "### Planned E2E suites",
+            "",
+            `- Event: \`${eventName}\``,
+            `- Target: \`${target}\``,
+            `- Publish HTML report to GitHub Pages: \`${publishReport}\``,
+            isForkPr ? "- GitHub Pages publish is skipped for fork PRs because workflow write permissions are not available." : null,
+            `- Selected suites: ${shouldRun ? suites.map((suite) => `\`${suite}\``).join(", ") : "none"}`,
+          ].filter(Boolean);
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summaryLines.join("\n")}\n`);
+          NODE
+
+  run:
+    name: E2E - ${{ matrix.suite }}
+    needs: plan
+    if: needs.plan.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJson(needs.plan.outputs.suites) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-e2e
+
+      - name: Run suite
+        working-directory: e2e
+        env:
+          CI: "1"
+        run: bun ./scripts/run-ci-suite.mjs "${{ matrix.suite }}"
+
+      - name: Upload blob report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-blob-${{ matrix.suite }}
+          path: e2e/reports/blob/${{ matrix.suite }}
+          if-no-files-found: error
+          retention-days: 7
+
+  merge:
+    name: Merge reports
+    needs: [plan, run]
+    if: ${{ always() && !cancelled() && needs.plan.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      html_artifact_name: ${{ steps.meta.outputs.html_artifact_name }}
+      report_url: ${{ steps.pages_meta.outputs.report_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v5
+        with:
+          pattern: playwright-blob-*
+          merge-multiple: true
+          path: e2e/reports/blob-merged
+
+      - name: Merge Playwright reports
+        working-directory: e2e
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: reports/merged/html
+          PLAYWRIGHT_JSON_OUTPUT_DIR: reports/merged
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+        run: bunx playwright merge-reports --reporter=html,json ./reports/blob-merged
+
+      - name: Record artifact metadata
+        id: meta
+        run: echo "html_artifact_name=playwright-html-report" >> "$GITHUB_OUTPUT"
+
+      - name: Write GitHub summary
+        working-directory: e2e
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const resultsPath = "reports/merged/results.json";
+          if (!fs.existsSync(resultsPath)) {
+            fs.appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              "### Playwright summary\n\nMerged JSON report was not generated.\n",
+            );
+            process.exit(0);
+          }
+
+          const report = JSON.parse(fs.readFileSync(resultsPath, "utf8"));
+          const stats = report.stats || {};
+          const failures = [];
+
+          function walkSuite(suite) {
+            for (const spec of suite.specs || []) {
+              if (spec.ok === false) {
+                const firstTest = (spec.tests || [])[0] || {};
+                const firstResult = (firstTest.results || [])[0] || {};
+                const firstError = firstResult.error || (firstResult.errors || [])[0];
+                failures.push({
+                  title: spec.title,
+                  project: firstTest.projectName || firstTest.projectId || "unknown",
+                  message: firstError?.message
+                    ? firstError.message.split("\n")[0]
+                    : "See HTML report for details.",
+                });
+              }
+            }
+            for (const child of suite.suites || []) {
+              walkSuite(child);
+            }
+          }
+
+          for (const suite of report.suites || []) {
+            walkSuite(suite);
+          }
+
+          const lines = [
+            "### Playwright summary",
+            "",
+            "| Metric | Value |",
+            "| --- | --- |",
+            `| Expected | ${stats.expected ?? 0} |`,
+            `| Unexpected | ${stats.unexpected ?? 0} |`,
+            `| Flaky | ${stats.flaky ?? 0} |`,
+            `| Skipped | ${stats.skipped ?? 0} |`,
+            `| Duration | ${Math.round((stats.duration ?? 0) / 1000)}s |`,
+            "",
+            "- Merged HTML report artifact: `playwright-html-report`",
+            "- Raw matrix blob artifacts: `playwright-blob-*`",
+            "- GitHub Actions artifacts are downloadable archives; direct in-browser HTML viewing is provided via GitHub Pages when this workflow publishes a Pages report.",
+          ];
+
+          if (failures.length > 0) {
+            lines.push("", "#### Failed specs", "");
+            for (const failure of failures.slice(0, 10)) {
+              lines.push(`- [${failure.project}] ${failure.title} — ${failure.message}`);
+            }
+            if (failures.length > 10) {
+              lines.push(`- ...and ${failures.length - 10} more failures in the HTML report`);
+            }
+          }
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join("\n")}\n`);
+          NODE
+
+      - name: Upload merged HTML report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: e2e/reports/merged/html
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload merged JSON report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-json-report
+          path: e2e/reports/merged/results.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Prepare GitHub Pages content
+        if: needs.plan.outputs.publish_report == 'true'
+        id: pages_meta
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        working-directory: e2e
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const eventName = process.env.GITHUB_EVENT_NAME;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const owner = process.env.GITHUB_REPOSITORY_OWNER;
+          const repoName = repo.split("/")[1];
+          const runId = process.env.GITHUB_RUN_ID;
+          const refName = (process.env.GITHUB_REF_NAME || "manual").replace(/[^a-zA-Z0-9._-]+/g, "-");
+          const prNumber = process.env.PR_NUMBER;
+
+          let reportPath;
+          if (eventName === "pull_request" && prNumber) {
+            reportPath = `e2e-reports/pr-${prNumber}/run-${runId}`;
+          } else if (eventName === "push") {
+            reportPath = `e2e-reports/branch-${refName}/run-${runId}`;
+          } else {
+            reportPath = `e2e-reports/manual-${refName}/run-${runId}`;
+          }
+
+          const reportUrl = `https://${owner}.github.io/${repoName}/${reportPath}/`;
+          const sourceDir = path.resolve("reports/merged/html");
+          const siteRoot = path.resolve("reports/pages-site");
+          const targetDir = path.join(siteRoot, reportPath);
+
+          fs.mkdirSync(targetDir, { recursive: true });
+          fs.cpSync(sourceDir, targetDir, { recursive: true });
+          fs.writeFileSync(path.join(siteRoot, ".nojekyll"), "");
+
+          const indexHtml = `<!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Atmos E2E Reports</title>
+              <style>
+                body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 40px; color: #111827; }
+                a { color: #2563eb; }
+                code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+              </style>
+            </head>
+            <body>
+              <h1>Atmos E2E Reports</h1>
+              <p>Latest report published by this workflow:</p>
+              <p><a href="${`/${repoName}/${reportPath}/`}">${reportPath}</a></p>
+              <p>This Pages site stores static Playwright HTML reports for GitHub workflow runs.</p>
+            </body>
+          </html>`;
+          fs.writeFileSync(path.join(siteRoot, "index.html"), indexHtml, "utf8");
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `report_path=${reportPath}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `report_url=${reportUrl}\n`);
+          NODE
+
+      - name: Deploy GitHub Pages report branch
+        if: needs.plan.outputs.publish_report == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: e2e/reports/pages-site
+          keep_files: true
+          enable_jekyll: false
+
+      - name: Comment on pull request with report URL
+        if: needs.plan.outputs.publish_report == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          REPORT_URL: ${{ steps.pages_meta.outputs.report_url }}
+        with:
+          script: |
+            const fs = require("node:fs");
+            const marker = "<!-- atmos-e2e-report -->";
+            const report = JSON.parse(fs.readFileSync("e2e/reports/merged/results.json", "utf8"));
+            const stats = report.stats || {};
+            const failures = [];
+
+            function walkSuite(suite) {
+              for (const spec of suite.specs || []) {
+                if (spec.ok === false) {
+                  const firstTest = (spec.tests || [])[0] || {};
+                  const firstResult = (firstTest.results || [])[0] || {};
+                  const firstError = firstResult.error || (firstResult.errors || [])[0];
+                  failures.push({
+                    title: spec.title,
+                    project: firstTest.projectName || firstTest.projectId || "unknown",
+                    message: firstError?.message
+                      ? firstError.message.split("\n")[0]
+                      : "See HTML report for details.",
+                  });
+                }
+              }
+              for (const child of suite.suites || []) {
+                walkSuite(child);
+              }
+            }
+
+            for (const suite of report.suites || []) {
+              walkSuite(suite);
+            }
+
+            const lines = [
+              marker,
+              "## E2E report",
+              "",
+              `- HTML report: [Open report](${process.env.REPORT_URL})`,
+              `- Expected: ${stats.expected ?? 0}`,
+              `- Unexpected: ${stats.unexpected ?? 0}`,
+              `- Flaky: ${stats.flaky ?? 0}`,
+              `- Skipped: ${stats.skipped ?? 0}`,
+              `- Duration: ${Math.round((stats.duration ?? 0) / 1000)}s`,
+            ];
+
+            if (failures.length > 0) {
+              lines.push("", "### Failed specs", "");
+              for (const failure of failures.slice(0, 10)) {
+                lines.push(`- [${failure.project}] ${failure.title} — ${failure.message}`);
+              }
+              if (failures.length > 10) {
+                lines.push(`- ...and ${failures.length - 10} more failures in the HTML report`);
+              }
+            } else {
+              lines.push("", "All selected E2E suites passed.");
+            }
+
+            const body = lines.join("\n");
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.type === "Bot" && comment.body?.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Write GitHub summary with published report URL
+        if: needs.plan.outputs.publish_report == 'true'
+        run: |
+          {
+            echo "### Published HTML report"
+            echo
+            echo "- GitHub Pages URL: ${{ steps.pages_meta.outputs.report_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
