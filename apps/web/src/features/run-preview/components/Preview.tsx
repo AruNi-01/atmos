@@ -1,13 +1,16 @@
 "use client";
 
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { createTranslator, useTranslations } from 'next-intl';
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 import type { PreviewHelperCapability, PreviewHelperPayload } from "../lib/preview-helper/types";
 import type {
   PreviewTransportMode,
@@ -65,6 +68,38 @@ interface PreviewTransportState {
   connected: boolean;
   message: string;
   capabilities: string[];
+}
+
+type PreviewTranslationValues = Record<string, string | number | boolean | null | undefined>;
+
+let cachedPreviewLocale: 'en' | 'zh' | null = null;
+let cachedPreviewTranslator: any = null;
+
+function formatPreviewFallbackMessage(template: string, values?: PreviewTranslationValues): string {
+  if (!values) return template;
+
+  return template.replace(/\{(\w+)\}/g, (_match, key: string) => {
+    const value = values[key];
+    return value == null ? '' : String(value);
+  });
+}
+
+function previewT(key: string, fallback: string, values?: PreviewTranslationValues): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedPreviewTranslator || cachedPreviewLocale !== locale) {
+    cachedPreviewLocale = locale;
+    cachedPreviewTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'runPreview.preview',
+    });
+  }
+
+  try {
+    return cachedPreviewTranslator(key as never, values as never);
+  } catch {
+    return formatPreviewFallbackMessage(fallback, values);
+  }
 }
 
 
@@ -674,7 +709,11 @@ export const Preview: React.FC<PreviewProps> = ({
       setTransportState({
         mode: 'desktop-native',
         connected: false,
-        message: `Failed to open preview window: ${error instanceof Error ? error.message : String(error)}`,
+        message: previewT(
+          'desktopTransport.openFailedMessage',
+          'Failed to open preview window: {errorMessage}',
+          { errorMessage: error instanceof Error ? error.message : String(error) },
+        ),
         capabilities: [],
       });
     } finally {
@@ -783,7 +822,7 @@ export const Preview: React.FC<PreviewProps> = ({
     if (!installed) {
       toastManager.add({
         type: "error",
-        title: "Element picker unavailable",
+        title: previewT('elementPicker.title.unavailable', 'Element picker unavailable'),
         description:
           preferredTransportMode === 'extension'
             ? PREVIEW_EXTENSION_REQUIRED_MESSAGE
@@ -816,7 +855,9 @@ export const Preview: React.FC<PreviewProps> = ({
     } catch (error) {
       toastManager.add({
         type: "error",
-        title: nextDetached ? "Failed to detach preview" : "Failed to restore preview",
+        title: nextDetached
+          ? previewT('desktopPreview.detachFailedTitle', 'Failed to detach preview')
+          : previewT('desktopPreview.restoreFailedTitle', 'Failed to restore preview'),
         description: error instanceof Error ? error.message : String(error),
       });
     }
@@ -894,7 +935,7 @@ export const Preview: React.FC<PreviewProps> = ({
       if (!connected) {
         toastManager.add({
           type: 'info',
-          title: 'Extension not detected',
+          title: previewT('extension.notDetectedTitle', 'Extension not detected'),
           description: PREVIEW_EXTENSION_REQUIRED_MESSAGE,
         });
       }
@@ -903,22 +944,40 @@ export const Preview: React.FC<PreviewProps> = ({
     }
   }, [connectIframeTransport, isRecheckingExtension, preferredTransportMode, setIsRecheckingExtension]);
 
+  const elementPickerAction = isElementPickerEnabled
+    ? previewT('elementPicker.action.disable', 'Disable')
+    : previewT('elementPicker.action.enable', 'Enable');
   const elementPickerTitle = !activeUrl
-    ? "Enter a URL first"
+    ? previewT('elementPicker.title.enterUrlFirst', 'Enter a URL first')
     : preferredTransportMode === 'unavailable'
-      ? "Element picker unavailable"
+      ? previewT('elementPicker.title.unavailable', 'Element picker unavailable')
     : isElementPickerEnabled
-      ? "Disable element picker"
-      : "Enable element picker";
+      ? previewT('elementPicker.title.disable', 'Disable element picker')
+      : previewT('elementPicker.title.enable', 'Enable element picker');
   const elementPickerTooltip = !activeUrl
-    ? "Enter a URL first."
+    ? previewT('elementPicker.tooltip.enterUrlFirst', 'Enter a URL first.')
     : preferredTransportMode === 'unavailable'
-      ? "Element selection is only available for same-origin pages, local development URLs, or the desktop preview."
+      ? previewT(
+          'elementPicker.tooltip.unavailable',
+          'Element selection is only available for same-origin pages, local development URLs, or the desktop preview.',
+        )
     : preferredTransportMode === 'desktop-native'
-      ? `${isElementPickerEnabled ? "Disable" : "Enable"} element selection. Source component detection runs through the desktop native preview and supports React, Vue, Angular, and Svelte.`
+      ? previewT(
+          'elementPicker.tooltip.desktopNative',
+          '{action} element selection. Source component detection runs through the desktop native preview and supports React, Vue, Angular, and Svelte.',
+          { action: elementPickerAction },
+        )
       : preferredTransportMode === 'extension'
-        ? `${isElementPickerEnabled ? "Disable" : "Enable"} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.`
-        : `${isElementPickerEnabled ? "Disable" : "Enable"} element selection. Source component detection supports React, Vue, Angular, and Svelte.`;
+        ? previewT(
+            'elementPicker.tooltip.extension',
+            '{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.',
+            { action: elementPickerAction },
+          )
+        : previewT(
+            'elementPicker.tooltip.default',
+            '{action} element selection. Source component detection supports React, Vue, Angular, and Svelte.',
+            { action: elementPickerAction },
+          );
   const isChromeManagedByTabBar = Boolean(browserTabBarProps);
   const toolbarProps: React.ComponentProps<typeof PreviewToolbar> = {
     activeFavorite,

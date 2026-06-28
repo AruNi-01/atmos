@@ -8,6 +8,7 @@ import type {
   SelectedLineRange,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
+import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import type { ReviewCommentDto, ReviewFileDto, ReviewMessageDto } from '@/api/ws-api';
 import { reviewWsApi } from '@/api/ws-api';
@@ -63,6 +64,8 @@ export function ReviewCodeView({
   contextId,
   navigationTarget: navigationTargetProp,
 }: ReviewCodeViewProps) {
+  const t = useTranslations('diff.codeView');
+  const reviewT = useTranslations('diff.reviewAnnotations');
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
@@ -166,13 +169,17 @@ export function ReviewCodeView({
   );
 
   const revisionLabel = useMemo(() => {
-    if (!reviewCtx.currentSession || !reviewCtx.currentRevision) return 'Review';
+    if (!reviewCtx.currentSession || !reviewCtx.currentRevision) {
+      return t('reviewRevisionDefaultTitle');
+    }
     const sorted = [...reviewCtx.currentSession.revisions].sort((a, b) =>
       a.created_at.localeCompare(b.created_at),
     );
     const index = sorted.findIndex((r) => r.guid === reviewCtx.currentRevision?.guid);
-    return index >= 0 ? `Review v${index + 1}` : 'Review';
-  }, [reviewCtx.currentRevision, reviewCtx.currentSession]);
+    return index >= 0
+      ? t('reviewRevisionTitle', { version: index + 1 })
+      : t('reviewRevisionDefaultTitle');
+  }, [reviewCtx.currentRevision, reviewCtx.currentSession, t]);
 
   const renderHeaderPrefix = createDiffHeaderPrefixRenderer({
     viewerRef: codeViewRef,
@@ -283,9 +290,9 @@ export function ReviewCodeView({
                 );
                 if (loadErrorRef.current == null) {
                   loadErrorRef.current =
-                    loadError instanceof Error
+                  loadError instanceof Error
                       ? loadError
-                      : new Error('Failed to load review diff');
+                      : new Error(t('errors.loadReviewDiffFallback'));
                 }
                 return null;
               }
@@ -336,7 +343,7 @@ export function ReviewCodeView({
           setError(
             loadError instanceof Error
               ? loadError.message
-              : 'Failed to load review changes',
+              : t('errors.loadReviewDiffFallback'),
           );
           setInitialItems([]);
           setIsLoading(false);
@@ -348,7 +355,7 @@ export function ReviewCodeView({
     return () => {
       cancelled = true;
     };
-  }, [collapseMode, orderedFiles, reviewCtx.currentRevision]);
+  }, [collapseMode, orderedFiles, reviewCtx.currentRevision, t]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
@@ -471,8 +478,8 @@ export function ReviewCodeView({
     const body = inlineCommentBody.trim();
     if (!body) {
       toastManager.add({
-        title: 'Comment is empty',
-        description: 'Write a short review note before creating a comment.',
+        title: reviewT('errors.emptyCommentTitle'),
+        description: reviewT('errors.emptyCommentDescription'),
         type: 'error',
       });
       return;
@@ -504,11 +511,11 @@ export function ReviewCodeView({
       setInlineCommentDraft(null);
     } catch (submitError) {
       toastManager.add({
-        title: 'Failed to create review comment',
+        title: reviewT('errors.createCommentTitle'),
         description:
           submitError instanceof Error
             ? submitError.message
-            : 'Unknown review comment error',
+            : reviewT('errors.unknownCommentError'),
         type: 'error',
       });
     } finally {
@@ -519,6 +526,7 @@ export function ReviewCodeView({
     inlineCommentDraft,
     reviewCtx.currentRevision,
     reviewCtx.currentSession,
+    reviewT,
   ]);
 
   const handleCommentReplySubmit = useCallback(
@@ -526,8 +534,8 @@ export function ReviewCodeView({
       const body = replyBody.trim();
       if (!body) {
         toastManager.add({
-          title: 'Reply is empty',
-          description: 'Write a short reply before sending.',
+          title: reviewT('errors.emptyReplyTitle'),
+          description: reviewT('errors.emptyReplyDescription'),
           type: 'error',
         });
         return;
@@ -544,7 +552,7 @@ export function ReviewCodeView({
         setIsSubmittingReply(false);
       }
     },
-    [replyBody, reviewCtx],
+    [replyBody, reviewCtx, reviewT],
   );
 
   const handleDeleteMessage = useCallback(
@@ -674,7 +682,9 @@ export function ReviewCodeView({
         if (context.item.type !== 'diff') return;
         openInlineCommentDraft(context.item.id, range);
       },
-      gutterUtilityAriaLabel: reviewCtx.canEdit ? 'Add review comment' : undefined,
+      gutterUtilityAriaLabel: reviewCtx.canEdit
+        ? t('actions.addReviewComment')
+        : undefined,
     }),
     [
       diffIndicators,
@@ -684,6 +694,7 @@ export function ReviewCodeView({
       resolvedTheme,
       reviewCtx.canEdit,
       showBackgrounds,
+      t,
       wordWrap,
     ],
   );
@@ -806,7 +817,7 @@ export function ReviewCodeView({
           {revisionLabel}
         </span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {treeItems.length} file{treeItems.length === 1 ? '' : 's'}
+          {t('fileCount', { count: treeItems.length })}
         </span>
       </div>
       {(totalStats.additions > 0 || totalStats.deletions > 0) && (
@@ -835,7 +846,7 @@ export function ReviewCodeView({
   if (!reviewCtx.currentSession || !reviewCtx.currentRevision) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        No review revision selected
+        {t('noReviewRevisionSelected')}
       </div>
     );
   }
@@ -846,7 +857,7 @@ export function ReviewCodeView({
         <DiffCodeViewScaffold
           items={treeItems}
           selectedPath={selectedPath}
-          ariaLabel="Review files"
+          ariaLabel={t('reviewFilesAria')}
           loading
           loadingTreeLabel={revisionLabel}
           defaultTreeVisible={false}
@@ -872,7 +883,7 @@ export function ReviewCodeView({
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <div className="text-center">
-          <p className="mb-2 text-red-500">Error loading review diff</p>
+          <p className="mb-2 text-red-500">{t('errors.loadReviewDiffTitle')}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -882,7 +893,7 @@ export function ReviewCodeView({
   if (initialItems.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        No files in this revision
+        {t('noFilesInRevision')}
       </div>
     );
   }
@@ -892,7 +903,7 @@ export function ReviewCodeView({
       <DiffCodeViewScaffold
         items={treeItems}
         selectedPath={selectedPath}
-        ariaLabel="Review files"
+        ariaLabel={t('reviewFilesAria')}
         toolbar={toolbar}
         defaultTreeVisible={false}
         onSelectFile={handleSelectFile}

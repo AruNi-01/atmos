@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   ArrowRight,
@@ -161,6 +162,7 @@ export function PreviewToolbar({
   setUrl,
   setViewMode,
 }: PreviewToolbarProps) {
+  const t = useTranslations("preview.toolbar");
   return (
     <div
       className={cn(
@@ -202,7 +204,7 @@ export function PreviewToolbar({
                 "rounded-sm p-1.5 transition-colors",
                 viewMode === "desktop" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
-              title="Desktop View"
+              title={t("view.desktop")}
             >
               <Monitor className="size-3.5" />
             </button>
@@ -212,7 +214,7 @@ export function PreviewToolbar({
                 "rounded-sm p-1.5 transition-colors",
                 viewMode === "mobile" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
-              title="Mobile View"
+              title={t("view.mobile")}
             >
               <Smartphone className="size-3.5" />
             </button>
@@ -234,7 +236,7 @@ export function PreviewToolbar({
                 ? "text-muted-foreground hover:bg-muted hover:text-foreground"
                 : "cursor-not-allowed text-muted-foreground/30",
             )}
-            title="Back"
+            title={t("navigation.back")}
           >
             <ArrowLeft className="size-3.5" />
           </button>
@@ -247,14 +249,14 @@ export function PreviewToolbar({
                 ? "text-muted-foreground hover:bg-muted hover:text-foreground"
                 : "cursor-not-allowed text-muted-foreground/30",
             )}
-            title="Forward"
+            title={t("navigation.forward")}
           >
             <ArrowRight className="size-3.5" />
           </button>
           <button
             onClick={handleRefresh}
             className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Refresh"
+            title={t("navigation.refresh")}
           >
             <RotateCw className="size-3.5" />
           </button>
@@ -265,7 +267,7 @@ export function PreviewToolbar({
             type="button"
             onClick={handleGoHome}
             className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Back to Preview home"
+            title={t("navigation.home")}
           >
             <Home className="size-3.5" />
           </button>
@@ -285,14 +287,14 @@ export function PreviewToolbar({
                   handleRefresh();
                 }
               }}
-              placeholder="Enter URL..."
+              placeholder={t("url.enter")}
             />
           ) : (
             <button
               type="button"
               onClick={focusUrlInput}
               className="flex h-full min-w-0 flex-1 items-center gap-0.5 overflow-hidden rounded-sm px-0.5 text-left"
-              title={url || "Enter URL..."}
+              title={url || t("url.enter")}
             >
               {displayUrlParts.address ? (
                 <>
@@ -307,7 +309,7 @@ export function PreviewToolbar({
                   ) : null}
                 </>
               ) : (
-                <span className="text-xs text-muted-foreground/50">Enter URL...</span>
+                <span className="text-xs text-muted-foreground/50">{t("url.enter")}</span>
               )}
             </button>
           )}
@@ -334,7 +336,7 @@ export function PreviewToolbar({
               "shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
               !normalizedActiveUrl && "pointer-events-none opacity-50",
             )}
-            title="Open in browser"
+            title={t("actions.openInBrowser")}
           >
             <ExternalLink className="size-3.5" />
           </button>
@@ -390,7 +392,12 @@ export function PreviewToolbar({
                         void handleCopySelectionAnnotations();
                       }}
                       className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                      aria-label={`Copy ${selectionAnnotationCount} preview annotation${selectionAnnotationCount === 1 ? "" : "s"}`}
+                      aria-label={t(
+                        selectionAnnotationCount === 1
+                          ? "annotations.copyAriaOne"
+                          : "annotations.copyAriaOther",
+                        { count: selectionAnnotationCount },
+                      )}
                     >
                       <span className="absolute inset-0 inline-flex items-center justify-center gap-1 tabular-nums transition-all duration-150 ease-out group-hover:-translate-y-1 group-hover:opacity-0">
                         <MessageCirclePlus className="size-3" />
@@ -398,12 +405,17 @@ export function PreviewToolbar({
                       </span>
                       <span className="absolute inset-0 inline-flex translate-y-1 items-center justify-center gap-1 opacity-0 transition-all duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100">
                         <Copy className="size-3" />
-                        <span>Copy</span>
+                        <span>{t("annotations.copy")}</span>
                       </span>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
-                    Copy {selectionAnnotationCount} queued preview annotation{selectionAnnotationCount === 1 ? "" : "s"}.
+                    {t(
+                      selectionAnnotationCount === 1
+                        ? "annotations.copyTooltipOne"
+                        : "annotations.copyTooltipOther",
+                      { count: selectionAnnotationCount },
+                    )}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -427,7 +439,11 @@ export function PreviewToolbar({
                               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                             : "cursor-not-allowed text-muted-foreground/30",
                         )}
-                        aria-label={isDesktopPreviewDetached ? "Restore preview to sidebar" : "Detach preview window"}
+                        aria-label={
+                          isDesktopPreviewDetached
+                            ? t("desktop.restoreToSidebar")
+                            : t("desktop.detachWindow")
+                        }
                       >
                         <PictureInPicture2 className="size-3.5" />
                       </button>
@@ -435,8 +451,8 @@ export function PreviewToolbar({
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
                     {isDesktopPreviewDetached
-                      ? "Restore the desktop preview to the sidebar."
-                      : "Open the desktop preview in a separate window."}
+                      ? t("desktop.restoreTooltip")
+                      : t("desktop.detachTooltip")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -491,6 +507,7 @@ function FavoriteSavePopover({
   setFavoriteNameDraft,
   setFavoritePopoverOpen,
 }: FavoriteSavePopoverProps) {
+  const t = useTranslations("preview.toolbar.favorite");
   return (
     <Popover open={favoritePopoverOpen} onOpenChange={setFavoritePopoverOpen}>
       <PopoverTrigger asChild>
@@ -503,7 +520,7 @@ function FavoriteSavePopover({
                 : "text-muted-foreground hover:text-foreground"
               : "pointer-events-none text-muted-foreground/30",
           )}
-          title={activeFavorite ? "Edit favorite" : "Add favorite"}
+          title={activeFavorite ? t("edit") : t("add")}
         >
           <Star className={cn("size-3.5", activeFavorite && "fill-current")} />
         </button>
@@ -517,33 +534,33 @@ function FavoriteSavePopover({
         <div className="space-y-3">
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
-              {activeFavorite ? "Edit favorite" : "Save favorite"}
+              {activeFavorite ? t("edit") : t("save")}
             </p>
             <p className="break-all text-xs text-muted-foreground">
-              {normalizedActiveUrl || "No page selected"}
+              {normalizedActiveUrl || t("noPageSelected")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-foreground">Name</label>
+            <label className="text-xs font-medium text-foreground">{t("name")}</label>
             <Input
               value={favoriteNameDraft}
               onChange={(event) => setFavoriteNameDraft(event.target.value)}
-              placeholder="Favorite name"
+              placeholder={t("namePlaceholder")}
               className="h-8 text-xs"
             />
           </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setFavoritePopoverOpen(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               size="sm"
               disabled={!normalizedActiveUrl || savingFavorite}
               onClick={() => void handleAddFavorite()}
             >
-              {activeFavorite ? "Update" : "Save"}
+              {activeFavorite ? t("update") : t("saveAction")}
             </Button>
           </div>
         </div>
@@ -567,6 +584,7 @@ function PreviewExtensionUpdatePopover({
   handleDownloadExtensionUpdate,
   setExtensionUpdatePopoverOpen,
 }: PreviewExtensionUpdatePopoverProps) {
+  const t = useTranslations("preview.toolbar.extensionUpdate");
   if (!extensionUpdateAvailable) return null;
 
   return (
@@ -576,7 +594,7 @@ function PreviewExtensionUpdatePopover({
           type="button"
           className="flex h-6 cursor-pointer items-center px-1.5 text-[11px] leading-none font-medium text-emerald-400 transition-colors hover:text-emerald-300"
         >
-          Update
+          {t("trigger")}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -585,27 +603,25 @@ function PreviewExtensionUpdatePopover({
         className="z-[1001] w-[320px] space-y-3 p-3"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <p className="text-xs font-medium text-foreground">Extension update available</p>
+        <p className="text-xs font-medium text-foreground">{t("title")}</p>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          A newer version of the Atmos Inspector extension is available. Download and replace the old
-          files to get the latest features and fixes.
+          {t("description")}
         </p>
         <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
-          <li>Download the new extension package below.</li>
+          <li>{t("steps.download")}</li>
           <li>
-            Unzip and <span className="font-medium text-foreground">replace</span> the old{" "}
+            {t("steps.unzipPrefix")} <span className="font-medium text-foreground">{t("steps.replace")}</span> {t("steps.unzipMiddle")}{" "}
             <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.
           </li>
           <li>
-            Open <span className="font-medium text-foreground">chrome://extensions</span> and click
-            the <span className="font-medium text-foreground">reload ↻</span> button on the extension
-            card.
+            {t("steps.reloadPrefix")} <span className="font-medium text-foreground">chrome://extensions</span> {t("steps.reloadMiddle")}
+            <span className="font-medium text-foreground">reload ↻</span> {t("steps.reloadSuffix")}
           </li>
-          <li>Reload the target page in Atmos Preview.</li>
+          <li>{t("steps.reloadPage")}</li>
         </ol>
         <div className="flex items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={() => setExtensionUpdatePopoverOpen(false)}>
-            Later
+            {t("later")}
           </Button>
           <Button
             size="sm"
@@ -614,7 +630,7 @@ function PreviewExtensionUpdatePopover({
               void handleDownloadExtensionUpdate();
             }}
           >
-            {isDownloadingExtension ? "Preparing…" : "Download update"}
+            {isDownloadingExtension ? t("preparing") : t("downloadUpdate")}
           </Button>
         </div>
       </PopoverContent>
@@ -643,6 +659,7 @@ function PreviewExtensionInstallPopover({
   handleRecheckExtension,
   setExtensionPopoverOpen,
 }: PreviewExtensionInstallPopoverProps) {
+  const t = useTranslations("preview.toolbar.extensionInstall");
   if (!shouldShowExtensionInstall) {
     return null;
   }
@@ -653,8 +670,8 @@ function PreviewExtensionInstallPopover({
         <button
           type="button"
           className="flex h-6 cursor-pointer items-center justify-center px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-          aria-label="Install preview extension"
-          title="Install preview extension"
+          aria-label={t("trigger")}
+          title={t("trigger")}
         >
           <Puzzle className="size-3.5" />
         </button>
@@ -671,32 +688,31 @@ function PreviewExtensionInstallPopover({
         {extensionDownloadStarted ? (
           <div className="space-y-3">
             <p className="text-xs leading-relaxed text-muted-foreground">
-              The extension package has been downloaded. Pages that reject iframe embedding still need
-              the desktop preview.
+              {t("downloadedDescription")}
             </p>
             <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
               <li>
-                Unzip <span className="font-medium text-foreground">atmos-inspector-extension.zip</span>.
+                {t("steps.unzip")} <span className="font-medium text-foreground">atmos-inspector-extension.zip</span>.
               </li>
               <li>
-                Open <span className="font-medium text-foreground">chrome://extensions</span> or{" "}
+                {t("steps.open")} <span className="font-medium text-foreground">chrome://extensions</span> {t("steps.or")}{" "}
                 <span className="font-medium text-foreground">edge://extensions</span>.
               </li>
               <li>
-                Turn on <span className="font-medium text-foreground">Developer mode</span>.
+                {t("steps.turnOn")} <span className="font-medium text-foreground">{t("steps.developerMode")}</span>.
               </li>
               <li>
-                Click <span className="font-medium text-foreground">Load unpacked</span>.
+                {t("steps.click")} <span className="font-medium text-foreground">{t("steps.loadUnpacked")}</span>.
               </li>
               <li>
-                Select the extracted{" "}
+                {t("steps.selectExtracted")}{" "}
                 <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.
               </li>
-              <li>Return to Atmos and reload the target page, then start element selection again.</li>
+              <li>{t("steps.returnAndReload")}</li>
             </ol>
             <div className="flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" onClick={() => setExtensionPopoverOpen(false)}>
-                Close
+                {t("close")}
               </Button>
               <Button
                 size="sm"
@@ -706,19 +722,18 @@ function PreviewExtensionInstallPopover({
                   void handleRecheckExtension();
                 }}
               >
-                {isRecheckingExtension ? "Rechecking…" : "Recheck"}
+                {isRecheckingExtension ? t("rechecking") : t("recheck")}
               </Button>
             </div>
           </div>
         ) : (
           <>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Cross-port element selection requires the Atmos Inspector extension. Pages that reject
-              iframe embedding must use the desktop preview.
+              {t("description")}
             </p>
             <div className="flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" onClick={() => setExtensionPopoverOpen(false)}>
-                Close
+                {t("close")}
               </Button>
               <div className="flex items-center gap-2">
                 <Button
@@ -729,7 +744,7 @@ function PreviewExtensionInstallPopover({
                     void handleRecheckExtension();
                   }}
                 >
-                  {isRecheckingExtension ? "Rechecking…" : "Recheck"}
+                  {isRecheckingExtension ? t("rechecking") : t("recheck")}
                 </Button>
                 <Button
                   size="sm"
@@ -738,7 +753,7 @@ function PreviewExtensionInstallPopover({
                     void handleDownloadExtension();
                   }}
                 >
-                  {isDownloadingExtension ? "Preparing…" : "Install"}
+                  {isDownloadingExtension ? t("preparing") : t("install")}
                 </Button>
               </div>
             </div>

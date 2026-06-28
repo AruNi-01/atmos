@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { FileTree } from "@/features/files/components/FileTree";
@@ -41,6 +42,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   onShowHiddenChange,
   onOpenFile,
 }) => {
+  const t = useTranslations('files.components');
   const storeData = useFileTreeStore((s) => s.data);
   const storeRootPath = useFileTreeStore((s) => s.rootPath);
   const storeIsLoading = useFileTreeStore((s) => s.isLoading);
@@ -58,7 +60,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
         <Folder className="size-8 opacity-20 mb-2" />
-        <span className="text-xs text-center">Select a workspace to view files</span>
+        <span className="text-xs text-center">{t('fileTreePanel.empty.selectWorkspace')}</span>
       </div>
     );
   }
@@ -78,7 +80,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
                 "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
                 effectiveShowHidden ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground",
               )}
-              title={effectiveShowHidden ? "Hide hidden files" : "Show hidden files"}
+              title={effectiveShowHidden ? t('fileTreePanel.actions.hideHiddenFiles') : t('fileTreePanel.actions.showHiddenFiles')}
             >
               {effectiveShowHidden ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
             </button>
@@ -86,7 +88,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               type="button"
               onClick={effectiveRefresh}
               className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
-              title="Refresh files"
+              title={t('fileTreePanel.actions.refreshFiles')}
               disabled={effectiveIsLoading}
             >
               {effectiveIsLoading ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCcw className="size-3.5 text-muted-foreground" />}

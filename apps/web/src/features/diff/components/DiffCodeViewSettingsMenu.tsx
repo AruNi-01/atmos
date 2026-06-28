@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { DiffIndicators } from '@pierre/diffs';
 import {
   IconCodeStyleBars,
@@ -56,11 +57,12 @@ export function DiffCodeViewSettingsMenu({
   onToggleCollapseMode,
   className,
 }: DiffCodeViewSettingsMenuProps) {
+  const t = useTranslations('diff.codeViewSettings');
   return (
     <div className={cn('flex shrink-0 items-center gap-1', className)}>
       <button
         type="button"
-        title={diffStyle === 'split' ? 'Switch to unified view' : 'Switch to split view'}
+        title={diffStyle === 'split' ? t('switchToUnifiedView') : t('switchToSplitView')}
         className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
         onClick={() =>
           onDiffStyleChange(diffStyle === 'split' ? 'unified' : 'split')
@@ -75,7 +77,7 @@ export function DiffCodeViewSettingsMenu({
       <button
         type="button"
         title={
-          collapseMode === 'expanded' ? 'Collapse all files' : 'Expand all files'
+          collapseMode === 'expanded' ? t('collapseAllFiles') : t('expandAllFiles')
         }
         className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
         onClick={onToggleCollapseMode}
@@ -90,7 +92,7 @@ export function DiffCodeViewSettingsMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            title="View options"
+            title={t('viewOptions')}
             className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
           >
             <IconGearFill className="size-3.5" />
@@ -102,7 +104,7 @@ export function DiffCodeViewSettingsMenu({
             onSelect={(e) => e.preventDefault()}
           >
             <label className={SETTING_ROW_CLASS}>
-              <span className="min-w-0 flex-1">Backgrounds</span>
+              <span className="min-w-0 flex-1">{t('backgrounds')}</span>
               <Switch
                 checked={showBackgrounds}
                 onCheckedChange={onShowBackgroundsChange}
@@ -114,7 +116,7 @@ export function DiffCodeViewSettingsMenu({
             onSelect={(e) => e.preventDefault()}
           >
             <label className={SETTING_ROW_CLASS}>
-              <span className="min-w-0 flex-1">Line numbers</span>
+              <span className="min-w-0 flex-1">{t('lineNumbers')}</span>
               <Switch
                 checked={lineNumbers}
                 onCheckedChange={onLineNumbersChange}
@@ -126,7 +128,7 @@ export function DiffCodeViewSettingsMenu({
             onSelect={(e) => e.preventDefault()}
           >
             <label className={SETTING_ROW_CLASS}>
-              <span className="min-w-0 flex-1">Word wrap</span>
+              <span className="min-w-0 flex-1">{t('wordWrap')}</span>
               <Switch checked={wordWrap} onCheckedChange={onWordWrapChange} />
             </label>
           </DropdownMenuItem>
@@ -135,7 +137,7 @@ export function DiffCodeViewSettingsMenu({
             onSelect={(e) => e.preventDefault()}
           >
             <div className="flex w-full items-center justify-between gap-3 py-1.5 text-sm">
-              <span className="shrink-0 whitespace-nowrap">Indicator style</span>
+              <span className="shrink-0 whitespace-nowrap">{t('indicatorStyle')}</span>
               <ToggleGroup
                 type="single"
                 value={diffIndicators}
@@ -147,21 +149,21 @@ export function DiffCodeViewSettingsMenu({
                 <ToggleGroupItem
                   value="bars"
                   className="size-7 p-0"
-                  aria-label="Bar indicators"
+                  aria-label={t('indicatorAria.bar')}
                 >
                   <IconCodeStyleBars className="size-3" />
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="classic"
                   className="size-7 p-0"
-                  aria-label="Classic indicators"
+                  aria-label={t('indicatorAria.classic')}
                 >
                   <IconSymbolDiffstat className="size-3" />
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="none"
                   className="size-7 p-0"
-                  aria-label="No indicators"
+                  aria-label={t('indicatorAria.none')}
                 >
                   <IconEyeSlash className="size-3" />
                 </ToggleGroupItem>

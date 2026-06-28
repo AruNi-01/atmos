@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { DiffLineAnnotation } from '@pierre/diffs';
 import { Check, MessageSquarePlus, Save, Trash2 } from 'lucide-react';
 import { Button, Textarea } from '@workspace/ui';
@@ -32,6 +33,7 @@ export function DiffCopyAnnotation({
   lineLabel,
   agentFixSource,
 }: DiffCopyAnnotationProps) {
+  const t = useTranslations('diff.copyAnnotation');
   const { key } = annotation.metadata;
   const [isEditingStashed, setIsEditingStashed] = useState(false);
   const savePointerDownRef = useRef(false);
@@ -44,8 +46,10 @@ export function DiffCopyAnnotation({
       setIsEditingStashed(false);
     }
   };
-  const primaryLabel = isStashed ? (isEditingStashedPrompt ? 'Save' : 'Stashed') : 'Stash';
-  const secondaryLabel = isStashed ? 'Delete' : 'Cancel';
+  const primaryLabel = isStashed
+    ? (isEditingStashedPrompt ? t('actions.save') : t('actions.stashed'))
+    : t('actions.stash');
+  const secondaryLabel = isStashed ? t('actions.delete') : t('actions.cancel');
 
   return (
     <div
@@ -57,7 +61,7 @@ export function DiffCopyAnnotation({
       <div className="space-y-0.5">
         <p className="text-sm font-medium leading-5 text-foreground">{lineLabel}</p>
         <p className="text-xs leading-4 text-muted-foreground">
-          Add context for the prompt before copying it.
+          {t('description')}
         </p>
       </div>
       <Textarea
@@ -85,7 +89,7 @@ export function DiffCopyAnnotation({
           }
           setIsEditingStashed(false);
         }}
-        placeholder="What should the prompt focus on?"
+        placeholder={t('placeholder')}
         className="mt-3 min-h-20 resize-y rounded-md border-border/70 bg-muted/20 font-sans text-sm leading-5 focus:bg-background"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">

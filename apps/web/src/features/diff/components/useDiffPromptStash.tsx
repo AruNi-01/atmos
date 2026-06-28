@@ -7,6 +7,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
+import { useTranslations } from 'next-intl';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import type { CodeViewHandle } from '@pierre/diffs/react';
 import { MessageSquareText } from 'lucide-react';
@@ -74,6 +75,12 @@ export function useDiffPromptStash({
 }: UseDiffPromptStashArgs) {
   const routeAgentFixContext = useAgentFixContext();
   const agentFixContext = agentFixContextOverride ?? routeAgentFixContext;
+  const t = useTranslations('diff.promptStash');
+  const getText = useCallback(
+    (key: string, fallback: string, values?: Record<string, unknown>) =>
+      t.has(key as never) ? t(key as never, values as never) : fallback,
+    [t],
+  );
   const copyKeyRef = useRef(0);
   const [stashedPromptState, setStashedPromptState] =
     useState<StashedDiffPromptState>(() => ({
@@ -198,7 +205,7 @@ export function useDiffPromptStash({
       const prompt = buildPromptForAnnotation(itemId, key, note);
       if (!prompt) {
         toastManager.add({
-          title: 'Nothing to stash',
+          title: getText('toast.emptyTitle', '没有可暂存的提示'),
           type: 'error',
         });
         return;
@@ -241,16 +248,33 @@ export function useDiffPromptStash({
 
   const stashedPromptChip = useMemo(() => {
     if (stashedPrompts.length === 0) return null;
+    const stashedCount = stashedPrompts.length;
     const source: AgentFixPromptSource = {
       id: `diff-stashed:${scope}`,
       family: 'diff',
       context: agentFixContext,
-      label: `Fix ${stashedPrompts.length} diff comments`,
-      disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+      label: getText(
+        'stashedPrompt.agentFixLabel',
+        `修复 ${stashedCount} 条 diff 注释`,
+        { count: stashedCount },
+      ),
+      disabledReason: agentFixContext
+        ? null
+        : getText(
+            'agentFix.disabledReason',
+            '请先打开一个工作区或项目，再运行 Agent Fix。',
+          ),
       getPrompt: () => ({
         prompt: formatMergedDiffPrompt(stashedPrompts),
-        terminalTabTitle: `Fix diff comments (${stashedPrompts.length})`,
-        terminalPaneLabel: 'Diff Comments Fix',
+        terminalTabTitle: getText(
+          'stashedPrompt.terminalTabTitle',
+          `修复 diff 注释（${stashedCount} 条）`,
+          { count: stashedCount },
+        ),
+        terminalPaneLabel: getText(
+          'stashedPrompt.terminalPaneLabel',
+          '修复 diff 注释',
+        ),
       }),
       onCopied: cleanupStashedPrompts,
       onStarted: cleanupStashedPrompts,
@@ -258,11 +282,15 @@ export function useDiffPromptStash({
     return (
       <div
         className="group/stashed-prompts relative z-10 inline-flex h-8 w-11 shrink-0 items-center rounded-md"
-        title={`${stashedPrompts.length} stashed prompt comment${stashedPrompts.length === 1 ? '' : 's'}`}
+        title={getText(
+          'stashedPrompt.title',
+          `已暂存 ${stashedCount} 条提示注释`,
+          { count: stashedCount },
+        )}
       >
         <div className="absolute left-0 top-1/2 inline-flex h-6 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-foreground bg-foreground px-1.5 text-[11px] font-semibold leading-none text-background transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:pointer-events-none group-hover/stashed-prompts:opacity-0 group-focus-within/stashed-prompts:pointer-events-none group-focus-within/stashed-prompts:opacity-0">
           <MessageSquareText className="mr-1 size-3 shrink-0" />
-          <span className="w-3 text-center tabular-nums">{stashedPrompts.length}</span>
+          <span className="w-3 text-center tabular-nums">{stashedCount}</span>
         </div>
         <div className="pointer-events-none absolute left-0 top-1/2 h-6 w-11 -translate-y-1/2 overflow-hidden rounded-md transition-[width] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:w-[208px] group-hover/stashed-prompts:pointer-events-auto group-focus-within/stashed-prompts:w-[208px] group-focus-within/stashed-prompts:pointer-events-auto">
           <AgentFixToolbar
@@ -362,21 +390,44 @@ export function useDiffPromptStash({
             id: `diff:${scope}:${annotation.metadata.key}`,
             family: 'diff',
             context: agentFixContext,
-            label: `Fix diff: ${basename(annotation.metadata.filePath)}`,
-            disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+            label: getText(
+              'annotation.agentFixLabel',
+              `修复 diff：${basename(annotation.metadata.filePath)}`,
+              { file: basename(annotation.metadata.filePath) },
+            ),
+            disabledReason: agentFixContext
+              ? null
+              : getText(
+                  'agentFix.disabledReason',
+                  '请先打开一个工作区或项目，再运行 Agent Fix。',
+                ),
             getPrompt: () => {
+              const fileName = basename(annotation.metadata.filePath);
               const prompt = buildPromptForAnnotation(
                 annotation.metadata.filePath,
                 annotation.metadata.key,
                 draftNotes[annotation.metadata.key] ?? '',
               );
               if (!prompt) {
-                throw new Error('No diff prompt could be built for this selection.');
+                throw new Error(
+                  getText(
+                    'annotation.promptBuildError',
+                    '无法为当前选区生成 diff 提示。',
+                  ),
+                );
               }
               return {
                 prompt,
-                terminalTabTitle: `Fix diff: ${basename(annotation.metadata.filePath)}`,
-                terminalPaneLabel: `Fix ${basename(annotation.metadata.filePath)}`,
+                terminalTabTitle: getText(
+                  'annotation.terminalTabTitle',
+                  `修复 diff：${fileName}`,
+                  { file: fileName },
+                ),
+                terminalPaneLabel: getText(
+                  'annotation.terminalPaneLabel',
+                  `修复 ${fileName}`,
+                  { file: fileName },
+                ),
               };
             },
             onCopied: () => cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
@@ -393,6 +444,7 @@ export function useDiffPromptStash({
       buildPromptForAnnotation,
       cleanupAnnotationPrompt,
       draftNotes,
+      getText,
       scope,
       stashedPrompts,
     ],

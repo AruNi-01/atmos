@@ -1,4 +1,6 @@
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 function parseActionDate(value: string | null | undefined) {
   if (!value) return null;
@@ -13,7 +15,10 @@ export function formatActionTimestamp(value: string | null | undefined) {
 
 export function formatActionTimeAgo(value: string | null | undefined) {
   const date = parseActionDate(value);
-  return date ? formatDistanceToNow(date, { addSuffix: true }) : null;
+  const relativeTimeLocale = currentAppLocale('en').startsWith('zh') ? zhCN : enUS;
+  return date
+    ? formatDistanceToNow(date, { addSuffix: true, locale: relativeTimeLocale })
+    : null;
 }
 
 export function formatActionDuration(startValue: string | null | undefined, endValue: string | null | undefined) {

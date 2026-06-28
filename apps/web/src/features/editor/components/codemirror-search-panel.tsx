@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createTranslator } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   closeSearchPanel,
@@ -16,6 +17,80 @@ import {
 import type { Extension } from "@codemirror/state";
 import { EditorView, type Panel } from "@codemirror/view";
 import { ArrowLeftRight, CaseSensitive, ChevronLeft, ChevronRight, Regex, Replace, ReplaceAll, WholeWord, X } from "lucide-react";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+
+type SearchPanelMessages = {
+  findInFile: string;
+  replaceWith: string;
+  hideReplace: string;
+  showReplace: string;
+  find: string;
+  previousMatch: string;
+  nextMatch: string;
+  closeSearch: string;
+  matchCase: string;
+  wholeWord: string;
+  regexp: string;
+  replace: string;
+  replaceAll: string;
+};
+
+type SearchPanelTranslationValues = Record<string, string | number | boolean | null | undefined>;
+
+let cachedCodeMirrorSearchLocale: 'en' | 'zh' | null = null;
+let cachedCodeMirrorSearchTranslator: any = null;
+let customSearchPanelMessages: SearchPanelMessages | null = null;
+
+function formatSearchPanelFallbackMessage(template: string, values?: SearchPanelTranslationValues): string {
+  if (!values) return template;
+
+  return template.replace(/\{(\w+)\}/g, (_match, key: string) => {
+    const value = values[key];
+    return value == null ? '' : String(value);
+  });
+}
+
+function codeMirrorSearchPanelT(key: string, fallback: string, values?: SearchPanelTranslationValues): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedCodeMirrorSearchTranslator || cachedCodeMirrorSearchLocale !== locale) {
+    cachedCodeMirrorSearchLocale = locale;
+    cachedCodeMirrorSearchTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'editor.codeMirrorSearchPanel',
+    });
+  }
+
+  try {
+    return cachedCodeMirrorSearchTranslator(key as never, values as never);
+  } catch {
+    return formatSearchPanelFallbackMessage(fallback, values);
+  }
+}
+
+function getDefaultSearchPanelMessages(): SearchPanelMessages {
+  return {
+    findInFile: codeMirrorSearchPanelT("findInFile", "Find in file"),
+    replaceWith: codeMirrorSearchPanelT("replaceWith", "Replace with"),
+    hideReplace: codeMirrorSearchPanelT("hideReplace", "Hide replace"),
+    showReplace: codeMirrorSearchPanelT("showReplace", "Show replace"),
+    find: codeMirrorSearchPanelT("find", "Find"),
+    previousMatch: codeMirrorSearchPanelT("previousMatch", "Previous match"),
+    nextMatch: codeMirrorSearchPanelT("nextMatch", "Next match"),
+    closeSearch: codeMirrorSearchPanelT("closeSearch", "Close search"),
+    matchCase: codeMirrorSearchPanelT("matchCase", "Match case"),
+    wholeWord: codeMirrorSearchPanelT("wholeWord", "Whole word"),
+    regexp: codeMirrorSearchPanelT("regexp", "Regexp"),
+    replace: codeMirrorSearchPanelT("replace", "Replace"),
+    replaceAll: codeMirrorSearchPanelT("replaceAll", "Replace all"),
+  };
+}
+
+export function setCodeMirrorSearchPanelMessages(next: SearchPanelMessages) {
+  customSearchPanelMessages = next;
+}
 
 function createSearchCount(view: EditorView, query: SearchQuery): string {
   if (!query.valid || !query.search) return "";
@@ -51,6 +126,7 @@ class AtmosSearchPanel implements Panel {
   dom: HTMLElement;
 
   private readonly view: EditorView;
+  private readonly messages: SearchPanelMessages;
   private query: SearchQuery;
   private replaceExpanded: boolean;
   private readonly searchField: HTMLInputElement;
@@ -68,6 +144,7 @@ class AtmosSearchPanel implements Panel {
 
   constructor(view: EditorView) {
     this.view = view;
+    this.messages = customSearchPanelMessages ?? getDefaultSearchPanelMessages();
     this.query = getSearchQuery(view.state);
     this.replaceExpanded = !!this.query.replace;
     this.commit = this.commit.bind(this);
@@ -75,15 +152,15 @@ class AtmosSearchPanel implements Panel {
 
     this.searchField = this.createInput({
       value: this.query.search,
-      placeholder: "Find in file",
-      ariaLabel: "Find in file",
+      placeholder: this.messages.findInFile,
+      ariaLabel: this.messages.findInFile,
       name: "search",
       mainField: true,
     });
     this.replaceField = this.createInput({
       value: this.query.replace,
-      placeholder: "Replace with",
-      ariaLabel: "Replace with",
+      placeholder: this.messages.replaceWith,
+      ariaLabel: this.messages.replaceWith,
       name: "replace",
     });
     this.caseField = this.createCheckbox(this.query.caseSensitive);
@@ -99,7 +176,7 @@ class AtmosSearchPanel implements Panel {
     titleGroup.className = "cm-atmos-search__title-group";
 
     this.replaceToggle = this.createIconButton(
-      this.replaceExpanded ? "Hide replace" : "Show replace",
+      this.replaceExpanded ? this.messages.hideReplace : this.messages.showReplace,
       "",
       () => {
         this.replaceExpanded = !this.replaceExpanded;
@@ -111,12 +188,12 @@ class AtmosSearchPanel implements Panel {
 
     const title = document.createElement("span");
     title.className = "cm-atmos-search__title";
-    title.textContent = "Find";
-    this.prevButton = this.createIconButton("Previous match", createLucideIcon(ChevronLeft), () => {
+    title.textContent = this.messages.find;
+    this.prevButton = this.createIconButton(this.messages.previousMatch, createLucideIcon(ChevronLeft), () => {
       findPrevious(this.view);
       this.refreshCounter();
     }, "cm-atmos-search__nav-button");
-    this.nextButton = this.createIconButton("Next match", createLucideIcon(ChevronRight), () => {
+    this.nextButton = this.createIconButton(this.messages.nextMatch, createLucideIcon(ChevronRight), () => {
       findNext(this.view);
       this.refreshCounter();
     }, "cm-atmos-search__nav-button");
@@ -126,7 +203,7 @@ class AtmosSearchPanel implements Panel {
     const headerActions = document.createElement("div");
     headerActions.className = "cm-atmos-search__header-actions";
     headerActions.append(
-      this.createIconButton("Close search", createLucideIcon(X), () => closeSearchPanel(this.view), "cm-atmos-search__close-button"),
+      this.createIconButton(this.messages.closeSearch, createLucideIcon(X), () => closeSearchPanel(this.view), "cm-atmos-search__close-button"),
     );
 
     header.append(titleGroup, headerActions);
@@ -139,9 +216,9 @@ class AtmosSearchPanel implements Panel {
       this.wrapField(
         this.searchField,
         this.createInlineOptions(
-          this.createToggle(createLucideIcon(CaseSensitive), "Match case", this.caseField),
-          this.createToggle(createLucideIcon(WholeWord), "Whole word", this.wordField),
-          this.createToggle(createLucideIcon(Regex), "Regexp", this.regexpField),
+          this.createToggle(createLucideIcon(CaseSensitive), this.messages.matchCase, this.caseField),
+          this.createToggle(createLucideIcon(WholeWord), this.messages.wholeWord, this.wordField),
+          this.createToggle(createLucideIcon(Regex), this.messages.regexp, this.regexpField),
         ),
       ),
     );
@@ -156,11 +233,11 @@ class AtmosSearchPanel implements Panel {
       this.replaceRow.append(
         this.wrapField(this.replaceField),
         this.wrapReplaceActions(
-          this.createButton(createLucideIcon(Replace), "Replace", () => {
+          this.createButton(createLucideIcon(Replace), this.messages.replace, () => {
             replaceNext(this.view);
             this.refreshCounter();
           }, "outline", true),
-          this.createButton(createLucideIcon(ReplaceAll), "Replace all", () => {
+          this.createButton(createLucideIcon(ReplaceAll), this.messages.replaceAll, () => {
             replaceAll(this.view);
             this.refreshCounter();
           }, "outline", true),
@@ -307,8 +384,8 @@ class AtmosSearchPanel implements Panel {
 
   private syncReplaceState() {
     this.replaceSection.classList.toggle("is-collapsed", !this.replaceExpanded);
-    this.replaceToggle.setAttribute("aria-label", this.replaceExpanded ? "Hide replace" : "Show replace");
-    this.replaceToggle.setAttribute("title", this.replaceExpanded ? "Hide replace" : "Show replace");
+    this.replaceToggle.setAttribute("aria-label", this.replaceExpanded ? this.messages.hideReplace : this.messages.showReplace);
+    this.replaceToggle.setAttribute("title", this.replaceExpanded ? this.messages.hideReplace : this.messages.showReplace);
     this.replaceToggle.classList.toggle("is-active", this.replaceExpanded);
   }
 

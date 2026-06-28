@@ -3,6 +3,10 @@
 import { create } from 'zustand';
 import { gitApi, GitStatusResponse, wsProjectApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
+import { createTranslator } from 'next-intl';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 /**
  * Git info store for sharing git-related state between components.
@@ -60,6 +64,37 @@ export interface GitInfoActions {
 
 export type GitInfoStore = GitInfoState & GitInfoActions;
 
+let cachedGitInfoLocale: 'en' | 'zh' | null = null;
+let cachedGitInfoTranslator: any = null;
+
+function gitInfoT(
+  key:
+    | 'successTitle'
+    | 'targetBranchSet'
+    | 'targetBranchCleared'
+    | 'errorTitle'
+    | 'failedToUpdateTargetBranch'
+    | 'couldNotVerifyStatus'
+    | 'uncommittedChanges'
+    | 'unpushedCommits'
+    | 'issuesJoiner'
+    | 'archiveOperation'
+    | 'deleteOperation'
+    | 'cannotProceed',
+  values?: Record<string, string | number>,
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedGitInfoTranslator || cachedGitInfoLocale !== locale) {
+    cachedGitInfoLocale = locale;
+    cachedGitInfoTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'git.infoStore',
+    });
+  }
+  return cachedGitInfoTranslator(key as never, values);
+}
+
 const initialState: GitInfoState = {
   currentProjectId: null,
   currentWorkspaceId: null,
@@ -107,15 +142,17 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
       await wsProjectApi.updateTargetBranch(projectId, targetBranch);
       set({ targetBranch });
       toastManager.add({
-        title: 'Success',
-        description: `Target branch ${targetBranch ? `set to ${targetBranch}` : 'cleared'}`,
+        title: gitInfoT('successTitle'),
+        description: targetBranch
+          ? gitInfoT('targetBranchSet', { branch: targetBranch })
+          : gitInfoT('targetBranchCleared'),
         type: 'success',
       });
     } catch (error) {
       console.error('[GitInfoStore] Failed to update target branch:', error);
       toastManager.add({
-        title: 'Error',
-        description: 'Failed to update target branch',
+        title: gitInfoT('errorTitle'),
+        description: gitInfoT('failedToUpdateTargetBranch'),
         type: 'error',
       });
     }
@@ -186,24 +223,27 @@ export function useGitStatusCheck() {
         // Could not fetch status, allow proceeding with warning
         return {
           canProceed: true,
-          message: 'Could not verify git status. Proceed with caution.',
+          message: gitInfoT('couldNotVerifyStatus'),
         };
       }
 
       const issues: string[] = [];
 
       if (status.has_uncommitted_changes) {
-        issues.push(`${status.uncommitted_count} uncommitted change(s)`);
+        issues.push(gitInfoT('uncommittedChanges', { count: status.uncommitted_count }));
       }
 
       if (status.has_unpushed_commits) {
-        issues.push(`${status.unpushed_count} unpushed commit(s)`);
+        issues.push(gitInfoT('unpushedCommits', { count: status.unpushed_count }));
       }
 
       if (issues.length > 0) {
         return {
           canProceed: false,
-          message: `Cannot ${operation}: ${issues.join(' and ')}. Please commit and push your changes first.`,
+          message: gitInfoT('cannotProceed', {
+            operation: operation === 'archive' ? gitInfoT('archiveOperation') : gitInfoT('deleteOperation'),
+            issues: issues.join(gitInfoT('issuesJoiner')),
+          }),
         };
       }
 
@@ -212,7 +252,7 @@ export function useGitStatusCheck() {
       console.error('[useGitStatusCheck] Error checking git status:', error);
       return {
         canProceed: true,
-        message: 'Could not verify git status. Proceed with caution.',
+        message: gitInfoT('couldNotVerifyStatus'),
       };
     }
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { RotateCcw } from "lucide-react";
 import { Button, cn } from "@workspace/ui";
 
@@ -24,6 +25,7 @@ export function LocalServicesPreviewPanel({
   workspaceId,
   onOpenUrl,
 }: LocalServicesPreviewPanelProps) {
+  const t = useTranslations("LocalServices.components");
   const request = React.useMemo(
     () => ({
       scope: "current_context" as const,
@@ -61,10 +63,8 @@ export function LocalServicesPreviewPanel({
     <section className="mt-8">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-foreground">Local Services</div>
-          <div className="text-xs text-muted-foreground">
-            Services detected for this Project or Workspace.
-          </div>
+          <div className="text-sm font-semibold text-foreground">{t("preview.title")}</div>
+          <div className="text-xs text-muted-foreground">{t("preview.subtitle")}</div>
         </div>
         <Button
           type="button"
@@ -73,7 +73,7 @@ export function LocalServicesPreviewPanel({
           className="size-8"
           onClick={() => refresh(true)}
           disabled={loading || connectionState !== "connected"}
-          title="Refresh Local Services"
+          title={t("preview.refreshTitle")}
         >
           <RotateCcw className={cn("size-4", loading && "animate-spin-reverse")} />
         </Button>
@@ -85,7 +85,7 @@ export function LocalServicesPreviewPanel({
       ) : null}
       <LocalServiceList
         services={services}
-        emptyLabel="No Local Services for this context."
+        emptyLabel={t("preview.emptyLabel")}
         onOpen={handleOpen}
         onRefresh={() => refresh(true)}
       />

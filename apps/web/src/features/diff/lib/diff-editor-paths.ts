@@ -1,14 +1,39 @@
 import type { GitChangedFile } from '@/api/ws-api';
+import { createTranslator } from 'next-intl';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 export const EDITOR_DIFF_GROUP_PREFIX = 'diff-group://';
 
 export type DiffChangeGroupKind = 'staged' | 'unstaged' | 'untracked';
+let cachedDiffLocale: 'en' | 'zh' | null = null;
+let cachedDiffTranslator: any = null;
 
-export const DIFF_GROUP_TAB_LABELS: Record<DiffChangeGroupKind, string> = {
-  staged: 'Staged',
-  unstaged: 'Unstaged',
-  untracked: 'Untracked',
-};
+function diffT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedDiffTranslator || cachedDiffLocale !== locale) {
+    cachedDiffLocale = locale;
+    cachedDiffTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Diff.chrome',
+    });
+  }
+  return cachedDiffTranslator(key as never);
+}
+
+export const DIFF_GROUP_TAB_LABELS = {
+  get staged() {
+    return diffT('diffGroup.staged');
+  },
+  get unstaged() {
+    return diffT('diffGroup.unstaged');
+  },
+  get untracked() {
+    return diffT('diffGroup.untracked');
+  },
+} as Record<DiffChangeGroupKind, string>;
 
 export function buildDiffGroupPath(kind: DiffChangeGroupKind): string {
   return `${EDITOR_DIFF_GROUP_PREFIX}${kind}`;
@@ -29,7 +54,7 @@ export function getDiffGroupKind(path: string): DiffChangeGroupKind | null {
 
 export function getDiffGroupTabLabel(path: string): string {
   const kind = getDiffGroupKind(path);
-  return kind ? DIFF_GROUP_TAB_LABELS[kind] : 'Changes';
+  return kind ? DIFF_GROUP_TAB_LABELS[kind] : diffT('diffGroup.changes');
 }
 
 interface GitFilesForGroupInput {

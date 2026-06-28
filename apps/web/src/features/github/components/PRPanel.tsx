@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { useLocale } from 'next-intl';
 import { useGithubPRList } from '@/features/github/hooks/use-github';
 import {
   GitPullRequest,
@@ -21,6 +22,7 @@ import {
   Button,
 } from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import { cn } from '@/shared/lib/utils';
 
 interface PRPanelProps {
@@ -44,6 +46,8 @@ export interface PRPanelHandle {
 type PRState = 'OPEN' | 'CLOSED';
 
 export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab, onLoadingChange, enabled = true }, ref) {
+  const locale = useLocale();
+  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const stateFilter: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
 
   const openPrList = useGithubPRList({
@@ -201,7 +205,12 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                       <div className="ml-auto flex items-center gap-1 opacity-70">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="cursor-default">{formatDistanceToNow(new Date(pr.createdAt), { addSuffix: true })}</span>
+                            <span className="cursor-default">
+                              {formatDistanceToNow(new Date(pr.createdAt), {
+                                addSuffix: true,
+                                locale: relativeTimeLocale,
+                              })}
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
                             {format(new Date(pr.createdAt), 'PPpp')}

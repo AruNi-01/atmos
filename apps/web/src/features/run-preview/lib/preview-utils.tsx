@@ -1,6 +1,10 @@
 import { AlertTriangle, ExternalLink, Monitor, SquareMousePointer } from "lucide-react";
+import { createTranslator, useTranslations } from "next-intl";
 import { Button, TextShimmer, cn } from "@workspace/ui";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export interface FavoriteSite {
   url: string;
@@ -14,10 +18,28 @@ export interface PreviewLoadError {
   url: string;
 }
 
-export const PREVIEW_SELECTION_UNAVAILABLE_MESSAGE =
-  "Element selection is only available for same-origin or local preview pages.";
-export const PREVIEW_EXTENSION_REQUIRED_MESSAGE =
-  "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop preview.";
+const PREVIEW_UTILS_NAMESPACE = "preview.utils";
+const LEGACY_PREVIEW_LOAD_ERROR_TITLE = "Preview failed to load";
+const LEGACY_PREVIEW_LOAD_ERROR_LINE = "Preview failed to load.";
+
+let cachedPreviewUtilsLocale: "en" | "zh" | null = null;
+let cachedPreviewUtilsTranslator: any = null;
+
+const previewUtilsT = (key: string, values?: Record<string, string | number>): string => {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedPreviewUtilsTranslator || cachedPreviewUtilsLocale !== locale) {
+    cachedPreviewUtilsLocale = locale;
+    cachedPreviewUtilsTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: PREVIEW_UTILS_NAMESPACE,
+    });
+  }
+  return cachedPreviewUtilsTranslator(key as never, values as never);
+};
+
+export const PREVIEW_SELECTION_UNAVAILABLE_MESSAGE = previewUtilsT("selection.unavailable");
+export const PREVIEW_EXTENSION_REQUIRED_MESSAGE = previewUtilsT("selection.extensionRequired");
 
 export const MAX_HISTORY_LENGTH = 100;
 
@@ -220,8 +242,8 @@ export const detectBrowserErrorDocument = (
   }
 
   const lines = parseErrorLines(normalizedBody);
-  const nextTitle = title || "Preview failed to load";
-  const message = lines[0] || errorCode || "The target page reported a browser-level load failure.";
+  const nextTitle = title || previewUtilsT("error.title");
+  const message = lines[0] || errorCode || previewUtilsT("error.browserLoadFailure");
   const details = lines.slice(1);
 
   return createPreviewLoadError(pageUrl, nextTitle, message, details);
@@ -229,28 +251,38 @@ export const detectBrowserErrorDocument = (
 
 export const createPreviewNetworkError = (url: string, error: unknown): PreviewLoadError => {
   const errorMessage =
-    error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown network error";
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : previewUtilsT("error.unknownNetwork");
   const errorCode = extractPreviewErrorCode(errorMessage);
   const details = errorCode ? [errorCode] : [];
 
   if (/^https:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/i.test(url)) {
-    details.push("The target local server may be speaking HTTP on an HTTPS URL or returning an invalid TLS response.");
+    details.push(previewUtilsT("error.localHttpsHint"));
   }
 
   details.push(errorMessage);
 
   return createPreviewLoadError(
     url,
-    "Preview failed to load",
-    "The target page could not be reached cleanly.",
+    previewUtilsT("error.title"),
+    previewUtilsT("error.networkUnreachable"),
     details,
   );
 };
 
-export const renderPreviewErrorCard = (
-  previewLoadError: PreviewLoadError,
-  handleRefresh: () => void,
-) => (
+const PreviewErrorCardContent = ({
+  previewLoadError,
+  handleRefresh,
+}: {
+  previewLoadError: PreviewLoadError;
+  handleRefresh: () => void;
+}) => {
+  const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
+
+  return (
   <div className="flex h-full w-full items-center justify-center px-4 py-6">
     <div className="w-full max-w-2xl rounded-2xl border border-border bg-background p-5 shadow-lg">
       <div className="flex items-start gap-3">
@@ -266,7 +298,7 @@ export const renderPreviewErrorCard = (
           </div>
           <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
             <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-              URL
+              {t("errorCard.urlLabel")}
             </div>
             <div className="mt-1 break-all font-mono text-xs text-foreground">
               {previewLoadError.url}
@@ -275,7 +307,7 @@ export const renderPreviewErrorCard = (
           {previewLoadError.details.length > 0 ? (
             <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-3">
               <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                Details
+                {t("errorCard.detailsLabel")}
               </div>
               <div className="space-y-1 text-xs leading-relaxed text-muted-foreground">
                 {previewLoadError.details.map((detail) => (
@@ -286,7 +318,7 @@ export const renderPreviewErrorCard = (
           ) : null}
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={handleRefresh}>
-              Retry
+              {t("errorCard.retry")}
             </Button>
             <Button
               size="sm"
@@ -295,16 +327,25 @@ export const renderPreviewErrorCard = (
                 window.open(previewLoadError.url, "_blank", "noopener,noreferrer");
               }}
             >
-              Open in browser
+              {t("errorCard.openInBrowser")}
             </Button>
           </div>
         </div>
       </div>
     </div>
   </div>
-);
+  );
+};
 
-export const renderPreviewLoadingOverlay = (viewMode: PreviewViewMode) => (
+export const renderPreviewErrorCard = (
+  previewLoadError: PreviewLoadError,
+  handleRefresh: () => void,
+) => <PreviewErrorCardContent previewLoadError={previewLoadError} handleRefresh={handleRefresh} />;
+
+const PreviewLoadingOverlayContent = ({ viewMode }: { viewMode: PreviewViewMode }) => {
+  const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
+
+  return (
   <div
     className={cn(
       "absolute inset-0 z-20 flex items-center justify-center bg-background",
@@ -329,18 +370,29 @@ export const renderPreviewLoadingOverlay = (viewMode: PreviewViewMode) => (
         </div>
         <div className="mt-4">
           <TextShimmer as="p" duration={1.8} className="text-sm font-medium sm:text-base">
-            Loading preview...
+            {t("loading.label")}
           </TextShimmer>
         </div>
       </div>
     </div>
   </div>
+  );
+};
+
+export const renderPreviewLoadingOverlay = (viewMode: PreviewViewMode) => (
+  <PreviewLoadingOverlayContent viewMode={viewMode} />
 );
 
-export const renderPreviewHome = (
-  shouldStackPreviewHomeCards: boolean,
-  shouldStackPreviewHomeNotes: boolean,
-) => (
+const PreviewHomeContent = ({
+  shouldStackPreviewHomeCards,
+  shouldStackPreviewHomeNotes,
+}: {
+  shouldStackPreviewHomeCards: boolean;
+  shouldStackPreviewHomeNotes: boolean;
+}) => {
+  const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
+
+  return (
   <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">
     <div className="w-full max-w-4xl">
       <div className="space-y-3">
@@ -350,7 +402,7 @@ export const renderPreviewHome = (
             shouldStackPreviewHomeCards ? "text-2xl" : "text-3xl sm:text-4xl",
           )}
         >
-          Preview
+          {t("home.title")}
         </div>
         <p
           className={cn(
@@ -358,7 +410,7 @@ export const renderPreviewHome = (
             shouldStackPreviewHomeCards ? "text-sm" : "text-base sm:text-lg",
           )}
         >
-          Open a local app or website, inspect elements, and send clean page context to AI.
+          {t("home.description")}
         </p>
       </div>
 
@@ -370,23 +422,29 @@ export const renderPreviewHome = (
       >
         <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
           <Monitor className="size-5 text-foreground" />
-          <div className="mt-4 text-base font-medium text-foreground">Preview pages</div>
+          <div className="mt-4 text-base font-medium text-foreground">
+            {t("home.cards.previewPages.title")}
+          </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Load localhost apps, internal tools, or any URL you want to inspect.
+            {t("home.cards.previewPages.description")}
           </p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
           <SquareMousePointer className="size-5 text-foreground" />
-          <div className="mt-4 text-base font-medium text-foreground">Select elements</div>
+          <div className="mt-4 text-base font-medium text-foreground">
+            {t("home.cards.selectElements.title")}
+          </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Click elements to capture DOM context and source-component hints.
+            {t("home.cards.selectElements.description")}
           </p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-background/70 p-5">
           <ExternalLink className="size-5 text-foreground" />
-          <div className="mt-4 text-base font-medium text-foreground">Work across modes</div>
+          <div className="mt-4 text-base font-medium text-foreground">
+            {t("home.cards.workAcrossModes.title")}
+          </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Same-origin works directly. Cross-port pages use the extension or desktop preview.
+            {t("home.cards.workAcrossModes.description")}
           </p>
         </div>
       </div>
@@ -399,24 +457,36 @@ export const renderPreviewHome = (
       >
         <div>
           <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            Start
+            {t("home.notes.start.title")}
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Enter a URL above and press <span className="font-medium text-foreground">Enter</span>.
+            {t.rich("home.notes.start.description", {
+              enter: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })}
           </p>
         </div>
         <div>
           <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            Cross-port
+            {t("home.notes.crossPort.title")}
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            If a page is on another port, install the Atmos Inspector extension or use the desktop
-            preview.
+            {t("home.notes.crossPort.description")}
           </p>
         </div>
       </div>
     </div>
   </div>
+  );
+};
+
+export const renderPreviewHome = (
+  shouldStackPreviewHomeCards: boolean,
+  shouldStackPreviewHomeNotes: boolean,
+) => (
+  <PreviewHomeContent
+    shouldStackPreviewHomeCards={shouldStackPreviewHomeCards}
+    shouldStackPreviewHomeNotes={shouldStackPreviewHomeNotes}
+  />
 );
 
 export const parseTransportLoadError = (
@@ -429,8 +499,12 @@ export const parseTransportLoadError = (
   }
 
   const joined = lines.join("\n");
+  const localizedLoadErrorTitle = previewUtilsT("error.title");
+  const localizedLoadErrorLine = `${localizedLoadErrorTitle}.`;
+  const hasStandardLoadErrorLine =
+    lines[0] === LEGACY_PREVIEW_LOAD_ERROR_LINE || lines[0] === localizedLoadErrorLine;
   const isLoadError =
-    lines[0] === "Preview failed to load." ||
+    hasStandardLoadErrorLine ||
     Boolean(extractPreviewErrorCode(joined)) ||
     PREVIEW_ERROR_PAGE_MARKERS.some((marker) => joined.includes(marker));
 
@@ -438,9 +512,12 @@ export const parseTransportLoadError = (
     return null;
   }
 
-  const title = lines[0] === "Preview failed to load." ? "Preview failed to load" : lines[0];
-  const contentLines = lines[0] === "Preview failed to load." ? lines.slice(1) : lines;
-  const primaryMessage = contentLines[0] ?? "The target page reported a browser-level load failure.";
+  const title =
+    hasStandardLoadErrorLine || lines[0] === LEGACY_PREVIEW_LOAD_ERROR_TITLE
+      ? localizedLoadErrorTitle
+      : lines[0];
+  const contentLines = hasStandardLoadErrorLine ? lines.slice(1) : lines;
+  const primaryMessage = contentLines[0] ?? previewUtilsT("error.browserLoadFailure");
   const details = contentLines.slice(1);
 
   return createPreviewLoadError(fallbackUrl, title, primaryMessage, details);

@@ -1,11 +1,11 @@
 'use client';
 
 import type { RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ReviewCommentDto, ReviewMessageDto } from '@/api/ws-api';
 import { MessageBubble } from '@/features/diff/components/review/MessageBubble';
 import { ReviewMessageActionsMenu } from '@/features/diff/components/review/ReviewMessageActionsMenu';
 import {
-  reviewCommentStatusLabel,
   statusTone,
 } from '@/features/diff/components/review/utils';
 import { cn } from '@/shared/lib/utils';
@@ -64,6 +64,7 @@ export function InlineCommentComposer({
   onSubmit,
   onCancel,
 }: InlineCommentComposerProps) {
+  const t = useTranslations('Diff.chrome');
   const lineLabel =
     draft.startLine === draft.endLine
       ? `L${draft.startLine}`
@@ -74,17 +75,17 @@ export function InlineCommentComposer({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           <p className="text-sm font-medium leading-5 text-foreground">
-            Comment on {lineLabel}
+            {t('inlineAnnotations.commentOn', { lineLabel })}
           </p>
           <p className="text-xs leading-4 text-muted-foreground">
-            Add a review comment directly on this diff.
+            {t('inlineAnnotations.addReviewCommentDirectlyOnThisDiff')}
           </p>
         </div>
         <button
           type="button"
           className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={onCancel}
-          aria-label="Cancel comment"
+          aria-label={t('inlineAnnotations.cancelComment')}
         >
           <X className="size-4" />
         </button>
@@ -104,7 +105,7 @@ export function InlineCommentComposer({
             onSubmit();
           }
         }}
-        placeholder="Describe the issue or expected change..."
+        placeholder={t('inlineAnnotations.describeIssueOrExpectedChange')}
         className="mt-3 min-h-20 resize-y rounded-md border-border/70 bg-muted/20 font-sans text-sm leading-5 focus:bg-background"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -120,12 +121,12 @@ export function InlineCommentComposer({
               {isSubmitting ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : null}
-              Add Comment
+              {t('inlineAnnotations.addComment')}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
             <div className="flex items-center gap-2">
-              <span>Add comment</span>
+              <span>{t('inlineAnnotations.addComment')}</span>
               <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                 <Command className="size-3" />
                 <CornerDownLeft className="size-3" />
@@ -140,7 +141,7 @@ export function InlineCommentComposer({
           className="h-8 rounded-md px-2.5 text-xs font-medium"
           onClick={onCancel}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -189,13 +190,29 @@ export function InlineReviewCommentAnnotation({
   onReplySubmit,
   onReplyCancel,
 }: InlineReviewCommentAnnotationProps) {
+  const t = useTranslations('Diff.chrome');
+  const reviewT = useTranslations('diff.reviewAnnotations');
+  const lineLabel =
+    comment.anchor_start_line === comment.anchor_end_line
+      ? `L${comment.anchor_start_line}`
+      : `L${comment.anchor_start_line}-L${comment.anchor_end_line}`;
   const title =
     comment.title?.trim() ||
-    `Comment on L${comment.anchor_start_line}${
-      comment.anchor_start_line === comment.anchor_end_line
-        ? ''
-        : `-${comment.anchor_end_line}`
-    }`;
+    t('inlineAnnotations.commentOn', { lineLabel });
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'open':
+        return reviewT('status.open');
+      case 'agent_fixed':
+        return reviewT('status.agentFixed');
+      case 'fixed':
+        return reviewT('status.fixed');
+      case 'dismissed':
+        return reviewT('status.dismissed');
+      default:
+        return status.replaceAll('_', ' ');
+    }
+  };
 
   return (
     <div
@@ -218,7 +235,7 @@ export function InlineReviewCommentAnnotation({
         type="button"
         onClick={() => onToggleExpanded(comment.guid)}
         className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left font-sans"
-        aria-label={expanded ? 'Collapse comment' : 'Expand comment'}
+        aria-label={expanded ? t('inlineAnnotations.collapseComment') : t('inlineAnnotations.expandComment')}
       >
         <ChevronRight
           className={cn(
@@ -235,7 +252,7 @@ export function InlineReviewCommentAnnotation({
             statusTone(comment.status),
           )}
         >
-          {reviewCommentStatusLabel(comment.status)}
+          {getStatusLabel(comment.status)}
         </span>
       </button>
 
@@ -280,7 +297,7 @@ export function InlineReviewCommentAnnotation({
                 className="h-8 rounded-md px-2.5 text-xs font-medium"
                 onClick={() => onReplyToggle(comment.guid)}
               >
-                Reply
+                {t('inlineAnnotations.reply')}
               </Button>
             ) : null}
             {canEdit ? (
@@ -296,7 +313,7 @@ export function InlineReviewCommentAnnotation({
                     )
                   }
                 >
-                  {comment.status === 'open' ? 'Mark Fixed' : 'Reopen'}
+                  {comment.status === 'open' ? t('inlineAnnotations.markFixed') : t('inlineAnnotations.reopen')}
                 </Button>
                 {comment.status !== 'dismissed' ? (
                   <Button
@@ -307,7 +324,7 @@ export function InlineReviewCommentAnnotation({
                       void onUpdateCommentStatus(comment.guid, 'dismissed')
                     }
                   >
-                    Dismiss
+                    {t('inlineAnnotations.dismiss')}
                   </Button>
                 ) : null}
               </>
@@ -319,7 +336,7 @@ export function InlineReviewCommentAnnotation({
               <Textarea
                 value={replyBody}
                 onChange={(event) => onReplyBodyChange(event.target.value)}
-                placeholder="Write a reply..."
+                placeholder={t('inlineAnnotations.writeAReply')}
                 className="min-h-20 rounded-md border-border/70 bg-background font-sans text-sm leading-5"
               />
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -333,7 +350,7 @@ export function InlineReviewCommentAnnotation({
                   {isSubmittingReply ? (
                     <Loader2 className="mr-2 size-4 animate-spin" />
                   ) : null}
-                  Send Reply
+                  {t('inlineAnnotations.sendReply')}
                 </Button>
                 <Button
                   type="button"
@@ -342,7 +359,7 @@ export function InlineReviewCommentAnnotation({
                   className="h-8 rounded-md px-2.5 text-xs font-medium"
                   onClick={onReplyCancel}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>

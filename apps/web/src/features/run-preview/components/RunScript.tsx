@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, Skull, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Terminal } from "@/features/terminal/components/Terminal";
 import { cn } from "@/shared/lib/utils";
 import { Tabs, TabsList, TabsTab, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
@@ -20,7 +21,10 @@ type RunTerminalTab = {
 };
 
 const RUN_TAB_ID = "1";
-const DEFAULT_RUN_TABS: RunTerminalTab[] = [{ id: RUN_TAB_ID, name: "Run" }];
+
+function createDefaultRunTabs(runLabel: string): RunTerminalTab[] {
+  return [{ id: RUN_TAB_ID, name: runLabel }];
+}
 
 function createSessionNonce(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -33,8 +37,8 @@ function getRunTerminalWindowName(tabId: string): string {
   return tabId === RUN_TAB_ID ? "run-main" : `run-${tabId}`;
 }
 
-function normalizeStoredTabs(value: unknown): RunTerminalTab[] {
-  if (!Array.isArray(value)) return DEFAULT_RUN_TABS;
+function normalizeStoredTabs(value: unknown, runLabel: string): RunTerminalTab[] {
+  if (!Array.isArray(value)) return createDefaultRunTabs(runLabel);
 
   const normalized = value
     .filter((tab): tab is RunTerminalTab => {
@@ -48,22 +52,22 @@ function normalizeStoredTabs(value: unknown): RunTerminalTab[] {
     .filter((tab) => tab.id.trim() && tab.name.trim());
 
   const withoutRun = normalized.filter((tab) => tab.id !== RUN_TAB_ID);
-  return [...DEFAULT_RUN_TABS, ...withoutRun];
+  return [...createDefaultRunTabs(runLabel), ...withoutRun];
 }
 
-function loadStoredTabs(contextId: string): RunTerminalTab[] {
-  if (typeof window === "undefined") return DEFAULT_RUN_TABS;
+function loadStoredTabs(contextId: string, runLabel: string): RunTerminalTab[] {
+  if (typeof window === "undefined") return createDefaultRunTabs(runLabel);
   const instanceId = getActiveInstanceId();
   const all = useUiPrefStore.getState().readSlice(instanceId, 'runPreview', {
     byContext: {} as Record<string, RunTerminalTab[]>,
   });
-  return normalizeStoredTabs(all.byContext[contextId]);
+  return normalizeStoredTabs(all.byContext[contextId], runLabel);
 }
 
-function saveStoredTabs(contextId: string, tabs: RunTerminalTab[]) {
+function saveStoredTabs(contextId: string, tabs: RunTerminalTab[], runLabel: string) {
   if (typeof window === "undefined") return;
   const instanceId = getActiveInstanceId();
-  const normalized = normalizeStoredTabs(tabs);
+  const normalized = normalizeStoredTabs(tabs, runLabel);
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'runPreview',
@@ -86,9 +90,35 @@ interface RunScriptProps {
 }
 
 export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, isActive, projectName, workspaceName }) => {
+  const t = useTranslations("preview.runScript");
+  const runTabLabel = t("tabs.run");
+  const defaultRunTabs = React.useMemo(() => createDefaultRunTabs(runTabLabel), [runTabLabel]);
+  const terminalTabName = React.useCallback((index: number) => t("tabs.terminal", { index }), [t]);
+  const terminalBusyTitle = t("toasts.terminalBusy.title");
+  const terminalBusyDescription = t("toasts.terminalBusy.description", { runAction: runTabLabel });
+  const noRunScriptTitle = t("toasts.noRunScript.title");
+  const noRunScriptDescription = t("toasts.noRunScript.description");
+  const terminalNotReadyTitle = t("toasts.terminalNotReady.title");
+  const terminalNotReadyDescription = t("toasts.terminalNotReady.description");
+  const errorTitle = t("toasts.error.title");
+  const runScriptLoadErrorDescription = t("toasts.error.runScriptLoadDescription");
+  const noActiveProjectMessage = t("emptyState.noActiveProject");
+  const lockTerminalTooltip = t("tooltips.lockTerminal");
+  const unlockTerminalTooltip = t("tooltips.unlockTerminal");
+  const newTerminalLabel = t("actions.newTerminal");
+  const stopLabel = t("actions.stop");
+  const stopScriptTooltip = t("tooltips.stopScript");
+  const runActionLabel = t("actions.run");
+  const runConfiguredScriptTooltip = t("tooltips.runConfiguredScript", { shortcut: "Cmd+R" });
+  const hardStopTooltip = t("tooltips.hardStop");
+  const configureScriptsLabel = t("actions.configureScripts");
+  const loadingWorkspaceLabel = t("loading.workspace");
+  const mainWorkspaceLabel = t("workspace.main");
+  const terminalLockedTitle = t("toasts.terminalLocked.title");
+  const terminalLockedDescription = t("toasts.terminalLocked.description");
 
   // Initial tab
-  const [tabs, setTabs] = useState<RunTerminalTab[]>(DEFAULT_RUN_TABS);
+  const [tabs, setTabs] = useState<RunTerminalTab[]>(defaultRunTabs);
   const [activeTabId, setActiveTabId] = useState(RUN_TAB_ID);
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
   const terminalContextId = workspaceId || projectId || "";
@@ -117,23 +147,23 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     setSessionVersions({});
 
     if (!terminalContextId) {
-      setTabs(DEFAULT_RUN_TABS);
+      setTabs(defaultRunTabs);
       setActiveTabId(RUN_TAB_ID);
       return;
     }
 
-    const storedTabs = loadStoredTabs(terminalContextId);
+    const storedTabs = loadStoredTabs(terminalContextId, runTabLabel);
     setTabs(storedTabs);
     setActiveTabId((current) =>
       storedTabs.some((tab) => tab.id === current) ? current : RUN_TAB_ID,
     );
     setLoadedTabsContextId(terminalContextId);
-  }, [terminalContextId]);
+  }, [defaultRunTabs, runTabLabel, terminalContextId]);
 
   React.useEffect(() => {
     if (!terminalContextId || loadedTabsContextId !== terminalContextId) return;
-    saveStoredTabs(terminalContextId, tabs);
-  }, [loadedTabsContextId, terminalContextId, tabs]);
+    saveStoredTabs(terminalContextId, tabs, runTabLabel);
+  }, [loadedTabsContextId, runTabLabel, tabs, terminalContextId]);
 
   const handleStopScript = () => {
     const term = terminalRefs.current[activeTabId];
@@ -190,8 +220,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       runClickStore._lastRunClickTime = now;
 
       toastManager.add({
-        title: "Terminal is busy",
-        description: "Script is running. Click 'Run' again to force restart.",
+        title: terminalBusyTitle,
+        description: terminalBusyDescription,
         type: "info"
       });
       return;
@@ -212,8 +242,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
       if (!runCommand || !runCommand.trim()) {
         toastManager.add({
-          title: "No Run Script Configured",
-          description: "Please configure a run script in the settings.",
+          title: noRunScriptTitle,
+          description: noRunScriptDescription,
           type: "warning"
         });
         setIsScriptDialogOpen(true);
@@ -224,8 +254,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       const term = terminalRefs.current[activeTabId];
       if (!term) {
         toastManager.add({
-          title: "Terminal not ready",
-          description: "Please wait for the terminal to initialize.",
+          title: terminalNotReadyTitle,
+          description: terminalNotReadyDescription,
           type: "error"
         });
         return;
@@ -240,12 +270,25 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     } catch (error) {
       console.error("Failed to run script:", error);
       toastManager.add({
-        title: "Error",
-        description: "Failed to load execution script.",
+        title: errorTitle,
+        description: runScriptLoadErrorDescription,
         type: "error"
       });
     }
-  }, [activeTabId, projectId, runningScripts, workspaceId]);
+  }, [
+    activeTabId,
+    errorTitle,
+    noRunScriptDescription,
+    noRunScriptTitle,
+    projectId,
+    runScriptLoadErrorDescription,
+    runningScripts,
+    terminalBusyDescription,
+    terminalBusyTitle,
+    terminalNotReadyDescription,
+    terminalNotReadyTitle,
+    workspaceId,
+  ]);
 
   // Keyboard shortcut Cmd+R
   React.useEffect(() => {
@@ -278,10 +321,10 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     const newId = String(Date.now());
     // Find next available suffix
     let suffix = 1;
-    while (tabs.some(t => t.name === `Terminal-${suffix}`)) {
+    while (tabs.some(tab => tab.name === terminalTabName(suffix))) {
       suffix++;
     }
-    const newName = `Terminal-${suffix}`;
+    const newName = terminalTabName(suffix);
 
     setTabs((currentTabs) => [...currentTabs, { id: newId, name: newName }]);
     setActiveTabId(newId);
@@ -309,7 +352,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   };
 
   // If no workspaceId or projectId, we can't really connect, but let's handle gracefully
-  if (!workspaceId && !projectId) return <div className="p-4 text-muted-foreground flex items-center justify-center h-full">No active project or workspace</div>;
+  if (!workspaceId && !projectId) return <div className="p-4 text-muted-foreground flex items-center justify-center h-full">{noActiveProjectMessage}</div>;
 
   return (
     <TooltipProvider>
@@ -352,7 +395,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {isLocked ? "Unlock Terminal (Enable input)" : "Lock Terminal (Disable input)"}
+                          {isLocked ? unlockTerminalTooltip : lockTerminalTooltip}
                         </TooltipContent>
                       </Tooltip>
                     ) : (
@@ -378,7 +421,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
               <button
                 onClick={addTab}
                 className="p-1 hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground transition-colors ml-1 shrink-0"
-                title="New Terminal"
+                title={newTerminalLabel}
               >
                 <Plus className="size-3.5" />
               </button>
@@ -398,11 +441,11 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                           className="flex items-center gap-1.5 px-2 h-full hover:bg-muted hover:cursor-pointer transition-colors text-[11px] font-medium text-destructive hover:text-destructive"
                         >
                           <Square className="size-2.5 fill-current" />
-                          <span>Stop</span>
+                          <span>{stopLabel}</span>
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        Stop Script (Sends Ctrl+C) - Useful for stopping standard processes
+                        {stopScriptTooltip}
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -413,11 +456,11 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                           className="flex items-center gap-1.5 px-2 h-full hover:bg-muted hover:cursor-pointer transition-colors text-[11px] font-medium text-foreground"
                         >
                           <Play className="size-2.5 fill-current group-hover/run:text-primary transition-colors" />
-                          <span>Run</span>
+                          <span>{runActionLabel}</span>
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        Run configured script (Cmd+R)
+                        {runConfiguredScriptTooltip}
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -441,7 +484,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Kill Terminal Session (Force Stop) - Destroys background processes and resets session
+                    {hardStopTooltip}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -451,7 +494,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
               <button
                 onClick={() => setIsScriptDialogOpen(true)}
                 className="size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                title="Configure Scripts"
+                title={configureScriptsLabel}
               >
                 <Settings className="size-3.5" />
               </button>
@@ -464,7 +507,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-background">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
-                  <span className="text-sm">Loading Workspace...</span>
+                  <span className="text-sm">{loadingWorkspaceLabel}</span>
                 </div>
               </div>
             )}
@@ -478,7 +521,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   sessionId={`${sessionNonceRef.current}-run-script-${terminalContextId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
                   workspaceId={terminalContextId}
                   projectName={projectName}
-                  workspaceName={workspaceName || "Main"}
+                  workspaceName={workspaceName || mainWorkspaceLabel}
                   terminalName={getRunTerminalWindowName(tab.id)}
                   tmuxWindowName={getRunTerminalWindowName(tab.id)}
                   isNewPane={true}
@@ -490,8 +533,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                     if (now - lastLockedToastTime.current >= 3000) {
                       lastLockedToastTime.current = now;
                       toastManager.add({
-                        title: "Terminal is Locked",
-                        description: "Unlock the terminal to interact with it.",
+                        title: terminalLockedTitle,
+                        description: terminalLockedDescription,
                         type: "info"
                       });
                     }

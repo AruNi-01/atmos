@@ -1,4 +1,8 @@
 import type { WorkspaceModel } from "@/api/ws-api";
+import { createTranslator } from 'next-intl';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 export interface WorkspaceSetupProgress {
   workspaceId: string;
@@ -64,6 +68,22 @@ export interface WorkspaceSetupProgressEventPayload {
   setup_context?: WorkspaceSetupContextPayload | null;
 }
 
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeTranslator: any = null;
+
+function runtimeT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never);
+}
+
 const SETUP_STEP_ORDER: Record<
   NonNullable<WorkspaceSetupProgress["stepKey"]>,
   number
@@ -94,7 +114,7 @@ function getInitialAsyncSetupState(input: {
     return {
       status: "creating",
       stepKey: "extract_todos",
-      stepTitle: "Extracting Initial TODOs",
+      stepTitle: runtimeT('setupProgress.stepTitles.extractingInitialTodos'),
       success: true,
     };
   }
@@ -103,7 +123,7 @@ function getInitialAsyncSetupState(input: {
     return {
       status: "setting_up",
       stepKey: "run_setup_script",
-      stepTitle: "Running Setup Script",
+      stepTitle: runtimeT('setupProgress.stepTitles.runningSetupScript'),
       success: true,
     };
   }
@@ -111,7 +131,7 @@ function getInitialAsyncSetupState(input: {
   return {
     status: "completed",
     stepKey: "ready",
-    stepTitle: "Ready to Build",
+    stepTitle: runtimeT('setupProgress.stepTitles.readyToBuild'),
     success: true,
   };
 }

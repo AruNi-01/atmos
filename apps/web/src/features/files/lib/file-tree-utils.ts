@@ -1,5 +1,6 @@
 import type { FileTreeNode } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 export interface FileTreeItem {
   id: string;
@@ -30,6 +31,22 @@ export interface FileTreeMenuState {
   x: number;
   y: number;
   itemPath: string;
+}
+
+function filesLibT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const messages = locale === 'zh'
+    ? {
+        'copyToClipboard.copiedTitle': '已复制',
+        'copyToClipboard.copyFailedTitle': '复制失败',
+        'copyToClipboard.copyFailedDescription': '无法复制到剪贴板。',
+      }
+    : {
+        'copyToClipboard.copiedTitle': 'Copied',
+        'copyToClipboard.copyFailedTitle': 'Copy failed',
+        'copyToClipboard.copyFailedDescription': 'Could not copy to clipboard.',
+      };
+  return messages[key as keyof typeof messages] ?? key;
 }
 
 export function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
@@ -98,15 +115,15 @@ export async function copyToClipboard(value: string, successMessage: string) {
   try {
     await navigator.clipboard.writeText(value);
     toastManager.add({
-      title: 'Copied',
+      title: filesLibT('copyToClipboard.copiedTitle'),
       description: successMessage,
       type: 'success',
     });
   } catch (error) {
     console.error('Failed to copy to clipboard:', error);
     toastManager.add({
-      title: 'Copy failed',
-      description: 'Could not copy to clipboard.',
+      title: filesLibT('copyToClipboard.copyFailedTitle'),
+      description: filesLibT('copyToClipboard.copyFailedDescription'),
       type: 'error',
     });
   }

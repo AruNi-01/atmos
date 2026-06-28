@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
 import { ExternalLink, Search, Loader2, Workflow, CheckCircle2, XCircle, FileText, Rocket, Github, AlertCircle } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -62,6 +63,7 @@ export function useProcessedActions(runs: ActionRun[] | null) {
 }
 
 export function ActionsSummaryHeader({ stats, className }: { stats: ActionsStats; className?: string }) {
+  const t = useTranslations('github.actionsPanel');
   return (
     <div className={cn("flex items-center gap-3 px-1", className)}>
       <TooltipProvider delayDuration={300}>
@@ -72,7 +74,7 @@ export function ActionsSummaryHeader({ stats, className }: { stats: ActionsStats
               <span className="text-xs font-mono font-bold leading-none">{stats.success}</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="top">Passed</TooltipContent>
+          <TooltipContent side="top">{t('summary.passed')}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -82,7 +84,7 @@ export function ActionsSummaryHeader({ stats, className }: { stats: ActionsStats
               <span className="text-xs font-mono font-bold leading-none">{stats.failure}</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="top">Failed</TooltipContent>
+          <TooltipContent side="top">{t('summary.failed')}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -92,7 +94,7 @@ export function ActionsSummaryHeader({ stats, className }: { stats: ActionsStats
               <span className="text-xs font-mono font-bold leading-none">{stats.inProgress}</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="top">In Progress</TooltipContent>
+          <TooltipContent side="top">{t('summary.inProgress')}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>
@@ -109,6 +111,7 @@ interface ActionsPanelProps {
 }
 
 export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enabled = true }: ActionsPanelProps) {
+  const t = useTranslations('github.actionsPanel');
   const { data: runs, loading } = useGithubActionsList({ owner, repo, branch, enabled });
   const { latestRuns, stats } = useProcessedActions(runs);
 
@@ -116,7 +119,7 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
     return (
       <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
         <Loader2 className="size-6 animate-spin opacity-50 mb-4" />
-        <span className="text-xs">Loading Workflows...</span>
+        <span className="text-xs">{t('loading')}</span>
       </div>
     );
   }
@@ -126,12 +129,12 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
       {latestRuns.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground/50 py-10">
           <Workflow className="size-8 opacity-20 mb-2" />
-          <span className="text-xs text-center">No Actions workflow runs found.</span>
+          <span className="text-xs text-center">{t('empty')}</span>
         </div>
       ) : (
         <>
           <div className="px-3 h-8 flex items-center justify-between shrink-0 border-b border-sidebar-border/50">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">Latest Workflows</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">{t('header')}</span>
             <ActionsSummaryHeader stats={stats} />
           </div>
 
@@ -166,11 +169,14 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
                               ) : "bg-blue-500/10 text-blue-500"
                             )}>
                               {!isCompleted && <Loader2 className="size-3 animate-spin" />}
-                              {isCompleted ? run.conclusion : run.status}
+                              {formatGithubActionState(isCompleted ? run.conclusion : run.status, t)}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            Status: {run.status}, Conclusion: {run.conclusion}
+                            {t('statusTooltip', {
+                              status: formatGithubActionState(run.status, t),
+                              conclusion: formatGithubActionState(run.conclusion, t),
+                            })}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -189,11 +195,11 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="cursor-default">
-                            {createdAtTimeAgo ?? 'Unknown time'}
+                            {createdAtTimeAgo ?? t('unknownTime')}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-[11px]">
-                          {createdAtTimestamp ?? 'Unknown start time'}
+                          {createdAtTimestamp ?? t('unknownStartTime')}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -205,7 +211,7 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
 
           <div className="p-3 border-t border-sidebar-border/50 bg-sidebar-accent/5 flex flex-col gap-2">
             <p className="text-[11px] text-muted-foreground leading-normal">
-              Only the latest run for each active workflow is shown here. Check full history on GitHub.
+              {t('footer.description')}
             </p>
             <Button
               variant="outline"
@@ -214,11 +220,54 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
               onClick={() => window.open(`https://github.com/${owner}/${repo}/actions?query=branch:${branch}`, '_blank')}
             >
               <Github className="size-3.5" />
-              View All Runs
+              {t('footer.viewAllRuns')}
             </Button>
           </div>
         </>
       )}
     </div>
   );
+}
+
+function formatGithubActionState(
+  value: string | null | undefined,
+  t: ReturnType<typeof useTranslations>,
+) {
+  switch (value) {
+    case 'queued':
+      return t('states.queued');
+    case 'in_progress':
+      return t('states.inProgress');
+    case 'completed':
+      return t('states.completed');
+    case 'success':
+      return t('states.success');
+    case 'failure':
+      return t('states.failure');
+    case 'skipped':
+      return t('states.skipped');
+    case 'cancelled':
+      return t('states.cancelled');
+    case 'neutral':
+      return t('states.neutral');
+    case 'pending':
+      return t('states.pending');
+    case 'requested':
+      return t('states.requested');
+    case 'stale':
+      return t('states.stale');
+    case 'timed_out':
+      return t('states.timedOut');
+    case 'action_required':
+      return t('states.actionRequired');
+    case 'startup_failure':
+      return t('states.startupFailure');
+    case 'unknown':
+    case '':
+    case null:
+    case undefined:
+      return t('states.unknown');
+    default:
+      return value.replace(/_/g, ' ');
+  }
 }

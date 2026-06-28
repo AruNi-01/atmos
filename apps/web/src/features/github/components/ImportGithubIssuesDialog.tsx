@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
   defaultProjectId,
   onImported,
 }) => {
+  const t = useTranslations('github.importIssuesDialog');
   const projects = useProjectStore((s) => s.projects);
   const addWorkspacesToProject = useProjectStore((s) => s.addWorkspacesToProject);
 
@@ -110,12 +112,12 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
           setRepoContext(context);
         } else {
           setRepoContext(null);
-          setError('This project is not associated with a GitHub repository. Please add a GitHub remote to import issues.');
+          setError(t('errors.noRepositoryForProject'));
         }
       } catch (error) {
         if (!cancelled) {
           setRepoContext(null);
-          setError(error instanceof Error ? error.message : 'Failed to detect GitHub repository');
+          setError(error instanceof Error ? error.message : t('errors.detectRepositoryFailed'));
         }
       } finally {
         if (!cancelled) {
@@ -132,7 +134,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
   const loadIssues = useCallback(async () => {
     if (!repoContext) {
-      setError('No GitHub repository detected');
+      setError(t('errors.noRepositoryDetected'));
       return;
     }
 
@@ -151,11 +153,11 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
       setIssues(loadedIssues);
       setHasLoadedOnce(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load issues');
+      setError(err instanceof Error ? err.message : t('errors.loadIssuesFailed'));
     } finally {
       setIsLoadingIssues(false);
     }
-  }, [repoContext, sortBy, sortOrder, searchQuery]);
+  }, [repoContext, sortBy, sortOrder, searchQuery, t]);
 
   // Reload from server when committed search query changes (always needs server search)
   useEffect(() => {
@@ -236,14 +238,14 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
       }
 
       if (result.skipped.length > 0 && result.created.length === 0) {
-        setError('Selected issues were already imported.');
+        setError(t('errors.alreadyImported'));
         return;
       }
 
       await onImported?.();
 
       if (result.skipped.length > 0) {
-        setError(`${result.skipped.length} issue(s) were already imported and skipped.`);
+        setError(t('errors.skippedImported', { count: result.skipped.length }));
         if (closeTimerRef.current) {
           clearTimeout(closeTimerRef.current);
         }
@@ -252,7 +254,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
         onClose();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import issues');
+      setError(err instanceof Error ? err.message : t('errors.importFailed'));
     } finally {
       setIsImporting(false);
     }
@@ -270,9 +272,9 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
         }`}
       >
         <DialogHeader>
-          <DialogTitle>Import GitHub Issues</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            Select issues to import as Issue Only workspaces for Kanban tracking.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -280,10 +282,10 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
           {/* Project Selection and GitHub Repository Info */}
           <div className="grid grid-cols-[1fr_auto] items-end gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="project">Project</Label>
+              <Label htmlFor="project">{t('fields.project')}</Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger id="project">
-                  <SelectValue placeholder="Select a project" />
+                  <SelectValue placeholder={t('fields.selectProject')} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((project) => (
@@ -296,11 +298,11 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
             </div>
 
             <div className="flex flex-col gap-2 justify-end">
-              <Label>GitHub Repository</Label>
+              <Label>{t('fields.repository')}</Label>
               {isRepoLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Detecting repository...
+                  {t('fields.detectingRepository')}
                 </div>
               ) : repoContext ? (
                 <div className="flex items-center gap-2 text-sm">
@@ -308,7 +310,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
                 </div>
               ) : (
                 <div className="text-sm text-destructive">
-                  No GitHub repository detected for this project
+                  {t('fields.noRepository')}
                 </div>
               )}
             </div>
@@ -316,7 +318,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
           <Button onClick={loadIssues} disabled={isLoadingIssues || !repoContext}>
             {isLoadingIssues ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Load Issues
+            {t('actions.loadIssues')}
           </Button>
 
           {error && <div className="text-sm text-destructive">{error}</div>}
@@ -327,7 +329,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search issues (press Enter)..."
+                  placeholder={t('fields.searchIssues')}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -347,18 +349,18 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
               </div>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'created' | 'updated')}>
                 <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Sort by" />
+                  <SelectValue placeholder={t('fields.sortBy')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="created">Created</SelectItem>
-                  <SelectItem value="updated">Updated</SelectItem>
+                  <SelectItem value="created">{t('fields.created')}</SelectItem>
+                  <SelectItem value="updated">{t('fields.updated')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                title={sortOrder === 'desc' ? 'Switch to ascending' : 'Switch to descending'}
+                title={sortOrder === 'desc' ? t('fields.switchToAscending') : t('fields.switchToDescending')}
               >
                 {sortOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpNarrowWide className="h-4 w-4" />}
               </Button>
@@ -376,7 +378,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
                     onCheckedChange={toggleSelectAll}
                   />
                   <Label htmlFor="select-all" className="text-sm">
-                    Select All ({selectedIssues.size} selected)
+                    {t('fields.selectAll', { count: selectedIssues.size })}
                   </Label>
                 </div>
               )}
@@ -385,13 +387,13 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
                 <div className="p-4 space-y-2">
                   {issues.length === 0 && !isLoadingIssues && (
                     <div className="text-center text-sm text-muted-foreground py-8">
-                      {searchQuery ? 'No issues match your search' : 'No open issues found'}
+                      {searchQuery ? t('empty.noSearchMatches') : t('empty.noOpenIssues')}
                     </div>
                   )}
                   {issues.length === 0 && isLoadingIssues && (
                     <div className="flex items-center justify-center text-sm text-muted-foreground py-8">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
+                      {t('loading')}
                     </div>
                   )}
                   {sortedIssues.map((issue) => {
@@ -458,11 +460,16 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('actions.cancel')}
           </Button>
           <Button onClick={handleImport} disabled={isImporting || selectedIssues.size === 0}>
             {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Import className="mr-2 h-4 w-4" />}
-            Import {selectedIssues.size} Issue{selectedIssues.size !== 1 ? 's' : ''}
+            {selectedIssues.size > 0
+              ? t('actions.importCount', {
+                  count: selectedIssues.size,
+                  suffix: selectedIssues.size !== 1 ? 's' : '',
+                })
+              : t('actions.importIssues')}
           </Button>
         </DialogFooter>
       </DialogContent>

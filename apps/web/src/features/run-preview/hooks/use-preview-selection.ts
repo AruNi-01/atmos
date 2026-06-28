@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { formatPreviewSelectionForAI, type SelectionInfo } from "@/shared/lib/format-selection-for-ai";
 import type { PreviewHelperPayload } from "../lib/preview-helper/types";
@@ -35,21 +36,29 @@ function cloneSelectionInfo(info: SelectionInfo): SelectionInfo {
   };
 }
 
-function formatPreviewAnnotationsForAI(annotations: PreviewSelectionAnnotation[]): string {
+type PreviewSelectionTranslator = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
+function formatPreviewAnnotationsForAI(
+  annotations: PreviewSelectionAnnotation[],
+  t: PreviewSelectionTranslator,
+): string {
   if (annotations.length === 1) {
     return formatPreviewSelectionForAI(annotations[0].info, annotations[0].note);
   }
 
   const sections = annotations.map((annotation, index) => {
     const formatted = formatPreviewSelectionForAI(annotation.info, annotation.note)
-      .replace(/^## Preview Element/m, "### Preview Element");
-    return `## Annotation ${index + 1}\n\n${formatted}`;
+      .replace(/^## /m, "### ");
+    return `## ${t("aiContext.annotationTitle", { index: index + 1 })}\n\n${formatted}`;
   });
 
   return [
-    "# Preview Element Annotations",
+    `# ${t("aiContext.title")}`,
     "",
-    `Use these ${annotations.length} selected preview elements as context.`,
+    t("aiContext.description", { count: annotations.length }),
     "",
     sections.join("\n\n---\n\n"),
   ].join("\n").trimEnd();
@@ -61,6 +70,7 @@ export function usePreviewSelection({
   isElementPickerEnabledRef,
   transportControllerRef,
 }: UsePreviewSelectionParams) {
+  const t = useTranslations("preview.selection");
   const [selectionPopoverVisible, setSelectionPopoverVisible] = useState(false);
   const [selectionPopoverExpanded, setSelectionPopoverExpanded] = useState(false);
   const [selectionPopoverPosition, setSelectionPopoverPosition] = useState({ x: 0, y: 0 });
@@ -167,19 +177,19 @@ export function usePreviewSelection({
     try {
       await navigator.clipboard.writeText(formatPreviewSelectionForAI(info, userNote));
       toastManager.add({
-        title: 'Copied',
-        description: 'Selection copied for AI',
+        title: t("toast.copiedTitle"),
+        description: t("toast.selectionCopiedDescription"),
         type: 'success',
       });
       dismissSelectionPopover();
     } catch {
       toastManager.add({
-        title: 'Failed to copy',
-        description: 'Could not copy to clipboard',
+        title: t("toast.copyFailedTitle"),
+        description: t("toast.selectionCopyFailedDescription"),
         type: 'error',
       });
     }
-  }, [dismissSelectionPopover]);
+  }, [dismissSelectionPopover, t]);
 
   const handleAddSelectionAnnotation = useCallback((userNote?: string, explicitInfo?: SelectionInfo, annotationId?: string) => {
     const info = explicitInfo ?? selectionInfoRef.current;
@@ -201,12 +211,12 @@ export function usePreviewSelection({
     });
 
     toastManager.add({
-      title: 'Annotation added',
-      description: `${nextCount} annotation${nextCount === 1 ? '' : 's'} ready to copy`,
+      title: t("toast.annotationAddedTitle"),
+      description: t("toast.annotationReadyDescription", { count: nextCount }),
       type: 'success',
     });
     dismissSelectionPopover();
-  }, [dismissSelectionPopover]);
+  }, [dismissSelectionPopover, t]);
 
   const handleUpdateSelectionAnnotation = useCallback((annotationId?: string, userNote?: string) => {
     if (!annotationId) return;
@@ -222,15 +232,15 @@ export function usePreviewSelection({
       ),
     );
     toastManager.add({
-      title: 'Annotation updated',
-      description: 'Preview annotation note updated',
+      title: t("toast.annotationUpdatedTitle"),
+      description: t("toast.annotationUpdatedDescription"),
       type: 'success',
     });
     setSelectionPopoverVisible(false);
     setSelectionPopoverExpanded(false);
     setSelectionInfo(null);
     setEditingAnnotationId(null);
-  }, []);
+  }, [t]);
 
   const handleDeleteSelectionAnnotation = useCallback((annotationId?: string) => {
     if (!annotationId) return;
@@ -242,11 +252,11 @@ export function usePreviewSelection({
       setEditingAnnotationId(null);
     }
     toastManager.add({
-      title: 'Annotation deleted',
-      description: 'Preview annotation removed',
+      title: t("toast.annotationDeletedTitle"),
+      description: t("toast.annotationDeletedDescription"),
       type: 'success',
     });
-  }, []);
+  }, [t]);
 
   const handleEditSelectionAnnotation = useCallback((annotation: PreviewSelectionAnnotation) => {
     const rect = annotation.info.previewRect ?? { x: 0, y: 0, width: 0, height: 0 };
@@ -262,22 +272,24 @@ export function usePreviewSelection({
     if (annotations.length === 0) return;
 
     try {
-      await navigator.clipboard.writeText(formatPreviewAnnotationsForAI(annotations));
+      await navigator.clipboard.writeText(formatPreviewAnnotationsForAI(annotations, t));
       setSelectionAnnotations([]);
       toastManager.add({
-        title: 'Copied',
-        description: `${annotations.length} annotation${annotations.length === 1 ? '' : 's'} copied for AI`,
+        title: t("toast.copiedTitle"),
+        description: t("toast.annotationsCopiedDescription", {
+          count: annotations.length,
+        }),
         type: 'success',
       });
       dismissSelectionPopover();
     } catch {
       toastManager.add({
-        title: 'Failed to copy',
-        description: 'Could not copy annotations to clipboard',
+        title: t("toast.copyFailedTitle"),
+        description: t("toast.annotationsCopyFailedDescription"),
         type: 'error',
       });
     }
-  }, [dismissSelectionPopover]);
+  }, [dismissSelectionPopover, t]);
 
   return {
     dismissSelectionPopover,

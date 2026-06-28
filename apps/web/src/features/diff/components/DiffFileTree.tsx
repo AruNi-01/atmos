@@ -6,6 +6,7 @@ import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { useOverflowAwareDecorationVisibility } from "@/shared/hooks/use-overflow-aware-decoration-visibility";
+import { setAgentContextDragData } from "@/shared/lib/agent-context-drag";
 
 export interface DiffFileTreeItem {
   path: string;
@@ -357,7 +358,14 @@ function DiffFileTreeRow({
           ? "bg-sidebar-accent text-sidebar-foreground"
           : "hover:bg-sidebar-accent/50",
       )}
+      draggable
       style={{ paddingLeft: indentOffset + 8 + row.depth * 14 }}
+      onDragStart={(event) => {
+        setAgentContextDragData(event.dataTransfer, {
+          kind: file ? "file" : "directory",
+          path: row.path,
+        });
+      }}
       onClick={() => {
         if (file) {
           onSelectFile(row.path);

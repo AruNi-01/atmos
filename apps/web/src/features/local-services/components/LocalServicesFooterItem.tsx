@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, RotateCcw, Server } from "lucide-react";
 import {
   Button,
@@ -25,6 +26,7 @@ const FOOTER_REQUEST = {
 };
 
 export function LocalServicesFooterItem() {
+  const t = useTranslations("localServices.footerItem");
   const [open, setOpen] = React.useState(false);
   const router = useAppRouter();
   const connectionState = useWebSocketStore((s) => s.connectionState);
@@ -34,6 +36,12 @@ export function LocalServicesFooterItem() {
   const services = scope?.data?.services ?? [];
   const loading = scope?.loading ?? false;
   const error = scope?.error ?? scope?.data?.unavailable?.message ?? null;
+
+  const label = React.useCallback(
+    (key: string, values?: Record<string, string | number>) =>
+      t(key, values),
+    [t]
+  );
 
   const refresh = React.useCallback((force = false) => {
     if (connectionState !== "connected") return;
@@ -71,23 +79,27 @@ export function LocalServicesFooterItem() {
         <button
           type="button"
           className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-          title="Local Services"
+          title={label("title")}
         >
           {loading ? (
             <Loader2 className="size-3 animate-spin" />
           ) : (
             <Server className="size-3" />
           )}
-          <span className="font-medium">LOCAL {services.length}</span>
+          <span className="font-medium">
+            {label("triggerLabel", { count: services.length })}
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-[420px] p-0">
         <div className="border-b border-border px-3 py-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-foreground">Local Services</div>
+              <div className="text-xs font-semibold text-foreground">
+                {label("title")}
+              </div>
               <div className="truncate text-[10px] text-muted-foreground">
-                Atmos Project/Workspace services
+                {label("subtitle")}
               </div>
             </div>
             <Button
@@ -97,7 +109,7 @@ export function LocalServicesFooterItem() {
               className="size-7"
               onClick={() => refresh(true)}
               disabled={loading || connectionState !== "connected"}
-              title="Refresh"
+              title={label("refresh")}
             >
               <RotateCcw className={cn("size-3.5", loading && "animate-spin-reverse")} />
             </Button>
@@ -113,7 +125,7 @@ export function LocalServicesFooterItem() {
             services={services}
             grouped
             compact
-            emptyLabel="No Project or Workspace services found."
+            emptyLabel={label("emptyLabel")}
             onOpen={handleOpen}
             onRefresh={() => refresh(true)}
           />

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { ScrollArea, Skeleton } from "@workspace/ui";
 import { AnimatePresence, motion } from "motion/react";
@@ -32,6 +33,7 @@ export function DiffCodeViewScaffold({
   loadingTreeLabel,
   defaultTreeVisible = true,
 }: DiffCodeViewScaffoldProps) {
+  const t = useTranslations("diff.diffCodeViewScaffold");
   const [treeVisible, setTreeVisible] = useState(defaultTreeVisible);
   const [treeWidth, setTreeWidth] = useState(224);
   const [isResizing, setIsResizing] = useState(false);
@@ -41,10 +43,10 @@ export function DiffCodeViewScaffold({
       <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1.5 shrink-0">
         <button
           type="button"
-          aria-label={treeVisible ? "Hide file tree" : "Show file tree"}
+          aria-label={treeVisible ? t("hideFileTree") : t("showFileTree")}
           className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           onClick={() => setTreeVisible((value) => !value)}
-          title={treeVisible ? "Hide file tree" : "Show file tree"}
+          title={treeVisible ? t("hideFileTree") : t("showFileTree")}
         >
           {treeVisible ? (
             <PanelLeftClose className="size-3.5" />

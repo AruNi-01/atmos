@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Server } from "lucide-react";
 import { cn, toastManager } from "@workspace/ui";
 
@@ -22,11 +23,12 @@ export function LocalServiceList({
   services,
   grouped = false,
   compact = false,
-  emptyLabel = "No Local Services detected.",
+  emptyLabel,
   showOwner = false,
   onOpen,
   onRefresh,
 }: LocalServiceListProps) {
+  const t = useTranslations("LocalServices.components");
   const [stoppingId, setStoppingId] = React.useState<string | null>(null);
 
   const handleStop = React.useCallback(async (service: LocalService) => {
@@ -45,7 +47,7 @@ export function LocalServiceList({
     } catch (error) {
       toastManager.add({
         type: "error",
-        title: "Failed to stop service",
+        title: t("list.failedToStopTitle"),
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -57,9 +59,9 @@ export function LocalServiceList({
     return (
       <div className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 px-4 py-5 text-center">
         <Server className="size-5 text-muted-foreground" />
-        <div className="mt-2 text-sm font-medium text-foreground">{emptyLabel}</div>
+        <div className="mt-2 text-sm font-medium text-foreground">{emptyLabel ?? t("list.emptyLabel")}</div>
         <div className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
-          Start a server inside this Project or Workspace, then refresh.
+          {t("list.emptyDescription")}
         </div>
       </div>
     );

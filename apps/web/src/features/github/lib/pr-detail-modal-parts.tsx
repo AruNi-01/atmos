@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { createTranslator, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import {
   Avatar,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
@@ -34,6 +36,9 @@ import {
 } from '@/features/diff/lib/diff-view-constants';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { cn } from '@/shared/lib/utils';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 import type { CommitListItem } from '../components/CommitList';
 import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
@@ -127,6 +132,22 @@ export interface ConversationItem extends TimelineItem {
   type: string;
   createdAt: string;
   reviewCommentThreads?: ReviewCommentThread[];
+}
+
+let cachedPrDetailLocale: 'en' | 'zh' | null = null;
+let cachedPrDetailTranslator: any = null;
+
+function prDetailT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedPrDetailTranslator || cachedPrDetailLocale !== locale) {
+    cachedPrDetailLocale = locale;
+    cachedPrDetailTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'github.prDetailModalParts',
+    });
+  }
+  return cachedPrDetailTranslator(key as never);
 }
 
 function CheckGroupItem({ groupName, checks }: { groupName: string, checks: StatusCheck[] }) {
@@ -318,6 +339,7 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
 }
 
 export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
+  const t = useTranslations('github.prDetailModalParts');
   const [open, setOpen] = React.useState(false);
   const allPassed = checks.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS');
   const passedCount = checks.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length;
@@ -325,7 +347,7 @@ export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
   const groups: Record<string, StatusCheck[]> = {};
   checks.forEach((c: StatusCheck) => {
     let g = c.workflowName;
-    if (!g) g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
+    if (!g) g = c.context && c.context.toLowerCase().includes('vercel') ? t('checks.groups.vercel') : t('checks.groups.other');
     if (!groups[g]) groups[g] = [];
     groups[g].push(c);
   });
@@ -342,7 +364,7 @@ export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
             : <AlertCircle className="absolute inset-0 size-3.5 text-amber-500 transition-opacity duration-150 group-hover:opacity-0" />}
           <ChevronRight className={cn("absolute inset-0 size-3.5 opacity-0 transition-all duration-150 group-hover:opacity-100", open && "rotate-90")} />
         </div>
-        <span>Checks</span>
+        <span>{t('checks.title')}</span>
         <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">{passedCount}/{checks.length}</span>
       </button>
       {open && (
@@ -375,9 +397,11 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
   agentFixSource?: AgentFixPromptSource;
   thread: ReviewCommentThread;
 }) {
+  const t = useTranslations('github.prDetailModalParts');
   const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
+  const relativeTimeLocale = currentAppLocale('en') === 'zh' ? zhCN : enUS;
   const isMounted = React.useSyncExternalStore(
     () => () => { },
     () => true,
@@ -420,7 +444,7 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
         <img {...getFileIconProps({ name: thread.path.split('/').pop() || thread.path, isDir: false })} className="size-4 shrink-0" alt="" aria-hidden="true" />
         <span className="text-[12px] font-mono text-foreground/80 truncate">{thread.path}</span>
         {thread.line && (
-          <span className="text-[10px] text-muted-foreground shrink-0">line {thread.line}</span>
+          <span className="text-[10px] text-muted-foreground shrink-0">{t('thread.line', { line: thread.line })}</span>
         )}
         <span
           className={cn(
@@ -436,7 +460,9 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
               agentFixSettingsOpen && "opacity-0",
             )}
           >
-            {thread.comments.length} comment{thread.comments.length > 1 ? 's' : ''}
+            {thread.comments.length === 1
+              ? t('thread.commentCountOne')
+              : t('thread.commentCountOther', { count: thread.comments.length })}
           </span>
           {agentFixSource ? (
             <span
@@ -484,7 +510,7 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
                     <span className="text-[11px] font-semibold text-foreground/90">{comment.user?.login}</span>
                     {comment.created_at && (
                       <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: relativeTimeLocale })}
                       </span>
                     )}
                   </div>
@@ -513,6 +539,7 @@ interface CommentBoxProps {
 }
 
 export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComment, onClose, onMerge, onReopen }: CommentBoxProps) {
+  const t = useTranslations('github.prDetailModalParts');
   const [comment, setComment] = React.useState('');
   const [tab, setTab] = React.useState<'write' | 'preview'>('write');
 
@@ -520,19 +547,19 @@ export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComme
     <div className="mt-8 border border-border rounded-lg overflow-hidden">
       <div className="px-4 py-2 border-b border-border flex items-center justify-between">
         <span className="text-xs font-semibold flex items-center gap-2">
-          <MessageSquare className="size-3.5" /> Add a comment
+          <MessageSquare className="size-3.5" /> {t('commentBox.title')}
         </span>
         <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'write' | 'preview')}>
           <TabsList>
-            <TabsTrigger value="write" className="text-[11px] px-3">Write</TabsTrigger>
-            <TabsTrigger value="preview" className="text-[11px] px-3">Preview</TabsTrigger>
+            <TabsTrigger value="write" className="text-[11px] px-3">{t('commentBox.tabs.write')}</TabsTrigger>
+            <TabsTrigger value="preview" className="text-[11px] px-3">{t('commentBox.tabs.preview')}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
       <div className="p-0">
         {tab === 'write' ? (
           <Textarea
-            placeholder="Leave a comment"
+            placeholder={t('commentBox.placeholder')}
             className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent dark:bg-transparent"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -542,38 +569,38 @@ export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComme
             {comment.trim() ? (
               <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">{comment}</MarkdownRenderer>
             ) : (
-              <div className="text-muted-foreground italic text-xs">Nothing to preview</div>
+              <div className="text-muted-foreground italic text-xs">{t('commentBox.nothingToPreview')}</div>
             )}
           </div>
         )}
       </div>
       <div className="px-4 py-2 border-t border-border flex items-center justify-between">
         <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-          <Github className="size-3" /> Markdown supported
+          <Github className="size-3" /> {t('commentBox.markdownSupported')}
         </div>
         <div className="flex gap-2">
           {prState === 'OPEN' && (
             <>
               <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onClose(comment)} disabled={!!actionLoading}>
-                <XCircle className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Close PR' : 'Close PR'}
+                <XCircle className="mr-2 size-3.5" /> {comment.trim() ? t('commentBox.actions.commentAndClosePr') : t('commentBox.actions.closePr')}
               </Button>
               <Button
                 variant="default" size="sm"
                 className={cn("h-8 text-xs font-medium text-white", (isDraft || mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-emerald-600 hover:bg-emerald-700")}
                 onClick={() => onMerge(comment)} disabled={!!actionLoading || isDraft || mergeable !== 'MERGEABLE'}
               >
-                <GitMerge className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Merge' : 'Merge'}
+                <GitMerge className="mr-2 size-3.5" /> {comment.trim() ? t('commentBox.actions.commentAndMerge') : t('commentBox.actions.merge')}
               </Button>
             </>
           )}
           {prState === 'CLOSED' && (
             <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onReopen(comment)} disabled={!!actionLoading}>
-              <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
+              <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? t('commentBox.actions.commentAndReopenPr') : t('commentBox.actions.reopenPr')}
             </Button>
           )}
           <Button variant="secondary" size="sm" className="h-8 text-xs font-medium" onClick={() => { onComment(comment); setComment(''); }} disabled={!comment.trim() || !!actionLoading}>
             {actionLoading === 'comment' ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <MessageSquare className="mr-2 size-3.5" />}
-            Comment
+            {t('commentBox.actions.comment')}
           </Button>
         </div>
       </div>
@@ -591,7 +618,7 @@ export function prCommitsToListItems(
     shortHash: c.oid.substring(0, 7),
     subject: c.messageHeadline,
     body: c.messageBody,
-    authorName: c.authors?.[0]?.login ?? 'unknown',
+    authorName: c.authors?.[0]?.login ?? prDetailT('commits.unknownAuthor'),
     authorAvatarUrl: c.authors?.[0]?.avatarUrl ?? `https://github.com/${c.authors?.[0]?.login?.replace('[bot]', '')}.png?size=32`,
     timestamp: c.committedDate ? new Date(c.committedDate) : new Date(0),
     isPushed: true,

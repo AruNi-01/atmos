@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { Copy, ChevronDown, Check, Paperclip } from 'lucide-react';
 import {
   Popover,
@@ -68,6 +69,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   annotationMode = 'add',
   initialNote = '',
 }) => {
+  const t = useTranslations('Selection.components');
   const [userNote, setUserNote] = useState('');
   const [copied, setCopied] = useState(false);
   const [attaching, setAttaching] = useState(false);
@@ -140,8 +142,8 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       await navigator.clipboard.writeText(formatted);
       setCopied(true);
       toastManager.add({
-        title: 'Copied',
-        description: 'Selection copied for AI',
+        title: t('popover.toast.copiedTitle'),
+        description: t('popover.toast.copiedDescription'),
         type: 'success',
       });
       onCopied?.({
@@ -158,12 +160,12 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       }, 500);
     } catch {
       toastManager.add({
-        title: 'Failed to copy',
-        description: 'Could not copy to clipboard',
+        title: t('popover.toast.failedToCopyTitle'),
+        description: t('popover.toast.failedToCopyDescription'),
         type: 'error',
       });
     }
-  }, [buildFormattedText, displayInfo, onCopied, onDismiss, type]);
+  }, [buildFormattedText, displayInfo, onCopied, onDismiss, t, type]);
 
   const handleAttach = useCallback(async (includeNote: boolean = false) => {
     if (!displayInfo || !onAttach) return;
@@ -281,7 +283,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               size="icon"
               className="h-7 w-7"
               onClick={handleQuickCopy}
-              title="Copy for AI"
+              title={t('popover.actions.copyForAi')}
             >
               {copied ? (
                 <Check className="h-3.5 w-3.5 text-green-500" />
@@ -295,7 +297,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 size="icon"
                 className="h-7 w-7"
                 onClick={() => void handleAttach(false)}
-                title="Attach to Agent"
+                title={t('popover.actions.attachToAgent')}
                 disabled={attaching}
               >
                 <Paperclip className="h-3.5 w-3.5" />
@@ -306,7 +308,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                title="Add note"
+                title={t('popover.actions.addNote')}
               >
                 <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
               </Button>

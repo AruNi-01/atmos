@@ -1,9 +1,13 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import { create } from 'zustand';
 import { WorkspacePriority, WorkspaceWorkflowStatus } from '@/shared/types/domain';
 import { wsProjectApi, wsScriptApi, wsWorkspaceApi } from '@/api/ws-api';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { toastManager } from '@workspace/ui';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 import { waitForConnection } from './project-store-connection';
 import { createProjectStoreLabelActions } from './project-store-label-actions';
 import { mapProjectModel, mapWorkspaceModel, sortWorkspaces } from './project-store-mappers';
@@ -29,6 +33,37 @@ const WORKSPACE_VISIBLE_ATTEMPTS = 5;
 const WORKSPACE_VISIBLE_IDLE_ATTEMPTS = 40;
 const WORKSPACE_VISIBLE_IDLE_DELAY_MS = 50;
 const WORKSPACE_VISIBLE_RETRY_DELAY_MS = 100;
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeTranslator: any = null;
+
+function runtimeT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never, values as never);
+}
+
+function runtimeErrorDescription(error: unknown, fallbackKey: string): string {
+  if (!(error instanceof Error)) {
+    return runtimeT(fallbackKey);
+  }
+
+  const message = error.message.trim();
+  if (!message) {
+    return runtimeT(fallbackKey);
+  }
+
+  return /^[\x00-\x7F]*$/.test(message) ? runtimeT(fallbackKey) : message;
+}
 
 const sleep = (ms: number) => new Promise<void>((resolve) => {
   setTimeout(resolve, ms);
@@ -88,8 +123,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }
       console.error('Error fetching projects:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to load projects', 
+        title: runtimeT('common.error'),
+        description: runtimeErrorDescription(error, 'store.errors.failedToLoadProjects'),
         type: 'error' 
       });
     } finally {
@@ -157,8 +192,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error adding project:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to import project', 
+        title: runtimeT('common.error'),
+        description: runtimeErrorDescription(error, 'store.errors.failedToImportProject'),
         type: 'error' 
       });
       throw error; // 重新抛出以便调用者处理
@@ -185,8 +220,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating project:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to update project', 
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToUpdateProject'),
         type: 'error' 
       });
     }
@@ -203,15 +238,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
       
       toastManager.add({ 
-        title: 'Deleted', 
-        description: 'Project removed', 
+        title: runtimeT('common.deleted'),
+        description: runtimeT('store.messages.projectRemoved'),
         type: 'info' 
       });
     } catch (error) {
       console.error('Error deleting project:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to delete project', 
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToDeleteProject'),
         type: 'error' 
       });
     }
@@ -280,8 +315,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
       
       toastManager.add({ 
-        title: 'Workspace setup started', 
-        description: `Opening "${newWorkspace.displayName || newWorkspace.name}"`, 
+        title: runtimeT('store.messages.workspaceSetupStartedTitle'),
+        description: runtimeT('store.messages.openingWorkspace', {
+          name: newWorkspace.displayName || newWorkspace.name,
+        }),
         type: 'info' 
       });
       return newWorkspace.id;
@@ -328,7 +365,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       
       const project = get().projects.find(p => p.id === projectId);
       if (!project) {
-        throw new Error('Project not found');
+        throw new Error(runtimeT('store.errors.projectNotFound'));
       }
 
       let hasSetupScript = false;
@@ -387,8 +424,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
       
       toastManager.add({ 
-        title: 'Workspace setup started', 
-        description: `Opening "${newWorkspace.displayName || newWorkspace.name}"`, 
+        title: runtimeT('store.messages.workspaceSetupStartedTitle'),
+        description: runtimeT('store.messages.openingWorkspace', {
+          name: newWorkspace.displayName || newWorkspace.name,
+        }),
         type: 'info' 
       });
       
@@ -396,8 +435,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error quick adding workspace:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to create workspace', 
+        title: runtimeT('common.error'),
+        description: runtimeErrorDescription(error, 'store.errors.failedToCreateWorkspace'),
         type: 'error' 
       });
       return null;
@@ -431,7 +470,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       };
     });
 
-    const workspaceName = workspaceBeingDeleted?.displayName || workspaceBeingDeleted?.name || 'Untitled';
+    const workspaceName =
+      workspaceBeingDeleted?.displayName ||
+      workspaceBeingDeleted?.name ||
+      runtimeT('common.untitled');
 
     // Store workspace name so the WS event handler can show a toast when deletion completes
     registerWorkspaceDeleteProgressToast(workspaceId, workspaceName);
@@ -445,8 +487,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         if (hasWorkspaceDeleteProgressToast(workspaceId)) {
           clearWorkspaceDeleteProgressToast(workspaceId);
           toastManager.add({
-            title: 'Deleted',
-            description: `Workspace "${workspaceName}" removed (cleanup may still be running)`,
+            title: runtimeT('common.deleted'),
+            description: runtimeT('store.messages.workspaceRemovedCleanupMayStillRun', {
+              name: workspaceName,
+            }),
             type: 'info',
             timeout: 5000,
           });
@@ -455,8 +499,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       clearWorkspaceDeleteProgressToast(workspaceId);
       toastManager.add({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete workspace',
+        title: runtimeT('common.error'),
+        description: runtimeErrorDescription(error, 'store.errors.failedToDeleteWorkspace'),
         type: 'error',
         timeout: 5000,
       });
@@ -496,8 +540,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error pinning workspace:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to pin workspace', 
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToPinWorkspace'),
         type: 'error' 
       });
     }
@@ -527,8 +571,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error unpinning workspace:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to unpin workspace', 
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToUnpinWorkspace'),
         type: 'error' 
       });
     }
@@ -550,15 +594,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
       
       toastManager.add({ 
-        title: 'Archived', 
-        description: 'Workspace archived', 
+        title: runtimeT('common.archived'),
+        description: runtimeT('store.messages.workspaceArchived'),
         type: 'info' 
       });
     } catch (error) {
       console.error('Error archiving workspace:', error);
       toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to archive workspace', 
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToArchiveWorkspace'),
         type: 'error' 
       });
     }
@@ -584,8 +628,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating workspace name:', error);
       toastManager.add({
-        title: 'Error',
-        description: 'Failed to update workspace name',
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToUpdateWorkspaceName'),
         type: 'error'
       });
       throw error;
@@ -639,8 +683,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating workspace workflow status:', error);
       toastManager.add({
-        title: 'Error',
-        description: 'Failed to update workspace status',
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToUpdateWorkspaceStatus'),
         type: 'error'
       });
     }
@@ -670,8 +714,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating workspace priority:', error);
       toastManager.add({
-        title: 'Error',
-        description: 'Failed to update workspace priority',
+        title: runtimeT('common.error'),
+        description: runtimeT('store.errors.failedToUpdateWorkspacePriority'),
         type: 'error'
       });
       throw error;

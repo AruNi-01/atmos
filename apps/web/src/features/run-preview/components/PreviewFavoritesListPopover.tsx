@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Check, FolderHeart, Pencil, Search, Trash2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Input,
@@ -42,14 +43,25 @@ export function PreviewFavoritesListPopover({
   setRenameDraft,
   setRenamingUrl,
 }: PreviewFavoritesListPopoverProps) {
+  const t = useTranslations("preview.favoritesPopover");
+  const favoritesLabel = t("favoritesLabel");
+  const searchPlaceholder = t("searchPlaceholder");
+  const emptyFavorites = t("emptyFavorites");
+  const noMatchingFavorites = t("noMatchingFavorites");
+  const favoriteNamePlaceholder = t("favoriteNamePlaceholder");
+  const saveLabel = t("save");
+  const cancelLabel = t("cancel");
+  const renameLabel = t("rename");
+  const deleteLabel = t("delete");
+
   return (
     <Popover open={favoritesListOpen} onOpenChange={setFavoritesListOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
           className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-          title="Favorites"
-          aria-label="Favorites"
+          title={favoritesLabel}
+          aria-label={favoritesLabel}
         >
           <FolderHeart className="size-3.5" />
         </button>
@@ -68,7 +80,7 @@ export function PreviewFavoritesListPopover({
             <Input
               value={favoriteSearch}
               onChange={(event) => setFavoriteSearch(event.target.value)}
-              placeholder="Search favorites"
+              placeholder={searchPlaceholder}
               className="h-8 pl-8 text-xs"
             />
           </div>
@@ -76,7 +88,7 @@ export function PreviewFavoritesListPopover({
           <div className="max-h-[280px] space-y-1 overflow-y-auto pr-1">
             {filteredFavorites.length === 0 ? (
               <div className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-                {favorites.length === 0 ? "No favorites yet" : "No matching favorites"}
+                {favorites.length === 0 ? emptyFavorites : noMatchingFavorites}
               </div>
             ) : (
               filteredFavorites.map((site) => {
@@ -102,13 +114,13 @@ export function PreviewFavoritesListPopover({
                               setRenameDraft("");
                             }
                           }}
-                          placeholder="Favorite name"
+                          placeholder={favoriteNamePlaceholder}
                           className="h-8 text-xs"
                         />
                         <button
                           onClick={() => void handleRenameFavorite(site)}
                           className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          title="Save"
+                          title={saveLabel}
                         >
                           <Check className="size-3.5" />
                         </button>
@@ -118,7 +130,7 @@ export function PreviewFavoritesListPopover({
                             setRenameDraft("");
                           }}
                           className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          title="Cancel"
+                          title={cancelLabel}
                         >
                           <X className="size-3.5" />
                         </button>
@@ -148,7 +160,7 @@ export function PreviewFavoritesListPopover({
                           }}
                           type="button"
                           className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover/item:opacity-100"
-                          title="Rename"
+                          title={renameLabel}
                         >
                           <Pencil className="size-3.5" />
                         </button>
@@ -156,7 +168,7 @@ export function PreviewFavoritesListPopover({
                           onClick={() => void handleDeleteFavorite(site)}
                           type="button"
                           className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
-                          title="Delete"
+                          title={deleteLabel}
                         >
                           <Trash2 className="size-3.5" />
                         </button>

@@ -10,6 +10,7 @@ import type {
   FileDiffMetadata,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
+import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
@@ -64,6 +65,9 @@ export const DiffViewer = ({
   originalPath,
   contextId,
 }: DiffViewerProps) => {
+  const viewerT = useTranslations('diff.viewer');
+  const codeViewT = useTranslations('diff.codeView');
+  const reviewT = useTranslations('diff.reviewAnnotations');
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
@@ -352,7 +356,7 @@ export const DiffViewer = ({
         }
       } catch (err) {
         console.error('Failed to load diff:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load diff');
+        setError(err instanceof Error ? err.message : viewerT('errors.loadFallback'));
         setWorkingDiff(null);
       } finally {
         setIsLoading(false);
@@ -360,7 +364,7 @@ export const DiffViewer = ({
     };
 
     loadDiff();
-  }, [repoPath, filePath, compareMode, snapshotGuidFromPath]);
+  }, [repoPath, filePath, compareMode, snapshotGuidFromPath, viewerT]);
 
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({
@@ -574,8 +578,8 @@ export const DiffViewer = ({
     const body = inlineCommentBody.trim();
     if (!body) {
       toastManager.add({
-        title: 'Comment is empty',
-        description: 'Write a short review note before creating a comment.',
+        title: reviewT('errors.emptyCommentTitle'),
+        description: reviewT('errors.emptyCommentDescription'),
         type: 'error',
       });
       return;
@@ -605,15 +609,15 @@ export const DiffViewer = ({
       setInlineCommentDraft(null);
     } catch (error) {
       toastManager.add({
-        title: 'Failed to create review comment',
+        title: reviewT('errors.createCommentTitle'),
         description:
-          error instanceof Error ? error.message : 'Unknown review comment error',
+          error instanceof Error ? error.message : reviewT('errors.unknownCommentError'),
         type: 'error',
       });
     } finally {
       setIsSubmittingInlineComment(false);
     }
-  }, [filePath, inlineCommentBody, inlineCommentDraft, reviewContext.file, reviewContext.revision, reviewContext.session]);
+  }, [filePath, inlineCommentBody, inlineCommentDraft, reviewContext.file, reviewContext.revision, reviewContext.session, reviewT]);
 
   const handleToggleReviewed = useCallback(async (reviewed: boolean) => {
     if (!reviewContext.file) return;
@@ -624,20 +628,20 @@ export const DiffViewer = ({
       });
     } catch (error) {
       toastManager.add({
-        title: 'Failed to update file review state',
+        title: reviewT('errors.updateFileReviewStateTitle'),
         description:
-          error instanceof Error ? error.message : 'Unknown review state error',
+          error instanceof Error ? error.message : reviewT('errors.unknownReviewStateError'),
         type: 'error',
       });
     }
-  }, [reviewContext.file]);
+  }, [reviewContext.file, reviewT]);
 
   const handleCommentReplySubmit = useCallback(async (comment: ReviewCommentDto) => {
     const body = replyBody.trim();
     if (!body) {
       toastManager.add({
-        title: 'Reply is empty',
-        description: 'Write a short reply before sending.',
+        title: reviewT('errors.emptyReplyTitle'),
+        description: reviewT('errors.emptyReplyDescription'),
         type: 'error',
       });
       return;
@@ -653,7 +657,7 @@ export const DiffViewer = ({
     } finally {
       setIsSubmittingReply(false);
     }
-  }, [replyBody, reviewContext]);
+  }, [replyBody, reviewContext, reviewT]);
 
   const handleDeleteMessage = useCallback(async (
     comment: ReviewCommentDto,
@@ -710,7 +714,7 @@ export const DiffViewer = ({
             afterContext: [],
           });
         }}
-        aria-label="Add review comment"
+        aria-label={codeViewT('actions.addReviewComment')}
       >
         <svg width={14} height={14} viewBox="0 0 16 16" fill="none">
           <path d="M8 3a.75.75 0 0 1 .75.75v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5A.75.75 0 0 1 8 3" fill="currentColor" />
@@ -802,7 +806,7 @@ export const DiffViewer = ({
     return (
       <div className="flex items-center justify-center h-full bg-background">
         <div className="text-center">
-          <p className="text-red-500 mb-2">Error loading diff</p>
+          <p className="text-red-500 mb-2">{viewerT('errors.loadTitle')}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -812,7 +816,7 @@ export const DiffViewer = ({
   if (!oldFile || !newFile || !workingDiff) {
     return (
       <div className="flex items-center justify-center h-full bg-background">
-        <p className="text-muted-foreground">No diff available</p>
+        <p className="text-muted-foreground">{viewerT('empty')}</p>
       </div>
     );
   }
