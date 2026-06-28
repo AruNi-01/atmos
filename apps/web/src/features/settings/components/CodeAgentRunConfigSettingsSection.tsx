@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Collapsible,
@@ -51,6 +52,7 @@ export function CodeAgentRunConfigSettingsSection({
   saving,
   onSaveRunConfigs,
 }: CodeAgentRunConfigSettingsSectionProps) {
+  const t = useTranslations("settings.codeAgentRunConfigSection");
   const agentLabelById = React.useMemo(
     () => new Map(agentOptions.map((item) => [item.id, item.label])),
     [agentOptions],
@@ -100,11 +102,11 @@ export function CodeAgentRunConfigSettingsSection({
   const handleSave = React.useCallback(async () => {
     const name = draftName.trim();
     if (!name) {
-      setError("Name is required.");
+      setError(t("errors.nameRequired"));
       return;
     }
     if (!draftAgentId) {
-      setError("Agent is required.");
+      setError(t("errors.agentRequired"));
       return;
     }
 
@@ -121,7 +123,7 @@ export function CodeAgentRunConfigSettingsSection({
 
     await onSaveRunConfigs(nextRunConfigs);
     resetEditor();
-  }, [draftAgentId, draftConfig, draftName, editingId, onSaveRunConfigs, resetEditor, runConfigs]);
+  }, [draftAgentId, draftConfig, draftName, editingId, onSaveRunConfigs, resetEditor, runConfigs, t]);
 
   const handleDelete = React.useCallback(async (id: string) => {
     setDeletingId(id);
@@ -167,25 +169,25 @@ export function CodeAgentRunConfigSettingsSection({
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">Code Agent Run Configs</p>
+              <p className="text-base font-medium text-foreground">{t("title")}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Save reusable model, reasoning, and extra-args presets for terminal agents.
+                {t("description")}
               </p>
             </div>
           </div>
         </CollapsibleTrigger>
         <Button variant="outline" onClick={openCreate}>
           <Plus className="mr-2 size-4" />
-          Add Config
+          {t("actions.addConfig")}
         </Button>
       </div>
 
       <CollapsibleContent className="border-t border-border px-6 py-5">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading saved run configs…</p>
+          <p className="text-sm text-muted-foreground">{t("loading")}</p>
         ) : runConfigs.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No saved run configs yet. Add one to reuse agent model and reasoning presets.
+            {t("empty")}
           </p>
         ) : (
           <div className="space-y-5">
@@ -212,7 +214,7 @@ export function CodeAgentRunConfigSettingsSection({
                         <div className="flex shrink-0 items-center gap-2">
                           <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(config)}>
                             <Pencil className="mr-2 size-4" />
-                            Edit
+                            {t("actions.edit")}
                           </Button>
                           <Popover
                             open={confirmingDeleteId === config.id}
@@ -229,9 +231,12 @@ export function CodeAgentRunConfigSettingsSection({
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-72 space-y-3">
                               <div className="space-y-1">
-                                <p className="text-sm font-medium text-foreground">Delete config?</p>
+                                <p className="text-sm font-medium text-foreground">{t("deleteConfirm.title")}</p>
                                 <p className="text-xs leading-5 text-muted-foreground">
-                                  Remove <span className="font-medium text-foreground">{config.name}</span> from saved run configs.
+                                  {t.rich("deleteConfirm.description", {
+                                    name: config.name,
+                                    strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                                  })}
                                 </p>
                               </div>
                               <div className="flex items-center justify-end gap-2">
@@ -241,7 +246,7 @@ export function CodeAgentRunConfigSettingsSection({
                                   size="sm"
                                   onClick={() => setConfirmingDeleteId(null)}
                                 >
-                                  Cancel
+                                  {t("actions.cancel")}
                                 </Button>
                                 <Button
                                   type="button"
@@ -250,7 +255,7 @@ export function CodeAgentRunConfigSettingsSection({
                                   disabled={isDeleting}
                                   onClick={() => void handleDelete(config.id)}
                                 >
-                                  Delete
+                                  {t("actions.delete")}
                                 </Button>
                               </div>
                             </PopoverContent>
@@ -268,26 +273,26 @@ export function CodeAgentRunConfigSettingsSection({
 
       <Dialog open={editorOpen} onOpenChange={(nextOpen) => (!nextOpen ? resetEditor() : setEditorOpen(true))}>
         <DialogContent className="sm:max-w-[640px]">
-          <DialogTitle>{editingId ? "Edit Run Config" : "Add Run Config"}</DialogTitle>
+          <DialogTitle>{editingId ? t("editor.editTitle") : t("editor.addTitle")}</DialogTitle>
           <DialogDescription>
-            Choose an agent, name this saved template, then configure model, reasoning, and extra args.
+            {t("editor.description")}
           </DialogDescription>
 
           <div className="space-y-4 pt-2">
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Name</label>
+                <label className="mb-1 block text-xs text-muted-foreground">{t("fields.name")}</label>
                 <Input
                   value={draftName}
-                  placeholder="e.g. Cursor Sonnet High"
+                  placeholder={t("editor.namePlaceholder")}
                   onChange={(event) => setDraftName(event.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Agent</label>
+                <label className="mb-1 block text-xs text-muted-foreground">{t("fields.agent")}</label>
                 <Select value={draftAgentId} onValueChange={setDraftAgentId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select an agent" />
+                    <SelectValue placeholder={t("editor.selectAgent")} />
                   </SelectTrigger>
                   <SelectContent>
                     {agentOptions.map((agent) => (
@@ -322,11 +327,11 @@ export function CodeAgentRunConfigSettingsSection({
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <div className="flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={resetEditor}>
-                Cancel
+                <Button type="button" variant="ghost" onClick={resetEditor}>
+                {t("actions.cancel")}
               </Button>
               <Button type="button" disabled={saving} onClick={() => void handleSave()}>
-                {saving ? <LoaderCircle className="size-4 animate-spin-reverse" /> : "Save"}
+                {saving ? <LoaderCircle className="size-4 animate-spin-reverse" /> : t("actions.save")}
               </Button>
             </div>
           </div>

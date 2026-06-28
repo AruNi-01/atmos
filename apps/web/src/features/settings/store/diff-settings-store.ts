@@ -1,10 +1,14 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import type { DiffIndicators } from '@pierre/diffs';
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import { toastManager } from '@workspace/ui';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 export type DiffSettingsStyle = 'split' | 'unified';
 
@@ -32,6 +36,25 @@ const DEFAULT_DIFF_SETTINGS = {
   diffIndicators: 'bars' as DiffIndicators,
 };
 
+type SettingsLocale = 'en' | 'zh';
+
+let cachedLocale: SettingsLocale | null = null;
+let cachedTranslator: any = null;
+
+function diffSettingsT(key: string, values?: Record<string, string | number>) {
+  const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'settings.store.diff',
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
+}
+
 function isDiffStyle(value: unknown): value is DiffSettingsStyle {
   return value === 'split' || value === 'unified';
 }
@@ -51,8 +74,8 @@ async function updateDiffSetting(
   } catch {
     rollback();
     toastManager.add({
-      title: 'Settings Sync Failed',
-      description: 'Failed to update the global diff setting.',
+      title: diffSettingsT('syncFailedTitle'),
+      description: diffSettingsT('syncFailedDescription'),
       type: 'error',
     });
   }
@@ -87,8 +110,8 @@ export const useDiffSettingsStore = create<DiffSettingsState>((set, get) => ({
     } catch {
       set({ loading: false });
       toastManager.add({
-        title: 'Settings Load Failed',
-        description: 'Could not load diff preferences from the server.',
+        title: diffSettingsT('loadFailedTitle'),
+        description: diffSettingsT('loadFailedDescription'),
         type: 'error',
       });
     }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import {
   Collapsible,
   CollapsibleContent,
@@ -33,6 +34,7 @@ export function HeaderLayoutSettingsSection({
   setHeaderShowSummaryNote,
   setHeaderShowSummaryCommit,
 }: HeaderLayoutSettingsSectionProps) {
+  const t = useTranslations('settings.headerLayoutSection');
   const enabledCount =
     Number(showHeaderSummaryTask) +
     Number(showHeaderSummaryNote) +
@@ -52,15 +54,15 @@ export function HeaderLayoutSettingsSection({
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">Header layout</p>
+              <p className="text-base font-medium text-foreground">{t('title')}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Choose which workspace utilities appear to the left of global search.
+                {t('description')}
               </p>
             </div>
           </div>
         </CollapsibleTrigger>
         <div className="pt-1 text-xs text-muted-foreground">
-          {showHeaderSummary ? `${enabledCount} enabled` : 'Hidden'}
+          {showHeaderSummary ? t('enabledCount', { count: enabledCount }) : t('hidden')}
         </div>
       </div>
 
@@ -69,9 +71,9 @@ export function HeaderLayoutSettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Workspace summary button</p>
+                <p className="text-sm font-medium text-foreground">{t('summaryButtonTitle')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Show one compact icon button before global search with project, task, note, and commit shortcuts.
+                  {t('summaryButtonDescription')}
                 </p>
               </div>
               <div className="flex items-center justify-end">
@@ -87,9 +89,9 @@ export function HeaderLayoutSettingsSection({
               <div className="flex gap-3">
                 <ListTodo className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">TASK section</p>
+                  <p className="text-sm font-medium text-foreground">{t('taskTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show task counts in the summary popover and expose the full task panel as a nested popover.
+                    {t('taskDescription')}
                   </p>
                 </div>
               </div>
@@ -107,9 +109,9 @@ export function HeaderLayoutSettingsSection({
               <div className="flex gap-3">
                 <StickyNote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">NOTE section</p>
+                  <p className="text-sm font-medium text-foreground">{t('noteTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show a note preview row and expose the markdown editor/preview as a nested popover.
+                    {t('noteDescription')}
                   </p>
                 </div>
               </div>
@@ -127,9 +129,9 @@ export function HeaderLayoutSettingsSection({
               <div className="flex gap-3">
                 <GitCommit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Commit & Push section</p>
+                  <p className="text-sm font-medium text-foreground">{t('commitTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show repository change status and expose the shared Commit & Push controls as a nested popover.
+                    {t('commitDescription')}
                   </p>
                 </div>
               </div>

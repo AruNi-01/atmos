@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { systemApi } from "@/api/rest-api";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
@@ -12,6 +13,7 @@ import {
 import { renderDesktopUpdateAvailableToast } from "@/features/settings/components/SettingsAboutSection";
 
 export function useSettingsUpdateActions() {
+  const t = useTranslations("settings.updateActions");
   const installInFlightRef = useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: "idle" });
   const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
@@ -39,8 +41,8 @@ export function useSettingsUpdateActions() {
 
     if (toastId) {
       toastManager.update(toastId, {
-        title: "Preparing install…",
-        description: "Starting the updater.",
+        title: t("install.preparingTitle"),
+        description: t("install.preparingDescription"),
         type: "loading",
         timeout: 0,
       });
@@ -55,10 +57,12 @@ export function useSettingsUpdateActions() {
 
       if (nextStatus.stage === "downloading") {
         toastManager.update(toastId, {
-          title: "Downloading update…",
+          title: t("install.downloadingTitle"),
           description: nextStatus.total
-            ? `${Math.round((nextStatus.downloaded / nextStatus.total) * 100)}% downloaded`
-            : "Downloading the latest version…",
+            ? t("install.downloadingProgress", {
+                progress: Math.round((nextStatus.downloaded / nextStatus.total) * 100),
+              })
+            : t("install.downloadingDescription"),
           type: "loading",
           timeout: 0,
         });
@@ -67,8 +71,8 @@ export function useSettingsUpdateActions() {
 
       if (nextStatus.stage === "installing") {
         toastManager.update(toastId, {
-          title: "Installing update…",
-          description: "Atmos will restart when installation finishes.",
+          title: t("install.installingTitle"),
+          description: t("install.installingDescription"),
           type: "loading",
           timeout: 0,
         });
@@ -78,8 +82,8 @@ export function useSettingsUpdateActions() {
       if (nextStatus.stage === "upToDate") {
         installInFlightRef.current = false;
         toastManager.update(toastId, {
-          title: "Already up to date",
-          description: "No installable update is available.",
+          title: t("install.upToDateTitle"),
+          description: t("install.upToDateDescription"),
           type: "info",
           timeout: 4000,
         });
@@ -89,8 +93,8 @@ export function useSettingsUpdateActions() {
       if (nextStatus.stage === "done") {
         installInFlightRef.current = false;
         toastManager.update(toastId, {
-          title: "Restarting Atmos…",
-          description: "The update has been installed.",
+          title: t("install.restartingTitle"),
+          description: t("install.restartingDescription"),
           type: "success",
           timeout: 2500,
         });
@@ -100,7 +104,7 @@ export function useSettingsUpdateActions() {
       if (nextStatus.stage === "error") {
         installInFlightRef.current = false;
         toastManager.update(toastId, {
-          title: "Update install failed",
+          title: t("install.failedTitle"),
           description: nextStatus.message,
           type: "error",
           timeout: 6000,
@@ -118,8 +122,8 @@ export function useSettingsUpdateActions() {
     let latestStage = "idle";
     let latestErrorMessage: string | undefined;
     const toastId = toastManager.add({
-      title: "Checking for updates…",
-      description: "Querying the desktop updater.",
+      title: t("desktop.checkingTitle"),
+      description: t("desktop.checkingDescription"),
       type: "loading",
       timeout: 0,
     });
@@ -133,8 +137,8 @@ export function useSettingsUpdateActions() {
 
       if (latestStage === "error") {
         toastManager.update(toastId, {
-          title: "Update check failed",
-          description: latestErrorMessage ?? "Unable to check for updates.",
+          title: t("desktop.checkFailedTitle"),
+          description: latestErrorMessage ?? t("desktop.checkFailedDescription"),
           type: "error",
           timeout: 6000,
         });
@@ -143,10 +147,20 @@ export function useSettingsUpdateActions() {
 
       if (latestStage === "available" && info) {
         toastManager.update(toastId, {
-          title: `Version ${info.version} is available`,
-          description: renderDesktopUpdateAvailableToast(info, () => {
+          title: t("desktop.availableTitle", { version: info.version }),
+          description: renderDesktopUpdateAvailableToast(
+            info,
+            {
+              manualDescription: t("desktop.toast.manualDescription"),
+              automaticDescription: t("desktop.toast.automaticDescription"),
+              openGitHub: t("desktop.toast.openGitHub"),
+              whatsNew: t("desktop.toast.whatsNew"),
+              install: t("desktop.toast.install"),
+            },
+            () => {
             void handleInstallUpdate(toastId);
-          }),
+            },
+          ),
           type: "info",
           timeout: 0,
         });
@@ -154,8 +168,8 @@ export function useSettingsUpdateActions() {
       }
 
       toastManager.update(toastId, {
-        title: "Already up to date",
-        description: "You are already on the latest available version.",
+        title: t("desktop.upToDateTitle"),
+        description: t("desktop.upToDateDescription"),
         type: "success",
         timeout: 4000,
       });
@@ -167,8 +181,8 @@ export function useSettingsUpdateActions() {
   const handleCheckCliVersion = async () => {
     setIsCheckingCliVersion(true);
     const toastId = toastManager.add({
-      title: "Checking Atmos CLI…",
-      description: "Querying the installed CLI and latest GitHub release.",
+      title: t("cli.checkingTitle"),
+      description: t("cli.checkingDescription"),
       type: "loading",
       timeout: 0,
     });
@@ -178,8 +192,8 @@ export function useSettingsUpdateActions() {
 
       if (!result.installed) {
         toastManager.update(toastId, {
-          title: "Atmos CLI not installed",
-          description: "The local Atmos CLI was not found in ~/.atmos/bin.",
+          title: t("cli.notInstalledTitle"),
+          description: t("cli.notInstalledDescription"),
           type: "error",
           timeout: 6000,
         });
@@ -195,8 +209,10 @@ export function useSettingsUpdateActions() {
 
       if (result.update_available) {
         toastManager.update(toastId, {
-          title: `Atmos CLI ${result.latest_version} is available`,
-          description: `Installed version: ${result.current_version ?? "unknown"}. Click Install to update.`,
+          title: t("cli.availableTitle", { version: result.latest_version ?? "" }),
+          description: t("cli.availableDescription", {
+            current: result.current_version ?? t("cli.unknownVersion"),
+          }),
           type: "info",
           timeout: 4000,
         });
@@ -204,17 +220,17 @@ export function useSettingsUpdateActions() {
       }
 
       toastManager.update(toastId, {
-        title: "Atmos CLI is up to date",
+        title: t("cli.upToDateTitle"),
         description: result.current_version
-          ? `Installed version: ${result.current_version}.`
-          : "No newer CLI release was found.",
+          ? t("cli.installedVersion", { current: result.current_version })
+          : t("cli.noNewerRelease"),
         type: "success",
         timeout: 4000,
       });
     } catch (error) {
       toastManager.update(toastId, {
-        title: "CLI version check failed",
-        description: error instanceof Error ? error.message : "Unable to check Atmos CLI version.",
+        title: t("cli.checkFailedTitle"),
+        description: error instanceof Error ? error.message : t("cli.checkFailedDescription"),
         type: "error",
         timeout: 6000,
       });
@@ -226,8 +242,8 @@ export function useSettingsUpdateActions() {
   const handleInstallCli = async () => {
     setIsInstallingCli(true);
     const toastId = toastManager.add({
-      title: "Installing Atmos CLI…",
-      description: "Downloading and installing the latest version.",
+      title: t("cli.installingTitle"),
+      description: t("cli.installingDescription"),
       type: "loading",
       timeout: 0,
     });
@@ -242,17 +258,17 @@ export function useSettingsUpdateActions() {
       });
 
       toastManager.update(toastId, {
-        title: "Atmos CLI installed successfully",
+        title: t("cli.installSuccessTitle"),
         description: installResult.version
-          ? `Updated to version ${installResult.version}.`
-          : "CLI has been updated to the latest version.",
+          ? t("cli.installSuccessVersion", { version: installResult.version })
+          : t("cli.installSuccessDescription"),
         type: "success",
         timeout: 4000,
       });
     } catch (error) {
       toastManager.update(toastId, {
-        title: "CLI installation failed",
-        description: error instanceof Error ? error.message : "Unable to install Atmos CLI.",
+        title: t("cli.installFailedTitle"),
+        description: error instanceof Error ? error.message : t("cli.installFailedDescription"),
         type: "error",
         timeout: 6000,
       });

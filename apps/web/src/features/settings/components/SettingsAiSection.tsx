@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Collapsible,
@@ -84,6 +85,12 @@ export function SettingsAiSection({
   setProvidersExpanded,
   setRoutingExpanded,
 }: SettingsAiSectionProps) {
+  const t = useTranslations("settings.aiSection" as never);
+  const tr = React.useCallback(
+    (key: string, fallback: string) =>
+      t.has(key as never) ? t(key as never) : fallback,
+    [t],
+  );
   const providerEntries = React.useMemo(
     () =>
       Object.entries(llmConfig?.providers ?? {})
@@ -133,9 +140,14 @@ export function SettingsAiSection({
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">Providers</p>
+              <p className="text-base font-medium text-foreground">
+                {tr("providers.title", "提供方")}
+              </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Manage API keys, endpoints, and default models for lightweight background tasks.
+                {tr(
+                  "providers.sectionDescription",
+                  "添加并管理 Atmos 可用于功能与后台任务的模型提供方。",
+                )}
               </p>
             </div>
           </CollapsibleTrigger>
@@ -147,7 +159,7 @@ export function SettingsAiSection({
                 variant="outline"
                 onClick={() => setProviderDialogState({ open: true, providerId: null })}
               >
-                Add Provider
+                {tr("providers.addButtonLabel", "添加提供方")}
               </Button>
             )}
           </div>
@@ -162,7 +174,7 @@ export function SettingsAiSection({
               </div>
             ) : providerEntries.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
-                No providers configured yet.
+                {tr("providers.emptyState", "还没有添加任何提供方。")}
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -205,19 +217,19 @@ export function SettingsAiSection({
                               }}
                             >
                               {providerTests[provider.id]?.status === "testing"
-                                ? "TESTING..."
+                                ? tr("providerTest.status.testing", "测试中…")
                                 : providerTests[provider.id]?.status === "pass"
-                                  ? "PASS"
+                                  ? tr("providerTest.status.pass", "通过")
                                   : providerTests[provider.id]?.status === "fail"
-                                    ? "FAIL"
-                                    : "TEST"}
+                                    ? tr("providerTest.status.fail", "失败")
+                                    : tr("providerTest.status.idle", "测试")}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent align="start" className="w-[420px] p-4">
                             <div className="space-y-2">
                               <div className="flex items-center justify-between gap-3">
                                 <p className="text-sm font-medium text-foreground">
-                                  Provider Test
+                                  {tr("providerTest.title", "提供方测试")}
                                 </p>
                                 <Button
                                   variant="outline"
@@ -228,14 +240,20 @@ export function SettingsAiSection({
                                     void runProviderTest(provider.id, llmConfig.providers[provider.id]);
                                   }}
                                 >
-                                  RETEST
+                                  {tr("providerTest.retest", "重新测试")}
                                 </Button>
                               </div>
                               <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/20 p-3 text-xs whitespace-pre-wrap text-foreground">
                                 {providerTests[provider.id]?.output ||
                                   (providerTests[provider.id]?.status === "testing"
-                                    ? "Streaming response..."
-                                    : "Click TEST to start.")}
+                                    ? tr(
+                                        "providerTest.streaming",
+                                        "正在接收响应…",
+                                      )
+                                    : tr(
+                                        "providerTest.startHint",
+                                        "点击“测试”开始。",
+                                      ))}
                               </pre>
                             </div>
                           </PopoverContent>
@@ -243,13 +261,15 @@ export function SettingsAiSection({
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         {provider.kind === "local-managed"
-                          ? "Managed local model"
+                          ? tr("providers.managedLocalModel", "托管本地模型")
                           : (provider.model || provider.kind)}
                       </p>
                     </div>
                     <div className="flex items-center justify-end gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Enabled</span>
+                        <span className="text-xs text-muted-foreground">
+                          {tr("providers.enabled", "启用")}
+                        </span>
                         <Switch
                           checked={provider.enabled}
                           disabled={providerToggleId === provider.id}
@@ -266,7 +286,7 @@ export function SettingsAiSection({
                             setProviderDialogState({ open: true, providerId: provider.id })
                           }
                         >
-                          Edit
+                          {tr("providers.editButton", "编辑")}
                         </Button>
                       )}
                     </div>
@@ -290,9 +310,14 @@ export function SettingsAiSection({
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">Routing</p>
+              <p className="text-base font-medium text-foreground">
+                {tr("routing.title", "路由")}
+              </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Choose which provider handles tasks.
+                {tr(
+                  "routing.sectionDescription",
+                  "为每个 AI 能力任务选择处理它的提供方。",
+                )}
               </p>
             </div>
           </CollapsibleTrigger>
@@ -310,9 +335,15 @@ export function SettingsAiSection({
               <div className="divide-y divide-border">
                 <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 py-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Git commit generator</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {tr("routing.gitCommit.title", "Git 提交生成")}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {llmConfig?.features?.git_commit_language?.trim() || "Prompt default language"}
+                      {llmConfig?.features?.git_commit_language?.trim() ||
+                        tr(
+                          "routing.defaultLanguageSummary",
+                          "使用提示词默认语言",
+                        )}
                     </p>
                   </div>
                   <div className="flex items-center justify-end gap-3">
@@ -321,7 +352,7 @@ export function SettingsAiSection({
                       value={normalizeRoutingValue(llmConfig?.features?.git_commit)}
                       providerOptions={providerOptions}
                       localAgentOptions={localAgentOptions}
-                      noneLabel="Disabled"
+                      noneLabel={tr("routing.disabled", "已禁用")}
                       disabled={routingSavingKey === "git_commit"}
                       onChange={(value) => {
                         void handleLlmConfigUpdate("git_commit", (current) => ({
@@ -337,7 +368,7 @@ export function SettingsAiSection({
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
                           <Languages className="size-4" />
-                          Language
+                          {tr("routing.languageButton", "语言")}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-64">
@@ -352,7 +383,7 @@ export function SettingsAiSection({
                             }));
                           }}
                         >
-                          Prompt default
+                          {tr("routing.usePromptDefault", "使用提示词默认值")}
                         </DropdownMenuItem>
                         {FEATURE_LANGUAGE_OPTIONS.map((option) => (
                           <DropdownMenuItem
@@ -377,9 +408,18 @@ export function SettingsAiSection({
 
                 <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 py-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Workspace issue TODO extraction</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {tr(
+                        "routing.workspaceIssueTodo.title",
+                        "工作区问题 TODO 提取",
+                      )}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {llmConfig?.features?.workspace_issue_todo_language?.trim() || "Prompt default language"}
+                      {llmConfig?.features?.workspace_issue_todo_language?.trim() ||
+                        tr(
+                          "routing.defaultLanguageSummary",
+                          "使用提示词默认语言",
+                        )}
                     </p>
                   </div>
                   <div className="flex items-center justify-end gap-3">
@@ -390,7 +430,7 @@ export function SettingsAiSection({
                       )}
                       providerOptions={providerOptions}
                       localAgentOptions={localAgentOptions}
-                      noneLabel="Disabled"
+                      noneLabel={tr("routing.disabled", "已禁用")}
                       disabled={routingSavingKey === "workspace_issue_todo"}
                       onChange={(value) => {
                         void handleLlmConfigUpdate("workspace_issue_todo", (current) => ({
@@ -406,7 +446,7 @@ export function SettingsAiSection({
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
                           <Languages className="size-4" />
-                          Language
+                          {tr("routing.languageButton", "语言")}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-64">
@@ -421,7 +461,7 @@ export function SettingsAiSection({
                             }));
                           }}
                         >
-                          Prompt default
+                          {tr("routing.usePromptDefault", "使用提示词默认值")}
                         </DropdownMenuItem>
                         {FEATURE_LANGUAGE_OPTIONS.map((option) => (
                           <DropdownMenuItem
@@ -460,9 +500,14 @@ export function SettingsAiSection({
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">Local Model</p>
+              <p className="text-base font-medium text-foreground">
+                {tr("localModel.title", "本地模型")}
+              </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Run a small language model on-device - no API key required.
+                {tr(
+                  "localModel.sectionDescription",
+                  "直接在这台设备上运行较小的模型，无需 API Key。",
+                )}
               </p>
             </div>
           </CollapsibleTrigger>

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Collapsible,
@@ -26,13 +27,8 @@ import type { GitIgnoreDirStrategy } from '@/api/ws-api';
 import { useWorkspaceGitignoreDirsStore } from '@/features/workspace/store/workspace-gitignore-dirs-store';
 import { useWorkspaceSettingsStore } from '@/features/settings/store/workspace-settings-store';
 
-const STRATEGY_OPTIONS: ReadonlyArray<{ value: GitIgnoreDirStrategy; label: string }> = [
-  { value: 'symlink', label: 'Symlink' },
-  { value: 'copy', label: 'Copy' },
-  { value: 'off', label: 'Off' },
-];
-
 function GitignoreDirsCard() {
+  const t = useTranslations('settings.workspaceSection');
   const {
     enabled,
     entries,
@@ -61,6 +57,11 @@ function GitignoreDirsCard() {
 
   const builtins = entries.filter((entry) => entry.builtin);
   const customs = entries.filter((entry) => !entry.builtin);
+  const strategyOptions: ReadonlyArray<{ value: GitIgnoreDirStrategy; label: string }> = [
+    { value: 'symlink', label: t('gitignore.strategy.symlink') },
+    { value: 'copy', label: t('gitignore.strategy.copy') },
+    { value: 'off', label: t('gitignore.strategy.off') },
+  ];
 
   return (
     <Collapsible
@@ -76,11 +77,11 @@ function GitignoreDirsCard() {
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">GitIgnore Directories Sync</p>
+              <p className="text-base font-medium text-foreground">{t('gitignore.title')}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                When a workspace is created via <code className="font-mono text-xs">git worktree add</code>, files
-                matched by <code className="font-mono text-xs">.gitignore</code> are not carried over. Atmos can
-                compensate by symlinking or copying these paths from the project root into each new workspace.
+                {t('gitignore.descriptionPrefix')} <code className="font-mono text-xs">git worktree add</code>
+                {t('gitignore.descriptionMiddle')} <code className="font-mono text-xs">.gitignore</code>
+                {t('gitignore.descriptionSuffix')}
               </p>
             </div>
           </div>
@@ -94,10 +95,10 @@ function GitignoreDirsCard() {
         <div className="border-t border-border px-4">
           <div className="px-2 py-3">
             <p className="px-1 pb-2 text-xs font-medium text-muted-foreground">
-              Built-in defaults
+              {t('gitignore.builtInDefaults')}
             </p>
             {!loaded ? (
-              <div className="px-1 py-3 text-xs text-muted-foreground">Loading…</div>
+              <div className="px-1 py-3 text-xs text-muted-foreground">{t('gitignore.loading')}</div>
             ) : (
               <div className="rounded-md border border-border">
                 {builtins.map((entry, idx) => (
@@ -117,7 +118,7 @@ function GitignoreDirsCard() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {STRATEGY_OPTIONS.map((option) => (
+                        {strategyOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value} className="text-xs">
                             {option.label}
                           </SelectItem>
@@ -132,7 +133,11 @@ function GitignoreDirsCard() {
 
           <div className="px-2 py-3 last:border-b-0">
             <p className="px-1 pb-2 text-xs font-medium text-muted-foreground">
-              Custom directories <span className="font-normal normal-case not-italic text-muted-foreground/70">(Path is relative to the project root. <code className="font-mono text-[10px]">..</code> and absolute paths are rejected.)</span>
+              {t('gitignore.customDirectories')}{' '}
+              <span className="font-normal normal-case not-italic text-muted-foreground/70">
+                ({t('gitignore.customDirectoriesHintPrefix')} <code className="font-mono text-[10px]">..</code>
+                {t('gitignore.customDirectoriesHintSuffix')})
+              </span>
             </p>
             {customs.length > 0 && (
               <div className="mb-3 rounded-md border border-border">
@@ -172,7 +177,7 @@ function GitignoreDirsCard() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {STRATEGY_OPTIONS.map((option) => (
+                        {strategyOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value} className="text-xs">
                             {option.label}
                           </SelectItem>
@@ -202,7 +207,7 @@ function GitignoreDirsCard() {
                     handleAdd();
                   }
                 }}
-                placeholder="e.g. .my-secrets or custom-prompts"
+                placeholder={t('gitignore.pathPlaceholder')}
                 className="h-8 font-mono text-xs"
                 disabled={!enabled}
               />
@@ -214,11 +219,11 @@ function GitignoreDirsCard() {
                 className="h-8 shrink-0"
               >
                 <Plus className="size-3.5" />
-                Add
+                {t('gitignore.add')}
               </Button>
             </div>
             <p className="mt-2 px-1 text-xs text-warning">
-              Warning: Symlinks to build artifacts may have inconsistent states across worktrees, potentially causing incorrect binaries. Large files or directories are also not recommended for sync because they can be slow to copy and expensive to keep consistent.
+              {t('gitignore.warning')}
             </p>
           </div>
         </div>
@@ -228,6 +233,7 @@ function GitignoreDirsCard() {
 }
 
 export function WorkspaceSettingsSection() {
+  const t = useTranslations('settings.workspaceSection');
   const {
     closePrOnDelete,
     closeIssueOnDelete,
@@ -302,9 +308,9 @@ export function WorkspaceSettingsSection() {
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Branch Naming</p>
+                <p className="text-base font-medium text-foreground">{t('branchNaming.title')}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Configure the git branch prefix for new workspace branches.
+                  {t('branchNaming.description')}
                 </p>
               </div>
             </div>
@@ -316,9 +322,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Branch prefix</p>
+                  <p className="text-sm text-foreground">{t('branchNaming.prefixTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    All workspace branches will be prefixed with this value followed by a fixed &lsquo;/&rsquo;.
+                    {t('branchNaming.prefixDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -326,7 +332,7 @@ export function WorkspaceSettingsSection() {
                     <Input
                       value={localPrefix}
                       onChange={(event) => handlePrefixChange(event.target.value)}
-                      placeholder="atmos"
+                      placeholder={t('branchNaming.prefixPlaceholder')}
                       className="h-8 w-[200px] rounded-r-none border-r-0 focus-visible:ring-0"
                     />
                     <div className="flex h-8 items-center rounded-r-md border border-l-0 bg-muted px-2 text-sm text-muted-foreground">
@@ -355,9 +361,9 @@ export function WorkspaceSettingsSection() {
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Deletion Behavior</p>
+                <p className="text-base font-medium text-foreground">{t('deletion.title')}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Configure what happens when a workspace is deleted. Project deletion follows the same settings.
+                  {t('deletion.description')}
                 </p>
               </div>
             </div>
@@ -369,9 +375,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Close associated PR</p>
+                  <p className="text-sm text-foreground">{t('deletion.closePrTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Automatically close the linked GitHub pull request when deleting a workspace.
+                    {t('deletion.closePrDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -382,9 +388,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Close associated Issue</p>
+                  <p className="text-sm text-foreground">{t('deletion.closeIssueTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Automatically close the linked GitHub issue when deleting a workspace.
+                    {t('deletion.closeIssueDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -395,9 +401,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Delete remote branch</p>
+                  <p className="text-sm text-foreground">{t('deletion.deleteRemoteBranchTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Also delete the remote branch on GitHub when deleting a workspace.
+                    {t('deletion.deleteRemoteBranchDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -408,9 +414,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Confirm before delete</p>
+                  <p className="text-sm text-foreground">{t('deletion.confirmBeforeDeleteTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show a confirmation dialog before deleting a workspace.
+                    {t('deletion.confirmBeforeDeleteDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -435,9 +441,9 @@ export function WorkspaceSettingsSection() {
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Archive Behavior</p>
+                <p className="text-base font-medium text-foreground">{t('archive.title')}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Configure what happens when a workspace is archived. Archived workspaces can be restored later.
+                  {t('archive.description')}
                 </p>
               </div>
             </div>
@@ -449,9 +455,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Confirm before archive</p>
+                  <p className="text-sm text-foreground">{t('archive.confirmBeforeArchiveTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show a confirmation dialog before archiving a workspace.
+                    {t('archive.confirmBeforeArchiveDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -462,9 +468,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Kill tmux session</p>
+                  <p className="text-sm text-foreground">{t('archive.killTmuxTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Terminate the tmux session and PTY processes when archiving. The worktree and branch are preserved.
+                    {t('archive.killTmuxDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -475,9 +481,9 @@ export function WorkspaceSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm text-foreground">Close ACP Chat Session</p>
+                  <p className="text-sm text-foreground">{t('archive.closeAcpTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Close any active agent chat sessions when archiving a workspace.
+                    {t('archive.closeAcpDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { format } from "date-fns";
+import { createTranslator } from "next-intl";
 import {
   Button,
   Calendar,
@@ -30,15 +31,37 @@ import {
   X,
 } from "lucide-react";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type {
   ProviderAccessMode,
   ProviderDiagnostics,
   ProviderKind,
   TunnelConnectorStatus,
 } from "@/features/connection/hooks/use-tunnel-connector";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+
+let cachedTunnelLocale: "en" | "zh" | null = null;
+let cachedTunnelTranslator: any = null;
+
+function tunnelT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedTunnelTranslator || cachedTunnelLocale !== locale) {
+    cachedTunnelLocale = locale;
+    cachedTunnelTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "settings.tunnelConnector",
+    });
+  }
+  return cachedTunnelTranslator(key as never, values as never);
+}
 
 export function formatProvider(kind: ProviderKind): string {
-  if (kind === "cloudflare") return "Cloudflare Tunnel";
+  if (kind === "cloudflare") return tunnelT("providers.cloudflareTunnel");
   return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
@@ -66,7 +89,7 @@ export function CopyableLabel({ children, href }: { children: React.ReactNode; h
           target="_blank"
           rel="noopener noreferrer"
           className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-          title="Open in browser"
+          title={tunnelT("actions.openInBrowser")}
         >
           <ExternalLink className="size-3" />
         </a>
@@ -88,7 +111,7 @@ export function CopyableText({ value }: { value: string }) {
   return (
     <button
       onClick={handleCopy}
-      title="Click to copy"
+      title={tunnelT("actions.clickToCopy")}
       className="group flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded bg-muted px-2 py-1 transition-colors hover:bg-accent"
     >
       <code className="min-w-0 flex-1 truncate text-left font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
@@ -118,7 +141,7 @@ export const PROVIDER_INSTALL: Record<string, ProviderInstallInfo | null> = {
       linux: "curl -fsSL https://tailscale.com/install.sh | sh",
     },
     url: "https://tailscale.com/download",
-    urlLabel: "Tailscale Downloads",
+    urlLabel: tunnelT("providerInstall.tailscaleDownloads"),
     authHint: "tailscale login",
     startHint: "open -a Tailscale",
   },
@@ -128,7 +151,7 @@ export const PROVIDER_INSTALL: Record<string, ProviderInstallInfo | null> = {
       linux: "curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared",
     },
     url: "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/",
-    urlLabel: "Cloudflare Downloads",
+    urlLabel: tunnelT("providerInstall.cloudflareDownloads"),
   },
   ngrok: null,
 };
@@ -245,14 +268,14 @@ export function ProviderActionTerminalPopover({
             <button
               className="text-muted-foreground transition-colors hover:text-foreground"
               onClick={() => copyToClipboard(command)}
-              title="Copy command"
+              title={tunnelT("actions.copyCommand")}
             >
               <Copy className="size-3.5" />
             </button>
             <button
               className="text-muted-foreground transition-colors hover:text-foreground"
               onClick={() => setOpen(false)}
-              title="Close"
+              title={tunnelT("actions.close")}
             >
               <X className="size-3.5" />
             </button>
@@ -315,9 +338,9 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
             <ProviderActionTerminalPopover
               provider="tailscale"
               action="start"
-              triggerLabel="Start Service"
+              triggerLabel={tunnelT("providerActions.startService")}
               triggerIcon={<Play className="mr-1.5 size-3.5" />}
-              title="Start Tailscale Service"
+              title={tunnelT("providerActions.startTailscaleService")}
               onDone={onRedetect}
             />
           ) : null}
@@ -325,9 +348,9 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
             <ProviderActionTerminalPopover
               provider="tailscale"
               action="login"
-              triggerLabel="Login"
+              triggerLabel={tunnelT("providerActions.login")}
               triggerIcon={<KeyRound className="mr-1.5 size-3.5" />}
-              title="Login to Tailscale"
+              title={tunnelT("providerActions.loginToTailscale")}
               onDone={onRedetect}
             />
           ) : null}
@@ -341,7 +364,7 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
           <button
             className="text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => copyToClipboard(info.authHint!)}
-            title="Copy command"
+            title={tunnelT("actions.copyCommand")}
           >
             <Copy className="size-3" />
           </button>
@@ -374,7 +397,7 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
                     <button
                       className="text-muted-foreground transition-colors hover:text-foreground"
                       onClick={() => copyToClipboard(cmd)}
-                      title="Copy"
+                      title={tunnelT("actions.copy")}
                     >
                       <Copy className="size-2.5" />
                     </button>
@@ -413,13 +436,13 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
 type TtlPreset = { label: string; seconds: number };
 
 const TTL_PRESETS: TtlPreset[] = [
-  { label: "1 Hour", seconds: 3_600 },
-  { label: "12 Hours", seconds: 43_200 },
-  { label: "1 Day", seconds: 86_400 },
-  { label: "30 Days", seconds: 2_592_000 },
-  { label: "90 Days", seconds: 7_776_000 },
-  { label: "180 Days", seconds: 15_552_000 },
-  { label: "365 Days", seconds: 31_536_000 },
+  { label: tunnelT("ttlPresets.oneHour"), seconds: 3_600 },
+  { label: tunnelT("ttlPresets.twelveHours"), seconds: 43_200 },
+  { label: tunnelT("ttlPresets.oneDay"), seconds: 86_400 },
+  { label: tunnelT("ttlPresets.thirtyDays"), seconds: 2_592_000 },
+  { label: tunnelT("ttlPresets.ninetyDays"), seconds: 7_776_000 },
+  { label: tunnelT("ttlPresets.oneHundredEightyDays"), seconds: 15_552_000 },
+  { label: tunnelT("ttlPresets.threeHundredSixtyFiveDays"), seconds: 31_536_000 },
 ];
 
 const NO_EXPIRY_SECONDS = 0;
@@ -427,7 +450,7 @@ const CUSTOM_SENTINEL = "__custom__";
 const NO_EXPIRY_SENTINEL = "__no_expiry__";
 
 function formatDuration(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "No Expiry";
+  if (totalSeconds <= 0) return tunnelT("ttl.noExpiry");
   const d = Math.floor(totalSeconds / 86_400);
   const h = Math.floor((totalSeconds % 86_400) / 3_600);
   const m = Math.floor((totalSeconds % 3_600) / 60);
@@ -435,11 +458,11 @@ function formatDuration(totalSeconds: number): string {
   if (d > 0) parts.push(`${d}d`);
   if (h > 0) parts.push(`${h}h`);
   if (m > 0) parts.push(`${m}m`);
-  return parts.join(" ") || "< 1m";
+  return parts.join(" ") || tunnelT("ttl.lessThanOneMinute");
 }
 
 export function ttlPresetLabel(seconds: number): string {
-  if (seconds === NO_EXPIRY_SECONDS) return "No Expiry";
+  if (seconds === NO_EXPIRY_SECONDS) return tunnelT("ttl.noExpiry");
   const preset = TTL_PRESETS.find((p) => p.seconds === seconds);
   return preset ? preset.label : formatDuration(seconds);
 }
@@ -503,8 +526,8 @@ function TtlPicker({
               {preset.label}
             </SelectItem>
           ))}
-          <SelectItem value={NO_EXPIRY_SENTINEL}>No Expiry</SelectItem>
-          <SelectItem value={CUSTOM_SENTINEL}>Custom…</SelectItem>
+          <SelectItem value={NO_EXPIRY_SENTINEL}>{tunnelT("ttl.noExpiry")}</SelectItem>
+          <SelectItem value={CUSTOM_SENTINEL}>{tunnelT("ttl.custom")}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -517,7 +540,7 @@ function TtlPicker({
               className="min-w-0 flex-1 justify-between font-normal"
             >
               <span className="truncate text-xs">
-                {customDate ? format(customDate, "PP") : "Pick date"}
+                {customDate ? format(customDate, "PP") : tunnelT("ttl.pickDate")}
               </span>
               <CalendarIcon className="ml-1 size-3.5 shrink-0 opacity-50" />
             </Button>
@@ -540,7 +563,7 @@ function TtlPicker({
                 className="h-8 w-[110px] appearance-none bg-background font-mono text-xs [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
               />
               <Button size="sm" disabled={!customDate} onClick={applyCustom} className="ml-auto cursor-pointer">
-                Apply
+                {tunnelT("ttl.apply")}
               </Button>
             </div>
           </PopoverContent>
@@ -551,15 +574,15 @@ function TtlPicker({
 }
 
 export function formatExpiry(expiresAt: string | null): string {
-  if (!expiresAt) return "No Expiry";
+  if (!expiresAt) return tunnelT("ttl.noExpiry");
   const diff = new Date(expiresAt).getTime() - Date.now();
-  if (diff <= 0) return "Expired";
+  if (diff <= 0) return tunnelT("expiry.expired");
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 60) return `in ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  if (minutes < 60) return tunnelT("expiry.inMinutes", { count: minutes });
   const hours = Math.floor(minutes / 60);
   const remainMinutes = minutes % 60;
-  if (remainMinutes === 0) return `in ${hours} hour${hours === 1 ? "" : "s"}`;
-  return `in ${hours}h ${remainMinutes}m`;
+  if (remainMinutes === 0) return tunnelT("expiry.inHours", { count: hours });
+  return tunnelT("expiry.inHoursMinutes", { hours, minutes: remainMinutes });
 }
 
 export type SessionUrgency = "ok" | "warning" | "expired";
@@ -610,18 +633,18 @@ export function RenewSessionPopover({
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={cn("cursor-pointer", triggerCls)}>
           <RotateCw className="mr-1.5 size-3.5" />
-          {urgency === "expired" ? "Expired — Renew" : "Renew"}
+          {urgency === "expired" ? tunnelT("renew.expiredRenew") : tunnelT("renew.renew")}
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-72 p-4">
-        <p className="mb-3 text-sm font-medium text-foreground">Renew Session</p>
+        <p className="mb-3 text-sm font-medium text-foreground">{tunnelT("renew.title")}</p>
         <div className="space-y-3">
           <div>
-            <p className="mb-1.5 text-xs text-muted-foreground">New expiration</p>
+            <p className="mb-1.5 text-xs text-muted-foreground">{tunnelT("renew.newExpiration")}</p>
             <TtlPicker value={ttlSecs} onChange={setTtlSecs} />
           </div>
           <div>
-            <p className="mb-1.5 text-xs text-muted-foreground">Entry token</p>
+            <p className="mb-1.5 text-xs text-muted-foreground">{tunnelT("renew.entryToken")}</p>
             <div className="flex flex-col gap-1.5">
               <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
                 <input
@@ -631,8 +654,8 @@ export function RenewSessionPopover({
                   onChange={() => setReuseToken(true)}
                   className="accent-foreground"
                 />
-                Keep existing token
-                <span className="ml-auto rounded bg-muted px-1 text-[10px] text-muted-foreground">recommended</span>
+                {tunnelT("renew.keepExistingToken")}
+                <span className="ml-auto rounded bg-muted px-1 text-[10px] text-muted-foreground">{tunnelT("renew.recommended")}</span>
               </label>
               <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
                 <input
@@ -642,12 +665,12 @@ export function RenewSessionPopover({
                   onChange={() => setReuseToken(false)}
                   className="accent-foreground"
                 />
-                Generate new token
+                {tunnelT("renew.generateNewToken")}
               </label>
             </div>
             {!reuseToken ? (
               <p className="mt-1.5 text-[11px] text-amber-500">
-                Previously shared URLs will stop working.
+                {tunnelT("renew.previousUrlsStopWorking")}
               </p>
             ) : null}
           </div>
@@ -656,7 +679,7 @@ export function RenewSessionPopover({
           ) : null}
           <Button className="w-full cursor-pointer" size="sm" onClick={() => void handleRenew()} disabled={isRenewing}>
             {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
-            Renew Session
+            {tunnelT("renew.action")}
           </Button>
         </div>
       </PopoverContent>
@@ -712,35 +735,35 @@ export function StartTunnelPopover({
           ) : (
             <Play className="mr-1.5 size-3.5" />
           )}
-          Start Tunnel
+          {tunnelT("start.action")}
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-72 p-4">
         <p className="mb-3 text-sm font-medium text-foreground">
-          Start {formatProvider(provider)} Tunnel
+          {tunnelT("start.title", { provider: formatProvider(provider) })}
         </p>
         <div className="space-y-3">
           {provider === "tailscale" ? (
             <div>
-              <p className="mb-1.5 text-xs text-muted-foreground">Access Mode</p>
+              <p className="mb-1.5 text-xs text-muted-foreground">{tunnelT("start.accessMode")}</p>
               <Select value={mode} onValueChange={(v) => setMode(v as ProviderAccessMode)}>
                 <SelectTrigger className="h-8 w-full text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="public">Public — internet accessible (Funnel)</SelectItem>
-                  <SelectItem value="private">Private — tailnet only (Serve)</SelectItem>
+                  <SelectItem value="public">{tunnelT("start.accessModePublic")}</SelectItem>
+                  <SelectItem value="private">{tunnelT("start.accessModePrivate")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           ) : null}
           <div>
-            <p className="mb-1.5 text-xs text-muted-foreground">Expiration</p>
+            <p className="mb-1.5 text-xs text-muted-foreground">{tunnelT("start.expiration")}</p>
             <TtlPicker value={ttlSecs} onChange={setTtlSecs} />
           </div>
           {startError ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              <p className="font-medium">Failed to start tunnel</p>
+              <p className="font-medium">{tunnelT("start.failedTitle")}</p>
               <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed">{startError}</p>
               {isAlreadyRunning ? (
                 <Button
@@ -751,7 +774,7 @@ export function StartTunnelPopover({
                   disabled={isStopping}
                 >
                   {isStopping ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <Square className="mr-1.5 size-3.5" />}
-                  Stop Now
+                  {tunnelT("start.stopNow")}
                 </Button>
               ) : null}
             </div>
@@ -763,7 +786,7 @@ export function StartTunnelPopover({
             disabled={isStarting}
           >
             {isStarting ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <Play className="mr-1.5 size-3.5" />}
-            Start Tunnel
+            {tunnelT("start.action")}
           </Button>
         </div>
       </PopoverContent>
@@ -792,14 +815,14 @@ export function ViewTunnelPopover({
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="cursor-pointer">
           <ExternalLink className="mr-1.5 size-3.5" />
-          View Tunnel
+          {tunnelT("view.action")}
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-[400px] p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="flex items-center gap-2 text-sm font-medium text-foreground">
             <StatusDot state="Running" />
-            Active Tunnel
+            {tunnelT("view.activeTunnel")}
           </span>
           <button
             className="text-muted-foreground transition-colors hover:text-foreground"
@@ -811,25 +834,25 @@ export function ViewTunnelPopover({
         <div className="px-4">
           {status.public_url ? (
             <div className="border-b border-border py-3 last:border-b-0">
-              <CopyableLabel href={status.public_url}>Public URL</CopyableLabel>
+              <CopyableLabel href={status.public_url}>{tunnelT("view.publicUrl")}</CopyableLabel>
               <CopyableText value={status.public_url} />
             </div>
           ) : null}
           {status.share_url ? (
             <div className="border-b border-border py-3 last:border-b-0">
-              <CopyableLabel href={status.share_url}>Access URL (with token)</CopyableLabel>
+              <CopyableLabel href={status.share_url}>{tunnelT("view.accessUrlWithToken")}</CopyableLabel>
               <CopyableText value={status.share_url} />
             </div>
           ) : null}
           {status.entry_token ? (
             <div className="border-b border-border py-3 last:border-b-0">
-              <CopyableLabel>Entry Token</CopyableLabel>
+              <CopyableLabel>{tunnelT("view.entryToken")}</CopyableLabel>
               <CopyableText value={status.entry_token} />
             </div>
           ) : null}
           <div className="flex items-center justify-between border-b border-border py-3 last:border-b-0">
             <div>
-              <p className="mb-1 text-xs text-muted-foreground">Expires</p>
+              <p className="mb-1 text-xs text-muted-foreground">{tunnelT("view.expires")}</p>
               <p className={cn("text-xs", expiryTextCls)}>{formatExpiry(status.expires_at)}</p>
             </div>
             {(urgency === "warning" || urgency === "expired") && status.provider ? (
@@ -853,11 +876,11 @@ export function supportsTokenConfig(provider: ProviderKind): boolean {
 
 export function providerInstallLabel(p: ProviderDiagnostics): { label: string; color: string } {
   if (p.provider === "ngrok") {
-    return { label: "SDK Integrated", color: "text-emerald-500" };
+    return { label: tunnelT("providerStatus.sdkIntegrated"), color: "text-emerald-500" };
   }
   return p.binary_found
-    ? { label: "Installed", color: "text-emerald-500" }
-    : { label: "Uninstalled", color: "text-red-500" };
+    ? { label: tunnelT("providerStatus.installed"), color: "text-emerald-500" }
+    : { label: tunnelT("providerStatus.uninstalled"), color: "text-red-500" };
 }
 
 export function providerAuthLabel(
@@ -865,6 +888,6 @@ export function providerAuthLabel(
 ): { label: string; color: string } | null {
   if (p.provider !== "ngrok" && !p.binary_found) return null;
   return p.logged_in
-    ? { label: "Authenticated", color: "text-emerald-500" }
-    : { label: "Not Authenticated", color: "text-red-500" };
+    ? { label: tunnelT("providerStatus.authenticated"), color: "text-emerald-500" }
+    : { label: tunnelT("providerStatus.notAuthenticated"), color: "text-red-500" };
 }

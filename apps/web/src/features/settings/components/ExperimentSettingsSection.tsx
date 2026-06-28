@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Switch } from '@workspace/ui';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 
 export function ExperimentSettingsSection() {
+  const t = useTranslations('settings.experimentSection');
   const {
     managementTerminalsEnabled,
     managementAgentsEnabled,
@@ -26,9 +28,9 @@ export function ExperimentSettingsSection() {
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Terminals (Management Center)</p>
+            <p className="text-sm font-medium text-foreground">{t('managementTerminals.title')}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Monitor and manage terminal usage across your system from the Management Center.
+              {t('managementTerminals.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -40,9 +42,9 @@ export function ExperimentSettingsSection() {
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-4">
           <div>
-            <p className="text-sm font-medium text-foreground">ACP Agents (Management Center and footer ACP Chat)</p>
+            <p className="text-sm font-medium text-foreground">{t('managementAgents.title')}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer.
+              {t('managementAgents.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -54,9 +56,9 @@ export function ExperimentSettingsSection() {
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Automations (Management Center)</p>
+            <p className="text-sm font-medium text-foreground">{t('automations.title')}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Enable automation creation, scheduled runs, and GitHub-triggered automation management.
+              {t('automations.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -68,9 +70,9 @@ export function ExperimentSettingsSection() {
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Project Wiki (Center Tabs)</p>
+            <p className="text-sm font-medium text-foreground">{t('centerWikiTab.title')}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base.
+              {t('centerWikiTab.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">

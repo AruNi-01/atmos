@@ -1,10 +1,12 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
 import type { MosaicDirection, MosaicNode } from "react-mosaic-component";
 
 import type { TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_LAYOUT_SCHEMA,
@@ -12,8 +14,29 @@ import {
   type PersistedTerminalTabDocument,
   type PersistedTerminalWorkspaceLayoutDocument,
 } from "@/features/terminal/lib/terminal-layout-document";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
+
+type TerminalMessagesLocale = "en" | "zh";
+
+let cachedLocale: TerminalMessagesLocale | null = null;
+let cachedTranslator: any = null;
+
+function terminalT(key: string, values?: Record<string, string | number>): string {
+  const locale: TerminalMessagesLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Terminal.chrome",
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
+}
 
 export interface TerminalCenterTab {
   id: string;
@@ -109,7 +132,7 @@ export function getUniqueAgentName(
 export function createFixedTerminalTab(): TerminalCenterTab {
   return {
     id: FIXED_TERMINAL_TAB_VALUE,
-    title: "Term",
+    title: terminalT("tab.fixedTitle"),
     closable: true,
   };
 }
@@ -292,11 +315,12 @@ export function getAllDefaultPanesForWorkspace(
 
 export function getNextTerminalTabTitle(existingTabs: TerminalCenterTab[]): string {
   const usedTitles = new Set(existingTabs.map((tab) => tab.title));
+  const nextTitle = (index: number) => terminalT("tab.indexedTitle", { index });
   let index = 1;
-  while (usedTitles.has(`Term - ${index}`)) {
+  while (usedTitles.has(nextTitle(index))) {
     index++;
   }
-  return `Term - ${index}`;
+  return nextTitle(index);
 }
 
 export function getUniqueTerminalTabTitle(
@@ -555,13 +579,13 @@ export function buildPersistedTerminalWorkspaceLayout(
     const layout = state.workspaceLayouts[scopeKey];
     if (!panes || !layout) {
       const cachedTab = persistedCache?.tabs.find((persistedTab) => persistedTab.id === tab.id);
-      if (cachedTab) {
-        persistedTabs.push({
-          ...cachedTab,
-          title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-          closable: true,
-        });
-      }
+        if (cachedTab) {
+          persistedTabs.push({
+            ...cachedTab,
+            title: tab.id === FIXED_TERMINAL_TAB_VALUE ? terminalT("tab.fixedTitle") : tab.title,
+            closable: true,
+          });
+        }
       continue;
     }
 
@@ -581,7 +605,7 @@ export function buildPersistedTerminalWorkspaceLayout(
 
     persistedTabs.push({
       id: tab.id,
-      title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+      title: tab.id === FIXED_TERMINAL_TAB_VALUE ? terminalT("tab.fixedTitle") : tab.title,
       closable: true,
       layout,
       panes: cleanPanes,

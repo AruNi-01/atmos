@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
   Button,
@@ -17,6 +18,7 @@ import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { HeaderLayoutSettingsSection } from '@/features/settings/components/HeaderLayoutSettingsSection';
 
 export function LayoutSettingsSection() {
+  const t = useTranslations('settings.layoutSection');
   const {
     projectFilesSide,
     workspaceSidebarTwoColumn,
@@ -69,9 +71,9 @@ export function LayoutSettingsSection() {
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
           <div>
-            <p className="text-base font-medium text-foreground">Project Files show side</p>
+            <p className="text-base font-medium text-foreground">{t('projectFilesSide.title')}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Choose which sidebar displays the project file tree.
+              {t('projectFilesSide.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -86,7 +88,7 @@ export function LayoutSettingsSection() {
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                Left Sidebar
+                {t('projectFilesSide.left')}
               </button>
               <button
                 type="button"
@@ -98,7 +100,7 @@ export function LayoutSettingsSection() {
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                Right Sidebar
+                {t('projectFilesSide.right')}
               </button>
             </div>
           </div>
@@ -118,17 +120,17 @@ export function LayoutSettingsSection() {
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Workspace Sidebar Two-Column Layout</p>
+                <p className="text-base font-medium text-foreground">{t('workspaceSidebar.title')}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Configure the optional two-column workspace browser for Project, By Time, and By Status sidebar modes.
+                  {t('workspaceSidebar.description')}
                 </p>
               </div>
             </div>
           </CollapsibleTrigger>
           <div className="pt-1 text-xs text-muted-foreground">
             {workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn
-              ? 'Enabled'
-              : 'Disabled'}
+              ? t('workspaceSidebar.enabled')
+              : t('workspaceSidebar.disabled')}
           </div>
         </div>
 
@@ -137,9 +139,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-base font-medium text-foreground">Project sidebar two-column layout</p>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.projectTwoColumnTitle')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Show projects in the first column and open each project&apos;s workspaces in a resizable second column.
+                    {t('workspaceSidebar.projectTwoColumnDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -153,9 +155,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-base font-medium text-foreground">Show pinned workspaces in second column</p>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.showPinnedTitle')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    When the Project two-column layout is on, also show the selected project&apos;s pinned workspaces at the top of the second column while keeping the global pinned section in the left column.
+                    {t('workspaceSidebar.showPinnedDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -170,9 +172,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-base font-medium text-foreground">Second column uses Kanban cards</p>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.kanbanTitle')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    When any two-column sidebar layout is enabled, render second-column workspaces with the same card style and Properties visibility as the Kanban view.
+                    {t('workspaceSidebar.kanbanDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -187,9 +189,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-base font-medium text-foreground">By Time group uses second column</p>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byTimeTitle')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    In the sidebar&apos;s By Time mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.
+                    {t('workspaceSidebar.byTimeDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -203,9 +205,9 @@ export function LayoutSettingsSection() {
             <div className="px-2 py-4">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-base font-medium text-foreground">By Status group uses second column</p>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byStatusTitle')}</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    In the sidebar&apos;s By Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.
+                    {t('workspaceSidebar.byStatusDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -246,15 +248,17 @@ export function LayoutSettingsSection() {
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Footer layout</p>
+                <p className="text-base font-medium text-foreground">{t('footer.title')}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Experiments, the footer is hidden.
+                  {t('footer.description')}
                 </p>
               </div>
             </div>
           </CollapsibleTrigger>
           <div className="pt-1 text-xs text-muted-foreground">
-            {footerEnabledCount > 0 ? `${footerEnabledCount} enabled` : 'Hidden'}
+            {footerEnabledCount > 0
+              ? t('footer.enabledCount', { count: footerEnabledCount })
+              : t('footer.hidden')}
           </div>
         </div>
         <CollapsibleContent>
@@ -262,9 +266,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm font-medium text-foreground">WebSocket connection status</p>
+                  <p className="text-sm font-medium text-foreground">{t('footer.wsConnectionTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show live connection state and active WebSocket clients in the footer.
+                    {t('footer.wsConnectionDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -278,9 +282,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Local Services</p>
+                  <p className="text-sm font-medium text-foreground">{t('footer.localServicesTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show Project and Workspace local services in the footer.
+                    {t('footer.localServicesDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -294,9 +298,9 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm font-medium text-foreground">AI Quota Usage carousel</p>
+                  <p className="text-sm font-medium text-foreground">{t('footer.usageCarouselTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Rotate enabled AI usage summaries in the footer. Provider picks and the master switch in AI Usage also apply here.
+                    {t('footer.usageCarouselDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -310,17 +314,17 @@ export function LayoutSettingsSection() {
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Agent Status Panel</p>
+                  <p className="text-sm font-medium text-foreground">{t('footer.agentStatusTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show running agent sessions in the footer. Install hooks for each agent in{' '}
+                    {t('footer.agentStatusDescriptionPrefix')}{' '}
                     <button
                       type="button"
                       className="text-foreground underline underline-offset-2 hover:text-foreground/80"
                       onClick={() => void setActiveSettingTab('code-agent')}
                     >
-                      Code Agent
+                      {t('footer.codeAgent')}
                     </button>{' '}
-                    so Atmos can receive their state.
+                    {t('footer.agentStatusDescriptionSuffix')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -334,14 +338,16 @@ export function LayoutSettingsSection() {
             <div className="px-2 py-4">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
-                  <p className="text-sm font-medium text-foreground">ACP Agent Chat entry</p>
+                  <p className="text-sm font-medium text-foreground">{t('footer.acpChatTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Opens the floating ACP chat panel from the footer when enabled. Turn it on or off in Experiments — not controlled here.
+                    {t('footer.acpChatDescription')}
                   </p>
                 </div>
                 <div className="flex flex-col items-end justify-center gap-2 text-right">
                   <span className="text-xs text-muted-foreground">
-                    {managementAgentsEnabled ? 'Enabled in Experiments' : 'Disabled in Experiments'}
+                    {managementAgentsEnabled
+                      ? t('footer.enabledInExperiments')
+                      : t('footer.disabledInExperiments')}
                   </span>
                   <Button
                     type="button"
@@ -350,7 +356,7 @@ export function LayoutSettingsSection() {
                     className="h-8"
                     onClick={() => void setActiveSettingTab('experiments')}
                   >
-                    Open Experiments
+                    {t('footer.openExperiments')}
                   </Button>
                 </div>
               </div>

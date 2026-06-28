@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Collapsible,
@@ -99,6 +100,8 @@ export function CodeAgentSettingsSection({
   setCustomAgentsExpanded,
   setIdleSessionTimeoutMins,
 }: CodeAgentSettingsSectionProps) {
+  const t = useTranslations("settings.codeAgentSection");
+
   return (
     <div className="space-y-4">
       <Collapsible
@@ -114,9 +117,9 @@ export function CodeAgentSettingsSection({
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Built-in Agents</p>
+                <p className="text-base font-medium text-foreground">{t("builtIn.title")}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Customize the startup command and parameters for each built-in code agent.
+                  {t("builtIn.description")}
                 </p>
               </div>
             </div>
@@ -167,7 +170,7 @@ export function CodeAgentSettingsSection({
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground">{agent.label}</p>
                           <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {summary || "No parameters"}
+                            {summary || t("common.noParameters")}
                           </p>
                         </div>
                       </CollapsibleTrigger>
@@ -187,7 +190,7 @@ export function CodeAgentSettingsSection({
                     <CollapsibleContent>
                       <div className="grid grid-cols-2 gap-3 pt-4">
                         <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Command</label>
+                          <label className="mb-1 block text-xs text-muted-foreground">{t("fields.command")}</label>
                           <Input
                             value={custom?.cmd ?? agent.cmd}
                             placeholder={agent.cmd}
@@ -196,10 +199,10 @@ export function CodeAgentSettingsSection({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
+                          <label className="mb-1 block text-xs text-muted-foreground">{t("fields.parameters")}</label>
                           <Input
                             value={custom?.flags ?? (agent.params || "")}
-                            placeholder={agent.params || "No default parameters"}
+                            placeholder={agent.params || t("common.noDefaultParameters")}
                             onChange={(event) => onAgentSettingChange(agent.id, "flags", event.target.value)}
                             className="h-9 text-sm font-mono"
                           />
@@ -227,23 +230,23 @@ export function CodeAgentSettingsSection({
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Custom Agents</p>
+                <p className="text-base font-medium text-foreground">{t("custom.title")}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Add your own agents with custom commands and parameters.
+                  {t("custom.description")}
                 </p>
               </div>
             </div>
           </CollapsibleTrigger>
           <Button variant="outline" onClick={onAddCustomAgent}>
             <Plus className="mr-2 size-4" />
-            Add Agent
+            {t("custom.addAgent")}
           </Button>
         </div>
 
         <CollapsibleContent>
           {customAgents.length === 0 ? (
             <div className="border-t border-border px-6 py-5 text-sm text-muted-foreground">
-              No custom agents configured yet. Click &quot;Add Agent&quot; to create one.
+              {t("custom.empty")}
             </div>
           ) : (
             <div className="border-t border-border px-4">
@@ -276,10 +279,10 @@ export function CodeAgentSettingsSection({
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-foreground">
-                            {agent.label || "New Agent"}
+                            {agent.label || t("custom.newAgent")}
                           </p>
                           <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {summary || "No parameters"}
+                            {summary || t("common.noParameters")}
                           </p>
                         </div>
                       </CollapsibleTrigger>
@@ -297,7 +300,7 @@ export function CodeAgentSettingsSection({
                       <button
                         className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => onRemoveCustomAgent(agent.id)}
-                        title="Remove agent"
+                        title={t("custom.removeAgent")}
                         disabled={isRemoving}
                       >
                         {isRemoving ? (
@@ -311,29 +314,29 @@ export function CodeAgentSettingsSection({
                     <CollapsibleContent>
                       <div className="space-y-3 pt-4">
                         <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Name</label>
+                          <label className="mb-1 block text-xs text-muted-foreground">{t("fields.name")}</label>
                           <Input
                             value={agent.label}
-                            placeholder="Agent name"
+                            placeholder={t("custom.placeholders.name")}
                             onChange={(event) => onCustomAgentChange(agent.id, "label", event.target.value)}
                             className="h-9 text-sm font-medium"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">Command</label>
+                            <label className="mb-1 block text-xs text-muted-foreground">{t("fields.command")}</label>
                             <Input
                               value={agent.cmd}
-                              placeholder="e.g. my-agent"
+                              placeholder={t("custom.placeholders.command")}
                               onChange={(event) => onCustomAgentChange(agent.id, "cmd", event.target.value)}
                               className="h-9 text-sm font-mono"
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
+                            <label className="mb-1 block text-xs text-muted-foreground">{t("fields.parameters")}</label>
                             <Input
                               value={agent.flags}
-                              placeholder="e.g. --yolo"
+                              placeholder={t("custom.placeholders.parameters")}
                               onChange={(event) => onCustomAgentChange(agent.id, "flags", event.target.value)}
                               className="h-9 text-sm font-mono"
                             />
@@ -362,18 +365,18 @@ export function CodeAgentSettingsSection({
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="flex items-start justify-between gap-4 px-6 py-5">
           <div className="min-w-0">
-            <p className="text-base font-medium text-foreground">Behaviour</p>
+            <p className="text-base font-medium text-foreground">{t("behavior.title")}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Configure how idle agent sessions are managed in memory.
+              {t("behavior.description")}
             </p>
           </div>
         </div>
         <div className="border-t border-border px-6 py-5">
           <div className="flex items-center justify-between gap-6">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Idle session cleanup</p>
+              <p className="text-sm font-medium text-foreground">{t("behavior.idleCleanupTitle")}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Idle agent sessions older than this duration are automatically removed every 5 minutes.
+                {t("behavior.idleCleanupDescription")}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -385,10 +388,10 @@ export function CodeAgentSettingsSection({
                 onChange={(event) => setIdleSessionTimeoutMins(Math.max(1, Number(event.target.value)))}
                 className="h-8 w-20 text-center text-sm"
               />
-              <span className="text-sm text-muted-foreground whitespace-nowrap">min</span>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">{t("behavior.minutes")}</span>
               {idleSessionTimeoutMins !== savedIdleSessionTimeoutMins ? (
                 <Button size="sm" disabled={savingIdleTimeout} onClick={onSaveIdleTimeout}>
-                  {savingIdleTimeout ? <LoaderCircle className="size-3.5 animate-spin-reverse" /> : "Save"}
+                  {savingIdleTimeout ? <LoaderCircle className="size-3.5 animate-spin-reverse" /> : t("common.save")}
                 </Button>
               ) : null}
             </div>

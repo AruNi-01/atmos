@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Collapsible,
@@ -40,6 +41,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
   onRetry,
   onInstalled,
 }) => {
+  const t = useTranslations('Terminal.chrome');
   const terminalRef = React.useRef<TerminalRef | null>(null);
   const startedRef = React.useRef(false);
   const commandStartTimerRef = React.useRef<number | null>(null);
@@ -57,7 +59,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
   const installCommand = plan?.command ?? null;
   const shouldOfferHomebrewBootstrap = plan?.platform === 'macOS' && !plan?.supported && !installCommand;
   const effectiveInstallCommand = shouldOfferHomebrewBootstrap ? HOMEBREW_INSTALL_COMMAND : installCommand;
-  const installActionLabel = shouldOfferHomebrewBootstrap ? 'Install Homebrew' : 'Install tmux';
+  const installActionLabel = shouldOfferHomebrewBootstrap ? t('tmuxInstall.actions.installHomebrew') : t('tmuxInstall.actions.installTmux');
 
   const resetCommandTimer = React.useCallback(() => {
     if (commandStartTimerRef.current) {
@@ -102,7 +104,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
       }
     } else {
       setPlan(null);
-      setPlanError(planResult.reason instanceof Error ? planResult.reason.message : 'Failed to detect tmux install command');
+      setPlanError(planResult.reason instanceof Error ? planResult.reason.message : t('tmuxInstall.errors.detectCommand'));
     }
 
     if (homeDirResult.status === 'fulfilled') {
@@ -110,11 +112,11 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
       setHomeDirError(null);
     } else {
       setHomeDir(null);
-      setHomeDirError(homeDirResult.reason instanceof Error ? homeDirResult.reason.message : 'Failed to resolve the API host home directory');
+      setHomeDirError(homeDirResult.reason instanceof Error ? homeDirResult.reason.message : t('tmuxInstall.errors.resolveHomeDir'));
     }
 
     setIsPreparing(false);
-  }, [onInstalled]);
+  }, [onInstalled, t]);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -172,25 +174,25 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
     try {
       await navigator.clipboard.writeText(effectiveInstallCommand);
       toastManager.add({
-        title: 'Command copied',
-        description: `${installActionLabel} command copied to clipboard.`,
+        title: t('tmuxInstall.toast.copySuccessTitle'),
+        description: t('tmuxInstall.toast.copySuccessDescription', { action: installActionLabel }),
         type: 'success',
       });
     } catch {
       toastManager.add({
-        title: 'Copy failed',
-        description: 'Clipboard is not available.',
+        title: t('tmuxInstall.toast.copyFailedTitle'),
+        description: t('tmuxInstall.toast.copyFailedDescription'),
         type: 'error',
       });
     }
-  }, [effectiveInstallCommand, installActionLabel]);
+  }, [effectiveInstallCommand, installActionLabel, t]);
 
   const handleRetry = React.useCallback(async () => {
     await Promise.allSettled([Promise.resolve(onRetry()), loadInstallContext()]);
   }, [loadInstallContext, onRetry]);
 
-  const warningTitle = 'Continue without tmux?';
-  const warningDescription = 'Without tmux, terminal sessions may lose persistence and reconnection support, which can cause serious issues during terminal usage.';
+  const warningTitle = t('tmuxInstall.warning.title');
+  const warningDescription = t('tmuxInstall.warning.description');
 
   const canAutoInstall = !!effectiveInstallCommand && !!homeDir;
 
@@ -210,12 +212,12 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
           <div className="flex flex-wrap items-center gap-3 pr-12">
             <DialogTitle className="flex items-center gap-2 text-base">
               <SquareTerminal className="size-4.5 text-primary" />
-              Install tmux
+              {t('tmuxInstall.title')}
             </DialogTitle>
             {effectiveInstallCommand && phase === 'guide' && (
               <Button variant="outline" size="sm" onClick={handleCopyCommand} className="cursor-pointer">
                 <Copy className="mr-1.5 size-3.5" />
-                Copy Command
+                {t('tmuxInstall.actions.copyCommand')}
               </Button>
             )}
           </div>
@@ -228,7 +230,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                 onClick={() => setCloseConfirmSource('close')}
               >
                 <X className="size-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{t('common.close')}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 space-y-3">
@@ -241,18 +243,20 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
               </div>
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={() => setCloseConfirmSource(null)} className="cursor-pointer">
-                  Keep tmux prompt
+                  {t('tmuxInstall.actions.keepPrompt')}
                 </Button>
                 <Button size="sm" variant="destructive" onClick={closeDialog} className="cursor-pointer">
-                  Continue anyway
+                  {t('tmuxInstall.actions.continueAnyway')}
                 </Button>
               </div>
             </PopoverContent>
           </Popover>
           <DialogDescription className="pr-12">
             {phase === 'guide'
-              ? 'Terminal persistence requires tmux on the API host. Atmos can detect the package manager and open a temporary shell to install it for you.'
-              : `A temporary shell on the API host is running ${effectiveInstallCommand ? `\`${effectiveInstallCommand}\`` : 'the install command'}. Complete any prompts there, including sudo if needed.`}
+              ? t('tmuxInstall.descriptionGuide')
+              : effectiveInstallCommand
+                ? t('tmuxInstall.descriptionTerminalWithCommand', { command: effectiveInstallCommand })
+                : t('tmuxInstall.descriptionTerminalFallback')}
           </DialogDescription>
         </DialogHeader>
 
@@ -263,25 +267,25 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                 <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
-                    Detecting install options...
+                    {t('tmuxInstall.detectingOptions')}
                   </div>
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
                   <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">Detected API host</p>
+                    <p className="text-sm font-medium text-foreground">{t('tmuxInstall.detectedHostTitle')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {plan ? `${plan.platform}${plan.package_manager_label ? ` · ${plan.package_manager_label}` : ''}` : 'Unable to detect host package manager'}
+                      {plan ? `${plan.platform}${plan.package_manager_label ? ` · ${plan.package_manager_label}` : ''}` : t('tmuxInstall.detectedHostUnavailable')}
                     </p>
                     {effectiveInstallCommand ? (
                       <>
-                        <p className="mt-3 text-xs text-muted-foreground">Recommended install command</p>
+                        <p className="mt-3 text-xs text-muted-foreground">{t('tmuxInstall.recommendedCommandTitle')}</p>
                         <code className="mt-1 block overflow-x-auto rounded-lg bg-background px-3 py-2 text-xs text-foreground">
                           {effectiveInstallCommand}
                         </code>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          This runs on the same machine that hosts the Atmos API.
-                          {plan?.requires_sudo ? ' The terminal may prompt for your sudo password.' : ''}
+                          {t('tmuxInstall.recommendedCommandDescription')}
+                          {plan?.requires_sudo ? ` ${t('tmuxInstall.recommendedCommandSudo')}` : ''}
                         </p>
                         {shouldOfferHomebrewBootstrap && (
                           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -292,17 +296,20 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                               className="cursor-pointer"
                             >
                               <ExternalLink className="mr-1.5 size-3.5" />
-                              Open brew.sh
+                              {t('tmuxInstall.actions.openBrew')}
                             </Button>
                             <p className="text-xs text-muted-foreground">
-                              Install Homebrew first, then click <span className="font-medium">Check Again</span> and Atmos will offer <code className="rounded bg-background px-1 py-0.5">brew install tmux</code>.
+                              {t('tmuxInstall.homebrewFirstPrefix')}{' '}
+                              <span className="font-medium">{t('tmuxInstall.actions.checkAgain')}</span>{' '}
+                              {t('tmuxInstall.homebrewFirstMiddle')}{' '}
+                              <code className="rounded bg-background px-1 py-0.5">brew install tmux</code>.
                             </p>
                           </div>
                         )}
                       </>
                     ) : (
                       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                        {plan?.reason || planError || 'Atmos could not detect an automatic install command for this host.'}
+                        {plan?.reason || planError || t('tmuxInstall.noAutomaticCommand')}
                       </p>
                     )}
                     {homeDirError && (
@@ -314,41 +321,43 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                   </div>
 
                   <div className="rounded-xl border border-border bg-background p-4">
-                    <p className="text-sm font-medium text-foreground">Manual install commands</p>
+                    <p className="text-sm font-medium text-foreground">{t('tmuxInstall.manualCommandsTitle')}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      You can still install tmux yourself and click <span className="font-medium">Check Again</span> afterwards.
+                      {t('tmuxInstall.manualCommandsDescriptionPrefix')}{' '}
+                      <span className="font-medium">{t('tmuxInstall.actions.checkAgain')}</span>{' '}
+                      {t('tmuxInstall.manualCommandsDescriptionSuffix')}
                     </p>
 
                     <div className="mt-4 space-y-2">
                       <div className="rounded-md bg-muted p-3">
-                        <p className="mb-1 text-xs text-muted-foreground">macOS (Homebrew)</p>
+                        <p className="mb-1 text-xs text-muted-foreground">{t('tmuxInstall.platforms.macosHomebrew')}</p>
                         <code className="text-sm font-mono">brew install tmux</code>
                       </div>
 
                       <div className="rounded-md bg-muted p-3">
-                        <p className="mb-1 text-xs text-muted-foreground">Ubuntu/Debian</p>
+                        <p className="mb-1 text-xs text-muted-foreground">{t('tmuxInstall.platforms.ubuntuDebian')}</p>
                         <code className="text-sm font-mono">sudo apt-get update && sudo apt-get install -y tmux</code>
                       </div>
 
                       <Collapsible defaultOpen={false}>
                         <CollapsibleTrigger className="group flex w-full items-center gap-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground">
                           <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
-                          <span>More platforms</span>
+                          <span>{t('tmuxInstall.morePlatforms')}</span>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="mt-2">
                           <div className="flex flex-col gap-2">
                             <div className="rounded-md bg-muted p-3">
-                              <p className="mb-1 text-xs text-muted-foreground">Fedora/RHEL</p>
+                              <p className="mb-1 text-xs text-muted-foreground">{t('tmuxInstall.platforms.fedoraRhel')}</p>
                               <code className="text-sm font-mono">sudo dnf install -y tmux</code>
                             </div>
                             <div className="rounded-md bg-muted p-3">
-                              <p className="mb-1 text-xs text-muted-foreground">Arch Linux</p>
+                              <p className="mb-1 text-xs text-muted-foreground">{t('tmuxInstall.platforms.archLinux')}</p>
                               <code className="text-sm font-mono">sudo pacman -S --noconfirm tmux</code>
                             </div>
                             <div className="rounded-md bg-muted p-3">
-                              <p className="mb-1 text-xs text-muted-foreground">Windows (WSL, recommended)</p>
+                              <p className="mb-1 text-xs text-muted-foreground">{t('tmuxInstall.platforms.windowsWsl')}</p>
                               <code className="text-sm font-mono">sudo apt-get install -y tmux</code>
-                              <p className="mt-1 text-[11px] text-muted-foreground">Run the Atmos API inside WSL so the backend can use tmux.</p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">{t('tmuxInstall.windowsWslDescription')}</p>
                             </div>
                           </div>
                         </CollapsibleContent>
@@ -362,7 +371,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                 <Popover open={closeConfirmSource === 'continue'} onOpenChange={(open) => setCloseConfirmSource(open ? 'continue' : null)}>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" onClick={() => setCloseConfirmSource('continue')} className="cursor-pointer">
-                      Continue Without tmux
+                      {t('tmuxInstall.actions.continueWithoutTmux')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-80 space-y-3">
@@ -375,16 +384,16 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => setCloseConfirmSource(null)} className="cursor-pointer">
-                        Keep tmux prompt
+                        {t('tmuxInstall.actions.keepPrompt')}
                       </Button>
                       <Button size="sm" variant="destructive" onClick={closeDialog} className="cursor-pointer">
-                        Continue anyway
+                        {t('tmuxInstall.actions.continueAnyway')}
                       </Button>
                     </div>
                   </PopoverContent>
                 </Popover>
                 <Button size="sm" variant="outline" onClick={() => void handleRetry()} className="cursor-pointer">
-                  Check Again
+                  {t('tmuxInstall.actions.checkAgain')}
                 </Button>
                 <Button size="sm" onClick={() => setPhase('terminal')} disabled={!canAutoInstall} className="cursor-pointer">
                   <SquareTerminal className="mr-1.5 size-4" />
@@ -397,24 +406,26 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
               <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Temporary install terminal</p>
+                    <p className="text-sm font-medium text-foreground">{t('tmuxInstall.temporaryTerminalTitle')}</p>
                     <p className="mt-1 break-all text-xs text-muted-foreground">
-                      CWD: <code className="rounded bg-background px-1 py-0.5">{homeDir || '~'}</code>
+                      {t('tmuxInstall.cwdLabel')} <code className="rounded bg-background px-1 py-0.5">{homeDir || '~'}</code>
                     </p>
                     <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                      Complete the installation in this shell, then click <span className="font-medium">Check Again</span> yourself.
+                      {t('tmuxInstall.completeInShellPrefix')}{' '}
+                      <span className="font-medium">{t('tmuxInstall.actions.checkAgain')}</span>{' '}
+                      {t('tmuxInstall.completeInShellSuffix')}
                     </p>
                   </div>
                   <Button variant="outline" size="sm" onClick={handleCloseTerminalView} className="shrink-0 cursor-pointer">
                     <X className="mr-1.5 size-3.5" />
-                    Back
+                    {t('common.back')}
                   </Button>
                 </div>
               </div>
 
               <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-background">
                 <div className="flex h-10 items-center justify-between gap-3 border-b border-border px-4 text-xs text-muted-foreground">
-                  <span className="truncate">API host shell</span>
+                  <span className="truncate">{t('tmuxInstall.apiHostShell')}</span>
                   <span className="truncate text-right">{homeDir || '~'}</span>
                 </div>
                 <div className="min-h-0 h-full bg-background pb-2">
@@ -423,8 +434,8 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                       ref={terminalRef}
                       sessionId={sessionId}
                       workspaceId="default"
-                      projectName="System"
-                      workspaceName="Install"
+                      projectName={t('tmuxInstall.systemProjectName')}
+                      workspaceName={t('tmuxInstall.installWorkspaceName')}
                       terminalName={shouldOfferHomebrewBootstrap ? 'homebrew-install' : 'tmux-install'}
                       noTmux={true}
                       cwd={homeDir}
@@ -446,10 +457,10 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
 
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">
-                  Keep this dialog open until tmux is detected.
+                  {t('tmuxInstall.keepDialogOpen')}
                 </p>
                 <Button size="sm" variant="outline" onClick={() => void handleRetry()} className="cursor-pointer">
-                  Check Again
+                  {t('tmuxInstall.actions.checkAgain')}
                 </Button>
               </div>
             </>

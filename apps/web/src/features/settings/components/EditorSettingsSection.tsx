@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import type { DiffIndicators } from '@pierre/diffs';
 import {
   Collapsible,
@@ -111,6 +112,8 @@ function DiffStyleControl({
   value: DiffSettingsStyle;
   onChange: (value: DiffSettingsStyle) => void;
 }) {
+  const t = useTranslations('settings.editorSection');
+
   return (
     <div className="inline-flex h-9 items-center rounded-lg border border-border bg-background p-0.5">
       <button
@@ -124,7 +127,7 @@ function DiffStyleControl({
         )}
       >
         <SquareSplitHorizontal className="size-4" />
-        Side by side
+        {t('controls.diffStyle.split')}
       </button>
       <button
         type="button"
@@ -137,7 +140,7 @@ function DiffStyleControl({
         )}
       >
         <Rows3 className="size-4" />
-        Unified
+        {t('controls.diffStyle.unified')}
       </button>
     </div>
   );
@@ -150,6 +153,8 @@ function IndicatorStyleControl({
   value: DiffIndicators;
   onChange: (value: DiffIndicators) => void;
 }) {
+  const t = useTranslations('settings.editorSection');
+
   return (
     <ToggleGroup
       type="single"
@@ -159,13 +164,25 @@ function IndicatorStyleControl({
       }}
       className="gap-1"
     >
-      <ToggleGroupItem value="bars" className="size-9 p-0" aria-label="Bar indicators">
+      <ToggleGroupItem
+        value="bars"
+        className="size-9 p-0"
+        aria-label={t('controls.diffIndicators.barsAria')}
+      >
         <IconCodeStyleBars className="size-3.5" />
       </ToggleGroupItem>
-      <ToggleGroupItem value="classic" className="size-9 p-0" aria-label="Classic indicators">
+      <ToggleGroupItem
+        value="classic"
+        className="size-9 p-0"
+        aria-label={t('controls.diffIndicators.classicAria')}
+      >
         <IconSymbolDiffstat className="size-3.5" />
       </ToggleGroupItem>
-      <ToggleGroupItem value="none" className="size-9 p-0" aria-label="No indicators">
+      <ToggleGroupItem
+        value="none"
+        className="size-9 p-0"
+        aria-label={t('controls.diffIndicators.noneAria')}
+      >
         <IconEyeSlash className="size-3.5" />
       </ToggleGroupItem>
     </ToggleGroup>
@@ -173,6 +190,7 @@ function IndicatorStyleControl({
 }
 
 export function EditorSettingsSection() {
+  const t = useTranslations('settings.editorSection');
   const {
     autoSave,
     lineWrap,
@@ -217,46 +235,55 @@ export function EditorSettingsSection() {
         open={codeEditorExpanded}
         onOpenChange={setCodeEditorExpanded}
         icon={Code2}
-        title="Code Editor"
-        description="Configure typing, navigation, and inline source-code affordances."
+        title={t('groups.codeEditor.title')}
+        description={t('groups.codeEditor.description')}
       >
         <SettingRow
-          title="Auto Save"
-          description="Automatically saves the current file after 2 seconds of no typing."
+          title={t('rows.autoSave.title')}
+          description={t('rows.autoSave.description')}
         >
           <Switch checked={autoSave} onCheckedChange={(checked) => void setAutoSave(!!checked)} />
         </SettingRow>
         <SettingRow
-          title="Line Wrap"
-          description="Wrap long lines inside the editor instead of scrolling horizontally."
+          title={t('rows.lineWrap.title')}
+          description={t('rows.lineWrap.description')}
         >
           <Switch checked={lineWrap} onCheckedChange={(checked) => void setLineWrap(!!checked)} />
         </SettingRow>
         <SettingRow
-          title="Bracket Matching"
-          description="Highlight matching brackets and show bracket pairs."
+          title={t('rows.bracketMatching.title')}
+          description={t('rows.bracketMatching.description')}
         >
           <Switch
             checked={bracketMatching}
             onCheckedChange={(checked) => void setBracketMatching(!!checked)}
           />
         </SettingRow>
-        <SettingRow title="Minimap" description="Show a minimap on the right side for quick navigation.">
+        <SettingRow
+          title={t('rows.minimap.title')}
+          description={t('rows.minimap.description')}
+        >
           <Switch checked={minimap} onCheckedChange={(checked) => void setMinimap(!!checked)} />
         </SettingRow>
-        <SettingRow title="Breadcrumbs" description="Show breadcrumb navigation at the top of the editor.">
+        <SettingRow
+          title={t('rows.breadcrumbs.title')}
+          description={t('rows.breadcrumbs.description')}
+        >
           <Switch checked={breadcrumbs} onCheckedChange={(checked) => void setBreadcrumbs(!!checked)} />
         </SettingRow>
         <SettingRow
-          title="Line Highlight"
-          description="Highlight the current line and matching selections."
+          title={t('rows.lineHighlight.title')}
+          description={t('rows.lineHighlight.description')}
         >
           <Switch
             checked={lineHighlight}
             onCheckedChange={(checked) => void setLineHighlight(!!checked)}
           />
         </SettingRow>
-        <SettingRow title="Git Integration" description="Show git changes and diff information in the editor.">
+        <SettingRow
+          title={t('rows.gitIntegration.title')}
+          description={t('rows.gitIntegration.description')}
+        >
           <Switch
             checked={gitIntegration}
             onCheckedChange={(checked) => void setGitIntegration(!!checked)}
@@ -268,32 +295,45 @@ export function EditorSettingsSection() {
         open={diffExpanded}
         onOpenChange={setDiffExpanded}
         icon={GitCompareArrows}
-        title="Diff"
-        description="Configure the default diff layout and toolbar view options."
+        title={t('groups.diff.title')}
+        description={t('groups.diff.description')}
       >
         <SettingRow
-          title="Layout"
-          description="Choose the default layout used by center review diffs and pull request diffs."
+          title={t('rows.layout.title')}
+          description={t('rows.layout.description')}
           wide
         >
           <DiffStyleControl value={diffStyle} onChange={(value) => void setDiffStyle(value)} />
         </SettingRow>
-        <SettingRow title="Backgrounds" description="Tint added and removed lines with diff backgrounds.">
+        <SettingRow
+          title={t('rows.backgrounds.title')}
+          description={t('rows.backgrounds.description')}
+        >
           <Switch
             checked={showBackgrounds}
             onCheckedChange={(checked) => void setShowBackgrounds(!!checked)}
           />
         </SettingRow>
-        <SettingRow title="Line Numbers" description="Show source line numbers in diff panes.">
+        <SettingRow
+          title={t('rows.lineNumbers.title')}
+          description={t('rows.lineNumbers.description')}
+        >
           <Switch
             checked={lineNumbers}
             onCheckedChange={(checked) => void setLineNumbers(!!checked)}
           />
         </SettingRow>
-        <SettingRow title="Word Wrap" description="Wrap long diff lines instead of scrolling horizontally.">
+        <SettingRow
+          title={t('rows.wordWrap.title')}
+          description={t('rows.wordWrap.description')}
+        >
           <Switch checked={wordWrap} onCheckedChange={(checked) => void setWordWrap(!!checked)} />
         </SettingRow>
-        <SettingRow title="Indicator Style" description="Choose how changed lines are marked in the gutter." wide>
+        <SettingRow
+          title={t('rows.indicatorStyle.title')}
+          description={t('rows.indicatorStyle.description')}
+          wide
+        >
           <IndicatorStyleControl
             value={diffIndicators}
             onChange={(value) => void setDiffIndicators(value)}

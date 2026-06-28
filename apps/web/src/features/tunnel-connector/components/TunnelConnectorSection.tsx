@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Badge,
   Button,
@@ -52,13 +53,14 @@ export {
 } from '@/features/tunnel-connector/components/tunnel-connector-controls';
 
 export function TunnelConnectorSection() {
+  const t = useTranslations("tunnelConnector.section");
   if (!isTauriRuntime()) {
     return (
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
-          <p className="text-base font-medium text-foreground">Tunnel Connector</p>
+          <p className="text-base font-medium text-foreground">{t("title")}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Tunnel Connector is only available in the desktop app.
+            {t("desktopOnly")}
           </p>
         </div>
       </div>
@@ -73,6 +75,7 @@ export function TunnelConnectorSection() {
 // ---------------------------------------------------------------------------
 
 function TunnelConnectorContent() {
+  const t = useTranslations("tunnelConnector.section");
   const {
     statusMap,
     providers,
@@ -104,9 +107,9 @@ function TunnelConnectorContent() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 px-6 py-5">
         <div>
-          <p className="text-base font-medium text-foreground">Providers</p>
+          <p className="text-base font-medium text-foreground">{t("providersTitle")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tunnel providers for remote browser access to your local Atmos instance.
+            {t("providersDescription")}
           </p>
         </div>
         <Button
@@ -121,7 +124,7 @@ function TunnelConnectorContent() {
           ) : (
             <RotateCw className="mr-1.5 size-3.5" />
           )}
-          Refresh
+          {t("refresh")}
         </Button>
       </div>
 
@@ -134,7 +137,7 @@ function TunnelConnectorContent() {
             <Skeleton className="h-12 w-full rounded-lg" />
           </div>
         ) : providers.length === 0 ? (
-          <div className="px-6 py-5 text-sm text-muted-foreground">No providers detected.</div>
+          <div className="px-6 py-5 text-sm text-muted-foreground">{t("empty")}</div>
         ) : (
           <div className="border-t border-border px-4">
             {providers.map((p) => {
@@ -161,17 +164,19 @@ function TunnelConnectorContent() {
                         {isThisRunning && (
                           <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                             <Wifi className="size-3" />
-                            Running
+                            {t("status.running")}
                           </Badge>
                         )}
                         {sessionUrgency === 'expired' && (
                           <Badge className="border-red-500/30 bg-red-500/10 text-red-500">
-                            Session expired
+                            {t("status.sessionExpired")}
                           </Badge>
                         )}
                         {sessionUrgency === 'warning' && (
                           <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-500">
-                            Expires {formatExpiry(providerStatus?.expires_at ?? null)}
+                            {t("status.expires", {
+                              expiry: formatExpiry(providerStatus?.expires_at ?? null),
+                            })}
                           </Badge>
                         )}
                       </div>
@@ -208,9 +213,11 @@ function TunnelConnectorContent() {
                         <ProviderActionTerminalPopover
                           provider={p.provider}
                           action="install"
-                          triggerLabel="Install"
+                          triggerLabel={t("actions.install")}
                           triggerIcon={<Download className="mr-1.5 size-3.5" />}
-                          title={`Install ${formatProvider(p.provider)}`}
+                          title={t("actions.installProvider", {
+                            provider: formatProvider(p.provider),
+                          })}
                           onDone={() => void detect()}
                         />
                       )}
@@ -224,7 +231,7 @@ function TunnelConnectorContent() {
                           onClick={() => { setTokenEditProvider(p.provider); setTokenDraft(''); }}
                         >
                           <KeyRound className="mr-1.5 size-3.5" />
-                          Configure
+                          {t("actions.configure")}
                         </Button>
                       )}
 
@@ -259,7 +266,7 @@ function TunnelConnectorContent() {
                                 ) : (
                                   <Square className="mr-1.5 size-3.5" />
                                 )}
-                                Stop Tunnel
+                                {t("actions.stopTunnel")}
                               </Button>
                             </>
                           ) : (
@@ -283,7 +290,7 @@ function TunnelConnectorContent() {
                         type="password"
                         value={tokenDraft}
                         onChange={(e) => setTokenDraft(e.target.value)}
-                        placeholder="Paste auth token…"
+                        placeholder={t("tokenPlaceholder")}
                         className="h-8 flex-1 font-mono text-xs"
                         autoFocus
                       />
@@ -299,7 +306,7 @@ function TunnelConnectorContent() {
                         }}
                       >
                         <Check className="mr-1 size-3.5" />
-                        Save
+                        {t("actions.save")}
                       </Button>
                       <Button
                         variant="ghost"

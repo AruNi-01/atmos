@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
   Tabs,
@@ -27,6 +28,7 @@ interface SkillsModalProps {
 }
 
 export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => {
+  const t = useTranslations('skills.modal');
   const [activeTab, setActiveTab] = useQueryState('skillsModalTab', skillsModalParams.skillsModalTab);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -106,7 +108,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
       <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Puzzle className="size-5" />
-          Skills
+          {t('title')}
         </h2>
         <div className="flex items-center gap-2">
           <Button
@@ -117,7 +119,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
             className="gap-2"
           >
             {isLoading ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
-            Refresh
+            {t('actions.refresh')}
           </Button>
           <button
             onClick={onClose}
@@ -138,7 +140,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
           <TabsList className="w-fit">
             <TabsTrigger value="my-skills" className="flex items-center gap-2 px-4">
               <Puzzle className="size-4" />
-              My Skills
+              {t('tabs.mySkills')}
               {skills.length > 0 && (
                 <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full ml-1">
                   {skills.length}
@@ -147,7 +149,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
             </TabsTrigger>
             <TabsTrigger value="marketplace" className="flex items-center gap-2 px-4">
               <Store className="size-4" />
-              Marketplace
+              {t('tabs.marketplace')}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -160,9 +162,9 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
           ) : skills.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
               <Puzzle className="size-16 mb-4 opacity-30" />
-              <p className="text-base font-medium">No skills installed</p>
+              <p className="text-base font-medium">{t('empty.title')}</p>
               <p className="text-sm mt-1">
-                Check out the Marketplace to discover and install skills
+                {t('empty.description')}
               </p>
             </div>
           ) : (
@@ -184,7 +186,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
           <iframe
             src="https://skills.sh"
             className="w-full flex-1 border-0"
-            title="Skills Marketplace"
+            title={t('marketplaceFrameTitle')}
             allow="clipboard-write"
           />
         </TabsContent>

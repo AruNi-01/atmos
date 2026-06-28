@@ -30,6 +30,11 @@ import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slas
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import {
+  getAgentContextDragItems,
+  hasAgentContextDragData,
+  type AgentContextDragItem,
+} from "@/shared/lib/agent-context-drag";
+import {
   ctrlEnterInput,
   type TerminalAgentSubmitMode,
   wrapBracketedPaste,
@@ -267,6 +272,28 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [syncAttachmentPlaceholders],
   );
 
+  const appendAgentContextItems = React.useCallback(
+    (items: AgentContextDragItem[], point?: { x: number; y: number }) => {
+      if (point) {
+        composerRef.current?.placeCaretAtClientPoint(point.x, point.y);
+      } else {
+        composerRef.current?.focus();
+      }
+      for (const item of items) {
+        const path = item.kind === "directory" && !item.path.endsWith("/")
+          ? `${item.path}/`
+          : item.path;
+        composerRef.current?.insertFileMention(path);
+      }
+      const nextText = composerRef.current?.getText() ?? text;
+      setText(nextText);
+      syncAttachmentPlaceholders(nextText);
+      setIsOpen(true);
+      focusComposerSoon();
+    },
+    [focusComposerSoon, syncAttachmentPlaceholders, text],
+  );
+
   const finishSendExit = React.useCallback(() => {
     setIsSendExiting(false);
     setIsOpen(false);
@@ -279,7 +306,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
 
   React.useEffect(() => {
     if (!isSendAnimating) return;
-    const timer = window.setTimeout(startSendExit, 680);
+    const timer = window.setTimeout(startSendExit, 590);
     return () => window.clearTimeout(timer);
   }, [isSendAnimating, startSendExit]);
 
@@ -393,9 +420,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       : null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-2">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-1">
       <div
         className="pointer-events-auto flex w-full max-w-3xl flex-col items-center"
+        onDragOver={(event) => {
+          if (!hasAgentContextDragData(event.dataTransfer)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = "copy";
+          setIsOpen(true);
+          composerRef.current?.placeCaretAtClientPoint(event.clientX, event.clientY);
+        }}
+        onDrop={(event) => {
+          const items = getAgentContextDragItems(event.dataTransfer);
+          if (!items) return;
+          event.preventDefault();
+          event.stopPropagation();
+          appendAgentContextItems(items, { x: event.clientX, y: event.clientY });
+        }}
         onMouseEnter={() => setIsOpen(true)}
         onMouseLeave={() => {
           if (!isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
@@ -405,7 +447,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       >
         <div
           className={cn(
-            "mb-2 grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
+            "mb-1 grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
             isSendExiting
               ? "grid-rows-[1fr] opacity-0 -translate-y-3"
               : isOverlayVisible
@@ -494,7 +536,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           type="button"
           aria-label="Open agent input"
           className={cn(
-            "h-1.5 w-32 rounded-full bg-foreground/25 shadow-[0_1px_8px_rgba(0,0,0,0.2)] transition-opacity duration-200",
+            "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
             isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
           )}
           onFocus={() => setIsOpen(true)}

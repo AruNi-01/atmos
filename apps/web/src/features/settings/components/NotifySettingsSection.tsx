@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Collapsible,
@@ -24,13 +25,6 @@ import {
   useNotificationSettingsStore,
 } from '@/features/settings/store/notification-settings-store';
 import { SaveActionButton } from '@/features/settings/components/settings/SaveActionButton';
-
-const PUSH_SERVER_TYPE_OPTIONS: { value: PushServerType; label: string; description: string }[] = [
-  { value: 'ntfy', label: 'ntfy', description: 'Self-hosted or ntfy.sh push notifications' },
-  { value: 'bark', label: 'Bark', description: 'iOS push notifications via Bark' },
-  { value: 'gotify', label: 'Gotify', description: 'Self-hosted push notification server' },
-  { value: 'custom_webhook', label: 'Custom Webhook', description: 'Send to any HTTP endpoint' },
-];
 
 export function NotifySettingsSection({
   settings,
@@ -61,11 +55,14 @@ export function NotifySettingsSection({
   onUpdatePushServer: (id: string, updates: Partial<PushServerConfig>) => Promise<void>;
   onTestPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }) {
+  const t = useTranslations('settings.notifySection');
   const [pushServersExpanded, setPushServersExpanded] = React.useState(false);
   const [testingServerId, setTestingServerId] = React.useState<string | null>(null);
   const [testingLocalChannel, setTestingLocalChannel] = React.useState<'browser' | 'desktop' | null>(null);
   const [pushServerLocalById, setPushServerLocalById] = React.useState<Record<string, PushServerConfig>>({});
-  const updateNotificationField = useNotificationSettingsStore((state) => state.updateField);
+  const updateNotificationField: (field: string, value: boolean) => Promise<void> | void =
+    useNotificationSettingsStore((state) => state.updateField as any) as unknown as
+      (field: string, value: boolean) => Promise<void> | void;
 
   React.useEffect(() => {
     const ids = new Set(settings.push_servers.map((server) => server.id));
@@ -86,6 +83,16 @@ export function NotifySettingsSection({
     (server: PushServerConfig) => pushServerLocalById[server.id] ?? server,
     [pushServerLocalById],
   );
+  const pushServerTypeOptions: { value: PushServerType; label: string; description: string }[] = [
+    { value: 'ntfy', label: 'ntfy', description: t('pushServers.types.ntfy') },
+    { value: 'bark', label: 'Bark', description: t('pushServers.types.bark') },
+    { value: 'gotify', label: 'Gotify', description: t('pushServers.types.gotify') },
+    {
+      value: 'custom_webhook',
+      label: t('pushServers.types.customWebhookLabel'),
+      description: t('pushServers.types.customWebhookDescription'),
+    },
+  ];
 
   const isPushFieldsDirty = React.useCallback(
     (server: PushServerConfig) => {
@@ -151,9 +158,13 @@ export function NotifySettingsSection({
     const result = await onTestPushServer(index);
     setTestingServerId(null);
     if (result.ok) {
-      toastManager.add({ title: 'Test notification sent', type: 'success' });
+      toastManager.add({ title: t('toasts.testSent'), type: 'success' });
     } else {
-      toastManager.add({ title: 'Test failed', description: result.error ?? 'Unknown error', type: 'error' });
+      toastManager.add({
+        title: t('toasts.testFailed'),
+        description: result.error ?? t('toasts.unknownError'),
+        type: 'error',
+      });
     }
   };
 
@@ -167,16 +178,16 @@ export function NotifySettingsSection({
     }
 
     if (ok) {
-      toastManager.add({ title: 'Test notification sent', type: 'success' });
+      toastManager.add({ title: t('toasts.testSent'), type: 'success' });
       return;
     }
 
     toastManager.add({
-      title: 'Test failed',
+      title: t('toasts.testFailed'),
       description:
         channel === 'browser'
-          ? 'Please allow notifications in your browser settings.'
-          : 'The desktop app could not send a system notification.',
+          ? t('toasts.browserPermissionRequired')
+          : t('toasts.desktopTestFailed'),
       type: 'error',
     });
   };
@@ -194,9 +205,9 @@ export function NotifySettingsSection({
     <div className="space-y-4">
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
-          <p className="text-base font-medium text-foreground">Notification Channels</p>
+          <p className="text-base font-medium text-foreground">{t('channels.title')}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Choose how you want to be notified when agents need attention.
+            {t('channels.description')}
           </p>
         </div>
 
@@ -204,9 +215,9 @@ export function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_160px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Browser notifications</p>
+                <p className="text-sm font-medium text-foreground">{t('channels.browser.title')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Show native browser notifications when agents need attention.
+                  {t('channels.browser.description')}
                 </p>
               </div>
               <div className="flex items-center justify-end gap-2">
@@ -218,7 +229,7 @@ export function NotifySettingsSection({
                     onClick={() => void handleTestLocalChannel('browser')}
                     disabled={testingLocalChannel === 'browser'}
                   >
-                    {testingLocalChannel === 'browser' ? 'Testing...' : 'Test'}
+                    {testingLocalChannel === 'browser' ? t('actions.testing') : t('actions.test')}
                   </Button>
                 )}
                 <Switch
@@ -234,9 +245,9 @@ export function NotifySettingsSection({
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_160px] gap-8">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Desktop notifications</p>
+                  <p className="text-sm font-medium text-foreground">{t('channels.desktop.title')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Show system-level notifications via the desktop app.
+                    {t('channels.desktop.description')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -248,7 +259,7 @@ export function NotifySettingsSection({
                       onClick={() => void handleTestLocalChannel('desktop')}
                       disabled={testingLocalChannel === 'desktop'}
                     >
-                      {testingLocalChannel === 'desktop' ? 'Testing...' : 'Test'}
+                      {testingLocalChannel === 'desktop' ? t('actions.testing') : t('actions.test')}
                     </Button>
                   )}
                   <Switch
@@ -264,9 +275,9 @@ export function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">In-app toast</p>
+                <p className="text-sm font-medium text-foreground">{t('channels.inAppToast.title')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Show top-right app toasts when agents need attention or finish.
+                  {t('channels.inAppToast.description')}
                 </p>
               </div>
               <div className="flex items-center justify-end">
@@ -283,9 +294,9 @@ export function NotifySettingsSection({
 
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
-          <p className="text-base font-medium text-foreground">Event Triggers</p>
+          <p className="text-base font-medium text-foreground">{t('events.title')}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Select which agent events should trigger notifications.
+            {t('events.description')}
           </p>
         </div>
 
@@ -293,9 +304,9 @@ export function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Agent permission requested</p>
+                <p className="text-sm font-medium text-foreground">{t('events.permissionRequested.title')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Notify when an agent is waiting for your approval to proceed.
+                  {t('events.permissionRequested.description')}
                 </p>
               </div>
               <div className="flex items-center justify-end">
@@ -311,9 +322,9 @@ export function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Agent task complete</p>
+                <p className="text-sm font-medium text-foreground">{t('events.taskComplete.title')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Notify when an agent finishes running (running → idle).
+                  {t('events.taskComplete.description')}
                 </p>
               </div>
               <div className="flex items-center justify-end">
@@ -329,9 +340,9 @@ export function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Automation run outcomes</p>
+                <p className="text-sm font-medium text-foreground">{t('events.automationOutcome.title')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Notify when an automation completes, fails, is cancelled, or is interrupted.
+                  {t('events.automationOutcome.description')}
                 </p>
               </div>
               <div className="flex items-center justify-end">
@@ -359,9 +370,9 @@ export function NotifySettingsSection({
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Push Servers</p>
+                <p className="text-base font-medium text-foreground">{t('pushServers.title')}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Forward notifications to self-hosted push services (ntfy, Bark, Gotify) or custom webhooks.
+                  {t('pushServers.description')}
                 </p>
               </div>
             </div>
@@ -370,11 +381,11 @@ export function NotifySettingsSection({
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
                 <Plus className="mr-2 size-4" />
-                Add Server
+                {t('pushServers.addServer')}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
-              {PUSH_SERVER_TYPE_OPTIONS.map((option) => (
+              {pushServerTypeOptions.map((option) => (
                 <DropdownMenuItem
                   key={option.value}
                   className="cursor-pointer items-start"
@@ -394,10 +405,10 @@ export function NotifySettingsSection({
           <div className="border-t border-border px-4">
             <div className="border-b border-border px-2 py-4">
               <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Push automation outcomes</p>
+              <div>
+                  <p className="text-sm font-medium text-foreground">{t('pushServers.automationOutcomes.title')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Forward automation outcome notifications to enabled push servers.
+                    {t('pushServers.automationOutcomes.description')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
@@ -412,12 +423,14 @@ export function NotifySettingsSection({
           </div>
           {settings.push_servers.length === 0 ? (
             <div className="px-6 py-5 text-sm text-muted-foreground">
-              No push servers configured yet. Click &quot;Add Server&quot; to get started.
+              {t('pushServers.empty')}
             </div>
           ) : (
             <div className="px-4">
               {settings.push_servers.map((server) => {
-                const typeLabel = PUSH_SERVER_TYPE_OPTIONS.find((option) => option.value === server.type)?.label ?? server.type;
+                const typeLabel =
+                  pushServerTypeOptions.find((option) => option.value === server.type)?.label ??
+                  server.type;
                 const isTesting = testingServerId === server.id;
                 const display = displayPushServer(server);
                 const pushDirty = isPushFieldsDirty(server);
@@ -432,7 +445,7 @@ export function NotifySettingsSection({
                         <span className="truncate text-sm text-foreground">{display.url}</span>
                         {pushDirty && (
                           <span className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-500">
-                            Unsaved
+                            {t('pushServers.unsaved')}
                           </span>
                         )}
                       </div>
@@ -451,7 +464,7 @@ export function NotifySettingsSection({
                           onClick={() => void handleTestServer(server.id)}
                           disabled={isTesting || pushDirty}
                         >
-                          {isTesting ? 'TESTING...' : 'TEST'}
+                          {isTesting ? t('actions.testingUpper') : t('actions.testUpper')}
                         </Button>
                         <Switch
                           checked={server.enabled}
@@ -460,7 +473,7 @@ export function NotifySettingsSection({
                         <button
                           className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => void onRemovePushServer(server.id)}
-                          title="Remove server"
+                          title={t('pushServers.removeServer')}
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -469,7 +482,7 @@ export function NotifySettingsSection({
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1 block text-xs text-muted-foreground">URL</label>
+                        <label className="mb-1 block text-xs text-muted-foreground">{t('pushServers.fields.url')}</label>
                         <Input
                           value={display.url}
                           placeholder="https://..."
@@ -480,10 +493,10 @@ export function NotifySettingsSection({
                       </div>
                       {(server.type === 'ntfy' || server.type === 'gotify') && (
                         <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Token</label>
+                          <label className="mb-1 block text-xs text-muted-foreground">{t('pushServers.fields.token')}</label>
                           <Input
                             value={display.token ?? ''}
-                            placeholder="Optional auth token"
+                            placeholder={t('pushServers.placeholders.optionalAuthToken')}
                             onChange={(e) => setPushFields(server, { token: e.target.value || null })}
                             className="h-8 font-mono text-xs"
                             disabled={isSaving}
@@ -492,7 +505,7 @@ export function NotifySettingsSection({
                       )}
                       {server.type === 'ntfy' && (
                         <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Topic</label>
+                          <label className="mb-1 block text-xs text-muted-foreground">{t('pushServers.fields.topic')}</label>
                           <Input
                             value={display.topic ?? ''}
                             placeholder="atmos"
@@ -504,10 +517,10 @@ export function NotifySettingsSection({
                       )}
                       {server.type === 'bark' && (
                         <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Device Key</label>
+                          <label className="mb-1 block text-xs text-muted-foreground">{t('pushServers.fields.deviceKey')}</label>
                           <Input
                             value={display.device_key ?? ''}
-                            placeholder="Your Bark device key"
+                            placeholder={t('pushServers.placeholders.deviceKey')}
                             onChange={(e) => setPushFields(server, { device_key: e.target.value || null })}
                             className="h-8 font-mono text-xs"
                             disabled={isSaving}
@@ -517,10 +530,10 @@ export function NotifySettingsSection({
                       {server.type === 'custom_webhook' && (
                         <>
                           <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">Auth Token</label>
+                            <label className="mb-1 block text-xs text-muted-foreground">{t('pushServers.fields.authToken')}</label>
                             <Input
                               value={display.token ?? ''}
-                              placeholder="Optional Bearer token"
+                              placeholder={t('pushServers.placeholders.optionalBearerToken')}
                               onChange={(e) => setPushFields(server, { token: e.target.value || null })}
                               className="h-8 font-mono text-xs"
                               disabled={isSaving}
@@ -528,7 +541,9 @@ export function NotifySettingsSection({
                           </div>
                           <div className="col-span-2">
                             <label className="mb-1 block text-xs text-muted-foreground">
-                              Body template (optional, use {'{{title}}'}, {'{{body}}'}, {'{{tool}}'}, {'{{state}}'})
+                              {t('pushServers.fields.bodyTemplate')}{' '}
+                              ({t('pushServers.fields.bodyTemplateHint')}{' '}
+                              {'{{title}}'}, {'{{body}}'}, {'{{tool}}'}, {'{{state}}'})
                             </label>
                             <Input
                               value={display.custom_body_template ?? ''}

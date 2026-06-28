@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import {
   cn,
@@ -125,52 +126,58 @@ function getLanguageFromFileName(fileName: string): string {
   return detectCodeLanguage(fileName);
 }
 
-function getScopeMeta(scope: SkillInfo['scope']) {
+function getScopeMeta(
+  scope: SkillInfo['scope'],
+  t: ReturnType<typeof useTranslations>,
+) {
   switch (scope) {
     case 'global':
       return {
-        label: 'Global',
+        label: t('scope.global'),
         icon: Globe,
         className: 'bg-muted text-foreground',
       };
     case 'project':
       return {
-        label: 'Project',
+        label: t('scope.project'),
         icon: Folder,
         className: 'bg-muted text-foreground',
       };
     case 'system':
       return {
-        label: 'Atmos Built-in',
+        label: t('scope.system'),
         icon: Puzzle,
         className: 'bg-foreground/80 text-background',
       };
     default:
       return {
-        label: 'InsideTheProject',
+        label: t('scope.insideProject'),
         icon: Folder,
         className: 'bg-muted text-foreground',
       };
   }
 }
 
-function getStatusMeta(status: SkillInfo['status']) {
+function getStatusMeta(
+  status: SkillInfo['status'],
+  t: ReturnType<typeof useTranslations>,
+) {
   switch (status) {
     case 'enabled':
       return {
-        label: 'Enabled',
+        label: t('status.enabled'),
         icon: CircleCheck,
         className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
       };
     case 'disabled':
       return {
-        label: 'Disabled',
+        label: t('status.disabled'),
         icon: CircleX,
         className: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
       };
     default:
       return {
-        label: 'Partial',
+        label: t('status.partial'),
         icon: CircleMinus,
         className: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
       };
@@ -185,6 +192,7 @@ const TreeItem: React.FC<{
   onSelect: (file: SkillFile) => void;
   onToggleDir: (path: string) => void;
 }> = ({ node, depth, selectedPath, expandedDirs, onSelect, onToggleDir }) => {
+  const t = useTranslations('skills.detail');
   const isExpanded = expandedDirs.has(node.path);
   const isSelected = selectedPath === node.path;
 
@@ -226,15 +234,15 @@ const TreeItem: React.FC<{
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-[300px] break-all">
                 <p className="text-[11px] leading-tight">
-                  <span className="mr-1">Points to:</span>
-                  {node.file.symlink_target || 'Unknown'}
+                  <span className="mr-1">{t('symlink.pointsTo')}</span>
+                  {node.file.symlink_target || t('symlink.unknown')}
                 </p>
               </TooltipContent>
             </Tooltip>
           </span>
         )}
         {node.file?.is_main && (
-          <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary ml-1">Main</span>
+          <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary ml-1">{t('mainBadge')}</span>
         )}
       </div>
       {node.isDir && isExpanded && node.children.map(child => (
@@ -267,6 +275,7 @@ function ResizeHandle({
   onDragging,
   className,
 }: ResizeHandleProps) {
+  const t = useTranslations('skills.detail');
   return (
     <PanelResizeHandle
       onDragging={onDragging}
@@ -284,7 +293,7 @@ function ResizeHandle({
           e.stopPropagation();
           onCollapse();
         }}
-        title={isCollapsed ? "Expand" : "Collapse"}
+        title={isCollapsed ? t('resize.expand') : t('resize.collapse')}
         className={cn(
           "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           "left-1/2 -translate-x-1/2",
@@ -308,10 +317,11 @@ function ResizeHandle({
 }
 
 export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdated, onDeleted }) => {
+  const t = useTranslations('skills.detail');
   const storage = useAppStorage();
-  const scopeMeta = getScopeMeta(skill.scope);
+  const scopeMeta = getScopeMeta(skill.scope, t);
   const ScopeIcon = scopeMeta.icon;
-  const statusMeta = getStatusMeta(skill.status);
+  const statusMeta = getStatusMeta(skill.status, t);
   const StatusIcon = statusMeta.icon;
 
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(
@@ -435,23 +445,23 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
         // Let's toggle isSaving to false later which triggers render.
         
         toastManager.add({
-          title: 'Saved',
-          description: `${selectedFile.name} saved successfully`,
+          title: t('toasts.saved.title'),
+          description: t('toasts.saved.description', { fileName: selectedFile.name }),
           type: 'success',
         });
       } else {
-        throw new Error('Failed to write file');
+        throw new Error(t('toasts.saveFailed.writeError'));
       }
     } catch {
       toastManager.add({
-        title: 'Save Failed',
-        description: `Failed to save ${selectedFile.name}`,
+        title: t('toasts.saveFailed.title'),
+        description: t('toasts.saveFailed.description', { fileName: selectedFile.name }),
         type: 'error',
       });
     } finally {
       setIsSaving(false);
     }
-  }, [selectedFile, fileContent]);
+  }, [fileContent, selectedFile, t]);
 
   const handleSelectFile = useCallback((file: SkillFile) => {
     setSelectedFile(file);
@@ -503,7 +513,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
           <button
             onClick={onBack}
             className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 transition-colors duration-200 hover:bg-accent cursor-pointer"
-            title="Back"
+            title={t('back')}
           >
             <div className="absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover/icon:-translate-x-1 group-hover/icon:opacity-0">
               <Puzzle className="size-4 text-muted-foreground" />
@@ -537,13 +547,13 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     <PreviewCardTrigger>
                       <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground flex items-center gap-1 cursor-help hover:bg-accent transition-colors h-5">
                         <Info className="size-2.5" />
-                        Description
+                        {t('description.badge')}
                       </span>
                     </PreviewCardTrigger>
                     <PreviewCardPopup align="start" className="w-80">
                       <div className="flex flex-col gap-2 overflow-hidden">
                         <div className="flex flex-col gap-1">
-                          <h4 className="font-medium text-sm">Description</h4>
+                          <h4 className="font-medium text-sm">{t('description.title')}</h4>
                           <ScrollArea className="max-h-60 overflow-y-auto pr-2">
                             <p className="text-muted-foreground text-xs leading-relaxed">
                               {skill.description}
@@ -565,7 +575,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                     key={agent}
                     agent={agent}
                     status={agentStatus}
-                    tooltip={agent === 'unified' ? 'From: .agents/skills' : undefined}
+                    tooltip={agent === 'unified' ? t('agentBadge.unifiedTooltip') : undefined}
                   />
                 );
               })}
@@ -602,7 +612,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
           )}
         >
           <div className="px-3 h-9 border-b border-border flex items-center justify-between shrink-0">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('files.title')}</span>
             <span className="text-[10px] text-muted-foreground">{skill.files?.length || 0}</span>
           </div>
           <ScrollArea className="flex-1">
@@ -619,7 +629,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 />
               ))}
               {fileTree.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">No files</p>
+                <p className="text-xs text-muted-foreground text-center py-4">{t('files.empty')}</p>
               )}
             </div>
           </ScrollArea>
@@ -658,10 +668,10 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                       onClick={handleSave}
                       disabled={isSaving}
                       className="flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer bg-primary/10 text-primary hover:bg-primary/20"
-                      title="Save changes (Cmd+S)"
+                      title={t('toolbar.saveTitle')}
                     >
                       {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
-                      <span>Save</span>
+                      <span>{t('toolbar.save')}</span>
                     </button>
                   )}
 
@@ -675,10 +685,10 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                           ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
                           : "bg-green-500/10 text-green-600 dark:text-green-400"
                       )}
-                      title={isReadOnly ? "Click to enable editing" : "Click to make read-only"}
+                      title={isReadOnly ? t('toolbar.enableEditing') : t('toolbar.makeReadOnly')}
                     >
                       {isReadOnly ? <Lock className="size-3" /> : <Pencil className="size-3" />}
-                      {isReadOnly ? 'Read-only' : 'Editing'}
+                      {isReadOnly ? t('toolbar.readOnly') : t('toolbar.editing')}
                     </button>
                   )}
                   
@@ -696,7 +706,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                       className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
-                      {isPreview ? 'Editor' : 'Preview'}
+                      {isPreview ? t('toolbar.editor') : t('toolbar.preview')}
                     </button>
                   )}
                 </div>
@@ -707,7 +717,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 {isLoadingContent ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <Loader2 className="size-6 animate-spin mr-2" />
-                    <p className="text-sm">Loading file content...</p>
+                    <p className="text-sm">{t('content.loading')}</p>
                   </div>
                 ) : fileContent !== null && fileContent !== '' ? (
                   isMarkdown && isPreview ? (
@@ -733,14 +743,14 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                   )
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <p className="text-sm">Binary file - content not available</p>
+                    <p className="text-sm">{t('content.binaryUnavailable')}</p>
                   </div>
                 )}
               </div>
             </>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
-              <p className="text-sm">Select a file to view its content</p>
+              <p className="text-sm">{t('content.selectFile')}</p>
             </div>
           )}
         </Panel>

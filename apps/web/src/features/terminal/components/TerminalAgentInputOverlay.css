@@ -20,7 +20,7 @@
   pointer-events: none;
   opacity: 0;
   transform: translate3d(0, 78%, 0) scaleY(0.55);
-  animation: terminalAgentBlueSweep 640ms linear forwards;
+  animation: terminalAgentBlueSweep 560ms linear forwards;
 }
 
 .terminal-agent-send-sweep::before,

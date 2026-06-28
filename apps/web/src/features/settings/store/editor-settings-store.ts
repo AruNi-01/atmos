@@ -1,9 +1,13 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import { toastManager } from '@workspace/ui';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 interface EditorSettingsState {
   autoSave: boolean;
@@ -23,6 +27,25 @@ interface EditorSettingsState {
   setBreadcrumbs: (breadcrumbs: boolean) => Promise<void>;
   setLineHighlight: (lineHighlight: boolean) => Promise<void>;
   setGitIntegration: (gitIntegration: boolean) => Promise<void>;
+}
+
+type SettingsLocale = 'en' | 'zh';
+
+let cachedLocale: SettingsLocale | null = null;
+let cachedTranslator: any = null;
+
+function editorSettingsT(key: string, values?: Record<string, string | number>) {
+  const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'settings.store.editor',
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
 }
 
 export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => ({
@@ -57,8 +80,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ loading: false });
       toastManager.add({
-        title: 'Settings Load Failed',
-        description: 'Could not load editor preferences from the server.',
+        title: editorSettingsT('loadFailedTitle'),
+        description: editorSettingsT('loadFailedDescription'),
         type: 'error',
       });
     }
@@ -73,8 +96,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ lineWrap: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }
@@ -89,8 +112,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ autoSave: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }
@@ -105,8 +128,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ bracketMatching: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }
@@ -119,15 +142,15 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     try {
       await functionSettingsApi.update('editor', 'minimap', minimap);
       toastManager.add({
-        title: 'Editor Reload Required',
-        description: 'Refresh the page or reopen the editor for the minimap change to take effect.',
+        title: editorSettingsT('reloadRequiredTitle'),
+        description: editorSettingsT('reloadRequiredDescription'),
         type: 'info',
       });
     } catch {
       set({ minimap: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }
@@ -142,8 +165,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ breadcrumbs: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }
@@ -158,8 +181,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ lineHighlight: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }
@@ -174,8 +197,8 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ gitIntegration: previous });
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the global editor setting.',
+        title: editorSettingsT('syncFailedTitle'),
+        description: editorSettingsT('syncFailedDescription'),
         type: 'error',
       });
     }

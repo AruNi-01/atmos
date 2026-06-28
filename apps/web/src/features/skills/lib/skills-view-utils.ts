@@ -1,10 +1,31 @@
 import type { ScopeFilter, SkillsTab } from "@/shared/lib/nuqs/searchParams";
+import { createTranslator } from "next-intl";
 import type { SkillMarketCategory, SkillResourceCategory } from "./market-data";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
-export const INSTALLED_EMPTY_COPY =
-  "Extend Atmos with local and project-scoped skills, or browse the market below.";
-export const MARKET_EMPTY_COPY = "No skills in the market matched your search. Try a different keyword.";
-export const RESOURCES_EMPTY_COPY = "No resources matched your search. Try another keyword.";
+let cachedSkillsViewLocale: "en" | "zh" | null = null;
+let cachedSkillsViewTranslator: any = null;
+
+function skillsViewUtilsT(
+  key: "installedEmptyCopy" | "marketEmptyCopy" | "resourcesEmptyCopy",
+) {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedSkillsViewTranslator || cachedSkillsViewLocale !== locale) {
+    cachedSkillsViewLocale = locale;
+    cachedSkillsViewTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "skills.viewUtils",
+    });
+  }
+  return cachedSkillsViewTranslator(key as never);
+}
+
+export const INSTALLED_EMPTY_COPY = skillsViewUtilsT("installedEmptyCopy");
+export const MARKET_EMPTY_COPY = skillsViewUtilsT("marketEmptyCopy");
+export const RESOURCES_EMPTY_COPY = skillsViewUtilsT("resourcesEmptyCopy");
 
 export function buildSkillListUrl({
   activeTab,

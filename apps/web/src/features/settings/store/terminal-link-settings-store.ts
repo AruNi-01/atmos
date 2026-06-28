@@ -1,7 +1,9 @@
 'use client';
 
+import * as React from 'react';
 import { create } from 'zustand';
 import { toastManager } from '@workspace/ui';
+import { useTranslations } from 'next-intl';
 
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
@@ -29,7 +31,28 @@ interface TerminalLinkSettingsState {
 const DEFAULT_FILE_LINK_OPEN_MODE: TerminalFileLinkOpenMode = 'atmos';
 const DEFAULT_FILE_LINK_OPEN_APP: QuickOpenAppName = 'Cursor';
 
-export const useTerminalLinkSettingsStore = create<TerminalLinkSettingsState>((set, get) => ({
+type TerminalLinkStoreTranslator = ReturnType<typeof useTranslations>;
+
+let terminalLinkSettingsTranslator: TerminalLinkStoreTranslator | null = null;
+
+function terminalLinkStoreText(
+  key: 'syncFailedTitle' | 'openModeFailed' | 'openAppFailed',
+): string {
+  if (terminalLinkSettingsTranslator) {
+    return terminalLinkSettingsTranslator(key);
+  }
+
+  switch (key) {
+    case 'syncFailedTitle':
+      return 'Settings Sync Failed';
+    case 'openModeFailed':
+      return 'Failed to update the terminal link open mode.';
+    case 'openAppFailed':
+      return 'Failed to update the terminal link app.';
+  }
+}
+
+const terminalLinkSettingsStore = create<TerminalLinkSettingsState>((set, get) => ({
   fileLinkOpenMode: DEFAULT_FILE_LINK_OPEN_MODE,
   fileLinkOpenApp: DEFAULT_FILE_LINK_OPEN_APP,
   loaded: false,
@@ -91,8 +114,8 @@ export const useTerminalLinkSettingsStore = create<TerminalLinkSettingsState>((s
         set({ fileLinkOpenMode: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the terminal link open mode.',
+        title: terminalLinkStoreText('syncFailedTitle'),
+        description: terminalLinkStoreText('openModeFailed'),
         type: 'error',
       });
     }
@@ -119,13 +142,33 @@ export const useTerminalLinkSettingsStore = create<TerminalLinkSettingsState>((s
         set({ fileLinkOpenApp: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update the terminal link app.',
+        title: terminalLinkStoreText('syncFailedTitle'),
+        description: terminalLinkStoreText('openAppFailed'),
         type: 'error',
       });
     }
   },
 }));
+
+export const useTerminalLinkSettingsStore = Object.assign(
+  function useTerminalLinkSettingsStore(
+    ...args: Parameters<typeof terminalLinkSettingsStore>
+  ) {
+    const t = useTranslations('settings.terminalLinkStore');
+
+    React.useEffect(() => {
+      terminalLinkSettingsTranslator = t;
+      return () => {
+        if (terminalLinkSettingsTranslator === t) {
+          terminalLinkSettingsTranslator = null;
+        }
+      };
+    }, [t]);
+
+    return terminalLinkSettingsStore(...args);
+  },
+  terminalLinkSettingsStore,
+);
 
 export {
   DEFAULT_FILE_LINK_OPEN_APP,

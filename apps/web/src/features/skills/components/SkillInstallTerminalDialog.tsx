@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Dialog,
@@ -47,6 +48,12 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
   const terminalRef = React.useRef<TerminalRef | null>(null);
   const startedRef = React.useRef(false);
   const commandStartTimerRef = React.useRef<number | null>(null);
+  const t = useTranslations("skills.installTerminalDialog" as never);
+  const tr = React.useCallback(
+    (key: string, values?: Record<string, string | number>) =>
+      t.has(key as never) ? t(key as never, values as never) : "",
+    [t],
+  );
   const projects = useProjectStore(s => s.projects);
   const fetchProjects = useProjectStore(s => s.fetchProjects);
   const isLoadingProjects = useProjectStore(s => s.isLoading);
@@ -69,21 +76,21 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
     installScope === "global" && homeDir
       ? {
           workspaceId: "default",
-          projectName: "Global",
-          workspaceName: "Home",
+          projectName: tr("scope.global.title") || skill?.title || "",
+          workspaceName: homeDir,
           cwd: homeDir,
           cwdLabel: "~",
-          scopeHint: "In the interactive terminal, choose Global Installation scope.",
-          targetLabel: "Global installation",
+          scopeHint: tr("scope.global.targetHint"),
+          targetLabel: tr("scope.global.targetLabel"),
         }
       : selectedProject
       ? {
           workspaceId: selectedProject.id,
           projectName: selectedProject.name,
-          workspaceName: "Project",
-          cwd: selectedProject.mainFilePath,
-          cwdLabel: selectedProject.mainFilePath,
-          scopeHint: "In the interactive terminal, choose Project Installation scope.",
+          workspaceName: selectedProject.mainFilePath ?? selectedProject.name,
+          cwd: selectedProject.mainFilePath ?? "",
+          cwdLabel: selectedProject.mainFilePath ?? selectedProject.name,
+          scopeHint: tr("scope.project.targetHint"),
           targetLabel: selectedProject.name,
         }
       : null;
@@ -139,7 +146,11 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
         setHomeDirError(null);
       } else {
         setHomeDir(null);
-        setHomeDirError(homeDirResult.reason instanceof Error ? homeDirResult.reason.message : "Failed to load home directory");
+        setHomeDirError(
+          homeDirResult.reason instanceof Error
+            ? homeDirResult.reason.message
+            : tr("errors.homeDirectoryLoadFailed"),
+        );
       }
 
       setIsPreparingTargets(false);
@@ -209,18 +220,18 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
     try {
       await navigator.clipboard.writeText(command);
       toastManager.add({
-        title: "Command copied",
-        description: "Install command copied to clipboard.",
+        title: tr("copyToast.successTitle"),
+        description: tr("copyToast.successDescription"),
         type: "success",
       });
     } catch {
       toastManager.add({
-        title: "Copy failed",
-        description: "Clipboard is not available.",
+        title: tr("copyToast.errorTitle"),
+        description: tr("copyToast.errorDescription"),
         type: "error",
       });
     }
-  }, [command]);
+  }, [command, tr]);
 
   const handleStartTerminal = () => {
     if (!terminalTarget) {
@@ -270,12 +281,12 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
           <div className="flex flex-wrap items-center gap-3 pr-12">
             <DialogTitle className="flex items-center gap-2 text-base">
               <SquareTerminal className="size-4.5 text-primary" />
-              Install {skill.title}
+              {tr("title", { skillTitle: skill.title }) || skill.title}
             </DialogTitle>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleCopyCommand} className="cursor-pointer">
                 <Copy className="mr-1.5 size-3.5" />
-                Copy Command
+                {tr("buttons.copyCommand")}
               </Button>
               <Button
                 variant="outline"
@@ -284,18 +295,27 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                 className="cursor-pointer"
               >
                 <ExternalLink className="mr-1.5 size-3.5" />
-                Open Source
+                {tr("buttons.viewSource")}
               </Button>
             </div>
           </div>
           <DialogDescription className="pr-12">
             {phase === "configure" ? (
-              <>
-                Choose whether to install this skill globally or into a specific project, then launch a temporary shell terminal.
-              </>
+              tr("description.configure")
             ) : (
               <>
-                A temporary shell terminal runs <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{command}</code>. Complete any interactive prompts, then close this dialog yourself.
+                {tr("description.terminalLead") && (
+                  <>
+                    {tr("description.terminalLead")}{" "}
+                  </>
+                )}
+                <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{command}</code>
+                {tr("description.terminalTail") && (
+                  <>
+                    {" "}
+                    {tr("description.terminalTail")}
+                  </>
+                )}
               </>
             )}
           </DialogDescription>
@@ -305,7 +325,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
           {hasInferredDownloadUrl(skill) && (
             <div>
               <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                Install URL inferred from relative markdown link
+                {tr("badge.inferredInstallUrl")}
               </span>
             </div>
           )}
@@ -328,11 +348,13 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">Global</span>
+                      <span className="text-sm font-semibold text-foreground">
+                        {tr("scope.global.title")}
+                      </span>
                       {installScope === "global" && <Check className="size-4 text-primary" />}
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      Start the terminal in <code className="rounded bg-muted px-1 py-0.5">~</code> and install into your global skills directory.
+                      {tr("scope.global.description")}
                     </p>
                   </div>
                 </button>
@@ -352,11 +374,13 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">Project</span>
+                      <span className="text-sm font-semibold text-foreground">
+                        {tr("scope.project.title")}
+                      </span>
                       {installScope === "project" && <Check className="size-4 text-primary" />}
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      Pick one project below and start the terminal in that project&apos;s main path.
+                      {tr("scope.project.description")}
                     </p>
                   </div>
                 </button>
@@ -366,13 +390,17 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                 {installScope === "project" ? (
                   <div className="flex h-full min-h-0 flex-col space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-medium text-foreground">Projects</h3>
-                      <span className="text-xs text-muted-foreground">{projects.length} available</span>
+                      <h3 className="text-sm font-medium text-foreground">
+                        {tr("projects.title")}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {tr("projects.available", { count: projects.length }) || String(projects.length)}
+                      </span>
                     </div>
 
                     {isLoadingProjects || isPreparingTargets ? (
                       <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                        Loading projects...
+                        {tr("projects.loading")}
                       </div>
                     ) : projects.length > 0 ? (
                       <div className="grid min-h-0 flex-1 auto-rows-max gap-2 overflow-auto pr-1">
@@ -400,13 +428,13 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                       </div>
                     ) : (
                       <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                        No projects available. Choose Global instead.
+                        {tr("projects.emptyState")}
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-                    Global installation will start in your home directory.
+                    {tr("scope.global.panelHint")}
                   </div>
                 )}
               </div>
@@ -416,16 +444,18 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   {terminalTarget
                     ? terminalTarget.targetLabel
                     : installScope === "global"
-                      ? "Preparing global installation"
-                      : "Choose a project"}
+                      ? tr("target.preparingGlobalInstall")
+                      : tr("target.chooseProject")}
                 </p>
                 <p className="mt-1 break-all text-xs text-muted-foreground">
-                  CWD:{" "}
+                  {tr("labels.cwd")}{" "}
                   <code className="rounded bg-background px-1 py-0.5">
                     {terminalTarget?.cwdLabel ||
                       (installScope === "global"
-                        ? (isPreparingTargets ? "Loading home directory..." : "~")
-                        : "Select a project to continue")}
+                        ? (isPreparingTargets
+                            ? tr("target.loadingHomeDirectory")
+                            : "~")
+                        : tr("target.selectProjectToContinue"))}
                   </code>
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
@@ -433,15 +463,15 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                     ? homeDirError
                     : terminalTarget?.scopeHint ||
                       (installScope === "global"
-                        ? "Loading your home directory before opening the terminal."
-                        : "Select a project, then start the terminal.")}
+                        ? tr("target.loadingHomeDirectoryHint")
+                        : tr("target.selectProjectHint"))}
                 </p>
               </div>
 
               <div className="mt-4 flex justify-end">
                 <Button onClick={handleStartTerminal} disabled={!canStartTerminal} className="cursor-pointer">
                   <SquareTerminal className="mr-1.5 size-4" />
-                  Install in Terminal
+                  {tr("buttons.openTerminal")}
                 </Button>
               </div>
             </div>
@@ -452,13 +482,13 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">{terminalTarget?.targetLabel}</p>
                     <p className="mt-1 break-all text-xs text-muted-foreground">
-                      CWD: <code className="rounded bg-background px-1 py-0.5">{terminalTarget?.cwdLabel}</code>
+                      {tr("labels.cwd")} <code className="rounded bg-background px-1 py-0.5">{terminalTarget?.cwdLabel}</code>
                     </p>
                     <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{terminalTarget?.scopeHint}</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={handleCloseTerminalView} className="shrink-0 cursor-pointer">
                     <X className="mr-1.5 size-3.5" />
-                    Close Terminal
+                    {tr("buttons.backToSetup")}
                   </Button>
                 </div>
               </div>
