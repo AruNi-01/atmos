@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  ExternalLink,
   Globe,
   Maximize,
   Minimize,
@@ -27,7 +28,9 @@ export interface PreviewBrowserChromeControls {
   isMaximized: boolean;
   isToolbarHidden: boolean;
   needsDesktopPreviewSafeInset: boolean;
+  openInWindowTitle?: string;
   toolbarToggleTitle: string;
+  onOpenInWindow?: () => void;
   onToggleMaximized: () => void;
   onToggleToolbarHidden: () => void;
 }
@@ -77,7 +80,12 @@ export function PreviewBrowserTabBar({
         chromeControls?.needsDesktopPreviewSafeInset ? "h-[68px] pt-8" : "h-9",
       )}
     >
-      <div className="flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
+      <div
+        className={cn(
+          "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
+          chromeControls?.needsDesktopPreviewSafeInset && "pl-[76px]",
+        )}
+      >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
           const label = getTabLabel(tab, index);
@@ -157,6 +165,17 @@ export function PreviewBrowserTabBar({
       {chromeControls ? (
         <div className="flex shrink-0 items-center gap-1 border-l border-border/70 pl-1">
           {chromeControls.favoritesList}
+          {chromeControls.onOpenInWindow ? (
+            <button
+              type="button"
+              aria-label={chromeControls.openInWindowTitle}
+              title={chromeControls.openInWindowTitle}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              onClick={chromeControls.onOpenInWindow}
+            >
+              <ExternalLink className="size-3.5" />
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label={chromeControls.toolbarToggleTitle}

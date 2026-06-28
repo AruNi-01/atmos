@@ -337,6 +337,7 @@ fn main() {
             commands::clear_client_session_cmd,
             commands::get_version_info,
             commands::open_agent_chat_window,
+            commands::open_preview_browser_window,
             commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,

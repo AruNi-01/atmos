@@ -7067,7 +7067,9 @@
         "enter": "输入 URL..."
       },
       "actions": {
-        "openInBrowser": "在浏览器中打开"
+        "openInBrowser": "在浏览器中打开",
+        "openPreviewBrowserWindow": "在新窗口中打开预览浏览器",
+        "failedToOpenPreviewBrowserWindow": "无法打开预览浏览器窗口"
       },
       "annotations": {
         "copy": "复制",

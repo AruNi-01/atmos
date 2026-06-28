@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -16,6 +17,7 @@ import type {
 import { connectSameOriginPreviewTransport } from "../lib/preview-transports/same-origin-transport";
 import { connectExtensionPreviewTransport } from "../lib/preview-transports/extension-transport";
 import { connectDesktopPreviewTransport, getPreviewViewportBounds } from "../lib/preview-transports/desktop-transport";
+import { openPreviewBrowserWindow } from "../lib/desktop-preview-browser-window";
 import { PreviewContent } from "./PreviewContent";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewViewport } from "./PreviewViewport";
@@ -55,6 +57,7 @@ interface PreviewProps {
   onPageTitleChange?: (title: string) => void;
   onPageIconChange?: (faviconUrl: string) => void;
   browserTabBarProps?: Omit<PreviewBrowserTabBarProps, "chromeControls">;
+  isStandaloneBrowserWindow?: boolean;
 }
 
 interface PreviewTransportState {
@@ -78,7 +81,9 @@ export const Preview: React.FC<PreviewProps> = ({
   onPageTitleChange,
   onPageIconChange,
   browserTabBarProps,
+  isStandaloneBrowserWindow = false,
 }) => {
+  const previewToolbarT = useTranslations("preview.toolbar");
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
   const { isRightCollapsed } = useSidebarLayout();
@@ -132,6 +137,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsMaximized,
   } = usePreviewWindowState({
     isMaximized: controlledIsMaximized,
+    reserveDesktopWindowControlsInset: isStandaloneBrowserWindow,
     setIsMaximized: controlledSetIsMaximized,
   });
   isDesktopPreviewDetachedRef.current = isDesktopPreviewDetached;
@@ -853,6 +859,19 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsMaximized((current) => !current);
   }, [setIsMaximized]);
 
+  const canOpenPreviewBrowserWindow = useMemo(
+    () => isTauriRuntime() && !isStandaloneBrowserWindow,
+    [isStandaloneBrowserWindow],
+  );
+
+  const handleOpenPreviewBrowserWindow = useCallback(async () => {
+    await openPreviewBrowserWindow({
+      url: normalizedActiveUrl || activeUrl,
+      workspaceId,
+      projectId,
+    });
+  }, [activeUrl, normalizedActiveUrl, projectId, workspaceId]);
+
   const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
 
   const handleRecheckExtension = useCallback(async () => {
@@ -1033,7 +1052,9 @@ export const Preview: React.FC<PreviewProps> = ({
               isMaximized,
               isToolbarHidden: effectiveIsToolbarHidden,
               needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !effectiveIsToolbarHidden,
+              openInWindowTitle: previewToolbarT("actions.openPreviewBrowserWindow"),
               toolbarToggleTitle,
+              onOpenInWindow: canOpenPreviewBrowserWindow ? handleOpenPreviewBrowserWindow : undefined,
               onToggleMaximized: handleToggleMaximized,
               onToggleToolbarHidden: handleToggleToolbarHidden,
             }}
