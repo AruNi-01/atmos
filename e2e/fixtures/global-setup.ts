@@ -44,7 +44,7 @@ export default async function globalSetup(): Promise<void> {
     return;
   }
 
-  const child = spawn("bash", ["-lc", "just dev-api"], {
+  const child = spawn("bash", ["-lc", `just dev-api --port ${apiPort}`], {
     cwd: repoRoot,
     detached: true,
     stdio: "ignore",
@@ -52,5 +52,5 @@ export default async function globalSetup(): Promise<void> {
   child.unref();
   fs.writeFileSync(pidFile, String(child.pid), "utf8");
 
-  await waitForPort(apiPort, 120_000);
+  await waitForPort(apiPort, 300_000);
 }
