@@ -1,8 +1,11 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
@@ -12,6 +15,22 @@ export interface OpenAgentChatWindowOptions {
   sessionCwd?: string | null;
   workspaceId?: string | null;
   projectId?: string | null;
+}
+
+let cachedAgentWindowLocale: 'en' | 'zh' | null = null;
+let cachedAgentWindowTranslator: any = null;
+
+function agentWindowT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedAgentWindowTranslator || cachedAgentWindowLocale !== locale) {
+    cachedAgentWindowLocale = locale;
+    cachedAgentWindowTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Agent.chrome',
+    });
+  }
+  return cachedAgentWindowTranslator(key as never);
 }
 
 async function getInvoke(): Promise<TauriInvoke> {
@@ -44,7 +63,7 @@ export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = 
       });
     } catch (error) {
       toastManager.add({
-        title: "Failed to open chat window",
+        title: agentWindowT("desktopAgentChatWindow.failedToOpenChatWindow"),
         description: error instanceof Error ? error.message : String(error),
         type: "error",
       });

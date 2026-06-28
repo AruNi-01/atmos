@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { agentToastManager } from "@workspace/ui";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
@@ -55,6 +56,7 @@ interface AutomationNotificationPayload {
 }
 
 export function useAgentNotifications() {
+  const t = useTranslations("Agent.chrome");
   const unsubscribeAgentRef = useRef<(() => void) | null>(null);
   const unsubscribeAutomationRef = useRef<(() => void) | null>(null);
   const unsubscribeAgentHookToastRef = useRef<(() => void) | null>(null);
@@ -134,7 +136,7 @@ export function useAgentNotifications() {
     const { projectName, workspaceName, workspaceDisplayName } =
       resolveAgentHookContextNames(update.context_id, update.project_path, projects);
     const agentName = AGENT_TOOL_LABELS[update.tool] ?? update.tool;
-    const statusLabel = isPermissionRequest ? "Permission required" : "Completed";
+    const statusLabel = isPermissionRequest ? t("notifications.permissionRequired") : t("notifications.completed");
     const workspaceLabel = workspaceDisplayName ?? workspaceName;
     const contextLabel = [projectName, workspaceLabel].filter(Boolean).join(" / ");
     const canNavigate = Boolean(update.context_id && update.pane_id);
@@ -166,20 +168,20 @@ export function useAgentNotifications() {
                 agentToastManager.close(toastId);
               }}
             >
-              Jump
+              {t("notifications.jump")}
             </button>
             <button
               type="button"
               className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               onClick={() => agentToastManager.close(toastId)}
             >
-              Close
+              {t("common.close")}
             </button>
           </>
         ),
       },
     });
-  }, [router]);
+  }, [router, t]);
 
   useEffect(() => {
     void useNotificationSettingsStore.getState().loadSettings();

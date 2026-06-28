@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Input,
@@ -29,7 +30,13 @@ type CustomAgentManifestEntry = {
   default_option_configs?: Record<string, string>;
 };
 
-function parseCustomAgentArgs(rawArgs: string): string[] {
+function parseCustomAgentArgs(
+  rawArgs: string,
+  messages: {
+    argsArrayOnly: string;
+    argsFormat: string;
+  },
+): string[] {
   const trimmed = rawArgs.trim();
   if (!trimmed) {
     return [];
@@ -39,7 +46,7 @@ function parseCustomAgentArgs(rawArgs: string): string[] {
     const parsed: unknown = JSON.parse(trimmed);
     if (Array.isArray(parsed)) {
       if (!parsed.every((item) => typeof item === "string")) {
-        throw new Error("Args JSON array must contain only strings.");
+        throw new Error(messages.argsArrayOnly);
       }
       return parsed;
     }
@@ -58,9 +65,7 @@ function parseCustomAgentArgs(rawArgs: string): string[] {
     throw error;
   }
 
-  throw new Error(
-    'Args must be a JSON array of strings (e.g. ["-y", "pi-acp"]) or space-separated values.',
-  );
+  throw new Error(messages.argsFormat);
 }
 
 export interface CustomAgentDialogProps {
@@ -76,6 +81,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
   editingAgent,
   onSaved,
 }) => {
+  const t = useTranslations("Agent.components");
   const [customForm, setCustomForm] = React.useState(EMPTY_CUSTOM_FORM);
   const [addingCustom, setAddingCustom] = React.useState(false);
   const [customEditMode, setCustomEditMode] = React.useState<"form" | "json">("form");
@@ -116,8 +122,8 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
       setCustomEditMode("json");
     } catch (error) {
       toastManager.add({
-        title: "Failed to load JSON",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("customAgentDialog.toast.failedToLoadJsonTitle"),
+        description: error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
         type: "error",
       });
     } finally {
@@ -130,23 +136,23 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     try {
       JSON.parse(customJsonText);
     } catch (e) {
-      setCustomJsonError(e instanceof Error ? e.message : "Invalid JSON format");
+      setCustomJsonError(e instanceof Error ? e.message : t("customAgentDialog.errors.invalidJsonFormat"));
       return;
     }
     setAddingCustom(true);
     try {
       await agentApi.setCustomAgentsJson(customJsonText);
       toastManager.add({
-        title: "Custom agents saved",
-        description: "Custom agents have been updated from JSON",
+        title: t("customAgentDialog.toast.customAgentsSavedTitle"),
+        description: t("customAgentDialog.toast.customAgentsSavedDescription"),
         type: "success",
       });
       onOpenChange(false);
       onSaved();
     } catch (error) {
       toastManager.add({
-        title: "Failed to save",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("customAgentDialog.toast.failedToSaveTitle"),
+        description: error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
         type: "error",
       });
     } finally {
@@ -160,13 +166,16 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     try {
       let parsedArgs: string[] = [];
       try {
-        parsedArgs = parseCustomAgentArgs(customForm.args);
+        parsedArgs = parseCustomAgentArgs(customForm.args, {
+          argsArrayOnly: t("customAgentDialog.errors.argsArrayOnly"),
+          argsFormat: t("customAgentDialog.errors.argsFormat"),
+        });
       } catch (error) {
         toastManager.add({
-          title: "Invalid args format",
+          title: t("customAgentDialog.toast.invalidArgsTitle"),
           description: error instanceof Error
             ? error.message
-            : 'Args must be a JSON array of strings (e.g. ["-y", "pi-acp"]) or space-separated values.',
+            : t("customAgentDialog.errors.argsFormat"),
           type: "error",
         });
         return;
@@ -177,8 +186,8 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
           parsedEnv = JSON.parse(customForm.env.trim());
         } catch {
           toastManager.add({
-            title: "Invalid env format",
-            description: 'Env must be a valid JSON object (e.g. {"KEY": "value"}).',
+            title: t("customAgentDialog.toast.invalidEnvTitle"),
+            description: t("customAgentDialog.errors.envFormat"),
             type: "error",
           });
           return;
@@ -199,10 +208,10 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         const existingEntry = manifest[editingCustomAgentName];
 
         if (!existingEntry) {
-          throw new Error("This custom agent no longer exists. Refresh and try again.");
+          throw new Error(t("customAgentDialog.errors.customAgentMissing"));
         }
         if (nextName !== editingCustomAgentName && manifest[nextName]) {
-          throw new Error(`A custom agent named "${nextName}" already exists.`);
+          throw new Error(t("customAgentDialog.errors.duplicateName", { name: nextName }));
         }
 
         if (nextName !== editingCustomAgentName) {
@@ -223,10 +232,12 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
       }
 
       toastManager.add({
-        title: editingCustomAgentName ? "Custom agent updated" : "Custom agent added",
+        title: editingCustomAgentName
+          ? t("customAgentDialog.toast.updatedTitle")
+          : t("customAgentDialog.toast.addedTitle"),
         description: editingCustomAgentName
-          ? `"${nextName}" has been updated`
-          : `"${nextName}" has been added`,
+          ? t("customAgentDialog.toast.updatedDescription", { name: nextName })
+          : t("customAgentDialog.toast.addedDescription", { name: nextName }),
         type: "success",
       });
       onOpenChange(false);
@@ -234,9 +245,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     } catch (error) {
       toastManager.add({
         title: editingCustomAgentName
-          ? "Failed to update custom agent"
-          : "Failed to add custom agent",
-        description: error instanceof Error ? error.message : "Unknown error",
+          ? t("customAgentDialog.toast.failedToUpdateTitle")
+          : t("customAgentDialog.toast.failedToAddTitle"),
+        description: error instanceof Error ? error.message : t("customAgentDialog.toast.unknownError"),
         type: "error",
       });
     } finally {
@@ -258,21 +269,21 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
           <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
             <Terminal className="size-5 text-primary" />
           </div>
-          <DialogTitle>{editingCustomAgentName ? "Edit Custom Agent" : "Add Custom Agent"}</DialogTitle>
+          <DialogTitle>{editingCustomAgentName ? t("customAgentDialog.editTitle") : t("customAgentDialog.addTitle")}</DialogTitle>
           <DialogDescription className="text-pretty">
             {editingCustomAgentName
-              ? "Update this ACP-compatible agent by editing the form, or switch to the raw JSON editor."
-              : "Add an ACP-compatible agent by filling in the form, or edit the raw JSON directly."}
+              ? t("customAgentDialog.editDescription")
+              : t("customAgentDialog.addDescription")}
           </DialogDescription>
           <p className="text-sm text-muted-foreground">
-            Reference available ACP agents at{" "}
+            {t("customAgentDialog.referencePrefix")}{" "}
             <a
               href="https://agentclientprotocol.com/get-started/agents"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline underline-offset-4"
             >
-              agentclientprotocol.com/get-started/agents
+              {t("customAgentDialog.referenceLinkLabel")}
             </a>
           </p>
         </DialogHeader>
@@ -281,42 +292,44 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
           <>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Name</label>
+                <label className="text-sm font-medium text-foreground">{t("customAgentDialog.fields.name")}</label>
                 <Input
                   value={customForm.name}
                   onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder='e.g. "Kiro Agent"'
+                  placeholder={t("customAgentDialog.placeholders.name")}
                   className="h-9"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Command</label>
+                <label className="text-sm font-medium text-foreground">{t("customAgentDialog.fields.command")}</label>
                 <Input
                   value={customForm.command}
                   onChange={(e) => setCustomForm((f) => ({ ...f, command: e.target.value }))}
-                  placeholder='e.g. "npx" or "~/.local/bin/kiro-cli"'
+                  placeholder={t("customAgentDialog.placeholders.command")}
                   className="h-9 font-mono text-sm"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  Args <span className="text-muted-foreground font-normal">(space-separated or JSON array)</span>
+                  {t("customAgentDialog.fields.args")}{" "}
+                  <span className="text-muted-foreground font-normal">({t("customAgentDialog.fields.argsHint")})</span>
                 </label>
                 <Input
                   value={customForm.args}
                   onChange={(e) => setCustomForm((f) => ({ ...f, args: e.target.value }))}
-                  placeholder='e.g. acp  or  ["-y", "pi-acp"]'
+                  placeholder={t("customAgentDialog.placeholders.args")}
                   className="h-9 font-mono text-sm"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  Env <span className="text-muted-foreground font-normal">(JSON object, optional)</span>
+                  {t("customAgentDialog.fields.env")}{" "}
+                  <span className="text-muted-foreground font-normal">({t("customAgentDialog.fields.envHint")})</span>
                 </label>
                 <Input
                   value={customForm.env}
                   onChange={(e) => setCustomForm((f) => ({ ...f, env: e.target.value }))}
-                  placeholder='e.g. {"PI_ACP_STARTUP_INFO": "true"}'
+                  placeholder={t("customAgentDialog.placeholders.env")}
                   className="h-9 font-mono text-sm"
                 />
               </div>
@@ -333,14 +346,14 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 ) : (
                   <FileCode className="mr-1.5 size-3.5" />
                 )}
-                Edit JSON
+                {t("customAgentDialog.actions.editJson")}
               </Button>
               <Button
                 variant="outline"
                 onClick={handleClose}
                 className="cursor-pointer"
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={() => void handleSaveCustomAgent()}
@@ -350,7 +363,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 {addingCustom ? (
                   <>
                     <Loader2 className="mr-1 size-3 animate-spin" />
-                    {editingCustomAgentName ? "Saving" : "Adding"}
+                    {editingCustomAgentName ? t("customAgentDialog.actions.saving") : t("customAgentDialog.actions.adding")}
                   </>
                 ) : (
                   <>
@@ -359,7 +372,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                     ) : (
                       <Plus className="mr-1 size-3.5" />
                     )}
-                    {editingCustomAgentName ? "Save Changes" : "Add Agent"}
+                    {editingCustomAgentName ? t("customAgentDialog.actions.saveChanges") : t("customAgentDialog.actions.addAgent")}
                   </>
                 )}
               </Button>
@@ -368,17 +381,18 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         ) : (
           <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-2">
             <div className="min-h-0 space-y-3 overflow-hidden py-2">
-              <div className="flex h-full min-h-0 flex-col space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  custom_agents <span className="text-muted-foreground font-normal">(acp_servers.json)</span>
-                </label>
+                <div className="flex h-full min-h-0 flex-col space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    {t("customAgentDialog.jsonEditor.label")}{" "}
+                    <span className="text-muted-foreground font-normal">({t("customAgentDialog.jsonEditor.fileHint")})</span>
+                  </label>
                 <Textarea
                   value={customJsonText}
                   onChange={(e) => {
                     setCustomJsonText(e.target.value);
                     setCustomJsonError(null);
                   }}
-                  placeholder='{ "pi": { "type": "custom", "command": "npx", "args": ["-y", "pi-acp"], "env": {} } }'
+                  placeholder={t("customAgentDialog.jsonEditor.placeholder")}
                   className="field-sizing-fixed min-h-[260px] flex-1 overflow-y-auto font-mono text-sm leading-relaxed resize-none"
                   spellCheck={false}
                 />
@@ -399,14 +413,14 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 }}
                 className="cursor-pointer sm:mr-auto"
               >
-                Back to Form
+                {t("customAgentDialog.actions.backToForm")}
               </Button>
               <Button
                 variant="outline"
                 onClick={handleClose}
                 className="cursor-pointer"
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={() => void handleSaveCustomJson()}
@@ -416,10 +430,10 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 {addingCustom ? (
                   <>
                     <Loader2 className="mr-1 size-3 animate-spin" />
-                    Saving
+                    {t("customAgentDialog.actions.saving")}
                   </>
                 ) : (
-                  "Save"
+                  t("common.save")
                 )}
               </Button>
             </DialogFooter>

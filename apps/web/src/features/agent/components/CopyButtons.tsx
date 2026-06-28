@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { Copy, Check } from "lucide-react";
 
 export function CommandCopyButton({ text }: { text: string }) {
+  const t = useTranslations("Agent.components.copyButtons");
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {
@@ -17,7 +19,7 @@ export function CommandCopyButton({ text }: { text: string }) {
       type="button"
       onClick={handleCopy}
       className="shrink-0 px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
-      aria-label="Copy command"
+      aria-label={t("copyCommand")}
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
     </button>

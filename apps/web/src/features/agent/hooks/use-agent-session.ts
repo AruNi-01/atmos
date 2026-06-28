@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   agentApi,
   type AgentAuthRequiredPayload,
@@ -120,6 +121,7 @@ export function useAgentSession({
   onDisconnected,
   onError,
 }: UseAgentSessionOptions): UseAgentSessionReturn {
+  const t = useTranslations("agent.session");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [acpSessionId, setAcpSessionId] = useState<string | null>(null);
   const [sessionCwd, setSessionCwd] = useState<string | null>(null);
@@ -278,13 +280,13 @@ export function useAgentSession({
         setAuthRequest(null);
         return true;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to logout agent";
+        const msg = err instanceof Error ? err.message : t("errors.logoutFailed");
         setError(msg);
         onError?.(msg);
         return false;
       }
     },
-    [disconnect, onError, registryId, sessionCwd],
+    [disconnect, onError, registryId, sessionCwd, t],
   );
 
   const stashSession = useCallback((key: string) => {
@@ -484,12 +486,12 @@ export function useAgentSession({
           setError(null);
           return;
         }
-        const msg = err instanceof Error ? err.message : "Failed to create session";
+        const msg = err instanceof Error ? err.message : t("errors.createFailed");
         setError(msg);
         onError?.(msg);
       }
     },
-    [attachRuntimeSessionSocket, workspaceId, projectId, registryId, onError]
+    [attachRuntimeSessionSocket, workspaceId, projectId, registryId, onError, t]
   );
 
   const resumeSession = useCallback(
@@ -530,13 +532,13 @@ export function useAgentSession({
           setError(null);
           return false;
         }
-        const msg = err instanceof Error ? err.message : "Failed to resume session";
+        const msg = err instanceof Error ? err.message : t("errors.resumeFailed");
         setError(msg);
         onError?.(msg);
         return false;
       }
     },
-    [attachRuntimeSessionSocket, onError, projectId, workspaceId]
+    [attachRuntimeSessionSocket, onError, projectId, workspaceId, t]
   );
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   agentApi,
   type RegistryAgent,
@@ -7,6 +8,7 @@ import {
 import { toastManager } from "@workspace/ui";
 
 export function useAgentManager(query: string) {
+  const t = useTranslations("agent.manager");
   const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
   const [customAgents, setCustomAgents] = React.useState<CustomAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -53,8 +55,8 @@ export function useAgentManager(query: string) {
       setCustomAgents(custom.agents);
     } catch (error) {
       toastManager.add({
-        title: "Failed to load agents",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("toasts.loadFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
         type: "error",
       });
     } finally {
@@ -121,7 +123,7 @@ export function useAgentManager(query: string) {
         return; // Keep this registry in installing state while dialog is open
       }
       toastManager.add({
-        title: "Agent installed",
+        title: t("toasts.installed.title"),
         description: result.message,
         type: "success",
       });
@@ -129,8 +131,8 @@ export function useAgentManager(query: string) {
       clearRegistryInstalling(registryId);
     } catch (error) {
       toastManager.add({
-        title: "Install failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("toasts.installFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
         type: "error",
       });
       clearRegistryInstalling(registryId);
@@ -155,15 +157,15 @@ export function useAgentManager(query: string) {
     try {
       const result = await agentApi.removeRegistry(registryId);
       toastManager.add({
-        title: "Agent removed",
+        title: t("toasts.removed.title"),
         description: result.message,
         type: "success",
       });
       await loadData();
     } catch (error) {
       toastManager.add({
-        title: "Remove failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("toasts.removeFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
         type: "error",
       });
     } finally {
@@ -177,15 +179,15 @@ export function useAgentManager(query: string) {
     try {
       await agentApi.removeCustomAgent(name);
       toastManager.add({
-        title: "Custom agent removed",
-        description: `"${name}" has been removed`,
+        title: t("toasts.customRemoved.title"),
+        description: t("toasts.customRemoved.description", { name }),
         type: "success",
       });
       await loadData();
     } catch (error) {
       toastManager.add({
-        title: "Failed to remove custom agent",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("toasts.customRemoveFailed.title"),
+        description: error instanceof Error ? error.message : t("unknownError"),
         type: "error",
       });
     } finally {

@@ -2,14 +2,36 @@
  * User access token helpers (APP-016) — possession = tenant, no account login.
  */
 
+import { createTranslator } from 'next-intl';
 import { proxyRelayRequest } from '@/features/connection/lib/atmos-computer-local';
 import {
   resolveRelayUrl,
   useAtmosComputerStore,
 } from '@/features/connection/lib/atmos-computer-store';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 const RELAY_SECRET_HEADER = 'X-Atmos-Relay-Secret';
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeTranslator: any = null;
+
+function runtimeT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never, values as never);
+}
 
 export function generateAccessToken(): string {
   const raw = crypto.getRandomValues(new Uint8Array(32));
@@ -23,7 +45,7 @@ export function generateAccessToken(): string {
 function formatFetchError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (message === 'Load failed' || message.includes('Failed to fetch')) {
-    return 'Cannot reach Atmos cloud. Check your network connection.';
+    return runtimeT('accessToken.errors.cannotReachCloud');
   }
   return message;
 }
@@ -58,8 +80,7 @@ export async function registerAccessTokenOnRelay(
     if (isTauriRuntime()) {
       return {
         ok: false,
-        error:
-          'Cannot connect locally. Restart Atmos and try again.',
+        error: runtimeT('accessToken.errors.cannotConnectLocally'),
       };
     }
 
@@ -90,13 +111,13 @@ export async function rotateAccessTokenOnRelay(
   const nextToken = newAccessToken.trim();
 
   if (currentToken.length < 32) {
-    return { ok: false, error: 'Current access key is too short.' };
+    return { ok: false, error: runtimeT('accessToken.errors.currentKeyTooShort') };
   }
   if (nextToken.length < 32) {
-    return { ok: false, error: 'New access key is too short.' };
+    return { ok: false, error: runtimeT('accessToken.errors.newKeyTooShort') };
   }
   if (currentToken === nextToken) {
-    return { ok: false, error: 'New access key must be different.' };
+    return { ok: false, error: runtimeT('accessToken.errors.newKeyMustDiffer') };
   }
 
   try {
@@ -159,10 +180,10 @@ export async function relayFetchWithAccessToken(
   }
 
   if (isTauriRuntime()) {
-    throw new Error('Cannot connect locally. Restart Atmos and try again.');
+    throw new Error(runtimeT('accessToken.errors.cannotConnectLocally'));
   }
   if (!token) {
-    throw new Error('Relay access key is not available in this browser.');
+    throw new Error(runtimeT('accessToken.errors.relayAccessKeyUnavailable'));
   }
 
   const url = `${base}${normalizedPath}`;

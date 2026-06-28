@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ export function ConfigOptionDropdown({
   setAgentDefaultConfig: (id: string, val: string) => void;
   setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
 }) {
+  const t = useTranslations("Agent.components");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -62,7 +64,7 @@ export function ConfigOptionDropdown({
             <div className="p-1.5 border-b border-border/50 sticky top-0 bg-popover z-10 mb-1">
               <input
                 className="w-full bg-transparent text-xs px-2 py-1 outline-none placeholder:text-muted-foreground/50 border border-border/50 rounded focus:border-ring"
-                placeholder="Search..."
+                placeholder={t("configOptionDropdown.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
@@ -71,7 +73,7 @@ export function ConfigOptionDropdown({
             </div>
           )}
           {filteredOptions.length === 0 ? (
-            <div className="p-2 text-xs text-muted-foreground text-center">No results</div>
+            <div className="p-2 text-xs text-muted-foreground text-center">{t("configOptionDropdown.noResults")}</div>
           ) : (
             filteredOptions.map(o => {
               const isDefault = activeAgent?.default_config?.[opt.id] === o.value;
@@ -115,7 +117,9 @@ export function ConfigOptionDropdown({
                       <div className="space-y-1.5">
                         {o.description ? <div>{o.description}</div> : null}
                         <div className="border-t border-border/50 pt-1 text-[10px]">
-                          Shift + Click to set as default {isDefault ? "(current default)" : ""}
+                          {isDefault
+                            ? t("configOptionDropdown.shiftClickDefaultCurrent")
+                            : t("configOptionDropdown.shiftClickDefault")}
                         </div>
                       </div>
                     </TooltipContent>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   Attachments,
   Attachment,
@@ -102,6 +103,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
   stoppedRef: React.MutableRefObject<boolean>;
 }) {
+  const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
   const [localDraft, setLocalDraft] = useState(() =>
     useDialogStore.getState().getAgentChatDraft(
@@ -186,10 +188,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             data-agent-chat-project-id={sessionProjectId ?? undefined}
             placeholder={
               !canUseCurrentMode
-                ? "Agent unavailable"
+                ? t("composer.placeholder.unavailable")
                 : isConnected
-                  ? "Type a message..."
-                  : "Select agent to connect"
+                  ? t("composer.placeholder.connected")
+                  : t("composer.placeholder.selectAgent")
             }
             disabled={!isConnected || !canUseCurrentMode}
             value={localDraft}
@@ -200,7 +202,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           <PromptInputTools>
             <PromptInputAddAttachmentsButton />
             {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
-              <span className="px-2 text-xs text-muted-foreground">No agent</span>
+              <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
             ) : null}
           </PromptInputTools>
           <div className="flex items-center gap-2">

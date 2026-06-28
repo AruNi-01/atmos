@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -34,13 +35,14 @@ export function AgentAuthDialog({
   startSession,
   isConnecting,
 }: AgentAuthDialogProps) {
+  const t = useTranslations("Agent.components");
   return (
     <Dialog open={!!authRequest} onOpenChange={(open) => !open && clearAuthRequest()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Agent authentication required</DialogTitle>
+          <DialogTitle>{t("authDialog.title")}</DialogTitle>
           <DialogDescription>
-            {authRequest?.message || "This agent requires authentication before creating a session."}
+            {authRequest?.message || t("authDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -61,7 +63,7 @@ export function AgentAuthDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => clearAuthRequest()}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={() => {
@@ -71,7 +73,7 @@ export function AgentAuthDialog({
             }}
             disabled={!selectedAuthMethodId || isConnecting}
           >
-            Continue
+            {t("common.continue")}
           </Button>
         </DialogFooter>
       </DialogContent>

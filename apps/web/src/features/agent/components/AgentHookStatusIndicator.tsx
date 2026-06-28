@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { TextShimmer, FilledBellIcon, cn } from "@workspace/ui";
 import type { AnimatedIconHandle } from "@workspace/ui";
 import { AGENT_STATE, type AgentHookState } from "@/features/agent/store/agent-hooks-store";
@@ -82,16 +83,18 @@ function useLoopingBell(ref: React.RefObject<AnimatedIconHandle | null>, interva
 }
 
 function PermissionBellCompact() {
+  const t = useTranslations("Agent.components.hookStatus");
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
-    <span className="inline-flex items-center justify-center size-5 text-amber-400/70" title="Permission requested">
+    <span className="inline-flex items-center justify-center size-5 text-amber-400/70" title={t("permissionRequested")}>
       <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
     </span>
   );
 }
 
 function PermissionBellFull({ tool }: { tool?: string }) {
+  const t = useTranslations("Agent.components.hookStatus");
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
@@ -100,13 +103,14 @@ function PermissionBellFull({ tool }: { tool?: string }) {
         <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
       </span>
       <TextShimmer as="span" className="text-[10px] whitespace-nowrap text-amber-400/60" duration={2}>
-        {tool ? `${tool}: Waiting for permission` : "Waiting for permission"}
+        {tool ? t("waitingForPermissionWithTool", { tool }) : t("waitingForPermission")}
       </TextShimmer>
     </div>
   );
 }
 
 function CompactIndicator({ state }: { state: AgentHookState }) {
+  const t = useTranslations("Agent.components.hookStatus");
   const spinnerChar = useBrailleSpinner();
 
   if (state === AGENT_STATE.IDLE) {
@@ -118,13 +122,14 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
   }
 
   return (
-    <span className="inline-flex items-center justify-center size-5 font-mono text-sm text-muted-foreground/80" title="Agent running">
+    <span className="inline-flex items-center justify-center size-5 font-mono text-sm text-muted-foreground/80" title={t("agentRunning")}>
       {spinnerChar}
     </span>
   );
 }
 
 function RunningFullSpinner({ tool }: { tool?: string }) {
+  const t = useTranslations("Agent.components.hookStatus");
   const spinnerChar = useFullSpinner();
   return (
     <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -132,19 +137,20 @@ function RunningFullSpinner({ tool }: { tool?: string }) {
         {spinnerChar}
       </span>
       <TextShimmer as="span" className="text-[10px] whitespace-nowrap" duration={1.5}>
-        {tool ? `${tool}: Running` : "Agent running"}
+        {tool ? t("runningWithTool", { tool }) : t("agentRunning")}
       </TextShimmer>
     </div>
   );
 }
 
 function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }) {
+  const t = useTranslations("Agent.components.hookStatus");
   if (state === AGENT_STATE.IDLE) {
     return (
       <div className="flex items-center gap-1.5">
         <div className={cn("size-2 rounded-full", STATE_DOT_COLORS[AGENT_STATE.IDLE])} />
         <span className="text-[10px] text-muted-foreground">
-          {tool ? `${tool}: ` : "Agent: "}IDLE
+          {tool ? t("idleWithTool", { tool }) : t("idle")}
         </span>
       </div>
     );

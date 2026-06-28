@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { wsRequest } from "@/api/ws/request";
 
@@ -20,6 +21,7 @@ export interface TerminalAgentModelCatalog {
 }
 
 export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) {
+  const t = useTranslations("agent.modelCatalog");
   const [catalog, setCatalog] = React.useState<TerminalAgentModelCatalog | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [requestError, setRequestError] = React.useState<string | null>(null);
@@ -43,7 +45,7 @@ export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) 
         setCatalog(nextCatalog);
         return nextCatalog;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to load model list.";
+        const message = error instanceof Error ? error.message : t("loadFailed");
         setRequestError(message);
         setCatalog({
           agent_id: agentId,
@@ -57,7 +59,7 @@ export function useTerminalAgentModelCatalog(agentId: string, enabled: boolean) 
         setLoading(false);
       }
     },
-    [agentId, enabled],
+    [agentId, enabled, t],
   );
 
   React.useEffect(() => {

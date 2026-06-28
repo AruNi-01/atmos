@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Settings2 } from "lucide-react";
 import { cn } from "@workspace/ui";
 import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
@@ -36,6 +37,7 @@ export function AgentFixSettingsPopover({
   selectedAgentId: string;
   triggerRef?: React.Ref<HTMLButtonElement>;
 }) {
+  const t = useTranslations("agent.fixSettingsPopover");
   return (
     <TerminalAgentSelectorWithRunConfig
       variant="menu"
@@ -60,8 +62,8 @@ export function AgentFixSettingsPopover({
             "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
-          aria-label="Configure Agent Fix agent"
-          title="Configure Agent Fix agent"
+          aria-label={t("trigger.ariaLabel")}
+          title={t("trigger.title")}
         >
           <Settings2 className="size-3.5" />
         </button>

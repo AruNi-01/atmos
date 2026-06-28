@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Popover,
@@ -130,6 +131,7 @@ function QueueCard({
   onCancelEdit,
   onSaveEdit,
   onRemove,
+  t,
 }: {
   item: QueuedAgentPrompt;
   isDragging?: boolean;
@@ -141,6 +143,7 @@ function QueueCard({
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onRemove: () => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const trimmedValue = (editValue ?? "").trim();
   const [isHovered, setIsHovered] = useState(false);
@@ -159,7 +162,7 @@ function QueueCard({
       <div className="flex items-center gap-1 px-1.5 py-1">
         <button
           type="button"
-          aria-label="Reorder queued prompt"
+          aria-label={t("messageQueue.reorderAria")}
           className={`flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors ${
             isEditing
               ? "cursor-not-allowed opacity-40"
@@ -193,7 +196,7 @@ function QueueCard({
                 variant={isEditing ? "secondary" : "ghost"}
                 size="icon-sm"
                 className="size-6 text-muted-foreground hover:text-foreground"
-                aria-label="Edit queued prompt"
+                aria-label={t("messageQueue.editAria")}
               >
                 <Pencil className="size-3.5" />
               </Button>
@@ -212,7 +215,7 @@ function QueueCard({
                 />
                 <div className="flex items-center justify-end gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     type="button"
@@ -220,7 +223,7 @@ function QueueCard({
                     onClick={onSaveEdit}
                     disabled={!trimmedValue}
                   >
-                    Save
+                    {t("common.save")}
                   </Button>
                 </div>
               </div>
@@ -232,7 +235,7 @@ function QueueCard({
             size="icon-sm"
             onClick={onRemove}
             className="size-6 text-muted-foreground hover:text-destructive"
-            aria-label="Delete queued prompt"
+            aria-label={t("messageQueue.deleteAria")}
           >
             <Trash2 className="size-3.5" />
           </Button>
@@ -251,6 +254,7 @@ type SortableQueueCardProps = {
   onCancelEdit: () => void;
   onSaveEdit: (id: string) => void;
   onRemove: (id: string) => void;
+  t: ReturnType<typeof useTranslations>;
 };
 
 const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(function SortableQueueCard({
@@ -262,6 +266,7 @@ const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProp
   onCancelEdit,
   onSaveEdit,
   onRemove,
+  t,
 }, forwardedRef) {
   const isEditing = editingPromptId === item.id;
   const {
@@ -320,6 +325,7 @@ const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProp
         onCancelEdit={onCancelEdit}
         onSaveEdit={() => onSaveEdit(item.id)}
         onRemove={() => onRemove(item.id)}
+        t={t}
       />
     </motion.div>
   );
@@ -337,6 +343,7 @@ export function MessageQueueDock({
   onUpdatePrompt: (id: string, prompt: string) => void;
   onMove: (id: string, toIndex: number) => void;
 }) {
+  const t = useTranslations("Agent.components");
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
   const [editingPromptValue, setEditingPromptValue] = useState("");
   const [draggingPromptId, setDraggingPromptId] = useState<string | null>(null);
@@ -390,7 +397,7 @@ export function MessageQueueDock({
   return (
     <div className="bg-muted/20">
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-1.5">
-        <div className="text-xs font-medium text-foreground/90">Message Queue</div>
+        <div className="text-xs font-medium text-foreground/90">{t("messageQueue.title")}</div>
         <div className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
           {items.length}
         </div>
@@ -419,6 +426,7 @@ export function MessageQueueDock({
                     onStartEdit={handleStartEdit}
                     onCancelEdit={handleCancelEdit}
                     onSaveEdit={handleSaveEdit}
+                    t={t}
                     onRemove={(id) => {
                       onRemove(id);
                       if (activeEditingPromptId === id) {
@@ -440,6 +448,7 @@ export function MessageQueueDock({
                   onCancelEdit={NOOP_QUEUE_ACTION}
                   onSaveEdit={NOOP_QUEUE_ACTION}
                   onRemove={NOOP_QUEUE_ACTION}
+                  t={t}
                 />
               </div>
             ) : null}

@@ -1,7 +1,10 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 import type {
   AppshotAcceptResponse,
@@ -21,6 +24,21 @@ import type {
 type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
 const PREVIEW_EVENT = "appshot://preview";
+let cachedAppshotLibLocale: "en" | "zh" | null = null;
+let cachedAppshotLibTranslator: any = null;
+
+function appshotLibT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedAppshotLibTranslator || cachedAppshotLibLocale !== locale) {
+    cachedAppshotLibLocale = locale;
+    cachedAppshotLibTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "appshot.lib",
+    });
+  }
+  return cachedAppshotLibTranslator(key as never);
+}
 
 async function getInvoke(): Promise<TauriInvoke> {
   const internals = (window as {
@@ -42,7 +60,7 @@ async function invokeAppshot<T>(
   payload?: Record<string, unknown>,
 ): Promise<T> {
   if (!isTauriRuntime()) {
-    throw new Error("Appshots are only available in Atmos Desktop.");
+    throw new Error(appshotLibT("client.desktopOnly"));
   }
 
   const invoke = await getInvoke();
@@ -230,7 +248,7 @@ function nonDesktopStatus(): AppshotStatus {
   return {
     supported: false,
     platform: "unknown",
-    reason: "Appshots require Atmos Desktop.",
+    reason: appshotLibT("client.desktopRequired"),
     trigger: {
       mode: "unsupported",
       enabled: false,

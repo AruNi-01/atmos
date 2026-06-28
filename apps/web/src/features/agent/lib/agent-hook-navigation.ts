@@ -1,11 +1,31 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import {
   findWorkspacePaneIdsByTmuxWindowName,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { Project } from "@/shared/types/domain";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+
+let cachedAgentLocale: 'en' | 'zh' | null = null;
+let cachedAgentTranslator: any = null;
+
+function agentT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedAgentTranslator || cachedAgentLocale !== locale) {
+    cachedAgentLocale = locale;
+    cachedAgentTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Agent.chrome',
+    });
+  }
+  return cachedAgentTranslator(key as never);
+}
 
 export function navigateToAgentHookSessionPane(
   session: AgentHookSession,
@@ -90,5 +110,5 @@ export function resolveAgentHookContextNames(
     return { projectName: contextId.slice(0, 8), workspaceName: null, workspaceDisplayName: null };
   }
 
-  return { projectName: "Unknown project", workspaceName: null, workspaceDisplayName: null };
+  return { projectName: agentT("agentHookNavigation.unknownProject"), workspaceName: null, workspaceDisplayName: null };
 }

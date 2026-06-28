@@ -1,5 +1,6 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   agentApi,
@@ -8,10 +9,28 @@ import {
   type NativeAgentSessionItem,
 } from "@/api/rest-api";
 import { parseAuthRequiredError } from "@/features/agent/lib/agent-runtime-socket";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export const ACP_SESSION_LIST_PAGE_LIMIT = 200;
 const ACP_SESSION_LIST_BATCH_TARGET = 20;
 const MAX_SESSION_LIST_PAGES_PER_BATCH = 5;
+let cachedAcpLocale: 'en' | 'zh' | null = null;
+let cachedAcpTranslator: any = null;
+
+function acpT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedAcpTranslator || cachedAcpLocale !== locale) {
+    cachedAcpLocale = locale;
+    cachedAcpTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Agent.chrome',
+    });
+  }
+  return cachedAcpTranslator(key as never);
+}
 
 export type AcpSessionListMeta = Omit<ListAgentSessionsResponse, "items">;
 
@@ -27,17 +46,17 @@ export function getResumeUnsupportedReason(capabilities: AgentCapabilities | nul
   return (
     capabilities.session_resume.reason ??
     capabilities.load_session.reason ??
-    "This agent does not support resuming listed sessions"
+    acpT("acpSessionList.thisAgentDoesNotSupportResumingListedSessions")
   );
 }
 
 export function getListFailureReason(error: unknown): string {
   if (parseAuthRequiredError(error)) {
-    return "Authentication is required before this agent can list ACP sessions.";
+    return acpT("acpSessionList.authenticationIsRequiredBeforeThisAgentCanListAcpSessions");
   }
   return error instanceof Error && error.message
     ? error.message
-    : "Failed to load ACP sessions.";
+    : acpT("acpSessionList.failedToLoadAcpSessions");
 }
 
 export function useAcpSessionList({
@@ -186,7 +205,7 @@ export function useAcpSessionList({
           }
 
           if (!response) {
-            throw new Error("Failed to load ACP sessions.");
+            throw new Error(acpT("acpSessionList.failedToLoadAcpSessions"));
           }
 
           response = {

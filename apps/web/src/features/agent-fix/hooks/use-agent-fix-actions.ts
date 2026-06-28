@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
 import { resolveAgentFixPrompt } from "@/features/agent-fix/lib/agent-fix-prompt";
@@ -21,6 +22,7 @@ export function useAgentFixActions({
   rememberAgent: (agentId: string) => void;
   source: AgentFixPromptSource;
 }) {
+  const t = useTranslations("agent.fixActions");
   const runner = useAgentFixLauncherStore((state) => state.runner);
   const [isCopying, setIsCopying] = React.useState(false);
   const [isLaunching, setIsLaunching] = React.useState(false);
@@ -30,11 +32,11 @@ export function useAgentFixActions({
       source.onError?.(error);
       toastManager.add({
         title,
-        description: error instanceof Error ? error.message : "Unknown Agent Fix error",
+        description: error instanceof Error ? error.message : t("unknownError"),
         type: "error",
       });
     },
-    [source],
+    [source, t],
   );
 
   const copyPrompt = React.useCallback(async () => {
@@ -44,19 +46,19 @@ export function useAgentFixActions({
       await navigator.clipboard.writeText(result.clipboardText ?? result.prompt);
       await source.onCopied?.(result);
     } catch (error) {
-      handleError(error, "Failed to copy prompt");
+      handleError(error, t("toasts.copyFailed.title"));
     } finally {
       setIsCopying(false);
     }
-  }, [handleError, source]);
+  }, [handleError, source, t]);
 
   const launchAgentFix = React.useCallback(async () => {
     if (!agent) {
-      handleError(new Error("No terminal agent is available."), "Agent Fix unavailable");
+      handleError(new Error(t("errors.noTerminalAgent")), t("toasts.unavailable.title"));
       return;
     }
     if (!source.context) {
-      handleError(new Error("No active workspace or project context."), "Agent Fix unavailable");
+      handleError(new Error(t("errors.noContext")), t("toasts.unavailable.title"));
       return;
     }
 
@@ -67,8 +69,8 @@ export function useAgentFixActions({
       if (!runner) {
         await navigator.clipboard.writeText(result.clipboardText ?? result.prompt);
         toastManager.add({
-          title: "Prompt copied",
-          description: "No terminal launcher is active, so the Agent Fix prompt was copied instead.",
+          title: t("toasts.promptCopiedFallback.title"),
+          description: t("toasts.promptCopiedFallback.description"),
           type: "success",
         });
         await source.onCopied?.(result);
@@ -84,16 +86,16 @@ export function useAgentFixActions({
       });
       await source.onStarted?.(result);
       toastManager.add({
-        title: "Agent Fix started",
-        description: "A terminal agent session was opened with the fix prompt.",
+        title: t("toasts.started.title"),
+        description: t("toasts.started.description"),
         type: "success",
       });
     } catch (error) {
-      handleError(error, "Failed to start Agent Fix");
+      handleError(error, t("toasts.startFailed.title"));
     } finally {
       setIsLaunching(false);
     }
-  }, [agent, handleError, rememberAgent, runConfig, runner, source]);
+  }, [agent, handleError, rememberAgent, runConfig, runner, source, t]);
 
   return {
     copyPrompt,
