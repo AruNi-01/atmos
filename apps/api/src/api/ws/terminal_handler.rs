@@ -74,6 +74,10 @@ enum ClientTerminalMessage {
     TerminalInput {
         data: String,
     },
+    TerminalEnter {
+        #[allow(dead_code)]
+        session_id: Option<String>,
+    },
     TerminalReport {
         data: String,
     },
@@ -476,6 +480,18 @@ async fn handle_terminal_message(
                     ClientTerminalMessage::TerminalInput { data } => {
                         if let Err(e) = terminal_service.send_input(session_id, &data).await {
                             error!("Failed to send input to session {}: {}", session_id, e);
+                            let error_response = TerminalResponse::TerminalError {
+                                session_id: Some(session_id.to_string()),
+                                error: e.to_string(),
+                            };
+                            if let Ok(json) = serde_json::to_string(&error_response) {
+                                let _ = ws_tx.send(Message::Text(json.into()));
+                            }
+                        }
+                    }
+                    ClientTerminalMessage::TerminalEnter { .. } => {
+                        if let Err(e) = terminal_service.send_enter(session_id).await {
+                            error!("Failed to send Enter to session {}: {}", session_id, e);
                             let error_response = TerminalResponse::TerminalError {
                                 session_id: Some(session_id.to_string()),
                                 error: e.to_string(),

@@ -1,0 +1,123 @@
+.terminal-agent-input-shell {
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background-color 0.22s ease;
+}
+
+.terminal-agent-input-shell[data-send-animating="true"] {
+  border-color: color-mix(in srgb, #38bdf8 45%, var(--border));
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.28),
+    0 0 0 1px color-mix(in srgb, #38bdf8 18%, transparent),
+    0 0 34px color-mix(in srgb, #2563eb 18%, transparent);
+}
+
+.terminal-agent-send-sweep {
+  position: absolute;
+  inset: -30% -8%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, 78%, 0) scaleY(0.55);
+  animation: terminalAgentBlueSweep 640ms linear forwards;
+}
+
+.terminal-agent-send-sweep::before,
+.terminal-agent-send-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+}
+
+.terminal-agent-send-sweep::before {
+  background:
+    radial-gradient(ellipse at 50% 68%, rgba(255, 255, 255, 0.8) 0%, rgba(191, 219, 254, 0.56) 20%, rgba(96, 165, 250, 0.24) 44%, transparent 72%),
+    linear-gradient(0deg, rgba(14, 165, 233, 0.56) 0%, rgba(59, 130, 246, 0.28) 38%, rgba(147, 197, 253, 0.16) 62%, transparent 100%);
+  filter: blur(18px);
+}
+
+.terminal-agent-send-sweep::after {
+  inset: 36% 3% 32%;
+  background: linear-gradient(90deg, transparent 0%, rgba(186, 230, 253, 0.54) 18%, rgba(255, 255, 255, 0.86) 50%, rgba(96, 165, 250, 0.5) 82%, transparent 100%);
+  filter: blur(8px);
+  opacity: 0.78;
+}
+
+.terminal-agent-flying-message {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483646;
+  max-width: min(520px, 62vw);
+  overflow: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--background) 94%, var(--muted));
+  padding: 10px 14px;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.22),
+    0 0 0 1px color-mix(in srgb, #38bdf8 10%, transparent);
+  transform: translate3d(var(--terminal-agent-fly-from-x), var(--terminal-agent-fly-from-y), 0) translate(-50%, -50%) scale(1);
+  transform-origin: center;
+  animation: terminalAgentFlyMessage 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes terminalAgentBlueSweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 82%, 0) scaleY(0.48);
+  }
+
+  10% {
+    opacity: 0.92;
+  }
+
+  88% {
+    opacity: 0.72;
+    transform: translate3d(0, -76%, 0) scaleY(1.08);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -98%, 0) scaleY(1.14);
+  }
+}
+
+@keyframes terminalAgentFlyMessage {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--terminal-agent-fly-from-x), var(--terminal-agent-fly-from-y), 0) translate(-50%, -50%) scale(0.98);
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  72% {
+    opacity: 0.86;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--terminal-agent-fly-to-x), var(--terminal-agent-fly-to-y), 0) translate(-50%, -50%) scale(0.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-agent-input-shell {
+    transition-duration: 1ms;
+  }
+
+  .terminal-agent-send-sweep,
+  .terminal-agent-flying-message {
+    animation-duration: 1ms;
+  }
+}

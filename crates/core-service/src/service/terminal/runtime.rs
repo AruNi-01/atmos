@@ -376,6 +376,16 @@ pub(super) fn run_control_mode_tmux_session(
                         }
                     }
                 }
+                SessionCommand::Enter => {
+                    let command = format!("send-keys -t {pane_id} Enter");
+                    if let Err(error) = write_control_command(&mut stdin, &command) {
+                        debug!(
+                            "Failed to write tmux control enter for session {}: {}",
+                            session_id, error
+                        );
+                        return;
+                    }
+                }
                 SessionCommand::Report(data) => {
                     if let Some(command) = encode_refresh_client_report_command(&pane_id, &data) {
                         if let Err(error) = write_control_command(&mut stdin, &command) {
@@ -577,6 +587,19 @@ pub(super) fn run_simple_pty_session(
                     if let Err(e) = writer.write_all(&data) {
                         debug!(
                             "Failed to write to PTY for session {}: {} (may be closed)",
+                            session_id, e
+                        );
+                        break;
+                    }
+                    if let Err(e) = writer.flush() {
+                        debug!("Failed to flush PTY for session {}: {}", session_id, e);
+                        break;
+                    }
+                }
+                SessionCommand::Enter => {
+                    if let Err(e) = writer.write_all(b"\r") {
+                        debug!(
+                            "Failed to write Enter to PTY for session {}: {} (may be closed)",
                             session_id, e
                         );
                         break;

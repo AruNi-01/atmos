@@ -140,6 +140,11 @@ export interface WsTerminalInput {
   data: string;
 }
 
+export interface WsTerminalEnter {
+  type: "terminal_enter";
+  session_id: string;
+}
+
 export interface WsTerminalReport {
   type: "terminal_report";
   session_id: string;
@@ -167,6 +172,7 @@ export type WsTerminalRequest =
   | WsTerminalCreate
   | WsTerminalAttach
   | WsTerminalInput
+  | WsTerminalEnter
   | WsTerminalReport
   | WsTerminalResize
   | WsTerminalClose

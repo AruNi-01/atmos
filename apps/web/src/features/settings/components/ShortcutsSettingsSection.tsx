@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { ShortcutKeySequence } from '@/shared/components/shortcut-key-sequence';
 
 interface ShortcutEntry {
@@ -35,79 +36,82 @@ function ShortcutGroup({ title, shortcuts }: { title: string; shortcuts: Shortcu
 }
 
 export function ShortcutsSettingsSection() {
+  const t = useTranslations('settings.shortcutsSection');
+
   return (
     <div className="space-y-8">
       <ShortcutGroup
-        title="Global"
+        title={t('groups.global.title')}
         shortcuts={[
-          { keys: ['⌘', 'B'], description: 'Toggle left sidebar' },
-          { keys: ['⌘', '⇧', 'B'], description: 'Toggle right sidebar' },
-          { keys: ['⌘', 'K'], description: 'Command palette / global search' },
-          { keys: ['⌘', 'O'], description: 'Quick open file' },
-          { keys: ['⌘', '['], description: 'Navigate back' },
-          { keys: ['⌘', ']'], description: 'Navigate forward' },
-          { keys: ['⌘', '⇧', 'M'], description: 'Toggle action menu' },
-          { keys: ['⌘', 'U'], description: 'Toggle usage popover' },
+          { keys: ['⌘', 'B'], description: t('groups.global.items.toggleLeftSidebar') },
+          { keys: ['⌘', '⇧', 'B'], description: t('groups.global.items.toggleRightSidebar') },
+          { keys: ['⌘', 'K'], description: t('groups.global.items.commandPalette') },
+          { keys: ['⌘', 'O'], description: t('groups.global.items.quickOpenFile') },
+          { keys: ['⌘', '['], description: t('groups.global.items.navigateBack') },
+          { keys: ['⌘', ']'], description: t('groups.global.items.navigateForward') },
+          { keys: ['⌘', '⇧', 'M'], description: t('groups.global.items.toggleActionMenu') },
+          { keys: ['⌘', 'U'], description: t('groups.global.items.toggleUsagePopover') },
         ]}
       />
       <ShortcutGroup
-        title="Workspace"
+        title={t('groups.workspace.title')}
         shortcuts={[
-          { keys: ['⌘', 'N'], description: 'New workspace overlay' },
-          { keys: ['⌘', '⇧', 'H'], description: 'Toggle Canvas overlay' },
-          { keys: ['⌘', '⇧', 'K'], description: 'Expand Kanban overlay' },
-          { keys: ['⌘', '⇧', '↵'], description: 'Open / create workspace (In new workspace overlay)' },
+          { keys: ['⌘', 'N'], description: t('groups.workspace.items.newWorkspaceOverlay') },
+          { keys: ['⌘', '⇧', 'H'], description: t('groups.workspace.items.toggleCanvasOverlay') },
+          { keys: ['⌘', '⇧', 'K'], description: t('groups.workspace.items.expandKanbanOverlay') },
+          { keys: ['⌘', '⇧', '↵'], description: t('groups.workspace.items.openOrCreateWorkspace') },
         ]}
       />
       <ShortcutGroup
-        title="Center Stage Tabs"
+        title={t('groups.centerStageTabs.title')}
         shortcuts={[
-          { keys: ['⌘', '0'], description: 'Switch to Overview tab' },
-          { keys: ['⌘', '1'], description: 'Switch to Fixed Terminal tab' },
-          { keys: ['⌘', '2'], description: 'Switch to terminal tab 1' },
-          { keys: ['⌘', '3'], description: 'Switch to terminal tab 2' },
-          { keys: ['⌘', '4'], description: 'Switch to terminal tab 3' },
-          { keys: ['⌘', '5'], description: 'Switch to terminal tab 4' },
+          { keys: ['⌘', '0'], description: t('groups.centerStageTabs.items.overview') },
+          { keys: ['⌘', '1'], description: t('groups.centerStageTabs.items.fixedTerminal') },
+          { keys: ['⌘', '2'], description: t('groups.centerStageTabs.items.terminal1') },
+          { keys: ['⌘', '3'], description: t('groups.centerStageTabs.items.terminal2') },
+          { keys: ['⌘', '4'], description: t('groups.centerStageTabs.items.terminal3') },
+          { keys: ['⌘', '5'], description: t('groups.centerStageTabs.items.terminal4') },
         ]}
       />
       <ShortcutGroup
-        title="Terminal"
+        title={t('groups.terminal.title')}
         shortcuts={[
-          { keys: ['⌘', 'D'], description: 'Split terminal horizontally' },
-          { keys: ['⌘', '⇧', 'D'], description: 'Split terminal vertically' },
-          { keys: ['⌘', 'T'], description: 'New terminal tab' },
-          { keys: ['⌘', 'W'], description: 'Close terminal pane' },
-          { keys: ['⌘', '⇧', 'F'], description: 'Maximize / minimize terminal panel' },
-          { keys: ['⌘', '⇧', 'P'], description: 'Pin terminal to Canvas' },
-          { keys: ['⌘', 'F'], description: 'Find in terminal' },
-          { keys: ['⌘', '['], description: 'Previous terminal tab' },
-          { keys: ['⌘', ']'], description: 'Next terminal tab' },
-          { keys: ['⌘', 'C'], description: 'Copy selection' },
+          { keys: ['⌘', 'D'], description: t('groups.terminal.items.splitHorizontal') },
+          { keys: ['⌘', '⇧', 'D'], description: t('groups.terminal.items.splitVertical') },
+          { keys: ['⌘', 'T'], description: t('groups.terminal.items.newTab') },
+          { keys: ['⌘', 'W'], description: t('groups.terminal.items.closePane') },
+          { keys: ['⌘', '⇧', 'F'], description: t('groups.terminal.items.maximizePanel') },
+          { keys: ['⌘', '⇧', 'P'], description: t('groups.terminal.items.pinToCanvas') },
+          { keys: ['⌘', 'F'], description: t('groups.terminal.items.findInTerminal') },
+          { keys: ['⌘', 'G'], description: t('groups.terminal.items.toggleAgentInput') },
+          { keys: ['⌘', '['], description: t('groups.terminal.items.previousTab') },
+          { keys: ['⌘', ']'], description: t('groups.terminal.items.nextTab') },
+          { keys: ['⌘', 'C'], description: t('groups.terminal.items.copySelection') },
         ]}
       />
       <ShortcutGroup
-        title="Appshots"
+        title={t('groups.appshots.title')}
         shortcuts={[
-          { keys: ['Left ⇧', 'Right ⇧'], description: 'Capture the focused app as an Appshot' },
+          { keys: ['Left ⇧', 'Right ⇧'], description: t('groups.appshots.items.captureFocusedApp') },
         ]}
       />
       <ShortcutGroup
-        title="Editor"
+        title={t('groups.editor.title')}
         shortcuts={[
-          { keys: ['⌘', 'S'], description: 'Save current file' },
-          { keys: ['⌘', 'F'], description: 'Find in editor' },
+          { keys: ['⌘', 'S'], description: t('groups.editor.items.saveCurrentFile') },
+          { keys: ['⌘', 'F'], description: t('groups.editor.items.findInEditor') },
         ]}
       />
       <ShortcutGroup
-        title="Submit & Commit"
+        title={t('groups.submitCommit.title')}
         shortcuts={[
-          { keys: ['⌘', '↵'], description: 'Submit prompt / commit message' },
+          { keys: ['⌘', '↵'], description: t('groups.submitCommit.items.submitPromptOrCommit') },
         ]}
       />
       <ShortcutGroup
-        title="Diff Viewer"
+        title={t('groups.diffViewer.title')}
         shortcuts={[
-          { keys: ['⇧', 'Click'], description: 'Multi-select lines for annotation' },
+          { keys: ['⇧', 'Click'], description: t('groups.diffViewer.items.multiSelectLines') },
         ]}
       />
     </div>
