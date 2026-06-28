@@ -1,0 +1,28 @@
+apps/web/src/features/agent/components/AgentChatHistorySidebarFrame.tsx
+  s_6e221434fd4e42::t_d0d333a533395a 1-247
+apps/web/src/features/agent/components/AgentChatEntryView.tsx
+  s_6e221434fd4e42::t_d0d333a533395a 1-88
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_6e221434fd4e42::t_d0d333a533395a 16,20,30-34,36,101-108,368-371,440
+apps/web/src/features/agent/hooks/use-agent-chat-history-sidebar-layout.ts
+  s_6e221434fd4e42::t_9b1fc031c4baef 34,70,113
+  s_6e221434fd4e42::t_64be0169ff56c2 3-9,56
+  s_6e221434fd4e42::t_35ed792733442b 137-139,143
+  s_6e221434fd4e42::t_d0d333a533395a 1-2,10-33,35-55,57-69,71-112,114-136,140-142,144-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "110290c382880be968388977f786d34590d34c76",
+  "prompts": {},
+  "sessions": {
+    "s_6e221434fd4e42": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0b88-0d95-7d03-8a1e-feb262645fbf",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
