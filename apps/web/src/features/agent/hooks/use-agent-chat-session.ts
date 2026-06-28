@@ -934,6 +934,7 @@ export function useAgentChatSession({
     historyResumeUnsupportedReason,
     historyUnsupportedReason,
     loadHistorySessions,
+    projects,
 
     sessionTitle,
     displaySessionTitle,

@@ -113,6 +113,8 @@ pub async fn resume_agent_session(
         .as_deref()
         .map(parse_absolute_resume_cwd)
         .transpose()?;
+    let mut authorized_workspace_id = payload.workspace_id.clone();
+    let mut authorized_project_id = payload.project_id.clone();
     let cwd = if let Some(ref wid) = payload.workspace_id {
         let workspace = state
             .workspace_service
@@ -122,9 +124,8 @@ pub async fn resume_agent_session(
         let root = PathBuf::from(workspace.local_path);
         let cwd = requested_cwd.unwrap_or_else(|| root.clone());
         if !path_within_root(&cwd, &root) {
-            return Err(crate::error::ApiError::BadRequest(
-                "ACP session cwd is outside the selected workspace".to_string(),
-            ));
+            authorized_workspace_id = None;
+            authorized_project_id = None;
         }
         Some(cwd)
     } else if let Some(ref pid) = payload.project_id {
@@ -141,9 +142,7 @@ pub async fn resume_agent_session(
         };
         let cwd = requested_cwd.unwrap_or_else(|| root.clone());
         if !path_within_root(&cwd, &root) {
-            return Err(crate::error::ApiError::BadRequest(
-                "ACP session cwd is outside the selected project".to_string(),
-            ));
+            authorized_project_id = None;
         }
         Some(cwd)
     } else {
@@ -156,8 +155,8 @@ pub async fn resume_agent_session(
             registry_id: payload.registry_id.clone(),
             acp_session_id: payload.acp_session_id.clone(),
             cwd,
-            workspace_id: payload.workspace_id.clone(),
-            project_id: payload.project_id.clone(),
+            workspace_id: authorized_workspace_id,
+            project_id: authorized_project_id,
             auth_method_id: payload.auth_method_id,
         })
         .await?;

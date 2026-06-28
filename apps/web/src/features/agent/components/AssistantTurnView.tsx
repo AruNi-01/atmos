@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   MessageResponse,
   Reasoning,
@@ -84,15 +85,20 @@ function isBlockHidden(
   return false;
 }
 
-function ProcessDivider({ expanded }: { expanded: boolean }) {
+function ProcessDivider({
+  expanded,
+  t,
+}: {
+  expanded: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
   return (
     <div className="flex w-full items-center gap-2 py-1">
       <div className="h-px flex-1 bg-border" />
       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
         <TextMorph as="span" className="text-xs leading-none">
-          {expanded ? "Hide" : "Show"}
+          {expanded ? t("assistantTurn.process.hide") : t("assistantTurn.process.show")}
         </TextMorph>
-        {" process"}
         <ChevronRight className={`size-3 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
       </span>
       <div className="h-px flex-1 bg-border" />
@@ -107,6 +113,7 @@ export function AssistantTurnView({
   entry: AssistantEntry;
   registryId: string;
 }) {
+  const t = useTranslations("Agent.components");
   const reviewComponents = useReviewLinkComponents();
   const vendor = resolveAgentVendor(registryId);
   const claudeChildToolCallsByParentId = useMemo(() =>
@@ -272,18 +279,18 @@ export function AssistantTurnView({
       <>
         <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
           <CollapsibleTrigger className="w-full cursor-pointer transition-colors hover:text-foreground">
-            <ProcessDivider expanded={stepsExpanded} />
+            <ProcessDivider expanded={stepsExpanded} t={t} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
             {intermediateBlocks.map(({ block, origIndex }) => (
               <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
             ))}
             <CollapsibleTrigger
-              aria-label="Collapse process"
+              aria-label={t("assistantTurn.process.collapseAria")}
               className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
             >
               <div className="h-px flex-1 bg-border" />
-              <span className="shrink-0 text-xs leading-none">Collapse process</span>
+              <span className="shrink-0 text-xs leading-none">{t("assistantTurn.process.collapseLabel")}</span>
               <div className="h-px flex-1 bg-border" />
             </CollapsibleTrigger>
           </CollapsibleContent>

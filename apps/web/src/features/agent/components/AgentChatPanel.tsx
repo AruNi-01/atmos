@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import "streamdown/styles.css";
 import {
   Attachments,
@@ -25,6 +26,7 @@ import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layou
 import { getAssistantCopyText, type ThreadEntry } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { MessageCopyButton } from "./CopyButtons";
 import { SessionUsageBadge, MessageTurnUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
@@ -69,9 +71,12 @@ export function AgentChatPanel({
   contextOverride,
   transformPrompt,
 }: AgentChatPanelProps = {}) {
+  const t = useTranslations("Agent.components.chatPanel");
   const canFullscreen = variant !== "standalone" && (allowFullscreen ?? true);
   const [fullscreenRequested, setFullscreenRequested] = useState(false);
   const isFullscreen = canFullscreen && fullscreenRequested;
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
+  const reserveStandaloneTrafficLights = variant === "standalone" && needsTrafficLightsPadding;
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
@@ -483,8 +488,8 @@ export function AgentChatPanel({
       size="icon"
       onClick={() => setHistorySidebarCollapsed((current) => !current)}
       className="size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-      aria-label={historySidebarCollapsed ? "Expand history sidebar" : "Hide history sidebar"}
-      title={historySidebarCollapsed ? "Expand history sidebar" : "Hide history sidebar"}
+      aria-label={historySidebarCollapsed ? t("history.expand") : t("history.hide")}
+      title={historySidebarCollapsed ? t("history.expand") : t("history.hide")}
     >
       {historySidebarCollapsed ? (
         <PanelLeftOpen className="size-[18px]" />
@@ -493,6 +498,24 @@ export function AgentChatPanel({
       )}
     </Button>
   );
+  const trafficLightsHistorySidebarToggle = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={() => setHistorySidebarCollapsed((current) => !current)}
+      className="size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+      aria-label={historySidebarCollapsed ? t("history.expand") : t("history.hide")}
+      title={historySidebarCollapsed ? t("history.expand") : t("history.hide")}
+    >
+      {historySidebarCollapsed ? (
+        <PanelLeftOpen className="size-4" />
+      ) : (
+        <PanelLeftClose className="size-4" />
+      )}
+    </Button>
+  );
+  const showTrafficLightsHistoryToggle = showsWideHistoryLayout && reserveStandaloneTrafficLights;
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
     : "w-full";
@@ -534,6 +557,7 @@ export function AgentChatPanel({
         "relative flex overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",
         !showsWideHistoryLayout && "flex-col",
+        reserveStandaloneTrafficLights && "pt-8",
         variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
         variant === "sidebar" && !isFullscreen && "h-full min-h-0",
         variant === "standalone" && "h-dvh min-h-0 w-full",
@@ -556,6 +580,12 @@ export function AgentChatPanel({
         </>
       )}
 
+      {showTrafficLightsHistoryToggle ? (
+        <div className="absolute left-[86px] top-1 z-50 flex h-7 items-center">
+          {trafficLightsHistorySidebarToggle}
+        </div>
+      ) : null}
+
       {showsWideHistoryLayout && (
         <AgentChatHistorySidebarFrame
           frameRef={historySidebarFrameRef}
@@ -567,7 +597,6 @@ export function AgentChatPanel({
           }
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
-          onCollapsedExpand={() => setHistorySidebarCollapsed(false)}
         >
           <AgentChatHistorySidebar
             className="flex"
@@ -589,7 +618,7 @@ export function AgentChatPanel({
               activeAgent ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name) : null
             }
             canCreateNewSession={canUseCurrentMode}
-            sidebarControl={historySidebarToggle}
+            projects={session.projects}
           />
         </AgentChatHistorySidebarFrame>
       )}
@@ -638,6 +667,7 @@ export function AgentChatPanel({
           loadHistorySessions={loadHistorySessions}
           handleSelectHistorySession={handleSelectHistorySession}
           historyTriggerClassName={showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined}
+          historySidebarControl={showsWideHistoryLayout && !showTrafficLightsHistoryToggle ? historySidebarToggle : null}
           handleClose={handleClosePanel}
           handleLogoutAgent={handleLogoutAgent}
           displaySessionTitle={displaySessionTitle}
@@ -666,9 +696,9 @@ export function AgentChatPanel({
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   <span>
                     {loadingAgents && !isConnecting && !isResumingHistory
-                      ? "Loading..."
+                      ? t("loading")
                       : isResumingHistory
-                        ? "Restoring session..."
+                        ? t("restoringSession")
                         : connectionPhaseLabel}
                   </span>
                 </span>
@@ -682,11 +712,11 @@ export function AgentChatPanel({
             {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
-                title={isResumedSession ? "Session resumed" : "Start a conversation"}
+                title={isResumedSession ? t("empty.resumedTitle") : t("empty.startTitle")}
                 description={
                   isResumedSession
-                    ? "This agent restored the session context. Send a message to continue."
-                    : "Type a message below to begin chatting"
+                    ? t("empty.resumedDescription")
+                    : t("empty.startDescription")
                 }
               />
             )}
@@ -718,8 +748,8 @@ export function AgentChatPanel({
               <span className="inline-flex size-4 shrink-0 items-center justify-center">
                 <ChevronDown className="size-4" />
               </span>
-              <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
-                Bottom
+                <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
+                {t("bottom")}
               </span>
             </ConversationScrollButton>
           </div>
@@ -749,7 +779,7 @@ export function AgentChatPanel({
                 shineColor={["#d97706", "#b45309"]}
               />
               <ConfirmationRequest>
-                <span className="font-medium text-amber-500">Permission requested</span>
+                <span className="font-medium text-amber-500">{t("permissionRequested")}</span>
                 <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
                   {pendingPermission.description}
                 </p>
@@ -776,12 +806,12 @@ export function AgentChatPanel({
                 ) : (
                   <>
                     <PermissionActionButton
-                      label="Deny"
+                      label={t("deny")}
                       variant="outline"
                       onClick={() => handlePermission("reject_once")}
                     />
                     <PermissionActionButton
-                      label="Allow"
+                      label={t("allow")}
                       onClick={() => handlePermission("allow_once")}
                     />
                   </>
@@ -851,6 +881,8 @@ const AgentChatEntryView = React.memo(function AgentChatEntryView({
   entryIndex: number;
   registryId: string;
 }) {
+  const t = useTranslations("Agent.components.chatPanel");
+
   return (
     <div
       data-entry-index={entryIndex}
@@ -861,8 +893,8 @@ const AgentChatEntryView = React.memo(function AgentChatEntryView({
         <div className="group relative">
           <MessageCopyButton
             text={entry.content}
-            ariaLabel="Copy user message"
-            title="Copy message"
+            ariaLabel={t("copy.userAria")}
+            title={t("copy.message")}
             className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
           />
           <Message from="user">
@@ -894,8 +926,8 @@ const AgentChatEntryView = React.memo(function AgentChatEntryView({
               <div className="mt-2 flex items-center gap-2">
                 <MessageCopyButton
                   text={getAssistantCopyText(entry)}
-                  ariaLabel="Copy current turn message"
-                  title="Copy turn"
+                  ariaLabel={t("copy.turnAria")}
+                  title={t("copy.turn")}
                   className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 />
                 {entry.usage && (
@@ -933,7 +965,6 @@ function AgentChatHistorySidebarFrame({
   width,
   isResizing,
   onResizeStart,
-  onCollapsedExpand,
   children,
 }: {
   frameRef: React.RefObject<HTMLDivElement | null>;
@@ -941,7 +972,6 @@ function AgentChatHistorySidebarFrame({
   width: number;
   isResizing: boolean;
   onResizeStart: (event: React.MouseEvent) => void;
-  onCollapsedExpand: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -959,7 +989,7 @@ function AgentChatHistorySidebarFrame({
         }}
       >
         {collapsed ? (
-          <AgentChatHistoryPeekShell width={width} onExpand={onCollapsedExpand}>
+          <AgentChatHistoryPeekShell width={width}>
             {children}
           </AgentChatHistoryPeekShell>
         ) : (
@@ -987,11 +1017,9 @@ function AgentChatHistorySidebarFrame({
 
 function AgentChatHistoryPeekShell({
   width,
-  onExpand,
   children,
 }: {
   width: number;
-  onExpand: () => void;
   children: React.ReactNode;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -1065,18 +1093,6 @@ function AgentChatHistoryPeekShell({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
-        aria-label="Expand history sidebar"
-        title="Expand history sidebar"
-        onClick={onExpand}
-        onFocus={showPeek}
-      >
-        <PanelLeftOpen className="size-4" />
-      </Button>
       <div
         ref={triggerRef}
         aria-hidden="true"

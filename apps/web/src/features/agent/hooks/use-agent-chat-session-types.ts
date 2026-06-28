@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type React from "react";
 import type { ConversationMessage } from "@workspace/ui";
 import type {
@@ -80,6 +81,7 @@ export interface UseAgentChatSessionReturn {
   historyResumeUnsupportedReason: string | null;
   historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
+  projects: Project[];
   sessionTitle: string | null;
   displaySessionTitle: string | null;
   sessionTitleSource: string | null;
@@ -188,20 +190,21 @@ export function buildAgentChatExportableMessages(
 }
 
 export function getConnectionPhaseLabel(connectionPhase: string): string {
+  const t = useTranslations("agent.chatSessionTypes");
   switch (connectionPhase) {
     case "initializing":
-      return "Initializing ACP connection...";
+      return t("connectionPhase.initializing");
     case "authenticating":
-      return "Authenticating with agent...";
+      return t("connectionPhase.authenticating");
     case "resuming_session":
-      return "Restoring ACP session...";
+      return t("connectionPhase.resumingSession");
     case "creating_session":
-      return "Creating ACP session...";
+      return t("connectionPhase.creatingSession");
     case "connecting_ws":
-      return "Connecting to chat stream...";
+      return t("connectionPhase.connectingWs");
     case "connected":
-      return "Connected";
+      return t("connectionPhase.connected");
     default:
-      return "Ready to connect";
+      return t("connectionPhase.ready");
   }
 }

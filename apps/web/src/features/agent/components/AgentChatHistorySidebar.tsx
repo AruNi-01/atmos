@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 import {
   DropdownMenu,
@@ -11,6 +12,7 @@ import {
 import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, MessageCircle, Plus } from "lucide-react";
 import type { AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
+import type { Project } from "@/shared/types/domain";
 import { AgentIcon } from "./AgentIcon";
 
 interface AgentChatHistorySidebarProps {
@@ -31,7 +33,7 @@ interface AgentChatHistorySidebarProps {
   activeAcpSessionId: string | null;
   activeAgentName: string | null;
   canCreateNewSession: boolean;
-  sidebarControl?: React.ReactNode;
+  projects: Project[];
 }
 
 type HistoryGroup = {
@@ -53,17 +55,89 @@ function normalizeCwd(cwd: string | null | undefined): string | null {
   return normalized;
 }
 
-function cwdGroupName(cwd: string | null): string {
-  if (!cwd) return "No cwd";
+function cwdGroupName(cwd: string | null, fallback: string): string {
+  if (!cwd) return fallback;
   const parts = cwd.split(/[\\/]+/).filter(Boolean);
-  return parts.at(-1) ?? cwd;
+  return parts.slice(-2).join("/") || parts.at(-1) || cwd;
+}
+
+function normalizePathForMatch(path: string | null | undefined): string | null {
+  const trimmed = path?.trim();
+  if (!trimmed) return null;
+  const slashNormalized = trimmed.replace(/\\/g, "/").replace(/\/+/g, "/");
+  const withoutTrailingSlash = slashNormalized.replace(/\/+$/, "");
+  if (!withoutTrailingSlash) return slashNormalized.startsWith("/") ? "/" : slashNormalized;
+  if (/^[A-Za-z]:$/.test(withoutTrailingSlash)) return `${withoutTrailingSlash}/`;
+  return withoutTrailingSlash;
+}
+
+function pathMatch(cwd: string, root: string): { relative: string | null } | null {
+  const cwdComparable = /^[A-Za-z]:\//.test(cwd) ? cwd.toLowerCase() : cwd;
+  const rootComparable = /^[A-Za-z]:\//.test(root) ? root.toLowerCase() : root;
+  if (cwdComparable === rootComparable) return { relative: null };
+  if (!cwdComparable.startsWith(`${rootComparable}/`)) return null;
+  return { relative: cwd.slice(root.length).replace(/^\/+/, "") || null };
+}
+
+function workspaceLabel(workspace: Project["workspaces"][number]): string {
+  return workspace.displayName?.trim() || workspace.name.trim() || workspace.branch.trim() || workspace.id;
+}
+
+function unknownAtmosWorkspaceLabel(cwd: string, fallback: string): string | null {
+  const parts = cwd.split("/").filter(Boolean);
+  const atmosIndex = parts.findIndex((part) => part === ".atmos");
+  if (atmosIndex < 0 || parts[atmosIndex + 1] !== "workspaces") return null;
+  const projectSegment = parts[atmosIndex + 2];
+  return projectSegment ? `${fallback} · ${projectSegment}` : fallback;
+}
+
+function resolveCwdGroupName(
+  cwd: string | null,
+  projects: Project[],
+  noCwdLabel: string,
+  atmosWorkspaceLabel: string,
+): string {
+  if (!cwd) return noCwdLabel;
+  const normalizedCwd = normalizePathForMatch(cwd);
+  if (!normalizedCwd) return noCwdLabel;
+
+  const workspaceMatches = projects
+    .flatMap((project) => project.workspaces.map((workspace) => ({
+      workspace,
+      root: normalizePathForMatch(workspace.localPath),
+    })))
+    .filter((item): item is { workspace: Project["workspaces"][number]; root: string } => Boolean(item.root))
+    .sort((a, b) => b.root.length - a.root.length);
+
+  for (const { workspace, root } of workspaceMatches) {
+    const match = pathMatch(normalizedCwd, root);
+    if (!match) continue;
+    const label = workspaceLabel(workspace);
+    return match.relative ? `${label} · ${match.relative}` : label;
+  }
+
+  const projectMatches = projects
+    .map((project) => ({ project, root: normalizePathForMatch(project.mainFilePath) }))
+    .filter((item): item is { project: Project; root: string } => Boolean(item.root))
+    .sort((a, b) => b.root.length - a.root.length);
+
+  for (const { project, root } of projectMatches) {
+    const match = pathMatch(normalizedCwd, root);
+    if (!match) continue;
+    return match.relative ? `${project.name} · ${match.relative}` : project.name;
+  }
+
+  return unknownAtmosWorkspaceLabel(normalizedCwd, atmosWorkspaceLabel) ?? cwdGroupName(cwd, noCwdLabel);
 }
 
 function sessionTimeValue(session: AgentChatSessionItem): number {
   return session.updated_at ? Date.parse(session.updated_at) || 0 : 0;
 }
 
-function formatRelativeTime(value: string | null): string | null {
+function formatRelativeTime(
+  value: string | null,
+  t: ReturnType<typeof useTranslations>,
+): string | null {
   if (!value) return null;
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return null;
@@ -75,15 +149,20 @@ function formatRelativeTime(value: string | null): string | null {
   const week = 7 * day;
   const month = 30 * day;
 
-  if (elapsedMs < minute) return "now";
-  if (elapsedMs < hour) return `${Math.floor(elapsedMs / minute)}m`;
-  if (elapsedMs < day) return `${Math.floor(elapsedMs / hour)}h`;
-  if (elapsedMs < week) return `${Math.floor(elapsedMs / day)}d`;
-  if (elapsedMs < month * 2) return `${Math.floor(elapsedMs / week)}w`;
-  return `${Math.floor(elapsedMs / month)}mo`;
+  if (elapsedMs < minute) return t("historySidebar.relative.now");
+  if (elapsedMs < hour) return t("historySidebar.relative.minute", { value: Math.floor(elapsedMs / minute) });
+  if (elapsedMs < day) return t("historySidebar.relative.hour", { value: Math.floor(elapsedMs / hour) });
+  if (elapsedMs < week) return t("historySidebar.relative.day", { value: Math.floor(elapsedMs / day) });
+  if (elapsedMs < month * 2) return t("historySidebar.relative.week", { value: Math.floor(elapsedMs / week) });
+  return t("historySidebar.relative.month", { value: Math.floor(elapsedMs / month) });
 }
 
-function groupHistorySessions(sessions: AgentChatSessionItem[]): HistoryGroup[] {
+function groupHistorySessions(
+  sessions: AgentChatSessionItem[],
+  noCwdLabel: string,
+  atmosWorkspaceLabel: string,
+  projects: Project[],
+): HistoryGroup[] {
   const groups = new Map<string, HistoryGroup>();
 
   for (const session of sessions) {
@@ -100,7 +179,7 @@ function groupHistorySessions(sessions: AgentChatSessionItem[]): HistoryGroup[] 
     groups.set(key, {
       key,
       cwd,
-      name: cwdGroupName(cwd),
+      name: resolveCwdGroupName(cwd, projects, noCwdLabel, atmosWorkspaceLabel),
       newestTime: timeValue,
       sessions: [session],
     });
@@ -132,9 +211,18 @@ export function AgentChatHistorySidebar({
   activeAcpSessionId,
   activeAgentName,
   canCreateNewSession,
-  sidebarControl,
+  projects,
 }: AgentChatHistorySidebarProps) {
-  const groups = React.useMemo(() => groupHistorySessions(historySessions), [historySessions]);
+  const t = useTranslations("Agent.components");
+  const groups = React.useMemo(
+    () => groupHistorySessions(
+      historySessions,
+      t("historySidebar.noCwd"),
+      t("historySidebar.atmosWorkspace"),
+      projects,
+    ),
+    [historySessions, projects, t],
+  );
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
   const [agentPickerOpen, setAgentPickerOpen] = React.useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = React.useState("");
@@ -149,7 +237,7 @@ export function AgentChatHistorySidebar({
     installedAgents.find((agent) => agent.id === defaultRegistryId) ??
     installedAgents[0] ??
     null;
-  const selectedAgentLabel = selectedAgent?.name ?? activeAgentName ?? "Agent";
+  const selectedAgentLabel = selectedAgent?.name ?? activeAgentName ?? t("historySidebar.agentFallback");
 
   React.useEffect(() => {
     if (!selectedRegistryId) return;
@@ -210,7 +298,7 @@ export function AgentChatHistorySidebar({
               onClick={() => void handleCreateNewSession(selectedAgent?.id)}
             >
               <Plus className="size-4 shrink-0" />
-              <span className="truncate">New session</span>
+              <span className="truncate">{t("historySidebar.newSession")}</span>
             </button>
 
             <DropdownMenu
@@ -222,7 +310,7 @@ export function AgentChatHistorySidebar({
                   type="button"
                   className="group/agent-selector relative flex h-full min-w-0 max-w-[50%] shrink-0 items-center px-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                   disabled={installedAgents.length === 0 || isConnecting}
-                  aria-label="Select agent for new session"
+                  aria-label={t("historySidebar.selectAgentAria")}
                   title={selectedAgentLabel}
                 >
                   <span
@@ -258,7 +346,7 @@ export function AgentChatHistorySidebar({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 p-1">
                 <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  Agent for new session
+                  {t("historySidebar.agentForNewSession")}
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   {installedAgents.map((agent) => {
@@ -285,14 +373,12 @@ export function AgentChatHistorySidebar({
                     );
                   })}
                   {installedAgents.length === 0 ? (
-                    <div className="px-2 py-3 text-xs text-muted-foreground">No installed agent</div>
+                    <div className="px-2 py-3 text-xs text-muted-foreground">{t("historySidebar.noInstalledAgent")}</div>
                   ) : null}
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          {sidebarControl}
         </div>
       </div>
 
@@ -303,7 +389,7 @@ export function AgentChatHistorySidebar({
           </div>
         ) : historySessions.length === 0 ? (
           <div className="px-2 py-3 text-sm text-muted-foreground">
-            {historyUnsupportedReason ?? "No chats"}
+            {historyUnsupportedReason ?? t("historySidebar.empty")}
           </div>
         ) : (
           <div className="space-y-2">
@@ -345,7 +431,7 @@ export function AgentChatHistorySidebar({
                           const isActive =
                             activeAcpSessionId === session.acp_session_id &&
                             (!activeRegistryId || activeRegistryId === session.registry_id);
-                          const relativeTime = formatRelativeTime(session.updated_at);
+                          const relativeTime = formatRelativeTime(session.updated_at, t);
                           return (
                             <button
                               key={`${session.registry_id}:${session.acp_session_id}`}
@@ -361,7 +447,7 @@ export function AgentChatHistorySidebar({
                             >
                               <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                               <span className="min-w-0 flex-1 truncate font-medium">
-                                {session.title || "New chat"}
+                                {session.title || t("historySidebar.newChat")}
                               </span>
                               {relativeTime ? (
                                 <span className="shrink-0 text-xs text-muted-foreground">
@@ -391,7 +477,7 @@ export function AgentChatHistorySidebar({
                 disabled={historyLoading}
                 onClick={() => void loadHistorySessions(historyCursor)}
               >
-                {historyLoading ? "Loading..." : "Show more"}
+                {historyLoading ? t("common.loading") : t("historySidebar.showMore")}
               </button>
             ) : null}
           </div>
