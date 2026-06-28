@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 
@@ -12,6 +13,7 @@ import { useProjectStore } from "@/features/project/store/use-project-store";
 export function DocumentTitle() {
   const { workspaceId, projectId, currentView, skillId } = useContextParams();
   const projects = useProjectStore(s => s.projects);
+  const t = useTranslations("appShell.documentTitle");
 
   const derivedTitle = (() => {
     if (workspaceId) {
@@ -29,16 +31,16 @@ export function DocumentTitle() {
     } else {
       switch (currentView) {
         case "workspaces":
-          return "Workspaces – ATMOS";
+          return t("workspaces");
         case "skills":
-          return skillId ? `${skillId} – Skills – ATMOS` : "Skills – ATMOS";
+          return skillId ? t("skillDetail", { skillId }) : t("skills");
         case "terminals":
-          return "Terminals – ATMOS";
+          return t("terminals");
         case "automations":
-          return "Automations – ATMOS";
+          return t("automations");
       }
     }
-    return "ATMOS";
+    return t("app");
   })();
 
   useEffect(() => {

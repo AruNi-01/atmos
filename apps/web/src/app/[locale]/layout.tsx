@@ -90,8 +90,8 @@ export default async function LocaleLayout({ children, params }: Props) {
           >
             <ThemeReadyBridge />
             <DesktopExternalUrlBridge />
-            <UpdateNotification />
             <NextIntlClientProvider messages={messages}>
+              <UpdateNotification />
               <WebSocketProvider>
                 <SplashPrefetchBootstrap />
                 <TmuxCheckProvider>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   ChevronRight,
@@ -22,6 +23,7 @@ import { DiffFileTree } from "@/features/diff/components/DiffFileTree";
 import { DiffFilePathLabel } from "@/features/diff/components/DiffFilePathLabel";
 import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
 import { useOverflowAwareDecorationVisibility } from "@/shared/hooks/use-overflow-aware-decoration-visibility";
+import { setAgentContextDragData } from "@/shared/lib/agent-context-drag";
 
 function stopActionEvent(
   event:
@@ -113,6 +115,7 @@ function ChangeFileRow({
   renderConfirmableMinusAction,
   readOnly = false,
 }: ChangeFileRowProps) {
+  const t = useTranslations("AppShell.chrome");
   const fileName = file.path.split("/").pop() || file.path;
   const { labelRef, fileNameRef, countsRef, shouldHideCounts } =
     useShouldHideChangeCounts(file.path);
@@ -125,6 +128,13 @@ function ChangeFileRow({
 
   return (
     <div
+      draggable
+      onDragStart={(event) => {
+        setAgentContextDragData(event.dataTransfer, {
+          kind: "file",
+          path: file.path,
+        });
+      }}
       onClick={readOnly ? undefined : () => openDiffFile(file.path, true)}
       onDoubleClick={readOnly ? undefined : () => openDiffFile(file.path, false)}
       className={cn(
@@ -230,7 +240,7 @@ function ChangeFileRow({
                     onUnstage([file.path]),
                   );
                 }}
-                title="Unstage Changes"
+                title={t("changeSection.unstageChanges")}
                 className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Minus className="size-3.5" />
@@ -242,12 +252,12 @@ function ChangeFileRow({
                   onConfirm: () => onDiscard?.([file.path]),
                   title:
                     kind === "untracked"
-                      ? `Delete "${fileName}"?`
-                      : `Discard changes in "${fileName}"?`,
+                      ? t("changeSection.deleteFileTitle", { fileName })
+                      : t("changeSection.discardFileTitle", { fileName }),
                   description:
                     kind === "untracked"
-                      ? "This removes the untracked file from disk."
-                      : "This restores the file to its last committed state.",
+                      ? t("changeSection.deleteFileDescription")
+                      : t("changeSection.discardFileDescription"),
                 })
               : null}
           </div>
@@ -274,6 +284,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   selectedFilePath,
   onOpenDiffFile,
 }) {
+  const t = useTranslations("AppShell.chrome");
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
   const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
@@ -294,7 +305,10 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
 
   const isDestructiveSection = kind === "unstaged" || kind === "untracked";
 
-  const stageLabel = kind === "untracked" ? "Stage Files" : "Stage Changes";
+  const stageLabel =
+    kind === "untracked"
+      ? t("changeSection.stageFiles")
+      : t("changeSection.stageChanges");
   const hasActiveSectionAction =
     confirmingActionKey !== null || runningActionKey !== null;
   const hasSectionActions =
@@ -392,7 +406,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   setConfirmingActionKey(null);
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 variant="destructive"
@@ -405,7 +419,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 }}
               >
                 {isRunning ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Confirm
+                {t("common.confirm")}
               </Button>
             </div>
           </div>
@@ -449,7 +463,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   stopActionEvent(e);
                   void runAction(`${kind}-bulk-stage`, onStageAll);
                 }}
-                title="Stage All"
+                title={t("changeSection.stageAll")}
                 className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
               >
                 <Plus className="size-3.5" />
@@ -465,7 +479,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   stopActionEvent(e);
                   void runAction(`${kind}-bulk-unstage`, onUnstageAll);
                 }}
-                title="Unstage All"
+                title={t("changeSection.unstageAll")}
                 className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
               >
                 <Minus className="size-3.5" />
@@ -475,11 +489,14 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               ? renderConfirmableMinusAction({
                   actionKey: `${kind}-bulk-discard`,
                   onConfirm: onDiscardAll,
-                  title: kind === "untracked" ? "Delete all untracked files?" : "Discard all unstaged changes?",
+                  title:
+                    kind === "untracked"
+                      ? t("changeSection.deleteAllUntrackedTitle")
+                      : t("changeSection.discardAllUnstagedTitle"),
                   description:
                     kind === "untracked"
-                      ? "This will permanently delete every untracked file in this section."
-                      : "This will discard every unstaged change in this section.",
+                      ? t("changeSection.deleteAllUntrackedDescription")
+                      : t("changeSection.discardAllUnstagedDescription"),
                 })
               : null}
           </div>
@@ -497,7 +514,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 deletions: file.deletions,
               }))}
               selectedPath={selectedDiffFilePath}
-              ariaLabel={`${title} tree`}
+              ariaLabel={t("changeSection.treeAriaLabel", { title })}
               className=""
               indentOffset={28}
               isFileActionActive={readOnly ? undefined : (path) =>
@@ -555,7 +572,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                             onUnstage([file.path]),
                           );
                         }}
-                        title="Unstage Changes"
+                        title={t("changeSection.unstageChanges")}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Minus className="size-3.5" />
@@ -567,12 +584,12 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           onConfirm: () => onDiscard?.([file.path]),
                           title:
                             kind === "untracked"
-                              ? `Delete "${fileName}"?`
-                              : `Discard changes in "${fileName}"?`,
+                              ? t("changeSection.deleteFileTitle", { fileName })
+                              : t("changeSection.discardFileTitle", { fileName }),
                           description:
                             kind === "untracked"
-                              ? "This removes the untracked file from disk."
-                              : "This restores the file to its last committed state.",
+                              ? t("changeSection.deleteFileDescription")
+                              : t("changeSection.discardFileDescription"),
                         })
                       : null}
                   </>
@@ -580,7 +597,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               }}
               renderDirectoryActions={readOnly ? undefined : (items) => {
                 const paths = items.map((item) => item.path);
-                const label = `${paths.length} files`;
+                const label = t("changeSection.fileCountLabel", { count: paths.length });
                 const key = paths.join("|");
 
                 return (
@@ -597,7 +614,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                             onStage(paths),
                           );
                         }}
-                        title={`${stageLabel} in folder (${label})`}
+                        title={t("changeSection.stageInFolder", { stageLabel, label })}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Plus className="size-3.5" />
@@ -615,7 +632,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                             onUnstage(paths),
                           );
                         }}
-                        title={`Unstage changes in folder (${label})`}
+                        title={t("changeSection.unstageInFolder", { label })}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Minus className="size-3.5" />
@@ -627,12 +644,12 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           onConfirm: () => onDiscard?.(paths),
                           title:
                             kind === "untracked"
-                              ? `Delete ${label}?`
-                              : `Discard changes in ${label}?`,
+                              ? t("changeSection.deleteFolderTitle", { label })
+                              : t("changeSection.discardFolderTitle", { label }),
                           description:
                             kind === "untracked"
-                              ? "This removes every untracked file in this folder from disk."
-                              : "This restores every changed file in this folder to its last committed state.",
+                              ? t("changeSection.deleteFolderDescription")
+                              : t("changeSection.discardFolderDescription"),
                         })
                       : null}
                   </>

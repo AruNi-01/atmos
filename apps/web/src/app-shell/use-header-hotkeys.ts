@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useTranslations } from "next-intl";
 import type { MutableRefObject } from "react";
 
 function isTerminalHotkeyTarget(target: EventTarget | null) {
@@ -23,6 +24,8 @@ export function useHeaderHotkeys({
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
 }) {
+  const t = useTranslations("header.hotkeys");
+
   useEffect(() => {
     // Native menu accelerators were removed, so JS handles bracket navigation on web and desktop.
     const handleNavigationHotkey = (event: KeyboardEvent) => {
@@ -50,19 +53,19 @@ export function useHeaderHotkeys({
   useHotkeys("mod+b", toggleLeftSidebar, {
     enableOnFormTags: true,
     preventDefault: true,
-    description: "Toggle left sidebar",
+    description: t("toggleLeftSidebar"),
   });
 
   useHotkeys("mod+r", () => window.location.reload(), {
     enableOnFormTags: true,
     preventDefault: true,
-    description: "Refresh page",
+    description: t("refreshPage"),
   });
 
   useHotkeys("mod+u", () => setIsUsagePopoverOpen((prev) => !prev), {
     enableOnFormTags: true,
     preventDefault: true,
-    description: "Toggle AI Usage",
+    description: t("toggleAiUsage"),
   });
 
   useHotkeys("mod+shift+m", () => {
@@ -73,7 +76,7 @@ export function useHeaderHotkeys({
   }, {
     enableOnFormTags: true,
     preventDefault: true,
-    description: "Toggle menu",
+    description: t("toggleMenu"),
   }, [isActionMenuOpen]);
 
   useHotkeys("mod+shift+b", () => {
@@ -83,6 +86,6 @@ export function useHeaderHotkeys({
   }, {
     enableOnFormTags: true,
     preventDefault: true,
-    description: "Toggle right sidebar",
+    description: t("toggleRightSidebar"),
   });
 }

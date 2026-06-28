@@ -20,6 +20,7 @@ import { useWorkspaceContextStore } from '@/features/workspace/hooks/use-workspa
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { CommitActionsContainer } from '@/app-shell/sidebar/CommitActionsContainer';
+import { useTranslations } from "next-intl";
 
 const EMPTY_TASKS: TaskListPanelTask[] = [];
 
@@ -186,6 +187,7 @@ export function HeaderWorkspaceSummaryButton({
   projectId,
   workspaceId,
 }: HeaderWorkspaceSummaryButtonProps) {
+  const t = useTranslations("header");
   const showTask = useLayoutSettingsStore((state) => state.showHeaderSummaryTask);
   const showNote = useLayoutSettingsStore((state) => state.showHeaderSummaryNote);
   const showCommit = useLayoutSettingsStore((state) => state.showHeaderSummaryCommit);
@@ -211,7 +213,7 @@ export function HeaderWorkspaceSummaryButton({
   const workspaceLabel = formatWorkspaceLabel(currentWorkspaceDisplayName, currentWorkspaceName);
   const contextTitle = workspaceLabel && currentProjectName
     ? `${currentProjectName} - ${workspaceLabel}`
-    : currentProjectName || workspaceLabel || 'Workspace';
+    : currentProjectName || workspaceLabel || t("summary.fallbackWorkspace");
   const contextMeta = workspaceLabel ? workspaceLabel : effectivePath;
 
   const progressCount = tasks.filter((task) => task.status === 'progress').length;
@@ -219,17 +221,17 @@ export function HeaderWorkspaceSummaryButton({
   const doneCount = tasks.filter((task) => task.status === 'done').length;
   const activeTaskCount = progressCount + todoCount;
   const taskMeta = tasksLoading && tasks.length === 0
-    ? 'Loading tasks'
-    : `${activeTaskCount} active · ${doneCount}/${tasks.length} done`;
+    ? t("summary.loadingTasks")
+    : t("summary.taskMeta", { activeCount: activeTaskCount, doneCount, totalCount: tasks.length });
   const notePreview = noteLoading && !note
-    ? 'Loading note'
-    : note.trim().split(/\r?\n/).find((line) => line.trim())?.trim() || 'No notes yet';
+    ? t("summary.loadingNote")
+    : note.trim().split(/\r?\n/).find((line) => line.trim())?.trim() || t("summary.noNotesYet");
   const commitMeta = hasMergeConflicts
-    ? 'Merge conflicts need attention'
+    ? t("summary.mergeConflictsNeedAttention")
     : [
-        hasUncommittedChanges ? `${uncommittedCount} changed` : null,
-        hasUnpushedCommits ? `${unpushedCount} unpushed` : null,
-      ].filter(Boolean).join(' · ') || 'Clean';
+      hasUncommittedChanges ? t("summary.changed", { count: uncommittedCount }) : null,
+      hasUnpushedCommits ? t("summary.unpushed", { count: unpushedCount }) : null,
+    ].filter(Boolean).join(' · ') || t("summary.clean");
 
   const currentProject = projectId && currentProjectName
     ? { id: projectId, name: currentProjectName }
@@ -249,7 +251,7 @@ export function HeaderWorkspaceSummaryButton({
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="Open workspace summary"
+              aria-label={t("summary.openWorkspaceSummary")}
               className="desktop-no-drag flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <PanelTop className="size-4" />
@@ -257,7 +259,7 @@ export function HeaderWorkspaceSummaryButton({
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent>
-          <span>Workspace Summary</span>
+          <span>{t("summary.workspaceSummary")}</span>
         </TooltipContent>
       </Tooltip>
       <PopoverContent
@@ -281,7 +283,7 @@ export function HeaderWorkspaceSummaryButton({
                   icon={<ListTodo className="size-4" />}
                   label={taskMeta}
                   meta={taskMeta}
-                  title="TASK"
+                  title={t("summary.task")}
                 />
               )}
             >
@@ -289,7 +291,7 @@ export function HeaderWorkspaceSummaryButton({
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     <ListTodo className="size-4" />
-                    TASK
+                    {t("summary.task")}
                   </div>
                   <span className="font-mono text-[11px] text-muted-foreground">
                     {doneCount}/{tasks.length}
@@ -316,14 +318,14 @@ export function HeaderWorkspaceSummaryButton({
                   icon={<StickyNote className="size-4" />}
                   label={notePreview}
                   meta={notePreview}
-                  title="NOTE"
+                  title={t("summary.note")}
                 />
               )}
             >
               <WorkspaceNotePanel
                 contextId={contextId}
                 effectivePath={effectivePath}
-                title="NOTE"
+                title={t("summary.note")}
                 compact
                 defaultMode="preview"
                 previewFirst
@@ -340,7 +342,7 @@ export function HeaderWorkspaceSummaryButton({
                   icon={<GitCommit className="size-4" />}
                   label={commitMeta}
                   meta={commitMeta}
-                  title="Commit & Push"
+                  title={t("summary.commitPush")}
                 />
               )}
             >

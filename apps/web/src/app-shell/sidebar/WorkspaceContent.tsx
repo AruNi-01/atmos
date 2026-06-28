@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { DraggableAttributes, DraggableSyntheticListeners } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -127,6 +128,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   onUpdateLabel,
   onUpdateLabels,
 }) {
+  const t = useTranslations("AppShell.chrome");
+  const locale = useLocale();
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
   const isActive = workspaceId === workspace.id;
@@ -149,6 +152,10 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
+  const gitWarningListFormatter = React.useMemo(
+    () => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }),
+    [locale],
+  );
   
 
   const cancelInfoPopoverClose = React.useCallback(() => {
@@ -304,12 +311,20 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       if (status.has_uncommitted_changes || status.has_unpushed_commits) {
         const issues: string[] = [];
         if (status.has_uncommitted_changes) {
-          issues.push(`${status.uncommitted_count} uncommitted change(s)`);
+          issues.push(
+            t("workspaceContent.gitWarning.issue.uncommittedChanges", {
+              count: status.uncommitted_count,
+            }),
+          );
         }
         if (status.has_unpushed_commits) {
-          issues.push(`${status.unpushed_count} unpushed commit(s)`);
+          issues.push(
+            t("workspaceContent.gitWarning.issue.unpushedCommits", {
+              count: status.unpushed_count,
+            }),
+          );
         }
-        setGitWarningMessage(issues.join(' and '));
+        setGitWarningMessage(gitWarningListFormatter.format(issues));
         setPendingOperation(operation);
         setShowGitWarningDialog(true);
       } else {
@@ -439,7 +454,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                       isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
                       "hover:text-foreground"
                     )}
-                    title="Unpin"
+                    title={t("common.unpin")}
                   >
                     <Pin className="size-3.5" />
                   </button>
@@ -457,7 +472,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                         "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
                         "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
                       )}
-                      title="Pin"
+                      title={t("common.pin")}
                     >
                       <Pin className="size-3.5 rotate-45" />
                     </button>
@@ -477,13 +492,13 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                       <TooltipTrigger asChild>
                         <span
                           className="inline-flex shrink-0 cursor-default items-center text-muted-foreground"
-                          aria-label="Automation workspace"
+                          aria-label={t("workspaceContent.automationWorkspace")}
                         >
                           <Timer className="size-3" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="right" align="center" sideOffset={8}>
-                        Automation Workspace
+                        {t("workspaceContent.automationWorkspace")}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -513,7 +528,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 <button
                   onClick={handleArchiveClick}
                   className="size-4 flex items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
-                  title="Archive"
+                  title={t("common.archive")}
                   disabled={isCheckingGit}
                 >
                   <Archive className="size-3" />
@@ -567,17 +582,17 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             </div>
             <div className="space-y-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">Display name</span>
+                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.displayName")}</span>
                 <div className="group/display relative min-w-0 flex-1 text-right">
                   <TooltipProvider delayDuration={250}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="inline-block max-w-full truncate whitespace-nowrap align-top text-foreground">
-                          {rawDisplayName || "Not set"}
+                          {rawDisplayName || t("workspaceContent.notSet")}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="right" align="center" sideOffset={8} avoidCollisions={false} className="max-w-sm break-all">
-                        {rawDisplayName || "Not set"}
+                        {rawDisplayName || t("workspaceContent.notSet")}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -595,7 +610,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                         <button
                           type="button"
                           className="absolute right-0 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded border border-border/60 bg-background/85 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground group-hover/display:opacity-100"
-                          title="Edit display name"
+                          title={t("workspaceContent.editDisplayName")}
                         >
                           <Pencil className="size-2.5" />
                         </button>
@@ -622,7 +637,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                             disabled={isSavingName || !editableName.trim()}
                             onClick={() => void handleSaveName()}
                           >
-                            Save
+                            {t("common.save")}
                           </Button>
                         </div>
                       </PopoverContent>
@@ -631,23 +646,23 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">Workspace name</span>
+                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.workspaceName")}</span>
                 <WorkspaceMetadataValue value={workspace.name} />
               </div>
               <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">Current branch</span>
+                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.currentBranch")}</span>
                 <WorkspaceMetadataValue value={workspace.branch} valueClassName="font-semibold text-foreground" />
               </div>
               <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">Base branch</span>
+                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.baseBranch")}</span>
                 <WorkspaceMetadataValue value={workspace.baseBranch} />
               </div>
               <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">Last active</span>
+                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.lastActive")}</span>
                 <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-foreground">{timeAgo}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">Path</span>
+                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.path")}</span>
                 <WorkspaceMetadataValue
                   value={workspace.localPath}
                   valueClassName="rounded-md bg-muted/60 px-2 py-1 text-left [direction:rtl]"
@@ -663,7 +678,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <Archive className="size-3" />
-                <span>Archive</span>
+                <span>{t("common.archive")}</span>
               </button>
               {onDelete && (
                 <button
@@ -673,7 +688,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
                 >
                   <Trash2 className="size-3" />
-                  <span>Delete</span>
+                  <span>{t("common.delete")}</span>
                 </button>
               )}
             </div>
@@ -686,18 +701,25 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="size-5 text-amber-500" />
-              Uncommitted Changes Detected
+              {t("workspaceContent.gitWarning.title")}
             </DialogTitle>
             <DialogDescription>
-              This workspace has {gitWarningMessage}. These changes will be lost if you {pendingOperation} this workspace.
+              {t("workspaceContent.gitWarning.description", {
+                issues: gitWarningMessage,
+                operation: pendingOperation
+                  ? t(`workspaceContent.operation.${pendingOperation}`)
+                  : "",
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowGitWarningDialog(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="destructive" onClick={handleForceOperation}>
-              {pendingOperation === 'archive' ? 'Archive Anyway' : 'Continue to Delete'}
+              {pendingOperation === 'archive'
+                ? t("workspaceContent.gitWarning.archiveAnyway")
+                : t("workspaceContent.gitWarning.continueToDelete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -706,17 +728,19 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Delete Workspace</DialogTitle>
+            <DialogTitle>{t("workspaceContent.deleteDialog.title")}</DialogTitle>
             <DialogDescription>
-              This will permanently delete the workspace `{workspace.displayName || workspace.name}` and its local directory. This action cannot be undone.
+              {t("workspaceContent.deleteDialog.description", {
+                name: workspace.displayName || workspace.name,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              Delete
+              {t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -725,17 +749,19 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Archive Workspace</DialogTitle>
+            <DialogTitle>{t("workspaceContent.archiveDialog.title")}</DialogTitle>
             <DialogDescription>
-              Archive workspace `{workspace.displayName || workspace.name}`? The terminal session will be terminated but the worktree and branch are preserved. You can restore it later.
+              {t("workspaceContent.archiveDialog.description", {
+                name: workspace.displayName || workspace.name,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="default" onClick={confirmArchive}>
-              Archive
+              {t("common.archive")}
             </Button>
           </DialogFooter>
         </DialogContent>

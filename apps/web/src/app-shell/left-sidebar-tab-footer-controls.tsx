@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { TabsList, TabsTab, cn } from "@workspace/ui";
 import { Folder, FolderKanban, FolderPlus, Plus, SquareKanban } from "lucide-react";
 import type { LeftSidebarTab } from "@/shared/lib/nuqs/searchParams";
@@ -29,6 +30,8 @@ export function LeftSidebarTabsHeader({
   onAddProject: () => void;
   onTabChange: (value: string) => void;
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   return (
     <div className={cn("h-10 flex border-b border-sidebar-border", (filesOnRight || !layoutLoaded) && "hidden")}>
       <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
@@ -60,25 +63,24 @@ export function LeftSidebarTabsHeader({
                 />
               </div>
 
-              <div className="flex items-center whitespace-nowrap">
+              <div className="relative flex items-center whitespace-nowrap">
                 <span
                   className={cn(
-                    "inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-300 ease-out text-left",
-                    activeTab === "projects" && isAddProjectReady && "group-hover:max-w-[40px] group-hover:opacity-100",
+                    "inline-block transition-all duration-300 ease-out",
+                    activeTab === "projects" && isAddProjectReady && "group-hover:translate-y-1 group-hover:opacity-0",
                   )}
                 >
-                  Add&nbsp;
+                  {t("leftSidebarTabsHeader.projects")}
                 </span>
-                <span>Project</span>
                 <span
                   className={cn(
-                    "inline-block overflow-hidden transition-all duration-300 max-w-[10px]",
+                    "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap opacity-0 transition-all duration-300 ease-out",
                     activeTab === "projects" &&
                       isAddProjectReady &&
-                      "group-hover:max-w-0 group-hover:opacity-0 group-hover:translate-x-2",
+                      "group-hover:translate-y-0 group-hover:opacity-100",
                   )}
                 >
-                  s
+                  {t("leftSidebarTabsHeader.addProject")}
                 </span>
               </div>
             </div>
@@ -90,7 +92,7 @@ export function LeftSidebarTabsHeader({
           onClick={() => onTabChange("files")}
         >
           <Folder className="size-3.5" />
-          <span>Files</span>
+          <span>{t("common.files")}</span>
         </TabsTab>
       </TabsList>
     </div>
@@ -138,6 +140,8 @@ export function LeftSidebarFooter({
   onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
   onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   if (activeTab !== "projects" && !filesOnRight) return null;
 
   return (
@@ -146,7 +150,8 @@ export function LeftSidebarFooter({
         <div className="flex items-center gap-0">
           <button
             type="button"
-            title="Add Project"
+            title={t("leftSidebarFooter.addProject")}
+            aria-label={t("leftSidebarFooter.addProject")}
             onClick={onAddProject}
             className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
           >
@@ -185,6 +190,8 @@ export function LeftSidebarFooter({
             trigger={(
               <button
                 type="button"
+                title={t("leftSidebarFooter.openKanban")}
+                aria-label={t("leftSidebarFooter.openKanban")}
                 className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
               >
                 <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">

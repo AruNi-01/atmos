@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +87,7 @@ function StatusCanceled({ className }: { className?: string }) {
 type WorkflowStatusMeta = {
   value: WorkspaceWorkflowStatus;
   label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   className: string;
 };
@@ -94,42 +96,49 @@ const WORKFLOW_STATUS_META: Record<WorkspaceWorkflowStatus, WorkflowStatusMeta> 
   backlog: {
     value: "backlog",
     label: "Backlog",
+    labelKey: "status.backlog",
     icon: StatusBacklog,
     className: "text-muted-foreground",
   },
   todo: {
     value: "todo",
     label: "To Do",
+    labelKey: "status.todo",
     icon: StatusTodo,
     className: "text-muted-foreground",
   },
   in_progress: {
     value: "in_progress",
     label: "In Progress",
+    labelKey: "status.inProgress",
     icon: StatusInProgress,
     className: "text-blue-500",
   },
   in_review: {
     value: "in_review",
     label: "In Review",
+    labelKey: "status.inReview",
     icon: StatusInReview,
     className: "text-emerald-500",
   },
   blocked: {
     value: "blocked",
     label: "Blocked",
+    labelKey: "status.blocked",
     icon: StatusBlocked,
     className: "text-amber-500",
   },
   completed: {
     value: "completed",
     label: "Completed",
+    labelKey: "status.completed",
     icon: StatusCompleted,
     className: "text-indigo-500",
   },
   canceled: {
     value: "canceled",
     label: "Canceled",
+    labelKey: "status.canceled",
     icon: StatusCanceled,
     className: "text-muted-foreground",
   },
@@ -138,11 +147,12 @@ const WORKFLOW_STATUS_META: Record<WorkspaceWorkflowStatus, WorkflowStatusMeta> 
 export const SIDEBAR_GROUPING_OPTIONS: Array<{
   value: SidebarGroupingMode;
   label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { value: "project", label: "By Project", icon: FolderKanban },
-  { value: "status", label: "By Status", icon: StatusBacklog },
-  { value: "time", label: "By Time", icon: Clock3 },
+  { value: "project", label: "By Project", labelKey: "grouping.project", icon: FolderKanban },
+  { value: "status", label: "By Status", labelKey: "grouping.status", icon: StatusBacklog },
+  { value: "time", label: "By Time", labelKey: "grouping.time", icon: Clock3 },
 ];
 
 export const WORKSPACE_WORKFLOW_STATUS_OPTIONS = Object.values(WORKFLOW_STATUS_META);
@@ -181,8 +191,10 @@ export function WorkspaceStatusButton({
   showTooltip = true,
   onOpenChange,
 }: WorkspaceStatusButtonProps) {
+  const t = useTranslations("appShell.kanban");
   const meta = getWorkspaceWorkflowStatusMeta(status);
   const Icon = meta.icon;
+  const translatedStatusLabel = t(meta.labelKey);
   const trigger = (
     <button
       type="button"
@@ -221,7 +233,7 @@ export function WorkspaceStatusButton({
                   className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
                 >
                   <OptionIcon className={cn("size-4", option.className)} />
-                  <span>{option.label}</span>
+                  <span>{t(option.labelKey)}</span>
                 </DropdownMenuRadioItem>
               );
             })}
@@ -236,7 +248,7 @@ export function WorkspaceStatusButton({
       <TooltipProvider delayDuration={250}>
         <Tooltip>
           <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-          <TooltipContent side="top">{meta.label}</TooltipContent>
+          <TooltipContent side="top">{translatedStatusLabel}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
@@ -249,7 +261,7 @@ export function WorkspaceStatusButton({
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent side="top">{meta.label}</TooltipContent>
+          <TooltipContent side="top">{translatedStatusLabel}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <DropdownMenuContent side="right" align="start" className="w-40">
@@ -266,7 +278,7 @@ export function WorkspaceStatusButton({
                 className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
               >
                 <OptionIcon className={cn("size-4", option.className)} />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
               </DropdownMenuRadioItem>
             );
           })}

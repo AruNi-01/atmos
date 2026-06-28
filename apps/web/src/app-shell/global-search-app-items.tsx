@@ -1,5 +1,6 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import {
   Blocks,
   Bot,
@@ -26,8 +27,11 @@ import {
 } from "@workspace/ui";
 import { Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
+import enMessages from "../../messages/en.json";
+import zhMessages from "../../messages/zh.json";
 import {
   APP_MAP,
   type AppSearchItem,
@@ -37,6 +41,38 @@ import {
   SETTINGS_SEARCH_ITEMS,
   SETTINGS_SEARCH_SECTIONS,
 } from "@/features/settings/components/settings-modal-data";
+
+type GlobalSearchItemsLocale = "en" | "zh";
+type GlobalSearchItemsTranslator = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
+
+let cachedGlobalSearchItemsLocale: GlobalSearchItemsLocale | null = null;
+let cachedGlobalSearchItemsTranslator: GlobalSearchItemsTranslator | null = null;
+
+function globalSearchItemsT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale: GlobalSearchItemsLocale =
+    currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (
+    !cachedGlobalSearchItemsTranslator ||
+    cachedGlobalSearchItemsLocale !== locale
+  ) {
+    cachedGlobalSearchItemsLocale = locale;
+    const translator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "appShell.globalSearchItems",
+    });
+    cachedGlobalSearchItemsTranslator = (key, values) =>
+      translator(key as never, values as never);
+  }
+
+  return cachedGlobalSearchItemsTranslator(key, values);
+}
 
 type RouterLike = {
   push: (href: string) => void;
@@ -140,7 +176,7 @@ export function buildGlobalSearchItems({
       id: `project-${project.id}`,
       type: "project",
       title: project.name,
-      description: "Open project overview",
+      description: globalSearchItemsT("projectDescription"),
       keywords: [
         "project",
         "overview",
@@ -185,7 +221,7 @@ export function buildGlobalSearchItems({
     {
       id: "theme-light",
       type: "theme",
-      title: "Light Theme",
+      title: globalSearchItemsT("themes.light"),
       keywords: ["light", "theme", "appearance", "mode", "bright"],
       icon: <Sun className="size-4 text-muted-foreground" />,
       action: () => {
@@ -196,7 +232,7 @@ export function buildGlobalSearchItems({
     {
       id: "theme-dark",
       type: "theme",
-      title: "Dark Theme",
+      title: globalSearchItemsT("themes.dark"),
       keywords: ["dark", "theme", "appearance", "mode", "night"],
       icon: <Moon className="size-4 text-muted-foreground" />,
       action: () => {
@@ -207,7 +243,7 @@ export function buildGlobalSearchItems({
     {
       id: "theme-system",
       type: "theme",
-      title: "System Theme",
+      title: globalSearchItemsT("themes.system"),
       keywords: ["system", "theme", "appearance", "auto", "default"],
       icon: <Laptop className="size-4 text-muted-foreground" />,
       action: () => {
@@ -218,7 +254,7 @@ export function buildGlobalSearchItems({
     {
       id: "add-project",
       type: "project",
-      title: "Add Project",
+      title: globalSearchItemsT("addProject"),
       keywords: ["add", "import", "project", "repository", "new", "create", "repo"],
       icon: <FolderPlus className="size-4 text-muted-foreground" />,
       action: () => {
@@ -229,8 +265,8 @@ export function buildGlobalSearchItems({
     {
       id: "management-workspaces",
       type: "management",
-      title: "Management Center: Workspaces",
-      description: "Open workspace management",
+      title: globalSearchItemsT("management.workspaces.title"),
+      description: globalSearchItemsT("management.workspaces.description"),
       keywords: ["management", "center", "workspaces", "workspace", "admin", "overview"],
       icon: <Layers className="size-4 text-muted-foreground" />,
       action: () => {
@@ -241,8 +277,8 @@ export function buildGlobalSearchItems({
     {
       id: "management-skills",
       type: "management",
-      title: "Management Center: Skills",
-      description: "Open skills management",
+      title: globalSearchItemsT("management.skills.title"),
+      description: globalSearchItemsT("management.skills.description"),
       keywords: ["management", "center", "skills", "skill", "catalog", "library"],
       icon: <Blocks className="size-4 text-muted-foreground" />,
       action: () => {
@@ -256,8 +292,8 @@ export function buildGlobalSearchItems({
     items.push({
       id: "management-terminals",
       type: "management",
-      title: "Management Center: Terminals",
-      description: "Open terminal management",
+      title: globalSearchItemsT("management.terminals.title"),
+      description: globalSearchItemsT("management.terminals.description"),
       keywords: ["management", "center", "terminals", "terminal", "sessions"],
       icon: <Terminal className="size-4 text-muted-foreground" />,
       action: () => {
@@ -271,8 +307,8 @@ export function buildGlobalSearchItems({
     items.push({
       id: "management-agents",
       type: "management",
-      title: "Management Center: Agents",
-      description: "Open agent management",
+      title: globalSearchItemsT("management.agents.title"),
+      description: globalSearchItemsT("management.agents.description"),
       keywords: ["management", "center", "agents", "agent", "bot", "ai", "chat"],
       icon: <Bot className="size-4 text-muted-foreground" />,
       action: () => {
@@ -284,8 +320,8 @@ export function buildGlobalSearchItems({
     items.push({
       id: "modal-chat-panel",
       type: "modal",
-      title: "Open ACP Chat",
-      description: "Toggle the ACP Chat panel",
+      title: globalSearchItemsT("modalChat.title"),
+      description: globalSearchItemsT("modalChat.description"),
       keywords: ["chat", "agent", "panel", "ai", "assistant", "message", "conversation", "open", "acp"],
       icon: <Bot className="size-4 text-muted-foreground" />,
       action: () => {
@@ -299,8 +335,8 @@ export function buildGlobalSearchItems({
     items.push({
       id: "management-automations",
       type: "management",
-      title: "Management Center: Automations",
-      description: "Open automation management",
+      title: globalSearchItemsT("management.automations.title"),
+      description: globalSearchItemsT("management.automations.description"),
       keywords: ["management", "center", "automations", "automation", "schedule", "scheduled", "runs"],
       icon: <Timer className="size-4 text-muted-foreground" />,
       action: () => {
@@ -314,8 +350,8 @@ export function buildGlobalSearchItems({
     {
       id: "modal-llm-providers",
       type: "modal",
-      title: "Open LLM Providers",
-      description: "Configure LLM provider API keys and models",
+      title: globalSearchItemsT("llmProviders.title"),
+      description: globalSearchItemsT("llmProviders.description"),
       keywords: ["llm", "provider", "api", "key", "model", "openai", "anthropic", "settings", "configure", "ai"],
       icon: <BrainCircuit className="size-4 text-muted-foreground" />,
       action: () => {
@@ -326,8 +362,8 @@ export function buildGlobalSearchItems({
     {
       id: "modal-token-usage",
       type: "modal",
-      title: "Open Token Usage",
-      description: "Review model token usage and activity",
+      title: globalSearchItemsT("tokenUsage.title"),
+      description: globalSearchItemsT("tokenUsage.description"),
       keywords: ["token", "tokens", "usage", "cost", "analytics", "stats", "model", "activity", "open"],
       icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
       action: () => {
@@ -338,8 +374,8 @@ export function buildGlobalSearchItems({
     {
       id: "ai-quota-usage",
       type: "usage",
-      title: "AI Quota Usage",
-      description: "Inspect provider quotas and refresh status",
+      title: globalSearchItemsT("aiQuota.title"),
+      description: globalSearchItemsT("aiQuota.description"),
       keywords: ["ai", "quota", "usage", "provider", "providers", "limit", "limits", "refresh", "open"],
       icon: <Gauge className="size-4 text-muted-foreground" />,
       action: () => {
@@ -349,8 +385,8 @@ export function buildGlobalSearchItems({
     {
       id: "open-kanban-view",
       type: "management",
-      title: "Open Kanban View",
-      description: "Open the workspace kanban board",
+      title: globalSearchItemsT("kanban.title"),
+      description: globalSearchItemsT("kanban.description"),
       keywords: ["kanban", "board", "workspace", "workspaces", "status", "priority", "view", "open"],
       icon: <SquareKanban className="size-4 text-muted-foreground" />,
       action: () => {
@@ -365,8 +401,8 @@ export function buildGlobalSearchItems({
     {
       id: "open-canvas",
       type: "management",
-      title: "Open Canvas",
-      description: "Open the shared project canvas",
+      title: globalSearchItemsT("canvas.title"),
+      description: globalSearchItemsT("canvas.description"),
       keywords: ["canvas", "board", "whiteboard", "diagram", "tldraw", "open"],
       icon: <Presentation className="size-4 text-muted-foreground" />,
       action: () => {
@@ -377,8 +413,8 @@ export function buildGlobalSearchItems({
     {
       id: "modal-settings",
       type: "modal",
-      title: "Open Settings",
-      description: "Open app settings",
+      title: globalSearchItemsT("settings.title"),
+      description: globalSearchItemsT("settings.description"),
       keywords: ["setting", "settings", "preferences", "configure", "config", "open"],
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
@@ -394,7 +430,7 @@ export function buildGlobalSearchItems({
     items.push({
       id: `settings-${section.id}`,
       type: "modal",
-      title: `Settings: ${section.label}`,
+      title: globalSearchItemsT("settings.sectionTitle", { label: section.label }),
       description: section.description,
       keywords: [
         "settings",
@@ -419,7 +455,7 @@ export function buildGlobalSearchItems({
     items.push({
       id: `settings-item-${settingItem.id}`,
       type: "modal",
-      title: `Settings: ${settingItem.label}`,
+      title: globalSearchItemsT("settings.itemTitle", { label: settingItem.label }),
       description: `${settingItem.sectionLabel} · ${settingItem.description}`,
       keywords: [
         "settings",
@@ -449,8 +485,8 @@ export function buildGlobalSearchItems({
       {
         id: "todo-current-workspace",
         type: "todo",
-        title: "Workspace TODOs",
-        description: todoLabel ? `${todoLabel} — View tasks` : "View current tasks",
+        title: globalSearchItemsT("workspaceTodos.title"),
+        description: todoLabel ? globalSearchItemsT("workspaceTodos.descriptionWithLabel", { label: todoLabel }) : globalSearchItemsT("workspaceTodos.description"),
         keywords: ["todo", "task", "tasks", "checklist", "workspace", "project", "overview", "plan"],
         icon: <ListTodo className="size-4 text-muted-foreground" />,
         action: () => {
@@ -460,8 +496,8 @@ export function buildGlobalSearchItems({
       {
         id: "note-current-workspace",
         type: "note",
-        title: "Workspace Note",
-        description: todoLabel ? `${todoLabel} — Preview and edit notes` : "Preview and edit notes",
+        title: globalSearchItemsT("workspaceNote.title"),
+        description: todoLabel ? globalSearchItemsT("workspaceNote.descriptionWithLabel", { label: todoLabel }) : globalSearchItemsT("workspaceNote.description"),
         keywords: ["note", "notes", "markdown", "memo", "workspace", "project", "preview", "edit"],
         icon: <StickyNote className="size-4 text-muted-foreground" />,
         action: () => {
@@ -471,8 +507,8 @@ export function buildGlobalSearchItems({
       {
         id: "commit-current-workspace",
         type: "commit",
-        title: "Commit & Push",
-        description: todoLabel ? `${todoLabel} — Commit and push changes` : "Commit and push changes",
+        title: globalSearchItemsT("commitPush.title"),
+        description: todoLabel ? globalSearchItemsT("commitPush.descriptionWithLabel", { label: todoLabel }) : globalSearchItemsT("commitPush.description"),
         keywords: ["commit", "push", "git", "changes", "sync", "publish", "workspace", "project"],
         icon: <GitCommit className="size-4 text-muted-foreground" />,
         action: () => {
@@ -485,7 +521,7 @@ export function buildGlobalSearchItems({
   items.push({
     id: "toggle-fullscreen",
     type: "project",
-    title: isFullScreen ? "Exit Full Screen" : "Enter Full Screen",
+    title: isFullScreen ? globalSearchItemsT("fullscreen.exit") : globalSearchItemsT("fullscreen.enter"),
     keywords: ["full", "screen", "maximize", "minimize", "toggle", "view"],
     icon: isFullScreen ? <Minimize className="size-4 text-muted-foreground" /> : <Maximize className="size-4 text-muted-foreground" />,
     action: () => {
@@ -498,7 +534,7 @@ export function buildGlobalSearchItems({
     items.push({
       id: `quick-workspace-${project.id}`,
       type: "new-workspace",
-      title: "Quick New Workspace",
+      title: globalSearchItemsT("quickNewWorkspace"),
       description: project.name,
       keywords: ["new", "workspace", "quick", "create", project.name],
       icon: <Zap className="size-4 text-muted-foreground" />,
@@ -518,7 +554,7 @@ export function buildGlobalSearchItems({
     items.push({
       id: `new-workspace-${project.id}`,
       type: "new-workspace",
-      title: "New Workspace",
+      title: globalSearchItemsT("newWorkspace"),
       description: project.name,
       keywords: ["new", "workspace", "create", project.name],
       icon: <Plus className="size-4 text-muted-foreground" />,
@@ -535,8 +571,8 @@ export function buildGlobalSearchItems({
       items.push({
         id: `quick-open-${appName}`,
         type: "quick-open",
-        title: `Open in ${label}`,
-        description: appName === "Finder" ? "Reveal in Finder" : `Open project in ${label}`,
+        title: globalSearchItemsT("quickOpen.title", { label }),
+        description: appName === "Finder" ? globalSearchItemsT("quickOpen.finderDescription") : globalSearchItemsT("quickOpen.projectDescription", { label }),
         keywords: ["open", "external", "app", label, appName, "quick"],
         icon,
         action: async () => {
@@ -545,14 +581,14 @@ export function buildGlobalSearchItems({
           try {
             await appApi.openWith(appName, currentEffectivePath);
             toastManager.add({
-              title: `Opened in ${label}`,
-              description: `Path: ${currentEffectivePath}`,
+              title: globalSearchItemsT("quickOpen.toast.successTitle", { label }),
+              description: globalSearchItemsT("quickOpen.toast.pathDescription", { path: currentEffectivePath }),
               type: "success",
             });
           } catch (error) {
             toastManager.add({
-              title: "Failed to open",
-              description: error instanceof Error ? error.message : "Unknown error",
+              title: globalSearchItemsT("quickOpen.toast.failedTitle"),
+              description: error instanceof Error ? error.message : globalSearchItemsT("quickOpen.toast.unknownError"),
               type: "error",
             });
           }

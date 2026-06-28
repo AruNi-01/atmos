@@ -41,6 +41,7 @@ import {
   navigateToAgentHookSessionPane,
   resolveAgentHookContextNames,
 } from '@/features/agent/lib/agent-hook-navigation';
+import { useTranslations } from 'next-intl';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -157,6 +158,7 @@ function AgentToolName({
 }
 
 function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentHookSession; onNavigate: () => void; onCanvas?: boolean }) {
+  const t = useTranslations("appShell");
   const [hovered, setHovered] = React.useState(false);
   const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
   const removeSession = useAgentHooksStore((s) => s.removeSession);
@@ -182,7 +184,7 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
         <AgentHookStatusIndicator state={session.state} variant="compact" />
         <AgentToolName tool={session.tool} iconSize={11} className="text-[10px] font-medium" />
         {onCanvas && (
-          <span title="Open on canvas" className="inline-flex shrink-0 text-sky-500">
+          <span title={t("footer.openOnCanvasLabel")} className="inline-flex shrink-0 text-sky-500">
             <LayoutDashboard className="size-3" />
           </span>
         )}
@@ -198,8 +200,9 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
 
 function useContextDisplayNameResolver() {
   const projects = useProjectStore((s) => s.projects);
+  const t = useTranslations("appShell");
   return useCallback((contextKey: string): string => {
-    if (contextKey === "unknown") return "Unknown project";
+    if (contextKey === "unknown") return t("footer.unknownProject");
     for (const project of projects) {
       if (project.id === contextKey) return project.name;
       for (const ws of project.workspaces) {
@@ -245,6 +248,7 @@ export function AgentStatusPopoverContent({
   onNavigateSession?: (session: AgentHookSession) => void;
   isSessionOnCanvas?: (session: AgentHookSession) => boolean;
 } = {}) {
+  const t = useTranslations("appShell");
   const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
   const router = useAppRouter();
@@ -272,29 +276,29 @@ export function AgentStatusPopoverContent({
           embedded && "flex h-full items-center justify-center text-center",
         )}
       >
-        No active agent sessions
+        {t("footer.noActiveAgentSessions")}
       </div>
     );
   }
 
   return (
-    <div className={cn("p-2 overflow-y-auto", embedded ? "h-full" : "max-h-64")}>
+      <div className={cn("p-2 overflow-y-auto", embedded ? "h-full" : "max-h-64")}>
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[11px] font-semibold text-foreground">
-          Agent Sessions ({sessions.length})
+          {t("footer.agentSessions", { count: sessions.length })}
         </span>
         {hasIdleSessions && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-            onClick={() => clearIdleSessions()}
-          >
-            <X className="size-3 mr-0.5" />
-            Clear idle
-          </Button>
-        )}
-      </div>
+          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+          onClick={() => clearIdleSessions()}
+        >
+          <X className="size-3 mr-0.5" />
+          {t("footer.clearIdle")}
+        </Button>
+      )}
+    </div>
 
       <div className="space-y-2">
         {Array.from(grouped.entries()).map(([contextKey, pathSessions]) => {
@@ -328,6 +332,7 @@ export function AgentStatusPopoverContent({
 }
 
 function PermissionBellFooter() {
+  const t = useTranslations("appShell");
 
   const iconRef = useRef<AnimatedIconHandle>(null);
   useEffect(() => {
@@ -336,25 +341,26 @@ function PermissionBellFooter() {
     return () => clearInterval(t);
   }, []);
   return (
-    <span className="inline-flex items-center text-amber-400/70 ml-0.5" title="Permission requested">
+    <span className="inline-flex items-center text-amber-400/70 ml-0.5" title={t("footer.permissionRequested")}>
       <FilledBellIcon ref={iconRef} size={12} color="currentColor" strokeWidth={0} />
     </span>
   );
 }
 
 function AcpChatButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("appShell");
   const iconRef = useRef<BotMessageSquareHandle>(null);
   return (
     <button
       type="button"
-      aria-label="Open Agent Chat"
+      aria-label={t("footer.openAgentChat")}
       className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
       onClick={onClick}
       onMouseEnter={() => iconRef.current?.startAnimation()}
       onMouseLeave={() => iconRef.current?.stopAnimation()}
     >
       <BotMessageSquareIcon ref={iconRef} size={12} />
-      <span className="whitespace-nowrap">ACP Chat</span>
+      <span className="whitespace-nowrap">{t("footer.acpChat")}</span>
     </button>
   );
 }
@@ -426,6 +432,7 @@ function HoverScrollText({ text, active }: { text: string; active: boolean }) {
 }
 
 const Footer: React.FC = () => {
+  const t = useTranslations("appShell");
   const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
   const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
@@ -521,10 +528,10 @@ const Footer: React.FC = () => {
   };
 
   const statusText: Record<typeof connectionState, string> = {
-    connected: 'NORMAL',
-    connecting: 'CONNECTING',
-    reconnecting: 'RECONNECTING',
-    disconnected: 'DISCONNECTED',
+    connected: t("footer.status.normal"),
+    connecting: t("footer.status.connecting"),
+    reconnecting: t("footer.status.reconnecting"),
+    disconnected: t("footer.status.disconnected"),
   };
 
   const grouped = connections.reduce<Record<string, WsConnectionInfo[]>>((acc, conn) => {
@@ -565,17 +572,17 @@ const Footer: React.FC = () => {
               <TooltipContent side="top" className="max-w-xs p-0">
                 <div className="px-3 py-2 text-[11px] font-mono">
                   <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
-                    <span>Active WebSocket</span>
+                    <span>{t("footer.activeWebSocket")}</span>
                     {connections.length > 0 && (
                       <span className="font-normal text-background/90">{connections.length}</span>
                     )}
                   </div>
                   {connectionState !== 'connected' ? (
-                    <div className="text-background/90">Not connected</div>
+                    <div className="text-background/90">{t("footer.notConnected")}</div>
                   ) : loading && connections.length === 0 ? (
-                    <div className="text-background/90">Loading...</div>
+                    <div className="text-background/90">{t("footer.loading")}</div>
                   ) : connections.length === 0 ? (
-                    <div className="text-background/90">No connections</div>
+                    <div className="text-background/90">{t("footer.noConnections")}</div>
                   ) : (
                     <div className="space-y-1.5">
                       {Object.entries(grouped).map(([type, conns]) => {
@@ -699,7 +706,7 @@ const Footer: React.FC = () => {
                             )}
                             duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
                           >
-                            {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? "Waiting for permission" : "Running"}`}
+                            {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? t("footer.waitingForPermission") : t("footer.running")}`}
                           </TextShimmer>
                         </span>
                       </span>
@@ -709,10 +716,10 @@ const Footer: React.FC = () => {
                     activeSessions.length === 0 ? (
                       <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
                         <NappingBotIcon />
-                        <span>Napping ~</span>
+                        <span>{t("footer.napping")}</span>
                       </span>
                     ) : (
-                      <span className="text-muted-foreground whitespace-nowrap">Agent: Idle</span>
+                      <span className="text-muted-foreground whitespace-nowrap">{t("footer.agentIdle")}</span>
                     )
                   )}
                 </button>

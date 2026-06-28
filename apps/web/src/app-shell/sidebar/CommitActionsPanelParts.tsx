@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { FileText, GitBranch } from 'lucide-react';
 import type { GitChangedFile, GitStatusResponse } from '@/api/ws-api';
 import { cn } from '@/shared/lib/utils';
@@ -32,12 +33,13 @@ export function CommitActionsPanelHeader({
   unstagedFiles,
   untrackedFiles,
 }: CommitActionsPanelHeaderProps) {
+  const t = useTranslations('AppShell.chrome');
   const repositoryLabel =
     currentWorkspaceName?.trim() ||
     currentProjectName?.trim() ||
     basenameFromPath(currentProjectPath) ||
-    'Repository';
-  const branchLabel = gitStatus?.current_branch || 'No branch';
+    t('commitActionsPanel.repository');
+  const branchLabel = gitStatus?.current_branch || t('commitActionsPanel.noBranch');
   const changedFiles = [
     ...stagedFiles,
     ...unstagedFiles,
@@ -45,25 +47,25 @@ export function CommitActionsPanelHeader({
   ];
   const panelStats = [
     {
-      label: 'changed',
+      label: t('commitActionsPanel.changed'),
       value: gitStatus?.uncommitted_count ?? changedFiles.length,
       className: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
       valueClassName: 'text-amber-800 dark:text-amber-200',
     },
     {
-      label: 'staged',
+      label: t('commitActionsPanel.staged'),
       value: stagedFiles.length,
       className: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
       valueClassName: 'text-sky-800 dark:text-sky-200',
     },
     {
-      label: 'new',
+      label: t('commitActionsPanel.new'),
       value: untrackedFiles.length,
       className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
       valueClassName: 'text-emerald-800 dark:text-emerald-200',
     },
     {
-      label: 'unpushed',
+      label: t('commitActionsPanel.unpushed'),
       value: gitStatus?.unpushed_count ?? 0,
       className: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
       valueClassName: 'text-violet-800 dark:text-violet-200',
@@ -102,6 +104,7 @@ export function CommitActionsPanelChanges({
   untrackedFiles,
   workspaceId,
 }: CommitActionsPanelChangesProps) {
+  const t = useTranslations('AppShell.chrome');
   const changedFiles = [
     ...stagedFiles,
     ...unstagedFiles,
@@ -118,7 +121,7 @@ export function CommitActionsPanelChanges({
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <FileText className="size-3.5" />
-          Changes
+          {t('commitActionsPanel.changes')}
         </div>
         <span className="font-mono text-[11px]">
           <span className="text-emerald-600 dark:text-emerald-400">+{totalAdditions}</span>
@@ -130,21 +133,21 @@ export function CommitActionsPanelChanges({
           <div className="space-y-1">
             <ChangeSection
               kind="staged"
-              title="Staged Changes"
+              title={t('commitActionsPanel.stagedChanges')}
               files={stagedFiles}
               workspaceId={workspaceId ?? null}
               readOnly
             />
             <ChangeSection
               kind="unstaged"
-              title="Unstaged Changes"
+              title={t('commitActionsPanel.unstagedChanges')}
               files={unstagedFiles}
               workspaceId={workspaceId ?? null}
               readOnly
             />
             <ChangeSection
               kind="untracked"
-              title="Untracked Changes"
+              title={t('commitActionsPanel.untrackedChanges')}
               files={untrackedFiles}
               workspaceId={workspaceId ?? null}
               readOnly
@@ -152,7 +155,7 @@ export function CommitActionsPanelChanges({
           </div>
         ) : (
           <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
-            No changed files.
+            {t('commitActionsPanel.noChangedFiles')}
           </div>
         )}
       </div>

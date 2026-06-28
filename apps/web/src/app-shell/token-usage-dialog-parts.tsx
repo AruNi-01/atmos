@@ -24,6 +24,7 @@ import {
   Skeleton,
   TextScramble,
 } from "@workspace/ui";
+import { useLocale, useTranslations } from "next-intl";
 
 import type { TokenUsageOverviewResponse } from "@/api/rest-api";
 import {
@@ -51,6 +52,8 @@ export function TokenUsageDialogHeader({
   onClose: () => void;
   onRefresh: () => void;
 }) {
+  const t = useTranslations("appShell.tokenUsageDialog");
+
   return (
     <div className="shrink-0 border-b border-border/60 px-4 py-4 sm:px-6 sm:py-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -60,31 +63,30 @@ export function TokenUsageDialogHeader({
               variant="outline"
               className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] tracking-[0.08em] text-muted-foreground"
             >
-              Local session data
+              {t("header.badges.localSessionData")}
             </Badge>
             <Badge
               variant="outline"
               className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] tracking-[0.08em] text-muted-foreground"
             >
-              All time overview
+              {t("header.badges.allTimeOverview")}
             </Badge>
             {overview?.partial_warnings.length ? (
               <Badge
                 variant="outline"
                 className="rounded-full border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] tracking-[0.08em] text-amber-700 dark:text-amber-300"
               >
-                Partial data
+                {t("header.badges.partialData")}
               </Badge>
             ) : null}
           </div>
 
           <div className="space-y-2">
             <h1 className="text-left text-2xl font-semibold tracking-tight sm:text-4xl">
-              Token usage cockpit
+              {t("header.title")}
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-              The heatmap is filtered by year. Summary cards and the charts below stay on all-time
-              local session history rather than provider quota APIs.
+              {t("header.description")}
             </p>
           </div>
         </div>
@@ -92,7 +94,7 @@ export function TokenUsageDialogHeader({
         <div className="flex items-center gap-2 self-start">
           <div className="hidden rounded-2xl border border-border/70 bg-background/80 px-3 py-2 text-right backdrop-blur sm:block">
             <div className="text-[10px] tracking-[0.08em] text-muted-foreground">
-              Last refresh
+              {t("header.lastRefresh")}
             </div>
             <div className="mt-1 text-sm font-medium">{generatedAtLabel}</div>
           </div>
@@ -102,6 +104,8 @@ export function TokenUsageDialogHeader({
             className="size-10 rounded-lg border-border/70 bg-background/80 backdrop-blur"
             onClick={onRefresh}
             disabled={loading || refreshing}
+            aria-label={t("header.actions.refresh")}
+            title={t("header.actions.refresh")}
           >
             {refreshing ? (
               <LoaderCircle className="size-4 animate-spin" />
@@ -114,6 +118,8 @@ export function TokenUsageDialogHeader({
             size="icon"
             className="size-10 rounded-lg border-border/70 bg-background/80 backdrop-blur"
             onClick={onClose}
+            aria-label={t("header.actions.close")}
+            title={t("header.actions.close")}
           >
             <X className="size-4" />
           </Button>
@@ -132,34 +138,39 @@ export function TokenUsageStatCards({
   rangeLabel: string;
   showInitialSkeleton: boolean;
 }) {
+  const t = useTranslations("appShell.tokenUsageDialog");
+  const locale = useLocale();
+
   const statCards = React.useMemo(
     () => [
       {
-        label: "Total tokens",
-        value: formatCompactNumber(overview?.summary.total_tokens ?? 0),
+        label: t("stats.totalTokens.label"),
+        value: formatCompactNumber(overview?.summary.total_tokens ?? 0, locale),
         note: rangeLabel,
         icon: Coins,
       },
       {
-        label: "Messages",
-        value: formatCompactNumber(overview?.summary.total_messages ?? 0),
-        note: `${overview?.by_client.length ?? 0} agents detected`,
+        label: t("stats.messages.label"),
+        value: formatCompactNumber(overview?.summary.total_messages ?? 0, locale),
+        note: t("stats.messages.note", {
+          count: formatDetailedNumber(overview?.by_client.length ?? 0, locale),
+        }),
         icon: MessagesSquare,
       },
       {
-        label: "Active days",
-        value: formatCompactNumber(overview?.summary.active_days ?? 0),
-        note: "All-time contribution footprint",
+        label: t("stats.activeDays.label"),
+        value: formatCompactNumber(overview?.summary.active_days ?? 0, locale),
+        note: t("stats.activeDays.note"),
         icon: CalendarRange,
       },
       {
-        label: "Est. cost",
-        value: formatCurrencyCompact(overview?.summary.total_cost_usd ?? null),
-        note: "Estimated from local session history",
+        label: t("stats.estimatedCost.label"),
+        value: formatCurrencyCompact(overview?.summary.total_cost_usd ?? null, locale),
+        note: t("stats.estimatedCost.note"),
         icon: Wallet,
       },
     ],
-    [overview, rangeLabel],
+    [locale, overview, rangeLabel, t],
   );
 
   return (
@@ -254,6 +265,9 @@ export function HeatmapHoverPopover({
   hoveredCell: HeatmapHoverState | null;
   position: { x: number; y: number } | null;
 }) {
+  const t = useTranslations("appShell.tokenUsageDialog");
+  const locale = useLocale();
+
   if (!hoveredCell || !position || !hoveredCell.cell.detail) {
     return null;
   }
@@ -271,23 +285,35 @@ export function HeatmapHoverPopover({
         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
         opacity: 1,
       }}
-    >
-      <div className="w-60 rounded-xl border border-background/12 bg-foreground p-3 text-background shadow-xl">
-        <div className="space-y-2 text-xs">
-          <div className="font-medium text-background">{formatHeatmapDate(cell.date)}</div>
-          <HeatmapPopoverRow label="Tokens" value={cell.count ?? 0} />
-          <HeatmapPopoverRow label="Messages" value={detail.message_count} />
-          <div className="h-px bg-background/18" />
-          <HeatmapPopoverRow label="Input" value={detail.breakdown.input_tokens} />
-          <HeatmapPopoverRow label="Output" value={detail.breakdown.output_tokens} />
-          <HeatmapPopoverRow
-            label="Cache"
-            value={detail.breakdown.cache_read_tokens + detail.breakdown.cache_write_tokens}
-          />
-          <HeatmapPopoverRow label="Reasoning" value={detail.breakdown.reasoning_tokens} />
+      >
+        <div className="w-60 rounded-xl border border-background/12 bg-foreground p-3 text-background shadow-xl">
+          <div className="space-y-2 text-xs">
+            <div className="font-medium text-background">{formatHeatmapDate(cell.date, locale)}</div>
+            <HeatmapPopoverRow label={t("heatmap.popover.tokens")} value={cell.count ?? 0} />
+            <HeatmapPopoverRow
+              label={t("heatmap.popover.messages")}
+              value={detail.message_count}
+            />
+            <div className="h-px bg-background/18" />
+            <HeatmapPopoverRow
+              label={t("heatmap.popover.input")}
+              value={detail.breakdown.input_tokens}
+            />
+            <HeatmapPopoverRow
+              label={t("heatmap.popover.output")}
+              value={detail.breakdown.output_tokens}
+            />
+            <HeatmapPopoverRow
+              label={t("heatmap.popover.cache")}
+              value={detail.breakdown.cache_read_tokens + detail.breakdown.cache_write_tokens}
+            />
+            <HeatmapPopoverRow
+              label={t("heatmap.popover.reasoning")}
+              value={detail.breakdown.reasoning_tokens}
+            />
+          </div>
         </div>
-      </div>
-    </div>,
+      </div>,
     document.body,
   );
 }
@@ -303,26 +329,30 @@ export function RadarShareTooltipContent({
     payload?: { label?: string };
   }>;
 }) {
+  const t = useTranslations("appShell.tokenUsageDialog");
+  const locale = useLocale();
   const item = payload?.[0];
   if (!active || !item) {
     return null;
   }
 
-  const agentLabel = item.payload?.label ?? "Agent";
+  const agentLabel = item.payload?.label ?? t("heatmap.radar.agentFallback");
   const color = item.color ?? "var(--color-chart-2)";
   const rawValue = typeof item.value === "number" ? item.value : Number(item.value ?? 0);
 
   return (
     <div className="min-w-44 rounded-xl border border-border/70 bg-popover/95 px-3 py-2.5 text-popover-foreground shadow-xl backdrop-blur">
       <div className="mb-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
-        Share
+        {t("heatmap.radar.share")}
       </div>
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
           <span className="text-xs text-muted-foreground">{agentLabel}</span>
         </div>
-        <div className="text-sm font-semibold tabular-nums">{formatPercent(rawValue / 100)}</div>
+        <div className="text-sm font-semibold tabular-nums">
+          {formatPercent(rawValue / 100, locale)}
+        </div>
       </div>
     </div>
   );
@@ -376,7 +406,8 @@ function TokenUsageStatCard({
 }
 
 function HeatmapPopoverRow({ label, value }: { label: string; value: number }) {
-  const displayValue = formatDetailedNumber(value);
+  const locale = useLocale();
+  const displayValue = formatDetailedNumber(value, locale);
 
   return (
     <div className="flex items-center justify-between gap-3">

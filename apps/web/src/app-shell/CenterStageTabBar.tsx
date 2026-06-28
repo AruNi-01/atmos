@@ -16,6 +16,7 @@ import {
   RotateCw,
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -103,6 +104,9 @@ export function CenterStageTabBar({
   setWikiRefreshing,
   setWikiRefreshTrigger,
 }: CenterStageTabBarProps) {
+  const t = useTranslations("appShell");
+  const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
+
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem) => {
     return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
@@ -112,7 +116,7 @@ export function CenterStageTabBar({
       <CenterStageOverviewTab
         tooltipContent={
           <div className="flex items-center gap-2">
-            <span>Overview</span>
+            <span>{t("centerStageTabBar.overview")}</span>
             <ShortcutHint digit={0} />
           </div>
         }
@@ -151,7 +155,7 @@ export function CenterStageTabBar({
               {activeValue === "wiki" ? (
                 <span
                   role="button"
-                  aria-label="Refresh Wiki"
+                  aria-label={t("centerStageTabBar.refreshWiki")}
                   className="absolute inset-0 opacity-0 group-hover/wiki:opacity-100 pointer-events-none group-hover/wiki:pointer-events-auto cursor-pointer"
                   onClick={(event) => {
                     event.stopPropagation();
@@ -165,7 +169,7 @@ export function CenterStageTabBar({
             </TabsTab>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {activeValue === "wiki" ? "Refresh Wiki" : "Project Wiki"}
+            {activeValue === "wiki" ? t("centerStageTabBar.refreshWiki") : t("centerStageTabBar.projectWiki")}
           </TooltipContent>
         </Tooltip>
       ) : null}
@@ -180,6 +184,8 @@ export function CenterStageTabBar({
               hasShortcut={index < CENTER_TERMINAL_SHORTCUT_LIMIT}
               hoveredTabId={termTabPlusHoveredTabId}
               shortcutDigit={index + 1}
+              newTerminalTabLabel={newTerminalTabLabel}
+              closeAriaLabel={t("centerStageTabBar.closeTab", { tab: tab.title })}
               tab={tab}
               onClose={handleCloseTerminalCenterTab}
               onCreateTab={handleCreateTerminalCenterTab}
@@ -189,10 +195,10 @@ export function CenterStageTabBar({
 
         {projectWikiTabVisible ? (
           <SpecialTerminalTab
-            closeLabel="Close Project Wiki tab"
+            closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
             icon={<TerminalIcon className="size-3.5 shrink-0" />}
-            label="Project Wiki"
-            tooltip="Project Wiki Terminal"
+            label={t("centerStageTabBar.projectWiki")}
+            tooltip={t("centerStageTabBar.projectWikiTerminal")}
             variant="project-wiki"
             value="project-wiki"
             onClose={() => setProjectWikiCloseConfirmOpen(true)}
@@ -201,10 +207,10 @@ export function CenterStageTabBar({
 
         {codeReviewTabVisible ? (
           <SpecialTerminalTab
-            closeLabel="Close Code Review tab"
+            closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
             icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
-            label="Code Review"
-            tooltip="Code Review Terminal"
+            label={t("centerStageTabBar.codeReview")}
+            tooltip={t("centerStageTabBar.codeReviewTerminal")}
             variant="code-review"
             value="code-review"
             onClose={() => setCodeReviewCloseConfirmOpen(true)}
@@ -228,7 +234,10 @@ export function CenterStageTabBar({
 
       <CenterStageStickyTabActions>
         {visibleTerminalTabs.length === 0 ? (
-          <EmptyTerminalTabsAddButton onCreateTab={handleCreateTerminalCenterTab} />
+          <EmptyTerminalTabsAddButton
+            onCreateTab={handleCreateTerminalCenterTab}
+            newTerminalTabLabel={newTerminalTabLabel}
+          />
         ) : null}
         <CenterStageTabGroupPopover
           open={tabGroupPopoverOpen}
@@ -269,6 +278,8 @@ function TerminalExtraTab({
   hasShortcut,
   hoveredTabId,
   shortcutDigit,
+  newTerminalTabLabel,
+  closeAriaLabel,
   tab,
   onClose,
   onCreateTab,
@@ -279,15 +290,17 @@ function TerminalExtraTab({
   hasShortcut: boolean;
   hoveredTabId: string | null;
   shortcutDigit: number;
+  newTerminalTabLabel: string;
+  closeAriaLabel: string;
   tab: { id: string; title: string };
   onClose: (tabId: string) => void;
   onCreateTab: () => void;
   setHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <TabsTab
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <TabsTab
           value={tab.id}
           className="group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
         >
@@ -301,12 +314,13 @@ function TerminalExtraTab({
               )}
             />
             {activeValue === tab.id ? (
-              <CreateTerminalTabButton
-                groupName="term-tab"
-                onCreateTab={onCreateTab}
-                onHoverChange={(hovered) => setHoveredTabId(hovered ? tab.id : null)}
-              />
-            ) : null}
+            <CreateTerminalTabButton
+              groupName="term-tab"
+              onCreateTab={onCreateTab}
+              onHoverChange={(hovered) => setHoveredTabId(hovered ? tab.id : null)}
+              newTerminalTabLabel={newTerminalTabLabel}
+            />
+          ) : null}
           </span>
           <span className="text-[13px] font-medium whitespace-nowrap">{tab.title}</span>
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
@@ -318,7 +332,7 @@ function TerminalExtraTab({
           >
             <span
               role="button"
-              aria-label={`Close ${tab.title}`}
+              aria-label={closeAriaLabel}
               onClick={(event) => {
                 event.stopPropagation();
                 onClose(tab.id);
@@ -334,7 +348,7 @@ function TerminalExtraTab({
         <div className="flex items-center gap-2">
           {hoveredTabId === tab.id ? (
             <>
-              <span>New Terminal Tab</span>
+              <span>{newTerminalTabLabel}</span>
               <ShortcutHint digit="T" />
             </>
           ) : (
@@ -349,13 +363,19 @@ function TerminalExtraTab({
   );
 }
 
-function EmptyTerminalTabsAddButton({ onCreateTab }: { onCreateTab: () => void }) {
+function EmptyTerminalTabsAddButton({
+  onCreateTab,
+  newTerminalTabLabel,
+}: {
+  onCreateTab: () => void;
+  newTerminalTabLabel: string;
+}) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="New Terminal Tab"
+          aria-label={newTerminalTabLabel}
           onClick={onCreateTab}
           className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
@@ -364,7 +384,7 @@ function EmptyTerminalTabsAddButton({ onCreateTab }: { onCreateTab: () => void }
       </TooltipTrigger>
       <TooltipContent side="bottom">
         <div className="flex items-center gap-2">
-          <span>New Terminal Tab</span>
+          <span>{newTerminalTabLabel}</span>
           <ShortcutHint digit="T" />
         </div>
       </TooltipContent>
@@ -376,16 +396,18 @@ function CreateTerminalTabButton({
   groupName,
   onCreateTab,
   onHoverChange,
+  newTerminalTabLabel,
 }: {
   groupName: "term-tab";
   onCreateTab: () => void;
   onHoverChange: (hovered: boolean) => void;
+  newTerminalTabLabel: string;
 }) {
   return (
     <span
       role="button"
       tabIndex={0}
-      aria-label="New Terminal Tab"
+      aria-label={newTerminalTabLabel}
       className={cn(
         "absolute inset-0 -m-1 flex items-center justify-center rounded-md p-1 text-muted-foreground transition-all",
         "opacity-0 scale-50 rotate-60 pointer-events-none",

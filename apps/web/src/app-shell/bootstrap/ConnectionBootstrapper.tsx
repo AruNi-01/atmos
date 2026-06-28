@@ -13,6 +13,7 @@ import {
   createHostedRemoteSession,
   detectHostedLocalServer,
   readHostedConnectionPreference,
+  runtimeT,
 } from '@/features/connection/lib/hosted-connection';
 import {
   activateHostedLocalConnection,
@@ -55,7 +56,7 @@ export function ConnectionBootstrapper() {
             hostedStore.setLocalAvailable(local.config, local.status);
           } catch (err) {
             hostedStore.setLocalUnavailable(
-              err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
+              err instanceof Error ? err.message : runtimeT('hostedConnection.errors.cannotReachLocalServer'),
             );
           }
 

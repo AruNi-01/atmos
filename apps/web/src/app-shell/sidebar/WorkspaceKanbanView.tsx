@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useFocusRestore } from "@/shared/hooks/use-focus-restore";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import {
@@ -143,6 +144,7 @@ export function WorkspaceKanbanView({
   onFiltersChange,
   trigger,
 }: WorkspaceKanbanViewProps) {
+  const t = useTranslations("appShell.kanban");
   const router = useAppRouter();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const { onCloseAutoFocusPrevent } = useFocusRestore(!!isKanbanExpanded);
@@ -497,7 +499,7 @@ export function WorkspaceKanbanView({
     filters.statuses.forEach((status) => {
       chips.push({
         key: `status-${status}`,
-        label: getWorkspaceWorkflowStatusMeta(status).label,
+        label: t(getWorkspaceWorkflowStatusMeta(status).labelKey),
         type: "status",
         value: status,
       });
@@ -505,7 +507,7 @@ export function WorkspaceKanbanView({
     filters.priorities.forEach((priority) => {
       chips.push({
         key: `priority-${priority}`,
-        label: WORKSPACE_PRIORITY_OPTIONS.find((item) => item.value === priority)?.label ?? priority,
+        label: t(WORKSPACE_PRIORITY_OPTIONS.find((item) => item.value === priority)?.labelKey ?? "priority.noPriority"),
         type: "priority",
         value: priority,
       });
@@ -519,7 +521,7 @@ export function WorkspaceKanbanView({
       if (project) chips.push({ key: `project-${projectId}`, label: project.name, type: "project", value: projectId });
     });
     return chips;
-  }, [availableLabels, filters, projects]);
+  }, [availableLabels, filters, projects, t]);
 
   const removeFilterChip = React.useCallback((chip: {
     type: "status" | "priority" | "label" | "project";
@@ -603,8 +605,8 @@ export function WorkspaceKanbanView({
         )}
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>Workspace Kanban</DialogTitle>
-          <DialogDescription>Expanded kanban board view</DialogDescription>
+          <DialogTitle>{t("dialog.title")}</DialogTitle>
+          <DialogDescription>{t("dialog.description")}</DialogDescription>
         </DialogHeader>
         <div className="flex h-full min-h-0 min-w-0 flex-col">
           <div className="flex h-10 items-center justify-between border-b px-6 py-1.5">
@@ -628,7 +630,7 @@ export function WorkspaceKanbanView({
                         type="button"
                         onClick={() => removeFilterChip(chip)}
                         className="absolute right-1 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:bg-accent hover:text-foreground"
-                        title={`Remove ${chip.label}`}
+                        title={t("filter.removeChip", { label: chip.label })}
                       >
                         <X className="size-3.5" />
                       </button>
@@ -648,7 +650,7 @@ export function WorkspaceKanbanView({
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search project/workspace..."
+                    placeholder={t("search.placeholder")}
                     className={cn(
                       "h-7 border-0 bg-transparent pr-8 text-xs shadow-none focus-visible:ring-0",
                       isSearchOpen ? "opacity-100" : "pointer-events-none opacity-0 absolute",
@@ -679,16 +681,16 @@ export function WorkspaceKanbanView({
                 <DropdownMenuContent align="end" className="w-72 p-1.5">
                   <div className="px-2 pt-1">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-foreground">Order</span>
+                      <span className="text-xs font-medium text-foreground">{t("settings.order")}</span>
                       <div className="flex items-center gap-1.5">
                         <Select value={sortBy} onValueChange={(value) => setSortBy(value as KanbanSortBy)}>
                           <SelectTrigger className="!h-5 w-[84px] gap-1 rounded-sm px-1.5 py-0 text-[10px] [&_svg]:size-3">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="last_visit">Last Visit</SelectItem>
-                            <SelectItem value="create_time">Create Time</SelectItem>
-                            <SelectItem value="priority">Priority</SelectItem>
+                            <SelectItem value="last_visit">{t("sort.lastVisit")}</SelectItem>
+                            <SelectItem value="create_time">{t("sort.createTime")}</SelectItem>
+                            <SelectItem value="priority">{t("sort.priority")}</SelectItem>
                           </SelectContent>
                         </Select>
                         <Button
@@ -696,8 +698,8 @@ export function WorkspaceKanbanView({
                           variant="outline"
                           className="size-5 rounded-sm"
                           onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
-                          aria-label={sortOrder === "desc" ? "Switch to ascending" : "Switch to descending"}
-                          title={sortOrder === "desc" ? "Descending" : "Ascending"}
+                          aria-label={sortOrder === "desc" ? t("sort.switchToAscending") : t("sort.switchToDescending")}
+                          title={sortOrder === "desc" ? t("sort.descending") : t("sort.ascending")}
                         >
                           {sortOrder === "desc" ? (
                             <ArrowDownWideNarrow className="size-3.5" />
@@ -710,7 +712,7 @@ export function WorkspaceKanbanView({
                   </div>
                   <DropdownMenuSeparator className="mx-2 my-2" />
                   <div className="space-y-1 px-2 pb-1">
-                    <div className="pb-1 text-xs font-medium text-foreground">Properties</div>
+                    <div className="pb-1 text-xs font-medium text-foreground">{t("settings.properties")}</div>
                     {KANBAN_CARD_PROPERTY_OPTIONS.map((option) => (
                       <div key={option.key} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 hover:bg-muted/45">
                         <span className="text-xs text-foreground">{option.label}</span>
@@ -730,7 +732,7 @@ export function WorkspaceKanbanView({
                 variant="outline"
                 className="size-7"
                 onClick={() => setIsImportIssuesOpen(true)}
-                title="Import GitHub Issues"
+                title={t("toolbar.importGithubIssues")}
               >
                 <Import className="size-3.5" />
               </Button>
@@ -739,7 +741,7 @@ export function WorkspaceKanbanView({
                 variant={showIssueOnly ? "default" : "outline"}
                 className="size-7"
                 onClick={() => setShowIssueOnly((prev) => !prev)}
-                title={showIssueOnly ? "Hide Issue Only" : "Show Issue Only"}
+                title={showIssueOnly ? t("toolbar.hideIssueOnly") : t("toolbar.showIssueOnly")}
               >
                 {showIssueOnly ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
               </Button>
@@ -751,7 +753,7 @@ export function WorkspaceKanbanView({
           >
             {!isSettingsReady ? (
               <div className="flex h-full min-h-[260px] items-center justify-center text-sm text-muted-foreground">
-                Loading kanban settings...
+                {t("loadingSettings")}
               </div>
             ) : isBrowser ? (
               <DndContext
@@ -765,6 +767,7 @@ export function WorkspaceKanbanView({
                     const items = grouped.get(column.status) ?? [];
                     const meta = getWorkspaceWorkflowStatusMeta(column.status);
                     const StatusIcon = meta.icon;
+                    const statusLabel = t(meta.labelKey);
 
                     return (
                       <section
@@ -776,7 +779,7 @@ export function WorkspaceKanbanView({
                           <div className="flex h-full w-full items-center justify-between">
                             <div className="flex items-center gap-2">
                               <StatusIcon className={cn("size-3.5", meta.className)} />
-                              <span className="text-sm font-medium">{meta.label}</span>
+                              <span className="text-sm font-medium">{statusLabel}</span>
                               <span className="text-sm text-muted-foreground">{items.length}</span>
                             </div>
                             <div className="flex items-center gap-1">
@@ -784,7 +787,7 @@ export function WorkspaceKanbanView({
                                 type="button"
                                 onClick={() => hideColumn(column.status)}
                                 className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                title={`Hide ${meta.label}`}
+                                title={t("column.hide", { label: statusLabel })}
                               >
                                 <EyeOff className="size-3.5" />
                               </button>
@@ -792,7 +795,7 @@ export function WorkspaceKanbanView({
                                 type="button"
                                 onClick={() => openCreateWorkspaceDialog(column.status)}
                                 className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                title={`Create workspace in ${meta.label}`}
+                                title={t("column.createWorkspace", { label: statusLabel })}
                               >
                                 <Plus className="size-3.5" />
                               </button>
@@ -829,7 +832,7 @@ export function WorkspaceKanbanView({
                     <section className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md border border-dashed border-border/70 bg-muted/20">
                       <header className="sticky top-0 z-10 h-[44px] px-3">
                         <div className="flex h-full items-center">
-                          <span className="text-sm font-medium text-muted-foreground">Hidden columns</span>
+                          <span className="text-sm font-medium text-muted-foreground">{t("column.hidden")}</span>
                         </div>
                       </header>
                       <div className="space-y-2 p-2">
@@ -837,16 +840,17 @@ export function WorkspaceKanbanView({
                           const meta = getWorkspaceWorkflowStatusMeta(column.status);
                           const StatusIcon = meta.icon;
                           const hiddenCount = (grouped.get(column.status) ?? []).length;
+                          const statusLabel = t(meta.labelKey);
                           return (
                             <div key={column.status} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
                               <StatusIcon className={cn("size-3.5", meta.className)} />
-                              <span className="ml-2 text-xs text-foreground">{meta.label}</span>
+                              <span className="ml-2 text-xs text-foreground">{statusLabel}</span>
                               <span className="ml-1 text-xs text-muted-foreground">{hiddenCount}</span>
                               <button
                                 type="button"
                                 onClick={() => showColumn(column.status)}
                                 className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                title={`Show ${meta.label}`}
+                                title={t("column.show", { label: statusLabel })}
                               >
                                 <Eye className="size-3.5" />
                               </button>

@@ -2,6 +2,9 @@
 
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
+import { usePathname, useRouter } from "@atmos/i18n/navigation";
 import {
   Badge,
   Bot,
@@ -44,6 +47,7 @@ import {
   ExternalLink,
   Globe,
   LoaderCircle,
+  Languages,
   PanelRightClose,
   PanelRightOpen,
   RotateCw,
@@ -152,6 +156,8 @@ function RemoteAccessPopover({
   setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
   setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<RemoteAccessSettingsSection | null>>;
 }) {
+  const t = useTranslations("header");
+
   const openSettings = React.useCallback(
     (section: RemoteAccessSettingsSection) => {
       setDesktopWebPopoverOpen(false);
@@ -165,14 +171,14 @@ function RemoteAccessPopover({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 px-1">
         <div>
-          <p className="text-sm font-medium text-popover-foreground">Remote Access</p>
+          <p className="text-sm font-medium text-popover-foreground">{t("remoteAccess.title")}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Switch computers or publish this one through a tunnel.
+            {t("remoteAccess.subtitle")}
           </p>
         </div>
         {isTunnelConnectorRunning ? (
           <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            Tunnel active
+            {t("remoteAccess.tunnelActive")}
           </Badge>
         ) : null}
       </div>
@@ -180,10 +186,10 @@ function RemoteAccessPopover({
       <Tabs defaultValue="computer" className="space-y-3">
         <TabsList className="grid w-full grid-cols-2 border border-border/70 bg-background/70 p-1">
           <TabsTrigger value="computer" className="text-xs">
-            Atmos Computer
+            {t("remoteAccess.atmosComputerTab")}
           </TabsTrigger>
           <TabsTrigger value="tunnel" className="text-xs">
-            Tunnel Connector
+            {t("remoteAccess.tunnelConnectorTab")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="computer" className="mt-0">
@@ -216,6 +222,7 @@ function AtmosComputerPopoverContent({
   onConnected: () => void;
   onOpenSettings: () => void;
 }) {
+  const t = useTranslations("header");
   const {
     accessToken,
     computers,
@@ -251,7 +258,7 @@ function AtmosComputerPopoverContent({
         const rows = await listHostedRemoteComputers(state.relayUrl, trimmed);
         setComputers(rows);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load computers.");
+        setError(err instanceof Error ? err.message : t("remoteAccess.loadComputersError"));
       } finally {
         setIsRefreshing(false);
       }
@@ -280,13 +287,13 @@ function AtmosComputerPopoverContent({
         const session = await createHostedRemoteSession(relayUrl, accessToken, serverId);
         await activateHostedRemoteConnection(serverId, session);
       }
-      toastManager.add({ title: "Connected", type: "success" });
+      toastManager.add({ title: t("remoteAccess.connectedToastTitle"), type: "success" });
       onConnected();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not connect.");
+      setError(err instanceof Error ? err.message : t("remoteAccess.connectErrorMessage"));
       toastManager.add({
-        title: "Could not connect",
-        description: err instanceof Error ? err.message : "Try again.",
+        title: t("remoteAccess.connectErrorTitle"),
+        description: err instanceof Error ? err.message : t("remoteAccess.connectErrorHint"),
         type: "error",
       });
     } finally {
@@ -297,12 +304,12 @@ function AtmosComputerPopoverContent({
   if (!hasAccessToken) {
     return (
       <div className="rounded-md border border-border bg-muted/20 px-4 py-4">
-        <p className="text-sm font-medium text-popover-foreground">Access key required</p>
+        <p className="text-sm font-medium text-popover-foreground">{t("remoteAccess.accessKeyRequired")}</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Save an Atmos Computer access key before switching computers from the header.
+          {t("remoteAccess.accessKeyRequiredDescription")}
         </p>
         <Button size="sm" className="mt-3 w-full cursor-pointer" onClick={onOpenSettings}>
-          Open Computer Settings
+          {t("remoteAccess.openComputerSettings")}
         </Button>
       </div>
     );
@@ -311,17 +318,17 @@ function AtmosComputerPopoverContent({
   if (activeComputers.length === 0 && !isRefreshing) {
     return (
       <div className="rounded-md border border-border bg-muted/20 px-4 py-4">
-        <p className="text-sm font-medium text-popover-foreground">No computers yet</p>
+        <p className="text-sm font-medium text-popover-foreground">{t("remoteAccess.noComputers")}</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Register this computer or add another machine with the same access key.
+          {t("remoteAccess.noComputersDescription")}
         </p>
         <div className="mt-3 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1 cursor-pointer" onClick={() => void refreshComputers()}>
             <RotateCw className="mr-1.5 size-3.5" />
-            Refresh
+            {t("remoteAccess.refresh")}
           </Button>
           <Button size="sm" className="flex-1 cursor-pointer" onClick={onOpenSettings}>
-            Add Computer
+            {t("remoteAccess.addComputer")}
           </Button>
         </div>
         {error ? <p className="mt-3 text-xs leading-5 text-destructive">{error}</p> : null}
@@ -329,11 +336,15 @@ function AtmosComputerPopoverContent({
     );
   }
 
+  const computerCountLabel = activeComputers.length === 1
+    ? t("remoteAccess.computerCountOne", { count: activeComputers.length })
+    : t("remoteAccess.computerCountMany", { count: activeComputers.length });
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 px-1">
         <p className="text-xs text-muted-foreground">
-          {activeComputers.length} computer{activeComputers.length === 1 ? "" : "s"}
+          {computerCountLabel}
         </p>
         <Button
           variant="ghost"
@@ -343,18 +354,18 @@ function AtmosComputerPopoverContent({
           className="h-7 cursor-pointer px-2 text-xs"
         >
           <RotateCw className={cn("mr-1.5 size-3.5", isRefreshing && "animate-spin")} />
-          Refresh
+          {t("remoteAccess.refresh")}
         </Button>
       </div>
 
       <div className="max-h-[300px] space-y-2 overflow-y-auto pr-1">
         {isRefreshing && activeComputers.length === 0 ? (
           <div className="rounded-md border border-border px-4 py-5 text-sm text-muted-foreground">
-            Loading computers…
+            {t("remoteAccess.loading")}
           </div>
         ) : (
           activeComputers.map((computer) => {
-            const name = (computer.display_name ?? "Computer").slice(0, 64);
+            const name = (computer.display_name ?? t("remoteAccess.computerDefaultName")).slice(0, 64);
             const isLocal = computer.server_id === localServerId;
             const isConnected = connectedServerId === computer.server_id || (isLocal && connectionMode === "local");
             const isBusy = busyId === computer.server_id;
@@ -382,10 +393,12 @@ function AtmosComputerPopoverContent({
                             computer.online ? "bg-emerald-500" : "bg-muted-foreground/50",
                           )}
                         />
-                        {computer.online ? "Online" : "Offline"}
+                        {computer.online ? t("remoteAccess.computerOnline") : t("remoteAccess.computerOffline")}
                       </span>
-                      {isLocal ? <span>Current machine</span> : null}
-                      {computer.last_seen_at ? <span>Seen {formatComputerSeenAt(computer.last_seen_at)}</span> : null}
+                      {isLocal ? <span>{t("remoteAccess.currentMachine")}</span> : null}
+                      {computer.last_seen_at ? (
+                        <span>{t("remoteAccess.seen", { value: formatComputerSeenAt(computer.last_seen_at, t) })}</span>
+                      ) : null}
                     </div>
                   </div>
                   <Button
@@ -398,11 +411,11 @@ function AtmosComputerPopoverContent({
                     {isBusy ? (
                       <LoaderCircle className="size-3.5 animate-spin" />
                     ) : isConnected ? (
-                      "In use"
+                      t("remoteAccess.inUse")
                     ) : isLocal ? (
-                      "Use locally"
+                      t("remoteAccess.useLocally")
                     ) : (
-                      "Connect"
+                      t("remoteAccess.connect")
                     )}
                   </Button>
                 </div>
@@ -414,16 +427,16 @@ function AtmosComputerPopoverContent({
 
       {error ? <p className="px-1 text-xs leading-5 text-destructive">{error}</p> : null}
       <Button variant="outline" size="sm" className="w-full cursor-pointer" onClick={onOpenSettings}>
-        Manage Computers
+        {t("remoteAccess.manageComputers")}
       </Button>
     </div>
   );
 }
 
-function formatComputerSeenAt(value: number): string {
+function formatComputerSeenAt(value: number, t: (key: string) => string): string {
   const date = new Date(value * 1000);
   if (Number.isNaN(date.getTime())) {
-    return "recently";
+    return t("remoteAccess.recently");
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
@@ -451,6 +464,8 @@ function TunnelConnectorPopoverContent({
     reuseToken: boolean,
   ) => Promise<unknown>;
 }) {
+  const t = useTranslations("header");
+
   return (
     <div className="space-y-3">
       <div className="space-y-1">
@@ -467,14 +482,14 @@ function TunnelConnectorPopoverContent({
           />
           <p className="text-sm font-medium text-popover-foreground">
             {desktopWebStatus === "ready"
-              ? "Browser access is ready"
-              : "Browser access via sidecar"}
+              ? t("remoteAccess.browserReady")
+              : t("remoteAccess.browserViaSidecar")}
           </p>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
           {desktopWebStatus === "ready"
-            ? "Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches."
-            : "Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there."}
+            ? t("remoteAccess.browserReadyDescription")
+            : t("remoteAccess.browserViaSidecarDescription")}
         </p>
       </div>
 
@@ -491,7 +506,7 @@ function TunnelConnectorPopoverContent({
             onClick={onOpenSettings}
             className="cursor-pointer"
           >
-            Tunnel Connector
+            {t("remoteAccess.tunnelConnector")}
           </Button>
         )}
         <Button
@@ -500,10 +515,10 @@ function TunnelConnectorPopoverContent({
           className="flex-1 cursor-pointer"
         >
           {isOpeningDesktopWeb
-            ? "Starting..."
+            ? t("remoteAccess.starting")
             : desktopWebStatus === "ready"
-              ? "Open In Web"
-              : "Start Web"}
+              ? t("remoteAccess.openInWeb")
+              : t("remoteAccess.startWeb")}
           <ExternalLink className="size-4" />
         </Button>
       </div>
@@ -574,8 +589,18 @@ export function HeaderActionControls({
   toggleRightSidebar,
   updateLayout,
 }: HeaderActionControlsProps) {
+  const t = useTranslations("header");
   const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
   const loadLayoutSettings = useLayoutSettingsStore((state) => state.loadSettings);
+  const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
+  const currentLocaleLabel = locale === "zh" ? t("localeChinese") : t("localeEnglish");
+
+  const handleLocaleSelect = React.useCallback((nextLocale: string) => {
+    router.replace(pathname, { locale: nextLocale });
+    setIsActionMenuOpen(false);
+  }, [pathname, router, setIsActionMenuOpen]);
 
   React.useEffect(() => {
     void loadLayoutSettings();
@@ -586,12 +611,12 @@ export function HeaderActionControls({
       {isDesktopRuntime ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
       <button
-        aria-label="Search"
+        aria-label={t("searchAria")}
         className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
         onClick={() => setGlobalSearchOpen(true)}
       >
         <Search className="size-3.5" />
-        <span className="flex-1 text-left">Search...</span>
+        <span className="flex-1 text-left">{t("searchPlaceholder")}</span>
         <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
           <Command className="size-3" />
           <span className="text-xs">K</span>
@@ -625,9 +650,9 @@ export function HeaderActionControls({
             >
               <PopoverTrigger asChild>
                 <button
-                  aria-label="Open in Web"
+                  aria-label={t("menu.openInWeb")}
                   className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                  title="Remote Access"
+                  title={t("menu.remoteAccess")}
                 >
                   <Globe className="size-4" />
                   {isTunnelConnectorRunning && (
@@ -671,8 +696,8 @@ export function HeaderActionControls({
             />
           </TooltipTrigger>
           <TooltipContent>
-            <div className="flex items-center gap-2">
-              <span>AI Usage</span>
+              <div className="flex items-center gap-2">
+                <span>{t("menu.aiUsage")}</span>
               <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                 <Command className="size-3" />
                 <span className="text-xs">U</span>
@@ -688,7 +713,7 @@ export function HeaderActionControls({
                 render={
                   <button
                     type="button"
-                    aria-label="Open actions menu"
+                    aria-label={t("menu.openActions")}
                     className="size-8 flex items-center justify-center rounded-md text-base font-medium tracking-[0.18em] text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
                   >
                     <span className="translate-x-[0.08em]">···</span>
@@ -698,7 +723,7 @@ export function HeaderActionControls({
             </TooltipTrigger>
             <TooltipContent>
               <div className="flex items-center gap-2">
-                <span>Menu</span>
+                <span>{t("menu.label")}</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" />
                   <ArrowBigUp className="size-3" />
@@ -716,14 +741,14 @@ export function HeaderActionControls({
               }}
             >
               <Settings className="size-4" />
-              Settings
+              {t("menu.settings")}
             </MenuItem>
 
             <MenuSubmenu>
               <MenuSubmenuTrigger className="[&_[data-slot=chevron]]:ml-2">
                 <span className="flex items-center gap-2">
                   <SunMoon className="size-4 text-foreground/90" />
-                  <span>Theme</span>
+                  <span>{t("menu.theme")}</span>
                 </span>
                 <span className="ml-auto text-xs tracking-wide text-foreground/90">
                   {resolvedThemeLabel}
@@ -738,8 +763,8 @@ export function HeaderActionControls({
                   }}
                 >
                   <Sun className="size-4" />
-                  Light
-                  {theme === "light" ? <MenuShortcut>Current</MenuShortcut> : null}
+                  {t("menu.themeLight")}
+                  {theme === "light" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
                 </MenuItem>
                 <MenuItem
                   closeOnClick
@@ -749,8 +774,8 @@ export function HeaderActionControls({
                   }}
                 >
                   <Moon className="size-4" />
-                  Dark
-                  {theme === "dark" ? <MenuShortcut>Current</MenuShortcut> : null}
+                  {t("menu.themeDark")}
+                  {theme === "dark" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
                 </MenuItem>
                 <MenuItem
                   closeOnClick
@@ -760,8 +785,34 @@ export function HeaderActionControls({
                   }}
                 >
                   <Laptop className="size-4" />
-                  System
-                  {theme === "system" ? <MenuShortcut>Current</MenuShortcut> : null}
+                  {t("menu.themeSystem")}
+                  {theme === "system" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
+                </MenuItem>
+              </MenuSubmenuPanel>
+            </MenuSubmenu>
+
+            <MenuSubmenu>
+              <MenuSubmenuTrigger className="[&_[data-slot=chevron]]:ml-2">
+                <span className="flex items-center gap-2">
+                  <Languages className="size-4 text-foreground/90" />
+                  <span>{t("menu.language")}</span>
+                </span>
+                <span className="ml-auto text-xs tracking-wide text-foreground/90">{currentLocaleLabel}</span>
+              </MenuSubmenuTrigger>
+              <MenuSubmenuPanel className="w-44">
+                <MenuItem
+                  closeOnClick
+                  onClick={() => handleLocaleSelect("en")}
+                >
+                  {t("localeEnglish")}
+                  {locale === "en" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
+                </MenuItem>
+                <MenuItem
+                  closeOnClick
+                  onClick={() => handleLocaleSelect("zh")}
+                >
+                  {t("localeChinese")}
+                  {locale === "zh" ? <MenuShortcut>{t("menu.current")}</MenuShortcut> : null}
                 </MenuItem>
               </MenuSubmenuPanel>
             </MenuSubmenu>
@@ -775,7 +826,7 @@ export function HeaderActionControls({
                 }}
               >
                 {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-                {isFullScreenActive ? "Exit Full Screen" : "Enter Full Screen"}
+                {isFullScreenActive ? t("menu.fullScreenExit") : t("menu.fullScreenEnter")}
               </MenuItem>
             ) : null}
 
@@ -786,7 +837,7 @@ export function HeaderActionControls({
                 <MenuSubmenuTrigger>
                   <span className="flex items-center gap-2">
                     <Bot className="size-4 text-foreground/90" />
-                    <span>ACP Agent</span>
+                    <span>{t("menu.acpAgent")}</span>
                   </span>
                 </MenuSubmenuTrigger>
                 <MenuSubmenuPanel className="w-64">
@@ -797,19 +848,19 @@ export function HeaderActionControls({
                       setIsActionMenuOpen(false);
                     }}
                   >
-                    Open Agent Chat
+                    {t("menu.openAgentChat")}
                   </MenuItem>
 
                   <MenuItem closeOnClick={false}>
                     <div className="flex w-full items-center gap-2">
-                      <span className="min-w-14 text-sm text-foreground">Opacity</span>
+                      <span className="min-w-14 text-sm text-foreground">{t("menu.opacity")}</span>
                       <input
                         type="range"
                         min={20}
                         max={100}
                         value={layout.opacity}
                         onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                        aria-label="Agent chat panel opacity"
+                        aria-label={t("menu.opacity")}
                         onClick={(event) => event.stopPropagation()}
                         onPointerDown={(event) => event.stopPropagation()}
                         className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
@@ -831,7 +882,7 @@ export function HeaderActionControls({
               }}
             >
               <ChartColumnBig className="size-4" />
-              Token Usage
+              {t("menu.tokenUsage")}
             </MenuItem>
           </MenuPanel>
         </Menu>
@@ -850,7 +901,7 @@ export function HeaderActionControls({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    aria-label={isRightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
+                    aria-label={isRightCollapsed ? t("rightSidebar.expand") : t("rightSidebar.collapse")}
                     onClick={toggleRightSidebar}
                     className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
                   >
@@ -863,7 +914,7 @@ export function HeaderActionControls({
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="flex items-center gap-2">
-                    <span>{isRightCollapsed ? "Expand Right Sidebar" : "Collapse Right Sidebar"}</span>
+                    <span>{isRightCollapsed ? t("rightSidebar.expandLabel") : t("rightSidebar.collapseLabel")}</span>
                     <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                       <Command className="size-3" />
                       <ArrowBigUp className="size-3" />

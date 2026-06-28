@@ -37,6 +37,7 @@ import {
   type AppSearchItem,
   type SearchTab,
 } from "@/app-shell/global-search-parts";
+import { useTranslations } from "next-intl";
 
 type SubView = "todo" | "note" | "commit" | "usage";
 
@@ -64,6 +65,7 @@ function GlobalSearchSubViewFrame({
   onBack,
   children,
 }: GlobalSearchSubViewFrameProps) {
+  const t = useTranslations("appShell");
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
@@ -84,7 +86,7 @@ function GlobalSearchSubViewFrame({
       <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-end border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
         <span className="flex items-center gap-1.5 opacity-80">
           <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
-          <span>Back</span>
+          <span>{t("globalSearch.back")}</span>
         </span>
       </div>
     </div>
@@ -116,13 +118,14 @@ export function TodoSubView({
   deleteTask,
   onBack,
 }: TodoSubViewProps) {
+  const t = useTranslations("appShell");
   const completedCount = tasks.filter((task) => task.status === "done").length;
   const progressWidth = tasks.length > 0 ? `${(completedCount / tasks.length) * 100}%` : "0%";
 
   return (
     <GlobalSearchSubViewFrame
       icon={<CheckSquare className="size-4 shrink-0 text-muted-foreground" />}
-      title={currentWorkspace?.name || currentProject?.name || "Tasks"}
+      title={currentWorkspace?.name || currentProject?.name || t("globalSearch.fallback.tasks")}
       onBack={onBack}
     >
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -130,7 +133,7 @@ export function TodoSubView({
           <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border px-4 py-3">
             <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <CheckSquare className="size-4" />
-              Tasks
+              {t("globalSearch.tasks")}
             </CardTitle>
             <div className="flex items-center gap-2.5">
               <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
@@ -176,17 +179,18 @@ export function NoteSubView({
   currentEffectivePath,
   onBack,
 }: NoteSubViewProps) {
+  const t = useTranslations("appShell");
   return (
     <GlobalSearchSubViewFrame
       icon={<StickyNote className="size-4 shrink-0 text-muted-foreground" />}
-      title={currentWorkspace?.name || currentProject?.name || "Note"}
+      title={currentWorkspace?.name || currentProject?.name || t("globalSearch.fallback.note")}
       onBack={onBack}
     >
       <div className="min-h-0 flex-1 overflow-hidden">
         <WorkspaceNotePanel
           contextId={contextId}
           effectivePath={currentEffectivePath}
-          title="NOTE"
+          title={t("globalSearch.noteTitle")}
           compact
           className="h-full rounded-none border-0 bg-background"
         />
@@ -212,10 +216,11 @@ export function CommitSubView({
   workspaceId,
   onBack,
 }: CommitSubViewProps) {
+  const t = useTranslations("appShell");
   return (
     <GlobalSearchSubViewFrame
       icon={<GitCommit className="size-4 shrink-0 text-muted-foreground" />}
-      title="Commit & Push"
+      title={t("globalSearch.fallback.commit")}
       onBack={onBack}
     >
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -238,10 +243,11 @@ interface UsageSubViewProps {
 }
 
 export function UsageSubView({ onBack }: UsageSubViewProps) {
+  const t = useTranslations("appShell");
   return (
     <GlobalSearchSubViewFrame
       icon={<Gauge className="size-4 shrink-0 text-muted-foreground" />}
-      title="AI Quota Usage"
+      title={t("globalSearch.fallback.usage")}
       onBack={onBack}
     >
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -281,20 +287,6 @@ interface GlobalSearchMainViewProps {
   onFileSelect: (path: string) => void;
 }
 
-const APP_GROUPS: Array<{ key: AppSearchItem["type"]; heading: string; showDescription?: boolean }> = [
-  { key: "workspace", heading: "Workspaces", showDescription: true },
-  { key: "theme", heading: "Theme" },
-  { key: "project", heading: "Actions" },
-  { key: "management", heading: "Management Center", showDescription: true },
-  { key: "modal", heading: "Open Modal", showDescription: true },
-  { key: "todo", heading: "TODO", showDescription: true },
-  { key: "note", heading: "NOTE", showDescription: true },
-  { key: "commit", heading: "Commit & Push", showDescription: true },
-  { key: "usage", heading: "Usage", showDescription: true },
-  { key: "new-workspace", heading: "New Workspace", showDescription: true },
-  { key: "quick-open", heading: "Quick Open", showDescription: true },
-];
-
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-[300px] w-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
@@ -308,13 +300,28 @@ function AppSearchResults({
   groupedAppItems,
   searchQuery,
 }: Pick<GlobalSearchMainViewProps, "filteredAppItems" | "groupedAppItems" | "searchQuery">) {
+  const t = useTranslations("appShell");
+  const appGroups: Array<{ key: AppSearchItem["type"]; heading: string; showDescription?: boolean }> = [
+    { key: "workspace", heading: t("globalSearch.groups.workspace"), showDescription: true },
+    { key: "theme", heading: t("globalSearch.groups.theme") },
+    { key: "project", heading: t("globalSearch.groups.project") },
+    { key: "management", heading: t("globalSearch.groups.management"), showDescription: true },
+    { key: "modal", heading: t("globalSearch.groups.modal"), showDescription: true },
+    { key: "todo", heading: t("globalSearch.groups.todo") },
+    { key: "note", heading: t("globalSearch.groups.note") },
+    { key: "commit", heading: t("globalSearch.groups.commit"), showDescription: true },
+    { key: "usage", heading: t("globalSearch.groups.usage"), showDescription: true },
+    { key: "new-workspace", heading: t("globalSearch.groups.newWorkspace"), showDescription: true },
+    { key: "quick-open", heading: t("globalSearch.groups.quickOpen"), showDescription: true },
+  ];
+
   if (filteredAppItems.length === 0) {
-    return <EmptyState>No results found.</EmptyState>;
+    return <EmptyState>{t("globalSearch.noResults")}</EmptyState>;
   }
 
   return (
     <>
-      {APP_GROUPS.map(({ key, heading, showDescription }) => (
+      {appGroups.map(({ key, heading, showDescription }) => (
         groupedAppItems[key].length > 0 ? (
           <CommandGroup key={key} heading={heading}>
             {groupedAppItems[key].map((item) => (
@@ -343,20 +350,21 @@ function FileSearchResults({
   isLoadingFiles,
   onFileSelect,
 }: Pick<GlobalSearchMainViewProps, "currentEffectivePath" | "currentProject" | "filteredFiles" | "isLoadingFiles" | "onFileSelect">) {
+  const t = useTranslations("appShell");
   if (!currentProject) {
-    return <EmptyState>Select a workspace to search files</EmptyState>;
+    return <EmptyState>{t("globalSearch.selectWorkspaceForFiles")}</EmptyState>;
   }
 
   if (isLoadingFiles) {
-    return <EmptyState>Loading files...</EmptyState>;
+    return <EmptyState>{t("globalSearch.loadingFiles")}</EmptyState>;
   }
 
   if (filteredFiles.length === 0) {
-    return <EmptyState>No files found.</EmptyState>;
+    return <EmptyState>{t("globalSearch.noFilesFound")}</EmptyState>;
   }
 
   return (
-    <CommandGroup heading="Files">
+    <CommandGroup heading={t("globalSearch.groups.files")}>
       {filteredFiles.map((file) => (
         <SearchItem
           key={file.path}
@@ -365,7 +373,7 @@ function FileSearchResults({
           title={file.name}
           description={file.path.replace(`${currentEffectivePath}/`, "")}
           isDir={file.isDir}
-          shortcut="Open"
+          shortcut={t("globalSearch.open")}
         />
       ))}
     </CommandGroup>
@@ -381,24 +389,25 @@ function CodeSearchResults({
   setHoveredValue,
   onCodeResultSelect,
 }: Pick<GlobalSearchMainViewProps, "codeSearchResults" | "codeSearchTruncated" | "currentProject" | "isSearchingCode" | "searchQuery" | "setHoveredValue" | "onCodeResultSelect">) {
+  const t = useTranslations("appShell");
   if (!currentProject) {
-    return <EmptyState>Select a workspace to search code</EmptyState>;
+    return <EmptyState>{t("globalSearch.selectWorkspaceForCode")}</EmptyState>;
   }
 
   if (!searchQuery.trim()) {
-    return <EmptyState>Type to search in file contents</EmptyState>;
+    return <EmptyState>{t("globalSearch.typeToSearch")}</EmptyState>;
   }
 
   if (isSearchingCode) {
-    return <EmptyState>Searching...</EmptyState>;
+    return <EmptyState>{t("globalSearch.searching")}</EmptyState>;
   }
 
   if (codeSearchResults.length === 0) {
-    return <EmptyState>No matches found.</EmptyState>;
+    return <EmptyState>{t("globalSearch.noMatches")}</EmptyState>;
   }
 
   return (
-    <CommandGroup heading={codeSearchTruncated ? "Results (truncated)" : "Results"}>
+    <CommandGroup heading={codeSearchTruncated ? t("globalSearch.resultsTruncated") : t("globalSearch.results")}>
       {codeSearchResults.map((match, index) => (
         <CodeSearchResultItem
           key={`${match.file_path}-${match.line_number}-${index}`}
@@ -412,6 +421,7 @@ function CodeSearchResults({
 }
 
 function GlobalSearchFooter() {
+  const t = useTranslations("appShell");
   return (
     <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-between border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
       <div className="flex items-center gap-5">
@@ -424,19 +434,19 @@ function GlobalSearchFooter() {
               <ArrowDown className="size-2.5" />
             </kbd>
           </div>
-          <span className="opacity-80">Navigate</span>
+          <span className="opacity-80">{t("globalSearch.navigate")}</span>
         </span>
         <span className="flex cursor-default items-center gap-1.5 rounded-md px-2 py-0.5 transition-colors hover:bg-muted/50">
           <kbd className="flex h-[18px] min-w-[20px] items-center justify-center rounded border border-border/60 bg-background font-sans text-[10px] shadow-sm">
             <CornerDownLeft className="size-2.5" />
           </kbd>
-          <span className="opacity-80">Open Result</span>
+          <span className="opacity-80">{t("globalSearch.openResult")}</span>
         </span>
       </div>
       <div className="flex items-center gap-4">
         <span className="flex items-center gap-1.5 opacity-80">
           <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
-          <span>Close</span>
+          <span>{t("globalSearch.close")}</span>
         </span>
       </div>
     </div>
@@ -464,6 +474,7 @@ export function GlobalSearchMainView({
   onCodeResultSelect,
   onFileSelect,
 }: GlobalSearchMainViewProps) {
+  const t = useTranslations("appShell");
   return (
     <>
       <CodePreviewTooltip
@@ -477,15 +488,15 @@ export function GlobalSearchMainView({
           <TabsList variant="underline" className="flex h-12 w-full border-b border-border">
             <TabsTab value="app" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
               <Layers className="size-3.5" />
-              <span>App</span>
+              <span>{t("globalSearch.tabs.app")}</span>
             </TabsTab>
             <TabsTab value="files" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
               <File className="size-3.5" />
-              <span>Files</span>
+              <span>{t("globalSearch.tabs.files")}</span>
             </TabsTab>
             <TabsTab value="code" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
               <Code className="size-3.5" />
-              <span>Code</span>
+              <span>{t("globalSearch.tabs.code")}</span>
             </TabsTab>
           </TabsList>
         </Tabs>
@@ -493,7 +504,7 @@ export function GlobalSearchMainView({
 
       <CommandInputWithoutBorder
         ref={inputRef}
-        placeholder="Search for apps, files, or code..."
+        placeholder={t("globalSearch.placeholder")}
         value={searchQuery}
         onValueChange={setSearchQuery}
         className="text-base"

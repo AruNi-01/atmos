@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useTranslations } from "next-intl";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
@@ -78,17 +79,17 @@ const ReviewView = dynamic(() => import("@/features/diff/components/ReviewView")
 
 const BASE_TABS: Array<{
   value: RightSidebarTab;
-  label: string;
+  labelKey: string;
   Icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { value: "changes", label: "Changes", Icon: GitBranch },
-  { value: "review", label: "Review", Icon: FileDiff },
-  { value: "run-preview", label: "Run / Preview", Icon: Play },
-  { value: "pr", label: "Pull Requests", Icon: GitPullRequest },
-  { value: "actions", label: "Actions", Icon: Workflow },
+  { value: "changes", labelKey: "rightSidebar.topTabs.changes", Icon: GitBranch },
+  { value: "review", labelKey: "rightSidebar.topTabs.review", Icon: FileDiff },
+  { value: "run-preview", labelKey: "rightSidebar.topTabs.runPreview", Icon: Play },
+  { value: "pr", labelKey: "rightSidebar.topTabs.pullRequests", Icon: GitPullRequest },
+  { value: "actions", labelKey: "rightSidebar.topTabs.actions", Icon: Workflow },
 ];
 
-const FILES_TAB = { value: "files" as RightSidebarTab, label: "Files", Icon: FolderTree };
+const FILES_TAB = { value: "files" as RightSidebarTab, labelKey: "common.files", Icon: FolderTree };
 
 function buildWikiChatPrompt(
   prompt: string,
@@ -119,6 +120,7 @@ interface RightSidebarProps {
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = () => {
+  const t = useTranslations("AppShell.chrome");
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
@@ -302,7 +304,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     <div className="flex h-full flex-col items-center justify-center text-muted-foreground/50">
       <FolderOpen className="size-8 opacity-20 mb-2" />
       <span className="text-xs text-center">
-        Select a project or workspace to view changes
+        {t("rightSidebar.noContext")}
       </span>
     </div>
   );
@@ -333,7 +335,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               "border-b border-sidebar-border shrink-0",
             )}
           >
-            {topTabs.map(({ value, label, Icon }) => (
+            {topTabs.map(({ value, labelKey, Icon }) => {
+              const label = t(labelKey);
+              return (
               <TabsTab
                 key={value}
                 value={value}
@@ -346,7 +350,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               >
                 <Icon className="size-4" />
               </TabsTab>
-            ))}
+              );
+            })}
           </TabsList>
 
           {/* Files tab content */}
@@ -390,7 +395,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       <RefreshableTabsTab
                         value="changes"
                         activeValue={changesSubTab}
-                        refreshTitle="Refresh changes"
+                        refreshTitle={t("rightSidebar.changes.refreshChanges")}
                         onRefresh={handleChangesRefresh}
                         isRefreshing={changesSubTab === "changes" && isLoading}
                         trailingAction={({ isVisible }) => (
@@ -398,13 +403,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             role="button"
                             title={
                               changesFileViewMode === "tree"
-                                ? "Show as list"
-                                : "Show as tree"
+                                ? t("rightSidebar.changes.showAsList")
+                                : t("rightSidebar.changes.showAsTree")
                             }
                             aria-label={
                               changesFileViewMode === "tree"
-                                ? "Show changed files as list"
-                                : "Show changed files as tree"
+                                ? t("rightSidebar.changes.showChangedFilesAsList")
+                                : t("rightSidebar.changes.showChangedFilesAsTree")
                             }
                             tabIndex={isVisible ? 0 : -1}
                             onPointerDown={(event) => {
@@ -443,12 +448,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       >
                         <File className="size-3.5" />
-                        <span>Files</span>
+                        <span>{t("common.files")}</span>
                       </RefreshableTabsTab>
                       <RefreshableTabsTab
                         value="commits"
                         activeValue={changesSubTab}
-                        refreshTitle="Refresh commits"
+                        refreshTitle={t("rightSidebar.changes.refreshCommits")}
                         onRefresh={async () => {
                           await refreshCommitsPanel?.();
                         }}
@@ -458,7 +463,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       >
                         <GitCommitIcon className="size-3.5" />
-                        <span>Commits</span>
+                        <span>{t("common.commits")}</span>
                       </RefreshableTabsTab>
                     </TabsList>
                   </Tabs>
@@ -481,8 +486,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         <Check className="size-8 opacity-20 mb-2" />
                         <span className="text-xs">
                           {compareRef
-                            ? `No changes against ${compareRef}`
-                            : "No changes detected"}
+                            ? t("rightSidebar.changes.noChangesAgainst", { compareRef })
+                            : t("rightSidebar.changes.noChangesDetected")}
                         </span>
                         {!compareRef && gitStatus?.default_branch ? (
                           <Button
@@ -493,7 +498,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                               void compareAgainstDefaultBranch();
                             }}
                           >
-                            Compare with origin/{gitStatus.default_branch}
+                            {t("rightSidebar.changes.compareWithDefaultBranch", {
+                              branch: gitStatus.default_branch,
+                            })}
                           </Button>
                         ) : null}
                       </div>
@@ -501,7 +508,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       <>
                         <ChangeSection
                           kind="staged"
-                          title="Staged Changes"
+                          title={t("rightSidebar.changes.stagedChanges")}
                           files={displayedStagedFiles}
                           workspaceId={workspaceId}
                           viewMode={changesFileViewMode}
@@ -510,7 +517,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         />
                         <ChangeSection
                           kind="unstaged"
-                          title="Unstaged Changes"
+                          title={t("rightSidebar.changes.unstagedChanges")}
                           files={displayedUnstagedFiles}
                           workspaceId={workspaceId}
                           viewMode={changesFileViewMode}
@@ -521,7 +528,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         />
                         <ChangeSection
                           kind="untracked"
-                          title="Untracked Changes"
+                          title={t("rightSidebar.changes.untrackedChanges")}
                           files={displayedUntrackedFiles}
                           workspaceId={workspaceId}
                           viewMode={changesFileViewMode}
@@ -551,7 +558,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       />
                     ) : currentProjectPath && currentBranch ? null : (
                       <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
-                        <span className="text-xs">No repository context</span>
+                        <span className="text-xs">{t("rightSidebar.changes.noRepositoryContext")}</span>
                       </div>
                     )}
                   </div>
@@ -597,7 +604,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         <RefreshableTabsTab
                           value="open"
                           activeValue={prSubTab}
-                          refreshTitle="Refresh open pull requests"
+                          refreshTitle={t("rightSidebar.pr.refreshOpenPullRequests")}
                           onRefresh={() => prPanelRef.current?.refreshOpen()}
                           isRefreshing={
                             prSubTab === "open" && prPanelLoading.open
@@ -605,12 +612,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                         >
                           <GitPullRequestCreate className="size-3.5" />
-                          <span>Open</span>
+                          <span>{t("common.open")}</span>
                         </RefreshableTabsTab>
                         <RefreshableTabsTab
                           value="closed"
                           activeValue={prSubTab}
-                          refreshTitle="Refresh closed pull requests"
+                          refreshTitle={t("rightSidebar.pr.refreshClosedPullRequests")}
                           onRefresh={() => prPanelRef.current?.refreshClosed()}
                           isRefreshing={
                             prSubTab === "closed" && prPanelLoading.closed
@@ -618,7 +625,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                         >
                           <GitPullRequestClosed className="size-3.5" />
-                          <span>Closed</span>
+                          <span>{t("common.closed")}</span>
                         </RefreshableTabsTab>
                       </TabsList>
                     </Tabs>
@@ -640,7 +647,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
                   <GitPullRequest className="size-8 opacity-20 mb-2" />
                   <span className="text-xs text-center">
-                    Not a GitHub repository
+                    {t("rightSidebar.notAGitHubRepository")}
                   </span>
                 </div>
               )
@@ -675,7 +682,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
                   <Workflow className="size-8 opacity-20 mb-2" />
                   <span className="text-xs text-center">
-                    Not a GitHub repository
+                    {t("rightSidebar.notAGitHubRepository")}
                   </span>
                 </div>
               )

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,18 +17,6 @@ export type FileTabContextMenuState = {
   y: number;
   filePath: string;
 } | null;
-
-async function copyToClipboard(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    toastManager.add({
-      title: "Copy failed",
-      description: "Clipboard is not available.",
-      type: "error",
-    });
-  }
-}
 
 export function CenterStageFileTabContextMenu({
   tabContextMenu,
@@ -46,6 +35,20 @@ export function CenterStageFileTabContextMenu({
   onCloseFile: (file: OpenFile) => void;
   closeFilesSafely: (files: OpenFile[]) => void;
 }) {
+  const t = useTranslations("appShell.fileTabContextMenu");
+
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      toastManager.add({
+        title: t("copyFailedTitle"),
+        description: t("clipboardUnavailable"),
+        type: "error",
+      });
+    }
+  };
+
   return (
     <DropdownMenu
       open={!!tabContextMenu}
@@ -85,7 +88,7 @@ export function CenterStageFileTabContextMenu({
                   setTabContextMenu(null);
                 }}
               >
-                Close
+                {t("close")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
@@ -94,7 +97,7 @@ export function CenterStageFileTabContextMenu({
                 }}
                 disabled={openFiles.length <= 1}
               >
-                Close Others
+                {t("closeOthers")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -104,7 +107,7 @@ export function CenterStageFileTabContextMenu({
                 }}
                 disabled={leftFiles.length === 0}
               >
-                Close All Left
+                {t("closeAllLeft")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
@@ -113,7 +116,7 @@ export function CenterStageFileTabContextMenu({
                 }}
                 disabled={rightFiles.length === 0}
               >
-                Close All Right
+                {t("closeAllRight")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -123,7 +126,7 @@ export function CenterStageFileTabContextMenu({
                 }}
                 disabled={openFiles.length === 0}
               >
-                Close All
+                {t("closeAll")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -132,7 +135,7 @@ export function CenterStageFileTabContextMenu({
                   setTabContextMenu(null);
                 }}
               >
-                Copy Path
+                {t("copyPath")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={async () => {
@@ -140,7 +143,7 @@ export function CenterStageFileTabContextMenu({
                   setTabContextMenu(null);
                 }}
               >
-                Copy Relative Path
+                {t("copyRelativePath")}
               </DropdownMenuItem>
             </>
           );

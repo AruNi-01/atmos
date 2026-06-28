@@ -6,6 +6,7 @@ import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useTheme } from 'next-themes';
+import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
   CommandDialog,
@@ -114,6 +115,7 @@ function scoreFileSearchItem(file: { name: string; path: string }, query: string
 }
 
 export function GlobalSearch() {
+  const t = useTranslations('appShell.globalSearch');
   const router = useAppRouter();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { setTheme } = useTheme();
@@ -229,7 +231,7 @@ export function GlobalSearch() {
   useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
     enableOnFormTags: true,
     preventDefault: true,
-    description: 'Toggle global search'
+    description: t('hotkeys.toggleGlobalSearch'),
   });
 
   // Keyboard shortcut to switch tabs when search is open
@@ -245,7 +247,7 @@ export function GlobalSearch() {
     enabled: isGlobalSearchOpen,
     enableOnFormTags: true,
     preventDefault: true,
-    description: 'Switch search tabs'
+    description: t('hotkeys.switchSearchTabs'),
   });
 
   // Reset search when dialog closes

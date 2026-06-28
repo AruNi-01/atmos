@@ -51,6 +51,7 @@ import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/features/settings/components/SettingsModal';
 import { WorkspaceStatusPopover } from './WorkspaceStatusPopover';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
+import { useTranslations } from "next-intl";
 import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
 import { HeaderActionControls } from './header-action-controls';
 import { HeaderGitContext } from './header-git-context';
@@ -72,6 +73,7 @@ const Header: React.FC = () => {
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const { layout, updateLayout, loadLayout } = useAgentChatLayoutStore();
   useEffect(() => { loadLayout(); }, [loadLayout]);
+  const t = useTranslations("header");
   const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   useEffect(() => {
@@ -353,9 +355,9 @@ const Header: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to rename branch:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = error instanceof Error ? error.message : t("toast.unknownError");
         toastManager.add({
-          title: 'Rename Failed',
+          title: t("toast.renameFailed"),
           description: errorMessage,
           type: 'error'
         });
@@ -372,15 +374,15 @@ const Header: React.FC = () => {
   };
 
   // Get display values
-  const displayCurrentBranch = currentWorkspace?.branch || currentBranch || 'No branch';
-  const displayTargetBranch = currentProject?.targetBranch || targetBranch || 'main';
+  const displayCurrentBranch = currentWorkspace?.branch || currentBranch || t("labels.defaultBranch");
+  const displayTargetBranch = currentProject?.targetBranch || targetBranch || t("labels.defaultMainBranch");
   const branchSyncState = useMemo(
     () => getBranchSyncIndicatorState({
       defaultBranch,
       ahead: defaultBranchAhead,
       behind: defaultBranchBehind,
-    }),
-    [defaultBranch, defaultBranchAhead, defaultBranchBehind]
+    }, t),
+    [defaultBranch, defaultBranchAhead, defaultBranchBehind, t]
   );
 
   const handleOpenDesktopWeb = useCallback(async () => {
@@ -391,8 +393,8 @@ const Header: React.FC = () => {
     }
 
     toastManager.add({
-      title: 'Web not ready',
-      description: 'The desktop web endpoint is still starting. Try again in a moment.',
+      title: t("toast.webNotReadyTitle"),
+      description: t("toast.webNotReadyDescription"),
       type: 'error',
     });
   }, [openInBrowser]);
@@ -405,7 +407,11 @@ const Header: React.FC = () => {
     setHeaderHasOpenOverlay(isAnyHeaderOverlayOpen);
   }, [isAnyHeaderOverlayOpen, setHeaderHasOpenOverlay]);
 
-  const resolvedThemeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
+  const resolvedThemeLabel = theme === "light"
+    ? t("theme.light")
+    : theme === "dark"
+      ? t("theme.dark")
+      : t("theme.system");
   const handleHeaderMouseDown = useCallback(async (event: React.MouseEvent<HTMLElement>) => {
     if (!isTauriRuntime()) return;
     if (event.button !== 0) return;
@@ -454,7 +460,7 @@ const Header: React.FC = () => {
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={isLeftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"}
+                aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
                 onClick={toggleLeftSidebar}
                 className="desktop-no-drag inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
@@ -463,7 +469,7 @@ const Header: React.FC = () => {
             </TooltipTrigger>
             <TooltipContent>
               <div className="flex items-center gap-2">
-                <span>{isLeftCollapsed ? "Expand Left Sidebar" : "Collapse Left Sidebar"}</span>
+                <span>{isLeftCollapsed ? t("leftSidebar.expandLabel") : t("leftSidebar.collapseLabel")}</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" /><span className="text-xs">B</span>
                 </kbd>
@@ -475,7 +481,7 @@ const Header: React.FC = () => {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Go back"
+                  aria-label={t("navigation.goBack")}
                   onClick={() => window.history.back()}
                   className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
@@ -484,7 +490,7 @@ const Header: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex items-center gap-2">
-                  <span>Back</span>
+                  <span>{t("navigation.back")}</span>
                   <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                     <Command className="size-3" /><span className="text-xs">[</span>
                   </kbd>
@@ -495,7 +501,7 @@ const Header: React.FC = () => {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Go forward"
+                  aria-label={t("navigation.goForward")}
                   onClick={() => window.history.forward()}
                   className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
@@ -504,7 +510,7 @@ const Header: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex items-center gap-2">
-                  <span>Forward</span>
+                  <span>{t("navigation.forward")}</span>
                   <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                     <Command className="size-3" /><span className="text-xs">]</span>
                   </kbd>
@@ -515,7 +521,7 @@ const Header: React.FC = () => {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Refresh page"
+                  aria-label={t("navigation.refreshPage")}
                   onClick={() => window.location.reload()}
                   className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
@@ -524,7 +530,7 @@ const Header: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex items-center gap-2">
-                  <span>Refresh</span>
+                  <span>{t("navigation.refresh")}</span>
                   <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                     <Command className="size-3" /><span className="text-xs">R</span>
                   </kbd>
@@ -540,7 +546,7 @@ const Header: React.FC = () => {
           >
             <span className="mr-4 text-lg font-light text-muted-foreground/30">/</span>
             <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
-              {currentProject?.name || 'Atmosphere for Agentic Builders'}
+              {currentProject?.name || t("projectFallback")}
             </span>
           </div>
 

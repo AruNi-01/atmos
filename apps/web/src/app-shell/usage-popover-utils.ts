@@ -1,8 +1,61 @@
 import type { UsageProviderResponse } from "@/api/ws-api";
 
-export function formatTimestamp(value?: number | null): string {
-  if (!value) return "Unknown";
-  return new Intl.DateTimeFormat("en", {
+export type UsagePopoverFormatters = {
+  unknownLabel?: string;
+  resetUnknownLabel?: string;
+  resettingNowLabel?: string;
+  resetsInPrefixLabel?: string;
+  nextUpdateInLabel?: string;
+};
+
+function defaultLocale(): Intl.LocalesArgument | undefined {
+  if (typeof document !== "undefined") {
+    const documentLocale = document.documentElement.lang?.trim();
+    if (documentLocale) return documentLocale;
+  }
+
+  if (typeof navigator !== "undefined") {
+    if (navigator.languages.length > 0) return navigator.languages;
+    if (navigator.language) return navigator.language;
+  }
+
+  return undefined;
+}
+
+function formatCompactUnit(
+  value: number,
+  unit: "day" | "hour" | "minute",
+  locale?: Intl.LocalesArgument,
+): string {
+  return new Intl.NumberFormat(locale ?? defaultLocale(), {
+    style: "unit",
+    unit,
+    unitDisplay: "narrow",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatCompactDuration(parts: string[], locale?: Intl.LocalesArgument): string {
+  return new Intl.ListFormat(locale ?? defaultLocale(), {
+    style: "short",
+    type: "unit",
+  }).format(parts);
+}
+
+function resolveFormatterValue(
+  value: string | undefined,
+  fallback: string,
+): string {
+  return value ?? fallback;
+}
+
+export function formatTimestamp(
+  value?: number | null,
+  locale: Intl.LocalesArgument = "en",
+  formatters: UsagePopoverFormatters = {},
+): string {
+  if (!value) return resolveFormatterValue(formatters.unknownLabel, "Unknown");
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -10,39 +63,66 @@ export function formatTimestamp(value?: number | null): string {
   }).format(new Date(value * 1000));
 }
 
-function formatRelativeReset(value?: number | null): string {
-  if (!value) return "Reset unknown";
+function formatRelativeReset(
+  value?: number | null,
+  formatters: UsagePopoverFormatters = {},
+  locale?: Intl.LocalesArgument,
+): string {
+  if (!value) {
+    return resolveFormatterValue(formatters.resetUnknownLabel, "Reset unknown");
+  }
+
   const diffMs = value * 1000 - Date.now();
-  if (diffMs <= 0) return "Resetting now";
+  if (diffMs <= 0) return resolveFormatterValue(formatters.resettingNowLabel, "Resetting now");
 
   const hours = Math.floor(diffMs / 3_600_000);
   const days = Math.floor(hours / 24);
   if (days > 0) {
     const remHours = hours % 24;
-    return `Resets in ${days}d ${remHours}h`;
+    const duration = formatCompactDuration(
+      [formatCompactUnit(days, "day", locale), formatCompactUnit(remHours, "hour", locale)].filter(Boolean),
+      locale,
+    );
+    return `${resolveFormatterValue(formatters.resetsInPrefixLabel, "Resets in")} ${duration}`;
   }
   const mins = Math.floor((diffMs % 3_600_000) / 60_000);
-  return `Resets in ${hours}h ${mins}m`;
+  const duration = formatCompactDuration(
+    [formatCompactUnit(hours, "hour", locale), formatCompactUnit(mins, "minute", locale)].filter(Boolean),
+    locale,
+  );
+  return `${resolveFormatterValue(formatters.resetsInPrefixLabel, "Resets in")} ${duration}`;
 }
 
 export function formatNextAutoRefreshHint(
   generatedAt?: number | null,
   intervalMinutes?: number | null,
   nowMs: number = Date.now(),
+  formatters: UsagePopoverFormatters = {},
+  locale?: Intl.LocalesArgument,
 ): { value: string; suffix: string } | null {
   if (!generatedAt || !intervalMinutes) return null;
 
   const nextUpdateAtMs = generatedAt * 1000 + intervalMinutes * 60_000;
   const diffMs = nextUpdateAtMs - nowMs;
   if (diffMs <= 0) {
-    return { value: "<1min", suffix: "Next update in" };
+    return {
+      value: `<${formatCompactUnit(1, "minute", locale)}`,
+      suffix: resolveFormatterValue(formatters.nextUpdateInLabel, "Next update in"),
+    };
   }
 
   const remainingMinutes = Math.round(diffMs / 60_000);
   if (remainingMinutes <= 0) {
-    return { value: "<1min", suffix: "Next update in" };
+    return {
+      value: `<${formatCompactUnit(1, "minute", locale)}`,
+      suffix: resolveFormatterValue(formatters.nextUpdateInLabel, "Next update in"),
+    };
   }
-  return { value: `${remainingMinutes}min`, suffix: "Next update in" };
+
+  return {
+    value: formatCompactUnit(remainingMinutes, "minute", locale),
+    suffix: resolveFormatterValue(formatters.nextUpdateInLabel, "Next update in"),
+  };
 }
 
 export function formatCountdownDisplay(remainingMs: number): string {
@@ -87,22 +167,37 @@ function extractMetricDetail(text?: string | null): string | null {
 export function displayResetText(
   explicitResetText?: string | null,
   fallbackResetAt?: number | null,
+  formatters: UsagePopoverFormatters = {},
+  locale?: Intl.LocalesArgument,
 ): string | null {
-  if (explicitResetText) return explicitResetText;
+  const normalizedResetText = explicitResetText?.trim();
+  const looksLikeEnglishResetText = normalizedResetText
+    ? /^(reset(?:ting)?(?:\s+unknown|\s+now)?|resets?\s+in)\b/i.test(normalizedResetText)
+    : false;
+
+  if (fallbackResetAt && looksLikeEnglishResetText) {
+    return formatRelativeReset(fallbackResetAt, formatters, locale);
+  }
+
+  if (normalizedResetText) return normalizedResetText;
   if (!fallbackResetAt) return null;
-  const fallbackText = formatRelativeReset(fallbackResetAt);
-  return fallbackText === "Reset unknown" ? null : fallbackText;
+  const fallbackText = formatRelativeReset(fallbackResetAt, formatters, locale);
+  return fallbackText === resolveFormatterValue(formatters.resetUnknownLabel, "Reset unknown") ? null : fallbackText;
 }
 
-export function displayMetricUsedText(metric: UsageMetricRow): string {
+export function displayMetricUsedText(
+  metric: UsageMetricRow,
+  usedSuffix = "used",
+): string {
   if (metric.percent === null || metric.percent === undefined) {
     return metric.value;
   }
+
   const amountSuffix = metric.amountText ? ` (${metric.amountText})` : "";
   if (metric.detailText) {
-    return `${metric.percent.toFixed(0)}% used${amountSuffix} (${metric.detailText})`;
+    return `${metric.percent.toFixed(0)}% ${usedSuffix}${amountSuffix} (${metric.detailText})`;
   }
-  return `${metric.percent.toFixed(0)}% used${amountSuffix}`;
+  return `${metric.percent.toFixed(0)}% ${usedSuffix}${amountSuffix}`;
 }
 
 export type UsageMetricRow = {
@@ -245,14 +340,17 @@ export function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] 
     }));
 }
 
-export function providerIdentity(provider: UsageProviderResponse) {
+export function providerIdentity(
+  provider: UsageProviderResponse,
+  notDetectedLabel = "Not detected",
+) {
   const rawAccount =
-    firstRowValue(provider, "Account", "Account") ?? provider.auth_state.source ?? "Not detected";
+    firstRowValue(provider, "Account", "Account") ?? provider.auth_state.source ?? notDetectedLabel;
   const rawPlanValue =
     firstRowValue(provider, "Account", "Plan") ??
     provider.subscription_summary?.plan_label ??
     provider.fetch_state.message;
-  const isPlaceholder = (s: string) => s === "No plan data" || s === "Not detected";
+  const isPlaceholder = (s: string) => s === "No plan data" || s === notDetectedLabel;
   const rawPlan = rawPlanValue && !isPlaceholder(rawPlanValue) ? rawPlanValue : null;
   const genericAccount = rawAccount.trim().toLowerCase() === provider.label.trim().toLowerCase();
   const accountLabel = genericAccount && rawPlan ? rawPlan : rawAccount;
