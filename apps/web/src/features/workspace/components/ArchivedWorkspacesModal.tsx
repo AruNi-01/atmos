@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
   onDeleteWorkspace,
   onDeleteProject,
 }) => {
+  const t = useTranslations('Workspace.components.archivedModal');
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
@@ -106,7 +108,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Archive className="size-5" />
-            Archived Workspaces
+            {t('title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -118,7 +120,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
           ) : archivedWorkspaces.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <Archive className="size-8 mb-2 opacity-50" />
-              <p className="text-sm">No archived workspaces</p>
+              <p className="text-sm">{t('empty')}</p>
             </div>
           ) : (
             <div className="space-y-6 pb-5">
@@ -133,7 +135,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
                       onClick={() => handleDeleteProject(projectId, projectName)}
                     >
                       <Trash2 className="size-3" />
-                      Delete Project
+                      {t('actions.deleteProject')}
                     </Button>
                   </div>
                   <div className="space-y-2">
@@ -151,7 +153,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Archived {formatRelativeTime(ws.archived_at)}
+                            {t('archivedAt', { time: formatRelativeTime(ws.archived_at) })}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -167,7 +169,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
                             ) : (
                               <RotateCw className="size-4" />
                             )}
-                            <span className="text-xs">Restore</span>
+                            <span className="text-xs">{t('actions.restore')}</span>
                           </Button>
                           <Button
                             variant="ghost"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Input,
   ScrollArea,
@@ -46,24 +47,24 @@ interface GitStatus {
 }
 
 type TimeGroup =
-  | 'Today'
-  | 'Yesterday'
-  | '2-6 days ago'
-  | '1-3 weeks ago'
-  | '1-5 months ago'
-  | 'Half a year ago'
-  | '1 year ago'
-  | 'Older';
+  | 'today'
+  | 'yesterday'
+  | 'days2To6Ago'
+  | 'weeks1To3Ago'
+  | 'months1To5Ago'
+  | 'halfYearAgo'
+  | 'year1Ago'
+  | 'older';
 
 const GROUP_ORDER: TimeGroup[] = [
-  'Today',
-  'Yesterday',
-  '2-6 days ago',
-  '1-3 weeks ago',
-  '1-5 months ago',
-  'Half a year ago',
-  '1 year ago',
-  'Older'
+  'today',
+  'yesterday',
+  'days2To6Ago',
+  'weeks1To3Ago',
+  'months1To5Ago',
+  'halfYearAgo',
+  'year1Ago',
+  'older'
 ];
 
 interface RecentWorkspacesViewProps {
@@ -97,6 +98,7 @@ const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
 );
 
 export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey, viewSwitcher }) => {
+  const t = useTranslations('Workspace.components.recentView');
   const router = useAppRouter();
   const projects = useProjectStore(s => s.projects);
   const isStoreLoading = useProjectStore(s => s.isLoading);
@@ -228,14 +230,14 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
 
   const groupedWorkspaces = useMemo(() => {
     const groups: Record<TimeGroup, EnrichedWorkspace[]> = {
-      'Today': [],
-      'Yesterday': [],
-      '2-6 days ago': [],
-      '1-3 weeks ago': [],
-      '1-5 months ago': [],
-      'Half a year ago': [],
-      '1 year ago': [],
-      'Older': []
+      today: [],
+      yesterday: [],
+      days2To6Ago: [],
+      weeks1To3Ago: [],
+      months1To5Ago: [],
+      halfYearAgo: [],
+      year1Ago: [],
+      older: []
     };
 
     const now = new Date();
@@ -245,21 +247,21 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
       if (isNaN(date.getTime())) return;
 
       if (isToday(date)) {
-        groups['Today'].push(ws);
+        groups.today.push(ws);
       } else if (isYesterday(date)) {
-        groups['Yesterday'].push(ws);
+        groups.yesterday.push(ws);
       } else if (isAfter(date, subDays(now, 7))) {
-        groups['2-6 days ago'].push(ws);
+        groups.days2To6Ago.push(ws);
       } else if (isAfter(date, subWeeks(now, 4))) {
-        groups['1-3 weeks ago'].push(ws);
+        groups.weeks1To3Ago.push(ws);
       } else if (isAfter(date, subMonths(now, 6))) {
-        groups['1-5 months ago'].push(ws);
+        groups.months1To5Ago.push(ws);
       } else if (isAfter(date, subYears(now, 1))) {
-        groups['Half a year ago'].push(ws);
+        groups.halfYearAgo.push(ws);
       } else if (isAfter(date, subYears(now, 2))) {
-        groups['1 year ago'].push(ws);
+        groups.year1Ago.push(ws);
       } else {
-        groups['Older'].push(ws);
+        groups.older.push(ws);
       }
     });
 
@@ -269,8 +271,8 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   const handleSelect = (ws: EnrichedWorkspace) => {
     if (ws.isArchivedRemote) {
       toastManager.add({
-        title: "Workspace Archived",
-        description: "This workspace is archived and cannot be opened directly.",
+        title: t('toasts.workspaceArchivedTitle'),
+        description: t('toasts.workspaceArchivedDescription'),
         type: "info"
       });
       return;
@@ -279,7 +281,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   };
 
   const truncatePath = (path: string | undefined) => {
-    if (!path) return 'Unknown path';
+    if (!path) return t('unknownPath');
     // If path is too long, preserve the end (filename/last dir)
     if (path.length > 35) {
       return '...' + path.slice(-32);
@@ -301,10 +303,10 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                     <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <Folder className="size-5" />
                     </div>
-                    Recent Workspaces
+                    {t('header.title')}
                   </h2>
                   <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                    Quickly jump back into your most recent active development sessions.
+                    {t('header.description')}
                   </p>
                 </div>
                 {viewSwitcher ? <div className="shrink-0">{viewSwitcher}</div> : null}
@@ -318,7 +320,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, project, or branch..."
+                  placeholder={t('searchPlaceholder')}
                   className="pl-10 h-12 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
                   autoFocus
                 />
@@ -368,7 +370,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                       className="space-y-4"
                     >
                       <div className="flex items-center gap-3 sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-5 border-b border-border/40">
-                        <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest">{group}</span>
+                        <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest">{t(`groups.${group}`)}</span>
                         <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
                           {items.length}
                         </span>
@@ -415,7 +417,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                       />
                                       <OverflowTooltip
                                         text={truncatePath(ws.projectMainPath)}
-                                        tooltipText={ws.projectMainPath || 'Unknown path'}
+                                        tooltipText={ws.projectMainPath || t('unknownPath')}
                                         className="text-[11px] text-muted-foreground/70 text-pretty"
                                         contentClassName="max-w-[420px]"
                                       />
@@ -446,7 +448,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                   {ws.isArchivedRemote ? (
                                     <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
                                       <Archive className="size-3" />
-                                      ARCHIVED
+                                      {t('archivedBadge')}
                                     </div>
                                   ) : (
                                     <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -490,16 +492,16 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                   <div className="size-20 rounded-3xl bg-muted/20 flex items-center justify-center mb-6">
                     <Search className="size-10 text-muted-foreground/30" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground">No workspaces found</h3>
+                  <h3 className="text-lg font-semibold text-foreground">{t('empty.title')}</h3>
                   <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
-                    We couldn&apos;t find any workspaces matching &quot;{searchQuery}&quot;.
+                    {t('empty.description', { query: searchQuery ?? '' })}
                   </p>
                   <Button
                     variant="link"
                     onClick={() => setSearchQuery("")}
                     className="mt-4"
                   >
-                    Clear search query
+                    {t('empty.clearSearch')}
                   </Button>
                 </motion.div>
               )}

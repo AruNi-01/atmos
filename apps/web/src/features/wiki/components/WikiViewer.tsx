@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Panel,
@@ -54,6 +55,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   onSwitchToProjectWikiAndRun,
   onProjectWikiReplaceAndRun,
 }) => {
+  const t = useTranslations("wiki.viewer");
   const {
     catalog,
     catalogLoading,
@@ -136,7 +138,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <LoaderCircle className="size-4 animate-spin mr-2" />
-        Loading catalog...
+        {t("loadingCatalog")}
       </div>
     );
   }
@@ -146,14 +148,14 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
         <AlertTriangle className="size-5 text-destructive" />
-        <p className="text-sm">{catalogError || "Failed to load wiki catalog."}</p>
+        <p className="text-sm">{catalogError || t("loadError")}</p>
         <Button
           variant="outline"
           size="sm"
           onClick={() => loadCatalog(effectivePath)}
         >
           <RotateCw className="size-3.5 mr-1.5" />
-          Retry
+          {t("retry")}
         </Button>
       </div>
     );
@@ -212,7 +214,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
                 sidebarRef.current?.collapse();
               }
             }}
-            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isSidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}
             className={cn(
               "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100 cursor-pointer",
               "left-1/2 -translate-x-1/2",

@@ -1,10 +1,30 @@
 import type { WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
+import { createTranslator } from 'next-intl';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 export type WorkspaceSetupStepKey = NonNullable<WorkspaceSetupProgress["stepKey"]>;
 type WorkspaceSetupStepSummary = {
   id: WorkspaceSetupStepKey;
   title: string;
 };
+
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeTranslator: any = null;
+
+function runtimeT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never);
+}
 
 export function fallbackWorkspaceSetupStepKey(
   status: WorkspaceSetupProgress["status"] | WorkspaceSetupProgress["lastStatus"],
@@ -54,7 +74,7 @@ export function getWorkspaceSetupSteps(
   const steps: WorkspaceSetupStepSummary[] = [
     {
       id: "create_worktree",
-      title: "Create Workspace",
+      title: runtimeT('workspaceSetup.steps.createWorkspace'),
     },
   ];
 
@@ -69,17 +89,17 @@ export function getWorkspaceSetupSteps(
     steps.push({
       id: "write_requirement",
       title: progress.setupContext?.hasGithubPr
-        ? "Fill PR Spec"
+        ? runtimeT('workspaceSetup.steps.fillPrSpec')
         : progress.setupContext?.hasGithubIssue
-          ? "Fill Issue Spec"
-          : "Write Requirement Spec",
+          ? runtimeT('workspaceSetup.steps.fillIssueSpec')
+          : runtimeT('workspaceSetup.steps.writeRequirementSpec'),
     });
   }
 
   if (progress.setupContext?.autoExtractTodos) {
     steps.push({
       id: "extract_todos",
-      title: "Extract TODOs",
+      title: runtimeT('workspaceSetup.steps.extractTodos'),
     });
   }
 
@@ -91,13 +111,13 @@ export function getWorkspaceSetupSteps(
   ) {
     steps.push({
       id: "run_setup_script",
-      title: "Run Setup Script",
+      title: runtimeT('workspaceSetup.steps.runSetupScript'),
     });
   }
 
   steps.push({
     id: "ready",
-    title: "Ready",
+    title: runtimeT('workspaceSetup.steps.ready'),
   });
 
   return steps;

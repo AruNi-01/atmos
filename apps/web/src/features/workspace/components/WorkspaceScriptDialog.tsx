@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
   isOpen,
   onClose
 }) => {
+  const t = useTranslations('Workspace.components.scriptDialog');
   const [setupScript, setSetupScript] = useState('');
   const [runScript, setRunScript] = useState('');
   const [purgeScript, setPurgeScript] = useState('');
@@ -56,8 +58,8 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
     } catch (error) {
       console.error('Failed to load scripts:', error);
       toastManager.add({
-        title: 'Error',
-        description: 'Failed to load scripts',
+        title: t('toasts.errorTitle'),
+        description: t('toasts.loadFailed'),
         type: 'error'
       });
     } finally {
@@ -78,8 +80,8 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
     } catch (error) {
       console.error('Failed to save scripts:', error);
       toastManager.add({
-        title: 'Error',
-        description: 'Failed to save scripts',
+        title: t('toasts.errorTitle'),
+        description: t('toasts.saveFailed'),
         type: 'error'
       });
     } finally {
@@ -121,75 +123,74 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Workspace Scripts</DialogTitle>
+            <DialogTitle>{t('title')}</DialogTitle>
             <DialogDescription>
-              Configure scripts for Setup, Run, and Purge.
-              Scripts are executed in the current workspace directory.
+              {t('description')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-6 py-4">
             <div className="bg-muted p-3 rounded-md text-xs font-mono space-y-1">
-              <p className="font-bold text-muted-foreground mb-2">Available Environment Variables:</p>
+              <p className="font-bold text-muted-foreground mb-2">{t('env.title')}</p>
               <div className="grid grid-cols-[1fr_2fr] gap-x-4 gap-y-1">
                 <span className="text-white font-bold">ATMOS_ROOT_PROJECT_PATH</span>
-                <span className="text-muted-foreground">Path to root project</span>
+                <span className="text-muted-foreground">{t('env.rootProjectPath')}</span>
 
                 <span className="text-white font-bold">ATMOS_WORKSPACE_NAME</span>
-                <span className="text-muted-foreground">Current workspace name</span>
+                <span className="text-muted-foreground">{t('env.workspaceName')}</span>
 
                 <span className="text-white font-bold">ATMOS_WORKSPACE_PATH</span>
-                <span className="text-muted-foreground">Path to current workspace</span>
+                <span className="text-muted-foreground">{t('env.workspacePath')}</span>
               </div>
               <div className="mt-2 text-muted-foreground/80 italic">
-                Note: For complex scripts, create a .sh file in .atmos/scripts/ and reference it (e.g., &quot;./.atmos/scripts/myscript.sh&quot;).
+                {t('env.note')}
               </div>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="setup">Setup Script</Label>
+              <Label htmlFor="setup">{t('setup.title')}</Label>
               <Textarea
                 id="setup"
-                placeholder="e.g. cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install"
+                placeholder={t('setup.placeholder')}
                 value={setupScript}
                 onChange={e => setSetupScript(e.target.value)}
                 className="font-mono text-sm h-24"
                 disabled={isLoading}
               />
-              <p className="text-xs text-muted-foreground">Executed when setting up a new workspace.</p>
+              <p className="text-xs text-muted-foreground">{t('setup.help')}</p>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="run">Run Script</Label>
+              <Label htmlFor="run">{t('run.title')}</Label>
               <Textarea
                 id="run"
-                placeholder="e.g. npm run dev"
+                placeholder={t('run.placeholder')}
                 value={runScript}
                 onChange={e => setRunScript(e.target.value)}
                 className="font-mono text-sm h-24"
                 disabled={isLoading}
               />
-              <p className="text-xs text-muted-foreground">One-click command to start services.</p>
+              <p className="text-xs text-muted-foreground">{t('run.help')}</p>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="purge">Purge Script</Label>
+              <Label htmlFor="purge">{t('purge.title')}</Label>
               <Textarea
                 id="purge"
-                placeholder="e.g. rm -rf node_modules"
+                placeholder={t('purge.placeholder')}
                 value={purgeScript}
                 onChange={e => setPurgeScript(e.target.value)}
                 className="font-mono text-sm h-24"
                 disabled={isLoading}
               />
-              <p className="text-xs text-muted-foreground">Executed to clean up worktree/workspace files.</p>
+              <p className="text-xs text-muted-foreground">{t('purge.help')}</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseAttempt} disabled={isSaving}>Cancel</Button>
+            <Button variant="outline" onClick={handleCloseAttempt} disabled={isSaving}>{t('actions.cancel')}</Button>
             <Button onClick={handleSave} disabled={isSaving || isLoading}>
-              {isSaving ? 'Saving...' : 'Save Scripts'}
+              {isSaving ? t('actions.saving') : t('actions.saveScripts')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -198,14 +199,14 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
       <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogTitle>{t('confirmExit.title')}</DialogTitle>
             <DialogDescription>
-              You have unsaved changes. Are you sure you want to close without saving?
+              {t('confirmExit.description')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExitConfirm(false)}>Keep Editing</Button>
-            <Button variant="destructive" onClick={handleConfirmExit}>Discard Changes</Button>
+            <Button variant="outline" onClick={() => setShowExitConfirm(false)}>{t('confirmExit.keepEditing')}</Button>
+            <Button variant="destructive" onClick={handleConfirmExit}>{t('confirmExit.discardChanges')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

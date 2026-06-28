@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useTranslations } from 'next-intl';
 import { useShallow } from 'zustand/react/shallow';
 import {
   Badge,
@@ -153,10 +154,14 @@ function HostedLocalCommandField({
   command,
   copied,
   onCopy,
+  copiedLabel,
+  copyLabel,
 }: {
   command: string;
   copied: boolean;
   onCopy: () => void;
+  copiedLabel: string;
+  copyLabel: string;
 }) {
   return (
     <div className="relative">
@@ -169,8 +174,8 @@ function HostedLocalCommandField({
         size="icon"
         className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
         onClick={onCopy}
-        title={copied ? 'Copied' : 'Copy command'}
-        aria-label={copied ? 'Copied' : 'Copy command'}
+        title={copied ? copiedLabel : copyLabel}
+        aria-label={copied ? copiedLabel : copyLabel}
       >
         {copied ? (
           <Check className="size-4 text-emerald-500" />
@@ -189,6 +194,7 @@ function HostedConnectionOnboarding({
   defaultTab?: 'local' | 'remote';
   onConnected?: () => void;
 }) {
+  const t = useTranslations("Welcome.components");
   const localInstallCommand = `curl -fsSL ${REMOTE_COMPUTER_INSTALL_SCRIPT_URL} | bash`;
   /** Installer appends ~/.atmos/bin to the default shell rc (see install-local-web-runtime.sh). */
   const localStartCommand = 'atmos runtime ensure';
@@ -283,7 +289,7 @@ function HostedConnectionOnboarding({
       setLocalAvailable(local.config, local.status);
     } catch (err) {
       setLocalUnavailable(
-        err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
+        err instanceof Error ? err.message : t('hosted.local.errors.cannotReachServer'),
       );
     } finally {
       setOnboarding();
@@ -314,10 +320,10 @@ function HostedConnectionOnboarding({
         setComputers(rows);
         setRemoteError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Could not load computers.';
+        const message = err instanceof Error ? err.message : t('hosted.remote.errors.couldNotLoadComputers');
         setRemoteError(message);
         toastManager.add({
-          title: 'Could not load computers',
+          title: t('hosted.remote.toast.couldNotLoadComputersTitle'),
           description: message,
           type: 'error',
         });
@@ -325,7 +331,7 @@ function HostedConnectionOnboarding({
         setListRefreshing(false);
       }
     },
-    [relaySecretDraft, relayUrlDraft, setComputers, setRemoteError, tokenDraft],
+    [relaySecretDraft, relayUrlDraft, setComputers, setRemoteError, t, tokenDraft],
   );
 
   useEffect(() => {
@@ -354,14 +360,14 @@ function HostedConnectionOnboarding({
         tone: saveResult.persisted ? 'default' : 'warning',
         message:
           saveResult.location === 'api'
-            ? 'Access key saved on the connected Computer.'
-            : 'No Computer API is connected yet. This key is only kept in this page; copy it before closing.',
+            ? t('hosted.remote.notice.savedOnConnectedComputer')
+            : t('hosted.remote.notice.notConnectedCopyBeforeClose'),
       });
       await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
     } catch (err) {
       toastManager.add({
-        title: 'Could not save access key',
-        description: err instanceof Error ? err.message : 'Try again.',
+        title: t('hosted.remote.toast.couldNotSaveAccessKeyTitle'),
+        description: err instanceof Error ? err.message : t('hosted.common.tryAgain'),
         type: 'error',
       });
     } finally {
@@ -393,8 +399,8 @@ function HostedConnectionOnboarding({
       await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
     } catch (err) {
       toastManager.add({
-        title: 'Could not create access key',
-        description: err instanceof Error ? err.message : 'Try again.',
+        title: t('hosted.remote.toast.couldNotCreateAccessKeyTitle'),
+        description: err instanceof Error ? err.message : t('hosted.common.tryAgain'),
         type: 'error',
       });
     } finally {
@@ -411,7 +417,7 @@ function HostedConnectionOnboarding({
       setGeneratedTokenCopied(true);
       window.setTimeout(() => setGeneratedTokenCopied(false), 2000);
     } catch {
-      toastManager.add({ title: 'Copy failed', type: 'error' });
+      toastManager.add({ title: t('hosted.common.copyFailed'), type: 'error' });
     }
   };
 
@@ -426,7 +432,7 @@ function HostedConnectionOnboarding({
         window.setTimeout(() => setCopiedStart(false), 2000);
       }
     } catch {
-      toastManager.add({ title: 'Copy failed', type: 'error' });
+      toastManager.add({ title: t('hosted.common.copyFailed'), type: 'error' });
     }
   };
 
@@ -445,8 +451,8 @@ function HostedConnectionOnboarding({
       onConnected?.();
     } catch (err) {
       toastManager.add({
-        title: 'Could not connect locally',
-        description: err instanceof Error ? err.message : 'Try again.',
+        title: t('hosted.local.toast.couldNotConnectTitle'),
+        description: err instanceof Error ? err.message : t('hosted.common.tryAgain'),
         type: 'error',
       });
     } finally {
@@ -476,10 +482,10 @@ function HostedConnectionOnboarding({
       setConnected('relay');
       onConnected?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Try again.';
+      const message = err instanceof Error ? err.message : t('hosted.common.tryAgain');
       setRemoteError(message);
       toastManager.add({
-        title: 'Could not connect remote computer',
+        title: t('hosted.remote.toast.couldNotConnectTitle'),
         description: message,
         type: 'error',
       });
@@ -491,7 +497,7 @@ function HostedConnectionOnboarding({
   const localComputerName =
     localStatus?.computer_name?.trim() ||
     localStatus?.hostname?.trim() ||
-    'This computer';
+    t('hosted.local.thisComputer');
 
   return (
     <main className="flex size-full overflow-hidden bg-background px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-10">
@@ -505,7 +511,7 @@ function HostedConnectionOnboarding({
           />
           <HostedSloganShimmer />
           <p className="mt-8 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-10 sm:text-lg">
-            Connect a local Atmos Server or pick a remote computer to enter your workspace.
+            {t('hosted.hero.description')}
           </p>
         </div>
 
@@ -519,11 +525,11 @@ function HostedConnectionOnboarding({
               <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-lg border border-border/70 bg-muted/30 p-1">
                 <TabsTrigger value="local" className="gap-2 rounded-md text-sm">
                   <Laptop className="size-4" />
-                  Local Server
+                  {t('hosted.tabs.local')}
                 </TabsTrigger>
                 <TabsTrigger value="remote" className="gap-2 rounded-md text-sm">
                   <Server className="size-4" />
-                  Remote Computer
+                  {t('hosted.tabs.remote')}
                 </TabsTrigger>
               </TabsList>
 
@@ -534,19 +540,19 @@ function HostedConnectionOnboarding({
                       <div>
                         <div className="flex flex-wrap items-center gap-3">
                           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                            <h2 className="text-base font-medium text-foreground">Local Atmos Server</h2>
+                            <h2 className="text-base font-medium text-foreground">{t('hosted.local.title')}</h2>
                             {localProbeState === 'available' ? (
                               <Badge variant="secondary" className="gap-1">
                                 <CheckCircle2 className="size-3.5" />
-                                Available
+                                {t('hosted.local.status.available')}
                               </Badge>
                             ) : localProbeState === 'checking' ? (
                               <Badge variant="secondary" className="gap-1">
                                 <LoaderCircle className="size-3.5 animate-spin" />
-                                Checking
+                                {t('hosted.local.status.checking')}
                               </Badge>
                             ) : (
-                              <Badge variant="secondary">Not found</Badge>
+                              <Badge variant="secondary">{t('hosted.local.status.notFound')}</Badge>
                             )}
                           </div>
                           <Button
@@ -562,12 +568,11 @@ function HostedConnectionOnboarding({
                             ) : (
                               <RefreshCw className="mr-2 size-4" />
                             )}
-                            Check again
+                            {t('hosted.local.checkAgain')}
                           </Button>
                         </div>
                         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          We first check whether Atmos Local Runtime is available on this device.
-                          If it is already running, you can connect to it directly here.
+                          {t('hosted.local.description')}
                         </p>
                         {localProbeState === 'unavailable' && localError ? (
                           <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
@@ -581,10 +586,9 @@ function HostedConnectionOnboarding({
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-foreground">{localComputerName}</p>
                             <p className="mt-1 text-sm text-muted-foreground">
-                              Loopback API found at{' '}
-                              <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">
-                                {localApiConfig?.host}:{localApiConfig?.port}
-                              </code>
+                              {t('hosted.local.loopbackFoundAt', {
+                                provider: `${localApiConfig?.host}:${localApiConfig?.port}`,
+                              })}
                             </p>
                           </div>
                           <Button onClick={() => void onConnectLocal()} disabled={busyAction === 'connect-local'}>
@@ -593,16 +597,15 @@ function HostedConnectionOnboarding({
                             ) : (
                               <Link2 className="mr-2 size-4" />
                             )}
-                            Connect
+                            {t('hosted.common.connect')}
                           </Button>
                         </div>
                       ) : (
                         <div className="mt-5 space-y-4 rounded-lg border border-border/70 bg-background/70 p-4">
                           <div>
-                            <p className="text-sm font-medium text-foreground">Install and start Atmos locally</p>
+                            <p className="text-sm font-medium text-foreground">{t('hosted.local.installStartTitle')}</p>
                             <p className="mt-1 text-sm text-muted-foreground">
-                              Use the local web runtime installer below. It installs Atmos and starts the
-                              local server for you. After it starts, check again here.
+                              {t('hosted.local.installStartDescription')}
                             </p>
                           </div>
                           <div className="space-y-3">
@@ -610,14 +613,18 @@ function HostedConnectionOnboarding({
                               command={localInstallCommand}
                               copied={copiedInstall}
                               onCopy={() => void copyLocalCommand(localInstallCommand, 'install')}
+                              copiedLabel={t('hosted.common.copied')}
+                              copyLabel={t('hosted.common.copyCommand')}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Already installed? Run this:
+                              {t('hosted.local.alreadyInstalled')}
                             </p>
                             <HostedLocalCommandField
                               command={localStartCommand}
                               copied={copiedStart}
                               onCopy={() => void copyLocalCommand(localStartCommand, 'start')}
+                              copiedLabel={t('hosted.common.copied')}
+                              copyLabel={t('hosted.common.copyCommand')}
                             />
                           </div>
                         </div>
@@ -636,22 +643,21 @@ function HostedConnectionOnboarding({
                           <KeyRound className="size-4 text-foreground" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h2 className="text-base font-medium text-foreground">Access Key</h2>
+                          <h2 className="text-base font-medium text-foreground">{t('hosted.remote.accessKeyTitle')}</h2>
                           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            Paste your Atmos access key to list all computers under that tenant and
-                            connect one of them here.
+                            {t('hosted.remote.accessKeyDescription')}
                           </p>
                         </div>
                       </div>
 
                       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                        <Input
-                          type="password"
-                          value={tokenDraft}
-                          onChange={event => onTokenDraftChange(event.target.value)}
-                          placeholder="Paste access key"
-                          className="flex-1"
-                        />
+                          <Input
+                            type="password"
+                            value={tokenDraft}
+                            onChange={event => onTokenDraftChange(event.target.value)}
+                            placeholder={t('hosted.remote.accessKeyPlaceholder')}
+                            className="flex-1"
+                          />
                         <div className="flex gap-2">
                           <Button
                             type="button"
@@ -664,27 +670,27 @@ function HostedConnectionOnboarding({
                             ) : (
                               <KeyRound className="mr-2 size-4" />
                             )}
-                            Generate Key
+                            {t('hosted.remote.generateKey')}
                           </Button>
                           <Button onClick={() => void onSaveToken()} disabled={!hasKey || busyAction !== null}>
                             {busyAction === 'save-token' ? (
                               <LoaderCircle className="mr-2 size-4 animate-spin" />
                             ) : null}
-                            Use Key
+                            {t('hosted.remote.useKey')}
                           </Button>
                         </div>
                       </div>
 
                       <Collapsible className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
                         <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left">
-                          <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                            <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                            <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium text-foreground">Private Relay</span>
+                            <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                              <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
+                              <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium text-foreground">{t('hosted.remote.privateRelayTitle')}</span>
                             <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                              Use the official relay by default, or point this setup at a private relay.
+                              {t('hosted.remote.privateRelayDescription')}
                             </span>
                           </span>
                         </CollapsibleTrigger>
@@ -692,24 +698,24 @@ function HostedConnectionOnboarding({
                           <div className="grid gap-3 border-t border-border/70 px-4 py-4 md:grid-cols-2">
                             <label className="space-y-2">
                               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                Relay URL
+                                {t('hosted.remote.relayUrlLabel')}
                               </span>
                               <Input
                                 value={relayUrlDraft}
                                 onChange={event => setRelayUrlDraft(event.target.value)}
-                                placeholder="https://relay.atmos.land"
+                                placeholder={t('hosted.remote.relayUrlPlaceholder')}
                                 autoComplete="off"
                               />
                             </label>
                             <label className="space-y-2">
                               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                Token
+                                {t('hosted.remote.privateRelayTokenLabel')}
                               </span>
                               <Input
                                 type="password"
                                 value={relaySecretDraft}
                                 onChange={event => setRelaySecretDraft(event.target.value)}
-                                placeholder="Required for private relay authentication"
+                                placeholder={t('hosted.remote.privateRelayTokenPlaceholder')}
                                 autoComplete="off"
                               />
                             </label>
@@ -732,11 +738,11 @@ function HostedConnectionOnboarding({
 
                       {generatedTokenReveal ? (
                         <div className="mt-4 space-y-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-                          <p className="text-sm font-medium text-foreground">Copy your access key now</p>
+                          <p className="text-sm font-medium text-foreground">{t('hosted.remote.copyAccessKeyNow')}</p>
                           <p className="text-xs text-muted-foreground">
                             {generatedTokenLocation === 'api'
-                              ? 'Saved on the connected Computer. Keep a copy somewhere safe.'
-                              : 'Not saved in the browser. Copy it now; it is only kept in this page until a Computer is connected.'}
+                              ? t('hosted.remote.generatedKeySaved')
+                              : t('hosted.remote.generatedKeyNotSaved')}
                           </p>
                           <pre className="overflow-x-auto break-all rounded-md bg-background/70 px-3 py-2 font-mono text-xs text-foreground">
                             {generatedTokenReveal}
@@ -752,7 +758,7 @@ function HostedConnectionOnboarding({
                             ) : (
                               <Copy className="mr-2 size-4" />
                             )}
-                            {generatedTokenCopied ? 'Copied' : 'Copy key'}
+                            {generatedTokenCopied ? t('hosted.common.copied') : t('hosted.remote.copyKey')}
                           </Button>
                         </div>
                       ) : null}
@@ -765,9 +771,9 @@ function HostedConnectionOnboarding({
                     <section className="rounded-xl border border-border/70 bg-background/70 p-5">
                       <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
-                          <h3 className="text-base font-medium text-foreground">Available Computers</h3>
+                          <h3 className="text-base font-medium text-foreground">{t('hosted.remote.availableComputersTitle')}</h3>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            Pick a computer to create a client session and enter the app.
+                            {t('hosted.remote.availableComputersDescription')}
                           </p>
                         </div>
                         <Button
@@ -781,7 +787,7 @@ function HostedConnectionOnboarding({
                           ) : (
                             <RefreshCw className="mr-2 size-4" />
                           )}
-                          Refresh
+                          {t('hosted.common.refresh')}
                         </Button>
                       </div>
 
@@ -800,8 +806,8 @@ function HostedConnectionOnboarding({
                                       <p className="truncate text-sm font-medium text-foreground">
                                         {computer.display_name?.trim() || computer.server_id}
                                       </p>
-                                      {computer.online ? <Badge variant="secondary">Online</Badge> : null}
-                                      {isConnected ? <Badge variant="secondary">Connected</Badge> : null}
+                                      {computer.online ? <Badge variant="secondary">{t('hosted.remote.badge.online')}</Badge> : null}
+                                      {isConnected ? <Badge variant="secondary">{t('hosted.remote.badge.connected')}</Badge> : null}
                                     </div>
                                     <p className="mt-1 truncate text-xs text-muted-foreground">
                                       {computer.server_id}
@@ -815,7 +821,7 @@ function HostedConnectionOnboarding({
                                     {busyAction === `connect-${computer.server_id}` ? (
                                       <LoaderCircle className="mr-2 size-4 animate-spin" />
                                     ) : null}
-                                    {isConnected ? 'Reconnect' : 'Connect'}
+                                    {isConnected ? t('hosted.remote.reconnect') : t('hosted.common.connect')}
                                   </Button>
                                 </div>
                               );
@@ -824,8 +830,8 @@ function HostedConnectionOnboarding({
                         ) : (
                           <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                             {hasKey
-                              ? 'No computers found for this access key yet.'
-                              : 'Generate or save an access key first, then create a remote setup command.'}
+                              ? t('hosted.remote.emptyWithKey')
+                              : t('hosted.remote.emptyWithoutKey')}
                           </div>
                         )}
                         <RemoteComputerSetupBlock

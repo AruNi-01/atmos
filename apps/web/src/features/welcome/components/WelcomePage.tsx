@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   cn,
 } from "@workspace/ui";
@@ -83,6 +84,12 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   onClose,
   className,
 }) => {
+  const t = useTranslations("Welcome.components");
+  const tr = React.useCallback(
+    (key: string, values?: Record<string, string | number | boolean | null | undefined>) =>
+      t(key as never, values as never),
+    [t],
+  );
   const [isMounted, setIsMounted] = React.useState(false);
   const router = useAppRouter();
   const selectedProjectIdFromLauncher = useDialogStore((s) => s.selectedProjectId);
@@ -416,12 +423,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     isLlmRoutingLoading,
     kind: "issue",
     todoProviderLabel,
+    t: tr,
   });
   const autoExtractDescriptionPr = buildAutoExtractDescription({
     hasPreview: !!prPreview,
     isLlmRoutingLoading,
     kind: "pr",
     todoProviderLabel,
+    t: tr,
   });
   const filledSummaryItems = React.useMemo(
     () =>
@@ -434,8 +443,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         issuePreview,
         name,
         prPreview,
+        t: tr,
       }),
-    [autoExtractTodos, autoExtractTodosPr, baseBranch, branch, canAutoExtractTodos, issuePreview, prPreview, name],
+    [autoExtractTodos, autoExtractTodosPr, baseBranch, branch, canAutoExtractTodos, issuePreview, prPreview, name, tr],
   );
 
   const handleRegenerateBranch = () => {
@@ -451,7 +461,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     event?.preventDefault();
 
     if (!projectId) {
-      setSubmitError("Select a project first.");
+      setSubmitError(t("page.errors.selectProjectFirst"));
       return;
     }
 
@@ -564,7 +574,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     } catch (error) {
       clearWorkspaceCreationOverlay();
       const message = sanitizeCreateWorkspaceErrorMessage(
-        error instanceof Error ? error.message : "Failed to create workspace",
+        error instanceof Error ? error.message : t("page.errors.failedToCreateWorkspace"),
       );
 
       if (isBranchConflictError(message)) {
@@ -726,7 +736,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 md:translate-y-8">
         <div className="mb-10 flex w-full max-w-4xl flex-col items-center">
           <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-            {renderHeadline(headline)}
+            {renderHeadline(headline, t)}
           </h1>
         </div>
 

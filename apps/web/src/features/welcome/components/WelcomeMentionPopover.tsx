@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import {
   Tooltip,
@@ -20,7 +21,8 @@ import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
 import type { MentionFileCandidate } from "@/features/welcome/lib/welcome-page-helpers";
 
 export type MentionPopoverState = {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   atOffset: number;
   query: string;
@@ -56,6 +58,7 @@ export function WelcomeMentionPopover({
   popover: MentionPopoverState;
   prPreview: GithubPrPayload | null;
 }) {
+  const t = useTranslations("Welcome.components");
   if (!popover || typeof document === "undefined") return null;
 
   const issueIndex = issuePreview ? 0 : -1;
@@ -73,6 +76,7 @@ export function WelcomeMentionPopover({
         className="fixed z-[2147483647] max-h-80 w-[min(90vw,460px)] overflow-y-auto rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-md"
         style={{
           top: popover.top,
+          bottom: popover.bottom,
           left: popover.left,
         }}
       >
@@ -80,7 +84,7 @@ export function WelcomeMentionPopover({
           <>
             <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
               <Github className="size-3" />
-              <span>GitHub</span>
+              <span>{t("mentionPopover.github")}</span>
             </div>
             {issuePreview ? (
               <Tooltip>
@@ -153,12 +157,12 @@ export function WelcomeMentionPopover({
         ) : null}
         <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
           <Files className="size-3" />
-          <span>Files</span>
+          <span>{t("mentionPopover.files")}</span>
         </div>
         {isLoading ? (
           <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
-            Searching files...
+            {t("mentionPopover.searchingFiles")}
           </div>
         ) : mentionFiles.length > 0 ? (
           mentionFiles.map((item, index) => {
@@ -208,7 +212,7 @@ export function WelcomeMentionPopover({
           })
         ) : (
           <div className="px-2.5 py-2 text-xs text-muted-foreground">
-            Continue typing after @ to search files
+            {t("mentionPopover.continueTyping")}
           </div>
         )}
       </div>

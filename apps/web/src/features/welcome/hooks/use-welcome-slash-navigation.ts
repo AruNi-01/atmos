@@ -5,7 +5,8 @@ import type { SkillInfo } from "@/api/ws-api";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 
 export type WelcomeSlashPopoverState = {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   slashOffset: number;
   query: string;

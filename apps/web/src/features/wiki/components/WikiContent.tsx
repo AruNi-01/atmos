@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import {
   Collapsible,
   CollapsibleContent,
@@ -36,14 +37,17 @@ const CodeMirrorEditor = dynamic(
 );
 
 /** Level badge config */
-function getLevelConfig(level?: WikiLevel | string): { label: string; icon: React.ComponentType<{ className?: string }> } | null {
+function getLevelConfig(
+  level: WikiLevel | string | undefined,
+  t: (key: string) => string,
+): { label: string; icon: React.ComponentType<{ className?: string }> } | null {
   switch (level) {
     case "beginner":
-      return { label: "Beginner", icon: Smile };
+      return { label: t("levels.beginner"), icon: Smile };
     case "intermediate":
-      return { label: "Intermediate", icon: Meh };
+      return { label: t("levels.intermediate"), icon: Meh };
     case "advanced":
-      return { label: "Advanced", icon: Frown };
+      return { label: t("levels.advanced"), icon: Frown };
     default:
       return null;
   }
@@ -61,6 +65,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   effectivePath,
   onWikiLinkNavigate,
 }) => {
+  const t = useTranslations("wiki.content");
   const { workspaceId, projectId } = useContextParams();
   const { activeContent, activePage, contentLoading, contentError } =
     useWikiContext(contextId);
@@ -129,24 +134,24 @@ export const WikiContent: React.FC<WikiContentProps> = ({
       const res = await fsApi.writeFile(fullFilePath, localContent);
       if (res.success) {
         toastManager.add({
-          title: "Saved",
-          description: "Wiki page saved successfully",
+          title: t("toasts.savedTitle"),
+          description: t("toasts.savedDescription"),
           type: "success",
         });
         useWikiStore.getState().loadPage(contextId, effectivePath, `${activePage}.md`);
       } else {
-        throw new Error("Failed to write file");
+        throw new Error(t("errors.writeFileFailed"));
       }
     } catch {
       toastManager.add({
-        title: "Save Failed",
-        description: "Failed to save wiki page",
+        title: t("toasts.saveFailedTitle"),
+        description: t("toasts.saveFailedDescription"),
         type: "error",
       });
     } finally {
       setIsSaving(false);
     }
-  }, [contextId, fullFilePath, localContent, hasUnsavedChanges, effectivePath, activePage]);
+  }, [activePage, contextId, effectivePath, fullFilePath, hasUnsavedChanges, localContent, t]);
 
   const getWikiSelectionInfo = useCallback(() => {
     if (!isPreview || !activePage) return null;
@@ -244,7 +249,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   if (contentLoading && !activeContent) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        Loading page...
+        {t("loadingPage")}
       </div>
     );
   }
@@ -261,16 +266,16 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   if (!activeContent) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        Select a page from the sidebar
+        {t("empty.selectPage")}
       </div>
     );
   }
 
   const contentToRender = localContent || activeContent || "";
   const { frontmatter, body } = parseFrontmatter(contentToRender);
-  const title = (frontmatter.title as string) ?? activePage ?? "Untitled";
+  const title = (frontmatter.title as string) ?? activePage ?? t("untitled");
   const sources = (frontmatter.sources as string[]) ?? [];
-  const levelConfig = getLevelConfig(frontmatter.level);
+  const levelConfig = getLevelConfig(frontmatter.level, t);
   const readingTime = frontmatter.reading_time
     ? Number(frontmatter.reading_time)
     : undefined;
@@ -309,30 +314,30 @@ export const WikiContent: React.FC<WikiContentProps> = ({
               onClick={handleSave}
               disabled={isSaving}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded transition-colors bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-              title="Save (Cmd+S)"
+              title={t("buttons.saveTitle")}
             >
               {isSaving ? (
                 <Loader2 className="size-3 animate-spin" />
               ) : (
                 <Save className="size-3" />
               )}
-              <span>Save</span>
+              <span>{t("buttons.save")}</span>
             </button>
           )}
           <button
             onClick={() => setIsPreview(!isPreview)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title={isPreview ? "Switch to Edit mode" : "Switch to Preview mode"}
+            title={isPreview ? t("buttons.switchToEdit") : t("buttons.switchToPreview")}
           >
             {isPreview ? (
               <>
                 <Pencil className="size-3" />
-                <span>Edit</span>
+                <span>{t("buttons.edit")}</span>
               </>
             ) : (
               <>
                 <Eye className="size-3" />
-                <span>Preview</span>
+                <span>{t("buttons.preview")}</span>
               </>
             )}
           </button>
@@ -361,7 +366,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
                   <Collapsible defaultOpen={false} className="rounded-lg border border-border">
                     <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
                       <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
-                      <span>Relevant source files</span>
+                      <span>{t("sourcesTitle")}</span>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3 border-t border-border">
@@ -386,7 +391,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
                 {formattedUpdatedAt && (
                   <div className="flex justify-end pt-6">
                     <span className="text-[11px] text-muted-foreground">
-                      updated_at: {formattedUpdatedAt}
+                      {t("updatedAt", { value: formattedUpdatedAt })}
                     </span>
                   </div>
                 )}

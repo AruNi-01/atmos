@@ -24,7 +24,11 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { highlightTree } from '@lezer/highlight';
+import { createTranslator } from 'next-intl';
 import { toastManager } from '@workspace/ui';
+import enMessages from '../../../messages/en.json';
+import zhMessages from '../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { gitGutterTheme } from '@/shared/lib/codemirror-git-gutter-theme';
 import {
   DIFF_CFG,
@@ -72,6 +76,21 @@ interface GitGutterState {
 }
 
 const EMPTY_SELECTION: ReadonlySet<number> = new Set();
+let cachedDiffLocale: 'en' | 'zh' | null = null;
+let cachedDiffTranslator: any = null;
+
+function diffT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedDiffTranslator || cachedDiffLocale !== locale) {
+    cachedDiffLocale = locale;
+    cachedDiffTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Diff.chrome',
+    });
+  }
+  return cachedDiffTranslator(key as never);
+}
 
 /** gutterLineClass marker — reuses the same classes as {@link Decoration.line} for that document row. */
 class GitDiffGutterBgMarker extends GutterMarker {
@@ -114,7 +133,7 @@ class GitChunkBarMarker extends GutterMarker {
 
     hit.setAttribute('role', 'button');
     hit.tabIndex = 0;
-    hit.setAttribute('aria-label', 'Toggle inline diff for this change');
+    hit.setAttribute('aria-label', diffT('gitGutter.toggleInlineDiffForThisChange'));
     hit.appendChild(bar);
 
     const toggle = () => {
@@ -285,7 +304,7 @@ class GitDeletedSeamGutterMarker extends GutterMarker {
     hit.className = 'cm-git-deleted-seam-inner';
     hit.setAttribute('role', 'button');
     hit.tabIndex = 0;
-    hit.setAttribute('aria-label', 'Show deleted lines');
+    hit.setAttribute('aria-label', diffT('gitGutter.showDeletedLines'));
 
     const tri = document.createElement('span');
     tri.className = 'cm-git-deleted-collapsed-triangle';
@@ -403,7 +422,7 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
     return b;
   };
 
-  const close = mkBtn('×', 'Close panel', () =>
+  const close = mkBtn('×', diffT('gitGutter.closePanel'), () =>
     view.dispatch({ effects: closeGitSelection.of(chunkIndex) }),
   );
   close.className = 'cm-git-panel-float-close';
@@ -449,7 +468,7 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
 
   const prev = mkBtn(
     '↑',
-    'Previous change',
+    diffT('gitGutter.previousChange'),
     () => {
       if (!gs.chunks.length) return;
       const idx = (chunkIndex - 1 + gs.chunks.length) % gs.chunks.length;
@@ -460,7 +479,7 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
 
   const next = mkBtn(
     '↓',
-    'Next change',
+    diffT('gitGutter.nextChange'),
     () => {
       if (!gs.chunks.length) return;
       const idx = (chunkIndex + 1) % gs.chunks.length;
@@ -485,25 +504,31 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
     if (!res.ok) {
       toastManager.add({
         type: 'error',
-        title: mode === 'stage' ? 'Stage failed' : 'Restore failed',
-        description: res.error || 'Git patch failed',
+        title: mode === 'stage' ? diffT('gitGutter.stageFailed') : diffT('gitGutter.restoreFailed'),
+        description: res.error || diffT('gitGutter.gitPatchFailed'),
       });
       return;
     }
     host.onGitStateChanged?.(mode);
     toastManager.add({
       type: 'success',
-      title: mode === 'stage' ? 'Staged chunk' : 'Restored chunk',
-      description: 'Git state updated for this hunk.',
+      title: mode === 'stage' ? diffT('gitGutter.stagedChunk') : diffT('gitGutter.restoredChunk'),
+      description: diffT('gitGutter.gitStateUpdatedForThisHunk'),
     });
     view.dispatch({ effects: closeGitSelection.of(chunkIndex) });
   };
 
-  const stageBtn = mkBtn('Stage', 'Stage this change', () => void runPatch('stage'));
+  const stageBtn = mkBtn(
+    diffT('gitGutter.stage'),
+    diffT('gitGutter.stageThisChange'),
+    () => void runPatch('stage'),
+  );
 
   const restoreBtn = mkBtn(
-    'Restore',
-    isUntrackedNew ? 'Cannot restore untracked files' : 'Discard this unstaged hunk',
+    diffT('gitGutter.restore'),
+    isUntrackedNew
+      ? diffT('gitGutter.cannotRestoreUntrackedFiles')
+      : diffT('gitGutter.discardThisUnstagedHunk'),
     () => void runPatch('restore'),
     isUntrackedNew,
   );

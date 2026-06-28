@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ComponentProps } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 import { copyToClipboard } from "@/shared/utils/copy";
 import { CheckIcon, CopyIcon } from "lucide-react";
@@ -16,6 +17,7 @@ const CopyButton = ({
   className,
   ...props
 }: CopyButtonProps) => {
+  const t = useTranslations("shared.codeBlock");
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const CopyButton = ({
 
   return (
     <button
-      title="Copy to clipboard"
+      title={t("copyToClipboard")}
       className={cn(
         "cursor-pointer",
         "transition-colors duration-200 ease-in-out",

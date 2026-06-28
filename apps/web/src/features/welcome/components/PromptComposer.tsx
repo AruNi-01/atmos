@@ -43,6 +43,7 @@ export interface ComposerHandle {
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
   focus: () => void;
+  placeCaretAtClientPoint: (clientX: number, clientY: number) => boolean;
 }
 
 export interface ComposerCallbacks {
@@ -56,6 +57,8 @@ export interface ComposerCallbacks {
 
 interface PromptComposerProps extends ComposerCallbacks {
   className?: string;
+  editorClassName?: string;
+  placeholderClassName?: string;
   placeholder?: React.ReactNode;
   onSubmit?: () => void;
 }
@@ -63,8 +66,8 @@ interface PromptComposerProps extends ComposerCallbacks {
 const CHIP_TOKEN_PATTERN =
   String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
-const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})[\\u00A0 ]*$`);
-const DELETE_CHIP_REGEX = new RegExp(`^[\\u00A0 ]*(${CHIP_TOKEN_PATTERN})[\\u00A0 ]*`);
+const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})$`);
+const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})`);
 
 /**
  * SVG icons used inside chips live as static assets under
@@ -338,6 +341,49 @@ function setCaretAtTextOffset(root: HTMLElement, target: number) {
   }
 }
 
+function setCaretAtClientPoint(root: HTMLElement, clientX: number, clientY: number): boolean {
+  const documentWithCaret = root.ownerDocument as Document & {
+    caretPositionFromPoint?: (
+      x: number,
+      y: number,
+    ) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  let range: Range | null = null;
+
+  const position = documentWithCaret.caretPositionFromPoint?.(clientX, clientY);
+  if (position && root.contains(position.offsetNode)) {
+    range = root.ownerDocument.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    range.collapse(true);
+  }
+
+  if (!range) {
+    const pointRange = documentWithCaret.caretRangeFromPoint?.(clientX, clientY);
+    if (pointRange && root.contains(pointRange.startContainer)) {
+      range = pointRange;
+      range.collapse(true);
+    }
+  }
+
+  if (!range) {
+    const rect = root.getBoundingClientRect();
+    const isInsideRoot =
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom;
+    if (!isInsideRoot) return false;
+    setCaretAtTextOffset(root, serialize(root).length);
+    return true;
+  }
+
+  const selection = root.ownerDocument.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  return true;
+}
+
 function measureCaretRect(root: HTMLElement): DOMRect {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return root.getBoundingClientRect();
@@ -418,7 +464,19 @@ function readSlashContextFromSelection(root: HTMLElement): SlashTriggerContext |
 
 export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerProps>(
   function PromptComposer(props, ref) {
-    const { onTextChange, onImagePaste, onAtTrigger, onAtCancel, onSlashTrigger, onSlashCancel, className, placeholder, onSubmit } = props;
+    const {
+      onTextChange,
+      onImagePaste,
+      onAtTrigger,
+      onAtCancel,
+      onSlashTrigger,
+      onSlashCancel,
+      className,
+      editorClassName,
+      placeholder,
+      placeholderClassName,
+      onSubmit,
+    } = props;
     const editorRef = React.useRef<HTMLDivElement | null>(null);
     const [isEmpty, setIsEmpty] = React.useState(true);
     const [chipTooltip, setChipTooltip] = React.useState<{
@@ -537,6 +595,11 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         fireChange();
       },
       focus: () => editorRef.current?.focus(),
+      placeCaretAtClientPoint: (clientX, clientY) => {
+        if (!editorRef.current) return false;
+        editorRef.current.focus();
+        return setCaretAtClientPoint(editorRef.current, clientX, clientY);
+      },
     }));
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -687,7 +750,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     return (
       <div className={cn("relative", className)}>
         {isEmpty && placeholder ? (
-          <div className="pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-6 text-muted-foreground/65">
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-6 text-muted-foreground/65",
+              placeholderClassName,
+            )}
+          >
             {placeholder}
           </div>
         ) : null}
@@ -700,7 +768,10 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onPaste={handlePaste}
           onMouseOver={handleEditorMouseOver}
           onMouseOut={handleEditorMouseOut}
-          className="min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors"
+          className={cn(
+            "min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors",
+            editorClassName,
+          )}
           spellCheck={false}
         />
         {chipTooltip && typeof document !== "undefined"

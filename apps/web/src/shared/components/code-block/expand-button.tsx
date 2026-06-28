@@ -1,6 +1,7 @@
 "use client";
 
 import { type ComponentProps } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 import { ChevronsUpDown, ChevronsDownUp } from "lucide-react";
 
@@ -17,9 +18,10 @@ const ExpandButton = ({
   className,
   ...props
 }: ExpandButtonProps) => {
+  const t = useTranslations("shared.codeBlock");
   return (
     <button
-      title={expanded ? "Collapse code" : "Expand code"}
+      title={expanded ? t("collapseCode") : t("expandCode")}
       className={cn(
         "cursor-pointer",
         "transition-colors duration-200 ease-in-out",

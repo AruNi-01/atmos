@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -157,13 +158,14 @@ export function WelcomeAdvancedOptions({
   setIsBaseBranchOpen: (value: boolean) => void;
   submitError: string | null;
 }) {
+  const t = useTranslations("Welcome.components");
   return (
     <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
           className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Open advanced workspace options"
+          aria-label={t("advanced.openAria")}
         >
           <Ellipsis className="size-4" />
         </button>
@@ -180,24 +182,24 @@ export function WelcomeAdvancedOptions({
           <div className="grid gap-5">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="workspace-name-inline">Name</Label>
+                <Label htmlFor="workspace-name-inline">{t("advanced.fields.name")}</Label>
                 <Input
                   id="workspace-name-inline"
                   value={name}
                   onChange={(event) => onNameChange(event.target.value)}
-                  placeholder="Workspace display name"
+                  placeholder={t("advanced.placeholders.workspaceDisplayName")}
                   className="h-10 bg-muted/35"
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="workspace-branch-inline">Current workspace branch</Label>
+                <Label htmlFor="workspace-branch-inline">{t("advanced.fields.currentWorkspaceBranch")}</Label>
                 <Input
                   id="workspace-branch-inline"
                   ref={branchInputRef}
                   value={branch}
                   onChange={(event) => onBranchChange(event.target.value)}
-                  placeholder="Workspace branch"
+                  placeholder={t("advanced.placeholders.workspaceBranch")}
                   className="h-10 bg-muted/35"
                 />
                 {branchError ? (
@@ -210,7 +212,7 @@ export function WelcomeAdvancedOptions({
                         className="ml-1 h-auto p-0 text-xs align-baseline"
                         onClick={handleRegenerateBranch}
                       >
-                        Random generate again
+                        {t("advanced.randomGenerateAgain")}
                       </Button>
                     ) : null}
                   </div>
@@ -219,7 +221,7 @@ export function WelcomeAdvancedOptions({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="workspace-base-branch-trigger-inline">Base branch</Label>
+              <Label htmlFor="workspace-base-branch-trigger-inline">{t("advanced.fields.baseBranch")}</Label>
               <DropdownMenu
                 open={isBaseBranchOpen}
                 onOpenChange={(open) => {
@@ -244,12 +246,12 @@ export function WelcomeAdvancedOptions({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] p-3">
                   <div className="space-y-2">
-                    <p className="text-[12px] text-muted-foreground">Select target branch</p>
+                    <p className="text-[12px] text-muted-foreground">{t("advanced.selectTargetBranch")}</p>
                     <Input
                       value={baseBranchFilter}
                       onChange={(event) => setBaseBranchFilter(event.target.value)}
                       onKeyDown={(event) => event.stopPropagation()}
-                      placeholder="Search branches..."
+                      placeholder={t("advanced.placeholders.searchBranches")}
                       className="h-8 text-[12px]"
                     />
                   </div>
@@ -257,7 +259,7 @@ export function WelcomeAdvancedOptions({
                     <div className="p-1">
                       {isBaseBranchesLoading ? (
                         <div className="p-2 text-center text-[12px] text-muted-foreground">
-                          Loading branches...
+                          {t("advanced.loadingBranches")}
                         </div>
                       ) : filteredRemoteBranches.length > 0 ? (
                         filteredRemoteBranches.map((remoteBranch) => (
@@ -283,7 +285,7 @@ export function WelcomeAdvancedOptions({
                         ))
                       ) : (
                         <div className="p-2 text-center text-[12px] text-muted-foreground">
-                          No matching branches
+                          {t("advanced.noMatchingBranches")}
                         </div>
                       )}
                     </div>
@@ -303,10 +305,10 @@ export function WelcomeAdvancedOptions({
                       ? "bg-muted text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
-                >
-                  <CircleDot className="size-4" />
-                  <span className="font-medium">GitHub Issue</span>
-                </button>
+                  >
+                    <CircleDot className="size-4" />
+                    <span className="font-medium">{t("advanced.githubIssue")}</span>
+                  </button>
                 <button
                   type="button"
                   onClick={() => handleSelectLinkType("pr")}
@@ -316,10 +318,10 @@ export function WelcomeAdvancedOptions({
                       ? "bg-muted text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
-                >
-                  <GitPullRequestArrow className="size-4" />
-                  <span className="font-medium">GitHub PR</span>
-                </button>
+                  >
+                    <GitPullRequestArrow className="size-4" />
+                    <span className="font-medium">{t("advanced.githubPr")}</span>
+                  </button>
                 {repoContext && linkType === "issue" ? (
                   <Button
                     type="button"
@@ -328,7 +330,7 @@ export function WelcomeAdvancedOptions({
                     className="size-8"
                     onClick={() => void handleRefreshIssues()}
                     disabled={isIssuesLoading}
-                    title="Refresh issues"
+                    title={t("advanced.refreshIssues")}
                   >
                     {isIssuesLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                   </Button>
@@ -340,7 +342,7 @@ export function WelcomeAdvancedOptions({
                     className="size-8"
                     onClick={() => void handleRefreshPrs()}
                     disabled={isPrsLoading}
-                    title="Refresh PRs"
+                    title={t("advanced.refreshPrs")}
                   >
                     {isPrsLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                   </Button>
@@ -441,13 +443,14 @@ function IssueLinkPanel({
   selectedProjectId: string | null;
   setAutoExtractTodos: (value: boolean) => void;
 }) {
+  const t = useTranslations("Welcome.components");
   return (
     <div className="border-t border-border/60 p-4">
       <div className="space-y-4">
         {repoContext ? (
           <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="grid min-w-0 gap-2">
-              <Label htmlFor="issue-select-inline">Select from repository</Label>
+              <Label htmlFor="issue-select-inline">{t("advanced.issue.selectFromRepository")}</Label>
               <Select
                 value={selectedIssueNumber}
                 onValueChange={handleSelectIssue}
@@ -460,17 +463,17 @@ function IssueLinkPanel({
                   <SelectValue
                     placeholder={
                       isIssuesLoading
-                        ? "Loading issues..."
+                        ? t("advanced.issue.loadingIssues")
                         : issues.length === 0
-                          ? "No issues available"
-                          : "Select issue"
+                          ? t("advanced.issue.noIssuesAvailable")
+                          : t("advanced.issue.selectIssue")
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {issues.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      No GitHub issues found
+                      {t("advanced.issue.noGithubIssuesFound")}
                     </div>
                   ) : (
                     issues.map((issue) => (
@@ -489,13 +492,13 @@ function IssueLinkPanel({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="issue-url-inline">Or paste issue URL</Label>
+              <Label htmlFor="issue-url-inline">{t("advanced.issue.pasteIssueUrl")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="issue-url-inline"
                   value={issueUrl}
                   onChange={(event) => onIssueUrlChange(event.target.value)}
-                  placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
+                  placeholder={t("advanced.issue.issueUrlPlaceholder", { owner: repoContext.owner, repo: repoContext.repo })}
                 />
                 <Button
                   type="button"
@@ -503,7 +506,7 @@ function IssueLinkPanel({
                   size="icon"
                   onClick={() => void handleLoadIssueFromUrl()}
                   disabled={isIssuePreviewLoading || !issueUrl.trim()}
-                  title="Load issue"
+                  title={t("advanced.issue.loadIssue")}
                 >
                   {isIssuePreviewLoading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -516,11 +519,11 @@ function IssueLinkPanel({
           </div>
         ) : selectedProjectId ? (
           <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
-            This project does not expose a GitHub remote, so issue import is unavailable.
+            {t("advanced.issue.projectNoGithubRemote")}
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
-            Select a project first to load GitHub issue sync.
+            {t("advanced.issue.selectProjectFirst")}
           </div>
         )}
 
@@ -533,11 +536,11 @@ function IssueLinkPanel({
         {isIssuePreviewLoading ? (
           <div className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading issue preview
+            {t("advanced.issue.loadingIssuePreview")}
           </div>
         ) : issuePreview ? (
           <GithubPreviewCard
-            bodyFallback="No issue description provided."
+            bodyFallback={t("advanced.issue.noIssueDescription")}
             labels={issuePreview.labels}
             owner={issuePreview.owner}
             repo={issuePreview.repo}
@@ -595,13 +598,14 @@ function PrLinkPanel({
   selectedProjectId: string | null;
   setAutoExtractTodos: (value: boolean) => void;
 }) {
+  const t = useTranslations("Welcome.components");
   return (
     <div className="border-t border-border/60 p-4">
       <div className="space-y-4">
         {repoContext ? (
           <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="grid min-w-0 gap-2">
-              <Label htmlFor="pr-select-inline">Select from repository</Label>
+              <Label htmlFor="pr-select-inline">{t("advanced.pr.selectFromRepository")}</Label>
               <Select
                 value={selectedPrNumber}
                 onValueChange={handleSelectPr}
@@ -614,17 +618,17 @@ function PrLinkPanel({
                   <SelectValue
                     placeholder={
                       isPrsLoading
-                        ? "Loading PRs..."
+                        ? t("advanced.pr.loadingPrs")
                         : prs.length === 0
-                          ? "No PRs available"
-                          : "Select PR"
+                          ? t("advanced.pr.noPrsAvailable")
+                          : t("advanced.pr.selectPr")
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {prs.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      No GitHub PRs found
+                      {t("advanced.pr.noGithubPrsFound")}
                     </div>
                   ) : (
                     prs.map((pr) => (
@@ -643,13 +647,13 @@ function PrLinkPanel({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="pr-url-inline">Or paste PR URL</Label>
+              <Label htmlFor="pr-url-inline">{t("advanced.pr.pastePrUrl")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="pr-url-inline"
                   value={prUrl}
                   onChange={(event) => onPrUrlChange(event.target.value)}
-                  placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/pull/40`}
+                  placeholder={t("advanced.pr.prUrlPlaceholder", { owner: repoContext.owner, repo: repoContext.repo })}
                 />
                 <Button
                   type="button"
@@ -657,7 +661,7 @@ function PrLinkPanel({
                   size="icon"
                   onClick={() => void handleLoadPrFromUrl()}
                   disabled={isPrPreviewLoading || !prUrl.trim()}
-                  title="Load PR"
+                  title={t("advanced.pr.loadPr")}
                 >
                   {isPrPreviewLoading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -670,11 +674,11 @@ function PrLinkPanel({
           </div>
         ) : selectedProjectId ? (
           <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
-            This project does not expose a GitHub remote, so PR import is unavailable.
+            {t("advanced.pr.projectNoGithubRemote")}
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
-            Select a project first to load GitHub PRs.
+            {t("advanced.pr.selectProjectFirst")}
           </div>
         )}
 
@@ -687,11 +691,11 @@ function PrLinkPanel({
         {isPrPreviewLoading ? (
           <div className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading PR preview
+            {t("advanced.pr.loadingPrPreview")}
           </div>
         ) : prPreview ? (
           <GithubPreviewCard
-            bodyFallback="No PR description provided."
+            bodyFallback={t("advanced.pr.noPrDescription")}
             labels={prPreview.labels}
             owner={prPreview.owner}
             repo={prPreview.repo}
@@ -714,7 +718,10 @@ function PrLinkPanel({
                   </span>
                 </div>
                 <div className="rounded-md border border-border/70 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-                  The workspace will reuse <span className="font-mono text-foreground">{prPreview.head_ref}</span> directly — no new branch will be created.
+                  {t.rich("advanced.pr.reuseBranchNotice", {
+                    branch: prPreview.head_ref,
+                    mono: (chunks) => <span className="font-mono text-foreground">{chunks}</span>,
+                  })}
                 </div>
               </>
             }
@@ -755,6 +762,7 @@ function GithubPreviewCard({
   title: string;
   url: string;
 }) {
+  const t = useTranslations("Welcome.components");
   return (
     <Card className="rounded-xl border border-border/70 bg-muted/20 shadow-none">
       <CardContent className="space-y-3 p-4">
@@ -772,7 +780,7 @@ function GithubPreviewCard({
                 onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
               >
                 <ExternalLink className="size-3" />
-                Open on GitHub
+                {t("advanced.preview.openOnGithub")}
               </Button>
             </div>
             <h3 className="mt-1 truncate text-sm font-medium text-foreground">
@@ -814,6 +822,7 @@ function AutoExtractTodosCheckbox({
   disabled: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const t = useTranslations("Welcome.components");
   return (
     <label className="flex items-center gap-3 rounded-xl border border-border/70 px-3 py-3 text-sm">
       <Checkbox
@@ -824,7 +833,7 @@ function AutoExtractTodosCheckbox({
       <div className="min-w-0">
         <div className="flex items-center gap-2 font-medium text-foreground">
           <Sparkles className="size-4 text-muted-foreground" />
-          Auto-extract TODOs with LLM
+          {t("advanced.autoExtractTodos")}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {description}

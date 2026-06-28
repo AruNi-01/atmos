@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Skeleton,
   Tabs,
@@ -29,13 +30,15 @@ interface WorkspaceNotePanelProps {
 export function WorkspaceNotePanel({
   contextId,
   effectivePath,
-  title = 'Notes',
+  title,
   className,
   contentClassName,
   compact = false,
   defaultMode = 'edit',
   previewFirst = false,
 }: WorkspaceNotePanelProps) {
+  const t = useTranslations("Workspace.components.notePanel");
+  const resolvedTitle = title ?? t("title");
   const note = useWorkspaceContextStore((state) =>
     contextId ? state.workspaceStates[contextId]?.note ?? '' : '',
   );
@@ -153,13 +156,13 @@ export function WorkspaceNotePanel({
   }, [queueSave]);
 
   const statusLabel = React.useMemo(() => {
-    if (!canUseNotes) return 'No context';
-    if (noteLoading && !draft) return 'Loading';
-    if (saveState === 'saving') return 'Saving';
-    if (saveState === 'saved') return 'Saved';
-    if (saveState === 'error') return 'Save failed';
-    return draft.trim() ? 'Markdown' : 'Empty';
-  }, [canUseNotes, draft, noteLoading, saveState]);
+    if (!canUseNotes) return t("status.noContext");
+    if (noteLoading && !draft) return t("status.loading");
+    if (saveState === 'saving') return t("status.saving");
+    if (saveState === 'saved') return t("status.saved");
+    if (saveState === 'error') return t("status.saveFailed");
+    return draft.trim() ? t("status.markdown") : t("status.empty");
+  }, [canUseNotes, draft, noteLoading, saveState, t]);
 
   return (
     <section
@@ -176,7 +179,7 @@ export function WorkspaceNotePanel({
         <div className="flex min-w-0 items-center gap-2">
           <StickyNote className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{title}</p>
+            <p className="truncate text-sm font-medium text-foreground">{resolvedTitle}</p>
             <p className="text-[11px] text-muted-foreground">{statusLabel}</p>
           </div>
         </div>
@@ -189,7 +192,7 @@ export function WorkspaceNotePanel({
             {modeOptions.map((option) => (
               <TabsTab key={option} value={option} className="h-7 px-2.5 text-xs sm:h-7 sm:text-xs">
                 {option === 'edit' ? <PencilLine className="size-3.5" /> : <Eye className="size-3.5" />}
-                {option === 'edit' ? 'Edit' : 'Preview'}
+                {option === 'edit' ? t("tabs.edit") : t("tabs.preview")}
               </TabsTab>
             ))}
           </TabsList>
@@ -199,7 +202,7 @@ export function WorkspaceNotePanel({
       <div className={cn('min-h-0 flex-1 overflow-hidden', contentClassName)}>
         {!canUseNotes ? (
           <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-            Select a project or workspace to use notes.
+            {t("empty.selectContext")}
           </div>
         ) : noteLoading && !draft ? (
           <div className="space-y-3 p-4">
@@ -212,7 +215,7 @@ export function WorkspaceNotePanel({
             value={draft}
             onChange={handleDraftChange}
             onBlur={flushSave}
-            placeholder="Write markdown notes here..."
+            placeholder={t("placeholder")}
             className="h-full min-h-full resize-none rounded-none border-0 bg-transparent px-4 py-3 text-sm leading-6 shadow-none focus-visible:ring-0"
           />
         ) : draft.trim() ? (
@@ -223,7 +226,7 @@ export function WorkspaceNotePanel({
           </div>
         ) : (
           <div className="flex h-full items-center justify-center px-4 text-sm text-muted-foreground/70">
-            No notes yet.
+            {t("empty.noNotes")}
           </div>
         )}
       </div>

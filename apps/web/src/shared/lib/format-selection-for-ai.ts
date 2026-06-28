@@ -2,7 +2,11 @@
  * Format selection info for AI Agent consumption
  */
 
+import { createTranslator } from 'next-intl';
+import enMessages from '../../../messages/en.json';
+import zhMessages from '../../../messages/zh.json';
 import { detectCodeLanguage } from '@/shared/lib/code-language';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 export interface SelectionInfo {
   filePath: string;
@@ -57,6 +61,22 @@ function truncateText(value: string | undefined, limit: number): string | null {
   return `${trimmed.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
+let cachedSelectionLocale: 'en' | 'zh' | null = null;
+let cachedSelectionTranslator: any = null;
+
+function selectionT(key: string, values?: Record<string, string | number>): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedSelectionTranslator || cachedSelectionLocale !== locale) {
+    cachedSelectionLocale = locale;
+    cachedSelectionTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Selection.chrome',
+    });
+  }
+  return cachedSelectionTranslator(key as never, values as never);
+}
+
 /**
  * Format editor selection for AI
  */
@@ -66,16 +86,16 @@ export function formatEditorSelectionForAI(
 ): string {
   const language = info.language || getLanguageFromPath(info.filePath);
 
-  let output = `## Code Snippet\n`;
-  output += `- **File**: \`${info.filePath}\`\n`;
+  let output = `## ${selectionT('formatSelection.codeSnippet')}\n`;
+  output += `- **${selectionT('formatSelection.file')}**: \`${info.filePath}\`\n`;
   if (info.startLine > 0) {
     const lineRange = formatLineRange(info.startLine, info.endLine);
-    output += `- **Lines**: ${lineRange}\n`;
+    output += `- **${selectionT('formatSelection.lines')}**: ${lineRange}\n`;
   }
   output += `\n\`\`\`${language}\n${info.selectedText}\n\`\`\``;
 
   if (userNote?.trim()) {
-    output += `\n\n## Note\n${userNote.trim()}`;
+    output += `\n\n## ${selectionT('formatSelection.note')}\n${userNote.trim()}`;
   }
 
   return output;
@@ -91,18 +111,18 @@ export function formatDiffSelectionForAI(
   const lineRange = formatLineRange(info.startLine, info.endLine);
   const language = info.language || getLanguageFromPath(info.filePath);
 
-  let output = `## Code Change\n`;
-  output += `- **File**: \`${info.filePath}\`\n`;
-  output += `- **Lines**: ${lineRange}\n`;
+  let output = `## ${selectionT('formatSelection.codeChange')}\n`;
+  output += `- **${selectionT('formatSelection.file')}**: \`${info.filePath}\`\n`;
+  output += `- **${selectionT('formatSelection.lines')}**: ${lineRange}\n`;
 
   if (info.changeType) {
     const changeTypeLabels: Record<string, string> = {
-      addition: 'Addition',
-      deletion: 'Deletion',
-      context: 'Context',
-      mixed: 'Mixed',
+      addition: selectionT('formatSelection.changeType.addition'),
+      deletion: selectionT('formatSelection.changeType.deletion'),
+      context: selectionT('formatSelection.changeType.context'),
+      mixed: selectionT('formatSelection.changeType.mixed'),
     };
-    output += `- **Change Type**: ${changeTypeLabels[info.changeType] || info.changeType}\n`;
+    output += `- **${selectionT('formatSelection.changeType.label')}**: ${changeTypeLabels[info.changeType] || info.changeType}\n`;
   }
 
   output += '\n';
@@ -111,22 +131,22 @@ export function formatDiffSelectionForAI(
   const hasAfter = info.afterText != null;
 
   if (hasBefore && hasAfter) {
-    output += `### Change Before\n`;
+    output += `### ${selectionT('formatSelection.changeBefore')}\n`;
     output += `\`\`\`${language}\n${info.beforeText}\n\`\`\`\n\n`;
-    output += `### Change After\n`;
+    output += `### ${selectionT('formatSelection.changeAfter')}\n`;
     output += `\`\`\`${language}\n${info.afterText}\n\`\`\``;
   } else if (hasBefore && !hasAfter) {
-    output += `### Deleted\n`;
+    output += `### ${selectionT('formatSelection.deleted')}\n`;
     output += `\`\`\`${language}\n${info.beforeText}\n\`\`\``;
   } else if (!hasBefore && hasAfter) {
-    output += `### Added\n`;
+    output += `### ${selectionT('formatSelection.added')}\n`;
     output += `\`\`\`${language}\n${info.afterText}\n\`\`\``;
   } else {
     output += `\`\`\`${language}\n${info.selectedText}\n\`\`\``;
   }
 
   if (userNote?.trim()) {
-    output += `\n\n## Note\n${userNote.trim()}`;
+    output += `\n\n## ${selectionT('formatSelection.note')}\n${userNote.trim()}`;
   }
 
   return output;
@@ -146,18 +166,18 @@ export function formatWikiSelectionForAI(
   const wikiPagePath = `${wikiRoot}/${pageRelativePath || info.filePath}`.replace(/\/{2,}/g, '/');
   const selectedText = info.selectedText.trim();
 
-  let output = `## Wiki Excerpt\n`;
-  output += `- **Wiki Root**: \`${wikiRoot}/\`\n`;
-  output += `- **Wiki Page**: \`${wikiPagePath}\`\n`;
+  let output = `## ${selectionT('formatSelection.wikiExcerpt')}\n`;
+  output += `- **${selectionT('formatSelection.wikiRoot')}**: \`${wikiRoot}/\`\n`;
+  output += `- **${selectionT('formatSelection.wikiPage')}**: \`${wikiPagePath}\`\n`;
   if (info.sectionTitle?.trim()) {
-    output += `- **Section**: \`${info.sectionTitle.trim()}\`\n`;
+    output += `- **${selectionT('formatSelection.section')}**: \`${info.sectionTitle.trim()}\`\n`;
   }
 
   output += `\n~~~markdown\n${selectedText}\n~~~`;
-  output += `\n\n## Locate Rule\nIf the wiki page is not found directly, list files under \`${wikiRoot}/\` and locate the closest matching page before answering.`;
+  output += `\n\n## ${selectionT('formatSelection.locateRule')}\n${selectionT('formatSelection.locateRuleDescription', { wikiRoot })}`;
 
   if (userNote?.trim()) {
-    output += `\n\n## Ask\n${userNote.trim()}`;
+    output += `\n\n## ${selectionT('formatSelection.ask')}\n${userNote.trim()}`;
   }
 
   return output;
@@ -180,41 +200,41 @@ export function formatPreviewSelectionForAI(
     info.componentColumn != null ? String(info.componentColumn) : null,
   ].filter(Boolean);
 
-  let output = `## Preview Element\n`;
-  output += `- **Page**: \`${info.pageUrl || info.filePath}\`\n`;
+  let output = `## ${selectionT('formatSelection.previewElement')}\n`;
+  output += `- **${selectionT('formatSelection.page')}**: \`${info.pageUrl || info.filePath}\`\n`;
   if (info.selector) {
-    output += `- **Selector**: \`${info.selector}\`\n`;
+    output += `- **${selectionT('formatSelection.selector')}**: \`${info.selector}\`\n`;
   }
   if (info.tagName) {
-    output += `- **Tag**: \`${info.tagName}\`\n`;
+    output += `- **${selectionT('formatSelection.tag')}**: \`${info.tagName}\`\n`;
   }
   if (info.attributesSummary) {
-    output += `- **Attributes**: ${info.attributesSummary}\n`;
+    output += `- **${selectionT('formatSelection.attributes')}**: ${info.attributesSummary}\n`;
   }
   if (info.framework) {
-    output += `- **Framework**: ${info.framework}\n`;
+    output += `- **${selectionT('formatSelection.framework')}**: ${info.framework}\n`;
   }
   if (info.transportMode) {
-    output += `- **Source Mode**: ${info.transportMode}\n`;
+    output += `- **${selectionT('formatSelection.sourceMode')}**: ${info.transportMode}\n`;
   }
   if (info.componentName) {
-    output += `- **Source Component**: \`${info.componentName}\`\n`;
+    output += `- **${selectionT('formatSelection.sourceComponent')}**: \`${info.componentName}\`\n`;
   }
   if (componentChain.length > 1) {
-    output += `- **Source Component Chain**: ${componentChain.join(' -> ')}\n`;
+    output += `- **${selectionT('formatSelection.sourceComponentChain')}**: ${componentChain.join(' -> ')}\n`;
   }
   if (sourceParts.length > 0) {
-    output += `- **Source**: \`${sourceParts.join(':')}\`\n`;
+    output += `- **${selectionT('formatSelection.source')}**: \`${sourceParts.join(':')}\`\n`;
   }
   if (info.sourceConfidence) {
-    output += `- **Confidence**: ${info.sourceConfidence}\n`;
+    output += `- **${selectionT('formatSelection.confidence')}**: ${info.sourceConfidence}\n`;
   }
   if (sourceDebugSignals.length > 0) {
-    output += `- **Confidence Signals**: ${sourceDebugSignals.join(', ')}\n`;
+    output += `- **${selectionT('formatSelection.confidenceSignals')}**: ${sourceDebugSignals.join(', ')}\n`;
   }
 
   if (textPreview) {
-    output += `\n### Element Text\n${textPreview}\n`;
+    output += `\n### ${selectionT('formatSelection.elementText')}\n${textPreview}\n`;
   }
 
   if (htmlPreview) {
@@ -223,11 +243,11 @@ export function formatPreviewSelectionForAI(
       0,
     );
     const fence = longestBacktickRun >= 3 ? '~'.repeat(longestBacktickRun + 1) : '```';
-    output += `\n### Element HTML\n${fence}html\n${htmlPreview}\n${fence}\n`;
+    output += `\n### ${selectionT('formatSelection.elementHtml')}\n${fence}html\n${htmlPreview}\n${fence}\n`;
   }
 
   if (userNote?.trim()) {
-    output += `\n## Note\n${userNote.trim()}`;
+    output += `\n## ${selectionT('formatSelection.note')}\n${userNote.trim()}`;
   }
 
   return output.trimEnd();

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Input,
@@ -54,11 +55,11 @@ function renderStatusIcon(status: TaskStatus) {
   }
 }
 
-const TASK_SECTIONS: { id: TaskStatus; label: string; icon: React.ReactNode }[] = [
-  { id: 'progress', label: 'In Progress', icon: <RotateCw className="size-4" /> },
-  { id: 'todo', label: 'To Do', icon: <CircleDashed className="size-4" /> },
-  { id: 'done', label: 'Completed', icon: <CheckSquare className="size-4" /> },
-  { id: 'cancelled', label: 'Cancelled', icon: <XOctagon className="size-4" /> },
+const TASK_SECTIONS: { id: TaskStatus; labelKey: 'inProgress' | 'toDo' | 'completed' | 'cancelled'; icon: React.ReactNode }[] = [
+  { id: 'progress', labelKey: 'inProgress', icon: <RotateCw className="size-4" /> },
+  { id: 'todo', labelKey: 'toDo', icon: <CircleDashed className="size-4" /> },
+  { id: 'done', labelKey: 'completed', icon: <CheckSquare className="size-4" /> },
+  { id: 'cancelled', labelKey: 'cancelled', icon: <XOctagon className="size-4" /> },
 ];
 
 // ---------------------------------------------------------------------------
@@ -103,9 +104,10 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
   deleteTask,
   taskRowWrapper,
   sectionWrapper,
-  placeholder = 'What needs to be done? (Double-click task to edit)',
+  placeholder,
   listClassName,
 }) => {
+  const t = useTranslations('Workspace.components.taskListPanel');
   const [newTaskContent, setNewTaskContent] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
@@ -174,6 +176,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
 
   const wrapSection = sectionWrapper ?? ((_id: string, children: React.ReactNode) => children);
   const wrapRow = taskRowWrapper ?? ((_idx: number, children: React.ReactNode) => children);
+  const resolvedPlaceholder = placeholder ?? t('placeholder');
 
   // ---- Task row renderer (shared between DnD and plain) ----
   const renderTaskRow = (task: { index: number; content: string; status: TaskStatus }) => (
@@ -233,31 +236,31 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
           <DropdownMenuContent align="end" className="w-[150px]">
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'todo')} className="text-xs cursor-pointer">
               <Circle className="size-3.5 mr-2 opacity-50" />
-              To Do
+              {t('sections.toDo')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'progress')} className="text-xs cursor-pointer">
               <RotateCw className="size-3.5 mr-2" />
-              In Progress
+              {t('sections.inProgress')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'done')} className="text-xs cursor-pointer">
               <CheckSquare className="size-3.5 mr-2" />
-              Completed
+              {t('sections.completed')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'cancelled')} className="text-xs opacity-60 cursor-pointer">
               <XOctagon className="size-3.5 mr-2" />
-              Cancelled
+              {t('sections.cancelled')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => { setEditingIndex(task.index); setEditingContent(task.content); }} className="text-xs cursor-pointer">
               <Pencil className="size-3.5 mr-2 opacity-50" />
-              Edit Task
+              {t('menu.editTask')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleDelete(task.index)}
               className="text-xs text-destructive focus:text-destructive cursor-pointer"
             >
               <Trash2 className="size-3.5 mr-2" />
-              Delete
+              {t('menu.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -273,7 +276,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
           value={newTaskContent}
           onChange={(e) => setNewTaskContent(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           className="h-9 text-sm bg-background border-border focus-visible:ring-1 focus-visible:ring-ring"
         />
         <Button
@@ -301,7 +304,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
         ) : tasks.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center py-10 text-muted-foreground/50">
             <CheckSquare className="size-7 mb-2 opacity-30" />
-            <span className="text-sm">No tasks added yet.</span>
+            <span className="text-sm">{t('empty.noTasks')}</span>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
@@ -320,7 +323,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
                     <ChevronRight className={cn("size-3.5 transition-transform duration-200 opacity-50", expandedSections[section.id] && "rotate-90")} />
                     <div className="flex items-center gap-2">
                       {section.icon}
-                      <span>{section.label}</span>
+                      <span>{t(`sections.${section.labelKey}`)}</span>
                     </div>
                     <span className="ml-auto text-[11px] font-mono opacity-50">{sectionTasks.length}</span>
                   </CollapsibleTrigger>
@@ -329,7 +332,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
                       <div className="absolute left-0 top-0 bottom-2.5 w-px bg-border" />
                       <div className="flex flex-col gap-0.5 pl-4">
                         {sectionTasks.length === 0 ? (
-                          <div className="py-2 text-xs text-muted-foreground/40 italic">No items in this section.</div>
+                          <div className="py-2 text-xs text-muted-foreground/40 italic">{t('empty.noItemsInSection')}</div>
                         ) : (
                           sectionTasks.map((task) => (
                             <React.Fragment key={task.index}>

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createTranslator } from "next-intl";
 import { systemApi } from "@/api/rest-api";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../messages/en.json";
+import zhMessages from "../../../messages/zh.json";
 
 export interface TmuxCheckState {
   isLoading: boolean;
@@ -13,6 +17,22 @@ export interface TmuxCheckState {
 
 interface UseTmuxCheckOptions {
   enabled?: boolean;
+}
+
+let cachedSharedLocale: "en" | "zh" | null = null;
+let cachedSharedTranslator: any = null;
+
+function sharedT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedSharedTranslator || cachedSharedLocale !== locale) {
+    cachedSharedLocale = locale;
+    cachedSharedTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "shared.tmuxCheck",
+    });
+  }
+  return cachedSharedTranslator(key as never);
 }
 
 /**
@@ -44,7 +64,7 @@ export function useTmuxCheck(options: UseTmuxCheckOptions = {}): TmuxCheckState 
       setVersion(status.version);
     } catch (err) {
       // Only show the install prompt when the backend explicitly reports tmux missing.
-      setError(err instanceof Error ? err.message : "Failed to check tmux status");
+      setError(err instanceof Error ? err.message : sharedT("errors.failedToCheckStatus"));
       setIsInstalled(null);
       setVersion(null);
     } finally {
