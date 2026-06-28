@@ -43,8 +43,6 @@ jobs:
               - "packages/**"
               - "package.json"
               - "bun.lock"
-              - ".github/workflows/ci-web.yml"
-              - ".github/actions/setup-bun/**"
             build:
               - "apps/web/**"
               - "packages/**"
