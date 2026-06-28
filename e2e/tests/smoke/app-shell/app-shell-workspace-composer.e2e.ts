@@ -9,7 +9,7 @@ test.describe("smoke app shell workspace composer", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const addProjectButton = page.getByRole("button", { name: "Add Project" });
+    const addProjectButton = page.locator("main").first().getByRole("button", { name: "Add Project" });
     await addProjectButton.scrollIntoViewIfNeeded();
     await addProjectButton.evaluate((element) => {
       (element as HTMLButtonElement).click();

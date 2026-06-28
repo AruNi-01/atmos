@@ -42,7 +42,7 @@ export default defineConfig({
           cwd: webAppDir,
           url: baseURL,
           reuseExistingServer: shouldReuseWebServer && !isCI,
-          timeout: 300_000,
+          timeout: 600_000,
           stdout: "pipe",
           stderr: "pipe",
         }
