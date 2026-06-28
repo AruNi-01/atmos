@@ -3,10 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import "streamdown/styles.css";
 import {
-  Attachments,
-  Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
   Confirmation,
   ConfirmationActions,
   ConfirmationRequest,
@@ -14,22 +10,16 @@ import {
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-  Message,
-  MessageContent,
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { Button } from "@workspace/ui/components/ui/button";
-import { ChevronDown, Loader2, MessageSquare, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, Loader2, MessageSquare } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
-import { getAssistantCopyText, type ThreadEntry } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
-import { MessageCopyButton } from "./CopyButtons";
-import { SessionUsageBadge, MessageTurnUsageBadge } from "./UsageBadges";
+import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
 import { PermissionActionButton } from "./MessageQueueDock";
-import { AssistantTurnView } from "./AssistantTurnView";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
@@ -37,7 +27,13 @@ import { AgentChatHeader } from "./AgentChatHeader";
 import { AgentAuthDialog } from "./AgentAuthDialog";
 import { AgentMessageTimelineNav } from "./AgentMessageTimelineNav";
 import { AgentChatHistorySidebar } from "./AgentChatHistorySidebar";
+import {
+  AgentChatHistorySidebarFrame,
+  AgentChatHistorySidebarToggle,
+} from "./AgentChatHistorySidebarFrame";
+import { AgentChatEntryView } from "./AgentChatEntryView";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
+import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
 
 // ---------------------------------------------------------------------------
 // Main Panel
@@ -54,11 +50,6 @@ interface AgentChatPanelProps {
 }
 
 const WIDE_HISTORY_LAYOUT_MIN_WIDTH = 900;
-const HISTORY_SIDEBAR_DEFAULT_WIDTH = 320;
-const HISTORY_SIDEBAR_MIN_WIDTH = 248;
-const HISTORY_SIDEBAR_MAX_WIDTH = 440;
-const HISTORY_SIDEBAR_WIDTH_STORAGE_KEY = "atmos:agent-chat-history-sidebar-width";
-const HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY = "atmos:agent-chat-history-sidebar-collapsed";
 
 export function AgentChatPanel({
   variant = "modal",
@@ -75,8 +66,6 @@ export function AgentChatPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
-  const [historySidebarWidth, setHistorySidebarWidth] = useState(readStoredHistorySidebarWidth);
-  const [historySidebarCollapsed, setHistorySidebarCollapsed] = useState(readStoredHistorySidebarCollapsed);
 
   const session = useAgentChatSession({
     variant,
@@ -109,16 +98,14 @@ export function AgentChatPanel({
   const dragAbortController = useRef<AbortController | null>(null);
   const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
   const resizeAbortController = useRef<AbortController | null>(null);
-  const historySidebarFrameRef = useRef<HTMLDivElement>(null);
-  const historyResizeState = useRef<{
-    startX: number;
-    startWidth: number;
-    currentWidth: number;
-    frame: HTMLDivElement | null;
-  } | null>(null);
-  const historyResizeAbortController = useRef<AbortController | null>(null);
-  const historyResizeAnimationFrame = useRef<number | null>(null);
-  const [isHistorySidebarResizing, setIsHistorySidebarResizing] = useState(false);
+  const {
+    historySidebarFrameRef,
+    historySidebarWidth,
+    historySidebarCollapsed,
+    setHistorySidebarCollapsed,
+    isHistorySidebarResizing,
+    handleHistorySidebarResizeStart,
+  } = useAgentChatHistorySidebarLayout({ panelWidth });
 
   const shouldMeasurePanel = session.isPanelOpen && (variant !== "modal" || layoutLoaded);
 
@@ -171,30 +158,6 @@ export function AgentChatPanel({
       y: Math.max(0, Math.min(y, vh - h)),
     };
   }, []);
-
-  const clampHistorySidebarWidth = useCallback((width: number) => {
-    const panelBoundedMax = panelWidth > 0
-      ? Math.max(HISTORY_SIDEBAR_MIN_WIDTH, Math.min(HISTORY_SIDEBAR_MAX_WIDTH, panelWidth - 520))
-      : HISTORY_SIDEBAR_MAX_WIDTH;
-    return Math.round(Math.min(panelBoundedMax, Math.max(HISTORY_SIDEBAR_MIN_WIDTH, width)));
-  }, [panelWidth]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY, String(historySidebarWidth));
-  }, [historySidebarWidth]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY,
-      historySidebarCollapsed ? "true" : "false",
-    );
-  }, [historySidebarCollapsed]);
-
-  useEffect(() => {
-    setHistorySidebarWidth((current) => clampHistorySidebarWidth(current));
-  }, [clampHistorySidebarWidth]);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, input, textarea, [role="button"], [data-radix-popper-content-wrapper]')) return;
@@ -259,87 +222,12 @@ export function AgentChatPanel({
     document.addEventListener('mouseup', handleUp, { signal });
   }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
 
-  const handleHistorySidebarResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const frame = historySidebarFrameRef.current;
-    const startWidth = clampHistorySidebarWidth(
-      frame?.getBoundingClientRect().width ?? historySidebarWidth,
-    );
-    historyResizeState.current = {
-      startX: e.clientX,
-      startWidth,
-      currentWidth: startWidth,
-      frame,
-    };
-    setIsHistorySidebarResizing(true);
-    if (frame) {
-      frame.style.width = `${startWidth}px`;
-    }
-
-    const previousCursor = document.body.style.cursor;
-    const previousUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    let restoredDocumentInteraction = false;
-    const restoreDocumentInteraction = () => {
-      if (restoredDocumentInteraction) return;
-      restoredDocumentInteraction = true;
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousUserSelect;
-    };
-
-    const handleMove = (ev: MouseEvent) => {
-      const state = historyResizeState.current;
-      if (!state) return;
-      const dx = ev.clientX - state.startX;
-      state.currentWidth = clampHistorySidebarWidth(state.startWidth + dx);
-      if (historyResizeAnimationFrame.current !== null) return;
-
-      historyResizeAnimationFrame.current = window.requestAnimationFrame(() => {
-        historyResizeAnimationFrame.current = null;
-        const latestState = historyResizeState.current;
-        if (!latestState?.frame) return;
-        latestState.frame.style.width = `${latestState.currentWidth}px`;
-      });
-    };
-
-    const handleUp = () => {
-      const finalWidth = historyResizeState.current?.currentWidth ?? historySidebarWidth;
-      if (historyResizeAnimationFrame.current !== null) {
-        window.cancelAnimationFrame(historyResizeAnimationFrame.current);
-        historyResizeAnimationFrame.current = null;
-      }
-      if (historyResizeState.current?.frame) {
-        historyResizeState.current.frame.style.width = `${finalWidth}px`;
-      }
-      historyResizeState.current = null;
-      setHistorySidebarWidth(finalWidth);
-      setIsHistorySidebarResizing(false);
-      restoreDocumentInteraction();
-      historyResizeAbortController.current?.abort();
-      historyResizeAbortController.current = null;
-    };
-
-    historyResizeAbortController.current = new AbortController();
-    const { signal } = historyResizeAbortController.current;
-    signal.addEventListener("abort", restoreDocumentInteraction, { once: true });
-    document.addEventListener("mousemove", handleMove, { signal });
-    document.addEventListener("mouseup", handleUp, { signal });
-  }, [clampHistorySidebarWidth, historySidebarWidth]);
-
   useEffect(() => {
     return () => {
       dragAbortController.current?.abort();
       dragAbortController.current = null;
       resizeAbortController.current?.abort();
       resizeAbortController.current = null;
-      if (historyResizeAnimationFrame.current !== null) {
-        window.cancelAnimationFrame(historyResizeAnimationFrame.current);
-        historyResizeAnimationFrame.current = null;
-      }
-      historyResizeAbortController.current?.abort();
-      historyResizeAbortController.current = null;
     };
   }, []);
 
@@ -477,21 +365,10 @@ export function AgentChatPanel({
   ]);
 
   const historySidebarToggle = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={() => setHistorySidebarCollapsed((current) => !current)}
-      className="size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-      aria-label={historySidebarCollapsed ? "Expand history sidebar" : "Hide history sidebar"}
-      title={historySidebarCollapsed ? "Expand history sidebar" : "Hide history sidebar"}
-    >
-      {historySidebarCollapsed ? (
-        <PanelLeftOpen className="size-[18px]" />
-      ) : (
-        <PanelLeftClose className="size-[18px]" />
-      )}
-    </Button>
+    <AgentChatHistorySidebarToggle
+      collapsed={historySidebarCollapsed}
+      onToggle={() => setHistorySidebarCollapsed((current) => !current)}
+    />
   );
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
@@ -560,11 +437,7 @@ export function AgentChatPanel({
         <AgentChatHistorySidebarFrame
           frameRef={historySidebarFrameRef}
           collapsed={historySidebarCollapsed}
-          width={
-            isHistorySidebarResizing
-              ? (historyResizeState.current?.currentWidth ?? historySidebarWidth)
-              : historySidebarWidth
-          }
+          width={historySidebarWidth}
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
           onCollapsedExpand={() => setHistorySidebarCollapsed(false)}
@@ -834,310 +707,5 @@ export function AgentChatPanel({
       />
       </div>
     </div>
-  );
-}
-
-const entryVisibilityStyle = {
-  contentVisibility: "auto",
-  containIntrinsicSize: "0 240px",
-} as React.CSSProperties;
-
-const AgentChatEntryView = React.memo(function AgentChatEntryView({
-  entry,
-  entryIndex,
-  registryId,
-}: {
-  entry: ThreadEntry;
-  entryIndex: number;
-  registryId: string;
-}) {
-  return (
-    <div
-      data-entry-index={entryIndex}
-      className="w-full min-w-0"
-      style={entryVisibilityStyle}
-    >
-      {entry.role === "user" ? (
-        <div className="group relative">
-          <MessageCopyButton
-            text={entry.content}
-            ariaLabel="Copy user message"
-            title="Copy message"
-            className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
-          />
-          <Message from="user">
-            <MessageContent>
-              {entry.files && entry.files.length > 0 && (
-                <Attachments variant="inline" className="mb-2">
-                  {entry.files.map((f) => (
-                    <Attachment key={f.id} data={f}>
-                      <AttachmentPreview />
-                      <AttachmentRemove />
-                    </Attachment>
-                  ))}
-                </Attachments>
-              )}
-              <div
-                className="whitespace-pre-wrap"
-                style={{ overflowWrap: "break-word", wordBreak: "normal" }}
-              >
-                {entry.content}
-              </div>
-            </MessageContent>
-          </Message>
-        </div>
-      ) : (
-        <Message from="assistant">
-          <MessageContent>
-            <AssistantTurnView entry={entry} registryId={registryId} />
-            {!entry.isStreaming && (
-              <div className="mt-2 flex items-center gap-2">
-                <MessageCopyButton
-                  text={getAssistantCopyText(entry)}
-                  ariaLabel="Copy current turn message"
-                  title="Copy turn"
-                  className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                />
-                {entry.usage && (
-                  <MessageTurnUsageBadge usage={entry.usage} />
-                )}
-              </div>
-            )}
-          </MessageContent>
-        </Message>
-      )}
-    </div>
-  );
-});
-
-function readStoredHistorySidebarWidth() {
-  if (typeof window === "undefined") return HISTORY_SIDEBAR_DEFAULT_WIDTH;
-  const storedValue = window.localStorage.getItem(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY);
-  if (storedValue === null) return HISTORY_SIDEBAR_DEFAULT_WIDTH;
-  const stored = Number(storedValue);
-  if (!Number.isFinite(stored)) return HISTORY_SIDEBAR_DEFAULT_WIDTH;
-  return Math.min(
-    HISTORY_SIDEBAR_MAX_WIDTH,
-    Math.max(HISTORY_SIDEBAR_MIN_WIDTH, stored),
-  );
-}
-
-function readStoredHistorySidebarCollapsed() {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
-}
-
-function AgentChatHistorySidebarFrame({
-  frameRef,
-  collapsed,
-  width,
-  isResizing,
-  onResizeStart,
-  onCollapsedExpand,
-  children,
-}: {
-  frameRef: React.RefObject<HTMLDivElement | null>;
-  collapsed: boolean;
-  width: number;
-  isResizing: boolean;
-  onResizeStart: (event: React.MouseEvent) => void;
-  onCollapsedExpand: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <div
-        ref={frameRef}
-        className={cn(
-          "relative h-full min-h-0 shrink-0",
-          !isResizing && "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          collapsed ? "overflow-visible" : "overflow-hidden",
-        )}
-        style={{
-          width: collapsed ? 0 : width,
-          willChange: isResizing ? "width" : undefined,
-        }}
-      >
-        {collapsed ? (
-          <AgentChatHistoryPeekShell width={width} onExpand={onCollapsedExpand}>
-            {children}
-          </AgentChatHistoryPeekShell>
-        ) : (
-          <div className="h-full min-h-0 overflow-hidden">
-            {children}
-          </div>
-        )}
-      </div>
-      {!collapsed ? (
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          className={cn(
-            "group relative flex h-full w-px shrink-0 cursor-col-resize items-center justify-center bg-transparent touch-none",
-            "before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2",
-          )}
-          onMouseDown={onResizeStart}
-        >
-          <div className="pointer-events-none h-full w-px bg-border/80 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-function AgentChatHistoryPeekShell({
-  width,
-  onExpand,
-  children,
-}: {
-  width: number;
-  onExpand: () => void;
-  children: React.ReactNode;
-}) {
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  }, []);
-
-  const showPeek = useCallback(() => {
-    clearCloseTimer();
-    setIsVisible(true);
-  }, [clearCloseTimer]);
-
-  const scheduleHide = useCallback(() => {
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      if (
-        triggerRef.current?.matches(":hover") ||
-        panelRef.current?.matches(":hover") ||
-        document.querySelector(AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_SELECTOR)
-      ) {
-        closeTimerRef.current = null;
-        return;
-      }
-
-      setIsVisible(false);
-      closeTimerRef.current = null;
-    }, 160);
-  }, [clearCloseTimer]);
-
-  const handlePointerLeave = useCallback(
-    (relatedTarget: EventTarget | null) => {
-      if (isAgentChatHistoryPeekKeepOpenTarget(relatedTarget)) {
-        clearCloseTimer();
-        return;
-      }
-      scheduleHide();
-    },
-    [clearCloseTimer, scheduleHide],
-  );
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const handlePointerOver = (event: PointerEvent) => {
-      const target = event.target;
-      if (
-        isNodeInsideRef(target, triggerRef) ||
-        isNodeInsideRef(target, panelRef) ||
-        isAgentChatHistoryPeekKeepOpenTarget(target)
-      ) {
-        clearCloseTimer();
-        return;
-      }
-      scheduleHide();
-    };
-
-    document.addEventListener("pointerover", handlePointerOver, true);
-    return () => {
-      document.removeEventListener("pointerover", handlePointerOver, true);
-    };
-  }, [clearCloseTimer, isVisible, scheduleHide]);
-
-  useEffect(() => clearCloseTimer, [clearCloseTimer]);
-
-  return (
-    <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
-        aria-label="Expand history sidebar"
-        title="Expand history sidebar"
-        onClick={onExpand}
-        onFocus={showPeek}
-      >
-        <PanelLeftOpen className="size-4" />
-      </Button>
-      <div
-        ref={triggerRef}
-        aria-hidden="true"
-        className="peer absolute inset-y-0 left-0 z-50 bg-transparent"
-        style={{ width: 5 }}
-        onPointerEnter={showPeek}
-        onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
-        onMouseEnter={showPeek}
-        onMouseLeave={(event) => handlePointerLeave(event.relatedTarget)}
-      />
-      <div
-        ref={panelRef}
-        className={cn(
-          "absolute inset-y-0 left-0 z-40 min-w-0 overflow-hidden bg-muted/20 text-foreground shadow-2xl ring-1 ring-border/80 backdrop-blur-md",
-          "transition-[translate,opacity,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate,opacity]",
-          isVisible
-            ? "pointer-events-auto translate-x-0 opacity-100"
-            : "pointer-events-none -translate-x-full opacity-0 peer-hover:pointer-events-auto peer-hover:translate-x-0 peer-hover:opacity-100 hover:pointer-events-auto hover:translate-x-0 hover:opacity-100",
-          "rounded-r-xl",
-        )}
-        style={{ width }}
-        onFocusCapture={showPeek}
-        onPointerEnter={showPeek}
-        onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
-        onMouseEnter={showPeek}
-        onMouseLeave={(event) => handlePointerLeave(event.relatedTarget)}
-      >
-        {children}
-      </div>
-    </>
-  );
-}
-
-const AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_SELECTOR = [
-  "[data-radix-popper-content-wrapper]:hover",
-  "[data-slot='popover-content']:hover",
-  "[data-slot='hover-card-content']:hover",
-  "[data-slot='tooltip-content']:hover",
-  "[data-slot='dropdown-menu-content']:hover",
-  "[data-slot='dropdown-menu-sub-content']:hover",
-].join(", ");
-
-const AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_TARGET_SELECTOR = [
-  "[data-radix-popper-content-wrapper]",
-  "[data-slot='popover-content']",
-  "[data-slot='hover-card-content']",
-  "[data-slot='tooltip-content']",
-  "[data-slot='dropdown-menu-content']",
-  "[data-slot='dropdown-menu-sub-content']",
-].join(", ");
-
-function isNodeInsideRef(
-  target: EventTarget | null,
-  ref: React.RefObject<HTMLElement | null>,
-) {
-  return target instanceof Node && ref.current?.contains(target);
-}
-
-function isAgentChatHistoryPeekKeepOpenTarget(target: EventTarget | null) {
-  return (
-    target instanceof Element &&
-    Boolean(target.closest(AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_TARGET_SELECTOR))
   );
 }
