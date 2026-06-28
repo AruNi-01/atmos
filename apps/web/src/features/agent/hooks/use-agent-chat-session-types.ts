@@ -187,7 +187,6 @@ export function buildAgentChatExportableMessages(
   });
 }
 
-export function getConnectionPhaseLabel(connectionPhase: string): string {
 type ConnectionPhaseTranslator = (key: string) => string;
 
 export function getConnectionPhaseLabel(
