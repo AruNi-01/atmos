@@ -4,6 +4,7 @@ import {
   shouldReuseWebServer,
   shouldStartWebServer,
   webAppDir,
+  webHealthURL,
   webServerCommand,
 } from "./fixtures/app-server";
 
@@ -40,7 +41,7 @@ export default defineConfig({
       ? {
           command: webServerCommand(),
           cwd: webAppDir,
-          url: baseURL,
+          url: webHealthURL,
           reuseExistingServer: shouldReuseWebServer && !isCI,
           timeout: 900_000,
           stdout: "pipe",

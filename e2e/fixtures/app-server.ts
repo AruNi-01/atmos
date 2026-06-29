@@ -57,6 +57,7 @@ const existingWebPort = process.env.E2E_BASE_URL
 
 export const webPort = useSingleServer ? apiPort : configuredWebPort;
 export const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${webPort}`;
+export const webHealthURL = `${baseURL}/en`;
 
 export const shouldStartWebServer =
   process.env.E2E_START_WEB !== "0" && !process.env.E2E_BASE_URL;
@@ -74,7 +75,7 @@ function staticExportCommands(): string[] {
     `if [ ! -d "${outDir}" ] || [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
     `  rm -rf "${outDir}"`,
     `  cd "${repoRoot}"`,
-    `  BUILD_TARGET="local-web" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
+    `  BUILD_TARGET="local-web" NEXT_TELEMETRY_DISABLED="1" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
     `fi`,
   ];
 }
@@ -106,6 +107,22 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
     `fi`,
     `if [ -n "${'$'}api_pid" ]; then`,
     `  trap 'if [ -n "$api_pid" ]; then kill "$api_pid" >/dev/null 2>&1 || true; fi' EXIT`,
+    `fi`,
+    `if ${serveStatic ? "true" : "false"}; then`,
+    `  for _ in {1..120}; do`,
+    `    if curl -fsS --max-time 2 "http://127.0.0.1:${correspondingWebPort}/en" > /dev/null; then`,
+    `      break`,
+    `    fi`,
+    `    if [ -n "${'$'}api_pid" ] && ! kill -0 "${'$'}api_pid" >/dev/null 2>&1; then`,
+    `      cat "${'$'}api_log"`,
+    `      exit 1`,
+    `    fi`,
+    `    sleep 1`,
+    `  done`,
+    `  if ! curl -fsS --max-time 2 "http://127.0.0.1:${correspondingWebPort}/en" > /dev/null; then`,
+    `    cat "${'$'}api_log" 2>/dev/null || true`,
+    `    exit 1`,
+    `  fi`,
     `fi`,
   ];
 }
