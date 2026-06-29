@@ -1,0 +1,33 @@
+e2e/tests/smoke/support/app-smoke.ts
+  s_9fab8631a4e97f::t_aa8d968c11099e 22-25
+e2e/tests/smoke/onboarding/remote-onboarding.e2e.ts
+  s_9fab8631a4e97f::t_aa8d968c11099e 20
+e2e/tests/smoke/project/project-context-route.e2e.ts
+  s_9fab8631a4e97f::t_aa8d968c11099e 6,23,50
+e2e/tests/smoke/settings/settings-modal.e2e.ts
+  s_9fab8631a4e97f::t_aa8d968c11099e 6,41,75
+e2e/tests/smoke/onboarding/local-onboarding.e2e.ts
+  s_9fab8631a4e97f::t_aa8d968c11099e 5,8-9,18,31-32,38
+  s_9fab8631a4e97f::t_ec809c52466cc4 28-30
+e2e/tests/smoke/workspace/workspace-sidebar-routes.e2e.ts
+  s_9fab8631a4e97f::t_aa8d968c11099e 8,102
+e2e/tests/smoke/onboarding/private-relay-onboarding.e2e.ts
+  s_9fab8631a4e97f::t_ec809c52466cc4 11-13
+  s_9fab8631a4e97f::t_aa8d968c11099e 20-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "5affd74ec422bb47da88c9b2b7c93816dce2906d",
+  "prompts": {},
+  "sessions": {
+    "s_9fab8631a4e97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10c7-9b95-7012-b686-826356045b20",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
