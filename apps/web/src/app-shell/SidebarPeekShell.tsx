@@ -36,6 +36,7 @@ export function SidebarPeekShell({
     handlePointerLeave,
     isVisible,
     panelRef,
+    rootRef,
     showPeek,
     triggerRef,
   } = useSidebarPeekVisibility();
@@ -48,7 +49,12 @@ export function SidebarPeekShell({
   const edgeClassName = isLeft ? "left-0" : "right-0";
 
   return (
-    <div className="contents" onFocusCapture={showPeek} onBlurCapture={handleFocusLeave}>
+    <div
+      ref={rootRef}
+      className="contents"
+      onFocusCapture={showPeek}
+      onBlurCapture={handleFocusLeave}
+    >
       <div
         ref={triggerRef}
         aria-hidden="true"

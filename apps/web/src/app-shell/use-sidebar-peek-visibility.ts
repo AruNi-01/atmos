@@ -25,6 +25,7 @@ const SIDEBAR_PEEK_KEEP_OPEN_TARGET_SELECTOR = [
 ].join(", ");
 
 export function useSidebarPeekVisibility() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,8 +47,12 @@ export function useSidebarPeekVisibility() {
     clearCloseTimer();
     closeTimerRef.current = setTimeout(() => {
       if (
+        isNodeInsideRef(document.activeElement, rootRef) ||
         triggerRef.current?.matches(":hover") ||
         panelRef.current?.matches(":hover") ||
+        isNodeInsideRef(document.activeElement, triggerRef) ||
+        isNodeInsideRef(document.activeElement, panelRef) ||
+        isSidebarPeekKeepOpenTarget(document.activeElement) ||
         document.querySelector(SIDEBAR_PEEK_KEEP_OPEN_SELECTOR)
       ) {
         closeTimerRef.current = null;
@@ -89,6 +94,21 @@ export function useSidebarPeekVisibility() {
     const handlePointerOver = (event: PointerEvent) => {
       const target = event.target;
       if (
+        isNodeInsideRef(target, rootRef) ||
+        isNodeInsideRef(target, triggerRef) ||
+        isNodeInsideRef(target, panelRef) ||
+        isSidebarPeekKeepOpenTarget(target)
+      ) {
+        clearCloseTimer();
+        return;
+      }
+      scheduleHide();
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        isNodeInsideRef(target, rootRef) ||
         isNodeInsideRef(target, triggerRef) ||
         isNodeInsideRef(target, panelRef) ||
         isSidebarPeekKeepOpenTarget(target)
@@ -100,8 +120,10 @@ export function useSidebarPeekVisibility() {
     };
 
     document.addEventListener("pointerover", handlePointerOver, true);
+    document.addEventListener("focusin", handleFocusIn, true);
     return () => {
       document.removeEventListener("pointerover", handlePointerOver, true);
+      document.removeEventListener("focusin", handleFocusIn, true);
     };
   }, [clearCloseTimer, isVisible, scheduleHide]);
 
@@ -112,6 +134,7 @@ export function useSidebarPeekVisibility() {
     handlePointerLeave,
     isVisible,
     panelRef,
+    rootRef,
     showPeek,
     triggerRef,
   };

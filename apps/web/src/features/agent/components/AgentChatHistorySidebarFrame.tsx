@@ -105,12 +105,18 @@ function AgentChatHistoryPeekShell({
     handlePointerLeave,
     isVisible,
     panelRef,
+    rootRef,
     showPeek,
     triggerRef,
   } = useSidebarPeekVisibility();
 
   return (
-    <div className="contents" onFocusCapture={showPeek} onBlurCapture={handleFocusLeave}>
+    <div
+      ref={rootRef}
+      className="contents"
+      onFocusCapture={showPeek}
+      onBlurCapture={handleFocusLeave}
+    >
       <Button
         type="button"
         variant="ghost"
