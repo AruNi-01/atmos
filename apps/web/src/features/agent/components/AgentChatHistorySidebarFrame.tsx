@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React from "react";
 import { cn } from "@workspace/ui";
 import { Button } from "@workspace/ui/components/ui/button";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+
+import { useSidebarPeekVisibility } from "@/app-shell/use-sidebar-peek-visibility";
 
 export function AgentChatHistorySidebarToggle({
   collapsed,
@@ -98,77 +100,17 @@ function AgentChatHistoryPeekShell({
   onExpand: () => void;
   children: React.ReactNode;
 }) {
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  }, []);
-
-  const showPeek = useCallback(() => {
-    clearCloseTimer();
-    setIsVisible(true);
-  }, [clearCloseTimer]);
-
-  const scheduleHide = useCallback(() => {
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      if (
-        triggerRef.current?.matches(":hover") ||
-        panelRef.current?.matches(":hover") ||
-        document.querySelector(AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_SELECTOR)
-      ) {
-        closeTimerRef.current = null;
-        return;
-      }
-
-      setIsVisible(false);
-      closeTimerRef.current = null;
-    }, 160);
-  }, [clearCloseTimer]);
-
-  const handlePointerLeave = useCallback(
-    (relatedTarget: EventTarget | null) => {
-      if (isAgentChatHistoryPeekKeepOpenTarget(relatedTarget)) {
-        clearCloseTimer();
-        return;
-      }
-      scheduleHide();
-    },
-    [clearCloseTimer, scheduleHide],
-  );
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const handlePointerOver = (event: PointerEvent) => {
-      const target = event.target;
-      if (
-        isNodeInsideRef(target, triggerRef) ||
-        isNodeInsideRef(target, panelRef) ||
-        isAgentChatHistoryPeekKeepOpenTarget(target)
-      ) {
-        clearCloseTimer();
-        return;
-      }
-      scheduleHide();
-    };
-
-    document.addEventListener("pointerover", handlePointerOver, true);
-    return () => {
-      document.removeEventListener("pointerover", handlePointerOver, true);
-    };
-  }, [clearCloseTimer, isVisible, scheduleHide]);
-
-  useEffect(() => clearCloseTimer, [clearCloseTimer]);
+  const {
+    handleFocusLeave,
+    handlePointerLeave,
+    isVisible,
+    panelRef,
+    showPeek,
+    triggerRef,
+  } = useSidebarPeekVisibility();
 
   return (
-    <>
+    <div className="contents" onFocusCapture={showPeek} onBlurCapture={handleFocusLeave}>
       <Button
         type="button"
         variant="ghost"
@@ -177,7 +119,6 @@ function AgentChatHistoryPeekShell({
         aria-label="Expand history sidebar"
         title="Expand history sidebar"
         onClick={onExpand}
-        onFocus={showPeek}
       >
         <PanelLeftOpen className="size-4" />
       </Button>
@@ -202,7 +143,6 @@ function AgentChatHistoryPeekShell({
           "rounded-r-xl",
         )}
         style={{ width }}
-        onFocusCapture={showPeek}
         onPointerEnter={showPeek}
         onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
         onMouseEnter={showPeek}
@@ -210,38 +150,6 @@ function AgentChatHistoryPeekShell({
       >
         {children}
       </div>
-    </>
-  );
-}
-
-const AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_SELECTOR = [
-  "[data-radix-popper-content-wrapper]:hover",
-  "[data-slot='popover-content']:hover",
-  "[data-slot='hover-card-content']:hover",
-  "[data-slot='tooltip-content']:hover",
-  "[data-slot='dropdown-menu-content']:hover",
-  "[data-slot='dropdown-menu-sub-content']:hover",
-].join(", ");
-
-const AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_TARGET_SELECTOR = [
-  "[data-radix-popper-content-wrapper]",
-  "[data-slot='popover-content']",
-  "[data-slot='hover-card-content']",
-  "[data-slot='tooltip-content']",
-  "[data-slot='dropdown-menu-content']",
-  "[data-slot='dropdown-menu-sub-content']",
-].join(", ");
-
-function isNodeInsideRef(
-  target: EventTarget | null,
-  ref: React.RefObject<HTMLElement | null>,
-) {
-  return target instanceof Node && ref.current?.contains(target);
-}
-
-function isAgentChatHistoryPeekKeepOpenTarget(target: EventTarget | null) {
-  return (
-    target instanceof Element &&
-    Boolean(target.closest(AGENT_CHAT_HISTORY_PEEK_KEEP_OPEN_TARGET_SELECTOR))
+    </div>
   );
 }

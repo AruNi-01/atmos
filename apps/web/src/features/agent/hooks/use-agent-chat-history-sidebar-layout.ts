@@ -42,12 +42,15 @@ export function useAgentChatHistorySidebarLayout({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY, String(historySidebarWidth));
+    writeStoredHistorySidebarValue(
+      HISTORY_SIDEBAR_WIDTH_STORAGE_KEY,
+      String(historySidebarWidth),
+    );
   }, [historySidebarWidth]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(
+    writeStoredHistorySidebarValue(
       HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY,
       historySidebarCollapsed ? "true" : "false",
     );
@@ -150,7 +153,7 @@ export function useAgentChatHistorySidebarLayout({
 
 function readStoredHistorySidebarWidth() {
   if (typeof window === "undefined") return HISTORY_SIDEBAR_DEFAULT_WIDTH;
-  const storedValue = window.localStorage.getItem(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY);
+  const storedValue = readStoredHistorySidebarValue(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY);
   if (storedValue === null) return HISTORY_SIDEBAR_DEFAULT_WIDTH;
   const stored = Number(storedValue);
   if (!Number.isFinite(stored)) return HISTORY_SIDEBAR_DEFAULT_WIDTH;
@@ -162,5 +165,21 @@ function readStoredHistorySidebarWidth() {
 
 function readStoredHistorySidebarCollapsed() {
   if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  return readStoredHistorySidebarValue(HISTORY_SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+}
+
+function readStoredHistorySidebarValue(key: string) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredHistorySidebarValue(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Layout persistence is best-effort.
+  }
 }
