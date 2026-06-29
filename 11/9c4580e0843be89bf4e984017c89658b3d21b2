@@ -1,0 +1,30 @@
+e2e/tests/smoke/onboarding/local-onboarding.e2e.ts
+  s_9fab8631a4e97f::t_b26a1737a334d3 6,8-9,15,18,26,28-30,36
+e2e/tests/smoke/support/app-smoke.ts
+  s_9fab8631a4e97f::t_b26a1737a334d3 2,6-10,22-23,95,115,123-189,276-278,280-285,290,299,351
+e2e/tests/smoke/onboarding/remote-onboarding.e2e.ts
+  s_9fab8631a4e97f::t_b26a1737a334d3 8,10,18,20,22
+e2e/README.md
+  s_9fab8631a4e97f::t_b26a1737a334d3 24,26-27
+e2e/fixtures/app-server.ts
+  s_9fab8631a4e97f::t_b26a1737a334d3 28-43,46-58,60,64-111,114-124,126,129-132
+  s_9fab8631a4e97f::t_c5ee843d3f527a 125
+e2e/tests/smoke/onboarding/private-relay-onboarding.e2e.ts
+  s_9fab8631a4e97f::t_b26a1737a334d3 8,10-12,14-16,18-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "119c4580e0843be89bf4e984017c89658b3d21b2",
+  "prompts": {},
+  "sessions": {
+    "s_9fab8631a4e97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10c7-9b95-7012-b686-826356045b20",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
