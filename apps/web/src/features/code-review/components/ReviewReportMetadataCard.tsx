@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@workspace/ui";
 import { ClipboardCheck, ExternalLink, Sparkles } from "lucide-react";
 import { useQueryStates } from "nuqs";
@@ -23,6 +24,7 @@ interface ReviewReportMetadataCardProps {
 export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> = ({
   metadata,
 }) => {
+  const t = useTranslations("codeReview.reviewReportMetadataCard");
   const { setIsRightCollapsed, setShowRightSidebar } = useSidebarLayout();
   const navigationInterceptor = useAppNavigationInterceptor();
   const [, setSidebarParams] = useQueryStates({
@@ -71,7 +73,7 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-              Atmos Review Report
+              {t("title")}
               {generatedAtDisplay ? (
                 <span className="text-[10px] font-normal text-muted-foreground">
                   · {generatedAtDisplay}
@@ -79,10 +81,10 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
               ) : null}
             </div>
             <div className="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground sm:grid-cols-2">
-              <MetadataRow label="Session" value={metadata.session_guid} />
-              <MetadataRow label="Run" value={metadata.run_guid} />
+              <MetadataRow label={t("fields.session")} value={metadata.session_guid} />
+              <MetadataRow label={t("fields.run")} value={metadata.run_guid} />
               <MetadataRow
-                label="Revision"
+                label={t("fields.revision")}
                 value={metadata.current_revision_guid}
                 suffix={
                   metadata.base_revision_guid &&
@@ -92,7 +94,7 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
                 }
               />
               <MetadataRow
-                label="Skill"
+                label={t("fields.skill")}
                 value={metadata.skill_id}
                 icon={<Sparkles className="size-3" />}
               />
@@ -104,10 +106,10 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
           variant="outline"
           className="h-7 shrink-0 gap-1.5 text-[11px]"
           onClick={handleOpenSession}
-          title="Open this session in the right sidebar"
+          title={t("openButton.title")}
         >
           <ExternalLink className="size-3" />
-          Open in Review Sidebar
+          {t("openButton.label")}
         </Button>
       </div>
     </div>

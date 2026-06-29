@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +73,8 @@ export function TerminalGridContextMenu({
   onContextSplitSubmenuLeave,
   onContextSplitWithAgent,
 }: TerminalGridContextMenuProps) {
+  const t = useTranslations("Terminal.chrome");
+
   const renderSplitMenuItem = (
     direction: "row" | "column",
     label: string,
@@ -155,13 +158,13 @@ export function TerminalGridContextMenu({
       <DropdownMenuContent align="start" sideOffset={4} className="w-56">
         <DropdownMenuItem onClick={() => onAction("new-tab")} className="cursor-pointer">
           <SquareTerminal className="size-4 mr-2 text-muted-foreground" />
-          <span>New Terminal Tab</span>
+          <span>{t("contextMenu.newTerminalTab")}</span>
           <DropdownMenuShortcut>⌘T</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onAction("paste")} className="cursor-pointer">
           <ClipboardPaste className="size-4 mr-2 text-muted-foreground" />
-          <span>Paste</span>
+          <span>{t("contextMenu.paste")}</span>
           <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -170,31 +173,35 @@ export function TerminalGridContextMenu({
           disabled={isFocusedPanePinned}
         >
           <Pin className="size-4 mr-2 text-muted-foreground" />
-          <span>{isFocusedPanePinned ? "Pinned to Canvas" : "Pin to Canvas"}</span>
+          <span>
+            {isFocusedPanePinned
+              ? t("contextMenu.pinnedToCanvas")
+              : t("contextMenu.pinToCanvas")}
+          </span>
           <DropdownMenuShortcut>⌘⇧P</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onAction("previous-panel")} className="cursor-pointer">
           <ArrowLeft className="size-4 mr-2 text-muted-foreground" />
-          <span>Previous Panel</span>
+          <span>{t("contextMenu.previousPanel")}</span>
           <DropdownMenuShortcut>⌘[</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onAction("next-panel")} className="cursor-pointer">
           <ArrowRight className="size-4 mr-2 text-muted-foreground" />
-          <span>Next Panel</span>
+          <span>{t("contextMenu.nextPanel")}</span>
           <DropdownMenuShortcut>⌘]</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {renderSplitMenuItem(
           "row",
-          "Split Horizontal",
+          t("paneToolbar.splitHorizontal"),
           <Columns className="size-4 mr-2 text-muted-foreground" />,
           "⌘D",
           "split-horizontal",
         )}
         {renderSplitMenuItem(
           "column",
-          "Split Vertical",
+          t("paneToolbar.splitVertical"),
           <Rows className="size-4 mr-2 text-muted-foreground" />,
           "⌘⇧D",
           "split-vertical",
@@ -204,13 +211,13 @@ export function TerminalGridContextMenu({
           {isAnyPaneMaximized ? (
             <>
               <Minimize className="size-4 mr-2 text-muted-foreground" />
-              <span>Restore Terminal</span>
+              <span>{t("contextMenu.restoreTerminal")}</span>
               <DropdownMenuShortcut>⌘⇧F</DropdownMenuShortcut>
             </>
           ) : (
             <>
               <Maximize className="size-4 mr-2 text-muted-foreground" />
-              <span>Maximize Terminal</span>
+              <span>{t("contextMenu.maximizeTerminal")}</span>
               <DropdownMenuShortcut>⌘⇧F</DropdownMenuShortcut>
             </>
           )}
@@ -218,7 +225,7 @@ export function TerminalGridContextMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onAction("close")} className="cursor-pointer text-destructive focus:text-destructive">
           <X className="size-4 mr-2" />
-          <span>Close Terminal</span>
+          <span>{t("contextMenu.closeTerminal")}</span>
           <DropdownMenuShortcut>⌘W</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>

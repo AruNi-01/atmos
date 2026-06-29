@@ -8,6 +8,7 @@ import type { ReviewFileDto, ReviewSessionDto } from "@/api/ws-api";
 import { DiffFileTree } from "@/features/diff/components/DiffFileTree";
 import { DiffFilePathLabel } from "@/features/diff/components/DiffFilePathLabel";
 import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
+import { setAgentContextDragData } from "@/shared/lib/agent-context-drag";
 
 interface FrozenFileListProps {
   revision: ReviewSessionDto["revisions"][number] | null;
@@ -234,6 +235,13 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
         return (
           <div
             key={file.snapshot.guid}
+            draggable
+            onDragStart={(event) => {
+              setAgentContextDragData(event.dataTransfer, {
+                kind: "file",
+                path,
+              });
+            }}
             className={cn(
               "group flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
               "hover:bg-sidebar-accent transition-colors",

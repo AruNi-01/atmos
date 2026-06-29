@@ -9,25 +9,35 @@ import { useSidebarPeekVisibility } from "@/app-shell/use-sidebar-peek-visibilit
 
 export function AgentChatHistorySidebarToggle({
   collapsed,
+  className,
+  expandLabel,
+  hideLabel,
+  iconClassName,
   onToggle,
 }: {
   collapsed: boolean;
+  className?: string;
+  expandLabel: string;
+  hideLabel: string;
+  iconClassName?: string;
   onToggle: () => void;
 }) {
+  const label = collapsed ? expandLabel : hideLabel;
+
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon"
       onClick={onToggle}
-      className="size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-      aria-label={collapsed ? "Expand history sidebar" : "Hide history sidebar"}
-      title={collapsed ? "Expand history sidebar" : "Hide history sidebar"}
+      className={className ?? "size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"}
+      aria-label={label}
+      title={label}
     >
       {collapsed ? (
-        <PanelLeftOpen className="size-[18px]" />
+        <PanelLeftOpen className={iconClassName ?? "size-[18px]"} />
       ) : (
-        <PanelLeftClose className="size-[18px]" />
+        <PanelLeftClose className={iconClassName ?? "size-[18px]"} />
       )}
     </Button>
   );
@@ -36,6 +46,7 @@ export function AgentChatHistorySidebarToggle({
 export function AgentChatHistorySidebarFrame({
   frameRef,
   collapsed,
+  expandLabel,
   width,
   isResizing,
   onResizeStart,
@@ -44,6 +55,7 @@ export function AgentChatHistorySidebarFrame({
 }: {
   frameRef: React.RefObject<HTMLDivElement | null>;
   collapsed: boolean;
+  expandLabel: string;
   width: number;
   isResizing: boolean;
   onResizeStart: (event: React.MouseEvent) => void;
@@ -65,7 +77,11 @@ export function AgentChatHistorySidebarFrame({
         }}
       >
         {collapsed ? (
-          <AgentChatHistoryPeekShell width={width} onExpand={onCollapsedExpand}>
+          <AgentChatHistoryPeekShell
+            expandLabel={expandLabel}
+            width={width}
+            onExpand={onCollapsedExpand}
+          >
             {children}
           </AgentChatHistoryPeekShell>
         ) : (
@@ -92,10 +108,12 @@ export function AgentChatHistorySidebarFrame({
 }
 
 function AgentChatHistoryPeekShell({
+  expandLabel,
   width,
   onExpand,
   children,
 }: {
+  expandLabel: string;
   width: number;
   onExpand: () => void;
   children: React.ReactNode;
@@ -122,8 +140,8 @@ function AgentChatHistoryPeekShell({
         variant="ghost"
         size="icon"
         className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
-        aria-label="Expand history sidebar"
-        title="Expand history sidebar"
+        aria-label={expandLabel}
+        title={expandLabel}
         onClick={onExpand}
       >
         <PanelLeftOpen className="size-4" />

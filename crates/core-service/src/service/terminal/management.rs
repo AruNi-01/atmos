@@ -80,6 +80,21 @@ impl TerminalService {
         Ok(())
     }
 
+    /// Send an Enter keypress to a terminal session.
+    pub async fn send_enter(&self, session_id: &str) -> Result<()> {
+        let sessions = self.sessions.lock().await;
+        let handle = sessions
+            .get(session_id)
+            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
+
+        handle
+            .command_tx
+            .send(SessionCommand::Enter)
+            .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
+
+        Ok(())
+    }
+
     /// Send a terminal emulator report to the active terminal pane.
     ///
     /// xterm.js generates these in response to terminal queries such as OSC 11,

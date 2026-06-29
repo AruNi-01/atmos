@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Bot, Loader2 } from "lucide-react";
 import { cn } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -22,6 +23,7 @@ export function AgentFixButton({
   onSettingsOpenChange?: (open: boolean) => void;
   source: AgentFixPromptSource;
 }) {
+  const t = useTranslations("agent.fixButton");
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const settingsTriggerRef = React.useRef<HTMLButtonElement>(null);
   const closeFromPointerOutsideRef = React.useRef(false);
@@ -70,7 +72,7 @@ export function AgentFixButton({
         className,
       )}
       data-agent-fix-settings-open={settingsOpen ? "true" : undefined}
-      title={disabledReason || "Agent Fix"}
+      title={disabledReason || t("title")}
     >
       <AgentFixSettingsPopover
         agents={availableAgents}
@@ -104,7 +106,7 @@ export function AgentFixButton({
             ? "h-6 rounded-none px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             : "px-2 text-xs text-foreground hover:bg-muted",
         )}
-        aria-label="Start Agent Fix"
+        aria-label={t("startAria")}
       >
         {isLaunching ? (
           <Loader2 className="size-3.5 animate-spin" />
@@ -113,7 +115,7 @@ export function AgentFixButton({
         ) : (
           <Bot className="size-3.5" />
         )}
-        {mode !== "icon" ? <span className="truncate">Agent Fix</span> : null}
+        {mode !== "icon" ? <span className="truncate">{t("label")}</span> : null}
       </button>
     </span>
   );

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Avatar,
   AvatarFallback,
@@ -57,6 +58,7 @@ export function PRMetadataSidebar({
   sidebarLoading,
   isSidebarCollapsed,
 }: PRMetadataSidebarProps) {
+  const t = useTranslations('github.prDetailSidebar');
   return (
     <TooltipProvider delayDuration={300}>
       <div className={cn(
@@ -68,24 +70,24 @@ export function PRMetadataSidebar({
             <ChecksSection checks={pr.statusCheckRollup} />
           )}
 
-          <SidebarSection title="Reviewers" icon={<Eye className="size-3.5" />}>
+          <SidebarSection title={t('sections.reviewers')} icon={<Eye className="size-3.5" />}>
             <ReviewersList pr={pr} />
           </SidebarSection>
 
-          <SidebarSection title="Assignees" icon={<User className="size-3.5" />}>
+          <SidebarSection title={t('sections.assignees')} icon={<User className="size-3.5" />}>
             <AssigneesList assignees={pr.assignees} />
           </SidebarSection>
 
-          <SidebarSection title="Labels" icon={<Tag className="size-3.5" />}>
+          <SidebarSection title={t('sections.labels')} icon={<Tag className="size-3.5" />}>
             <LabelsList labels={pr.labels} />
           </SidebarSection>
 
-          <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
+          <SidebarSection title={t('sections.participants')} icon={<Users className="size-3.5" />}>
             <ParticipantsList sidebarData={sidebarData} sidebarLoading={sidebarLoading} />
           </SidebarSection>
 
           {sidebarLoading && (
-            <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
+            <SidebarSection title={t('sections.development')} icon={<Code className="size-3.5" />}>
               <Skeleton className="h-3 w-full rounded" />
               <Skeleton className="h-8 w-full rounded mt-1" />
             </SidebarSection>
@@ -100,6 +102,7 @@ export function PRMetadataSidebar({
 }
 
 function ReviewersList({ pr }: { pr: PRSidebarModel }) {
+  const t = useTranslations('github.prDetailSidebar');
   const reviewers: Reviewer[] = [];
   const seen = new Map<string, number>();
 
@@ -140,7 +143,7 @@ function ReviewersList({ pr }: { pr: PRSidebarModel }) {
   }
 
   if (reviewers.length === 0) {
-    return <span className="text-muted-foreground/60 italic">No reviewers</span>;
+    return <span className="text-muted-foreground/60 italic">{t('empty.reviewers')}</span>;
   }
 
   return reviewers.map((r) => (
@@ -159,8 +162,9 @@ function ReviewersList({ pr }: { pr: PRSidebarModel }) {
 }
 
 function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
+  const t = useTranslations('github.prDetailSidebar');
   if (!assignees || !Array.isArray(assignees) || assignees.length === 0) {
-    return <span className="text-muted-foreground/60 italic">No assignees</span>;
+    return <span className="text-muted-foreground/60 italic">{t('empty.assignees')}</span>;
   }
 
   return assignees.map((a) => (
@@ -175,8 +179,9 @@ function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
 }
 
 function LabelsList({ labels }: { labels?: Label[] }) {
+  const t = useTranslations('github.prDetailSidebar');
   if (!labels || !Array.isArray(labels) || labels.length === 0) {
-    return <span className="text-muted-foreground/60 italic">No labels</span>;
+    return <span className="text-muted-foreground/60 italic">{t('empty.labels')}</span>;
   }
 
   return (
@@ -205,6 +210,7 @@ function ParticipantsList({
   sidebarData?: PRSidebarData | null;
   sidebarLoading: boolean;
 }) {
+  const t = useTranslations('github.prDetailSidebar');
   if (sidebarLoading) {
     return (
       <div className="flex gap-1">
@@ -215,7 +221,7 @@ function ParticipantsList({
   }
 
   if (!sidebarData?.participants || !Array.isArray(sidebarData.participants) || sidebarData.participants.length === 0) {
-    return <span className="text-muted-foreground/60 italic">No participants</span>;
+    return <span className="text-muted-foreground/60 italic">{t('empty.participants')}</span>;
   }
 
   return (
@@ -236,10 +242,11 @@ function ParticipantsList({
 }
 
 function DevelopmentIssues({ issues }: { issues: ClosingIssue[] }) {
+  const t = useTranslations('github.prDetailSidebar');
   return (
-    <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
+    <SidebarSection title={t('sections.development')} icon={<Code className="size-3.5" />}>
       <div className="text-[11px] text-muted-foreground mb-1">
-        Successfully merging this pull request may close these issues.
+        {t('development.description')}
       </div>
       <div className="flex flex-col gap-1.5">
         {issues.map((issue) => {
@@ -259,17 +266,17 @@ function DevelopmentIssues({ issues }: { issues: ClosingIssue[] }) {
                   )} />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-foreground/90 leading-snug line-clamp-2">
-                      {issue.title || `Issue #${issue.number}`}
+                      {issue.title || t('development.issueFallback', { number: issue.number })}
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">
-                      #{issue.number} · {isClosed ? 'Closed' : 'Open'}
+                      #{issue.number} · {isClosed ? t('development.closed') : t('development.open')}
                     </div>
                   </div>
                 </a>
               </TooltipTrigger>
               <TooltipContent side="left" className="text-xs max-w-[280px]">
-                <div className="font-semibold">{issue.title || `Issue #${issue.number}`}</div>
-                <div className="text-muted-foreground mt-0.5">#{issue.number} · {isClosed ? 'Closed' : 'Open'}</div>
+                <div className="font-semibold">{issue.title || t('development.issueFallback', { number: issue.number })}</div>
+                <div className="text-muted-foreground mt-0.5">#{issue.number} · {isClosed ? t('development.closed') : t('development.open')}</div>
               </TooltipContent>
             </Tooltip>
           );

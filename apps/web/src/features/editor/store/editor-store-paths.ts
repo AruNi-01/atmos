@@ -1,5 +1,9 @@
 import { detectCodeLanguage } from '@/shared/lib/code-language';
 import { getDiffGroupTabLabel, isDiffGroupEditorPath } from '@/features/diff/lib/diff-editor-paths';
+import { createTranslator } from 'next-intl';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 /** @deprecated Per-file diff tabs — use `diff-group://` instead */
 export const EDITOR_DIFF_PREFIX = 'diff://';
@@ -7,6 +11,46 @@ export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
 export const EDITOR_REVIEW_GROUP_PREFIX = 'review-group://';
 export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
+
+type EditorPathSuffixKind = 'diff' | 'review' | 'conflict';
+
+const EDITOR_PATH_SUFFIXES: Record<EditorPathSuffixKind, string[]> = {
+  diff: [' (Diff)', '（对比）'],
+  review: [' (Review)', '（审查）'],
+  conflict: [' (Conflict)', '（冲突）'],
+};
+
+let cachedEditorPathsLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedEditorPathsTranslator: any = null;
+
+function editorPathsT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedEditorPathsTranslator || cachedEditorPathsLocale !== locale) {
+    cachedEditorPathsLocale = locale;
+    cachedEditorPathsTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Editor.chrome.paths',
+    });
+  }
+  return cachedEditorPathsTranslator(key as never);
+}
+
+function getEditorPathSuffix(kind: EditorPathSuffixKind): string {
+  return editorPathsT(`suffixes.${kind}`);
+}
+
+function ensureEditorPathSuffix(name: string, kind: EditorPathSuffixKind): string {
+  const suffix = getEditorPathSuffix(kind);
+  const candidates = new Set([suffix, ...EDITOR_PATH_SUFFIXES[kind]]);
+  for (const candidate of candidates) {
+    if (name.endsWith(candidate)) {
+      return name;
+    }
+  }
+  return `${name}${suffix}`;
+}
 
 export function isReviewGroupEditorPath(path: string): boolean {
   return path.startsWith(EDITOR_REVIEW_GROUP_PREFIX);
@@ -82,7 +126,7 @@ export function isBinaryFile(path: string): boolean {
 
 export function getFileNameFromPath(path: string): string {
   if (isReviewGroupEditorPath(path)) {
-    return 'Review';
+    return editorPathsT('review');
   }
 
   if (isDiffGroupEditorPath(path)) {
@@ -93,30 +137,30 @@ export function getFileNameFromPath(path: string): string {
   const baseName = sourcePath.split('/').pop() || sourcePath;
 
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
-    return `${baseName} (Review)`;
+    return ensureEditorPathSuffix(baseName, 'review');
   }
 
   if (isConflictResolveEditorPath(path)) {
     if (sourcePath === 'merge-conflicts') {
-      return 'Merge Conflicts';
+      return editorPathsT('mergeConflicts');
     }
-    return `${baseName} (Conflict)`;
+    return ensureEditorPathSuffix(baseName, 'conflict');
   }
 
   return baseName;
 }
 
 function getDiffTabName(name: string): string {
-  return name.endsWith(' (Diff)') ? name : `${name} (Diff)`;
+  return ensureEditorPathSuffix(name, 'diff');
 }
 
 function getReviewDiffTabName(name: string): string {
-  return name.endsWith(' (Review)') ? name : `${name} (Review)`;
+  return ensureEditorPathSuffix(name, 'review');
 }
 
 export function getSpecialTabName(path: string, name: string): string {
   if (isReviewGroupEditorPath(path)) {
-    return 'Review';
+    return editorPathsT('review');
   }
 
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {

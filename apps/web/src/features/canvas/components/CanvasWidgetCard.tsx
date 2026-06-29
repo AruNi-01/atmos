@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { HTMLContainer, useEditor, useValue, type TLShapeId } from "tldraw";
 import { ArrowUpRight, RefreshCcw, X } from "lucide-react";
 import { cn } from "@workspace/ui";
@@ -64,6 +65,7 @@ function CanvasWidgetCard({ shape }: { shape: CanvasWidgetShape }) {
 }
 
 function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
+  const t = useTranslations("Canvas.chrome");
   const editor = useEditor();
   const router = useAppRouter();
   const openFile = useEditorStore((state) => state.openFile);
@@ -242,8 +244,8 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
                 event.stopPropagation();
                 setRefreshNonce((value) => value + 1);
               }}
-              aria-label="Refresh widget"
-              title="Refresh"
+              aria-label={t("widgetCard.refreshWidget")}
+              title={t("common.refresh")}
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <RefreshCcw className="size-3.5" />
@@ -254,8 +256,8 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={handleRevealSource}
-              aria-label="Open source"
-              title="Source"
+              aria-label={t("widgetCard.openSource")}
+              title={t("common.source")}
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ArrowUpRight className="size-3.5" />
@@ -265,8 +267,8 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleClose}
-            aria-label="Close widget"
-            title="Close"
+            aria-label={t("widgetCard.closeWidget")}
+            title={t("common.close")}
             className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/12 hover:text-destructive"
           >
             <X className="size-3.5" />

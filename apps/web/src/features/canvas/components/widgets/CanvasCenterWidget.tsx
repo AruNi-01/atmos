@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   KeyboardSensor,
   PointerSensor,
@@ -92,6 +93,7 @@ function CanvasCenterWidgetBody({
   shapeId: TLShapeId;
   source: CanvasCenterWidgetSource;
 }) {
+  const t = useTranslations("Canvas.chrome");
   const editor = useEditor();
   const contextId = React.useMemo(() => getCanvasContextId(source.context), [source.context]);
   const selectOpenFiles = React.useCallback(
@@ -224,7 +226,7 @@ function CanvasCenterWidgetBody({
       .filter((tab): tab is Extract<CanvasCenterTab, { kind: "file" }> => tab.kind === "file")
       .map((tab) => createCanvasCenterTabGroupItem(tab));
     if (fileTabs.length > 0) {
-      groups.push({ key: "file", label: "File", tabs: fileTabs });
+      groups.push({ key: "file", label: t("centerWidget.group.file"), tabs: fileTabs });
     }
 
     const diffTabs = tabs
@@ -234,7 +236,7 @@ function CanvasCenterWidgetBody({
       )
       .map((tab) => createCanvasCenterTabGroupItem(tab));
     if (diffTabs.length > 0) {
-      groups.push({ key: "diff", label: "Diff", tabs: diffTabs });
+      groups.push({ key: "diff", label: t("centerWidget.group.diff"), tabs: diffTabs });
     }
 
     const reviewTabs = tabs
@@ -244,11 +246,11 @@ function CanvasCenterWidgetBody({
       )
       .map((tab) => createCanvasCenterTabGroupItem(tab));
     if (reviewTabs.length > 0) {
-      groups.push({ key: "review-diff", label: "Review", tabs: reviewTabs });
+      groups.push({ key: "review-diff", label: t("centerWidget.group.review"), tabs: reviewTabs });
     }
 
     return groups;
-  }, [tabs]);
+  }, [t, tabs]);
 
   const orderedGroupedTabItems = React.useMemo(
     () => groupedTabItems.map((group) => applySavedTabGroupOrder(group, tabGroupOrder[group.key])),
@@ -373,6 +375,7 @@ function CanvasCenterSurfaceTab({
   onClose: () => void;
   tab: ClosableCanvasCenterTab;
 }) {
+  const t = useTranslations("Canvas.chrome");
   return (
     <CenterStageSurfaceContentTab
       value={tab.id}
@@ -380,7 +383,7 @@ function CanvasCenterSurfaceTab({
       path={getCanvasCenterTabSubtitle(tab)}
       tooltip={getCanvasCenterTabSubtitle(tab)}
       variant={getCanvasCenterSurfaceTabVariant(tab)}
-      closeLabel={`Close ${tab.title}`}
+      closeLabel={t("centerWidget.closeTab", { title: tab.title })}
       onClose={onClose}
       onContextMenu={onContextMenu}
     />
@@ -483,6 +486,7 @@ function CanvasCenterFileTab({
   context: CanvasContextRef;
   tab: Extract<CanvasCenterTab, { kind: "file" }>;
 }) {
+  const t = useTranslations("Canvas.chrome");
   const contextId = getCanvasContextId(context);
   const openFile = useEditorStore((state) => state.openFile);
   const file = useEditorStore((state) =>
@@ -499,10 +503,10 @@ function CanvasCenterFileTab({
   }, [contextId, openFile, tab.column, tab.line, tab.mode, tab.path]);
 
   if (!contextId) {
-    return <BrokenCenterTab message="Missing context id." />;
+    return <BrokenCenterTab message={t("centerWidget.missingContextId")} />;
   }
   if (!file || file.isLoading) {
-    return <BrokenCenterTab message="Loading file..." muted />;
+    return <BrokenCenterTab message={t("centerWidget.loadingFile")} muted />;
   }
   return <FileViewer file={file} contextId={contextId} className="h-full" surfaceActive />;
 }

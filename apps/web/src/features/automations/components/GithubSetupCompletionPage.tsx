@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Github } from "lucide-react";
 
 export function GithubSetupCompletionPage() {
+  const t = useTranslations("github.setupCompletion");
   const searchParams = useSearchParams();
   const connected = searchParams.get("github_setup") === "connected";
   const installationId = searchParams.get("installation_id");
@@ -21,14 +23,14 @@ export function GithubSetupCompletionPage() {
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-semibold tracking-normal">
-              {connected ? "GitHub App connected" : "GitHub setup finished"}
+              {connected ? t("connectedTitle") : t("finishedTitle")}
             </h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Setup is complete. Return to Atmos to continue configuring your GitHub trigger.
+              {t("description")}
             </p>
             {installationId ? (
               <div className="mt-4 rounded-md border border-border bg-muted/25 px-3 py-2 font-mono text-xs text-muted-foreground">
-                Installation {installationId}
+                {t("installation", { installationId })}
               </div>
             ) : null}
           </div>

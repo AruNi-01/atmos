@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -62,24 +63,34 @@ function formatUptime(secs: number | null | undefined): string {
   return `${secs}s`;
 }
 
-function formatGhCliInstallation(status: GhCliStatusResponse | null): string {
+function formatGhCliInstallation(
+  status: GhCliStatusResponse | null,
+  t: ReturnType<typeof useTranslations>,
+): string {
   if (!status) {
-    return '—';
+    return t('common.empty');
   }
   if (!status.installed) {
-    return 'Not installed';
+    return t('githubCli.notInstalled');
   }
-  return status.version ? `Installed (${status.version})` : 'Installed';
+  return status.version
+    ? t('githubCli.installedWithVersion', { version: status.version })
+    : t('githubCli.installed');
 }
 
-function formatGhCliAuthentication(status: GhCliStatusResponse | null): string {
+function formatGhCliAuthentication(
+  status: GhCliStatusResponse | null,
+  t: ReturnType<typeof useTranslations>,
+): string {
   if (!status?.installed) {
-    return '—';
+    return t('common.empty');
   }
   if (status.authenticated) {
-    return status.username ? `Authenticated as ${status.username}` : 'Authenticated';
+    return status.username
+      ? t('githubCli.authenticatedAs', { username: status.username })
+      : t('githubCli.authenticated');
   }
-  return 'Not authenticated';
+  return t('githubCli.notAuthenticated');
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
@@ -123,52 +134,56 @@ function canFetchLiveDetails(
 }
 
 function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }) {
+  const t = useTranslations('atmosComputer.detailsDialog');
   const manifest = runtimeInfo.runtime_manifest;
   const relay = runtimeInfo.relay;
 
   return (
     <div className="space-y-3">
-      <DetailSection title="Runtime manifest">
+      <DetailSection title={t('runtimeManifest.title')}>
         {manifest ? (
           <>
-            <DetailRow label="Runtime source" value={manifest.source} />
-            <DetailRow label="Started" value={formatIsoTime(manifest.started_at)} />
+            <DetailRow label={t('runtimeManifest.source')} value={manifest.source} />
+            <DetailRow label={t('runtimeManifest.started')} value={formatIsoTime(manifest.started_at)} />
             <DetailRow
-              label="API URL"
+              label={t('runtimeManifest.apiUrl')}
               value={<span className="font-mono text-xs">{manifest.api_url}</span>}
             />
             <DetailRow
-              label="WebSocket URL"
+              label={t('runtimeManifest.wsUrl')}
               value={<span className="font-mono text-xs">{manifest.ws_url}</span>}
             />
             {manifest.pid != null ? (
-              <DetailRow label="API process" value={`PID ${manifest.pid}`} />
+              <DetailRow
+                label={t('runtimeManifest.apiProcess')}
+                value={t('runtimeManifest.pid', { pid: manifest.pid })}
+              />
             ) : null}
           </>
         ) : null}
       </DetailSection>
 
       {relay ? (
-        <DetailSection title="Relay">
+        <DetailSection title={t('relay.title')}>
           <DetailRow
-            label="Registration"
-            value={relay.registered ? 'Registered' : 'Not registered'}
+            label={t('relay.registration')}
+            value={relay.registered ? t('relay.registered') : t('relay.notRegistered')}
           />
           {relay.server_id ? (
             <DetailRow
-              label="Server ID"
+              label={t('overview.serverId')}
               value={<span className="font-mono text-xs">{relay.server_id}</span>}
             />
           ) : null}
           {relay.relay_url ? (
             <DetailRow
-              label="Relay address"
+              label={t('relay.address')}
               value={<span className="font-mono text-xs">{relay.relay_url}</span>}
             />
           ) : null}
           <DetailRow
-            label="Connection"
-            value={relay.connected ? 'Connected' : 'Disconnected'}
+            label={t('relay.connection')}
+            value={relay.connected ? t('relay.connected') : t('relay.disconnected')}
           />
         </DetailSection>
       ) : null}
@@ -183,6 +198,7 @@ function HostTabContent({
   overview: TerminalOverviewResponse | null;
   ghCliStatus: GhCliStatusResponse | null;
 }) {
+  const t = useTranslations('atmosComputer.detailsDialog');
   const shell = overview?.shell_env;
   const tmux = overview?.tmux;
   const tmuxServer = overview?.tmux_server;
@@ -192,46 +208,52 @@ function HostTabContent({
   return (
     <div className="space-y-3">
       {shell ? (
-        <DetailSection title="System">
+        <DetailSection title={t('host.systemTitle')}>
           <DetailRow
-            label="OS"
-            value={[shell.os, shell.arch, shell.os_version].filter(Boolean).join(' · ') || '—'}
+            label={t('host.os')}
+            value={[shell.os, shell.arch, shell.os_version].filter(Boolean).join(' · ') || t('common.empty')}
           />
-          <DetailRow label="User" value={shell.user || '—'} />
-          <DetailRow label="Shell" value={shell.shell || '—'} />
+          <DetailRow label={t('host.user')} value={shell.user || t('common.empty')} />
+          <DetailRow label={t('host.shell')} value={shell.shell || t('common.empty')} />
         </DetailSection>
       ) : null}
 
       {ghCliStatus ? (
-        <DetailSection title="GitHub CLI">
-          <DetailRow label="Installation" value={formatGhCliInstallation(ghCliStatus)} />
-          <DetailRow label="Authentication" value={formatGhCliAuthentication(ghCliStatus)} />
+        <DetailSection title={t('githubCli.title')}>
+          <DetailRow
+            label={t('githubCli.installation')}
+            value={formatGhCliInstallation(ghCliStatus, t)}
+          />
+          <DetailRow
+            label={t('githubCli.authentication')}
+            value={formatGhCliAuthentication(ghCliStatus, t)}
+          />
         </DetailSection>
       ) : null}
 
       {showTmux ? (
-        <DetailSection title="tmux">
+        <DetailSection title={t('tmux.title')}>
           {tmux ? (
             <>
               <DetailRow
-                label="Installation"
+                label={t('tmux.installation')}
                 value={
                   tmux.installed
                     ? tmux.version
-                      ? `Installed (${tmux.version})`
-                      : 'Installed'
-                    : 'Not installed'
+                      ? t('tmux.installedWithVersion', { version: tmux.version })
+                      : t('tmux.installed')
+                    : t('tmux.notInstalled')
                 }
               />
               {tmux.installed ? (
-                <DetailRow label="Sessions" value={tmux.session_count} />
+                <DetailRow label={t('tmux.sessions')} value={tmux.session_count} />
               ) : null}
             </>
           ) : null}
           {tmuxServer?.running ? (
             <>
-              <DetailRow label="Server uptime" value={formatUptime(tmuxServer.uptime_secs)} />
-              <DetailRow label="Windows" value={tmuxServer.total_windows} />
+              <DetailRow label={t('tmux.serverUptime')} value={formatUptime(tmuxServer.uptime_secs)} />
+              <DetailRow label={t('tmux.windows')} value={tmuxServer.total_windows} />
             </>
           ) : null}
         </DetailSection>
@@ -251,6 +273,7 @@ export function ComputerDetailsDialog({
   computer: ComputerRow | null;
   isCurrent: boolean;
 }) {
+  const t = useTranslations('atmosComputer.detailsDialog');
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<TerminalOverviewResponse | null>(null);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfoResponse | null>(null);
@@ -339,7 +362,7 @@ export function ComputerDetailsDialog({
     return null;
   }
 
-  const name = (computer.display_name ?? 'Computer').slice(0, 64);
+  const name = (computer.display_name ?? t('common.computer')).slice(0, 64);
   const registrationMeta =
     registrationMetaFromRecord(computer.registration_meta) ??
     registrationMetaFromRecord(
@@ -355,27 +378,27 @@ export function ComputerDetailsDialog({
         <DialogHeader>
           <DialogTitle>{name}</DialogTitle>
           <DialogDescription>
-            {isCurrent ? 'This Computer' : 'Remote computer'} ·{' '}
-            {computer.online ? 'Online' : 'Offline'}
+            {isCurrent ? t('overview.thisComputer') : t('overview.remoteComputer')} ·{' '}
+            {computer.online ? t('overview.online') : t('overview.offline')}
           </DialogDescription>
         </DialogHeader>
 
-        <DetailSection title="Overview">
+        <DetailSection title={t('overview.title')}>
           <DetailRow
-            label="Server ID"
+            label={t('overview.serverId')}
             value={<span className="font-mono text-xs">{computer.server_id}</span>}
           />
-          <DetailRow label="Added" value={formatTime(computer.created_at)} />
-          <DetailRow label="Last seen" value={formatTime(computer.last_seen_at ?? null)} />
-          {displayHostname ? <DetailRow label="Hostname" value={displayHostname} /> : null}
+          <DetailRow label={t('overview.added')} value={formatTime(computer.created_at)} />
+          <DetailRow label={t('overview.lastSeen')} value={formatTime(computer.last_seen_at ?? null)} />
+          {displayHostname ? <DetailRow label={t('overview.hostname')} value={displayHostname} /> : null}
           {registrationMeta ? (
             <>
               <DetailRow
-                label="Registered via"
+                label={t('overview.registeredVia')}
                 value={formatRegistrationVia(registrationMeta.via)}
               />
               {registrationMeta.version ? (
-                <DetailRow label="Client version" value={registrationMeta.version} />
+                <DetailRow label={t('overview.clientVersion')} value={registrationMeta.version} />
               ) : null}
             </>
           ) : null}
@@ -391,14 +414,13 @@ export function ComputerDetailsDialog({
 
         {error ? (
           <p className="text-sm text-muted-foreground">
-            Live runtime details could not be loaded. Connect to this computer to see versions and
-            stats.
+            {t('messages.liveDetailsUnavailable')}
           </p>
         ) : null}
 
         {!loading && !hasLiveData && !error ? (
           <p className="text-sm text-muted-foreground">
-            Connect to this computer to see Atmos runtime version and live stats.
+            {t('messages.connectToViewStats')}
           </p>
         ) : null}
 
@@ -413,10 +435,10 @@ export function ComputerDetailsDialog({
               style={{ gridTemplateColumns: `repeat(${showRuntimeTab && showHostTab ? 2 : 1}, minmax(0, 1fr))` }}
             >
               {showRuntimeTab ? (
-                <TabsTrigger value="runtime">Atmos runtime</TabsTrigger>
+                <TabsTrigger value="runtime">{t('tabs.runtime')}</TabsTrigger>
               ) : null}
               {showHostTab ? (
-                <TabsTrigger value="host">Host & sessions</TabsTrigger>
+                <TabsTrigger value="host">{t('tabs.host')}</TabsTrigger>
               ) : null}
             </TabsList>
 

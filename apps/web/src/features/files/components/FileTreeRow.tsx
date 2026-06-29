@@ -14,6 +14,10 @@ import {
   TooltipTrigger,
 } from '@workspace/ui';
 import type { FileTreeItem } from '../lib/file-tree-utils';
+import {
+  getAgentContextMentionPath,
+  setAgentContextDragData,
+} from '@/shared/lib/agent-context-drag';
 
 function FileIcon({
   name,
@@ -44,6 +48,7 @@ interface FileTreeRowProps {
   ) => void;
   onDoubleClick: (item: FileTreeItem, isFolder: boolean) => void;
   onContextMenu: (event: React.MouseEvent<HTMLDivElement>, itemPath: string) => void;
+  rootPath?: string | null;
 }
 
 export function FileTreeRow({
@@ -55,6 +60,7 @@ export function FileTreeRow({
   onClick,
   onDoubleClick,
   onContextMenu,
+  rootPath,
 }: FileTreeRowProps) {
   const isFolder = item.isFolder();
   const isExpanded = item.isExpanded();
@@ -73,6 +79,13 @@ export function FileTreeRow({
       key={item.getId()}
       ref={item.registerElement}
       {...item.getProps()}
+      draggable
+      onDragStart={(event) => {
+        setAgentContextDragData(event.dataTransfer, {
+          kind: isFolder ? 'directory' : 'file',
+          path: getAgentContextMentionPath(itemData.path, rootPath),
+        });
+      }}
       onClick={() => onClick(itemData, isFolder, toggle)}
       onDoubleClick={() => onDoubleClick(itemData, isFolder)}
       onContextMenu={(event) => onContextMenu(event, itemData.path)}

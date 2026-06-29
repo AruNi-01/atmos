@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Dialog,
@@ -34,8 +35,11 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
   removeCustomConfirmDialog,
   onConfirmRemoveCustom,
   onCancelRemoveCustom,
-}) => (
-  <>
+}) => {
+  const t = useTranslations("Agent.components");
+
+  return (
+    <>
     <Dialog
       open={!!overwriteDialog}
       onOpenChange={(open) => {
@@ -47,7 +51,7 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
           <div className="size-10 rounded-full bg-yellow-500/10 flex items-center justify-center mb-2">
             <AlertCircle className="size-5 text-yellow-600" />
           </div>
-          <DialogTitle>Overwrite Confirmation</DialogTitle>
+          <DialogTitle>{t("confirmDialogs.overwrite.title")}</DialogTitle>
           <DialogDescription className="text-pretty">{overwriteDialog?.message}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -56,9 +60,9 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
             onClick={onCancelOverwrite}
             className="cursor-pointer"
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
-          <Button onClick={onConfirmOverwrite} className="cursor-pointer">Continue</Button>
+          <Button onClick={onConfirmOverwrite} className="cursor-pointer">{t("common.continue")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -74,9 +78,12 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
           <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
             <Trash2 className="size-5 text-destructive" />
           </div>
-          <DialogTitle>Uninstall Agent</DialogTitle>
+          <DialogTitle>{t("confirmDialogs.uninstall.title")}</DialogTitle>
           <DialogDescription className="text-pretty">
-            Are you sure you want to uninstall <span className="font-semibold text-foreground">{removeConfirmDialog?.name}</span>? This action cannot be undone.
+            {t.rich("confirmDialogs.uninstall.description", {
+              name: removeConfirmDialog?.name ?? "",
+              strong: (chunks) => <span className="font-semibold text-foreground">{chunks}</span>,
+            })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -85,14 +92,14 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
             onClick={onCancelRemove}
             className="cursor-pointer"
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="destructive"
             onClick={onConfirmRemove}
             className="cursor-pointer"
           >
-            Uninstall
+            {t("confirmDialogs.uninstall.action")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -109,9 +116,12 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
           <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
             <Trash2 className="size-5 text-destructive" />
           </div>
-          <DialogTitle>Remove Custom Agent</DialogTitle>
+          <DialogTitle>{t("confirmDialogs.removeCustom.title")}</DialogTitle>
           <DialogDescription className="text-pretty">
-            Are you sure you want to remove <span className="font-semibold text-foreground">{removeCustomConfirmDialog?.name}</span>? You can add it back later.
+            {t.rich("confirmDialogs.removeCustom.description", {
+              name: removeCustomConfirmDialog?.name ?? "",
+              strong: (chunks) => <span className="font-semibold text-foreground">{chunks}</span>,
+            })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -120,17 +130,18 @@ export const AgentConfirmDialogs: React.FC<AgentConfirmDialogsProps> = ({
             onClick={onCancelRemoveCustom}
             className="cursor-pointer"
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="destructive"
             onClick={onConfirmRemoveCustom}
             className="cursor-pointer"
           >
-            Remove
+            {t("common.remove")}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   </>
-);
+  );
+};

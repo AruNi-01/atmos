@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Blocks, Coins, KeyRound, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Button,
@@ -40,6 +41,7 @@ export function UsageBar({ percent }: { percent?: number | null }) {
 }
 
 export function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: number }) {
+  const t = useTranslations("appShell.usagePopover");
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
   const { milliseconds } = useTimer({
@@ -63,16 +65,20 @@ export function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: numb
       <TimerDisplay
         size="sm"
         time={time}
-        label="Time until next auto refresh"
+        label={t("manualSetup.timeUntilNextAutoRefresh")}
         className="text-[10px] text-foreground"
       />
     </TimerRoot>
   );
 }
 
-function regionOptionLabel(region: string | null, options: UsageManualSetupResponse["region_options"]): string {
+function regionOptionLabel(
+  region: string | null,
+  options: UsageManualSetupResponse["region_options"],
+  autoLabel: string,
+): string {
   if (options.length === 0) return "";
-  if (!region || region === "auto") return "Auto";
+  if (!region || region === "auto") return autoLabel;
   return options.find((o) => o.value === region)?.label ?? region;
 }
 
@@ -91,6 +97,7 @@ export function ProviderApiKeyManager({
   isSaving: boolean;
   deletingKeyId: string | null;
 }) {
+  const t = useTranslations("appShell.usagePopover");
   const [region, setRegion] = useState("auto");
   const [apiKey, setApiKey] = useState("");
   const [showAddForm, setShowAddForm] = useState(manualSetup.configured_keys.length === 0);
@@ -113,13 +120,13 @@ export function ProviderApiKeyManager({
               <div className="flex items-center gap-2 min-w-0">
                 <KeyRound className="size-3.5 shrink-0 text-foreground/60" />
                 <span className="text-xs text-foreground truncate">
-                  {[regionOptionLabel(key.region, manualSetup.region_options), "Key"].filter(Boolean).join(" ")}
+                  {[regionOptionLabel(key.region, manualSetup.region_options, t("manualSetup.auto")), t("manualSetup.key")].filter(Boolean).join(" ")}
                 </span>
                 <span className="text-[10px] text-foreground/50 font-mono truncate">···{key.id.slice(-4)}</span>
               </div>
               <button
                 type="button"
-                aria-label="Delete key"
+                aria-label={t("manualSetup.deleteKey")}
                 onClick={() => onDeleteKey(providerId, key.id)}
                 disabled={deletingKeyId === key.id}
                 className="shrink-0 rounded-md p-1 text-foreground/50 hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
@@ -138,7 +145,7 @@ export function ProviderApiKeyManager({
           className="flex items-center gap-1.5 text-[11px] text-foreground/60 hover:text-foreground transition-colors"
         >
           <Plus className="size-3.5" />
-          Add API Key
+          {t("manualSetup.addApiKey")}
         </button>
       )}
 
@@ -148,11 +155,11 @@ export function ProviderApiKeyManager({
             {manualSetup.region_options.length > 0 && (
               <div className="grid gap-1">
                 <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
-                  Region
+                  {t("manualSetup.region")}
                 </div>
                 <Select value={region} onValueChange={setRegion} disabled={isSaving}>
                   <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
-                    <SelectValue placeholder="Select region" />
+                    <SelectValue placeholder={t("manualSetup.selectRegion")} />
                   </SelectTrigger>
                   <SelectContent>
                     {manualSetup.region_options.map((option) => (
@@ -168,14 +175,14 @@ export function ProviderApiKeyManager({
 
             <div className="grid gap-1">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
-                API Key
+                {t("manualSetup.apiKey")}
               </div>
               <Input
                 type="password"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") handleAdd(); }}
-                placeholder="Paste API key"
+                placeholder={t("manualSetup.pasteApiKey")}
                 disabled={isSaving}
                 className="h-8 rounded-[10px] bg-background/70 text-xs"
                 autoFocus
@@ -189,7 +196,7 @@ export function ProviderApiKeyManager({
                   onClick={() => { setShowAddForm(false); setApiKey(""); }}
                   className="text-[11px] text-foreground/50 hover:text-foreground transition-colors"
                 >
-                  Cancel
+                  {t("manualSetup.cancel")}
                 </button>
               ) : <div />}
               <Button
@@ -200,7 +207,7 @@ export function ProviderApiKeyManager({
                 disabled={isSaving || !apiKey.trim()}
                 className="h-8 rounded-[10px] px-3 text-xs"
               >
-                {isSaving ? "Saving…" : "Add Key"}
+                {isSaving ? t("manualSetup.saving") : t("manualSetup.addKey")}
               </Button>
             </div>
           </div>
@@ -219,9 +226,10 @@ export function UsagePortalLink({
   region: ProviderRegion | null;
   className?: string;
 }) {
+  const t = useTranslations("appShell.usagePopover");
   const href = usagePortalUrl(providerId, region);
   if (!href) return null;
-  const regionLabel = region ? (region === "china" ? "China" : "Global") : null;
+  const regionLabel = region ? (region === "china" ? t("manualSetup.china") : t("manualSetup.global")) : null;
 
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>

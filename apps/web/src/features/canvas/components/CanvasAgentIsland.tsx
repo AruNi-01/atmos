@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Eye,
@@ -95,6 +96,7 @@ function buildVisibleHistoryBatches(batches: CanvasAgentFeedBatch[]) {
 }
 
 export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }) {
+  const t = useTranslations("Canvas.chrome");
   const snapshot = useFeedSnapshot(bridge.feed);
   const viewState = useAgentViewState(bridge.activity);
   const [expanded, setExpanded] = React.useState(false);
@@ -158,7 +160,11 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
       <button
         type="button"
         aria-expanded={expanded}
-        aria-label={isWorking ? "Agent working on canvas" : "Canvas agent activity"}
+        aria-label={
+          isWorking
+            ? t("agentIsland.agentWorkingOnCanvas")
+            : t("agentIsland.canvasAgentActivity")
+        }
         onClick={() => setExpanded(v => !v)}
         className={cn(
           "pointer-events-auto flex h-8 max-w-[min(100%,20rem)] items-center gap-2 rounded-full py-0 pl-2.5 pr-3",
@@ -184,12 +190,13 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
 }
 
 function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
+  const t = useTranslations("Canvas.chrome");
   const visibleBatches = buildVisibleHistoryBatches(batches);
 
   return (
     <div
       role="dialog"
-      aria-label="Canvas agent activity history"
+      aria-label={t("agentIsland.canvasAgentActivityHistory")}
       className={cn("overflow-hidden rounded-2xl", GLASS_SHELL)}
     >
       <div className="max-h-64 overflow-y-auto overscroll-contain px-3 py-2">

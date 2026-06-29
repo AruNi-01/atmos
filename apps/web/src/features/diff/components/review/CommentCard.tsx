@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Textarea,
@@ -12,9 +13,7 @@ import { cn } from "@/shared/lib/utils";
 import { MessageBubble } from "./MessageBubble";
 import { ReviewMessageActionsMenu } from "./ReviewMessageActionsMenu";
 import {
-  reviewCommentStatusLabel,
   statusTone,
-  commentTitle,
 } from "./utils";
 import {
   CheckCircle2,
@@ -48,11 +47,34 @@ export const CommentCard: React.FC<CommentCardProps> = ({
   onDeleteMessage,
   onNavigate,
 }) => {
+  const t = useTranslations("diff.reviewAnnotations");
   const [expanded, setExpanded] = useState(true);
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyBody, setReplyBody] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [deletingMessageGuid, setDeletingMessageGuid] = useState<string | null>(null);
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "open":
+        return t("status.open");
+      case "agent_fixed":
+        return t("status.agentFixed");
+      case "fixed":
+        return t("status.fixed");
+      case "dismissed":
+        return t("status.dismissed");
+      default:
+        return status.replaceAll("_", " ");
+    }
+  };
+  const title =
+    comment.title?.trim() ||
+    (comment.anchor_start_line === comment.anchor_end_line
+      ? t("comment.titleSingle", { line: comment.anchor_start_line })
+      : t("comment.titleRange", {
+          startLine: comment.anchor_start_line,
+          endLine: comment.anchor_end_line,
+        }));
 
   const handleSubmitReply = async () => {
     const body = replyBody.trim();
@@ -89,7 +111,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             type="button"
             onClick={() => setExpanded((value) => !value)}
             className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={expanded ? "Collapse comment" : "Expand comment"}
+            aria-label={expanded ? t("comment.collapseAria") : t("comment.expandAria")}
           >
             <ChevronRight
               className={cn(
@@ -104,7 +126,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             className="min-w-0 flex-1 cursor-pointer text-left"
           >
             <p className="truncate text-sm font-medium leading-5 text-foreground">
-              {commentTitle(comment)}
+              {title}
             </p>
           </button>
         </div>
@@ -114,7 +136,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             statusTone(comment.status),
           )}
         >
-          {reviewCommentStatusLabel(comment.status)}
+          {getStatusLabel(comment.status)}
         </span>
       </div>
 
@@ -173,7 +195,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                     void handleSubmitReply();
                   }
                 }}
-                placeholder="Reply to this comment..."
+                placeholder={t("reply.placeholder")}
                 className="min-h-20 rounded-md border-border/70 bg-background font-sans text-sm leading-5"
                 autoFocus
               />
@@ -189,7 +211,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   }}
                 >
                   <X className="mr-1.5 size-3.5" />
-                  Cancel
+                  {t("reply.actions.cancel")}
                 </Button>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -200,12 +222,12 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                       onClick={() => void handleSubmitReply()}
                     >
                       <SendHorizontal className="mr-1.5 size-3.5" />
-                      Reply
+                      {t("reply.actions.reply")}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="flex items-center gap-2">
-                      <span>Send reply</span>
+                      <span>{t("reply.tooltips.sendReply")}</span>
                       <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                         <Command className="size-3" />
                         <CornerDownLeft className="size-3" />
@@ -226,7 +248,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
               onClick={() => setReplyOpen((value) => !value)}
             >
               <MessageSquareReply className="mr-1.5 size-3.5" />
-              Reply
+              {t("reply.actions.reply")}
             </Button>
             {comment.status === "open" && (
               <>
@@ -238,7 +260,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   onClick={() => onUpdateStatus(comment.guid, "fixed")}
                 >
                   <CheckCircle2 className="mr-1.5 size-3.5" />
-                  Mark Fixed
+                  {t("actions.markFixed")}
                 </Button>
                 <Button
                   size="sm"
@@ -248,7 +270,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   onClick={() => onUpdateStatus(comment.guid, "dismissed")}
                 >
                   <XCircle className="mr-1.5 size-3.5" />
-                  Dismiss
+                  {t("actions.dismiss")}
                 </Button>
               </>
             )}
@@ -262,7 +284,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   onClick={() => onUpdateStatus(comment.guid, "fixed")}
                 >
                   <CheckCircle2 className="mr-1.5 size-3.5" />
-                  Mark Fixed
+                  {t("actions.markFixed")}
                 </Button>
                 <Button
                   size="sm"
@@ -272,7 +294,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   onClick={() => onUpdateStatus(comment.guid, "open")}
                 >
                   <RotateCcw className="mr-1.5 size-3.5" />
-                  Reopen
+                  {t("actions.reopen")}
                 </Button>
                 <Button
                   size="sm"
@@ -282,7 +304,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   onClick={() => onUpdateStatus(comment.guid, "dismissed")}
                 >
                   <XCircle className="mr-1.5 size-3.5" />
-                  Dismiss
+                  {t("actions.dismiss")}
                 </Button>
               </>
             )}
@@ -295,7 +317,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 onClick={() => onUpdateStatus(comment.guid, "open")}
               >
                 <RotateCcw className="mr-1.5 size-3.5" />
-                Reopen
+                {t("actions.reopen")}
               </Button>
             )}
             {comment.status === "dismissed" && (
@@ -307,7 +329,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 onClick={() => onUpdateStatus(comment.guid, "open")}
               >
                 <RotateCcw className="mr-1.5 size-3.5" />
-                Reopen
+                {t("actions.reopen")}
               </Button>
             )}
           </div>

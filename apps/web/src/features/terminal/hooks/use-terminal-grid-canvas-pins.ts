@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createTranslator } from "next-intl";
 
 import { canvasApi } from "@/api/rest-api";
 import { createCanvasSnapshot, createDefaultCanvasSession, createDefaultDocument, parseBoardDocument } from "@/features/canvas/hooks/use-canvas-board";
@@ -15,9 +16,29 @@ import {
 import { rememberLastPinnedTerminal } from "@/features/canvas/lib/canvas-terminal-focus";
 import { readCanvasSession } from "@/shared/stores/use-ui-pref-hooks";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { toastManager } from "@workspace/ui";
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 import { getTerminalDisplayMeta } from "../components/terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
+
+let cachedLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedTranslator: any = null;
+
+function runtimeT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Terminal.chrome',
+    });
+  }
+  return cachedTranslator(key as never);
+}
 
 type TerminalGridWorkspaceInfo = {
   projectName: string;
@@ -106,7 +127,7 @@ export function useTerminalGridCanvasPins({
     if (!pane.tmuxWindowName || pane.isNewPane) {
       toastManager.add({
         title: "Canvas",
-        description: "This terminal cannot be pinned until the session is fully attached.",
+        description: runtimeT("canvasPins.invalidTerminal"),
         type: "error",
       });
       return;
@@ -165,13 +186,15 @@ export function useTerminalGridCanvasPins({
 
       toastManager.add({
         title: "Canvas",
-        description: result.inserted ? "Pinned to Canvas" : "Already pinned to Canvas",
+        description: result.inserted
+          ? runtimeT("canvasPins.pinned")
+          : runtimeT("canvasPins.alreadyPinned"),
         type: "success",
       });
     } catch (error) {
       toastManager.add({
         title: "Canvas",
-        description: error instanceof Error ? error.message : "Failed to pin terminal to Canvas",
+        description: error instanceof Error ? error.message : runtimeT("canvasPins.pinFailed"),
         type: "error",
       });
     }

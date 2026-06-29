@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { MultiFileDiff } from "@pierre/diffs/react";
 import {
@@ -36,6 +37,7 @@ function SubAgentLabelRow({
 }
 
 export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
+  const t = useTranslations("Agent.components");
   const { resolvedTheme } = useTheme();
   const isMounted = useSyncExternalStore(
     () => () => {},
@@ -46,7 +48,9 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
   const [isOpen, setIsOpen] = useState(true);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isToolUsesOpen, setIsToolUsesOpen] = useState(false);
-  const toolUsesLabel = `${message.childToolCalls.length} tool use${message.childToolCalls.length === 1 ? "" : "s"}`;
+  const toolUsesLabel = t("subAgent.toolUses", {
+    count: message.childToolCalls.length,
+  });
   const hasDetails = message.detailMode !== "status_only" && (
     !!message.prompt ||
     message.childToolCalls.length > 0 ||
@@ -54,7 +58,11 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
     !!message.resultMarkdown ||
     message.labels.length > 0
   );
-  const statusLabel = message.status === "running" ? "Running" : message.status === "failed" ? "Failed" : "Completed";
+  const statusLabel = message.status === "running"
+    ? t("subAgent.status.running")
+    : message.status === "failed"
+      ? t("subAgent.status.failed")
+      : t("subAgent.status.completed");
 
   if (!hasDetails) {
     return (
@@ -99,7 +107,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                 onClick={() => setIsPromptOpen((value) => !value)}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left"
               >
-                <span className="flex-1 text-sm font-medium text-muted-foreground">Prompt</span>
+                <span className="flex-1 text-sm font-medium text-muted-foreground">{t("subAgent.promptTitle")}</span>
                 <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isPromptOpen ? "rotate-180" : ""}`} />
               </button>
               {isPromptOpen ? (
@@ -176,7 +184,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                           />
                         ) : (
                           <div className="px-3 py-2 text-xs text-muted-foreground">
-                            Loading diff...
+                            {t("subAgent.loadingDiff")}
                           </div>
                         )}
                       </div>
@@ -185,7 +193,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                 }
                 return (
                   <div key={`subagent-terminal-${idx}`} className="rounded-lg border border-dashed border-border/60 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
-                    Terminal: {item.terminalId}
+                    {t("subAgent.terminalLabel", { terminalId: item.terminalId })}
                   </div>
                 );
               })}
@@ -195,7 +203,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
           {message.resultMarkdown ? (
             <div className="rounded-lg border border-border/60 bg-background/70 p-3">
               <div className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Result
+                {t("subAgent.resultTitle")}
               </div>
               <div className="max-h-72 overflow-auto">
                 <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">

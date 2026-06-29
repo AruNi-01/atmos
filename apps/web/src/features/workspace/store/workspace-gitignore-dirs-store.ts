@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { toastManager } from '@workspace/ui';
+import { createTranslator } from 'next-intl';
 
 import {
   workspaceGitignoreDirsApi,
@@ -9,6 +10,9 @@ import {
   type GitIgnoreDirStrategy,
   type GitIgnoreDirsConfig,
 } from '@/api/ws-api';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 interface State {
   enabled: boolean;
@@ -25,6 +29,54 @@ interface State {
   updateCustomPath: (id: string, path: string) => Promise<boolean>;
 }
 
+type WorkspaceGitignoreDirMessages = {
+  settingsSyncFailedTitle: string;
+  invalidPathTitle: string;
+  invalidPathDescription: string;
+  failedMasterSwitch: string;
+  failedStrategy: string;
+  failedAddCustom: string;
+  failedRemoveDirectory: string;
+  failedUpdatePath: string;
+};
+
+let cachedWorkspaceGitignoreLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedWorkspaceGitignoreTranslator: any = null;
+
+function workspaceGitignoreT(key: keyof WorkspaceGitignoreDirMessages): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedWorkspaceGitignoreTranslator || cachedWorkspaceGitignoreLocale !== locale) {
+    cachedWorkspaceGitignoreLocale = locale;
+    cachedWorkspaceGitignoreTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Workspace.components.gitignoreStore',
+    });
+  }
+  return cachedWorkspaceGitignoreTranslator(key as never);
+}
+
+function getDefaultWorkspaceGitignoreDirMessages(): WorkspaceGitignoreDirMessages {
+  return {
+    settingsSyncFailedTitle: workspaceGitignoreT('settingsSyncFailedTitle'),
+    invalidPathTitle: workspaceGitignoreT('invalidPathTitle'),
+    invalidPathDescription: workspaceGitignoreT('invalidPathDescription'),
+    failedMasterSwitch: workspaceGitignoreT('failedMasterSwitch'),
+    failedStrategy: workspaceGitignoreT('failedStrategy'),
+    failedAddCustom: workspaceGitignoreT('failedAddCustom'),
+    failedRemoveDirectory: workspaceGitignoreT('failedRemoveDirectory'),
+    failedUpdatePath: workspaceGitignoreT('failedUpdatePath'),
+  };
+}
+
+let workspaceGitignoreDirMessages: WorkspaceGitignoreDirMessages =
+  getDefaultWorkspaceGitignoreDirMessages();
+
+export function setWorkspaceGitignoreDirsMessages(next: WorkspaceGitignoreDirMessages) {
+  workspaceGitignoreDirMessages = next;
+}
+
 const persist = async (
   next: GitIgnoreDirsConfig,
   failureMessage: string,
@@ -34,7 +86,7 @@ const persist = async (
     return true;
   } catch {
     toastManager.add({
-      title: 'Settings Sync Failed',
+      title: workspaceGitignoreDirMessages.settingsSyncFailedTitle,
       description: failureMessage,
       type: 'error',
     });
@@ -50,8 +102,8 @@ const hasParentTraversal = (path: string): boolean =>
 
 const toastInvalidPath = (): void => {
   toastManager.add({
-    title: 'Invalid Path',
-    description: 'Path cannot escape the project root (no `..` allowed).',
+    title: workspaceGitignoreDirMessages.invalidPathTitle,
+    description: workspaceGitignoreDirMessages.invalidPathDescription,
     type: 'error',
   });
 };
@@ -88,7 +140,7 @@ export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
     set({ enabled: value });
     const ok = await persist(
       { enabled: value, entries: get().entries },
-      'Failed to update GitIgnore directories master switch.',
+      workspaceGitignoreDirMessages.failedMasterSwitch,
     );
     if (!ok) set({ enabled: prev });
   },
@@ -99,7 +151,7 @@ export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
     set({ entries: next });
     const ok = await persist(
       { enabled: get().enabled, entries: next },
-      'Failed to update directory strategy.',
+      workspaceGitignoreDirMessages.failedStrategy,
     );
     if (!ok) set({ entries: prev });
   },
@@ -123,7 +175,7 @@ export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
     set({ entries: next });
     const ok = await persist(
       { enabled: get().enabled, entries: next },
-      'Failed to add custom directory.',
+      workspaceGitignoreDirMessages.failedAddCustom,
     );
     if (!ok) set({ entries: prev });
   },
@@ -136,7 +188,7 @@ export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
     set({ entries: next });
     const ok = await persist(
       { enabled: get().enabled, entries: next },
-      'Failed to remove directory.',
+      workspaceGitignoreDirMessages.failedRemoveDirectory,
     );
     if (!ok) set({ entries: prev });
   },
@@ -155,7 +207,7 @@ export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
     set({ entries: next });
     const ok = await persist(
       { enabled: get().enabled, entries: next },
-      'Failed to update directory path.',
+      workspaceGitignoreDirMessages.failedUpdatePath,
     );
     if (!ok) {
       set({ entries: prev });

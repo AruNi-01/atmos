@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Input } from '@workspace/ui';
 import {
   MAX_CANVAS_MAX_RENDERED_TERMINALS,
@@ -11,6 +12,7 @@ import {
 } from '@/features/canvas/store/canvas-settings-store';
 
 export function CanvasSettingsSection() {
+  const t = useTranslations('settings.canvasSection');
   const {
     autoSaveInterval,
     maxRenderedTerminals,
@@ -81,9 +83,9 @@ export function CanvasSettingsSection() {
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
           <div>
-            <p className="text-base font-medium text-foreground">Auto-save Interval</p>
+            <p className="text-base font-medium text-foreground">{t('autoSave.title')}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              How often the canvas automatically saves your work (in seconds).
+              {t('autoSave.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -102,7 +104,7 @@ export function CanvasSettingsSection() {
                 }}
                 className="w-24"
               />
-              <span className="text-sm text-muted-foreground">seconds</span>
+              <span className="text-sm text-muted-foreground">{t('autoSave.seconds')}</span>
             </div>
           </div>
         </div>
@@ -111,11 +113,10 @@ export function CanvasSettingsSection() {
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
           <div>
             <p className="text-base font-medium text-foreground">
-              Max rendered terminals per canvas page
+              {t('renderedTerminals.title')}
             </p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Keep up to this many canvas terminals live at once. When the limit is exceeded, the
-              oldest attached live terminal stops rendering until it is activated again.
+              {t('renderedTerminals.description')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -134,7 +135,7 @@ export function CanvasSettingsSection() {
                 }}
                 className="w-24"
               />
-              <span className="text-sm text-muted-foreground">terminals</span>
+              <span className="text-sm text-muted-foreground">{t('renderedTerminals.terminals')}</span>
             </div>
           </div>
         </div>
@@ -142,10 +143,10 @@ export function CanvasSettingsSection() {
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
           <div>
-            <p className="text-base font-medium text-foreground">Terminal context lines</p>
+            <p className="text-base font-medium text-foreground">{t('terminalContext.title')}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              When copying a canvas terminal or running <code className="text-xs">extract-text</code>,
-              capture up to this many lines from the tmux pane (or live xterm buffer when active).
+              {t('terminalContext.descriptionPrefix')} <code className="text-xs">extract-text</code>
+              {t('terminalContext.descriptionSuffix')}
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -164,7 +165,7 @@ export function CanvasSettingsSection() {
                 }}
                 className="w-24"
               />
-              <span className="text-sm text-muted-foreground">lines</span>
+              <span className="text-sm text-muted-foreground">{t('terminalContext.lines')}</span>
             </div>
           </div>
         </div>

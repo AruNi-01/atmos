@@ -3,6 +3,27 @@ import type {
   AtmosSubAgentLabel,
   SubAgentToolCallBlock,
 } from "./types";
+import { createTranslator } from "next-intl";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../../../messages/en.json";
+import zhMessages from "../../../../../../messages/zh.json";
+
+let cachedSubAgentLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedSubAgentTranslator: any = null;
+
+export function subAgentT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedSubAgentTranslator || cachedSubAgentLocale !== locale) {
+    cachedSubAgentLocale = locale;
+    cachedSubAgentTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Agent.chrome',
+    });
+  }
+  return cachedSubAgentTranslator(key as never);
+}
 
 function decodeEscapedMarkdown(markdown: string): string {
   const hasEscapedNewlines = markdown.includes("\\n");
@@ -146,7 +167,7 @@ export function resolveSubAgentDescription(block: SubAgentToolCallBlock): string
     return prompt.split("\n").find((line) => line.trim())?.trim() ?? prompt;
   }
 
-  return block.description || "Agent task";
+  return block.description || subAgentT("subagent.agentTask");
 }
 
 export function resolveSubAgentPrompt(block: SubAgentToolCallBlock): string | null {

@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { TextShimmer } from "@workspace/ui";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 
 export function WorkspaceCreationOverlay() {
+  const t = useTranslations("appShell.workspaceCreationOverlay");
   const { currentView, workspaceId } = useContextParams();
   const isVisible = useWorkspaceCreationStore((s) => s.isVisible);
   const phase = useWorkspaceCreationStore((s) => s.phase);
@@ -42,12 +44,12 @@ export function WorkspaceCreationOverlay() {
             <TextShimmer
               className="text-base font-semibold"
             >
-              {phase === "opening" ? "Opening workspace" : "Creating workspace"}
+              {phase === "opening" ? t("openingTitle") : t("creatingTitle")}
             </TextShimmer>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               {phase === "opening"
-                ? "The worktree is ready. We are taking you into the workspace now."
-                : "Preparing the worktree first. You will enter the workspace as soon as it is ready."}
+                ? t("openingDescription")
+                : t("creatingDescription")}
             </p>
           </div>
         </div>

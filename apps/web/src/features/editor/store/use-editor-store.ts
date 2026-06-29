@@ -10,6 +10,10 @@ import {
 } from '@/features/editor/lib/editor-ui-persistence';
 import { fsApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
+import { createTranslator } from 'next-intl';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import type { EditorStore, OpenFile } from './editor-store-types';
 import {
   applyDiffGroupActiveFile,
@@ -50,6 +54,26 @@ export {
 
 const pendingFileSaves = new Map<string, Promise<void>>();
 const EMPTY_OPEN_FILES: OpenFile[] = [];
+
+let cachedEditorStoreLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedEditorStoreTranslator: any = null;
+
+function editorStoreT(
+  key: 'fileNotFoundTitle' | 'fileNotFoundDescription',
+  values?: Record<string, string>,
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedEditorStoreTranslator || cachedEditorStoreLocale !== locale) {
+    cachedEditorStoreLocale = locale;
+    cachedEditorStoreTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Editor.chrome.store',
+    });
+  }
+  return cachedEditorStoreTranslator(key as never, values);
+}
 
 function getSaveKey(workspaceId: string, path: string): string {
   return `${workspaceId}\0${path}`;
@@ -453,8 +477,8 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
           if (!response.exists || response.content === null) {
             const fileName = path.split('/').pop() || path;
             toastManager.add({
-              title: 'File not found',
-              description: `"${fileName}" does not exist or has been deleted.`,
+              title: editorStoreT('fileNotFoundTitle'),
+              description: editorStoreT('fileNotFoundDescription', { fileName }),
               type: 'error',
             });
             set((state) => {

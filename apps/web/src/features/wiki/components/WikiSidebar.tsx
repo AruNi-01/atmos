@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Collapsible,
   CollapsibleContent,
@@ -257,6 +258,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
   onTriggerUpdate,
   onTriggerSpecify,
 }) => {
+  const t = useTranslations("wiki.sidebar");
   const [infoOpen, setInfoOpen] = useState(false);
   const sorted = [...catalog.catalog].sort((a, b) => a.order - b.order);
   const project = catalog.project;
@@ -279,11 +281,11 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
         <button
           type="button"
           onClick={() => setInfoOpen(true)}
-          title="Project info"
+          title={t("projectInfo")}
           className="flex-1 min-w-0 flex items-center gap-2 px-3 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
         >
           <h3 className="text-base font-semibold text-foreground truncate flex-1">
-            {project?.name ?? "Project Wiki"}
+            {project?.name ?? t("fallbackTitle")}
           </h3>
           <Info className="size-4 shrink-0 text-muted-foreground" />
         </button>
@@ -302,14 +304,14 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                       type="button"
                       onClick={onTriggerUpdate}
                       className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
-                      aria-label="Wiki is outdated. Click to update."
+                      aria-label={t("outdatedAria")}
                     >
                       <RotateCw className="size-4" />
                       <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="w-auto max-w-none whitespace-nowrap">
-                    Wiki is outdated. Click to update.
+                    {t("outdatedTooltip")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -322,7 +324,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px]">
-                    <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
+                    <p>{t("legacyTooltip")}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -335,7 +337,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px]">
-                    <p>Wiki is up to date</p>
+                    <p>{t("upToDateTooltip")}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -349,13 +351,13 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                   type="button"
                   onClick={onTriggerSpecify}
                   className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer transition-colors border-l border-border"
-                  aria-label="Specify Wiki"
+                  aria-label={t("specifyAria")}
                 >
                   <FilePlus className="size-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>Specify Wiki</p>
+                <p>{t("specifyTooltip")}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -365,18 +367,18 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{project?.name ?? "Project Wiki"}</DialogTitle>
+            <DialogTitle>{project?.name ?? t("fallbackTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm">
             {project?.description && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">{t("info.description")}</p>
                 <p className="text-foreground">{project.description}</p>
               </div>
             )}
             {project?.repository && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Repository</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">{t("info.repository")}</p>
                 <a
                   href={project.repository}
                   target="_blank"
@@ -394,13 +396,13 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
             <div className="flex justify-between items-start gap-4 pt-2 border-t border-border">
               {catalog.version && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Version</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("info.version")}</p>
                   <p className="font-mono text-foreground">{catalog.version}</p>
                 </div>
               )}
               {catalog.generated_at && (
                 <div className="text-right ml-auto">
-                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Generated</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("info.generated")}</p>
                   <p className="text-foreground">{formatGeneratedAt(catalog.generated_at)}</p>
                 </div>
               )}

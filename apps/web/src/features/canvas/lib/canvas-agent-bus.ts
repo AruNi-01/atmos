@@ -18,6 +18,7 @@ import {
   type TLShapeId,
   type TLShapePartial,
 } from "tldraw";
+import { createTranslator } from "next-intl";
 
 import {
   createArrowShapeWithBindings,
@@ -76,6 +77,9 @@ import {
   runCanvasAgentSetAgentView,
   runCanvasAgentViewport,
 } from "./canvas-agent-bus-viewport";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export type { CanvasAgentErrorCode };
 export type {
@@ -85,6 +89,23 @@ export type {
   CanvasAgentResult,
   CanvasAgentSuccess,
 } from "./canvas-agent-bus-result";
+
+let cachedCanvasBusLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasBusTranslator: any = null;
+
+function canvasBusT(key: string, values?: Record<string, string | number>): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedCanvasBusTranslator || cachedCanvasBusLocale !== locale) {
+    cachedCanvasBusLocale = locale;
+    cachedCanvasBusTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'Canvas.chrome',
+    });
+  }
+  return cachedCanvasBusTranslator(key as never, values as never);
+}
 
 export class CanvasAgentBus {
   private editor: Editor | null = null;
@@ -113,14 +134,14 @@ export class CanvasAgentBus {
     if (!editor) {
       return fail(
         "EDITOR_NOT_READY",
-        "Canvas editor is not mounted yet.",
+        canvasBusT("agentBus.canvasEditorIsNotMountedYet"),
         true,
       );
     }
 
     const command = (input.command ?? "").trim();
     if (!command) {
-      return fail("VALIDATION_ARG", "command must be provided", false);
+      return fail("VALIDATION_ARG", canvasBusT("agentBus.commandMustBeProvided"), false);
     }
 
     try {
@@ -145,7 +166,7 @@ export class CanvasAgentBus {
       if (!this.bridgeAccepting) {
         return fail(
           "BRIDGE_DISABLED",
-          "User has disabled 'Allow terminal/CLI control' for this Canvas tab.",
+          canvasBusT("agentBus.userHasDisabledAllowTerminalCliControlForThisCanvasTab"),
           true,
         );
       }
@@ -229,7 +250,7 @@ export class CanvasAgentBus {
         default:
           return fail(
             "UNSUPPORTED_COMMAND",
-            `Unknown canvas-agent command: ${command}`,
+            canvasBusT("agentBus.unknownCanvasAgentCommand", { command }),
             false,
           );
       }
@@ -253,7 +274,7 @@ export class CanvasAgentBus {
     if (args.h !== undefined && args.h !== null) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "create_note does not support --h (notes auto-size). Use create-geo for fixed-height boxes.",
+        canvasBusT("agentBus.createNoteDoesNotSupportH"),
         false,
       );
     }
@@ -326,7 +347,7 @@ export class CanvasAgentBus {
     } catch {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "create_arrow requires x1,y1,x2,y2 and/or --from-id / --to-id with resolvable shapes",
+        canvasBusT("agentBus.createArrowRequiresCoordinatesOrResolvableShapes"),
         false,
       );
     }
@@ -358,7 +379,7 @@ export class CanvasAgentBus {
     if (!Array.isArray(points) || points.length < 2) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "points must be an array of at least 2 [x, y] pairs",
+        canvasBusT("agentBus.pointsMustBeArrayOfAtLeastTwoPairs"),
         false,
       );
     }
@@ -371,7 +392,7 @@ export class CanvasAgentBus {
       if (!Array.isArray(raw) || raw.length < 2) {
         throw new CanvasAgentError(
           "VALIDATION_ARG",
-          "each point must be a [x, y] pair",
+          canvasBusT("agentBus.eachPointMustBePair"),
           false,
         );
       }
@@ -437,7 +458,7 @@ export class CanvasAgentBus {
     if (args.confirm !== true) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "delete requires { confirm: true }",
+        canvasBusT("agentBus.deleteRequiresConfirmTrue"),
         false,
       );
     }
@@ -473,7 +494,7 @@ export class CanvasAgentBus {
     if (shapes.length < 2) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "align requires at least two shape ids",
+        canvasBusT("agentBus.alignRequiresAtLeastTwoShapeIds"),
         false,
       );
     }
@@ -489,7 +510,7 @@ export class CanvasAgentBus {
     if (shapes.length < 2) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "stack requires at least two shape ids",
+        canvasBusT("agentBus.stackRequiresAtLeastTwoShapeIds"),
         false,
       );
     }
@@ -504,7 +525,7 @@ export class CanvasAgentBus {
     if (shapes.length < 3) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "distribute requires at least three shape ids",
+        canvasBusT("agentBus.distributeRequiresAtLeastThreeShapeIds"),
         false,
       );
     }
@@ -519,7 +540,7 @@ export class CanvasAgentBus {
     if (!referenceId) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "place requires reference_id",
+        canvasBusT("agentBus.placeRequiresReferenceId"),
         false,
       );
     }
@@ -539,7 +560,7 @@ export class CanvasAgentBus {
     if (ids.length > MAX_LAYOUT_IDS) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        `layout_grid accepts at most ${MAX_LAYOUT_IDS} ids`,
+        canvasBusT("agentBus.layoutGridAcceptsAtMostIds", { count: MAX_LAYOUT_IDS }),
         false,
       );
     }
@@ -548,14 +569,14 @@ export class CanvasAgentBus {
     if (cols > MAX_LAYOUT_GRID || rows > MAX_LAYOUT_GRID) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        `layout_grid is capped at ${MAX_LAYOUT_GRID}×${MAX_LAYOUT_GRID}`,
+        canvasBusT("agentBus.layoutGridIsCapped", { count: MAX_LAYOUT_GRID }),
         false,
       );
     }
     if (ids.length > rows * cols) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        `${ids.length} shapes do not fit into a ${rows}×${cols} grid`,
+        canvasBusT("agentBus.shapesDoNotFitIntoGrid", { shapeCount: ids.length, rows, cols }),
         false,
       );
     }
@@ -573,7 +594,7 @@ export class CanvasAgentBus {
     if (!patch || typeof patch !== "object") {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "patch must be a JSON object",
+        canvasBusT("agentBus.patchMustBeJsonObject"),
         false,
       );
     }
@@ -600,7 +621,7 @@ export class CanvasAgentBus {
     ) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
-        "provide both x and y, or omit both for auto placement",
+        canvasBusT("agentBus.provideBothXAndYOrOmitBoth"),
         false,
       );
     }

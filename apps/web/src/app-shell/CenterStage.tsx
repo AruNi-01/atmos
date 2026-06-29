@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Tabs,
   KeyboardSensor,
@@ -94,6 +95,7 @@ import {
 } from "@/features/canvas/hooks/use-canvas-board";
 
 const CenterStage: React.FC = () => {
+  const t = useTranslations("appShell.centerStage");
   usePrewarmCodeLanguages();
   const router = useAppRouter();
 
@@ -165,8 +167,8 @@ const CenterStage: React.FC = () => {
   const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
   const visibleTerminalTabs = React.useMemo(
-    () => terminalTabs ?? [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: true }],
-    [terminalTabs]
+    () => terminalTabs ?? [{ id: FIXED_TERMINAL_TAB_VALUE, title: t("fallbackTerminalTitle"), closable: true }],
+    [t, terminalTabs]
   );
   const fallbackCenterTab = visibleTerminalTabs[0]?.id ?? "overview";
   const mountedTerminalTabs = React.useMemo(
@@ -732,12 +734,12 @@ const CenterStage: React.FC = () => {
     } catch (error) {
       console.warn("Failed to clean up Canvas terminals for closed terminal", error);
       toastManager.add({
-        title: "Canvas",
-        description: "Failed to remove terminals from Canvas for the closed terminal.",
+        title: t("canvas.title"),
+        description: t("canvas.cleanupFailed"),
         type: "error",
       });
     }
-  }, []);
+  }, [t]);
 
   const getTerminalGridForTab = React.useCallback((tabId: string) => {
     return tabId === FIXED_TERMINAL_TAB_VALUE
@@ -890,8 +892,8 @@ const CenterStage: React.FC = () => {
       } catch (error) {
         console.warn("Failed to kill tmux window from Canvas close", error);
         toastManager.add({
-          title: "Failed to close terminal",
-          description: error instanceof Error ? error.message : "Unknown error",
+          title: t("errors.failedToCloseTerminal"),
+          description: error instanceof Error ? error.message : t("errors.unknown"),
           type: "error",
         });
       }
@@ -910,8 +912,8 @@ const CenterStage: React.FC = () => {
     } catch (error) {
       console.warn("Failed to kill tmux window from Canvas close", error);
       toastManager.add({
-        title: "Failed to close terminal",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("errors.failedToCloseTerminal"),
+        description: error instanceof Error ? error.message : t("errors.unknown"),
         type: "error",
       });
     }
@@ -926,7 +928,7 @@ const CenterStage: React.FC = () => {
     }
 
     terminalState.removeTerminal(detail.workspaceId, paneId, terminalTabId);
-  }, [effectiveContextId, getTerminalGridForTab, handleCloseTerminalCenterTab]);
+  }, [effectiveContextId, getTerminalGridForTab, handleCloseTerminalCenterTab, t]);
 
   React.useEffect(() => {
     const onCanvasTerminalCloseRequest = (event: Event) => {
@@ -1029,8 +1031,8 @@ const CenterStage: React.FC = () => {
         setFixedTab("terminal");
       } catch (err) {
         toastManager.add({
-          title: "Failed to close terminal",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: t("errors.failedToCloseTerminal"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       }
@@ -1047,8 +1049,8 @@ const CenterStage: React.FC = () => {
         setFixedTab("terminal");
       } catch (err) {
         toastManager.add({
-          title: "Failed to close terminal",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: t("errors.failedToCloseTerminal"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       }
@@ -1167,16 +1169,16 @@ const CenterStage: React.FC = () => {
       <TerminalCloseConfirmDialog
         open={projectWikiCloseConfirmOpen}
         onOpenChange={setProjectWikiCloseConfirmOpen}
-        title="Close Project Wiki terminal?"
-        description="Any running wiki generation will be stopped. You can start a new generation from the Wiki tab."
+        title={t("dialogs.closeProjectWikiTerminal.title")}
+        description={t("dialogs.closeProjectWikiTerminal.description")}
         onConfirm={handleConfirmCloseProjectWikiTerminal}
       />
 
       <TerminalCloseConfirmDialog
         open={codeReviewCloseConfirmOpen}
         onOpenChange={setCodeReviewCloseConfirmOpen}
-        title="Close Code Review terminal?"
-        description="Any running code review will be stopped. You can start a new review from the Changes panel."
+        title={t("dialogs.closeCodeReviewTerminal.title")}
+        description={t("dialogs.closeCodeReviewTerminal.description")}
         onConfirm={handleConfirmCloseCodeReviewTerminal}
       />
 
@@ -1208,15 +1210,15 @@ const CenterStage: React.FC = () => {
               setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
               setFixedTab("code-review");
               toastManager.add({
-                title: "Code review started",
-                description: "Switched to Code Review tab. Check progress there.",
+                title: t("toasts.codeReviewStarted.title"),
+                description: t("toasts.codeReviewStarted.description"),
                 type: "info",
               });
             } catch (err) {
               setCodeReviewPendingCommand(null);
               toastManager.add({
-                title: "Failed to close previous terminal",
-                description: err instanceof Error ? err.message : "Unknown error",
+                title: t("errors.failedToClosePreviousTerminal"),
+                description: err instanceof Error ? err.message : t("errors.unknown"),
                 type: "error",
               });
             }

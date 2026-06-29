@@ -2,7 +2,11 @@
  * Utilities for Project Wiki: catalog parsing, heading extraction, slug generation.
  * Slug logic must match MarkdownRenderer heading ids for TOC anchor consistency.
  */
+import { createTranslator } from "next-intl";
 import BananaSlug, { slug } from "github-slugger";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export type WikiSection = "getting-started" | "deep-dive" | "specify-wiki";
 export type WikiLevel = "beginner" | "intermediate" | "advanced";
@@ -43,6 +47,29 @@ export interface Heading {
 
 /** Known top-level section ids for the two-part wiki structure */
 const TOP_LEVEL_SECTION_IDS = new Set(["getting-started", "deep-dive", "specify-wiki"]);
+let cachedWikiUtilsLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedWikiUtilsTranslator: any = null;
+
+function wikiUtilsT(
+  key:
+    | "defaultProjectName"
+    | "defaultProjectDescription"
+    | "sectionGettingStarted"
+    | "sectionDeepDive"
+    | "sectionSpecifyWiki",
+) {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedWikiUtilsTranslator || cachedWikiUtilsLocale !== locale) {
+    cachedWikiUtilsLocale = locale;
+    cachedWikiUtilsTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "wiki.utils",
+    });
+  }
+  return cachedWikiUtilsTranslator(key as never);
+}
 
 /** Check if a catalog item is a top-level section header (not a navigable page) */
 export function isTopLevelSection(item: CatalogItem): boolean {
@@ -78,8 +105,9 @@ export function normalizeCatalog(data: CatalogData): CatalogData {
     d = {
       ...d,
       project: {
-        name: proj.name ?? "Project",
-        description: proj.description ?? "Project documentation",
+        name: proj.name ?? wikiUtilsT("defaultProjectName"),
+        description:
+          proj.description ?? wikiUtilsT("defaultProjectDescription"),
         repository: proj.repository,
       },
     };
@@ -127,10 +155,10 @@ export function normalizeCatalog(data: CatalogData): CatalogData {
 
     const sectionTitle =
       sec === "getting-started"
-        ? "Getting Started"
+        ? wikiUtilsT("sectionGettingStarted")
         : sec === "deep-dive"
-          ? "Deep Dive"
-          : "Specify Wiki";
+          ? wikiUtilsT("sectionDeepDive")
+          : wikiUtilsT("sectionSpecifyWiki");
     const sectionPath = sec === "getting-started" ? "getting-started" : sec;
     const indexFile = `${sectionPath}/index.md`;
     const hasIndex = items.some((i) => i.file === indexFile || i.path === sectionPath);

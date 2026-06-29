@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -41,12 +42,13 @@ export function PRCreateModal({
   onOpenChange,
   onCreated
 }: PRCreateModalProps) {
+  const t = useTranslations('github.prCreateModal');
   const send = useWebSocketStore(s => s.send);
   const currentRepoPath = useGitStore(s => s.currentRepoPath);
   const targetBranch = useGitInfoStore(s => s.targetBranch);
 
   const [loading, setLoading] = useState(false);
-  const [title, setTitle] = useState(`Update from ${branch}`);
+  const [title, setTitle] = useState(t('defaultTitle', { branch }));
   const [body, setBody] = useState('');
   const [baseBranch, setBaseBranch] = useState('main');
   const [isDraft, setIsDraft] = useState(false);
@@ -60,11 +62,11 @@ export function PRCreateModal({
   // Reset form fields when modal opens
   useEffect(() => {
     if (isOpen) {
-      setTitle(`Update from ${branch}`);
+      setTitle(t('defaultTitle', { branch }));
       setBody('');
       setLoading(false);
     }
-  }, [isOpen, branch]);
+  }, [isOpen, branch, t]);
 
   // Fetch branches and set baseBranch
   useEffect(() => {
@@ -125,7 +127,7 @@ export function PRCreateModal({
             <DialogClose asChild>
               <button
                 className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100"
-                aria-label="Close"
+                aria-label={t('actions.close')}
               >
                 <X className="size-4" />
               </button>
@@ -138,7 +140,7 @@ export function PRCreateModal({
             </div>
             <div className="flex flex-col gap-0.5 overflow-hidden">
               <div className="flex items-center gap-2.5">
-                <DialogTitle className="text-lg font-bold tracking-tight">Open a Pull Request</DialogTitle>
+                <DialogTitle className="text-lg font-bold tracking-tight">{t('title')}</DialogTitle>
                 <span className="text-muted-foreground/30 font-light select-none">|</span>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 font-medium truncate">
                   <Github className="size-3.5" />
@@ -146,7 +148,13 @@ export function PRCreateModal({
                 </div>
               </div>
               <DialogDescription className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5 mt-0.5">
-                Propose changes from <span className="text-foreground font-mono bg-muted/50 px-1 rounded">{branch}</span> into <span className="text-foreground font-mono bg-muted/50 px-1 rounded">{baseBranch}</span>
+                {t.rich('description', {
+                  branch,
+                  baseBranch,
+                  highlight: (chunks) => (
+                    <span className="text-foreground font-mono bg-muted/50 px-1 rounded">{chunks}</span>
+                  ),
+                })}
               </DialogDescription>
             </div>
           </DialogHeader>
@@ -156,12 +164,12 @@ export function PRCreateModal({
             {/* Title Field */}
             <div className="space-y-3">
               <Label htmlFor="pr-title" className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-0.5 flex items-center gap-2">
-                Title
+                {t('fields.title')}
                 <span className="text-red-500/80">*</span>
               </Label>
               <Input
                 id="pr-title"
-                placeholder="What changes did you make?"
+                placeholder={t('fields.titlePlaceholder')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="h-12 bg-muted/20 border-border/40 focus:bg-background focus:ring-1 focus:ring-primary/20 transition-all text-[14px] font-medium px-4 rounded-lg"
@@ -172,7 +180,7 @@ export function PRCreateModal({
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-3">
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-0.5">
-                  Merge from
+                  {t('fields.mergeFrom')}
                 </Label>
                 <div className="h-12 px-4 flex items-center bg-muted/10 border border-border/30 rounded-lg text-xs font-mono text-muted-foreground/70 select-none group">
                   <GitBranch className="size-3.5 mr-2.5 opacity-50" />
@@ -182,7 +190,7 @@ export function PRCreateModal({
 
               <div className="space-y-3">
                 <Label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-0.5">
-                  Into base
+                  {t('fields.intoBase')}
                 </Label>
 
                 <DropdownMenu
@@ -208,7 +216,7 @@ export function PRCreateModal({
                         <Input
                           value={branchFilter}
                           onChange={(e) => setBranchFilter(e.target.value)}
-                          placeholder="Find branch..."
+                          placeholder={t('fields.findBranch')}
                           className="h-9 pl-9 text-[12px] bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary/20"
                           autoFocus
                           onKeyDown={(e) => e.stopPropagation()}
@@ -220,7 +228,7 @@ export function PRCreateModal({
                         {isLoadingBranches ? (
                           <div className="p-4 text-[11px] text-muted-foreground text-center flex flex-col items-center gap-2">
                             <Loader2 className="size-4 animate-spin opacity-50" />
-                            <span>Loading branches...</span>
+                            <span>{t('fields.loadingBranches')}</span>
                           </div>
                         ) : filteredBranches.length > 0 ? (
                           filteredBranches.map(b => (
@@ -243,7 +251,7 @@ export function PRCreateModal({
                             </DropdownMenuItem>
                           ))
                         ) : (
-                          <div className="p-4 text-[11px] text-muted-foreground text-center italic">No branches found</div>
+                          <div className="p-4 text-[11px] text-muted-foreground text-center italic">{t('fields.noBranchesFound')}</div>
                         )}
                       </div>
                     </ScrollArea>
@@ -255,11 +263,11 @@ export function PRCreateModal({
             {/* Description Field */}
             <div className="space-y-3">
               <Label htmlFor="pr-body" className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 ml-0.5">
-                Description
+                {t('fields.description')}
               </Label>
               <Textarea
                 id="pr-body"
-                placeholder="What should the reviewer know? (Markdown is supported)"
+                placeholder={t('fields.descriptionPlaceholder')}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 className="min-h-[180px] bg-muted/20 border-border/40 focus:bg-background focus:ring-1 focus:ring-primary/20 transition-all text-[14px] leading-relaxed resize-none p-4 rounded-lg shadow-inner no-scrollbar"
@@ -276,8 +284,8 @@ export function PRCreateModal({
                 {isDraft && <Check className="size-3.5 text-primary-foreground stroke-[3px]" />}
               </div>
               <div className="flex flex-col gap-0.5 pointer-events-none">
-                <span className="text-[13.5px] font-bold">Create as draft</span>
-                <span className="text-[11px] text-muted-foreground/70 font-medium tracking-tight">Draft PRs cannot be merged until they are marked as ready for review.</span>
+                <span className="text-[13.5px] font-bold">{t('draft.title')}</span>
+                <span className="text-[11px] text-muted-foreground/70 font-medium tracking-tight">{t('draft.description')}</span>
               </div>
             </div>
           </div>
@@ -286,7 +294,7 @@ export function PRCreateModal({
           <div className="px-8 py-6 border-t border-border/40 bg-muted/10 flex items-center justify-end gap-4 shrink-0">
             <DialogClose asChild>
               <Button variant="ghost" className="h-11 px-6 font-bold text-xs rounded-xl hover:bg-muted transition-all opacity-70 hover:opacity-100">
-                Cancel
+                {t('actions.cancel')}
               </Button>
             </DialogClose>
             <Button
@@ -297,10 +305,10 @@ export function PRCreateModal({
               {loading ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />
-                  Creating...
+                  {t('actions.creating')}
                 </>
               ) : (
-                'Create Pull Request'
+                t('actions.createPullRequest')
               )}
             </Button>
           </div>

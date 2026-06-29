@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import type { Editor, TLShapeId } from "tldraw";
 import {
   Check,
@@ -56,8 +57,8 @@ type AddableCanvasItemType = AddableCanvasWidgetType | typeof CANVAS_TERMINAL_AD
 
 const CANVAS_TERMINAL_ADD_ITEM = {
   group: "workspace",
-  label: "Terminal",
-  description: "Open a new canvas terminal for the selected project or workspace.",
+  label: "",
+  description: "",
   icon: SquareTerminal,
   defaultSize: CANVAS_TERMINAL_DEFAULT_SIZE,
   requiresContext: true,
@@ -84,13 +85,16 @@ function getCanvasAddItemEntry(type: AddableCanvasItemType) {
     : CANVAS_WIDGET_REGISTRY[type];
 }
 
-function getAddButtonLabel(selectedItemTypes: AddableCanvasItemType[]) {
+function getAddButtonLabel(
+  t: ReturnType<typeof useTranslations>,
+  selectedItemTypes: AddableCanvasItemType[],
+) {
   if (selectedItemTypes.length > 1) {
-    return `Add ${selectedItemTypes.length} Items`;
+    return t("actions.addItems", { count: selectedItemTypes.length });
   }
   return selectedItemTypes[0] === CANVAS_TERMINAL_ADD_ITEM_TYPE
-    ? "Add Terminal"
-    : "Add Widget";
+    ? t("actions.addTerminal")
+    : t("actions.addWidget");
 }
 
 type ContextOption = {
@@ -278,6 +282,7 @@ function CanvasContextPicker({
   selectedValue: string;
   onValueChange: (value: string) => void;
 }) {
+  const t = useTranslations("canvas.addWidgetDialog");
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [projectFilterId, setProjectFilterId] = React.useState(ALL_PROJECTS_FILTER);
@@ -345,13 +350,13 @@ function CanvasContextPicker({
               {selectedOption
                 ? selectedOption.label
                 : isLoadingProjects
-                  ? "Loading contexts..."
-                  : "Select project or workspace"}
+                  ? t("contextPicker.loadingContexts")
+                  : t("contextPicker.selectProjectOrWorkspace")}
             </span>
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
               {selectedOption
                 ? selectedOption.detail
-                : "Search by project, workspace, branch, or path"}
+                : t("contextPicker.searchHint")}
             </span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
@@ -371,13 +376,13 @@ function CanvasContextPicker({
               ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search projects, workspaces, branches, paths"
+              placeholder={t("contextPicker.searchPlaceholder")}
               className="h-9 border-border/80 bg-muted/30 pl-8 pr-8 text-sm"
             />
             {query ? (
               <button
                 type="button"
-                aria-label="Clear search"
+                aria-label={t("contextPicker.clearSearchAria")}
                 onClick={() => {
                   setQuery("");
                   searchInputRef.current?.focus();
@@ -393,7 +398,7 @@ function CanvasContextPicker({
             <ProjectFilterButton
               active={projectFilterId === ALL_PROJECTS_FILTER}
               count={options.length}
-              label="All"
+              label={t("contextPicker.projectFilterAll")}
               onClick={() => setProjectFilterId(ALL_PROJECTS_FILTER)}
             />
             {projectFilters.map((project) => (
@@ -413,7 +418,7 @@ function CanvasContextPicker({
             {isLoadingProjects ? (
               <div className="flex items-center gap-2 rounded-md px-2.5 py-3 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
-                Loading projects and workspaces...
+                {t("contextPicker.loadingProjectsAndWorkspaces")}
               </div>
             ) : groupedOptions.length > 0 ? (
               groupedOptions.map((group) => (
@@ -450,7 +455,7 @@ function CanvasContextPicker({
                                 {option.label}
                               </span>
                               <span className="shrink-0 rounded border border-border/70 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                {option.kind === "project" ? "Project" : "Workspace"}
+                                {option.kind === "project" ? t("contextPicker.projectKind") : t("contextPicker.workspaceKind")}
                               </span>
                             </span>
                             <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
@@ -460,7 +465,7 @@ function CanvasContextPicker({
                                   <span className="truncate">{option.branch}</span>
                                 </span>
                               ) : option.workspaceCount != null ? (
-                                <span>{option.workspaceCount} workspaces</span>
+                                <span>{t("contextPicker.workspaceCount", { count: option.workspaceCount })}</span>
                               ) : null}
                               <span className="min-w-0 truncate">{option.path}</span>
                             </span>
@@ -474,9 +479,9 @@ function CanvasContextPicker({
               ))
             ) : (
               <div className="rounded-md px-2.5 py-8 text-center">
-                <div className="text-sm font-medium text-foreground">No matching context</div>
+                <div className="text-sm font-medium text-foreground">{t("contextPicker.emptyTitle")}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Try another search term or clear the project filter.
+                  {t("contextPicker.emptyDescription")}
                 </div>
               </div>
             )}
@@ -498,6 +503,7 @@ export function CanvasAddAtmosWidgetPopover({
   onOpenChange: (open: boolean) => void;
   triggerClassName?: string;
 }) {
+  const t = useTranslations("canvas.addWidgetDialog");
   const projects = useProjectStore((state) => state.projects);
   const isLoadingProjects = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
@@ -534,6 +540,18 @@ export function CanvasAddAtmosWidgetPopover({
   const selectedContext = contextOptions.find((option) => option.value === selectedContextValue);
   const selectedFrameId =
     selectedFrameValue === NO_FRAME_VALUE ? null : (selectedFrameValue as TLShapeId);
+  const getEntryLabel = React.useCallback(
+    (type: AddableCanvasItemType) =>
+      type === CANVAS_TERMINAL_ADD_ITEM_TYPE ? t("terminal.label") : getCanvasAddItemEntry(type).label,
+    [t],
+  );
+  const getEntryDescription = React.useCallback(
+    (type: AddableCanvasItemType) =>
+      type === CANVAS_TERMINAL_ADD_ITEM_TYPE
+        ? t("terminal.description")
+        : getCanvasAddItemEntry(type).description,
+    [t],
+  );
   const selectedItemsCanBeAdded = selectedItemTypes.every((type) => {
     const entry = getCanvasAddItemEntry(type);
     return !entry.requiresContext || Boolean(selectedContext);
@@ -581,7 +599,7 @@ export function CanvasAddAtmosWidgetPopover({
         if (shapeId) {
           createdShapeIds.push(shapeId);
         } else {
-          throw new Error(`Could not add ${entry.label}.`);
+          throw new Error(t("toast.couldNotAddNamed", { itemName: getEntryLabel(itemType) }));
         }
       }
 
@@ -597,8 +615,8 @@ export function CanvasAddAtmosWidgetPopover({
         editor.deleteShapes(createdShapeIds);
       }
       toastManager.add({
-        title: "Canvas",
-        description: error instanceof Error ? error.message : "Could not add the selected item.",
+        title: t("toast.title"),
+        description: error instanceof Error ? error.message : t("toast.addFailed"),
         type: "error",
       });
     } finally {
@@ -625,11 +643,11 @@ export function CanvasAddAtmosWidgetPopover({
             "hover:bg-foreground/10 hover:text-foreground data-[state=open]:bg-foreground/10 data-[state=open]:text-foreground",
             triggerClassName,
           )}
-          title="Add Widget"
-          aria-label="Add Widget"
+          title={t("trigger.title")}
+          aria-label={t("trigger.aria")}
         >
           <Plus className="size-3.5" />
-          <span className="text-xs font-medium">Widget</span>
+          <span className="text-xs font-medium">{t("trigger.label")}</span>
         </Button>
       </PopoverTrigger>
 
@@ -640,14 +658,14 @@ export function CanvasAddAtmosWidgetPopover({
         className="z-[1000] flex h-[min(54rem,var(--radix-popover-content-available-height))] max-h-[calc(100vh-1rem)] w-[min(42rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
       >
         <div className="shrink-0 border-b border-border/70 px-5 py-4">
-          <div className="text-base font-semibold leading-none text-foreground">Add Atmos Widget</div>
+          <div className="text-base font-semibold leading-none text-foreground">{t("title")}</div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
           <div className="grid gap-5 p-5">
             <section className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">
-                Project / Workspace
+                {t("sections.projectWorkspace")}
               </div>
               <CanvasContextPicker
                 isLoadingProjects={isLoadingProjects}
@@ -660,13 +678,13 @@ export function CanvasAddAtmosWidgetPopover({
 
             <section className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-medium text-muted-foreground">Component</div>
+                <div className="text-xs font-medium text-muted-foreground">{t("sections.component")}</div>
                 {selectedItemTypes.length > 0 ? (
                   <span className="text-xs text-muted-foreground">
-                    {selectedItemTypes.length} selected
+                    {t("selectedCount", { count: selectedItemTypes.length })}
                   </span>
                 ) : !selectedContext ? (
-                  <span className="text-xs text-muted-foreground">Global widgets available</span>
+                  <span className="text-xs text-muted-foreground">{t("globalWidgetsAvailable")}</span>
                 ) : null}
               </div>
               <div className="space-y-4 rounded-md border border-dashed border-border/80 p-3">
@@ -707,11 +725,11 @@ export function CanvasAddAtmosWidgetPopover({
                               <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                               <span className="min-w-0 flex-1">
                                 <span className="flex min-w-0 items-center justify-between gap-3 text-sm font-medium text-foreground">
-                                  <span className="min-w-0 truncate">{entry.label}</span>
+                                  <span className="min-w-0 truncate">{getEntryLabel(type)}</span>
                                   {active ? <Check className="size-3.5 shrink-0 text-success" /> : null}
                                 </span>
                                 <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                                  {entry.description}
+                                  {getEntryDescription(type)}
                                 </span>
                               </span>
                             </button>
@@ -725,13 +743,13 @@ export function CanvasAddAtmosWidgetPopover({
             </section>
 
             <section className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground">Frame</div>
+              <div className="text-xs font-medium text-muted-foreground">{t("sections.frame")}</div>
               <Select value={selectedFrameValue} onValueChange={setSelectedFrameValue}>
                 <SelectTrigger className="h-10 w-full">
-                  <SelectValue placeholder="No frame" />
+                  <SelectValue placeholder={t("frame.noFrame")} />
                 </SelectTrigger>
                 <SelectContent className="z-[1001]">
-                  <SelectItem value={NO_FRAME_VALUE}>No frame</SelectItem>
+                  <SelectItem value={NO_FRAME_VALUE}>{t("frame.noFrame")}</SelectItem>
                   {frameTargets.map((frame) => (
                     <SelectItem key={frame.id} value={frame.id}>
                       <span className="flex items-center gap-2">
@@ -748,11 +766,11 @@ export function CanvasAddAtmosWidgetPopover({
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-border/70 px-5 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("actions.cancel")}
           </Button>
           <Button onClick={handleAdd} disabled={!canAdd} className="gap-2">
             {isLoadingProjects || isAdding ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            {getAddButtonLabel(selectedItemTypes)}
+            {getAddButtonLabel(t, selectedItemTypes)}
           </Button>
         </div>
       </PopoverContent>

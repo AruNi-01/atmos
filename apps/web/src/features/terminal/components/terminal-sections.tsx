@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useTranslations } from "next-intl";
 import {
   cn,
   Layers,
@@ -49,15 +50,45 @@ import type {
   TerminalOverviewResponse,
 } from '@/api/rest-api';
 
-function formatUptime(secs: number): string {
-  if (secs < 60) return `${secs}s`;
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+type TranslationValues = Record<string, string | number>;
+type Translator = ReturnType<typeof useTranslations>;
+
+function translateMessage(
+  t: Translator,
+  key: string,
+  values?: TranslationValues,
+): string {
+  return t(key as never, values as never);
+}
+
+function pluralSuffix(count: number): string {
+  return count === 1 ? '' : 's';
+}
+
+function formatUptime(secs: number, t: Translator): string {
+  if (secs < 60) {
+    return translateMessage(t, 'uptime.seconds', { seconds: secs });
+  }
+  if (secs < 3600) {
+    return translateMessage(t, 'uptime.minutesSeconds', {
+      minutes: Math.floor(secs / 60),
+      seconds: secs % 60,
+    });
+  }
   const hours = Math.floor(secs / 3600);
   const mins = Math.floor((secs % 3600) / 60);
-  if (hours < 24) return `${hours}h ${mins}m`;
+  if (hours < 24) {
+    return translateMessage(t, 'uptime.hoursMinutes', {
+      hours,
+      minutes: mins,
+    });
+  }
   const days = Math.floor(hours / 24);
   const remainingHours = hours % 24;
-  return `${days}d ${remainingHours}h`;
+  return translateMessage(t, 'uptime.daysHours', {
+    days,
+    hours: remainingHours,
+  });
 }
 
 /** Shorten a path by keeping the tail and replacing the head with "..." */
@@ -74,6 +105,7 @@ function displaySessionName(name: string): string {
 // --- Sub-components ---
 
 export const SessionCard: React.FC<{ session: ActiveSessionInfo }> = ({ session }) => {
+  const t = useTranslations("terminal.sections");
   const isTmux = session.session_type === 'tmux';
 
   return (
@@ -98,7 +130,9 @@ export const SessionCard: React.FC<{ session: ActiveSessionInfo }> = ({ session 
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                   : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
               )}>
-                {isTmux ? 'tmux' : 'simple'}
+                {isTmux
+                  ? translateMessage(t, 'sessionCard.tmuxType')
+                  : translateMessage(t, 'sessionCard.simpleType')}
               </span>
             </div>
             {(session.project_name || session.workspace_name) && (
@@ -110,7 +144,7 @@ export const SessionCard: React.FC<{ session: ActiveSessionInfo }> = ({ session 
         </div>
         <div className="flex items-center gap-1 shrink-0 text-xs text-muted-foreground">
           <Clock className="size-3" />
-          <span>{formatUptime(session.uptime_secs)}</span>
+          <span>{formatUptime(session.uptime_secs, t)}</span>
         </div>
       </div>
 
@@ -144,8 +178,16 @@ export const SessionCard: React.FC<{ session: ActiveSessionInfo }> = ({ session 
 };
 
 export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSession: (name: string) => Promise<void> }> = ({ session, onKillSession }) => {
+  const t = useTranslations("terminal.sections");
   const [isKilling, setIsKilling] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const killDescription = t.rich('tmuxSession.killDescription' as never, {
+    count: session.windows,
+    suffix: pluralSuffix(session.windows),
+    name: () => (
+      <span className="font-mono font-medium text-foreground">{displaySessionName(session.name)}</span>
+    ),
+  } as never);
 
   const handleKill = async () => {
     setIsKilling(true);
@@ -169,9 +211,14 @@ export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSessi
               {displaySessionName(session.name)}
             </span>
             <p className="truncate text-xs text-muted-foreground">
-              {session.windows} window{session.windows !== 1 ? 's' : ''}
+              {translateMessage(t, 'tmuxSession.windowsLabel', {
+                count: session.windows,
+                suffix: pluralSuffix(session.windows),
+              })}
               {session.attached && (
-                <span className="ml-1.5 text-emerald-500">&middot; attached</span>
+                <span className="ml-1.5 text-emerald-500">
+                  &middot; {translateMessage(t, 'tmuxSession.attached')}
+                </span>
               )}
             </p>
           </div>
@@ -191,10 +238,8 @@ export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSessi
             <PopoverContent side="top" align="end" className="w-60">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Kill Session?</p>
-                  <p className="text-xs text-muted-foreground">
-                    Kill <span className="font-mono font-medium text-foreground">{displaySessionName(session.name)}</span> and all its {session.windows} window{session.windows !== 1 ? 's' : ''}?
-                  </p>
+                  <p className="text-sm font-medium">{translateMessage(t, 'tmuxSession.killTitle')}</p>
+                  <p className="text-xs text-muted-foreground">{killDescription}</p>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                   <Button
@@ -203,7 +248,7 @@ export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSessi
                     className="h-7 text-xs cursor-pointer"
                     onClick={() => setPopoverOpen(false)}
                   >
-                    Cancel
+                    {translateMessage(t, 'actions.cancel')}
                   </Button>
                   <Button
                     variant="destructive"
@@ -213,7 +258,7 @@ export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSessi
                     onClick={handleKill}
                   >
                     {isKilling ? <Loader2 className="size-3 animate-spin mr-1" /> : <X className="size-3 mr-1" />}
-                    Kill
+                    {translateMessage(t, 'actions.kill')}
                   </Button>
                 </div>
               </div>
@@ -260,15 +305,23 @@ export const healthBg: Record<PtyHealth, string> = {
   unknown: 'bg-muted-foreground',
 };
 
-export const healthLabel: Record<PtyHealth, string> = {
-  healthy: 'Healthy',
-  warning: 'Warning',
-  critical: 'Critical',
-  unknown: 'Unknown',
-};
+export function healthLabel(t: Translator, health: PtyHealth): string {
+  switch (health) {
+    case 'healthy':
+      return translateMessage(t, 'health.healthy');
+    case 'warning':
+      return translateMessage(t, 'health.warning');
+    case 'critical':
+      return translateMessage(t, 'health.critical');
+    default:
+      return translateMessage(t, 'health.unknown');
+  }
+}
 
 export const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
+  const t = useTranslations("terminal.sections");
   const barPercent = pty.usage_percent != null ? Math.min(pty.usage_percent, 100) : 0;
+  const healthText = healthLabel(t, pty.health);
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
@@ -277,13 +330,13 @@ export const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
           <HardDrive className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
           <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
         </span>
-        System PTY Usage
+        {translateMessage(t, 'systemPty.title')}
         <span className="text-xs font-normal text-muted-foreground">
           ({pty.os})
         </span>
         {pty.pty_current != null && pty.pty_max != null && (
           <span className={cn("ml-auto text-xs font-medium group-data-[state=open]:hidden", healthColor[pty.health])}>
-            {pty.pty_current}/{pty.pty_max} &middot; {healthLabel[pty.health]}
+            {pty.pty_current}/{pty.pty_max} &middot; {healthText}
           </span>
         )}
       </CollapsibleTrigger>
@@ -300,12 +353,14 @@ export const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
                   </span>
                   <span className="text-muted-foreground">/</span>
                   <span className="text-muted-foreground tabular-nums">{pty.pty_max}</span>
-                  <span className="text-muted-foreground text-xs">PTY devices</span>
+                  <span className="text-muted-foreground text-xs">
+                    {translateMessage(t, 'systemPty.devicesLabel')}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={cn("size-2 rounded-full", healthBg[pty.health])} />
                   <span className={cn("text-xs font-medium", healthColor[pty.health])}>
-                    {healthLabel[pty.health]}
+                    {healthText}
                     {pty.usage_percent != null && ` (${pty.usage_percent}%)`}
                   </span>
                 </div>
@@ -326,33 +381,35 @@ export const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
               {pty.health === 'critical' && (
                 <div className="flex items-center gap-2 text-xs text-red-500 bg-red-500/10 rounded-md px-3 py-2">
                   <AlertTriangle className="size-3.5 shrink-0" />
-                  <span>PTY usage is critically high. New terminals may fail to open. Clean up stale sessions or close unused terminals.</span>
+                  <span>{translateMessage(t, 'systemPty.criticalWarning')}</span>
                 </div>
               )}
               {pty.health === 'warning' && (
                 <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-md px-3 py-2">
                   <AlertTriangle className="size-3.5 shrink-0" />
-                  <span>PTY usage is elevated. Consider cleaning up unused terminal sessions.</span>
+                  <span>{translateMessage(t, 'systemPty.warningNotice')}</span>
                 </div>
               )}
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">
-              Unable to determine PTY usage on this system.
+              {translateMessage(t, 'systemPty.unavailable')}
             </div>
           )}
 
           {pty.top_processes.length > 0 && (
             <div>
-              <h3 className="text-xs font-medium text-muted-foreground mb-2">Top Processes Holding PTY Devices</h3>
+              <h3 className="text-xs font-medium text-muted-foreground mb-2">
+                {translateMessage(t, 'systemPty.topProcessesTitle')}
+              </h3>
               <div className="rounded-md border border-border overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-muted/50">
-                      <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Process</th>
-                      <th className="text-right font-medium text-muted-foreground px-3 py-1.5 w-20">PTYs</th>
+                      <th className="text-left font-medium text-muted-foreground px-3 py-1.5">{translateMessage(t, 'systemPty.table.process')}</th>
+                      <th className="text-right font-medium text-muted-foreground px-3 py-1.5 w-20">{translateMessage(t, 'systemPty.table.ptys')}</th>
                       {pty.pty_current != null && pty.pty_current > 0 && (
-                        <th className="text-right font-medium text-muted-foreground px-3 py-1.5 w-20">Share</th>
+                        <th className="text-right font-medium text-muted-foreground px-3 py-1.5 w-20">{translateMessage(t, 'systemPty.table.share')}</th>
                       )}
                     </tr>
                   </thead>
@@ -389,8 +446,17 @@ export const OrphanedProcessesSection: React.FC<{
   count: number;
   onKillAll: (pids: number[]) => Promise<void>;
 }> = ({ orphans, count, onKillAll }) => {
+  const t = useTranslations("terminal.sections");
   const [isKilling, setIsKilling] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const orphanedWarning = t.rich('orphaned.warning' as never, {
+    count,
+    suffix: count === 1 ? '' : 'es',
+    commandText: `kill ${orphans.map(o => o.pid).join(' ')}`,
+    command: (chunks: React.ReactNode) => (
+      <code className="bg-red-500/20 px-1 rounded text-[11px]">{chunks}</code>
+    ),
+  } as never);
 
   const handleKillAll = async () => {
     setIsKilling(true);
@@ -407,10 +473,10 @@ export const OrphanedProcessesSection: React.FC<{
       <div className="rounded-lg border border-border bg-background p-5">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Skull className="size-4" />
-          Orphaned Processes
+          {translateMessage(t, 'orphaned.title')}
           <span className="text-xs font-normal text-emerald-500 flex items-center gap-1">
             <CheckCircle2 className="size-3" />
-            None detected
+            {translateMessage(t, 'orphaned.noneDetected')}
           </span>
         </h2>
       </div>
@@ -425,9 +491,9 @@ export const OrphanedProcessesSection: React.FC<{
             <Skull className="absolute inset-0 size-4 text-red-500 transition-opacity duration-150 group-hover:opacity-0" />
             <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
           </span>
-          Orphaned Processes
+          {translateMessage(t, 'orphaned.title')}
           <span className="text-xs font-medium text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
-            {count} detected
+            {translateMessage(t, 'orphaned.countDetected', { count })}
           </span>
           <TooltipProvider>
             <Tooltip>
@@ -435,7 +501,7 @@ export const OrphanedProcessesSection: React.FC<{
                 <Info className="size-3.5 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-xs text-xs">
-                Orphaned processes are shell processes whose parent has died (PPID=1). They often hold PTY file descriptors and can lead to PTY exhaustion. Usually caused by crashes or ungraceful shutdowns.
+                {translateMessage(t, 'orphaned.tooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -448,15 +514,18 @@ export const OrphanedProcessesSection: React.FC<{
               className="h-7 px-3 text-xs cursor-pointer gap-1.5 text-red-500 hover:text-red-600 hover:bg-red-500/10"
             >
               <Power className="size-3.5" />
-              Kill All
+              {translateMessage(t, 'orphaned.killAll')}
             </Button>
           </PopoverTrigger>
           <PopoverContent side="top" align="end" className="w-64">
             <div className="space-y-3">
               <div className="space-y-1">
-                <p className="text-sm font-medium">Kill All Orphaned Processes?</p>
+                <p className="text-sm font-medium">{translateMessage(t, 'orphaned.killAllTitle')}</p>
                 <p className="text-xs text-muted-foreground">
-                  This will terminate all {count} orphaned shell process{count > 1 ? 'es' : ''} (PPID=1). This action cannot be undone.
+                  {translateMessage(t, 'orphaned.killAllDescription', {
+                    count,
+                    suffix: count === 1 ? '' : 'es',
+                  })}
                 </p>
               </div>
               <div className="flex items-center justify-end gap-2">
@@ -466,7 +535,7 @@ export const OrphanedProcessesSection: React.FC<{
                   className="h-7 text-xs cursor-pointer"
                   onClick={() => setPopoverOpen(false)}
                 >
-                  Cancel
+                  {translateMessage(t, 'actions.cancel')}
                 </Button>
                 <Button
                   variant="destructive"
@@ -476,7 +545,7 @@ export const OrphanedProcessesSection: React.FC<{
                   onClick={handleKillAll}
                 >
                   {isKilling ? <Loader2 className="size-3 animate-spin mr-1" /> : <Power className="size-3 mr-1" />}
-                  Confirm Kill All
+                  {translateMessage(t, 'orphaned.confirmKillAll')}
                 </Button>
               </div>
             </div>
@@ -488,19 +557,16 @@ export const OrphanedProcessesSection: React.FC<{
         <div className="pt-4 space-y-3">
           <div className="flex items-center gap-2 text-xs text-red-500 bg-red-500/10 rounded-md px-3 py-2">
             <AlertTriangle className="size-3.5 shrink-0" />
-            <span>
-              {count} orphaned shell process{count > 1 ? 'es' : ''} detected. These may be consuming PTY devices.
-              Run <code className="bg-red-500/20 px-1 rounded text-[11px]">kill {orphans.map(o => o.pid).join(' ')}</code> in your terminal to clean them up.
-            </span>
+            <span>{orphanedWarning}</span>
           </div>
 
           <div className="rounded-md border border-border overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-muted/50">
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5 w-20">PID</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Command</th>
-                  <th className="text-right font-medium text-muted-foreground px-3 py-1.5 w-28">Elapsed</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5 w-20">{translateMessage(t, 'orphaned.table.pid')}</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">{translateMessage(t, 'orphaned.table.command')}</th>
+                  <th className="text-right font-medium text-muted-foreground px-3 py-1.5 w-28">{translateMessage(t, 'orphaned.table.elapsed')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -523,6 +589,7 @@ export const OrphanedProcessesSection: React.FC<{
 // --- Tmux Server Info Section ---
 
 export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer: () => Promise<void> }> = ({ server, onKillServer }) => {
+  const t = useTranslations("terminal.sections");
   const [isKilling, setIsKilling] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -545,7 +612,9 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
             : "bg-muted text-muted-foreground"
         )}>
-          {server.running ? 'running' : 'stopped'}
+          {server.running
+            ? translateMessage(t, 'tmuxServer.running')
+            : translateMessage(t, 'tmuxServer.stopped')}
         </span>
         {server.running && (
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -556,15 +625,15 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
                 className="ml-auto h-7 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 cursor-pointer gap-1.5"
               >
                 <Power className="size-3.5" />
-                Kill Server
+                {translateMessage(t, 'tmuxServer.killServer')}
               </Button>
             </PopoverTrigger>
             <PopoverContent side="top" align="end" className="w-64">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Kill Tmux Server?</p>
+                  <p className="text-sm font-medium">{translateMessage(t, 'tmuxServer.killTitle')}</p>
                   <p className="text-xs text-muted-foreground">
-                    This will terminate all tmux sessions and their processes. Active terminal connections will be lost.
+                    {translateMessage(t, 'tmuxServer.killDescription')}
                   </p>
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -574,7 +643,7 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
                     className="h-7 text-xs cursor-pointer"
                     onClick={() => setPopoverOpen(false)}
                   >
-                    Cancel
+                    {translateMessage(t, 'actions.cancel')}
                   </Button>
                   <Button
                     variant="destructive"
@@ -584,7 +653,7 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
                     onClick={handleKill}
                   >
                     {isKilling ? <Loader2 className="size-3 animate-spin mr-1" /> : <Power className="size-3 mr-1" />}
-                    Confirm Kill
+                    {translateMessage(t, 'tmuxServer.confirmKill')}
                   </Button>
                 </div>
               </div>
@@ -595,7 +664,7 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Socket</span>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{translateMessage(t, 'tmuxServer.fields.socket')}</span>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -609,26 +678,26 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
         </div>
 
         <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">PID</span>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{translateMessage(t, 'tmuxServer.fields.pid')}</span>
           <p className="text-xs font-mono tabular-nums">
             {server.server_pid ?? '—'}
           </p>
         </div>
 
         <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Uptime</span>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{translateMessage(t, 'tmuxServer.fields.uptime')}</span>
           <p className="text-xs font-mono">
-            {server.uptime_secs != null ? formatUptime(server.uptime_secs) : '—'}
+            {server.uptime_secs != null ? formatUptime(server.uptime_secs, t) : '—'}
           </p>
         </div>
 
         <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Sessions</span>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{translateMessage(t, 'tmuxServer.fields.sessions')}</span>
           <p className="text-sm font-semibold tabular-nums">{server.total_sessions}</p>
         </div>
 
         <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Windows</span>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{translateMessage(t, 'tmuxServer.fields.windows')}</span>
           <p className="text-sm font-semibold tabular-nums">{server.total_windows}</p>
         </div>
       </div>
@@ -640,21 +709,22 @@ export const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer:
 // --- Shell Environment Section ---
 
 export const ShellEnvSection: React.FC<{ env: ShellEnvInfo }> = ({ env }) => {
+  const t = useTranslations("terminal.sections");
   const items = [
-    { label: 'OS', value: env.os_version ? `${env.os} ${env.os_version}` : env.os, icon: Globe },
-    { label: 'Arch', value: env.arch, icon: Cpu },
-    { label: 'Shell', value: env.shell, icon: Terminal },
-    { label: 'TERM', value: env.term, icon: Monitor },
-    { label: 'User', value: env.user, icon: User },
-    { label: 'Hostname', value: env.hostname || '—', icon: Server },
-    { label: 'Home', value: env.home, icon: FolderOpen },
+    { label: translateMessage(t, 'shellEnv.fields.os'), value: env.os_version ? `${env.os} ${env.os_version}` : env.os, icon: Globe },
+    { label: translateMessage(t, 'shellEnv.fields.arch'), value: env.arch, icon: Cpu },
+    { label: translateMessage(t, 'shellEnv.fields.shell'), value: env.shell, icon: Terminal },
+    { label: translateMessage(t, 'shellEnv.fields.term'), value: env.term, icon: Monitor },
+    { label: translateMessage(t, 'shellEnv.fields.user'), value: env.user, icon: User },
+    { label: translateMessage(t, 'shellEnv.fields.hostname'), value: env.hostname || '—', icon: Server },
+    { label: translateMessage(t, 'shellEnv.fields.home'), value: env.home, icon: FolderOpen },
   ];
 
   return (
     <div className="rounded-lg border border-border bg-background p-5">
       <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <Globe className="size-4" />
-        Shell Environment
+        {translateMessage(t, 'shellEnv.title')}
       </h2>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -675,14 +745,16 @@ export const ShellEnvSection: React.FC<{ env: ShellEnvInfo }> = ({ env }) => {
 // --- PTY Device Detail Section ---
 
 export const PtyDeviceDetailSection: React.FC<{ devices: PtyDeviceDetail[] }> = ({ devices }) => {
+  const t = useTranslations("terminal.sections");
+
   if (devices.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-background p-5">
         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Hash className="size-4" />
-          PTY Device Details
+          {translateMessage(t, 'ptyDeviceDetails.title')}
           <span className="text-xs font-normal text-muted-foreground">
-            No device data available
+            {translateMessage(t, 'ptyDeviceDetails.noData')}
           </span>
         </h2>
       </div>
@@ -696,9 +768,12 @@ export const PtyDeviceDetailSection: React.FC<{ devices: PtyDeviceDetail[] }> = 
           <Hash className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
           <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
         </span>
-        PTY Device Details
+        {translateMessage(t, 'ptyDeviceDetails.title')}
         <span className="text-xs font-normal text-muted-foreground">
-          ({devices.length} device{devices.length !== 1 ? 's' : ''})
+          {translateMessage(t, 'ptyDeviceDetails.summary', {
+            count: devices.length,
+            suffix: pluralSuffix(devices.length),
+          })}
         </span>
       </CollapsibleTrigger>
 
@@ -708,11 +783,11 @@ export const PtyDeviceDetailSection: React.FC<{ devices: PtyDeviceDetail[] }> = 
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-muted/50">
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Device</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">PID</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">User</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">Command</th>
-                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5 w-16">FD</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">{translateMessage(t, 'ptyDeviceDetails.table.device')}</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">{translateMessage(t, 'ptyDeviceDetails.table.pid')}</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">{translateMessage(t, 'ptyDeviceDetails.table.user')}</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5">{translateMessage(t, 'ptyDeviceDetails.table.command')}</th>
+                  <th className="text-left font-medium text-muted-foreground px-3 py-1.5 w-16">{translateMessage(t, 'ptyDeviceDetails.table.fd')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -750,7 +825,9 @@ export const SessionsGroupSection: React.FC<{
   onKillServer: () => Promise<void>;
   onKillSession: (name: string) => Promise<void>;
 }> = ({ data, onKillServer, onKillSession }) => {
+  const t = useTranslations("terminal.sections");
   const totalCount = data.active_session_count + data.tmux.session_count;
+  const tmuxPart = data.tmux.installed ? `, ${data.tmux.session_count} tmux` : '';
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
@@ -759,12 +836,15 @@ export const SessionsGroupSection: React.FC<{
           <SquareTerminal className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
           <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
         </span>
-        Sessions
+        {translateMessage(t, 'sessions.title')}
         <span className="text-xs font-normal text-muted-foreground">
-          ({data.active_session_count} active{data.tmux.installed ? `, ${data.tmux.session_count} tmux` : ''})
+          {translateMessage(t, 'sessions.summary', {
+            active: data.active_session_count,
+            tmuxPart,
+          })}
         </span>
         <span className="ml-auto text-xs font-normal text-muted-foreground group-data-[state=open]:hidden">
-          {totalCount} total
+          {translateMessage(t, 'sessions.totalSummary', { count: totalCount })}
         </span>
       </CollapsibleTrigger>
 
@@ -774,11 +854,13 @@ export const SessionsGroupSection: React.FC<{
           <div>
             <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
               <Monitor className="size-3.5" />
-              Active Sessions ({data.active_sessions.length})
+              {translateMessage(t, 'sessions.activeTitle', {
+                count: data.active_sessions.length,
+              })}
             </h3>
             {data.active_sessions.length === 0 ? (
               <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
-                No active terminal sessions
+                {translateMessage(t, 'sessions.noActive')}
               </div>
             ) : (
               <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
@@ -794,7 +876,7 @@ export const SessionsGroupSection: React.FC<{
             <div>
               <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                 <Server className="size-3.5" />
-                Tmux Server
+                {translateMessage(t, 'sessions.tmuxServerTitle')}
               </h3>
               <TmuxServerSection server={data.tmux_server} onKillServer={onKillServer} />
             </div>
@@ -805,11 +887,13 @@ export const SessionsGroupSection: React.FC<{
             <div>
               <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                 <Layers className="size-3.5" />
-                Tmux Sessions ({data.tmux.sessions.length})
+                {translateMessage(t, 'sessions.tmuxTitle', {
+                  count: data.tmux.sessions.length,
+                })}
               </h3>
               {data.tmux.sessions.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
-                  No tmux sessions running
+                  {translateMessage(t, 'sessions.noTmux')}
                 </div>
               ) : (
                 <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
@@ -827,4 +911,3 @@ export const SessionsGroupSection: React.FC<{
 };
 
 // --- Main Component ---
-

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { MosaicWindow, type MosaicPath } from "react-mosaic-component";
 import { Bot, Columns, Maximize2, Pin, Rows, X } from "lucide-react";
 
@@ -16,12 +17,21 @@ import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
 import {
+  TerminalAgentInputOverlay,
+  type TerminalAgentInputOverlayHandle,
+} from "./TerminalAgentInputOverlay";
+import {
   getTerminalDisplayMeta,
   resolveAgentForTitle,
   TerminalTitleWithAgent,
 } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
+import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import { TerminalPaneAgentStatus } from "./terminal-mosaic-workspace-pane-window";
+import {
+  getAgentContextDragText,
+  hasAgentContextDragData,
+} from "@/shared/lib/agent-context-drag";
 
 type MosaicToolbarActions = {
   split: boolean;
@@ -61,6 +71,7 @@ type ScopedPaneWindowProps = {
   setActivePaneId: (id: string | null) => void;
   setIsPaneDragging: (value: boolean) => void;
   terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>;
+  agentInputOverlayRefsMap: React.MutableRefObject<Map<string, TerminalAgentInputOverlayHandle>>;
   readyPanesRef: React.MutableRefObject<Set<string>>;
   pendingCommandsRef: React.MutableRefObject<Map<string, string>>;
   setDynamicTitle: (workspaceId: string, paneId: string, title: string) => void;
@@ -95,22 +106,46 @@ export function TerminalMosaicScopedPaneWindow({
   setActivePaneId,
   setIsPaneDragging,
   terminalRefsMap,
+  agentInputOverlayRefsMap,
   readyPanesRef,
   pendingCommandsRef,
   setDynamicTitle,
   setPaneAgent,
   markPaneAttached,
 }: ScopedPaneWindowProps) {
+  const t = useTranslations("Terminal.chrome");
   const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
     baseTitle: pane.label,
     dynamicTitle: pane.dynamicTitle,
     configuredAgents,
     agent: pane.agent,
   });
+  const [isTerminalReady, setIsTerminalReady] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsTerminalReady(readyPanesRef.current.has(id));
+  }, [id, pane.sessionId, readyPanesRef]);
+
+  const activeProject = React.useMemo(
+    () =>
+      projects.find(
+        (project) =>
+          project.id === workspaceId ||
+          project.mainFilePath === workspaceInfo?.localPath ||
+          project.workspaces.some(
+            (workspace) =>
+              workspace.id === workspaceId ||
+              workspace.localPath === workspaceInfo?.localPath,
+          ),
+      ) ?? null,
+    [projects, workspaceId, workspaceInfo?.localPath],
+  );
   const panePinKey = pane.tmuxWindowName
     ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, pane.tmuxWindowName)
     : null;
   const isPanePinned = panePinKey ? pinnedPaneKeys.has(panePinKey) : false;
+  const agentForSubmit = pane.agent ?? toolbarAgent;
+  const agentSubmitMode = resolveTerminalAgentSubmitMode(agentForSubmit);
 
   return (
     <MosaicWindow<string>
@@ -148,7 +183,7 @@ export function TerminalMosaicScopedPaneWindow({
                     if (isPanePinned) return;
                     void pinPaneToCanvas(id);
                   }}
-                  title={isPanePinned ? "Already pinned to Canvas" : "Pin to Canvas (⌘⇧P)"}
+                  title={isPanePinned ? t("paneToolbar.pinAlreadyPinned") : t("paneToolbar.pin")}
                   aria-disabled={isPanePinned}
                   aria-pressed={isPanePinned}
                 >
@@ -168,7 +203,7 @@ export function TerminalMosaicScopedPaneWindow({
                             onClick={() => onSplitPane(id, "row")}
                             onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
                             onMouseLeave={handleSplitMenuLeave}
-                            title="Split Horizontal (⌘D)"
+                            title={t("paneToolbar.splitHorizontal")}
                           >
                             <Columns size={12} />
                           </button>
@@ -204,7 +239,7 @@ export function TerminalMosaicScopedPaneWindow({
                             onClick={() => onSplitPane(id, "column")}
                             onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
                             onMouseLeave={handleSplitMenuLeave}
-                            title="Split Vertical (⌘⇧D)"
+                            title={t("paneToolbar.splitVertical")}
                           >
                             <Rows size={12} />
                           </button>
@@ -240,7 +275,7 @@ export function TerminalMosaicScopedPaneWindow({
                             maximizedId === id && "text-primary",
                           )}
                           onClick={() => onToggleMaximize(id)}
-                          title={maximizedId === id ? "Restore" : "Maximize"}
+                          title={maximizedId === id ? t("paneToolbar.restore") : t("paneToolbar.maximize")}
                         >
                           {maximizedId === id ? (
                             <div className="relative size-3 flex items-center justify-center">
@@ -256,7 +291,7 @@ export function TerminalMosaicScopedPaneWindow({
                         <button
                           className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
                           onClick={() => requestCloseTerminal(id)}
-                          title="Close (⌘W)"
+                          title={t("paneToolbar.close")}
                         >
                           <X size={12} />
                         </button>
@@ -275,6 +310,21 @@ export function TerminalMosaicScopedPaneWindow({
         data-pane-id={id}
         onMouseDownCapture={() => setActivePaneId(id)}
         onFocusCapture={() => setActivePaneId(id)}
+        onDragOver={(event) => {
+          if (!hasAgentContextDragData(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(event) => {
+          const text = getAgentContextDragText(event.dataTransfer);
+          if (!text) return;
+          event.preventDefault();
+          event.stopPropagation();
+          setActivePaneId(id);
+          const terminalRef = terminalRefsMap.current.get(id);
+          terminalRef?.focus();
+          terminalRef?.sendText(`${text} `);
+        }}
       >
         <Terminal
           ref={(termRef) => {
@@ -291,9 +341,7 @@ export function TerminalMosaicScopedPaneWindow({
           workspaceName={workspaceInfo?.workspaceName}
           isNewPane={pane.isNewPane}
           cwd={workspaceInfo?.localPath}
-          projectRootPath={projects.find((project) =>
-            project.id === workspaceId || project.workspaces.some((workspace) => workspace.id === workspaceId)
-          )?.mainFilePath}
+          projectRootPath={activeProject?.mainFilePath}
           onTitleChange={(title) => {
             const detectedAgent = resolveAgentForTitle(title, configuredAgents);
             setDynamicTitle(workspaceId, id, title);
@@ -303,6 +351,7 @@ export function TerminalMosaicScopedPaneWindow({
           }}
           onSessionReady={() => {
             readyPanesRef.current.add(id);
+            setIsTerminalReady(true);
             markPaneAttached(workspaceId, id);
             const cmd = pendingCommandsRef.current.get(id);
             if (cmd) {
@@ -310,6 +359,39 @@ export function TerminalMosaicScopedPaneWindow({
               terminalRefsMap.current.get(id)?.sendText(cmd);
             }
           }}
+          onSessionClose={() => {
+            readyPanesRef.current.delete(id);
+            setIsTerminalReady(false);
+          }}
+          onSessionError={() => {
+            readyPanesRef.current.delete(id);
+            setIsTerminalReady(false);
+          }}
+        />
+        <TerminalAgentInputOverlay
+          ref={(overlayRef) => {
+            if (overlayRef) {
+              agentInputOverlayRefsMap.current.set(id, overlayRef);
+            } else {
+              agentInputOverlayRefsMap.current.delete(id);
+            }
+          }}
+          activeProjectId={activeProject?.id ?? null}
+          getTerminalCursorClientPoint={() =>
+            terminalRefsMap.current.get(id)?.getCursorClientPoint() ?? null
+          }
+          isTerminalReady={isTerminalReady}
+          localPath={workspaceInfo?.localPath}
+          onSendEnter={() => {
+            terminalRefsMap.current.get(id)?.sendEnter();
+          }}
+          onSendText={(text) => {
+            setActivePaneId(id);
+            const terminalRef = terminalRefsMap.current.get(id);
+            terminalRef?.focus();
+            terminalRef?.sendText(text);
+          }}
+          submitMode={agentSubmitMode}
         />
       </div>
     </MosaicWindow>

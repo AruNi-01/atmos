@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl';
 import {
   IconCollapsedRow,
   IconDiffSplit,
@@ -65,6 +66,7 @@ export function DiffViewerHeader({
   snapshotGuidFromPath,
   wordWrap,
 }: DiffViewerHeaderProps) {
+  const t = useTranslations('diff.viewerHeader');
   return (
     <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
       <div
@@ -80,7 +82,7 @@ export function DiffViewerHeader({
           }}
         >
           <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
-          {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">vs {diffCompareRef}</span>}
+          {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">{t('versus')} {diffCompareRef}</span>}
           {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
             <span className="text-xs font-mono shrink-0">
               {diffStats.additions > 0 && <span className="text-green-500">+{diffStats.additions}</span>}
@@ -92,11 +94,11 @@ export function DiffViewerHeader({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 shrink-0">
-                  Snapshot View
+                  {t('snapshotView')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[260px] text-xs">
-                The snapshot view only displays the file content in the current review version and can only be read.
+                {t('snapshotTooltip')}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -105,9 +107,9 @@ export function DiffViewerHeader({
           <div
             className="absolute inset-x-0 h-full flex items-center transition-all duration-500 ease-in-out"
             style={{ transform: showTip ? 'translateY(0)' : 'translateY(100%)', opacity: showTip ? 1 : 0 }}
-          >
-            <span className="text-xs text-muted-foreground truncate">
-              Tips: Select line numbers to annotate changes and quickly send to AI Agent (⇧ Shift for multi-select)
+        >
+          <span className="text-xs text-muted-foreground truncate">
+              {t('tips')}
             </span>
           </div>
         )}
@@ -134,12 +136,12 @@ export function DiffViewerHeader({
             ) : (
               <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm border border-muted-foreground/40" />
             )}
-            <span>Reviewed</span>
+            <span>{t('reviewed')}</span>
           </button>
         ) : null}
         <button
           type="button"
-          title={diffStyle === 'split' ? 'Switch to unified view' : 'Switch to split view'}
+          title={diffStyle === 'split' ? t('switchToUnifiedView') : t('switchToSplitView')}
           className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
           onClick={() => setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')}
         >
@@ -151,7 +153,7 @@ export function DiffViewerHeader({
         </button>
         <button
           type="button"
-          title={fileCollapsed ? 'Expand file' : 'Collapse file'}
+          title={fileCollapsed ? t('expandFile') : t('collapseFile')}
           className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
           onClick={() => setFileCollapsed(!fileCollapsed)}
         >
@@ -166,7 +168,7 @@ export function DiffViewerHeader({
             <button
               type="button"
               className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-              title="View options"
+              title={t('viewOptions')}
             >
               <IconGearFill className="size-3.5" />
             </button>
@@ -174,10 +176,10 @@ export function DiffViewerHeader({
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem
               className="cursor-default p-0"
-              onSelect={(e) => e.preventDefault()}
-            >
+            onSelect={(e) => e.preventDefault()}
+          >
               <label className={SETTING_ROW_CLASS}>
-                <span className="min-w-0 flex-1">Backgrounds</span>
+                <span className="min-w-0 flex-1">{t('backgrounds')}</span>
                 <Switch
                   checked={!disableBackground}
                   onCheckedChange={(checked) => setDisableBackground(!checked)}
@@ -186,10 +188,10 @@ export function DiffViewerHeader({
             </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-default p-0"
-              onSelect={(e) => e.preventDefault()}
-            >
+            onSelect={(e) => e.preventDefault()}
+          >
               <label className={SETTING_ROW_CLASS}>
-                <span className="min-w-0 flex-1">Word wrap</span>
+                <span className="min-w-0 flex-1">{t('wordWrap')}</span>
                 <Switch checked={wordWrap} onCheckedChange={setWordWrap} />
               </label>
             </DropdownMenuItem>

@@ -131,6 +131,15 @@ Full conventions (zones, naming, the 4-file rule, optional spec logs, review che
 - **Rust Services**: Inject `core-service` into `apps/api` via `AppState`; HTTP and browser WebSocket protocols are owned by `apps/api`
 - **Inline Feedback Over Toasts**: Do not show success toasts for direct user actions when the initiating control or nearby UI can reflect the result, such as copy, save, toggle, stash, inline edit, or local state changes. Use inline button states, labels, counts, disabled states, or immediate UI transitions instead. Reserve toasts for errors, background work, cross-context outcomes, or unexpected fallbacks that the current UI cannot clearly show.
 
+### Internationalization
+
+- **Web i18n implementation**: The web app uses `next-intl`; React components should read user-facing copy with `useTranslations(...)` using the existing namespace style.
+- **Translation file location**: App-specific translation JSON files live in each app's `messages/` directory, such as `apps/web/messages/en.json` and `apps/web/messages/zh.json`. Do not move app copy into `packages/i18n`.
+- **Update every locale**: When changing user-facing UI text, update the matching keys in every app locale file, not only the source language.
+- **Localize non-English locales**: Do not copy English prose into non-English locale files as a shortcut. Product names, brand names, command names, and technical identifiers may remain in English, but surrounding descriptive words must be translated naturally for that locale.
+- **Keep meaning aligned**: Locale variants should express the same product meaning and UI scope, even when the wording is not a literal translation.
+- **Avoid hardcoded copy**: Prefer existing i18n lookup patterns for labels, titles, tooltips, empty states, and error text instead of hardcoded strings in components.
+
 ---
 
 ## 🔌 Transport Rules

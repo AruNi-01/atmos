@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,7 @@ type SelectorView = "agent_list" | "run_config";
 export function TerminalAgentSelectorWithRunConfig(
   props: TerminalAgentSelectorWithRunConfigProps,
 ) {
+  const t = useTranslations("Agent.components.selector");
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
   const open = props.open ?? uncontrolledOpen;
   const onOpenChange = props.onOpenChange;
@@ -175,7 +177,7 @@ export function TerminalAgentSelectorWithRunConfig(
 
   const summary = selectedOption
     ? buildRunConfigSummary(selectedOption.label, getRunConfig(selectedOption.id))
-    : "Select agent";
+    : t("selectAgent");
 
   const configAgent =
     options.find((item) => item.id === configuringAgentId) ??
@@ -184,7 +186,7 @@ export function TerminalAgentSelectorWithRunConfig(
   const listRows =
     options.length === 0 && props.variant === "floating" ? (
       <DropdownMenuItem onClick={props.onEmptyAction} className="cursor-pointer">
-        {props.emptyActionLabel ?? "Connect agents"}
+        {props.emptyActionLabel ?? t("connectAgents")}
       </DropdownMenuItem>
     ) : (
       <div className="grid gap-0.5">
@@ -203,7 +205,7 @@ export function TerminalAgentSelectorWithRunConfig(
                 }
               }}
               className="absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 pointer-events-none transition-opacity group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 hover:bg-background hover:text-foreground"
-              aria-label={`Configure ${option.label}`}
+              aria-label={t("configureAgent", { label: option.label })}
             >
               <Settings2 className="size-3.5" />
             </button>
@@ -319,7 +321,7 @@ export function TerminalAgentSelectorWithRunConfig(
               className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
             >
               <ChevronLeft className="size-3.5" />
-              Back
+              {t("back")}
             </button>
             <TerminalAgentRunConfigContent
               agentId={configAgent.id}
@@ -352,7 +354,7 @@ export function TerminalAgentSelectorWithRunConfig(
               <button
                 type="button"
                 className="absolute -left-3 -top-3 z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Select agent"
+                aria-label={t("selectAgent")}
               >
                 {selectedOption ? (
                   <AgentGlyph option={selectedOption} size={18} />
@@ -375,7 +377,7 @@ export function TerminalAgentSelectorWithRunConfig(
     return (
       <div className={props.className}>
         <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {props.label ?? "Code Agent"}
+          {props.label ?? t("fieldLabel")}
         </label>
         <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
           <Tooltip>
@@ -387,7 +389,7 @@ export function TerminalAgentSelectorWithRunConfig(
                 >
                   {selectedOption ? <AgentGlyph option={selectedOption} /> : null}
                   <span className="min-w-0 flex-1 truncate text-left">
-                    {selectedOption?.label ?? "Select agent"}
+                    {selectedOption?.label ?? t("selectAgent")}
                   </span>
                   <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                 </button>

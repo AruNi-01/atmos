@@ -3,6 +3,7 @@
 import React from "react";
 import { ImageIcon, X } from "lucide-react";
 import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 
 export interface ComposerAttachment {
   id: string; // 'img-1' etc.
@@ -21,6 +22,8 @@ interface AttachmentBarProps {
 }
 
 export function AttachmentBar({ attachments, onRemove, onPreview, className }: AttachmentBarProps) {
+  const t = useTranslations("Welcome.components.attachmentBar");
+
   if (attachments.length === 0) return null;
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
@@ -68,7 +71,8 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
               event.stopPropagation();
               onRemove(att.id);
             }}
-            title="Remove"
+            title={t("remove")}
+            aria-label={t("remove")}
           >
             <X className="size-3" />
           </Button>

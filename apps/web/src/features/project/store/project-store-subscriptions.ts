@@ -1,13 +1,36 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 import {
   isWorkspaceSetupProgressEventPayload,
   type WorkspaceSetupProgress,
 } from './project-store-setup-progress';
 
 const deleteProgressToasts = new Map<string, { toastId: string; workspaceName: string }>();
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRuntimeTranslator: any = null;
+
+function runtimeT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never, values as never);
+}
 
 export function registerWorkspaceDeleteProgressToast(
   workspaceId: string,
@@ -81,16 +104,21 @@ export function subscribeToWorkspaceDeleteProgressEvent(): () => void {
 
     if (data.step === 'completed') {
       toastManager.add({
-        title: 'Deleted',
-        description: `Workspace "${workspaceName}" removed`,
+        title: runtimeT('common.deleted'),
+        description: runtimeT('subscriptions.messages.workspaceRemoved', {
+          name: workspaceName,
+        }),
         type: 'success',
         timeout: 3000,
       });
       deleteProgressToasts.delete(data.workspace_id);
     } else if (data.step === 'error') {
       toastManager.add({
-        title: 'Cleanup warning',
-        description: `"${workspaceName}" deleted but cleanup failed: ${data.message}`,
+        title: runtimeT('subscriptions.messages.cleanupWarningTitle'),
+        description: runtimeT('subscriptions.messages.workspaceDeletedButCleanupFailed', {
+          name: workspaceName,
+          message: data.message,
+        }),
         type: 'warning',
         timeout: 5000,
       });
@@ -122,7 +150,7 @@ export function subscribeToWorkspaceGitignoreSyncFailedEvent(): () => void {
       if (!isWorkspaceGitignoreSyncFailedPayload(data)) return;
 
       toastManager.add({
-        title: 'GitIgnore Sync Failed',
+        title: runtimeT('subscriptions.errors.gitignoreSyncFailedTitle'),
         description: data.message,
         type: 'error',
       });

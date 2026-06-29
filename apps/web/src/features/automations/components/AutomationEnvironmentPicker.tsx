@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   Label,
   Select,
@@ -18,18 +19,6 @@ import {
 
 import type { AutomationTargetKind } from "@/features/automations/types";
 import type { Project, Workspace } from "@/shared/types/domain";
-
-const TARGET_OPTIONS: Array<{
-  value: AutomationTargetKind;
-  label: string;
-  description: string;
-  icon: typeof Folder;
-}> = [
-  { value: "project", label: "Project", description: "Use a project root", icon: FolderGit2 },
-  { value: "workspace", label: "Workspace", description: "Use an existing worktree", icon: Folder },
-  { value: "new_workspace", label: "New Workspace", description: "Create one per run", icon: FolderPlus },
-  { value: "standalone", label: "Standalone", description: "Use a run folder", icon: Terminal },
-];
 
 export function AutomationEnvironmentPicker({
   targetKind,
@@ -54,6 +43,39 @@ export function AutomationEnvironmentPicker({
   onWorkspaceGuidChange: (guid: string) => void;
   surface?: "card" | "plain";
 }) {
+  const t = useTranslations("automation.environmentPicker");
+  const targetOptions: Array<{
+    value: AutomationTargetKind;
+    label: string;
+    description: string;
+    icon: typeof Folder;
+  }> = [
+    {
+      value: "project",
+      label: t("options.project.label"),
+      description: t("options.project.description"),
+      icon: FolderGit2,
+    },
+    {
+      value: "workspace",
+      label: t("options.workspace.label"),
+      description: t("options.workspace.description"),
+      icon: Folder,
+    },
+    {
+      value: "new_workspace",
+      label: t("options.newWorkspace.label"),
+      description: t("options.newWorkspace.description"),
+      icon: FolderPlus,
+    },
+    {
+      value: "standalone",
+      label: t("options.standalone.label"),
+      description: t("options.standalone.description"),
+      icon: Terminal,
+    },
+  ];
+
   return (
     <section
       className={cn(
@@ -61,13 +83,13 @@ export function AutomationEnvironmentPicker({
           ? "rounded-md border border-border bg-background p-4 shadow-xs"
           : "space-y-4",
       )}
-    >
+      >
       <div className="flex items-center gap-2">
         <FolderGit2 className="size-4 text-muted-foreground" />
-        <div className="text-sm font-semibold text-foreground">Environment</div>
+        <div className="text-sm font-semibold text-foreground">{t("title")}</div>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {TARGET_OPTIONS.map((option) => {
+        {targetOptions.map((option) => {
           const Icon = option.icon;
           const selected = targetKind === option.value;
           const disabled =
@@ -103,14 +125,20 @@ export function AutomationEnvironmentPicker({
       <div className="mt-4">
         {targetKind === "project" || targetKind === "new_workspace" ? (
           <div className="space-y-2">
-            <Label>Project</Label>
+            <Label>{t("fields.project")}</Label>
             <Select
               value={projectGuid}
               onValueChange={onProjectGuidChange}
               disabled={projectsLoading || projects.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={projectsLoading ? "Loading projects" : "Select project"} />
+                <SelectValue
+                  placeholder={
+                    projectsLoading
+                      ? t("placeholders.loadingProjects")
+                      : t("placeholders.selectProject")
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {projects.map((project) => (
@@ -123,14 +151,20 @@ export function AutomationEnvironmentPicker({
           </div>
         ) : targetKind === "workspace" ? (
           <div className="space-y-2">
-            <Label>Workspace</Label>
+            <Label>{t("fields.workspace")}</Label>
             <Select
               value={workspaceGuid}
               onValueChange={onWorkspaceGuidChange}
               disabled={projectsLoading || workspaces.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={projectsLoading ? "Loading workspaces" : "Select workspace"} />
+                <SelectValue
+                  placeholder={
+                    projectsLoading
+                      ? t("placeholders.loadingWorkspaces")
+                      : t("placeholders.selectWorkspace")
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {workspaces.map(({ project, workspace }) => (
@@ -143,7 +177,7 @@ export function AutomationEnvironmentPicker({
           </div>
         ) : (
           <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-sm text-muted-foreground">
-            Runs use a standalone directory under the owning Computer&apos;s automation run folder.
+            {t("standaloneHint")}
           </div>
         )}
       </div>

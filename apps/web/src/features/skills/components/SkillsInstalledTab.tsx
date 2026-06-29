@@ -1,4 +1,5 @@
 import { Button, TabsContent } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 import type { SkillInfo } from "@/api/ws-api";
 import { AnimatePresence, motion } from "motion/react";
 import { Puzzle } from "lucide-react";
@@ -27,6 +28,8 @@ export function SkillsInstalledTab({
   onSkillUpdated: (skill: SkillInfo) => void | Promise<void>;
   onSkillDeleted: (skillId: string) => void | Promise<void>;
 }) {
+  const t = useTranslations("skills.installedTab");
+
   return (
     <TabsContent keepMounted value="installed">
       {isLoading ? (
@@ -34,12 +37,12 @@ export function SkillsInstalledTab({
       ) : filteredSkills.length === 0 ? (
         <EmptyState
           icon={<Puzzle className="size-8" />}
-          title={skills.length === 0 ? "No skills installed" : "No installed skills matched"}
+          title={skills.length === 0 ? t("empty.noneInstalledTitle") : t("empty.noMatchesTitle")}
           description={
             skills.length === 0
               ? INSTALLED_EMPTY_COPY
               : query || isFilterActive
-              ? `No installed skills matched "${query}". Reset the search or filters and try again.`
+              ? t("empty.noMatchesDescription", { query })
               : INSTALLED_EMPTY_COPY
           }
           action={
@@ -49,7 +52,7 @@ export function SkillsInstalledTab({
                 onClick={onResetFilters}
                 className="mt-4"
               >
-                Reset installed filters
+                {t("empty.resetFilters")}
               </Button>
             )
           }

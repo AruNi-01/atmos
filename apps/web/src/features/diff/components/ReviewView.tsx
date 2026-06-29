@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Loader2,
@@ -55,6 +56,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
   currentFilePath,
   onOpenReviewFile,
 }) => {
+  const t = useTranslations("diff.reviewView");
   const { effectiveContextId } = useContextParams();
   const reviewEditorKey = contextId ?? effectiveContextId;
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
@@ -186,7 +188,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
   if (!reviewEditorKey) {
     return (
       <div className="p-3 text-xs text-muted-foreground">
-        No project or workspace selected.
+        {t("empty.noContext")}
       </div>
     );
   }
@@ -195,9 +197,9 @@ const ReviewView: React.FC<ReviewViewProps> = ({
     return (
       <div className="p-3">
         <div className="rounded-lg border border-dashed border-sidebar-border bg-background/70 p-4 text-center">
-          <p className="text-sm text-foreground">No review session yet</p>
+          <p className="text-sm text-foreground">{t("empty.noSessionTitle")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Start a session to track comments and fix runs for this workspace or project.
+            {t("empty.noSessionDescription")}
           </p>
           <Button
             size="sm"
@@ -208,9 +210,9 @@ const ReviewView: React.FC<ReviewViewProps> = ({
             {isCreating ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <MessageSquarePlus className="mr-2 size-4" />
-            )}
-            New Review Session
+                <MessageSquarePlus className="mr-2 size-4" />
+              )}
+            {t("empty.newSession")}
           </Button>
         </div>
       </div>
@@ -221,6 +223,9 @@ const ReviewView: React.FC<ReviewViewProps> = ({
   const hasFiles = fileCount > 0;
   const hasComments = commentsByFile.length > 0;
   const openCommentCount = comments.filter((t) => isOpenReviewCommentStatus(t.status)).length;
+  const reviewedCount = currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0;
+  const changedAfterReviewCount =
+    currentRevision?.files.filter((f) => f.changed_after_review).length ?? 0;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -231,24 +236,27 @@ const ReviewView: React.FC<ReviewViewProps> = ({
           <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground border border-border">
             {getScopeBadgeText(currentSession)}
           </span>
-          <span>{openCommentCount} open</span>
+          <span>{t("stats.openCount", { count: openCommentCount })}</span>
           <span>·</span>
           <span>
-            {currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0}/{fileCount} reviewed
+            {t("stats.reviewedCount", {
+              reviewed: reviewedCount,
+              total: fileCount,
+            })}
           </span>
-          {(currentRevision?.files.filter((f) => f.changed_after_review).length ?? 0) > 0 && (
+          {changedAfterReviewCount > 0 && (
             <>
               <span>·</span>
               <span className="truncate text-amber-600">
-                {currentRevision?.files.filter((f) => f.changed_after_review).length} changed after review
+                {t("stats.changedAfterReview", { count: changedAfterReviewCount })}
               </span>
             </>
           )}
         </div>
         <button
           type="button"
-          title={fileViewMode === "tree" ? "Show as list" : "Show as tree"}
-          aria-label={fileViewMode === "tree" ? "Show review files as list" : "Show review files as tree"}
+          title={fileViewMode === "tree" ? t("viewMode.showAsList") : t("viewMode.showAsTree")}
+          aria-label={fileViewMode === "tree" ? t("viewMode.ariaList") : t("viewMode.ariaTree")}
           onClick={() =>
             setFileViewMode(fileViewMode === "tree" ? "list" : "tree")
           }
@@ -273,7 +281,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
                 filesOpen && "rotate-90",
               )}
             />
-            <span>Changed Files</span>
+            <span>{t("sections.changedFiles")}</span>
             <span className="text-[11px] text-muted-foreground ml-auto">
               {currentSession.reviewed_file_count}/{fileCount}
             </span>
@@ -305,7 +313,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
                 />
               ) : (
                 <p className="px-1 text-xs text-muted-foreground py-2">
-                  No changed files in this revision.
+                  {t("sections.noChangedFiles")}
                 </p>
               )}
             </div>
@@ -321,7 +329,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
                 commentsOpen && "rotate-90",
               )}
             />
-            <span>Comments</span>
+            <span>{t("sections.comments")}</span>
             <span className="text-[11px] text-muted-foreground ml-auto">
               {comments.length}
             </span>
@@ -330,7 +338,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
             <div className="pb-2 space-y-3">
               {!hasComments ? (
                 <p className="px-1 text-xs text-muted-foreground">
-                  No review comments in this revision yet.
+                  {t("sections.noComments")}
                 </p>
               ) : (
                 commentsByFile.map(([file, group]) => (
@@ -398,7 +406,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
                   summaryOpen && "rotate-90",
                 )}
               />
-              <span>Summary</span>
+              <span>{t("sections.summary")}</span>
               <span className="text-[11px] text-muted-foreground ml-auto">
                 {formatReviewDateTime(latestSummaryRun.updated_at)}
               </span>
@@ -414,7 +422,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
                 ) : (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <LoaderCircle className="size-3 animate-spin" />
-                    <span>Loading summary...</span>
+                    <span>{t("sections.loadingSummary")}</span>
                   </div>
                 )}
               </div>

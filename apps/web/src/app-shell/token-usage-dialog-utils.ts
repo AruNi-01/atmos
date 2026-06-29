@@ -77,48 +77,78 @@ export type YearAgentShare = {
   sharePercent: number;
 };
 
-export const curveChartConfig = {
-  tokens: {
-    label: "Tokens",
-    color: "var(--color-chart-1)",
-  },
-  messages: {
-    label: "Messages",
-    color: "var(--color-chart-3)",
-  },
-} satisfies ChartConfig;
+export type CurveChartLabelConfig = {
+  tokens: string;
+  messages: string;
+};
 
-export const tokenMixChartConfig = {
-  input: {
-    label: "Input",
-    color: "var(--color-chart-1)",
-  },
-  output: {
-    label: "Output",
-    color: "var(--color-chart-2)",
-  },
-  cache: {
-    label: "Cache",
-    color: "var(--color-chart-3)",
-  },
-  reasoning: {
-    label: "Reasoning",
-    color: "var(--color-chart-4)",
-  },
-} satisfies ChartConfig;
+export type TokenMixChartLabelConfig = {
+  input: string;
+  output: string;
+  cache: string;
+  reasoning: string;
+};
 
-export const heatmapAgentRadarChartConfig = {
-  share: {
-    label: "Share",
-    color: "var(--color-chart-2)",
-  },
-} satisfies ChartConfig;
+export type HeatmapAgentRadarChartLabelConfig = {
+  share: string;
+};
 
-export const heatmapDayLabels = [
-  { label: "Mon", row: 1 },
-  { label: "Wed", row: 3 },
-  { label: "Fri", row: 5 },
-] as const;
+export type HeatmapDayLabelConfig = {
+  mon: string;
+  wed: string;
+  fri: string;
+};
+
+export function buildCurveChartConfig(labels: CurveChartLabelConfig) {
+  return {
+    tokens: {
+      label: labels.tokens,
+      color: "var(--color-chart-1)",
+    },
+    messages: {
+      label: labels.messages,
+      color: "var(--color-chart-3)",
+    },
+  } satisfies ChartConfig;
+}
+
+export function buildTokenMixChartConfig(labels: TokenMixChartLabelConfig) {
+  return {
+    input: {
+      label: labels.input,
+      color: "var(--color-chart-1)",
+    },
+    output: {
+      label: labels.output,
+      color: "var(--color-chart-2)",
+    },
+    cache: {
+      label: labels.cache,
+      color: "var(--color-chart-3)",
+    },
+    reasoning: {
+      label: labels.reasoning,
+      color: "var(--color-chart-4)",
+    },
+  } satisfies ChartConfig;
+}
+
+export function buildHeatmapAgentRadarChartConfig(labels: HeatmapAgentRadarChartLabelConfig) {
+  return {
+    share: {
+      label: labels.share,
+      color: "var(--color-chart-2)",
+    },
+  } satisfies ChartConfig;
+}
+
+export function buildHeatmapDayLabels(labels: HeatmapDayLabelConfig) {
+  return [
+    { label: labels.mon, row: 1 },
+    { label: labels.wed, row: 3 },
+    { label: labels.fri, row: 5 },
+  ] as const;
+}
 
 export const HEATMAP_CELL_SIZE = 12;
 export const HEATMAP_GAP = 5;
@@ -157,13 +187,14 @@ export const lightHeatmapPalette = [
 export function buildTimelineSeries(
   days: DailyTokenUsageResponse[],
   resolution: Resolution,
+  locale: string,
 ): TimelinePoint[] {
   const buckets = new Map<string, TimelinePoint>(
     periodKeysForRange(days, resolution).map((key) => [
       key,
       {
         key,
-        label: formatPeriodLabel(key, resolution),
+        label: formatPeriodLabel(key, resolution, locale),
         tokens: 0,
         messages: 0,
         input: 0,
@@ -178,7 +209,7 @@ export function buildTimelineSeries(
     const key = resolution === "day" ? day.date : day.date.slice(0, 7);
     const existing = buckets.get(key) ?? {
       key,
-      label: formatPeriodLabel(key, resolution),
+      label: formatPeriodLabel(key, resolution, locale),
       tokens: 0,
       messages: 0,
       input: 0,
@@ -203,6 +234,7 @@ export function buildTimelineSeries(
 export function buildAgentSeries(
   days: DailyTokenUsageResponse[],
   resolution: Resolution,
+  locale: string,
 ): AgentSeries {
   const totals = new Map<string, number>();
   const periods = new Map<string, Record<string, number>>(
@@ -234,7 +266,7 @@ export function buildAgentSeries(
     .sort((left, right) => left[0].localeCompare(right[0]))
     .map(([periodKey, bucket]) => {
       const point: Record<string, string | number> = {
-        label: formatPeriodLabel(periodKey, resolution),
+        label: formatPeriodLabel(periodKey, resolution, locale),
       };
 
       let other = 0;
@@ -300,7 +332,11 @@ export function buildHeatmapWeeks(days: DailyTokenUsageResponse[], year: string)
   return weeks;
 }
 
-export function buildHeatmapMonthLabels(weeks: HeatmapWeek[], year: string): HeatmapMonthLabel[] {
+export function buildHeatmapMonthLabels(
+  weeks: HeatmapWeek[],
+  year: string,
+  locale: string,
+): HeatmapMonthLabel[] {
   if (!year) {
     return [];
   }
@@ -316,7 +352,9 @@ export function buildHeatmapMonthLabels(weeks: HeatmapWeek[], year: string): Hea
     }
 
     return {
-      label: format(new Date(Number(year), monthIndex, 1), "MMM"),
+      label: new Intl.DateTimeFormat(locale, { month: "short" }).format(
+        new Date(Number(year), monthIndex, 1),
+      ),
       offset: weekIndex * (HEATMAP_CELL_SIZE + HEATMAP_GAP),
     };
   }).filter((value): value is HeatmapMonthLabel => value !== null);
@@ -464,20 +502,33 @@ export function heatmapColor(
   return palette[level];
 }
 
-export function formatHeatmapDate(value: string) {
-  return format(parseISO(value), "EEE, MMM d, yyyy");
+export function formatHeatmapDate(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parseISO(value));
 }
 
-export function formatHeatmapAriaLabel(cell: HeatmapCell) {
-  return `${formatHeatmapDate(cell.date)}: ${formatDetailedNumber(cell.count ?? 0)} tokens, ${formatDetailedNumber(cell.detail?.message_count ?? 0)} messages`;
+export function formatHeatmapAriaLabel(
+  cell: HeatmapCell,
+  locale: string,
+  formatter: (values: { date: string; tokens: string; messages: string }) => string,
+) {
+  return formatter({
+    date: formatHeatmapDate(cell.date, locale),
+    tokens: formatDetailedNumber(cell.count ?? 0, locale),
+    messages: formatDetailedNumber(cell.detail?.message_count ?? 0, locale),
+  });
 }
 
-export function formatDetailedNumber(value: number) {
-  return value.toLocaleString();
+export function formatDetailedNumber(value: number, locale: string) {
+  return value.toLocaleString(locale);
 }
 
-export function formatPercent(value: number) {
-  return new Intl.NumberFormat("en", {
+export function formatPercent(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     style: "percent",
     maximumFractionDigits: value >= 0.1 ? 0 : 1,
   }).format(value);
@@ -520,29 +571,36 @@ function periodKeysForRange(days: DailyTokenUsageResponse[], resolution: Resolut
   return keys;
 }
 
-function formatPeriodLabel(key: string, resolution: Resolution) {
+function formatPeriodLabel(key: string, resolution: Resolution, locale: string) {
   return resolution === "day"
-    ? format(parseISO(key), "MMM d")
-    : format(parseISO(`${key}-01`), "MMM yyyy");
+    ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(parseISO(key))
+    : new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }).format(
+        parseISO(`${key}-01`),
+      );
 }
 
-export function formatCompactNumber(value: number) {
-  return new Intl.NumberFormat("en", {
+export function formatCompactNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     notation: "compact",
     maximumFractionDigits: value >= 1_000_000 ? 1 : 0,
   }).format(value);
 }
 
-export function formatCurrencyCompact(value: number | null) {
+export function formatCurrencyCompact(value: number | null, locale: string) {
   if (value === null) {
     return "--";
   }
 
   if (value < 1) {
-    return `$${value.toFixed(2)}`;
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
   }
 
-  return new Intl.NumberFormat("en", {
+  return new Intl.NumberFormat(locale, {
     notation: "compact",
     maximumFractionDigits: 1,
     style: "currency",
@@ -550,22 +608,25 @@ export function formatCurrencyCompact(value: number | null) {
   }).format(value);
 }
 
-export function formatAxisTokens(value: number) {
-  if (value >= 1_000_000) {
-    return `${Math.round(value / 1_000_000)}M`;
-  }
-  if (value >= 1_000) {
-    return `${Math.round(value / 1_000)}k`;
-  }
-  return `${Math.round(value)}`;
+export function formatAxisTokens(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    notation: "compact",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-export function formatTooltipTokens(value: number) {
-  return `${value.toLocaleString()} tokens`;
+export function formatTooltipTokens(
+  value: number,
+  locale: string,
+  formatter: (values: { value: string }) => string,
+) {
+  return formatter({
+    value: formatDetailedNumber(value, locale),
+  });
 }
 
-export function formatGeneratedAt(value: number) {
-  return new Intl.DateTimeFormat("en", {
+export function formatGeneratedAt(value: number, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

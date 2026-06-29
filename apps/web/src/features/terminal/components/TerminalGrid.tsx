@@ -24,6 +24,7 @@ import {
   TerminalMosaicWorkspacePaneWindow,
 } from "./terminal-mosaic-workspace-pane-window";
 import { TerminalMosaicScopedPaneWindow } from "./terminal-mosaic-scoped-pane-window";
+import type { TerminalAgentInputOverlayHandle } from "./TerminalAgentInputOverlay";
 import {
   TerminalGridContextMenu,
   type TerminalGridContextMenuAction,
@@ -48,6 +49,7 @@ export type { TerminalGridHandle, TerminalToolbarActions } from "../lib/terminal
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false, onNewTerminalTab, onTerminalPaneClosed }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
+  const agentInputOverlayRefsMap = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
   // Track panes whose session has already become ready, so we know whether
@@ -535,6 +537,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
 
+  const toggleFocusedAgentInput = useCallback(() => {
+    const paneId = getFocusedPaneId();
+    if (!paneId) return;
+    setActivePaneId(paneId);
+    agentInputOverlayRefsMap.current.get(paneId)?.toggle();
+  }, [getFocusedPaneId]);
+
   useTerminalGridHotkeys({
     terminalHotkeyScopeRef,
     focusPaneByOffset,
@@ -544,6 +553,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     pinPaneToCanvas,
     requestCloseTerminal,
     splitFocusedTerminal,
+    toggleFocusedAgentInput,
   });
 
   const handleSplitMenuEnter = useCallback((key: string) => {
@@ -674,6 +684,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           setActivePaneId={setActivePaneId}
           setIsPaneDragging={setIsPaneDragging}
           terminalRefsMap={terminalRefsMap}
+          agentInputOverlayRefsMap={agentInputOverlayRefsMap}
           readyPanesRef={readyPanesRef}
           pendingCommandsRef={pendingCommandsRef}
           markPaneAttached={markPaneAttached}
@@ -709,6 +720,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         setActivePaneId={setActivePaneId}
         setIsPaneDragging={setIsPaneDragging}
         terminalRefsMap={terminalRefsMap}
+        agentInputOverlayRefsMap={agentInputOverlayRefsMap}
         readyPanesRef={readyPanesRef}
         pendingCommandsRef={pendingCommandsRef}
         setDynamicTitle={setDynamicTitleForScope}

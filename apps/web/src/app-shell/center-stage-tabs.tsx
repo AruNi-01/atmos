@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   CSS,
@@ -122,6 +123,7 @@ export function SortableTabGroupItem({
   onSelect: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("AppShell.chrome");
   const {
     attributes,
     listeners,
@@ -162,7 +164,7 @@ export function SortableTabGroupItem({
         {...attributes}
         {...listeners}
         className="-ml-0.5 -mr-1.5 flex size-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground opacity-0 transition-colors hover:text-foreground active:cursor-grabbing group-hover/tab-item:opacity-100"
-        aria-label={`Drag ${tab.label}`}
+        aria-label={t("centerStageTabs.dragTab", { label: tab.label })}
         onClick={(event) => event.stopPropagation()}
       >
         <GripVertical className="size-3" />
@@ -172,7 +174,7 @@ export function SortableTabGroupItem({
         <span
           role="button"
           tabIndex={0}
-          aria-label={`Close ${tab.label}`}
+          aria-label={t("centerStageTabs.closeTab", { label: tab.label })}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
@@ -216,13 +218,15 @@ export function CenterStageTabGroupPopover({
   isClosable: (tab: TabGroupItem) => boolean;
   renderContent: (tab: TabGroupItem) => React.ReactNode;
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
           className="h-full rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-          aria-label="Open tab groups"
+          aria-label={t("centerStageTabs.openTabGroups")}
         >
           <List className="size-4" />
         </Button>
@@ -231,9 +235,11 @@ export function CenterStageTabGroupPopover({
         {groups.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-5 text-center">
             <Inbox className="size-8 text-muted-foreground/50" />
-            <div className="text-sm font-medium text-muted-foreground">No open tabs</div>
+            <div className="text-sm font-medium text-muted-foreground">
+              {t("centerStageTabs.empty.title")}
+            </div>
             <p className="max-w-[200px] text-xs text-muted-foreground/70">
-              Only non-pinned tabs such as files, diffs, and conflict resolves will appear here.
+              {t("centerStageTabs.empty.description")}
             </p>
           </div>
         ) : (

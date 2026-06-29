@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import {
   Button,
@@ -42,20 +43,20 @@ interface RegistryAgentInfo {
 }
 
 type TimeGroup =
-  | "Today"
-  | "Yesterday"
-  | "2-6 days ago"
-  | "1-3 weeks ago"
-  | "1-5 months ago"
-  | "Older";
+  | "today"
+  | "yesterday"
+  | "daysAgo2To6"
+  | "weeksAgo1To3"
+  | "monthsAgo1To5"
+  | "older";
 
 const GROUP_ORDER: TimeGroup[] = [
-  "Today",
-  "Yesterday",
-  "2-6 days ago",
-  "1-3 weeks ago",
-  "1-5 months ago",
-  "Older",
+  "today",
+  "yesterday",
+  "daysAgo2To6",
+  "weeksAgo1To3",
+  "monthsAgo1To5",
+  "older",
 ];
 
 interface EnrichedSession extends NativeAgentSessionItem {
@@ -91,6 +92,7 @@ function sameStringSet(left: string[], right: string[]): boolean {
 }
 
 export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProps> = ({ hideHeader = false }) => {
+  const t = useTranslations("chatSessions.managementView");
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useQueryState("q", chatSessionsParams.q);
@@ -107,6 +109,39 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   const projectConnectionEpoch = useProjectStore((state) => state.connectionEpoch);
   const requestedProjectEpochRef = useRef<number | null>(null);
   const defaultedWorkspaceProjectIdRef = useRef<string | null>(null);
+  const allSessionContextLabel = t("sessionContext.all");
+  const noWorkspacesLabel = t("workspaceSelector.none");
+  const singleWorkspaceLabel = t("workspaceSelector.one");
+  const searchPlaceholder = t("searchPlaceholder");
+  const workspacePopoverTitle = t("workspacePopover.title");
+  const workspacePopoverAllLabel = t("workspacePopover.all");
+  const workspacePopoverEmptyLabel = t("workspacePopover.empty");
+  const workspacePopoverApplyLabel = t("workspacePopover.apply");
+  const agentSelectLoadingLabel = t("agentSelect.loading");
+  const agentSelectPlaceholder = t("agentSelect.placeholder");
+  const refreshLabel = t("refresh");
+  const refreshSessionsAriaLabel = t("refreshAriaLabel");
+  const headerTitle = t("headerTitle");
+  const genericAgentLabel = t("emptyState.genericAgent");
+  const emptyStateUnavailableTitle = t("emptyState.unavailableTitle");
+  const emptyStateNoSessionsTitle = t("emptyState.noSessionsTitle");
+  const emptyStateSelectAgentTitle = t("emptyState.selectAgentTitle");
+  const emptyStateNoSearchResults = t("emptyState.noSearchResults");
+  const emptyStateInstalledAgentsHint = t("emptyState.installedAgentsHint");
+  const noWorkingDirectoryLabel = t("sessionCard.noWorkingDirectory");
+  const loadMoreLabel = t("loadMore");
+  const loadingMoreLabel = t("loadingMore");
+  const timeGroupLabels: Record<TimeGroup, string> = useMemo(
+    () => ({
+      today: t("timeGroups.today"),
+      yesterday: t("timeGroups.yesterday"),
+      daysAgo2To6: t("timeGroups.daysAgo2To6"),
+      weeksAgo1To3: t("timeGroups.weeksAgo1To3"),
+      monthsAgo1To5: t("timeGroups.monthsAgo1To5"),
+      older: t("timeGroups.older"),
+    }),
+    [t],
+  );
 
   useEffect(() => {
     if (requestedProjectEpochRef.current === projectConnectionEpoch) return;
@@ -118,7 +153,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     const options: SessionContextOption[] = [
       {
         id: ALL_SESSION_CONTEXT_ID,
-        label: "All",
+        label: allSessionContextLabel,
         projectId: null,
       },
     ];
@@ -128,14 +163,14 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
       if (projectPath) {
         options.push({
           id: `project:${project.id}`,
-          label: `Project: ${project.name}`,
+          label: t("sessionContext.project", { name: project.name }),
           projectId: project.id,
         });
       }
     }
 
     return options;
-  }, [projects]);
+  }, [allSessionContextLabel, projects, t]);
 
   useEffect(() => {
     if (sessionContextOptions.some((option) => option.id === selectedSessionContextId)) return;
@@ -222,10 +257,10 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   const selectedWorkspaceCount = selectedWorkspaceIds.length;
   const workspaceSelectorLabel =
     selectedWorkspaceCount === 0
-      ? "No workspaces"
+      ? noWorkspacesLabel
       : selectedWorkspaceCount === 1
-        ? "1 workspace"
-        : `${selectedWorkspaceCount} workspaces`;
+        ? singleWorkspaceLabel
+        : t("workspaceSelector.many", { count: selectedWorkspaceCount });
   const draftWorkspaceIdSet = useMemo(
     () => new Set(draftWorkspaceIds),
     [draftWorkspaceIds],
@@ -349,39 +384,39 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
       const cwdDisplay = session.cwd.length > 48 ? `...${session.cwd.slice(-45)}` : session.cwd;
       return {
         ...session,
-        displayTitle: session.title || `ACP session ${session.acp_session_id.slice(0, 8)}`,
+        displayTitle: session.title || t("sessionCard.fallbackTitle", { sessionId: session.acp_session_id.slice(0, 8) }),
         displayAgent: agent?.name || session.registry_id,
         registryIcon: agent?.icon || null,
         cwdDisplay,
       };
     });
-  }, [filteredSessions, registryAgents]);
+  }, [filteredSessions, registryAgents, t]);
 
   const groupedSessions = useMemo(() => {
     const groups: Record<TimeGroup, EnrichedSession[]> = {
-      Today: [],
-      Yesterday: [],
-      "2-6 days ago": [],
-      "1-3 weeks ago": [],
-      "1-5 months ago": [],
-      Older: [],
+      today: [],
+      yesterday: [],
+      daysAgo2To6: [],
+      weeksAgo1To3: [],
+      monthsAgo1To5: [],
+      older: [],
     };
 
     const now = new Date();
     for (const session of enrichedSessions) {
       const date = session.updated_at ? parseUTCDate(session.updated_at) : null;
       if (!date || Number.isNaN(date.getTime())) {
-        groups.Older.push(session);
+        groups.older.push(session);
         continue;
       }
 
       const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) groups.Today.push(session);
-      else if (diffDays === 1) groups.Yesterday.push(session);
-      else if (diffDays <= 6) groups["2-6 days ago"].push(session);
-      else if (diffDays <= 21) groups["1-3 weeks ago"].push(session);
-      else if (diffDays <= 150) groups["1-5 months ago"].push(session);
-      else groups.Older.push(session);
+      if (diffDays === 0) groups.today.push(session);
+      else if (diffDays === 1) groups.yesterday.push(session);
+      else if (diffDays <= 6) groups.daysAgo2To6.push(session);
+      else if (diffDays <= 21) groups.weeksAgo1To3.push(session);
+      else if (diffDays <= 150) groups.monthsAgo1To5.push(session);
+      else groups.older.push(session);
     }
     return groups;
   }, [enrichedSessions]);
@@ -416,7 +451,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
           <Input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search ACP sessions..."
+            placeholder={searchPlaceholder}
             className={cn(
               "border-border/50 bg-muted/20 pl-10 transition-all focus:bg-background",
               compact ? "h-9 rounded-lg text-sm" : "h-10 rounded-lg",
@@ -431,7 +466,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                 compact ? "h-9" : "h-10",
               )}
             >
-              <SelectValue placeholder="All" />
+              <SelectValue placeholder={allSessionContextLabel} />
             </SelectTrigger>
             <SelectContent>
               {sessionContextOptions.map((option) => (
@@ -458,7 +493,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
               </PopoverTrigger>
               <PopoverContent align="start" className="w-[320px] p-2">
                 <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                  <div className="min-w-0 text-xs font-semibold text-foreground">Workspaces</div>
+                  <div className="min-w-0 text-xs font-semibold text-foreground">{workspacePopoverTitle}</div>
                   <div className="flex shrink-0 items-center gap-1">
                     <Button
                       type="button"
@@ -468,7 +503,9 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                       onClick={selectRecentWorkspaces}
                       disabled={projectWorkspaceOptions.length === 0}
                     >
-                      Recent {Math.min(DEFAULT_PROJECT_WORKSPACE_LIMIT, projectWorkspaceOptions.length)}
+                      {t("workspacePopover.recent", {
+                        count: Math.min(DEFAULT_PROJECT_WORKSPACE_LIMIT, projectWorkspaceOptions.length),
+                      })}
                     </Button>
                     <Button
                       type="button"
@@ -478,16 +515,20 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                       onClick={toggleAllWorkspaces}
                       disabled={projectWorkspaceOptions.length === 0}
                       aria-pressed={allDraftWorkspacesSelected}
-                      aria-label={allDraftWorkspacesSelected ? "Clear all workspaces" : "Select all workspaces"}
+                      aria-label={
+                        allDraftWorkspacesSelected
+                          ? t("workspacePopover.clearAllAriaLabel")
+                          : t("workspacePopover.selectAllAriaLabel")
+                      }
                     >
-                      All
+                      {workspacePopoverAllLabel}
                     </Button>
                   </div>
                 </div>
                 <div className="mt-1 max-h-72 overflow-y-auto pr-1">
                   {projectWorkspaceOptions.length === 0 ? (
                     <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                      No workspaces
+                      {workspacePopoverEmptyLabel}
                     </div>
                   ) : (
                     projectWorkspaceOptions.map((workspace) => (
@@ -508,7 +549,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/50 px-2 pt-2">
                   <span className="min-w-0 text-xs text-muted-foreground">
-                    {draftWorkspaceIds.length} selected
+                    {t("workspacePopover.selectedCount", { count: draftWorkspaceIds.length })}
                   </span>
                   <Button
                     type="button"
@@ -517,7 +558,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                     onClick={applyWorkspaceSelection}
                     disabled={!workspaceSelectionDirty}
                   >
-                    Apply
+                    {workspacePopoverApplyLabel}
                   </Button>
                 </div>
               </PopoverContent>
@@ -533,7 +574,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
             <SelectTrigger
               className={cn("w-full border-border/50 bg-muted/20 sm:w-[220px]", compact ? "h-9" : "h-10")}
             >
-              <SelectValue placeholder={isLoadingAgents ? "Loading agents..." : "Select ACP agent"} />
+              <SelectValue placeholder={isLoadingAgents ? agentSelectLoadingLabel : agentSelectPlaceholder} />
             </SelectTrigger>
             <SelectContent>
               {registryAgents.map((agent) => (
@@ -556,12 +597,12 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                   className={cn(compact ? "h-9 w-9" : "h-10 w-10")}
                   onClick={() => loadSessions()}
                   disabled={!selectedRegistryId || isLoading}
-                  aria-label="Refresh sessions"
+                  aria-label={refreshSessionsAriaLabel}
                 >
                   <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Refresh</TooltipContent>
+              <TooltipContent>{refreshLabel}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -579,7 +620,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                 <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <MessageSquare className="size-5" />
                 </div>
-                ACP Sessions
+                {headerTitle}
               </h2>
             </div>
             {renderToolbar()}
@@ -602,7 +643,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                 <div className="mt-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                   <AlertCircle className="mt-0.5 size-4 shrink-0" />
                   <span>
-                    This agent returned an unpaginated session list. Atmos is showing the first {ACP_SESSION_LIST_PAGE_LIMIT} items.
+                    {t("warnings.truncatedList", { limit: ACP_SESSION_LIST_PAGE_LIMIT })}
                   </span>
                 </div>
               ) : null}
@@ -636,17 +677,19 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                   </div>
                   <h3 className="text-base font-semibold text-foreground">
                     {unsupportedReason
-                      ? "ACP session list unavailable"
+                      ? emptyStateUnavailableTitle
                       : selectedAgent
-                        ? "No ACP sessions"
-                        : "Select an ACP agent"}
+                        ? emptyStateNoSessionsTitle
+                        : emptyStateSelectAgentTitle}
                   </h3>
                   <p className="mt-2 max-w-xs text-sm text-muted-foreground">
                     {unsupportedReason
-                      ? `${selectedAgent?.name ?? "This agent"} does not expose session history through ACP.`
+                      ? t("emptyState.unsupportedDescription", {
+                          agentName: selectedAgent?.name ?? genericAgentLabel,
+                        })
                       : searchQuery
-                        ? "No sessions match the current search."
-                        : selectedAgent?.name ?? "Installed agents appear here."}
+                        ? emptyStateNoSearchResults
+                        : selectedAgent?.name ?? emptyStateInstalledAgentsHint}
                   </p>
                 </div>
               ) : (
@@ -667,7 +710,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                         >
                           <div className="sticky top-0 z-5 flex items-center gap-3 border-b border-border/40 bg-background/95 py-3 backdrop-blur-sm">
                             <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">
-                              {group}
+                              {timeGroupLabels[group]}
                             </span>
                             <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-bold text-primary">
                               {items.length}
@@ -728,7 +771,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                                             </span>
                                           </TooltipTrigger>
                                           <TooltipContent className="max-w-xs break-all">
-                                            {session.cwd || "No working directory"}
+                                            {session.cwd || noWorkingDirectoryLabel}
                                           </TooltipContent>
                                         </Tooltip>
                                       </div>
@@ -765,11 +808,11 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                         {isLoadingMore ? (
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                            <span>Loading...</span>
+                            <span>{loadingMoreLabel}</span>
                           </span>
                         ) : (
                           <>
-                            Load More
+                            {loadMoreLabel}
                             <ChevronDown className="ml-2 size-4" />
                           </>
                         )}

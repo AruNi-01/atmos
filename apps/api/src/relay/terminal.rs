@@ -44,6 +44,9 @@ enum RelayTerminalClientMessage {
         session_id: String,
         data: String,
     },
+    TerminalEnter {
+        session_id: String,
+    },
     TerminalReport {
         session_id: String,
         data: String,
@@ -134,6 +137,11 @@ pub async fn handle_terminal_frame(
         }
         RelayTerminalClientMessage::TerminalInput { session_id, data } => {
             if let Err(error) = state.terminal_service.send_input(&session_id, &data).await {
+                send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
+            }
+        }
+        RelayTerminalClientMessage::TerminalEnter { session_id } => {
+            if let Err(error) = state.terminal_service.send_enter(&session_id).await {
                 send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
             }
         }

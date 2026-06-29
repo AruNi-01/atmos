@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 
 import {
   gitApi,
@@ -52,6 +53,7 @@ export function useWelcomeProjectContext({
   setName: React.Dispatch<React.SetStateAction<string>>;
   setSubmitError: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
+  const t = useTranslations("Welcome.projectContext");
   const [baseBranch, setBaseBranch] = React.useState("main");
   const [baseBranchFilter, setBaseBranchFilter] = React.useState("");
   const [remoteBranches, setRemoteBranches] = React.useState<string[]>([]);
@@ -166,7 +168,7 @@ export function useWelcomeProjectContext({
             } catch (error) {
               if (!cancelled) {
                 setPrError(
-                  error instanceof Error ? error.message : "Failed to load GitHub PRs",
+                  error instanceof Error ? error.message : t("errors.loadGithubPrs"),
                 );
               }
             }
@@ -174,7 +176,7 @@ export function useWelcomeProjectContext({
         }
       } catch (error) {
         if (!cancelled) {
-          setIssueError(error instanceof Error ? error.message : "Failed to load project context");
+          setIssueError(error instanceof Error ? error.message : t("errors.loadProjectContext"));
         }
       } finally {
         if (!cancelled) {
@@ -289,7 +291,7 @@ export function useWelcomeProjectContext({
         });
       } catch (error) {
         if (loadSeq !== issueLoadSeqRef.current) return;
-        setIssueError(error instanceof Error ? error.message : "Failed to load GitHub issues");
+        setIssueError(error instanceof Error ? error.message : t("errors.loadGithubIssues"));
       } finally {
         if (loadSeq === issueLoadSeqRef.current) {
           setIsIssuesLoading(false);
@@ -367,7 +369,7 @@ export function useWelcomeProjectContext({
 
       if (currentRepo && currentRepo !== previewRepo) {
         setPrPreview(null);
-        setPrError(`PR belongs to ${previewRepo}, but current project is ${currentRepo}.`);
+        setPrError(t("errors.prRepoMismatch", { previewRepo, currentRepo }));
         return;
       }
 
@@ -375,7 +377,7 @@ export function useWelcomeProjectContext({
       clearIssueSelection();
     } catch (error) {
       setPrPreview(null);
-      setPrError(error instanceof Error ? error.message : "Failed to load PR preview");
+      setPrError(error instanceof Error ? error.message : t("errors.loadPrPreview"));
     } finally {
       setIsPrPreviewLoading(false);
     }
@@ -394,7 +396,7 @@ export function useWelcomeProjectContext({
       setPrs(fetchedPrs);
       setCachedRepoPrs(repoContext, fetchedPrs);
     } catch (error) {
-      setPrError(error instanceof Error ? error.message : "Failed to refresh GitHub PRs");
+      setPrError(error instanceof Error ? error.message : t("errors.refreshGithubPrs"));
     } finally {
       setIsPrsLoading(false);
     }
@@ -419,7 +421,7 @@ export function useWelcomeProjectContext({
 
       if (currentRepo && currentRepo !== previewRepo) {
         setIssuePreview(null);
-        setIssueError(`Issue belongs to ${previewRepo}, but current project is ${currentRepo}.`);
+        setIssueError(t("errors.issueRepoMismatch", { previewRepo, currentRepo }));
         return;
       }
 
@@ -427,7 +429,7 @@ export function useWelcomeProjectContext({
       clearPrSelection();
     } catch (error) {
       setIssuePreview(null);
-      setIssueError(error instanceof Error ? error.message : "Failed to load issue preview");
+      setIssueError(error instanceof Error ? error.message : t("errors.loadIssuePreview"));
     } finally {
       setIsIssuePreviewLoading(false);
     }

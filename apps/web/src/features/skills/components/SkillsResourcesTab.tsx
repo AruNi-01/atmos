@@ -1,4 +1,5 @@
 import { Button, TabsContent } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
 import { BookOpen, ExternalLink, Link2 } from "lucide-react";
 import type { SkillResourceCategory } from "../lib/market-data";
@@ -16,17 +17,19 @@ export function SkillsResourcesTab({
   query: string;
   onClearSearch: () => void;
 }) {
+  const t = useTranslations("skills.resourcesTab");
+
   return (
     <TabsContent keepMounted value="resources">
       {resultCount === 0 ? (
         <EmptyState
           icon={<BookOpen className="size-8" />}
-          title="No resources matched"
+          title={t("empty.title")}
           description={RESOURCES_EMPTY_COPY}
           action={
             query ? (
               <Button variant="link" onClick={onClearSearch} className="mt-4">
-                Clear search
+                {t("empty.clearSearch")}
               </Button>
             ) : undefined
           }
@@ -39,7 +42,7 @@ export function SkillsResourcesTab({
                 <div>
                   <h3 className="text-sm font-semibold tracking-wide text-foreground">{category.title}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {category.items.length} resource{category.items.length > 1 ? "s" : ""}
+                    {t("category.resourceCount", { count: category.items.length })}
                   </p>
                 </div>
               </div>

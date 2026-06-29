@@ -2,6 +2,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import type { LinkSafetyConfig, LinkSafetyModalProps } from "streamdown";
 import { CheckIcon, CopyIcon, ExternalLinkIcon, XIcon } from "lucide-react";
 import { cn } from "@workspace/ui";
@@ -27,6 +28,7 @@ function AgentMessageLinkSafetyModal({
   onConfirm,
   url,
 }: LinkSafetyModalProps) {
+  const t = useTranslations("Agent.components");
   const [mounted, setMounted] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const titleId = React.useId();
@@ -162,7 +164,7 @@ function AgentMessageLinkSafetyModal({
         <button
           className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
           onClick={onClose}
-          title="Close"
+          title={t("linkSafety.closeTitle")}
           type="button"
         >
           <XIcon size={16} />
@@ -170,10 +172,10 @@ function AgentMessageLinkSafetyModal({
         <div className="flex flex-col gap-2">
           <div id={titleId} className="flex items-center gap-2 text-lg font-semibold">
             <ExternalLinkIcon size={20} />
-            <span>Open external link?</span>
+            <span>{t("linkSafety.title")}</span>
           </div>
           <p id={descriptionId} className="text-sm text-muted-foreground">
-            You are about to visit an external website.
+            {t("linkSafety.description")}
           </p>
         </div>
         <div
@@ -194,12 +196,12 @@ function AgentMessageLinkSafetyModal({
             {copied ? (
               <>
                 <CheckIcon size={14} />
-                <span>Copied</span>
+                <span>{t("linkSafety.copied")}</span>
               </>
             ) : (
               <>
                 <CopyIcon size={14} />
-                <span>Copy link</span>
+                <span>{t("linkSafety.copyLink")}</span>
               </>
             )}
           </button>
@@ -209,7 +211,7 @@ function AgentMessageLinkSafetyModal({
             type="button"
           >
             <ExternalLinkIcon size={14} />
-            <span>Open link</span>
+            <span>{t("linkSafety.openLink")}</span>
           </button>
         </div>
       </div>

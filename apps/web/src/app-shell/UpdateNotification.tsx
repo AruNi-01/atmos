@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Download, ExternalLink, ArrowRight } from 'lucide-react';
 import { Button, cn } from '@workspace/ui';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { useTranslations } from 'next-intl';
 import {
   checkForUpdate,
   downloadAndInstallUpdate,
@@ -13,6 +14,7 @@ import {
 } from '@/features/settings/hooks/use-updater';
 
 export default function UpdateNotification() {
+  const t = useTranslations('appShell');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
   const [dismissed, setDismissed] = useState(false);
@@ -53,7 +55,7 @@ export default function UpdateNotification() {
       </button>
 
       <div className="mb-3">
-        <h4 className="text-sm font-semibold">Update Available</h4>
+        <h4 className="text-sm font-semibold">{t('updateNotification.title')}</h4>
         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
           v{updateInfo.currentVersion}
           <ArrowRight className="size-3" />
@@ -78,7 +80,7 @@ export default function UpdateNotification() {
               rel="noopener noreferrer"
             >
               <ExternalLink className="size-3.5" />
-              Open GitHub
+              {t('updateNotification.openGitHub')}
             </a>
           </Button>
         </div>
@@ -96,7 +98,7 @@ export default function UpdateNotification() {
               rel="noopener noreferrer"
             >
               <ExternalLink className="size-3.5" />
-              What&apos;s New
+              {t('updateNotification.whatsNew')}
             </a>
           </Button>
 
@@ -108,12 +110,12 @@ export default function UpdateNotification() {
           >
             <Download className="size-3.5" />
             {status.stage === 'downloading'
-              ? 'Downloading…'
+              ? t('updateNotification.action.downloading')
               : status.stage === 'installing'
-                ? 'Installing…'
+                ? t('updateNotification.action.installing')
                 : status.stage === 'done'
-                  ? 'Restarting…'
-                  : 'Install'}
+                  ? t('updateNotification.action.restarting')
+                  : t('updateNotification.action.install')}
           </Button>
         </div>
       )}

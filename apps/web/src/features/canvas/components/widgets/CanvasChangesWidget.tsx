@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { File, List, ListTree } from "lucide-react";
 import { Check, Tabs, TabsList } from "@workspace/ui";
 
@@ -38,6 +39,7 @@ function CanvasChangesWidgetBody({
   shapeId: TLShapeId;
   source: CanvasChangesWidgetSource;
 }) {
+  const t = useTranslations("canvas.changesWidget");
   const repoPath = source.context.repoPath ?? source.context.localPath;
   const contextId = getCanvasContextId(source.context);
   const [stagedFiles, setStagedFiles] = React.useState<GitChangedFile[]>([]);
@@ -64,7 +66,7 @@ function CanvasChangesWidgetBody({
       setUnstagedFiles(response.unstaged_files);
       setUntrackedFiles(response.untracked_files);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load changes");
+      setError(err instanceof Error ? err.message : t("errors.loadFailed"));
       setStagedFiles([]);
       setUnstagedFiles([]);
       setUntrackedFiles([]);
@@ -86,11 +88,11 @@ function CanvasChangesWidgetBody({
         await action(files);
         await loadChanges();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Git action failed");
+        setError(err instanceof Error ? err.message : t("errors.gitActionFailed"));
         setIsLoading(false);
       }
     },
-    [loadChanges, repoPath],
+    [loadChanges, repoPath, t],
   );
 
   const stageFiles = React.useCallback(
@@ -146,7 +148,7 @@ function CanvasChangesWidgetBody({
   if (!repoPath) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-        No repository path for this context.
+        {t("noRepositoryPath")}
       </div>
     );
   }
@@ -159,14 +161,18 @@ function CanvasChangesWidgetBody({
             <RefreshableTabsTab
               value="changes"
               activeValue="changes"
-              refreshTitle="Refresh changes"
+              refreshTitle={t("refreshTitle")}
               onRefresh={loadChanges}
               isRefreshing={isLoading}
               trailingAction={({ isVisible }) => (
                 <span
                   role="button"
-                  title={viewMode === "tree" ? "Show as list" : "Show as tree"}
-                  aria-label={viewMode === "tree" ? "Show changed files as list" : "Show changed files as tree"}
+                  title={viewMode === "tree" ? t("viewMode.showAsList") : t("viewMode.showAsTree")}
+                  aria-label={
+                    viewMode === "tree"
+                      ? t("viewMode.showChangedFilesAsList")
+                      : t("viewMode.showChangedFilesAsTree")
+                  }
                   tabIndex={isVisible ? 0 : -1}
                   onPointerDown={(event) => {
                     event.preventDefault();
@@ -199,7 +205,7 @@ function CanvasChangesWidgetBody({
               className="h-full! flex-1 rounded-none border-0! text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               <File className="size-3.5" />
-              <span>Files</span>
+              <span>{t("filesTab")}</span>
             </RefreshableTabsTab>
           </TabsList>
         </Tabs>
@@ -209,18 +215,18 @@ function CanvasChangesWidgetBody({
           <div className="px-2 py-3 text-xs text-destructive">{error}</div>
         ) : isLoading && totalCount === 0 ? (
           <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
-            Loading changes
+            {t("loading")}
           </div>
         ) : totalCount === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center gap-3 text-muted-foreground/50">
             <Check className="mb-2 size-8 opacity-20" />
-            <span className="text-xs">No changes detected</span>
+            <span className="text-xs">{t("empty")}</span>
           </div>
         ) : (
           <>
             <ChangeSection
               kind="staged"
-              title="Staged Changes"
+              title={t("sections.staged")}
               files={stagedFiles}
               workspaceId={contextId}
               viewMode={viewMode}
@@ -231,7 +237,7 @@ function CanvasChangesWidgetBody({
             />
             <ChangeSection
               kind="unstaged"
-              title="Unstaged Changes"
+              title={t("sections.unstaged")}
               files={unstagedFiles}
               workspaceId={contextId}
               viewMode={viewMode}
@@ -244,7 +250,7 @@ function CanvasChangesWidgetBody({
             />
             <ChangeSection
               kind="untracked"
-              title="Untracked Changes"
+              title={t("sections.untracked")}
               files={untrackedFiles}
               workspaceId={contextId}
               viewMode={viewMode}

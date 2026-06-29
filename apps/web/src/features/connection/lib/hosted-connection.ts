@@ -1,5 +1,6 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
 import { fetchRelayRuntimeInfo } from '@/api/relay';
 import { relayFetchWithAccessToken, registerAccessTokenOnRelay } from '@/features/connection/lib/atmos-access-token';
@@ -9,8 +10,14 @@ import {
   type ApiConfig,
 } from '@/shared/lib/desktop-runtime';
 import type { LocalComputerStatus } from '@/features/connection/lib/atmos-computer-local';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 const HOSTED_CONNECTION_PREF_KEY = 'atmos:v1:hosted:last-target';
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRuntimeTranslator: any = null;
 
 type ApiEnvelope<T> = {
   success?: boolean;
@@ -25,6 +32,22 @@ export interface HostedRemoteSession {
   ws_url: string;
   gateway_url: string;
   client_token: string;
+}
+
+export function runtimeT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never, values as never);
 }
 
 function apiTokenHeaders(): Record<string, string> {
@@ -44,7 +67,7 @@ function parseEnvelope<T>(raw: string): ApiEnvelope<T> | null {
 function formatNetworkError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (message === 'Load failed' || message.includes('Failed to fetch')) {
-    return 'Cannot reach Atmos Server on this computer.';
+    return runtimeT('hostedConnection.errors.cannotReachLocalServer');
   }
   return message;
 }
@@ -64,7 +87,7 @@ async function fetchLoopbackJson<T>(cfg: ApiConfig, path: string): Promise<T> {
       envelope?.error ??
         envelope?.message ??
         (res.status === 405 || raw.trimStart().startsWith('<!')
-          ? 'Computer API is not available on this Atmos Server.'
+          ? runtimeT('hostedConnection.errors.computerApiUnavailable')
           : `HTTP ${res.status}`),
     );
   }
@@ -98,11 +121,11 @@ export async function ensureHostedAccessTokenReady(
 ): Promise<void> {
   const token = accessToken.trim();
   if (token.length < 32) {
-    throw new Error('Access key is too short.');
+    throw new Error(runtimeT('hostedConnection.errors.accessKeyTooShort'));
   }
   const result = await registerAccessTokenOnRelay(relayUrl, token, relaySecretKey);
   if (!result.ok) {
-    throw new Error(result.error ?? 'Could not save access key.');
+    throw new Error(result.error ?? runtimeT('hostedConnection.errors.couldNotSaveAccessKey'));
   }
 }
 
@@ -148,7 +171,7 @@ export async function createHostedRemoteSession(
     error?: string;
   } | null;
   if (!res.ok || !data?.ws_url || !data?.gateway_url || !data?.client_token) {
-    throw new Error(data?.error ?? 'Could not connect to that computer.');
+    throw new Error(data?.error ?? runtimeT('hostedConnection.errors.couldNotConnectComputer'));
   }
   const session = {
     ws_url: data.ws_url,
@@ -160,8 +183,10 @@ export async function createHostedRemoteSession(
   } catch (err) {
     throw new Error(
       err instanceof Error
-        ? `Remote computer is not reachable through relay: ${err.message}`
-        : 'Remote computer is not reachable through relay.',
+        ? runtimeT('hostedConnection.errors.remoteRelayUnreachableWithReason', {
+            message: err.message,
+          })
+        : runtimeT('hostedConnection.errors.remoteRelayUnreachable'),
     );
   }
   return session;

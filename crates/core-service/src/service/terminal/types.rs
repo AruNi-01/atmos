@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 #[derive(Debug)]
 pub(super) enum SessionCommand {
     Write(Vec<u8>),
+    Enter,
     Report(Vec<u8>),
     Resize {
         cols: u16,
@@ -95,6 +96,8 @@ pub enum TerminalMessage {
     },
     /// Send input to terminal
     TerminalInput { session_id: String, data: String },
+    /// Send an Enter keypress to terminal
+    TerminalEnter { session_id: String },
     /// Send a terminal emulator report back to tmux control mode
     TerminalReport { session_id: String, data: String },
     /// Resize terminal

@@ -2,6 +2,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { Loader2, TabsPanel, toastManager } from "@workspace/ui";
 import type { ReviewTarget } from "@/api/ws-api";
 import { systemApi } from "@/api/rest-api";
@@ -30,6 +31,21 @@ import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { WorkspaceNotePanel } from "@/features/workspace/components/WorkspaceNotePanel";
+
+function TerminalGridLoadingFallback() {
+  const t = useTranslations("appShell.centerStagePanels");
+
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">
+          {t("loadingTerminal")}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const WikiTab = dynamic(
   () => import("@/features/wiki").then((m) => m.WikiTab),
@@ -74,16 +90,7 @@ const TerminalGrid = dynamic(
     ),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            Loading terminal...
-          </span>
-        </div>
-      </div>
-    ),
+    loading: () => <TerminalGridLoadingFallback />,
   },
 );
 
@@ -163,6 +170,7 @@ export function CenterStagePanels({
   wikiPageFromUrl,
   wikiRefreshTrigger,
 }: CenterStagePanelsProps) {
+  const t = useTranslations("appShell.centerStagePanels");
   const noteEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath || null;
 
   return (
@@ -293,15 +301,15 @@ export function CenterStagePanels({
                 }));
                 setFixedTab("project-wiki");
                 toastManager.add({
-                  title: "Wiki generation started",
-                  description: "Switched to Project Wiki tab. Check progress there.",
+                  title: t("toasts.wikiGenerationStarted.title"),
+                  description: t("toasts.wikiGenerationStarted.description"),
                   type: "info",
                 });
               } catch (err) {
                 setProjectWikiPendingCommand(null);
                 toastManager.add({
-                  title: "Failed to close previous terminal",
-                  description: err instanceof Error ? err.message : "Unknown error",
+                  title: t("errors.failedToClosePreviousTerminal"),
+                  description: err instanceof Error ? err.message : t("errors.unknown"),
                   type: "error",
                 });
               }
@@ -358,7 +366,7 @@ export function CenterStagePanels({
               <WorkspaceNotePanel
                 contextId={effectiveContextId}
                 effectivePath={noteEffectivePath}
-                title="Notes"
+                title={t("notesTitle")}
                 className="min-h-[260px] lg:min-h-0"
               />
             </div>

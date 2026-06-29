@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
 import { agentManagerParams, type AgentManagerView as AgentManagerMode, type AgentTab } from "@/shared/lib/nuqs/searchParams";
 import {
@@ -41,6 +42,7 @@ import { CustomAgentDialog } from "./CustomAgentDialog";
 import { AgentConfirmDialogs } from "./AgentConfirmDialogs";
 
 export const AgentManagerView: React.FC = () => {
+  const t = useTranslations("Agent.components");
   const [{ agentView, agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
   const [iconHovered, setIconHovered] = React.useState(false);
   const [addCustomDialogOpen, setAddCustomDialogOpen] = React.useState(false);
@@ -87,7 +89,9 @@ export const AgentManagerView: React.FC = () => {
                 <TooltipTrigger asChild>
                   <div
                     className="relative flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20 overflow-hidden"
-                    aria-label={isSessionsView ? "Switch to Agent Manager" : "Switch to Sessions"}
+                    aria-label={isSessionsView
+                      ? t("manager.switchToAgentManager")
+                      : t("manager.switchToSessions")}
                   >
                     <AnimatePresence mode="wait" initial={false}>
                       {(isSessionsView !== iconHovered) ? (
@@ -117,7 +121,7 @@ export const AgentManagerView: React.FC = () => {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {isSessionsView ? "Switch to Agent Manager" : "Switch to Sessions"}
+                  {isSessionsView ? t("manager.switchToAgentManager") : t("manager.switchToSessions")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -131,12 +135,12 @@ export const AgentManagerView: React.FC = () => {
                   transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">
-                    {isSessionsView ? "Chat Sessions" : "Agent Manager"}
+                    {isSessionsView ? t("manager.sessionsTitle") : t("manager.agentsTitle")}
                   </h2>
                   <p className="text-sm text-muted-foreground text-pretty max-w-xs">
                     {isSessionsView
-                      ? "View and manage your AI agent chat sessions"
-                      : "Explore and manage your ACP agents"}
+                      ? t("manager.sessionsDescription")
+                      : t("manager.agentsDescription")}
                   </p>
                 </motion.div>
               </AnimatePresence>
@@ -152,7 +156,7 @@ export const AgentManagerView: React.FC = () => {
                   <Input
                     value={query}
                     onChange={(e) => setAgentParams({ agentQ: e.target.value })}
-                    placeholder="Search agents..."
+                    placeholder={t("manager.searchPlaceholder")}
                     className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
                   />
                 </div>
@@ -162,7 +166,7 @@ export const AgentManagerView: React.FC = () => {
                     size="icon"
                     onClick={openAddCustomDialog}
                     className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
-                    title="Add Custom Agent"
+                    title={t("manager.addCustomAgent")}
                   >
                     <Plus className="size-4" />
                   </Button>
@@ -174,7 +178,7 @@ export const AgentManagerView: React.FC = () => {
                     onClick={() => void mgr.handleRefresh()}
                     disabled={mgr.refreshing}
                     className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
-                    title="Refresh Registry"
+                    title={t("manager.refreshRegistry")}
                   >
                     {mgr.refreshing ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
                   </Button>
@@ -216,7 +220,7 @@ export const AgentManagerView: React.FC = () => {
             <TabsList>
               <TabsTrigger value="registry">
                 <Globe className="size-4" />
-                ACP Registry
+                {t("manager.tabs.registry")}
                 {!mgr.loading && (
                   <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium text-sky-700 dark:text-sky-400 tabular-nums">
                     {mgr.registryCount}
@@ -225,7 +229,7 @@ export const AgentManagerView: React.FC = () => {
               </TabsTrigger>
               <TabsTrigger value="installed">
                 <Download className="size-4" />
-                Installed
+                {t("manager.tabs.installed")}
                 {!mgr.loading && mgr.installedCount + mgr.filteredCustomAgents.length > 0 && (
                   <span className="ml-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
                     {mgr.installedCount + mgr.filteredCustomAgents.length}
@@ -234,7 +238,7 @@ export const AgentManagerView: React.FC = () => {
               </TabsTrigger>
               <TabsTrigger value="custom">
                 <Terminal className="size-4" />
-                Custom
+                {t("manager.tabs.custom")}
                 {!mgr.loading && mgr.customAgents.length > 0 && (
                   <span className="ml-1 rounded-full bg-violet-500/10 border border-violet-500/20 px-1.5 text-[10px] font-medium text-violet-600 dark:text-violet-400 tabular-nums">
                     {mgr.customAgents.length}
@@ -270,8 +274,8 @@ export const AgentManagerView: React.FC = () => {
                     <AgentEmptyState
                       message={
                         query
-                          ? `No registry agents matching "${query}".`
-                          : "No agents available in the ACP registry."
+                          ? t("manager.empty.registryQuery", { query })
+                          : t("manager.empty.registryDefault")
                       }
                       query={query}
                       onClearSearch={handleClearSearch}
@@ -314,8 +318,8 @@ export const AgentManagerView: React.FC = () => {
                     <AgentEmptyState
                       message={
                         query
-                          ? `No installed agents matching "${query}".`
-                          : "No agents installed yet. Browse the ACP Registry to get started."
+                          ? t("manager.empty.installedQuery", { query })
+                          : t("manager.empty.installedDefault")
                       }
                       query={query}
                       onClearSearch={handleClearSearch}
@@ -352,9 +356,9 @@ export const AgentManagerView: React.FC = () => {
                       <div className="size-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4">
                         <Terminal className="size-8 text-muted-foreground/30" />
                       </div>
-                      <h3 className="text-base font-medium text-foreground">No custom agents</h3>
+                      <h3 className="text-base font-medium text-foreground">{t("manager.customEmpty.title")}</h3>
                       <p className="mt-1 text-sm text-muted-foreground max-w-[280px] text-pretty">
-                        Add a custom ACP agent by clicking the + button above.
+                        {t("manager.customEmpty.description")}
                       </p>
                       <Button
                         variant="outline"
@@ -362,7 +366,7 @@ export const AgentManagerView: React.FC = () => {
                         className="mt-4 cursor-pointer"
                       >
                         <Plus className="mr-1.5 size-4" />
-                        Add Custom Agent
+                        {t("manager.addCustomAgent")}
                       </Button>
                     </motion.div>
                   )}

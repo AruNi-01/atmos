@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ export const DeleteWorkspaceDialog: React.FC<DeleteWorkspaceDialogProps> = ({
   workspaceName,
   onConfirm,
 }) => {
+  const t = useTranslations('Workspace.components.deleteDialog');
+
   const handleConfirm = () => {
     onConfirm();
     onClose();
@@ -32,17 +35,17 @@ export const DeleteWorkspaceDialog: React.FC<DeleteWorkspaceDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Delete Workspace</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete &apos;{workspaceName}&apos;? This action cannot be undone.
+            {t('description', { workspaceName })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose} className="cursor-pointer">
-            Cancel
+            {t('actions.cancel')}
           </Button>
           <Button variant="destructive" onClick={handleConfirm} className="cursor-pointer">
-            Delete
+            {t('actions.delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

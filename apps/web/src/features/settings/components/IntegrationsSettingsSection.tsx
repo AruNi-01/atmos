@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Button, Skeleton } from '@workspace/ui';
 import {
   CircleCheck,
@@ -13,6 +14,7 @@ import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
 import { systemApi } from '@/api/rest-api';
 
 export function IntegrationsSettingsSection() {
+  const t = useTranslations('settings.integrationsSection');
   const [ghCliStatus, setGhCliStatus] = React.useState<{
     installed: boolean;
     authenticated: boolean;
@@ -51,9 +53,9 @@ export function IntegrationsSettingsSection() {
           <div className="flex items-start gap-3">
             <Github className="mt-0.5 size-5 shrink-0" />
             <div>
-              <p className="text-base font-medium text-foreground">GitHub CLI</p>
+              <p className="text-base font-medium text-foreground">{t('githubCli.title')}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Atmos uses GitHub CLI to integrate with GitHub Issues, Pull Requests, and other workflows.
+                {t('githubCli.description')}
               </p>
             </div>
           </div>
@@ -63,18 +65,17 @@ export function IntegrationsSettingsSection() {
             ) : ghCliStatus?.installed && ghCliStatus.authenticated ? (
               <div className="flex items-center gap-2 text-sm text-emerald-500">
                 <CircleCheck className="size-4" />
-                <span>Authenticated as </span>
-                <span className="font-medium">{ghCliStatus.username || 'user'}</span>
+                <span>{t('githubCli.status.authenticatedAs', { username: ghCliStatus.username || t('shared.userFallback') })}</span>
               </div>
             ) : ghCliStatus?.installed ? (
               <div className="flex items-center gap-2 text-sm text-amber-500">
                 <CircleX className="size-4" />
-                <span>Not authenticated</span>
+                <span>{t('shared.status.notAuthenticated')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CircleMinus className="size-4" />
-                <span>Not installed</span>
+                <span>{t('shared.status.notInstalled')}</span>
               </div>
             )}
           </div>
@@ -92,11 +93,11 @@ export function IntegrationsSettingsSection() {
                     <CircleX className="size-4 text-destructive" />
                   )}
                   <div>
-                    <p className="text-sm font-medium text-foreground">Installation Status</p>
+                    <p className="text-sm font-medium text-foreground">{t('shared.installationStatusTitle')}</p>
                     <p className="text-xs text-muted-foreground">
                       {ghCliStatus?.installed
-                        ? `GitHub CLI ${ghCliStatus.version || ''} is installed`
-                        : 'GitHub CLI is not installed on this system'}
+                        ? t('githubCli.installation.installed', { version: ghCliStatus.version || '' })
+                        : t('githubCli.installation.notInstalled')}
                     </p>
                   </div>
                 </div>
@@ -108,7 +109,7 @@ export function IntegrationsSettingsSection() {
                     className="cursor-pointer"
                   >
                     <ExternalLink className="mr-2 size-4" />
-                    Install GitHub CLI
+                    {t('githubCli.actions.install')}
                   </Button>
                 )}
               </div>
@@ -121,14 +122,14 @@ export function IntegrationsSettingsSection() {
                       <CircleX className="size-4 text-destructive" />
                     )}
                     <div>
-                      <p className="text-sm font-medium text-foreground">Authentication Status</p>
+                      <p className="text-sm font-medium text-foreground">{t('shared.authenticationStatusTitle')}</p>
                       {ghCliStatus.authenticated ? (
                         <div className="mt-1 flex items-center gap-2">
-                          <p className="text-xs text-muted-foreground">Authenticated as</p>
-                          <p className="text-xs font-medium text-foreground">{ghCliStatus.username || 'user'}</p>
+                          <p className="text-xs text-muted-foreground">{t('githubCli.authentication.authenticatedAsLabel')}</p>
+                          <p className="text-xs font-medium text-foreground">{ghCliStatus.username || t('shared.userFallback')}</p>
                         </div>
                       ) : (
-                        <p className="mt-1 text-xs text-muted-foreground">Not authenticated with GitHub</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{t('githubCli.authentication.notAuthenticated')}</p>
                       )}
                     </div>
                   </div>
@@ -140,7 +141,7 @@ export function IntegrationsSettingsSection() {
                       className="cursor-pointer"
                     >
                       <ExternalLink className="mr-2 size-4" />
-                      Authenticate
+                      {t('githubCli.actions.authenticate')}
                     </Button>
                   )}
                 </div>
@@ -155,9 +156,9 @@ export function IntegrationsSettingsSection() {
           <div className="flex items-start gap-3">
             <TmuxIcon className="mt-0.5 size-5 shrink-0" />
             <div>
-              <p className="text-base font-medium text-foreground">Tmux</p>
+              <p className="text-base font-medium text-foreground">{t('tmux.title')}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Atmos uses tmux to keep terminal sessions running continuously. Atmos manages a separate tmux server at ~/.atmos/atmos.sock.
+                {t('tmux.description')}
               </p>
             </div>
           </div>
@@ -167,12 +168,12 @@ export function IntegrationsSettingsSection() {
             ) : tmuxStatus?.installed ? (
               <div className="flex items-center gap-2 text-sm text-emerald-500">
                 <CircleCheck className="size-4" />
-                <span>Installed {tmuxStatus.version || ''}</span>
+                <span>{t('tmux.status.installed', { version: tmuxStatus.version || '' })}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CircleMinus className="size-4" />
-                <span>Not installed</span>
+                <span>{t('shared.status.notInstalled')}</span>
               </div>
             )}
           </div>
@@ -190,11 +191,11 @@ export function IntegrationsSettingsSection() {
                     <CircleX className="size-4 text-destructive" />
                   )}
                   <div>
-                    <p className="text-sm font-medium text-foreground">Installation Status</p>
+                    <p className="text-sm font-medium text-foreground">{t('shared.installationStatusTitle')}</p>
                     <p className="text-xs text-muted-foreground">
                       {tmuxStatus?.installed
-                        ? `tmux ${tmuxStatus.version || ''} is installed`
-                        : 'tmux is not installed on this system'}
+                        ? t('tmux.installation.installed', { version: tmuxStatus.version || '' })
+                        : t('tmux.installation.notInstalled')}
                     </p>
                   </div>
                 </div>
@@ -206,15 +207,21 @@ export function IntegrationsSettingsSection() {
                     className="cursor-pointer"
                   >
                     <ExternalLink className="mr-2 size-4" />
-                    Install tmux
+                    {t('tmux.actions.install')}
                   </Button>
                 )}
               </div>
               {tmuxStatus?.installed && (
                 <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-                  <p className="text-sm font-medium text-foreground">Atmos Tmux Configuration</p>
+                  <p className="text-sm font-medium text-foreground">{t('tmux.configuration.title')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Atmos uses a dedicated tmux server with socket at <code className="rounded bg-background px-1 py-0.5">~/.atmos/atmos.sock</code> for terminal persistence and session management.
+                    {t('tmux.configuration.description', {
+                      socketPath: '~/.atmos/atmos.sock',
+                    }).split('~/.atmos/atmos.sock')[0]}
+                    <code className="rounded bg-background px-1 py-0.5">~/.atmos/atmos.sock</code>
+                    {t('tmux.configuration.description', {
+                      socketPath: '~/.atmos/atmos.sock',
+                    }).split('~/.atmos/atmos.sock').slice(1).join('~/.atmos/atmos.sock')}
                   </p>
                 </div>
               )}

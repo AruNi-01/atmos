@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useHotkeys } from "react-hotkeys-hook";
 import {
   Tldraw,
@@ -135,6 +136,8 @@ function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoar
 }
 
 export const CanvasView: React.FC = () => {
+  const t = useTranslations("canvas.view");
+  const loadErrorDescription = t("loadError.description");
   const { currentView, effectiveContextId } = useContextParams();
   const router = useAppRouter();
   const {
@@ -410,12 +413,12 @@ export const CanvasView: React.FC = () => {
     }) => {
       const editor = editorRef.current;
       if (!editor) {
-        throw new Error("Canvas is not ready.");
+        throw new Error(t("errors.canvasNotReady"));
       }
 
       const source = resolveCanvasTerminalSource(requestedContext);
       if (!source) {
-        throw new Error("Select a canvas widget for this workspace or project before starting Agent Fix.");
+        throw new Error(t("errors.selectWidgetBeforeAgentFix"));
       }
 
       const created = await createTerminalTabWithInitialPane(
@@ -428,7 +431,7 @@ export const CanvasView: React.FC = () => {
         },
       );
       if (!created) {
-        throw new Error("Could not create a terminal for this canvas context.");
+        throw new Error(t("errors.terminalCreateFailed"));
       }
 
       const result = createRelatedCanvasTerminalShape({
@@ -439,7 +442,7 @@ export const CanvasView: React.FC = () => {
         sourceContext: source.sourceContext,
       });
       if (!result) {
-        throw new Error("Could not place the terminal on the canvas.");
+        throw new Error(t("errors.terminalPlacementFailed"));
       }
 
       const commandToRun = command.endsWith("\r") ? command : `${command}\r`;
@@ -485,6 +488,7 @@ export const CanvasView: React.FC = () => {
       router,
       setActiveShapeId,
       setRenderedShapeIds,
+      t,
     ],
   );
 
@@ -625,14 +629,14 @@ export const CanvasView: React.FC = () => {
       await canvasWsApi.updateDefaultBoard(documentJson);
       setLastSavedAt(new Date());
       toastManager.add({
-        title: "Canvas",
-        description: "Saved successfully",
+        title: t("toast.title"),
+        description: t("toast.savedSuccessfully"),
         type: "success",
       });
     } catch {
       toastManager.add({
-        title: "Canvas",
-        description: "Failed to save canvas",
+        title: t("toast.title"),
+        description: t("toast.saveFailed"),
         type: "error",
       });
     } finally {
@@ -977,7 +981,7 @@ export const CanvasView: React.FC = () => {
       props: {
         w: 640,
         h: 440,
-        name: "Frame",
+        name: t("frame.defaultName"),
       },
     });
     editor.select(frameId);
@@ -985,7 +989,7 @@ export const CanvasView: React.FC = () => {
       editor.setEditingShape(frameId);
     });
     setActiveShapeId(null);
-  }, [setActiveShapeId]);
+  }, [setActiveShapeId, t]);
 
   if (isLoading || !connectionBootstrapReady) {
     return (
@@ -1000,11 +1004,11 @@ export const CanvasView: React.FC = () => {
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-background px-6 text-center">
         <AlertTriangle className="size-12 text-warning" />
         <div>
-          <div className="text-base font-semibold text-foreground">Failed to load Canvas</div>
-          <div className="text-sm text-muted-foreground">{error}</div>
+          <div className="text-base font-semibold text-foreground">{t("loadError.title")}</div>
+          <div className="text-sm text-muted-foreground">{loadErrorDescription}</div>
         </div>
         <Button variant="outline" onClick={() => void loadBoard()} className="cursor-pointer">
-          Retry
+          {t("loadError.retry")}
         </Button>
       </div>
     );
@@ -1066,8 +1070,8 @@ export const CanvasView: React.FC = () => {
           size="icon"
           onClick={toggleIsToolbarCollapsed}
           aria-pressed={isToolbarCollapsed}
-          aria-label={isToolbarCollapsed ? "Expand canvas toolbar" : "Collapse canvas toolbar"}
-          title={isToolbarCollapsed ? "Expand toolbar" : "Collapse toolbar"}
+          aria-label={isToolbarCollapsed ? t("toolbar.expandAria") : t("toolbar.collapseAria")}
+          title={isToolbarCollapsed ? t("toolbar.expandTitle") : t("toolbar.collapseTitle")}
           className={sharePanelIconButtonClass}
         >
           <CanvasToolbarCollapseIcon isCollapsed={isToolbarCollapsed} side="right" />
@@ -1087,10 +1091,10 @@ export const CanvasView: React.FC = () => {
                 "h-8 gap-1 rounded-md border-0 bg-transparent px-2 text-muted-foreground shadow-none",
                 "hover:bg-foreground/10 hover:text-foreground",
               )}
-              title="Create an empty frame"
+              title={t("frameButton.title")}
             >
               <Frame className="size-3.5" />
-              <span className="text-xs font-medium">Frame</span>
+              <span className="text-xs font-medium">{t("frameButton.label")}</span>
             </Button>
             {/*
               Import-terminal modal & "Refresh active sessions" button were
@@ -1121,10 +1125,10 @@ export const CanvasView: React.FC = () => {
         {isManualSaving || isSaving ? (
           <span className="flex items-center gap-2">
             <LoaderCircle className="size-3 animate-spin" />
-            Saving…
+            {t("saveButton.saving")}
           </span>
         ) : error ? (
-          "Save failed"
+          t("saveButton.failed")
         ) : (
           /*
             Two stacked labels — "Saved · HH:MM:SS" and "Save" — cross-fade
@@ -1133,7 +1137,7 @@ export const CanvasView: React.FC = () => {
           */
           <span className="relative flex h-4 w-full items-center justify-center overflow-hidden">
             <span className="absolute inset-0 flex items-center justify-center gap-1 transition-all duration-200 ease-out group-hover:-translate-y-2 group-hover:opacity-0">
-              <span>Saved</span>
+              <span>{t("saveButton.saved")}</span>
               {(() => {
                 const savedDate =
                   lastSavedAt ??
@@ -1158,7 +1162,7 @@ export const CanvasView: React.FC = () => {
               })()}
             </span>
             <span className="absolute inset-0 flex translate-y-2 items-center justify-center opacity-0 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100">
-              Save
+              {t("saveButton.save")}
             </span>
           </span>
         )}
@@ -1178,8 +1182,8 @@ export const CanvasView: React.FC = () => {
                 sharePanelIconButtonClass,
                 isStylePanelEnabled && "bg-foreground/10 text-foreground hover:bg-foreground/15",
               )}
-              title={isStylePanelEnabled ? "Hide style panel" : "Show style panel"}
-              aria-label={isStylePanelEnabled ? "Hide style panel" : "Show style panel"}
+              title={isStylePanelEnabled ? t("stylePanel.hideTitle") : t("stylePanel.showTitle")}
+              aria-label={isStylePanelEnabled ? t("stylePanel.hideAria") : t("stylePanel.showAria")}
             >
               <Palette
                 className={cn(

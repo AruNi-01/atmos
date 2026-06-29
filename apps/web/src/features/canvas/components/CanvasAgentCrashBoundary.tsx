@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { RefreshCw, SkipForward, Sparkles } from "lucide-react";
 
@@ -59,6 +60,7 @@ function CanvasAgentCrashFallback({
   onDismiss: () => void;
   className?: string;
 }) {
+  const t = useTranslations("canvas.agentCrashBoundary");
   const recovery = useCanvasAgentCrashRecovery();
   const [secondsLeft, setSecondsLeft] = React.useState(AUTO_SKIP_SECONDS);
   const [busy, setBusy] = React.useState<"skip" | "refresh" | null>(null);
@@ -70,7 +72,7 @@ function CanvasAgentCrashFallback({
     setBusy("skip");
     try {
       await recovery?.failInflight(
-        "Canvas skipped this agent command after an internal tldraw error.",
+        t("recovery.skipMessage"),
       );
       recovery?.bumpRemount();
       onDismiss();
@@ -85,7 +87,7 @@ function CanvasAgentCrashFallback({
     setBusy("refresh");
     try {
       await recovery?.failInflight(
-        "Canvas reloaded after an internal tldraw error.",
+        t("recovery.refreshMessage"),
       );
       await recovery?.reloadBoard();
       recovery?.bumpRemount();
@@ -122,11 +124,11 @@ function CanvasAgentCrashFallback({
       </div>
       <div className="max-w-md space-y-2">
         <h2 className="text-lg font-semibold tracking-tight">
-          画布被 agent 折腾了一下，暂时罢工了
+          {t("title")}
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          多半是某条 <code className="rounded bg-muted px-1 py-0.5 text-xs">atmos canvas</code>{" "}
-          命令和 tldraw 的 schema 合不来。你的画板数据还在，我们可以跳过这次操作，或者从服务器重新加载本 board。
+          {t("description.prefix")} <code className="rounded bg-muted px-1 py-0.5 text-xs">atmos canvas</code>{" "}
+          {t("description.suffix")}
         </p>
         {error?.message ? (
           <p className="mt-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-left font-mono text-[11px] text-muted-foreground break-all">
@@ -143,8 +145,8 @@ function CanvasAgentCrashFallback({
           className="gap-2"
         >
           <SkipForward className="size-4" />
-          跳过此次操作
-          {secondsLeft > 0 ? `（${secondsLeft}s）` : null}
+          {t("actions.skip")}
+          {secondsLeft > 0 ? t("actions.skipCountdown", { seconds: secondsLeft }) : null}
         </Button>
         <Button
           type="button"
@@ -154,7 +156,7 @@ function CanvasAgentCrashFallback({
           className="gap-2"
         >
           <RefreshCw className={cn("size-4", busy === "refresh" && "animate-spin")} />
-          刷新恢复
+          {t("actions.refresh")}
         </Button>
       </div>
     </div>

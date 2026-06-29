@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslations } from "next-intl";
 
 import type {
   FileTreeNode,
@@ -88,17 +89,6 @@ export const WELCOME_HEADLINES: WelcomeHeadline[] = [
 ];
 export const DEFAULT_WELCOME_HEADLINE: WelcomeHeadline = "come_alive";
 
-export const PLACEHOLDER_TEMPLATES = [
-  (project: string, agent: string) => `What should ${agent} make inside ${project}?`,
-  (project: string, agent: string) => `Give ${agent} a direction for ${project}.`,
-  (project: string, agent: string) => `Start something new in ${project} with ${agent}.`,
-  (project: string, agent: string) => `What do you want ${agent} to shape in ${project}?`,
-  (project: string, agent: string) => `Let ${agent} build the next idea in ${project}.`,
-  (project: string, agent: string) => `Turn a spark into something real in ${project} with ${agent}.`,
-  (project: string, agent: string) => `What should ${agent} bring to life in ${project}?`,
-  (project: string, agent: string) => `Begin with ${agent}. Build in ${project}.`,
-] as const;
-
 export function useDebouncedPopoverQuery(
   popover: { query: string } | null,
   delayMs: number,
@@ -126,19 +116,33 @@ export function useWelcomeComposerPlaceholder({
   agentLabel?: string;
   projectName?: string;
 }) {
+  const t = useTranslations("Welcome.components");
+  const placeholderTemplates = React.useMemo(
+    () => [
+      (project: string, agent: string) => t("helpers.placeholderTemplates.makeInside", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.giveDirection", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.startSomething", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.shape", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.buildNextIdea", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.turnSparkReal", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.bringToLife", { project, agent }),
+      (project: string, agent: string) => t("helpers.placeholderTemplates.beginBuild", { project, agent }),
+    ],
+    [t],
+  );
   const [templateIndex, setTemplateIndex] = React.useState(() =>
-    Math.floor(Math.random() * PLACEHOLDER_TEMPLATES.length),
+    Math.floor(Math.random() * placeholderTemplates.length),
   );
   React.useEffect(() => {
-    setTemplateIndex(Math.floor(Math.random() * PLACEHOLDER_TEMPLATES.length));
-  }, [agentLabel, projectName]);
+    setTemplateIndex(Math.floor(Math.random() * placeholderTemplates.length));
+  }, [agentLabel, projectName, placeholderTemplates.length]);
 
   const composerPlaceholder = React.useMemo(() => {
-    const resolvedProjectName = projectName?.trim() || "Specified Project";
-    const resolvedAgentName = agentLabel?.trim() || "Code Agent";
+    const resolvedProjectName = projectName?.trim() || t("helpers.placeholderDefaults.project");
+    const resolvedAgentName = agentLabel?.trim() || t("helpers.placeholderDefaults.agent");
 
-    return PLACEHOLDER_TEMPLATES[templateIndex](resolvedProjectName, resolvedAgentName);
-  }, [agentLabel, projectName, templateIndex]);
+    return placeholderTemplates[templateIndex](resolvedProjectName, resolvedAgentName);
+  }, [agentLabel, placeholderTemplates, projectName, t, templateIndex]);
   const [visiblePlaceholder, setVisiblePlaceholder] = React.useState(composerPlaceholder);
   const [exitingPlaceholder, setExitingPlaceholder] = React.useState<string | null>(null);
   const visiblePlaceholderRef = React.useRef(composerPlaceholder);
@@ -161,18 +165,23 @@ export function buildAutoExtractDescription({
   isLlmRoutingLoading,
   kind,
   todoProviderLabel,
+  t,
 }: {
   hasPreview: boolean;
   isLlmRoutingLoading: boolean;
   kind: "issue" | "pr";
   todoProviderLabel: string | null;
+  t: (key: string, values?: Record<string, string | number | boolean | null | undefined>) => string;
 }) {
-  if (!hasPreview) return `Import a GitHub ${kind === "pr" ? "PR" : "issue"} first.`;
-  if (isLlmRoutingLoading) return "Checking LLM routing...";
+  if (!hasPreview) return t("helpers.autoExtract.importFirst", { kind: kind === "pr" ? t("helpers.common.pr") : t("helpers.common.issue") });
+  if (isLlmRoutingLoading) return t("helpers.autoExtract.checkingRouting");
   if (todoProviderLabel) {
-    return `Uses ${todoProviderLabel} to extract an initial task checklist from the ${kind === "pr" ? "PR" : "issue"} description.`;
+    return t("helpers.autoExtract.usesProvider", {
+      provider: todoProviderLabel,
+      kind: kind === "pr" ? t("helpers.common.pr") : t("helpers.common.issue"),
+    });
   }
-  return "Configure LLM Providers > Routing > Workspace issue TODO extraction first.";
+  return t("helpers.autoExtract.configureRouting");
 }
 
 export function buildWelcomeSummaryItems({
@@ -184,6 +193,7 @@ export function buildWelcomeSummaryItems({
   issuePreview,
   name,
   prPreview,
+  t,
 }: {
   autoExtractTodos: boolean;
   autoExtractTodosPr: boolean;
@@ -193,6 +203,7 @@ export function buildWelcomeSummaryItems({
   issuePreview: GithubIssuePayload | null;
   name: string;
   prPreview: GithubPrPayload | null;
+  t: (key: string, values?: Record<string, string | number | boolean | null | undefined>) => string;
 }): WelcomeSummaryItem[] {
   const items: WelcomeSummaryItem[] = [];
   const displayName = name.trim();
@@ -203,43 +214,43 @@ export function buildWelcomeSummaryItems({
     items.push({
       key: "display-name",
       value: displayName,
-      title: `Workspace display name: ${displayName}`,
+      title: t("helpers.summary.displayNameTitle", { name: displayName }),
     });
   }
   if (selectedBaseBranch) {
     items.push({
       key: "base-branch",
       value: `origin/${selectedBaseBranch}`,
-      title: `Base branch: origin/${selectedBaseBranch}`,
+      title: t("helpers.summary.baseBranchTitle", { branch: `origin/${selectedBaseBranch}` }),
     });
   }
   if (workspaceBranch) {
     items.push({
       key: "workspace-branch",
       value: workspaceBranch,
-      title: `Current workspace branch: ${workspaceBranch}`,
+      title: t("helpers.summary.workspaceBranchTitle", { branch: workspaceBranch }),
     });
   }
   if (issuePreview) {
     items.push({
       key: "github-issue",
       value: `#${issuePreview.number}`,
-      title: `GitHub issue: #${issuePreview.number}`,
+      title: t("helpers.summary.githubIssueTitle", { number: issuePreview.number }),
     });
   }
   if (prPreview) {
     items.push({
       key: "github-pr",
       value: `PR#${prPreview.number}`,
-      title: `GitHub PR: #${prPreview.number} (${prPreview.head_ref})`,
+      title: t("helpers.summary.githubPrTitle", { number: prPreview.number, branch: prPreview.head_ref }),
     });
   }
   const autoTodosOn = (issuePreview && autoExtractTodos) || (prPreview && autoExtractTodosPr);
   if (autoTodosOn && canAutoExtractTodos) {
     items.push({
       key: "auto-todos",
-      value: "TODOs",
-      title: "Auto-extract TODOs with LLM: on",
+      value: t("helpers.summary.autoTodosValue"),
+      title: t("helpers.summary.autoTodosTitle"),
     });
   }
 
@@ -489,7 +500,10 @@ export function isAutoGeneratedBranchConflictError(message: string): boolean {
   return message.toLowerCase().includes("auto-generated workspace directory name");
 }
 
-export function renderHeadline(headline: WelcomeHeadline): React.ReactNode {
+export function renderHeadline(
+  headline: WelcomeHeadline,
+  t: (key: string) => string,
+): React.ReactNode {
   const logo = (
     <span className="inline-flex items-center">
       <AtmosWordmark
@@ -505,35 +519,35 @@ export function renderHeadline(headline: WelcomeHeadline): React.ReactNode {
     case "come_alive":
       return (
         <>
-          <span>What should come alive in</span>
+          <span>{t("helpers.headline.comeAlive.prefix")}</span>
           <span className="inline-flex items-center gap-x-3">
             {logo}
-            <span>?</span>
+            <span>{t("helpers.headline.questionMark")}</span>
           </span>
         </>
       );
     case "spin_up_next":
       return (
         <>
-          <span>What do you want</span>
+          <span>{t("helpers.headline.spinUpNext.prefix")}</span>
           {logo}
-          <span className="whitespace-nowrap">to spin up next?</span>
+          <span className="whitespace-nowrap">{t("helpers.headline.spinUpNext.suffix")}</span>
         </>
       );
     case "start_building_with_you":
       return (
         <>
-          <span>What should</span>
+          <span>{t("helpers.headline.startBuildingWithYou.prefix")}</span>
           {logo}
-          <span className="whitespace-nowrap">start building with you?</span>
+          <span className="whitespace-nowrap">{t("helpers.headline.startBuildingWithYou.suffix")}</span>
         </>
       );
     case "deserves_workspace":
       return (
         <>
-          <span>What idea deserves an</span>
+          <span>{t("helpers.headline.deservesWorkspace.prefix")}</span>
           {logo}
-          <span className="whitespace-nowrap">workspace?</span>
+          <span className="whitespace-nowrap">{t("helpers.headline.deservesWorkspace.suffix")}</span>
         </>
       );
   }

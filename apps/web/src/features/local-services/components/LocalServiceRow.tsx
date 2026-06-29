@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { ExternalLink, Loader2, Square, Terminal } from "lucide-react";
 import {
   Button,
@@ -39,6 +40,7 @@ export function LocalServiceRow({
   onOpen,
   onStop,
 }: LocalServiceRowProps) {
+  const t = useTranslations("LocalServices.components");
   const [stopConfirmOpen, setStopConfirmOpen] = React.useState(false);
   const title = service.title?.trim() || service.display_url || `localhost:${service.port}`;
   const ownerName =
@@ -71,7 +73,7 @@ export function LocalServiceRow({
           if (openable) onOpen?.(service);
         }}
         disabled={!openable}
-        title={openable ? `Open ${service.display_url}` : service.display_url}
+        title={openable ? t("row.openTitle", { url: service.display_url }) : service.display_url}
       >
         <div className="absolute left-2 top-2 flex gap-1">
           <span className="size-1.5 rounded-full bg-red-400" />
@@ -121,7 +123,7 @@ export function LocalServiceRow({
             variant="ghost"
             size="icon"
             className="size-7"
-            title="Open"
+            title={t("common.open")}
             onClick={() => onOpen?.(service)}
           >
             <ExternalLink className="size-3.5" />
@@ -140,8 +142,8 @@ export function LocalServiceRow({
                 variant="ghost"
                 size="icon"
                 className="size-7 text-muted-foreground hover:text-destructive"
-                title="Stop service"
-                aria-label={`Stop ${title}`}
+                title={t("row.stopService")}
+                aria-label={t("row.stopServiceAria", { title })}
                 disabled={stopPending}
               >
                 {stopPending ? (
@@ -153,10 +155,13 @@ export function LocalServiceRow({
             </PopoverTrigger>
             <PopoverContent side="left" align="center" className="w-60 space-y-3 p-3">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">Stop service?</p>
+                <p className="text-sm font-medium text-foreground">{t("row.stopConfirmTitle")}</p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Stop <span className="font-medium text-foreground">{service.display_url}</span> on port{" "}
-                  {service.port}?
+                  {t.rich("row.stopConfirmDescription", {
+                    url: service.display_url,
+                    port: service.port,
+                    strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                  })}
                 </p>
               </div>
               <div className="flex items-center justify-end gap-2">
@@ -168,7 +173,7 @@ export function LocalServiceRow({
                   onClick={() => setStopConfirmOpen(false)}
                   disabled={stopPending}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button
                   type="button"
@@ -179,7 +184,7 @@ export function LocalServiceRow({
                   disabled={stopPending}
                 >
                   {stopPending ? <Loader2 className="size-3 animate-spin" /> : <Square className="size-3" />}
-                  Stop
+                  {t("row.stop")}
                 </Button>
               </div>
             </PopoverContent>

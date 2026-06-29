@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Collapsible,
@@ -95,6 +96,7 @@ export function PlanBlockView({
   embedded?: boolean;
   defaultOpen?: boolean;
 }) {
+  const t = useTranslations("Agent.components");
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const planEntries = plan?.entries ?? [];
   const completedCount = planEntries.filter((e) => e.status === "completed").length;
@@ -111,15 +113,15 @@ export function PlanBlockView({
     currentRunningEntry ??
     (nextPendingIndex >= 0 ? planEntries[nextPendingIndex] : planEntries[planEntries.length - 1]);
   const collapsedLabel = currentRunningEntry
-    ? "Current:"
+    ? t("plan.current")
     : allCompleted
-      ? "Completed:"
-      : "Next:";
+      ? t("plan.completed")
+      : t("plan.next");
   const collapsedCountLabel = allCompleted
-    ? "All Done"
+    ? t("plan.allDone")
     : currentRunningEntry
-      ? `${Math.max(totalCount - currentIndex, 0)} left`
-      : `${completedCount}/${totalCount}`;
+      ? t("plan.remainingCount", { count: Math.max(totalCount - currentIndex, 0) })
+      : t("plan.progressCount", { completed: completedCount, total: totalCount });
   const shouldScrollEntries = totalCount > 6;
 
   if (!plan || planEntries.length === 0) return null;
@@ -139,10 +141,12 @@ export function PlanBlockView({
               <span className="text-muted-foreground group-hover:text-foreground transition-colors">
                 <ChevronDown className="w-4 h-4" />
               </span>
-              <span className="text-sm font-medium text-foreground/90">Plan</span>
+              <span className="text-sm font-medium text-foreground/90">{t("plan.title")}</span>
               <div className="flex-1" />
               <span className="text-sm text-muted-foreground mr-1">
-                {allCompleted ? "All Done" : `${completedCount}/${totalCount}`}
+                {allCompleted
+                  ? t("plan.allDone")
+                  : t("plan.progressCount", { completed: completedCount, total: totalCount })}
               </span>
             </div>
           </CollapsibleTrigger>

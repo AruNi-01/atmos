@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Check, ChevronDown, Copy, Paperclip, Plus } from 'lucide-react';
 import { Button, Textarea, cn } from '@workspace/ui';
 import type { SelectionInfo } from '@/shared/lib/format-selection-for-ai';
@@ -38,6 +39,7 @@ export function SelectionPopoverDetails({
   onCopyWithNote,
   onUpdateAnnotation,
 }: SelectionPopoverDetailsProps) {
+  const t = useTranslations('Selection.components');
   const lineRange = displayInfo.startLine > 0
     ? (displayInfo.startLine === displayInfo.endLine
       ? `L${displayInfo.startLine}`
@@ -81,7 +83,11 @@ export function SelectionPopoverDetails({
               displayInfo.changeType === 'addition' && 'text-green-500',
               displayInfo.changeType === 'deletion' && 'text-red-500',
             )}>
-              {displayInfo.changeType}
+              {displayInfo.changeType === 'addition'
+                ? t('details.changeType.addition')
+                : displayInfo.changeType === 'deletion'
+                  ? t('details.changeType.deletion')
+                  : displayInfo.changeType}
             </span>
           </>
         )}
@@ -105,7 +111,7 @@ export function SelectionPopoverDetails({
       </div>
 
       <Textarea
-        placeholder="Add a note for the AI agent... (optional)"
+        placeholder={t('details.notePlaceholder')}
         value={userNote}
         onChange={(event) => onUserNoteChange(event.target.value)}
         className="min-h-[80px] resize-none text-sm"
@@ -126,7 +132,7 @@ export function SelectionPopoverDetails({
           size="sm"
           onClick={onDismiss}
         >
-          Cancel
+          {t('details.actions.cancel')}
         </Button>
         {isEditingPreviewAnnotation ? (
           <Button
@@ -134,7 +140,7 @@ export function SelectionPopoverDetails({
             onClick={onUpdateAnnotation}
             disabled={attaching}
           >
-            Update
+            {t('details.actions.update')}
           </Button>
         ) : (
           <>
@@ -146,7 +152,7 @@ export function SelectionPopoverDetails({
                 disabled={attaching}
               >
                 <Paperclip className="h-3.5 w-3.5" />
-                {attaching ? 'Attaching...' : 'Attach'}
+                {attaching ? t('details.actions.attaching') : t('details.actions.attach')}
               </Button>
             ) : null}
             {canAddPreviewAnnotation ? (
@@ -156,7 +162,7 @@ export function SelectionPopoverDetails({
                 disabled={attaching}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Add
+                {t('details.actions.add')}
               </Button>
             ) : null}
             <Button
@@ -167,12 +173,12 @@ export function SelectionPopoverDetails({
               {copied ? (
                 <>
                   <Check className="h-3.5 w-3.5" />
-                  Copied
+                  {t('details.actions.copied')}
                 </>
               ) : (
                 <>
                   <Copy className="h-3.5 w-3.5" />
-                  {canAddPreviewAnnotation ? 'Copy' : 'Copy for AI'}
+                  {canAddPreviewAnnotation ? t('details.actions.copy') : t('details.actions.copyForAi')}
                 </>
               )}
             </Button>
@@ -192,13 +198,14 @@ function ConfidenceDisclosure({
   confidenceClassName: string;
   debugSignals: string[];
 }) {
+  const t = useTranslations('Selection.components');
   return (
     <details className="group space-y-1">
       <summary className="flex w-full cursor-pointer list-none items-center justify-between gap-2 rounded-md py-0.5 text-left transition-colors hover:text-foreground">
         <div className="flex min-w-0 items-center gap-1.5">
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out group-open:rotate-180 motion-reduce:transition-none" />
           <div className="truncate text-[11px] font-medium text-muted-foreground group-hover:text-foreground">
-            Source Code Confidence
+            {t('details.sourceCodeConfidence')}
           </div>
         </div>
         {confidence ? (
@@ -208,12 +215,18 @@ function ConfidenceDisclosure({
               confidenceClassName,
             )}
           >
-            {confidence}
+            {confidence === 'high'
+              ? t('details.confidence.high')
+              : confidence === 'medium'
+                ? t('details.confidence.medium')
+                : confidence === 'low'
+                  ? t('details.confidence.low')
+                  : confidence}
           </span>
         ) : null}
       </summary>
       <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-        {debugSignals.length > 0 ? debugSignals.join(', ') : 'No extra debug signals'}
+        {debugSignals.length > 0 ? debugSignals.join(', ') : t('details.noExtraDebugSignals')}
       </div>
     </details>
   );

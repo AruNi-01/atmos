@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -91,6 +92,7 @@ export function KanbanWorkspaceCard({
   onArchiveWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
   onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
 }) {
+  const t = useTranslations("AppShell.chrome");
   const isIssueOnly = workspace.createSource === "issue_only";
   const isAutomation = workspace.createSource === "automation";
   const workspaceTitle = isIssueOnly && workspace.githubIssue
@@ -158,7 +160,7 @@ export function KanbanWorkspaceCard({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>GitHub Issue Only Workspace</p>
+                      <p>{t("workspaceKanbanCard.githubIssueOnlyWorkspace")}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -167,13 +169,13 @@ export function KanbanWorkspaceCard({
                     <TooltipTrigger asChild>
                       <span
                         className="inline-flex cursor-default items-center"
-                        aria-label="Automation workspace"
+                        aria-label={t("workspaceContent.automationWorkspace")}
                       >
                         <Timer className="size-3 text-muted-foreground" />
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>Automation Workspace</p>
+                      <p>{t("workspaceContent.automationWorkspace")}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -199,7 +201,7 @@ export function KanbanWorkspaceCard({
                   ? "text-foreground"
                   : "text-muted-foreground/50 hover:text-foreground",
               )}
-              title={workspace.isPinned ? "Unpin" : "Pin"}
+              title={workspace.isPinned ? t("common.unpin") : t("common.pin")}
             >
               <Pin className={cn("size-3.5", workspace.isPinned ? "" : "rotate-45")} />
             </button>
@@ -210,7 +212,7 @@ export function KanbanWorkspaceCard({
                     type="button"
                     onClick={(event) => event.stopPropagation()}
                     className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    title="More"
+                    title={t("common.more")}
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
@@ -226,7 +228,7 @@ export function KanbanWorkspaceCard({
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
                     >
                       <Archive className="size-3.5" />
-                      Archive
+                      {t("common.archive")}
                     </button>
                   ) : null}
                   {onDeleteWorkspace ? (
@@ -239,7 +241,7 @@ export function KanbanWorkspaceCard({
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-accent"
                     >
                       <Trash2 className="size-3.5" />
-                      Delete
+                      {t("common.delete")}
                     </button>
                   ) : null}
                 </DropdownMenuContent>
@@ -282,7 +284,7 @@ export function KanbanWorkspaceCard({
                 onClick={() => {
                   onEnterWorkspace(projectId, workspace.id);
                 }}
-                aria-label="Build workspace from issue"
+                aria-label={t("workspaceKanbanCard.buildWorkspaceFromIssue")}
               >
                 <Plus className="size-3.5" />
               </Button>
@@ -294,7 +296,7 @@ export function KanbanWorkspaceCard({
                 onClick={() => {
                   onEnterWorkspace(projectId, workspace.id);
                 }}
-                aria-label="Enter workspace"
+                aria-label={t("workspaceKanbanCard.enterWorkspace")}
               >
                 <LogIn className="size-3.5" />
               </Button>

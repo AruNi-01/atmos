@@ -1,8 +1,29 @@
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
-import { WIKI_LANGUAGE_OPTIONS } from "@/features/wiki/lib/wiki-languages";
+import { getWikiLanguageOptions } from "@/features/wiki/lib/wiki-languages";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
+import { createTranslator } from "next-intl";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../../messages/en.json";
+import zhMessages from "../../../../../messages/zh.json";
 
-export const FEATURE_LANGUAGE_OPTIONS = WIKI_LANGUAGE_OPTIONS.filter(
+let cachedSettingsModalLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedSettingsModalTranslator: any = null;
+
+function settingsModalT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedSettingsModalTranslator || cachedSettingsModalLocale !== locale) {
+    cachedSettingsModalLocale = locale;
+    cachedSettingsModalTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "settings.modal",
+    });
+  }
+  return cachedSettingsModalTranslator(key as never);
+}
+
+export const FEATURE_LANGUAGE_OPTIONS = getWikiLanguageOptions().filter(
   (option) => option.value !== "other",
 );
 
@@ -76,6 +97,6 @@ export function buildBuiltInEntries(
 }
 
 export const TEST_NOTIFICATION_PAYLOAD = {
-  title: "Atmos Test Notification",
-  body: "This is a test notification from Atmos.",
+  title: settingsModalT("testNotification.title"),
+  body: settingsModalT("testNotification.body"),
 };

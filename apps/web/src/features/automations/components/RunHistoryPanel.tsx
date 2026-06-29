@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { Clock3, History, LoaderCircle, RefreshCw } from "lucide-react";
 
@@ -27,12 +28,13 @@ export function RunHistoryPanel({
   onSelectRun: (guid: string) => void;
   className?: string;
 }) {
+  const t = useTranslations("automation.runHistoryPanel");
   return (
     <div className={cn("flex min-h-0 flex-col rounded-md border border-border bg-background", className)}>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <History className="size-4" />
-          Run History
+          {t("title")}
         </div>
         <Button variant="ghost" size="icon" className="size-8" onClick={onRefresh} disabled={loading}>
           {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
@@ -49,8 +51,8 @@ export function RunHistoryPanel({
           <div className="flex h-full min-h-52 items-center justify-center rounded-md border border-dashed border-border bg-muted/10 text-center">
             <div>
               <Clock3 className="mx-auto size-7 text-muted-foreground" />
-              <div className="mt-2 text-sm font-medium text-foreground">No runs yet</div>
-              <div className="mt-1 text-xs text-muted-foreground">Manual and scheduled outcomes will appear here.</div>
+              <div className="mt-2 text-sm font-medium text-foreground">{t("empty.title")}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t("empty.description")}</div>
             </div>
           </div>
         ) : (

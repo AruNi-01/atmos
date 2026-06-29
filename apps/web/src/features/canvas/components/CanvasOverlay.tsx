@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import { ChevronDown } from "lucide-react";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
@@ -17,6 +18,7 @@ import { CanvasView } from "./CanvasView";
  * the New Workspace welcome overlay's collapse affordance).
  */
 export function CanvasOverlay() {
+  const t = useTranslations("Canvas.chrome");
   const [canvas, setCanvas] = useQueryState("canvas", centerStageParams.canvas);
   const [animState, setAnimState] = React.useState<"idle" | "entering" | "visible" | "closing">("idle");
   // macOS desktop (non-fullscreen) reserves ~32px at the top for the window
@@ -95,7 +97,7 @@ export function CanvasOverlay() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Canvas"
+      aria-label={t("common.canvas")}
       data-canvas-overlay="true"
       className={`fixed inset-0 z-[150] bg-background transition-transform duration-300 ease-in-out ${
         isOpen ? "translate-y-0" : isClosing ? "translate-y-full" : "translate-y-full"
@@ -112,8 +114,8 @@ export function CanvasOverlay() {
         onClick={handleClose}
         className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
         style={needsTrafficLightsPadding ? { top: 32 } : undefined}
-        aria-label="Collapse canvas"
-        title="Collapse canvas"
+        aria-label={t("overlay.collapseCanvas")}
+        title={t("overlay.collapseCanvas")}
       >
         {/*
           Hugs the top edge with a hair of breathing room (`-mt-0.5` lets the

@@ -7,7 +7,7 @@ description: Create or revise premium, product-led Atmos marketing videos and so
 
 ## Purpose
 
-Use this skill to produce Atmos marketing video projects with clean repository boundaries and reusable artifacts. Use `$hyperframes` for composition authoring and motion rules, `$hyperframes-cli` for lint/preview/render commands, and `$atmos-audio-gen` for soundtrack generation or revision.
+Use this skill to produce Atmos marketing video projects with clean repository boundaries and reusable artifacts. Use `$hyperframes` for composition authoring and motion rules, `$hyperframes-cli` for lint/preview/render commands, `$text-to-lottie` for reusable vector motion inserts or overlays that belong inside the video, and `$atmos-audio-gen` for soundtrack generation or revision.
 
 ## Workflow
 
@@ -16,16 +16,18 @@ Use this skill to produce Atmos marketing video projects with clean repository b
 3. Resolve `audio_mode` before generating the video. Do not silently infer this when the user has not said whether audio is needed.
 4. Read `references/project-files.md` before creating or changing project file structure.
 5. Read `references/editorial-design-grammar.md` before writing or revising `DESIGN.md`, `SCRIPT.md`, or the HyperFrames composition. If the user supplies a reference video, first extract contact sheets/key frames and translate the reference into reusable design grammar; do not copy the reference brand, mascot, text, or exact sequence.
-6. For a new project, run `scripts/scaffold-atmos-video-project.mjs` to create the standard skeleton, then replace the starter `DESIGN.md`, `SCRIPT.md`, and `index.html` with the real video plan and HyperFrames composition.
-7. Create or update the creative project under `marketing/creative/projects/<project-name>/`.
-8. Keep the HyperFrames source app under `<project>/hyperframes/`.
-9. Write generated outputs to `<project>/artifacts/`, then copy only needed deployable files into the consuming app's public/static folder.
-10. Verify the HyperFrames project, rendered artifacts, copied app assets, visual design quality, and audio continuity before finishing.
+6. If a beat needs vector-perfect logo, typography, agent icon, diagram, lower-third, counter, or CTA motion that would be brittle or wasteful to hand-build in DOM/CSS, load `$text-to-lottie`. Follow it to author and verify the Lottie scene in the official player first, then copy the approved scene files into the Atmos video project before embedding them in HyperFrames.
+7. For a new project, run `scripts/scaffold-atmos-video-project.mjs` to create the standard skeleton, then replace the starter `DESIGN.md`, `SCRIPT.md`, and `index.html` with the real video plan and HyperFrames composition.
+8. Create or update the creative project under `marketing/creative/projects/<project-name>/`.
+9. Keep the HyperFrames source app under `<project>/hyperframes/`.
+10. Write generated outputs to `<project>/artifacts/`, then copy only needed deployable files into the consuming app's public/static folder.
+11. Verify the HyperFrames project, any embedded Lottie assets, rendered artifacts, copied app assets, visual design quality, and audio continuity before finishing.
 
 ## Skill Resources
 
 - `references/project-files.md` is the source of truth for required project files, file responsibilities, artifact paths, package scripts, and script reuse boundaries.
 - `references/editorial-design-grammar.md` is the source of truth for design planning, reference-video analysis, scene density, frame families, proof-led composition, and HyperFrames motion grammar.
+- `$text-to-lottie` owns Lottie JSON authoring and Skottie-player verification. This skill owns when Lottie should be used in an Atmos promo, where approved Lottie assets live inside the marketing project, and how they are composed inside HyperFrames.
 - `scripts/scaffold-atmos-video-project.mjs` creates the standard project skeleton and a reusable `render-video.mjs` template. It does not produce the final video; it only prepares the workspace.
 - This skill intentionally has no `assets/` directory. Do not bundle Atmos logos, agent icons, or screenshots into the skill because they can become stale. Pull current assets from the repository or the project's `source/` and `hyperframes/assets/` directories.
 
@@ -61,9 +63,31 @@ marketing/creative/projects/<project-name>/
 │   └── videos/
 ├── hyperframes/
 └── source/
+    └── lottie/
 ```
 
-Create only folders the project actually needs. Do not create `renders/` or `exports/` by default. `artifacts/` is the project output surface for generated video, image, and audio files.
+Create only folders the project actually needs. Do not create `renders/` or `exports/` by default. `artifacts/` is the project output surface for generated video, image, and audio files. When Lottie is used, treat `source/lottie/` as the canonical checked-in source inside the marketing project and keep any HyperFrames runtime copy under `hyperframes/assets/lottie/`.
+
+## Lottie + HyperFrames
+
+Use `$text-to-lottie` when a scene needs reusable vector animation that should stay crisp at promo-video scale, especially for:
+
+- logo or wordmark reveals
+- typography-led interstitials or CTA lockups
+- agent icon swarms, chips, and status glyphs
+- lower thirds, caption bars, or notification-like overlays
+- diagram traces, metric counters, and product-promo accent motion
+
+Do not use Lottie as a default substitute for normal HyperFrames scene work. If the effect is just a screenshot pan, product-stage crop, card entrance, mask wipe, or a short text transition, build it directly in HyperFrames with HTML/CSS/JS first.
+
+When using Lottie inside an Atmos video:
+
+- Author and verify the animation with `$text-to-lottie` first. Respect its official-player workflow, `player-contract.md`, and routed references.
+- After approval, copy the scene files needed for reuse into `<project>/source/lottie/<asset-name>/`. This usually includes `lottie.json`, optional `controls.json`, and any local image assets referenced by the JSON.
+- Mirror only the files actually consumed at render time into `<project>/hyperframes/assets/lottie/<asset-name>/`. Treat this HyperFrames copy as a runtime asset, not the creative source of truth.
+- Keep Lottie transparent by default for overlays and inserts. Use an opaque/full-frame Lottie background only when the beat is intentionally a standalone chapter card or type scene.
+- Do not rely on native Lottie text for fixed marketing copy unless editable text is explicitly required and the chosen player path has verified font loading. Default to shape/vector text for headlines, labels, and CTA copy inside Lottie scenes.
+- Keep Lottie short and purposeful. It should sharpen a beat, not run forever as decorative ambient motion over product proof.
 
 ## App Copy Rule
 
@@ -94,6 +118,7 @@ Use project/descriptive filenames in `artifacts/`, such as `atmos-intro-16x9-108
 - Use real product states, screenshots, agent icons, and UI details where possible instead of abstract filler.
 - When showing supported agents, include a representative broad set with logos/icons and a "more/all agents" idea when appropriate; do not imply support is limited to only a few agents.
 - For closing CTA frames, include `https://atmos.land` and the GitHub link when the video is for landing or social promotion.
+- Use Lottie as a precision tool for icon, type, logo, and diagram motion, not as an excuse to replace real product proof with abstract loops.
 
 ## Style Contract
 
@@ -112,6 +137,7 @@ For Atmos marketing, landing, launch, and social promo videos, treat these as re
 - Treat copy as edit rhythm: short, high-contrast headline cards and bottom caption pills can carry pacing, but every text beat must be paired with product proof or a meaningful transition.
 - Use a proof-first frame mix: real app screens, terminal/worktree states, chat surfaces, notifications, calendars, browser windows, agent chips, and review/preview moments. Avoid long runs of abstract brand cards.
 - Alternate frame families so the video feels designed: bright product stage, dark chapter card, dense UI proof, split workflow, phone/notification insert, agent/logo surface, and final CTA.
+- If Lottie is used, keep it subordinate to the story: interstitial punctuation, overlay detail, or a short hero lockup beat. It must not turn the whole promo into a motion-graphics reel with thin product proof.
 - Use varied scene choreography. Good options include focus pull, horizontal push, vertical reveal, shallow zoom, card/logo cascade, timeline/lane motion, subtle 3D flip, and staggered matrix reveal. Do not make every scene use the same fade/slide pattern.
 - Keep final CTA practical: include `https://atmos.land` and GitHub side by side for public promo videos.
 
@@ -138,6 +164,7 @@ Use `$hyperframes` for exact composition rules, but enforce these Atmos-specific
 - Use product screenshots at their natural colors and frame them for inspection, not as blurred background decoration.
 - Avoid hero/source assets that are purely atmospheric when the viewer needs to understand the product.
 - Prefer designed edits over default fades: match cuts, quick scale punches, masked wipes, crop reveals, pan/zoom over product captures, and title-card contrast shifts.
+- Layer Lottie inserts deliberately. Fade or wipe them in and out with the scene edit, and avoid leaving a looping Lottie asset pinned over the same proof frame for too long.
 - Use bottom caption pills sparingly as a rhythm track for short narration, but keep them within a safe area and off the primary UI details.
 - If a scene is mostly text, make the typography itself the composition: strong weight contrast, large scale, deliberate whitespace, and a clear entrance/exit gesture.
 
@@ -186,13 +213,15 @@ If available and stable, also run `npm run check:full`. If HyperFrames `validate
 
 After rendering, verify:
 
+- Any Lottie scene used by the video was first validated and frame-checked in the official `$text-to-lottie` player workflow before being mirrored into the HyperFrames project.
 - `ffprobe` reports expected duration, resolution, frame rate, and audio stream.
 - App public copies match artifacts with `shasum -a 256`.
 - Audio has no unintended mid-track silence with `silencedetect` when music is present.
 - A 1fps contact sheet of the rendered video shows varied frame families, no long dead stretches, no repeated default fade/slide pattern, and enough real product proof to explain the offer without reading the source prompt.
+- Lottie overlays render cleanly in HyperFrames with correct alpha, timing, scale, and no blank first frame, cropping, or missing referenced assets.
 - `rg` finds no old paths such as `apps/landing/hyperframes`, `renders/`, or `exports/` in newly written project docs/scripts unless intentionally documenting a migration.
-- No generated `node_modules/`, `.render-frames/`, or mirrored preview audio are tracked.
+- No generated `node_modules/`, `.render-frames/`, mirrored preview audio, or throwaway Lottie workbench files are tracked.
 
 ## Final Response
 
-Report the project path, artifact paths, app public copies, commands run, and any warnings that remain. If app assets were copied, state clearly that the app deployable files are copies and `artifacts/` remains the creative source of truth.
+Report the project path, artifact paths, any Lottie source/runtime asset paths, app public copies, commands run, and any warnings that remain. If app assets were copied, state clearly that the app deployable files are copies and `artifacts/` remains the creative source of truth.

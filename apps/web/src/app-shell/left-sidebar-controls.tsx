@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   CSS,
   Collapsible,
@@ -207,13 +208,18 @@ export function TwoColumnSidebarToggleButton({
   collapsed: boolean;
   onClick: () => void;
 }) {
+  const t = useTranslations("AppShell.chrome");
+  const label = collapsed
+    ? t("leftSidebarControls.expandFirstColumn")
+    : t("leftSidebarControls.collapseFirstColumn");
+
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      aria-label={collapsed ? "Expand first column" : "Collapse first column"}
-      title={collapsed ? "Expand first column" : "Collapse first column"}
+      aria-label={label}
+      title={label}
     >
       {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
     </button>
@@ -452,6 +458,8 @@ export function GroupedWorkspaceTwoColumnRightContent({
   renderWorkspaceKanbanCard: (entry: FlattenedWorkspaceEntry) => React.ReactNode;
   onTogglePrimaryPanel: () => void;
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-sidebar-border">
@@ -459,7 +467,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div className="min-w-0">
               <div className="truncate text-sm font-medium text-sidebar-foreground">
-                {selectedGroup?.label ?? "Select a group"}
+                {selectedGroup?.label ?? t("leftSidebarControls.selectGroup")}
               </div>
             </div>
           </div>
@@ -474,7 +482,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
       <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
         {!selectedGroup ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
-            Select a group to browse its workspaces.
+            {t("leftSidebarControls.selectGroupDescription")}
           </div>
         ) : (
           <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
@@ -579,6 +587,8 @@ export function ProjectWorkspaceTwoColumnRightContent({
   onUpdateWorkspaceWorkflowStatus: ProjectItemProps["onUpdateWorkspaceWorkflowStatus"];
   onWorkspacesExpandedChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   const renderProjectWorkspaceEntry = (workspace: Workspace): FlattenedWorkspaceEntry | null => {
     if (!selectedProject) return null;
     return {
@@ -654,7 +664,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
               </div>
             ) : (
               <div className="flex h-full items-center px-3 text-sm text-muted-foreground">
-                Select a project
+                {t("leftSidebarControls.selectProject")}
               </div>
             )}
           </div>
@@ -669,7 +679,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
       <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
-            Select a project to browse its workspaces.
+            {t("leftSidebarControls.selectProjectDescription")}
           </div>
         ) : (
           <div className="space-y-2">
@@ -680,7 +690,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 className="space-y-1.5"
               >
                 <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
-                  <span className="truncate">Pinned</span>
+                  <span className="truncate">{t("leftSidebarControls.pinned")}</span>
                   <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isPinnedExpanded && "rotate-90")} />
                   <span className="ml-auto text-[10px] text-muted-foreground/80">
                     {selectedProjectPinnedEntries.length}
@@ -723,7 +733,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                               ) : (
                                 renderWorkspaceItemRow(entry, {
                                   sortingDisabled: isPinnedSortingDisabled,
-                                  sortingDisabledMessage: "Clear workspace filters before reordering pinned workspaces.",
+                                  sortingDisabledMessage: t("leftSidebarControls.clearWorkspaceFiltersBeforeReordering"),
                                 })
                               ),
                             )}
@@ -742,7 +752,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 className="space-y-1.5"
               >
                 <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
-                  <span className="truncate">Workspaces</span>
+                  <span className="truncate">{t("leftSidebarControls.workspaces")}</span>
                   <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isWorkspacesExpanded && "rotate-90")} />
                   <span className="ml-auto text-[10px] text-muted-foreground/80">
                     {selectedProjectUnpinnedWorkspaces.length}
@@ -754,7 +764,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                       {unpinnedList}
                       {selectedProjectUnpinnedWorkspaces.length === 0 ? (
                         <div className="px-1 py-2 text-sm text-muted-foreground">
-                          No workspaces.
+                          {t("leftSidebarControls.noWorkspaces")}
                         </div>
                       ) : null}
                     </div>
@@ -766,7 +776,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 {unpinnedList}
                 {selectedProjectUnpinnedWorkspaces.length === 0 ? (
                   <div className="px-3 py-4 text-sm text-muted-foreground">
-                    No workspaces.
+                    {t("leftSidebarControls.noWorkspaces")}
                   </div>
                 ) : null}
               </section>

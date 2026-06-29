@@ -2,6 +2,7 @@
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertCircle,
   Clock3,
@@ -106,6 +107,8 @@ interface UsagePopoverProps {
 }
 
 export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, onPopoverCloseAutoFocus }: UsagePopoverProps = {}) {
+  const t = useTranslations("appShell.usagePopover");
+  const locale = useLocale();
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
@@ -157,12 +160,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       const next = await usageWsApi.getOverview(refresh, providerId);
       setOverview(next);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load usage overview");
+      setError(loadError instanceof Error ? loadError.message : t("errors.loadOverview"));
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [overview]);
+  }, [overview, t]);
 
   const toggleProviderSwitch = useCallback(async (providerId: string, enabled: boolean) => {
     setSwitchingProviderId(providerId);
@@ -172,11 +175,11 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       const next = await usageWsApi.setProviderSwitch(providerId, enabled);
       setOverview(next);
     } catch (switchError) {
-      setError(switchError instanceof Error ? switchError.message : "Failed to update provider switch");
+      setError(switchError instanceof Error ? switchError.message : t("errors.updateProviderSwitch"));
     } finally {
       setSwitchingProviderId(null);
     }
-  }, []);
+  }, [t]);
 
   const toggleAllProvidersSwitch = useCallback(async (enabled: boolean) => {
     setSwitchingProviderId(ALL_PROVIDER_SWITCH_ID);
@@ -187,12 +190,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       setOverview(next);
     } catch (switchError) {
       setError(
-        switchError instanceof Error ? switchError.message : "Failed to update all provider switches"
+        switchError instanceof Error ? switchError.message : t("errors.updateAllProviderSwitches")
       );
     } finally {
       setSwitchingProviderId(null);
     }
-  }, []);
+  }, [t]);
 
   const addProviderApiKey = useCallback(
     async (providerId: string, region: string, apiKey: string) => {
@@ -203,12 +206,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
         const next = await usageWsApi.addProviderApiKey(providerId, region || null, apiKey);
         setOverview(next);
       } catch (addError) {
-        setError(addError instanceof Error ? addError.message : "Failed to add API key");
+        setError(addError instanceof Error ? addError.message : t("errors.addApiKey"));
       } finally {
         setSavingManualSetupProviderId(null);
       }
     },
-    []
+    [t]
   );
 
   const deleteProviderApiKey = useCallback(
@@ -220,12 +223,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
         const next = await usageWsApi.deleteProviderApiKey(providerId, keyId);
         setOverview(next);
       } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete API key");
+        setError(deleteError instanceof Error ? deleteError.message : t("errors.deleteApiKey"));
       } finally {
         setDeletingKeyId(null);
       }
     },
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -289,7 +292,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       return [
         {
           id: ALL_PROVIDER_ID,
-          label: "All",
+          label: t("all"),
           active: providers.some((provider) => provider.switch_enabled),
         },
         ...orderedProviders.map((provider) => ({
@@ -299,7 +302,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
         })),
       ];
     },
-    [overview, providerOrder]
+    [overview, providerOrder, t]
   );
 
   const carouselProviders = useMemo(
@@ -352,7 +355,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
         ? current
         : nextState
     );
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!open) {
@@ -401,8 +404,8 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       : selectedProvider?.last_updated_at ?? overview?.generated_at;
   const autoRefreshValue = overview?.auto_refresh.interval_minutes?.toString() ?? "";
   const autoRefreshTriggerLabel = autoRefreshValue
-    ? AUTO_REFRESH_OPTIONS.find((option) => option.value === autoRefreshValue)?.shortLabel ?? "Auto"
-    : "Auto";
+    ? AUTO_REFRESH_OPTIONS.find((option) => option.value === autoRefreshValue)?.shortLabel ?? t("auto")
+    : t("auto");
   const autoRefreshTargetMs =
     overview?.generated_at && overview?.auto_refresh.interval_minutes
       ? overview.generated_at * 1000 + overview.auto_refresh.interval_minutes * 60_000
@@ -410,7 +413,8 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const nextAutoRefreshHint = formatNextAutoRefreshHint(
     overview?.generated_at,
     overview?.auto_refresh.interval_minutes,
-    nowMs
+    nowMs,
+    { nextUpdateInLabel: t("formatters.nextUpdateIn") }
   );
   const isAllSelected = selectedProviderId === ALL_PROVIDER_ID;
   const showFooterActions = isFooterHovered || isAutoRefreshPopoverOpen;
@@ -467,12 +471,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       setIsAutoRefreshPopoverOpen(false);
     } catch (updateError) {
       setError(
-        updateError instanceof Error ? updateError.message : "Failed to update auto refresh"
+        updateError instanceof Error ? updateError.message : t("errors.updateAutoRefresh")
       );
     } finally {
       setIsUpdatingAutoRefresh(false);
     }
-  }, []);
+  }, [t]);
 
   const toggleFooterCarouselProvider = useCallback(async (providerId: string, enabled: boolean) => {
     setSwitchingFooterCarouselProviderId(providerId);
@@ -483,7 +487,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       setOverview(next);
     } catch (toggleError) {
       setError(
-        toggleError instanceof Error ? toggleError.message : "Failed to update footer carousel"
+        toggleError instanceof Error ? toggleError.message : t("errors.updateFooterCarousel")
       );
     } finally {
       setSwitchingFooterCarouselProviderId(null);
@@ -560,7 +564,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                     <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
                     <button
                       type="button"
-                      aria-label="Scroll providers left"
+                      aria-label={t("scrollProvidersLeft")}
                       onClick={() => {
                         providerScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" });
                         requestAnimationFrame(updateProviderScrollState);
@@ -575,7 +579,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                     </button>
                     <button
                       type="button"
-                      aria-label="Scroll providers right"
+                      aria-label={t("scrollProvidersRight")}
                       onClick={() => {
                         providerScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" });
                         requestAnimationFrame(updateProviderScrollState);
@@ -647,7 +651,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       />
                     </div>
                   ) : (
-                    <div className="px-4 text-sm text-foreground/90">Select a provider to inspect usage.</div>
+                    <div className="px-4 text-sm text-foreground/90">{t("selectProviderPrompt")}</div>
                   )}
                 </div>
                 </ScrollArea>
@@ -690,7 +694,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                               <button
                                 type="button"
                                 className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 text-[10px] font-medium hover:border-foreground/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-label="Configure auto refresh"
+                                aria-label={t("configureAutoRefresh")}
                                 disabled={isUpdatingAutoRefresh}
                               >
                                 <Clock3 className="size-3" />
@@ -707,7 +711,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                 <div className="flex items-start justify-between gap-4">
                                   <div className="space-y-1">
                                     <div className="text-xs font-medium text-foreground">
-                                      Auto Refresh ALL
+                                      {t("autoRefresh.title")}
                                     </div>
                                   </div>
                                   {nextAutoRefreshHint ? (
@@ -738,7 +742,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                     <ToggleGroupItem
                                       key={option.value}
                                       value={option.value}
-                                      aria-label={`Set auto refresh to ${option.label}`}
+                                      aria-label={t("autoRefresh.setInterval", { value: option.label })}
                                       title={option.label}
                                       className="rounded-md text-[11px]"
                                       disabled={isUpdatingAutoRefresh}
@@ -748,7 +752,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                   ))}
                                 </ToggleGroup>
                                 <div className="text-[11px] text-foreground/90">
-                                  Click the active interval again to turn it off.
+                                  {t("autoRefresh.turnOffHint")}
                                 </div>
                               </div>
                             </PopoverContent>
@@ -765,12 +769,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                           }
                           className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 hover:border-foreground/20 hover:text-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                           disabled={isRefreshing}
-                          aria-label="Refresh usage"
+                          aria-label={t("refreshUsage")}
                         >
                           {isRefreshing
                             ? <LoaderCircle className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center] animate-spin" />
                             : <RotateCcw className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]" />}
-                          <span className="text-[10px] font-medium">Refresh</span>
+                          <span className="text-[10px] font-medium">{t("refresh")}</span>
                         </button>
                       </motion.div>
                     ) : canCycleFooterInfo &&
@@ -786,7 +790,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                         className="absolute inset-0 inline-flex h-7 w-full items-center gap-1 whitespace-nowrap"
                       >
-                        <span className="text-[11px] text-foreground/90">Next update</span>
+                        <span className="text-[11px] text-foreground/90">{t("nextUpdate")}</span>
                         <AutoRefreshCountdownBadge targetTimeMs={autoRefreshTargetMs} />
                       </motion.div>
                     ) : (
@@ -800,7 +804,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                         className="absolute inset-0 inline-flex h-7 w-full items-center whitespace-nowrap"
                       >
-                        {error && overview ? error : `Updated ${formatTimestamp(displayedUpdatedAt)}`}
+                        {error && overview ? error : t("updatedAt", {
+                          value: formatTimestamp(displayedUpdatedAt, locale, { unknownLabel: t("formatters.unknown") }),
+                        })}
                       </motion.span>
                     )}
                   </AnimatePresence>
@@ -814,13 +820,13 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       <button
                         type="button"
                         className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                        aria-label="Why Keychain Access may be needed"
+                        aria-label={t("keychainAccessReason")}
                       >
                         <KeyRound className="size-3.5" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" align="center" className="max-w-65">
-                      Atmos may use Keychain Access to decrypt browser cookies for providers that only expose usage through signed-in web sessions. Keys stay local and are used only to read usage data.
+                      {t("keychainAccessTooltip")}
                     </TooltipContent>
                   </Tooltip>
 
@@ -829,7 +835,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       <button
                         type="button"
                         className="inline-flex items-center gap-1 text-muted-foreground/80 transition-colors hover:text-foreground"
-                        aria-label="Configure footer AI Usage carousel"
+                        aria-label={t("footerCarousel.configure")}
                       >
                         <Gauge className="size-3.5" />
                         {carouselProviders.filter((provider) => provider.footer_carousel_show).length > 0 ? (
@@ -847,15 +853,15 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                     >
                       <div className="flex items-start justify-between gap-3 px-2 pb-2 pt-1">
                         <div className="min-w-0">
-                          <div className="text-xs font-medium text-foreground">Footer carousel</div>
+                          <div className="text-xs font-medium text-foreground">{t("footerCarousel.title")}</div>
                           <div className="mt-0.5 text-[11px] text-foreground/75">
-                            Choose enabled AI Usage sources shown in the app footer.
+                            {t("footerCarousel.description")}
                           </div>
                         </div>
                         <Switch
                           checked={footerShowUsageCarousel}
                           onCheckedChange={(checked) => void setFooterShowUsageCarousel(!!checked)}
-                          aria-label="Show AI usage carousel in app footer"
+                          aria-label={t("footerCarousel.toggle")}
                         />
                       </div>
                         {carouselProviders.length > 0 ? (
@@ -892,7 +898,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         </div>
                         ) : (
                           <div className="px-2 py-3 text-[11px] text-foreground/75">
-                            No enabled AI Usage sources yet.
+                            {t("footerCarousel.noSources")}
                           </div>
                         )}
                     </PopoverContent>
@@ -915,7 +921,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
                 <button
-                  aria-label="Usage"
+                  aria-label={t("triggerAria")}
                   className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
                 >
                   <Gauge className="size-3.5" />
@@ -924,7 +930,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
             </TooltipTrigger>
             <TooltipContent>
               <div className="flex items-center gap-2">
-                <span>AI Quota Usage</span>
+                <span>{t("tooltipTitle")}</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" /><span className="text-xs">U</span>
                 </kbd>

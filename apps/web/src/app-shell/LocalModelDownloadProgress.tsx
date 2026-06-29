@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { TextShimmer } from "@workspace/ui";
@@ -13,6 +14,7 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 
 export function LocalModelDownloadProgress() {
+  const t = useTranslations("appShell.localModelDownload");
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -107,9 +109,9 @@ export function LocalModelDownloadProgress() {
     if (seconds >= 60) {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = Math.round(seconds % 60);
-      return `${minutes}min ${remainingSeconds}s`;
+      return t("time.minutesSeconds", { minutes, seconds: remainingSeconds });
     }
-    return `${Math.round(seconds)}s`;
+    return t("time.seconds", { seconds: Math.round(seconds) });
   };
 
   const handleClick = () => {
@@ -118,10 +120,10 @@ export function LocalModelDownloadProgress() {
     setActiveSettingTab("ai");
   };
 
-  const downloadText = isDownloadingRuntime ? "Downloading runtime" : "Downloading model";
+  const downloadText = isDownloadingRuntime ? t("downloadingRuntime") : t("downloadingModel");
   const progressText = `${Math.round(progress)}%`;
   const fullDownloadText = etaSeconds
-    ? `${downloadText} — ~${formatTimeRemaining(etaSeconds)} remaining`
+    ? t("downloadingWithEta", { label: downloadText, time: formatTimeRemaining(etaSeconds) })
     : downloadText;
 
   return (
@@ -134,7 +136,7 @@ export function LocalModelDownloadProgress() {
         onClick={handleClick}
         onMouseEnter={() => setIsExpanded(true)}
         className="flex h-full items-center rounded-md px-2 transition-all outline-none hover:cursor-pointer hover:bg-accent/50"
-        title="Click to view download progress in settings"
+        title={t("openSettings")}
       >
         <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
         <span className={`ml-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-foreground transition-all duration-500 ease-out ${isExpanded ? 'max-w-16' : 'max-w-16'}`}>

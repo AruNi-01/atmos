@@ -1,5 +1,6 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import {
   BaseBoxShapeUtil,
   T,
@@ -15,6 +16,9 @@ import {
   type TLShapeId,
 } from "tldraw";
 import { getIndexAbove, getIndexBetween, sortByIndex, type IndexKey } from "@tldraw/utils";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { TerminalContextScope } from "@/api/rest-api";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 
@@ -26,7 +30,6 @@ export const CANVAS_TERMINAL_PIN_STATE_EVENT = "canvas-terminal-pin-state-change
 export const CANVAS_TERMINAL_SHAPES_REMOVED_EVENT = "canvas-terminal-shapes-removed";
 export const CANVAS_TERMINAL_CLOSE_REQUEST_EVENT = "canvas-terminal-close-request";
 const DEFAULT_PAGE_ID = "page:page";
-const DEFAULT_PAGE_NAME = "Page 1";
 const SESSION_SNAPSHOT_VERSION = 0;
 
 export type CanvasTerminalShapeProps = {
@@ -58,6 +61,23 @@ declare module "tldraw" {
 export type CanvasTerminalShape = TLShape<typeof CANVAS_TERMINAL_SHAPE_TYPE>;
 
 export const CANVAS_TERMINAL_DEFAULT_SIZE = { w: 720, h: 420 } as const;
+
+let cachedCanvasTerminalShapeLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasTerminalShapeTranslator: any = null;
+
+function canvasTerminalShapeT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedCanvasTerminalShapeTranslator || cachedCanvasTerminalShapeLocale !== locale) {
+    cachedCanvasTerminalShapeLocale = locale;
+    cachedCanvasTerminalShapeTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.terminalShape",
+    });
+  }
+  return cachedCanvasTerminalShapeTranslator(key as never);
+}
 
 export type CanvasTerminalCloseRequestDetail = {
   contextScope: TerminalContextScope;
@@ -113,8 +133,8 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
       projectName: "",
       workspaceName: "",
       localPath: "",
-      terminalName: "Canvas Terminal",
-      tmuxWindowName: "Canvas Terminal",
+      terminalName: canvasTerminalShapeT("defaultTitle"),
+      tmuxWindowName: canvasTerminalShapeT("defaultTitle"),
       sourceTerminalTabId: "terminal",
       paneAgent: undefined,
       isNewTerminal: true,
@@ -356,7 +376,7 @@ function ensurePage(snapshot: TLEditorSnapshot) {
     store[pageId] = {
       id: pageId,
       typeName: "page",
-      name: DEFAULT_PAGE_NAME,
+      name: canvasTerminalShapeT("defaultPageName"),
       index: "a1" as IndexKey,
       meta: {},
     } satisfies TLPage;

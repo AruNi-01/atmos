@@ -1,6 +1,8 @@
 "use client";
 
+import * as React from "react";
 import { create } from "zustand";
+import { useTranslations } from "next-intl";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 
 export type PushServerType = "ntfy" | "bark" | "gotify" | "custom_webhook";
@@ -57,12 +59,29 @@ interface NotificationSettingsStore {
   testPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
+export type NotificationSettingsFieldUpdater = NotificationSettingsStore["updateField"];
+
 async function getBase(): Promise<string> {
   const config = await getRuntimeApiConfig();
   return httpBase(config);
 }
 
-export const useNotificationSettingsStore = create<NotificationSettingsStore>(
+type NotificationSettingsStoreTranslator = ReturnType<typeof useTranslations>;
+
+let notificationSettingsTranslator: NotificationSettingsStoreTranslator | null = null;
+
+function notificationSettingsStoreText(key: "unknownError"): string {
+  if (notificationSettingsTranslator) {
+    return notificationSettingsTranslator(key);
+  }
+
+  switch (key) {
+    case "unknownError":
+      return "Unknown error";
+  }
+}
+
+const notificationSettingsStore = create<NotificationSettingsStore>(
   (set, get) => ({
     settings: DEFAULT_SETTINGS,
     _version: 0,
@@ -156,9 +175,29 @@ export const useNotificationSettingsStore = create<NotificationSettingsStore>(
       } catch (e) {
         return {
           ok: false,
-          error: e instanceof Error ? e.message : "Unknown error",
+          error: e instanceof Error ? e.message : notificationSettingsStoreText("unknownError"),
         };
       }
     },
   })
+);
+
+export const useNotificationSettingsStore = Object.assign(
+  function useNotificationSettingsStore(
+    ...args: Parameters<typeof notificationSettingsStore>
+  ) {
+    const t = useTranslations("settings.notificationStore");
+
+    React.useEffect(() => {
+      notificationSettingsTranslator = t;
+      return () => {
+        if (notificationSettingsTranslator === t) {
+          notificationSettingsTranslator = null;
+        }
+      };
+    }, [t]);
+
+    return notificationSettingsStore(...args);
+  },
+  notificationSettingsStore,
 );

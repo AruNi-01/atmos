@@ -21,8 +21,10 @@ bun run --cwd e2e install:browsers
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `E2E_WEB_PORT` | `3330` | Local Next.js dev server port when Playwright starts web. |
+| `E2E_WEB_PORT` | `3030` | Local Next.js dev server port when Playwright cannot run the single-server mode. |
 | `E2E_API_PORT` | `30303` | API port compiled into the web app via `NEXT_PUBLIC_API_PORT`. |
+| `E2E_SINGLE_SERVER` | `1` | Set to `0` to disable the single-process API+static-web mode and fall back to a separate API + Next.js web port. |
+| `E2E_SEED_PROJECT_PATH` | unset | Optional local git repository path to prefer when creating a seed project for smoke setup data. |
 | `E2E_BASE_URL` | `http://localhost:$E2E_WEB_PORT` | Existing app URL to test. When set, Playwright does not start web. |
 | `E2E_START_WEB=0` | unset | Do not start the web server; useful when another tool owns the app process. |
 | `E2E_REUSE_SERVER=1` | unset | Reuse an already running server on `E2E_WEB_PORT`; disabled by default to avoid testing the wrong app. |

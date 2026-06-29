@@ -5,6 +5,7 @@ import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 
 interface PreviewWindowStateOptions {
   isMaximized?: boolean;
+  reserveDesktopWindowControlsInset?: boolean;
   setIsMaximized?: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -55,7 +56,9 @@ export function usePreviewWindowState(options: PreviewWindowStateOptions = {}) {
   }, []);
 
   const needsDesktopPreviewSafeInset =
-    isMaximized && isMacDesktop && !isDesktopWindowFullscreen;
+    (isMaximized || options.reserveDesktopWindowControlsInset === true) &&
+    isMacDesktop &&
+    !isDesktopWindowFullscreen;
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {

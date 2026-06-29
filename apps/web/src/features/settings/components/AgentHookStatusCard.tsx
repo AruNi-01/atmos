@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Collapsible,
@@ -53,6 +54,7 @@ const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
 ];
 
 export function AgentHookStatusCard() {
+  const t = useTranslations('settings.agentHookStatusCard');
   const [report, setReport] = React.useState<AgentHookInstallReport | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [acting, setActing] = React.useState(false);
@@ -155,9 +157,9 @@ export function AgentHookStatusCard() {
             <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
           </span>
           <div className="min-w-0">
-            <p className="text-base font-medium text-foreground">Agent Hook Status</p>
+            <p className="text-base font-medium text-foreground">{t('title')}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Hooks inject into local Agent tool configs so Atmos can track their running state.
+              {t('description')}
             </p>
           </div>
         </CollapsibleTrigger>
@@ -167,10 +169,10 @@ export function AgentHookStatusCard() {
             size="sm"
             onClick={handleInstallAll}
             disabled={acting || loading}
-            title="Install detected agent hooks"
+            title={t('actions.installAllTitle')}
           >
             {acting ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <PlugZap className="size-4" />}
-            Install All
+            {t('actions.installAll')}
           </Button>
           {anyInstalled && (
             <Button
@@ -179,10 +181,10 @@ export function AgentHookStatusCard() {
               onClick={handleUninstallAll}
               disabled={acting || loading}
               className="text-destructive hover:text-destructive"
-              title="Uninstall managed agent hooks"
+              title={t('actions.uninstallAllTitle')}
             >
               <Trash2 className="size-4" />
-              Uninstall All
+              {t('actions.uninstallAll')}
             </Button>
           )}
         </div>
@@ -218,11 +220,11 @@ export function AgentHookStatusCard() {
                         </span>
                       )}
                       {!tool.detected && (
-                        <span className="text-xs text-muted-foreground">Not detected</span>
+                        <span className="text-xs text-muted-foreground">{t('status.notDetected')}</span>
                       )}
                       {tool.error && (
                         <span className="truncate text-xs text-destructive" title={tool.error}>
-                          Error: {tool.error}
+                          {t('status.error', { error: tool.error })}
                         </span>
                       )}
                     </div>
@@ -235,8 +237,8 @@ export function AgentHookStatusCard() {
                             className="size-6 text-destructive hover:text-destructive"
                             disabled={isBusy || acting}
                             onClick={() => handleUninstallTool(key)}
-                            aria-label={`Uninstall ${label} hooks`}
-                            title={`Uninstall ${label} hooks`}
+                            aria-label={t('actions.uninstallTool', { label })}
+                            title={t('actions.uninstallTool', { label })}
                           >
                             {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Trash2 className="size-3" />}
                           </Button>
@@ -247,8 +249,8 @@ export function AgentHookStatusCard() {
                             className="size-6 text-emerald-500 hover:text-emerald-500"
                             disabled={isBusy || acting}
                             onClick={() => handleInstallTool(key)}
-                            aria-label={`Install ${label} hooks`}
-                            title={`Install ${label} hooks`}
+                            aria-label={t('actions.installTool', { label })}
+                            title={t('actions.installTool', { label })}
                           >
                             {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <PlugZap className="size-3" />}
                           </Button>
@@ -261,7 +263,7 @@ export function AgentHookStatusCard() {
             })
           ) : (
             <div className="px-2 py-4 text-sm text-muted-foreground">
-              {!anyDetected && 'No supported agent tools detected on this system.'}
+              {!anyDetected && t('empty')}
             </div>
           )}
         </div>

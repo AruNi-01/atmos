@@ -17,6 +17,7 @@ import {
 } from '@workspace/ui';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { fsApi, appApi } from '@/api/ws-api';
 import { Workspace } from '@/shared/types/domain';
@@ -35,6 +36,8 @@ interface QuickOpenProps {
 import { readQuickOpenLastUsed, writeQuickOpenLastUsed } from '@/shared/stores/use-ui-pref-hooks';
 
 export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
+  const t = useTranslations('appShell');
+
   const [lastUsedApp, setLastUsedApp] = useState<QuickOpenAppName>('Finder');
   const [homeDir, setHomeDir] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -76,12 +79,12 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
       await appApi.openWith(appName, path);
     } catch (error) {
       toastManager.add({
-        title: 'Failed to open',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('quickOpen.failedToOpen'),
+        description: error instanceof Error ? error.message : t('quickOpen.unknownError'),
         type: 'error'
       });
     }
-  }, [getWorktreePath]);
+  }, [getWorktreePath, t]);
 
   const handleMainClick = React.useCallback(() => {
     handleOpenApp(lastUsedApp);
@@ -111,14 +114,14 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
     };
   }, [handleMainClick]);
 
+  const currentApp = QUICK_OPEN_APP_MAP[lastUsedApp] || QUICK_OPEN_APP_MAP['Finder'];
+  const CurrentLabel = currentApp?.label || t('quickOpen.open');
+
   useHotkeys('mod+o', handleMainClick, {
     enableOnFormTags: true,
     preventDefault: true,
-    description: 'Open in external app'
+    description: t('quickOpen.hotkeyDescription', { app: CurrentLabel })
   });
-
-  const currentApp = QUICK_OPEN_APP_MAP[lastUsedApp] || QUICK_OPEN_APP_MAP['Finder'];
-  const CurrentLabel = currentApp?.label || 'Open';
 
   return (
     <div
@@ -130,13 +133,13 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
         onClick={handleMainClick}
         onMouseEnter={() => setIsExpanded(true)}
         className="flex h-full items-center overflow-hidden rounded-l-md border-r border-border/50 px-2 transition-all outline-none hover:cursor-pointer hover:bg-accent/50"
-        title={`Open in ${CurrentLabel} (Cmd+O)`}
+        title={t('quickOpen.openWithShortcut', { app: CurrentLabel })}
       >
         <span className="flex size-4 shrink-0 items-center justify-center">
           <QuickOpenAppIcon iconName={currentApp.iconName} themed={currentApp.themed} className="size-3.5" />
         </span>
         <span className={`ml-0 overflow-hidden whitespace-nowrap text-[13px] font-medium text-muted-foreground transition-all duration-200 ease-out ${isExpanded ? 'ml-2 max-w-24 opacity-100 text-foreground' : 'max-w-0 opacity-0'}`}>
-          Open
+          {t('quickOpen.open')}
         </span>
         <kbd className={`pointer-events-none hidden h-4 select-none items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-foreground/90 transition-all duration-200 ease-out sm:flex ${isExpanded ? 'ml-2 max-w-16 px-1.5 opacity-100' : 'ml-0 max-w-0 px-0 opacity-0'}`}>
           <Command className="size-3" /><span className="text-xs">O</span>
@@ -181,7 +184,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="cursor-pointer">
               <QuickOpenAppIcon iconName="vscode" className="mr-2 size-4" />
-              <span>VS Code</span>
+              <span>{t('quickOpen.vsCode')}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {getQuickOpenAppsByGroup('vscode').map((app) => (
@@ -196,7 +199,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="cursor-pointer">
               <QuickOpenAppIcon iconName="jet_brains" className="mr-2 size-4" />
-              <span>JetBrains</span>
+              <span>{t('quickOpen.jetbrains')}</span>
             </DropdownMenuSubTrigger>
 
             <DropdownMenuSubContent>
@@ -213,7 +216,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
           <DropdownMenuItem className="cursor-pointer" onClick={handleCopyPath}>
             <Copy className="mr-2 size-4" />
-            <span>Copy path</span>
+            <span>{t('quickOpen.copyPath')}</span>
           </DropdownMenuItem>
 
         </DropdownMenuContent>

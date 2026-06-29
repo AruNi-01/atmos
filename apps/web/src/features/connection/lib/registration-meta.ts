@@ -1,9 +1,30 @@
+import { createTranslator } from 'next-intl';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 export type RegistrationMeta = {
   via: string;
   version?: string;
 };
+
+let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRuntimeTranslator: any = null;
+
+function runtimeT(key: string): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
+    cachedRuntimeLocale = locale;
+    cachedRuntimeTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'project.runtime',
+    });
+  }
+  return cachedRuntimeTranslator(key as never);
+}
 
 const WEB_APP_VERSION =
   typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_VERSION
@@ -44,19 +65,24 @@ export async function buildRegistrationMeta(): Promise<RegistrationMeta> {
   };
 }
 
-const VIA_LABELS: Record<string, string> = {
-  web: 'Web app',
-  desktop: 'Desktop',
-  cli: 'CLI',
-  env: 'Install script',
-  'local-web-runtime': 'Local web runtime',
-};
-
 export function formatRegistrationVia(via: string | undefined): string {
   if (!via?.trim()) {
     return '—';
   }
-  return VIA_LABELS[via] ?? via;
+  switch (via) {
+    case 'web':
+      return runtimeT('registrationMeta.via.web');
+    case 'desktop':
+      return runtimeT('registrationMeta.via.desktop');
+    case 'cli':
+      return runtimeT('registrationMeta.via.cli');
+    case 'env':
+      return runtimeT('registrationMeta.via.env');
+    case 'local-web-runtime':
+      return runtimeT('registrationMeta.via.localWebRuntime');
+    default:
+      return via;
+  }
 }
 
 export function registrationMetaFromRecord(

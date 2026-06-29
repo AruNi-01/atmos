@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocale, useTranslations } from 'next-intl';
 import { useQueryStates } from 'nuqs';
 import { rightSidebarModalParams } from '@/shared/lib/nuqs/searchParams';
 import {
@@ -30,6 +31,7 @@ import {
   Textarea,
 } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import type { DragEndEvent,
   DragStartEvent } from '@workspace/ui';
 import {
@@ -142,6 +144,9 @@ interface MetadataControlGroupProps {
   workflowStatus?: WorkspaceWorkflowStatus;
   labels?: WorkspaceLabel[];
   workspaceLabels: WorkspaceLabel[];
+  statusLabel: string;
+  priorityLabel: string;
+  labelsLabel: string;
   onUpdatePriority: (projectId: string, workspaceId: string, priority: WorkspacePriority) => Promise<void>;
   onUpdateWorkflowStatus: (projectId: string, workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => Promise<void>;
   onUpdateLabels: (projectId: string, workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
@@ -156,6 +161,9 @@ function MetadataControlGroup({
   workflowStatus = 'in_progress',
   labels = [],
   workspaceLabels,
+  statusLabel,
+  priorityLabel,
+  labelsLabel,
   onUpdatePriority,
   onUpdateWorkflowStatus,
   onUpdateLabels,
@@ -165,7 +173,7 @@ function MetadataControlGroup({
   return (
     <div className="flex flex-col gap-2 rounded-md bg-muted/30 p-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">Status</span>
+        <span className="text-[11px] text-muted-foreground">{statusLabel}</span>
         <WorkspaceStatusSelect
           value={workflowStatus}
           onChange={(value) => void onUpdateWorkflowStatus(projectId, workspaceId, value)}
@@ -177,7 +185,7 @@ function MetadataControlGroup({
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">Priority</span>
+        <span className="text-[11px] text-muted-foreground">{priorityLabel}</span>
         <WorkspacePrioritySelect
           value={priority}
           onChange={(value) => void onUpdatePriority(projectId, workspaceId, value)}
@@ -189,7 +197,7 @@ function MetadataControlGroup({
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">Labels</span>
+        <span className="text-[11px] text-muted-foreground">{labelsLabel}</span>
         <WorkspaceLabelPicker
           labels={labels}
           availableLabels={workspaceLabels}
@@ -228,6 +236,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onOpenPullRequest,
   onOpenActionRun,
 }) => {
+  const locale = useLocale();
+  const t = useTranslations('Workspace.components.overviewTab');
+  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const openFile = useEditorStore(s => s.openFile);
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
   const updateWorkspaceWorkflowStatus = useProjectStore(s => s.updateWorkspaceWorkflowStatus);
@@ -368,7 +379,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     if (projectPath) {
       loadReviews();
     }
-  }, [effectivePath, projectPath]);
+  }, [effectivePath, projectPath, loadRequirement, loadTasks, loadNote, loadReviews]);
 
   const handleRefresh = useCallback(async () => {
     if (!effectivePath) return;
@@ -389,9 +400,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const handleStartRequirementEdit = useCallback(() => {
     if (!effectivePath) return;
-    setDraftRequirement(requirement ?? '# Requirement\n\n');
+    setDraftRequirement(requirement ?? t('requirement.defaultTemplate'));
     setIsEditingRequirement(true);
-  }, [effectivePath, requirement]);
+  }, [effectivePath, requirement, t]);
 
   const handleStartNoteEdit = useCallback(() => {
     if (!effectivePath) return;
@@ -474,6 +485,30 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     </DragOverlay>
   );
 
+  const getIssueStateLabel = useCallback((state?: string) => {
+    switch (state?.toLowerCase()) {
+      case 'open':
+        return t('githubIssue.states.open');
+      case 'closed':
+        return t('githubIssue.states.closed');
+      default:
+        return state ?? '';
+    }
+  }, [t]);
+
+  const getPullRequestStateLabel = useCallback((state?: string) => {
+    switch (state?.toUpperCase()) {
+      case 'OPEN':
+        return t('pullRequests.states.open');
+      case 'MERGED':
+        return t('pullRequests.states.merged');
+      case 'CLOSED':
+        return t('pullRequests.states.closed');
+      default:
+        return state?.toLowerCase() ?? '';
+    }
+  }, [t]);
+
   return (
     <>
       <div className="flex flex-col gap-5 p-6 max-w-6xl mx-auto animate-in fade-in duration-300">
@@ -492,11 +527,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </div>
                   <TooltipProvider delayDuration={300}>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="inline-flex items-center gap-1.5 min-w-0">
-                          <FolderOpen className="size-3.5 shrink-0" />
-                          <span className="font-mono truncate max-w-[280px]">{displayRootDirectory}</span>
-                        </div>
+                      <TooltipTrigger className="inline-flex items-center gap-1.5 min-w-0">
+                        <FolderOpen className="size-3.5 shrink-0" />
+                        <span className="font-mono truncate max-w-[280px]">{displayRootDirectory}</span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-[10px] font-mono max-w-[520px] break-all">
                         {effectivePath || '-'}
@@ -519,7 +552,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               {isRefreshing ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
-              <span className="text-xs">Refresh</span>
+              <span className="text-xs">{t('actions.refresh')}</span>
             </Button>
           ) : null}
         </div>
@@ -531,7 +564,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4 border-b border-border">
               <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
                 <CheckSquare className="size-4" />
-                Tasks
+                {t('tasks.title')}
               </CardTitle>
               <div className="flex items-center gap-2.5">
                 <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -574,7 +607,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <CardHeader className="py-3 px-4 border-b border-border">
               <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
                 <Info className="size-4" />
-                Details
+                {t('details.title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-on-hover">
@@ -586,6 +619,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   workflowStatus={workflowStatus}
                   labels={labels}
                   workspaceLabels={workspaceLabels}
+                  statusLabel={t('metadata.status')}
+                  priorityLabel={t('metadata.priority')}
+                  labelsLabel={t('metadata.labels')}
                   onUpdatePriority={updateWorkspacePriority}
                   onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                   onUpdateLabels={updateWorkspaceLabels}
@@ -598,7 +634,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                   <div className="flex items-center gap-2.5">
                     <Clock className="size-3.5 text-muted-foreground" />
-                    <span className="text-[11px] text-muted-foreground">Created</span>
+                    <span className="text-[11px] text-muted-foreground">{t('details.created')}</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
                     {formatDate(createdAt)}
@@ -624,7 +660,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       </div>
                     </div>
                     <Badge variant="secondary" className="capitalize shrink-0">
-                      {githubIssue.state}
+                      {getIssueStateLabel(githubIssue.state)}
                     </Badge>
                   </div>
 
@@ -641,7 +677,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               )}
 
               <div className="space-y-2">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70">Code reviews</h3>
+                <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('codeReviews.title')}</h3>
                 <div className="grid gap-2">
                   {reviewsLoading ? (
                     <div className="space-y-1.5">
@@ -673,9 +709,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center py-4 text-center border border-dashed border-border/60 rounded-md">
                       <FileCheck className="size-3.5 text-muted-foreground/30 mb-1.5" />
-                      <h3 className="text-[11px] text-muted-foreground mb-0.5">No code reviews yet</h3>
+                      <h3 className="text-[11px] text-muted-foreground mb-0.5">{t('codeReviews.emptyTitle')}</h3>
                       <p className="text-[10px] text-muted-foreground/50 max-w-[200px]">
-                        Reports will appear here after reviews.
+                        {t('codeReviews.emptyDescription')}
                       </p>
                     </div>
                   )}
@@ -683,7 +719,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
 
               <div className="space-y-2.5 pt-1">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70">Pull requests</h3>
+                <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('pullRequests.title')}</h3>
                 <div className="grid gap-2">
                   {prsLoading ? (
                     <div className="space-y-1.5">
@@ -711,7 +747,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                       <GitPullRequestDraft className="size-3" />
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-[10px] py-1 px-2">Draft</TooltipContent>
+                                  <TooltipContent side="top" className="text-[10px] py-1 px-2">{t('pullRequests.draft')}</TooltipContent>
                                 </Tooltip>
                               )}
                               <Tooltip>
@@ -728,7 +764,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="text-[10px] py-1 px-2 capitalize font-medium">
-                                  {pr.state.toLowerCase()}
+                                  {getPullRequestStateLabel(pr.state)}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -741,18 +777,21 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <span className="font-medium text-foreground/80 truncate max-w-[80px]">
-                            {pr.author?.login || 'unknown'}
+                            {pr.author?.login || t('pullRequests.authorUnknown')}
                           </span>
                           {(pr.author?.is_bot || pr.author?.login?.endsWith('[bot]')) && (
                             <span className="text-[8px] px-1 rounded-sm border border-border bg-muted/40 text-muted-foreground font-bold py-0 leading-none h-3.5 flex items-center shrink-0 uppercase tracking-tighter">
-                              bot
+                              {t('pullRequests.authorBot')}
                             </span>
                           )}
                           <span className="opacity-30">•</span>
                           <span className="font-mono text-[10px]">#{pr.number}</span>
                           <span className="opacity-30 ml-auto flex items-center gap-1 shrink-0">
                             <Clock className="size-2.5" />
-                            {formatDistanceToNow(new Date(pr.createdAt), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(pr.createdAt), {
+                              addSuffix: true,
+                              locale: relativeTimeLocale,
+                            })}
                           </span>
                         </div>
                       </div>
@@ -760,7 +799,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center py-4 text-center bg-muted/10 rounded-md border border-dashed border-border/40">
                       <GitPullRequest className="size-3.5 text-muted-foreground/20 mb-1" />
-                      <span className="text-[10px] text-muted-foreground/50">No open PRs found</span>
+                      <span className="text-[10px] text-muted-foreground/50">{t('pullRequests.empty')}</span>
                     </div>
                   )}
                 </div>
@@ -768,14 +807,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
               <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between pr-1">
-                  <h3 className="text-[11px] font-medium text-muted-foreground/70">Actions</h3>
+                  <h3 className="text-[11px] font-medium text-muted-foreground/70">{t('actionsSection.title')}</h3>
                   {actionRuns && actionRuns.length > 0 && <ActionsSummaryHeader stats={stats} />}
                 </div>
                 <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar shrink-0">
                   {actionsLoading && (!actionRuns || actionRuns.length === 0) ? (
                     <div className="flex flex-col items-center justify-center p-4 text-muted-foreground/50 border rounded-md border-dashed border-border/40">
                       <Loader2 className="size-4 animate-spin opacity-50 mb-2" />
-                      <span className="text-[10px]">Loading workflows...</span>
+                      <span className="text-[10px]">{t('actionsSection.loading')}</span>
                     </div>
                   ) : latestRuns && latestRuns.length > 0 ? (
                     latestRuns.map((run: ActionRun) => {
@@ -824,7 +863,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     })
                   ) : (
                     <div className="flex flex-col items-center justify-center py-4 text-center bg-muted/10 rounded-md border border-dashed border-border/40">
-                      <span className="text-[10px] text-muted-foreground/50">No workflow runs detected</span>
+                      <span className="text-[10px] text-muted-foreground/50">{t('actionsSection.empty')}</span>
                     </div>
                   )}
                 </div>
@@ -832,7 +871,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 {latestRuns.length > 0 && (
                   <div className="pt-2 flex flex-col gap-2">
                     <p className="text-[10px] text-muted-foreground leading-normal italic px-1">
-                      Only the latest run per workflow is shown. Check full history on GitHub.
+                      {t('actionsSection.latestRunHint')}
                     </p>
                     <Button
                       variant="ghost"
@@ -841,7 +880,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       onClick={() => window.open(`https://github.com/${githubOwner}/${githubRepo}/actions?query=branch:${effectiveGitBranch}`, '_blank')}
                     >
                       <Github className="size-3" />
-                      View All Runs
+                      {t('actionsSection.viewAllRuns')}
                     </Button>
                   </div>
                 )}
@@ -856,7 +895,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
               <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
                 <Pencil className="size-3.5" />
-                Requirement specification
+                {t('requirement.title')}
               </CardTitle>
               <Button
                 variant="ghost"
@@ -866,7 +905,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 disabled={!effectivePath || isSavingRequirement}
               >
                 {isSavingRequirement ? <Loader2 className="size-3 animate-spin" /> : null}
-                {isEditingRequirement ? 'Save' : 'Edit'}
+                {isEditingRequirement ? t('actions.save') : t('actions.edit')}
               </Button>
             </CardHeader>
             <CardContent className="p-4">
@@ -887,7 +926,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     }
                   }}
                   autoFocus
-                  placeholder="# Requirement"
+                  placeholder={t('requirement.placeholder')}
                   className="min-h-[300px] resize-y rounded-md border-border bg-muted/30 font-mono text-[13px] leading-relaxed"
                 />
               ) : requirement ? (
@@ -902,16 +941,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       className="mt-4 h-8 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm transition-colors cursor-pointer"
                       onClick={() => setRequirementExpanded(!requirementExpanded)}
                     >
-                      {requirementExpanded ? 'Show less' : 'Show more'}
+                      {requirementExpanded ? t('requirement.showLess') : t('requirement.showMore')}
                     </Button>
                   )}
                 </div>
               ) : (
                 <div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
                   <Pencil className="size-5 text-muted-foreground/30 mb-2" />
-                  <h3 className="text-[13px] text-muted-foreground mb-1">No requirement yet</h3>
+                  <h3 className="text-[13px] text-muted-foreground mb-1">{t('requirement.emptyTitle')}</h3>
                   <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
-                    Add a requirement document for this workspace.
+                    {t('requirement.emptyDescription')}
                   </p>
                   <Button
                     variant="ghost"
@@ -921,7 +960,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer"
                   >
                     <Plus className="size-3.5" />
-                    Add Requirement
+                    {t('requirement.add')}
                   </Button>
                 </div>
               )}
@@ -932,7 +971,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
               <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
                 <StickyNote className="size-3.5" />
-                Note
+                {t('note.title')}
               </CardTitle>
               <Button
                 variant="ghost"
@@ -942,7 +981,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 disabled={!effectivePath || isSavingNote}
               >
                 {isSavingNote ? <Loader2 className="size-3 animate-spin" /> : null}
-                {isEditingNote ? 'Save' : 'Edit'}
+                {isEditingNote ? t('actions.save') : t('actions.edit')}
               </Button>
             </CardHeader>
             <CardContent className="p-4">
@@ -963,7 +1002,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     }
                   }}
                   autoFocus
-                  placeholder="No note yet."
+                  placeholder={t('note.placeholder')}
                   disabled={!effectivePath}
                   className="min-h-[300px] resize-y rounded-md border-border bg-muted/30 text-[13px] leading-relaxed"
                 />
@@ -976,9 +1015,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               ) : (
                 <div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
                   <StickyNote className="size-5 text-muted-foreground/30 mb-2" />
-                  <h3 className="text-[13px] text-muted-foreground mb-1">No note yet</h3>
+                  <h3 className="text-[13px] text-muted-foreground mb-1">{t('note.emptyTitle')}</h3>
                   <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
-                    Add notes for this workspace.
+                    {t('note.emptyDescription')}
                   </p>
                   <Button
                     variant="ghost"
@@ -988,7 +1027,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer"
                   >
                     <Plus className="size-3.5" />
-                    Add Note
+                    {t('note.add')}
                   </Button>
                 </div>
               )}

@@ -1,0 +1,348 @@
+name: CI - E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "apps/api/**"
+      - "crates/**"
+      - "packages/**"
+      - "e2e/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Justfile"
+      - "justfile"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/ci-e2e.yml"
+      - ".github/actions/setup-bun/**"
+      - ".github/actions/setup-e2e/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "apps/api/**"
+      - "crates/**"
+      - "packages/**"
+      - "e2e/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Justfile"
+      - "justfile"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/ci-e2e.yml"
+      - ".github/actions/setup-bun/**"
+      - ".github/actions/setup-e2e/**"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "E2E target to run"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - all-smoke
+          - smoke-stateless
+          - smoke-stateful
+          - smoke-routes
+          - smoke-onboarding
+          - smoke-app-shell
+          - smoke-project
+          - smoke-settings
+          - smoke-workspace
+          - specs
+          - full
+      publish_report:
+        description: "Publish merged HTML report to GitHub Pages"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Plan suites
+    runs-on: ubuntu-latest
+    outputs:
+      suites: ${{ steps.plan.outputs.suites }}
+      should_run: ${{ steps.plan.outputs.should_run }}
+      publish_report: ${{ steps.plan.outputs.publish_report }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            any_frontend:
+              - "apps/web/**"
+              - "apps/api/**"
+              - "crates/**"
+              - "packages/**"
+              - "e2e/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "Justfile"
+              - "justfile"
+              - "package.json"
+              - "bun.lock"
+              - ".github/workflows/ci-e2e.yml"
+              - ".github/actions/setup-bun/**"
+              - ".github/actions/setup-e2e/**"
+            global:
+              - "e2e/fixtures/**"
+              - "e2e/package.json"
+              - "e2e/scripts/**"
+              - "e2e/playwright.config.ts"
+              - "e2e/tests/smoke/support/**"
+              - "apps/web/package.json"
+              - "apps/api/**"
+              - "crates/**"
+              - "apps/web/src/app-shell/**"
+              - "apps/web/src/app/[[]locale[]]/**"
+              - "apps/web/src/providers/**"
+              - "apps/web/src/shared/**"
+              - "packages/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "Justfile"
+              - "justfile"
+              - "package.json"
+              - "bun.lock"
+              - ".github/workflows/ci-e2e.yml"
+              - ".github/actions/setup-bun/**"
+              - ".github/actions/setup-e2e/**"
+            routes:
+              - "e2e/tests/smoke/routes/**"
+            onboarding:
+              - "e2e/tests/smoke/onboarding/**"
+              - "apps/web/src/app/[[]locale[]]/setup/**"
+              - "apps/web/src/features/atmos-computer/**"
+              - "apps/web/src/features/connection/**"
+              - "apps/web/src/features/local-services/**"
+              - "apps/web/src/features/tunnel-connector/**"
+              - "apps/web/src/features/welcome/**"
+            app_shell:
+              - "e2e/tests/smoke/app-shell/**"
+              - "apps/web/src/app-shell/**"
+            project:
+              - "e2e/tests/smoke/project/**"
+              - "apps/web/src/features/project/**"
+            settings:
+              - "e2e/tests/smoke/settings/**"
+              - "apps/web/src/features/settings/**"
+            workspace:
+              - "e2e/tests/smoke/workspace/**"
+              - "apps/web/src/features/canvas/**"
+              - "apps/web/src/features/editor/**"
+              - "apps/web/src/features/files/**"
+              - "apps/web/src/features/git/**"
+              - "apps/web/src/features/selection/**"
+              - "apps/web/src/features/terminal/**"
+              - "apps/web/src/features/wiki/**"
+              - "apps/web/src/features/workspace/**"
+            specs:
+              - "e2e/tests/specs/**"
+
+      - name: Build suite plan
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'true' || 'false' }}
+          TARGET: ${{ github.event.inputs.target || 'auto' }}
+          REQUESTED_PUBLISH_REPORT: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_report && 'true' || 'false' }}
+          ANY_FRONTEND: ${{ steps.changes.outputs.any_frontend }}
+          GLOBAL: ${{ steps.changes.outputs.global }}
+          ROUTES: ${{ steps.changes.outputs.routes }}
+          ONBOARDING: ${{ steps.changes.outputs.onboarding }}
+          APP_SHELL: ${{ steps.changes.outputs.app_shell }}
+          PROJECT: ${{ steps.changes.outputs.project }}
+          SETTINGS: ${{ steps.changes.outputs.settings }}
+          WORKSPACE: ${{ steps.changes.outputs.workspace }}
+          SPECS: ${{ steps.changes.outputs.specs }}
+        run: node e2e/scripts/plan-ci-suites.cjs
+
+  run:
+    name: E2E - ${{ matrix.suite }}
+    needs: plan
+    if: needs.plan.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJson(needs.plan.outputs.suites) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-e2e
+
+      - name: Build API server
+        run: cargo build --bin api
+
+      - name: Run suite
+        working-directory: e2e
+        env:
+          CI: "1"
+        run: bun ./scripts/run-ci-suite.mjs "${{ matrix.suite }}"
+
+      - name: Upload blob report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-blob-${{ matrix.suite }}
+          path: e2e/reports/blob/${{ matrix.suite }}
+          if-no-files-found: error
+          retention-days: 7
+
+  merge:
+    name: Merge reports
+    needs: [plan, run]
+    if: ${{ always() && !cancelled() && needs.plan.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-e2e-pages-report
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      html_artifact_name: ${{ steps.meta.outputs.html_artifact_name }}
+      report_url: ${{ steps.pages_meta.outputs.report_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v5
+        with:
+          pattern: playwright-blob-*
+          merge-multiple: true
+          path: e2e/reports/blob-merged
+
+      - name: Merge Playwright reports
+        working-directory: e2e
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: reports/merged/html
+          PLAYWRIGHT_JSON_OUTPUT_DIR: reports/merged
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+        run: bunx playwright merge-reports --reporter=html,json ./reports/blob-merged
+
+      - name: Record artifact metadata
+        id: meta
+        run: echo "html_artifact_name=playwright-html-report" >> "$GITHUB_OUTPUT"
+
+      - name: Write GitHub summary
+        working-directory: e2e
+        run: node scripts/write-e2e-summary.cjs
+
+      - name: Upload merged HTML report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: e2e/reports/merged/html
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload merged JSON report
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-json-report
+          path: e2e/reports/merged/results.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Prepare GitHub Pages content
+        if: needs.plan.outputs.publish_report == 'true'
+        id: pages_meta
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        working-directory: e2e
+        run: node scripts/prepare-pages-report.cjs
+
+      - name: Deploy GitHub Pages report branch
+        if: needs.plan.outputs.publish_report == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: e2e/reports/pages-site
+          keep_files: true
+          enable_jekyll: false
+
+      - name: Comment on pull request with report URL
+        if: needs.plan.outputs.publish_report == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          REPORT_URL: ${{ steps.pages_meta.outputs.report_url }}
+        with:
+          script: |
+            const {
+              REPORT_COMMENT_MARKER,
+              buildPrCommentBody,
+              readJsonReport,
+            } = require("./e2e/scripts/e2e-report-utils.cjs");
+            const report = readJsonReport("e2e/reports/merged/results.json");
+            if (!report) {
+              core.setFailed("Merged JSON report was not generated.");
+              return;
+            }
+            const body = buildPrCommentBody(report, process.env.REPORT_URL);
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.type === "Bot" && comment.body?.includes(REPORT_COMMENT_MARKER)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Write GitHub summary with published report URL
+        if: needs.plan.outputs.publish_report == 'true'
+        run: |
+          {
+            echo "### Published HTML report"
+            echo
+            echo "- GitHub Pages URL: ${{ steps.pages_meta.outputs.report_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   cn,
 } from "@workspace/ui";
@@ -33,9 +34,6 @@ interface MessageTimelineItem {
   fileCount: number;
   isStreaming: boolean;
 }
-
-const EMPTY_USER_MESSAGE = "Untitled message";
-const WAITING_FOR_ASSISTANT = "Assistant response pending.";
 
 const timelineNavClassName = cn(
   "agent-message-timeline-nav absolute right-1 top-1/2 z-20 flex max-h-[min(62vh,420px)] -translate-y-1/2 flex-col items-end overflow-y-auto overflow-x-visible py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
@@ -99,6 +97,7 @@ function getAssistantSummary(
 function buildTimelineItems(
   entries: ThreadEntry[],
   userEntryIndices: number[],
+  emptyUserMessage: string,
 ): MessageTimelineItem[] {
   return userEntryIndices.flatMap((entryIndex, navIndex) => {
     const entry = entries[entryIndex];
@@ -106,7 +105,7 @@ function buildTimelineItems(
 
     const nextUserEntryIndex = userEntryIndices[navIndex + 1] ?? entries.length;
     const assistant = getAssistantSummary(entries, entryIndex, nextUserEntryIndex);
-    const userText = normalizePreviewText(entry.content) || EMPTY_USER_MESSAGE;
+    const userText = normalizePreviewText(entry.content) || emptyUserMessage;
 
     return [{
       entryIndex,
@@ -119,9 +118,9 @@ function buildTimelineItems(
   });
 }
 
-function getAttachmentLabel(count: number): string | null {
+function getAttachmentLabel(count: number, t: ReturnType<typeof useTranslations>): string | null {
   if (count <= 0) return null;
-  return count === 1 ? "1 attachment" : `${count} attachments`;
+  return count === 1 ? t("attachment.one") : t("attachment.other", { count });
 }
 
 function getTimelineBarScale(navIndex: number, activeNavIndex: number, hoveredNavIndex: number | null) {
@@ -147,10 +146,11 @@ export function AgentMessageTimelineNav({
   activeEntryIndex,
   onSelectEntry,
 }: AgentMessageTimelineNavProps) {
+  const t = useTranslations("Agent.components.timelineNav");
   const [hoveredNavIndex, setHoveredNavIndex] = React.useState<number | null>(null);
   const items = React.useMemo(
-    () => buildTimelineItems(entries, userEntryIndices),
-    [entries, userEntryIndices],
+    () => buildTimelineItems(entries, userEntryIndices, t("untitledMessage")),
+    [entries, t, userEntryIndices],
   );
 
   if (items.length === 0) return null;
@@ -161,7 +161,7 @@ export function AgentMessageTimelineNav({
   return (
     <div
       className={timelineNavClassName}
-      aria-label="Message navigation"
+      aria-label={t("navigation")}
       onPointerLeave={() => setHoveredNavIndex(null)}
       role="navigation"
     >
@@ -169,9 +169,9 @@ export function AgentMessageTimelineNav({
         const isActive = navIndex === activeNavIndex;
         const isEmphasized = hoveredNavIndex == null ? isActive : hoveredNavIndex === navIndex;
         const scale = getTimelineBarScale(navIndex, activeNavIndex, hoveredNavIndex);
-        const attachmentLabel = getAttachmentLabel(item.fileCount);
+        const attachmentLabel = getAttachmentLabel(item.fileCount, t);
         const assistantSummary =
-          item.assistantSummary || (item.isStreaming ? "Assistant is responding..." : WAITING_FOR_ASSISTANT);
+          item.assistantSummary || (item.isStreaming ? t("assistantResponding") : t("assistantPending"));
 
         return (
           <HoverCard key={item.entryIndex} closeDelay={120} openDelay={80}>
@@ -179,7 +179,7 @@ export function AgentMessageTimelineNav({
               <button
                 type="button"
                 aria-current={isActive ? "true" : undefined}
-                aria-label={`Jump to message ${item.turnNumber}: ${item.userText}`}
+                aria-label={t("jumpToMessage", { turnNumber: item.turnNumber, userText: item.userText })}
                 className={timelineItemClassName}
                 onClick={() => onSelectEntry(item.entryIndex)}
                 onPointerEnter={() => setHoveredNavIndex(navIndex)}

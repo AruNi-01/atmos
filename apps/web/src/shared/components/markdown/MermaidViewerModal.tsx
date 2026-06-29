@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogTitle, cn } from "@workspace/ui";
 import { Minus, Plus, X } from "lucide-react";
 
@@ -39,6 +40,7 @@ export function MermaidViewerModal({
   svgContent,
   isDark,
 }: MermaidViewerModalProps) {
+  const t = useTranslations("shared.mermaidViewer");
   const [zoom, setZoom] = useState(1);
   const [zoomInput, setZoomInput] = useState("100");
   const [isEditingZoom, setIsEditingZoom] = useState(false);
@@ -121,14 +123,14 @@ export function MermaidViewerModal({
         showCloseButton={false}
         className="max-w-[95vw] sm:max-w-[95vw] max-h-[95vh] w-[min(1600px,95vw)] h-[min(900px,92vh)] p-0 overflow-hidden flex flex-col"
       >
-        <DialogTitle className="sr-only">Mermaid Diagram</DialogTitle>
+        <DialogTitle className="sr-only">{t("title")}</DialogTitle>
         {/* Toolbar */}
         <div className="flex items-center justify-end gap-1 px-3 py-2 shrink-0">
           <button
             onClick={handleZoomOut}
             disabled={zoom <= MIN_ZOOM}
             className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            title="Zoom out"
+            title={t("zoomOut")}
           >
             <Minus className="size-4" />
           </button>
@@ -160,7 +162,7 @@ export function MermaidViewerModal({
                 setZoomInput(String(Math.round(zoom * 100)));
               }}
               className="text-xs text-muted-foreground hover:text-foreground min-w-[3ch] text-center tabular-nums cursor-pointer"
-              title="Click to edit zoom"
+              title={t("editZoom")}
             >
               {Math.round(zoom * 100)}%
             </button>
@@ -169,14 +171,14 @@ export function MermaidViewerModal({
             onClick={handleZoomIn}
             disabled={zoom >= MAX_ZOOM}
             className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            title="Zoom in"
+            title={t("zoomIn")}
           >
             <Plus className="size-4" />
           </button>
           <button
             onClick={() => onOpenChange(false)}
             className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
-            title="Close"
+            title={t("close")}
           >
             <X className="size-4" />
           </button>

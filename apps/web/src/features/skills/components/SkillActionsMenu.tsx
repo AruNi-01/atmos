@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Checkbox,
@@ -45,20 +46,21 @@ function buildDeleteMessage(
   selectedPlacements: SkillPlacement[],
   selectedCount: number,
   totalCount: number,
+  t: ReturnType<typeof useTranslations>,
 ) {
   const hasSymlink = selectedPlacements.some(
     (placement) => placement.entry_kind === "symlink",
   );
   const scopeText =
     selectedCount === totalCount
-      ? "this skill from all selected managed locations"
-      : `these ${selectedCount} selected skill locations`;
+      ? t("confirm.deleteScopeAll")
+      : t("confirm.deleteScopeSelected", { count: selectedCount });
 
   if (hasSymlink) {
-    return `Delete ${scopeText}? Symlink entries are removed as links only. Their target files stay untouched.`;
+    return t("confirm.deleteDescriptionSymlink", { scope: scopeText });
   }
 
-  return `Delete ${scopeText}? This removes the installed files from the selected locations.`;
+  return t("confirm.deleteDescription", { scope: scopeText });
 }
 
 function buildConfirmCopy(
@@ -66,32 +68,33 @@ function buildConfirmCopy(
   selectedCount: number,
   totalCount: number,
   selectedPlacements: SkillPlacement[],
+  t: ReturnType<typeof useTranslations>,
 ) {
   const scopeText =
     selectedCount === totalCount
-      ? "all selected locations"
-      : `${selectedCount} selected location${selectedCount === 1 ? "" : "s"}`;
+      ? t("confirm.scopeAll")
+      : t("confirm.scopeSelected", { count: selectedCount });
 
   switch (action) {
     case "enable":
       return {
-        title: "Enable this skill?",
-        description: `This will restore the skill to ${scopeText}.`,
-        confirmLabel: "Enable",
+        title: t("confirm.enableTitle"),
+        description: t("confirm.enableDescription", { scope: scopeText }),
+        confirmLabel: t("actions.enable"),
         confirmVariant: "default" as const,
       };
     case "disable":
       return {
-        title: "Disable this skill?",
-        description: `This will move the skill out of agent-visible directories for ${scopeText}, without deleting its files.`,
-        confirmLabel: "Disable",
+        title: t("confirm.disableTitle"),
+        description: t("confirm.disableDescription", { scope: scopeText }),
+        confirmLabel: t("actions.disable"),
         confirmVariant: "secondary" as const,
       };
     case "delete":
       return {
-        title: "Delete this skill?",
-        description: buildDeleteMessage(selectedPlacements, selectedCount, totalCount),
-        confirmLabel: "Delete",
+        title: t("confirm.deleteTitle"),
+        description: buildDeleteMessage(selectedPlacements, selectedCount, totalCount, t),
+        confirmLabel: t("actions.delete"),
         confirmVariant: "destructive" as const,
       };
   }
@@ -112,9 +115,12 @@ function getActionablePlacements(skill: SkillInfo, action: SkillAction) {
   }
 }
 
-function formatAgentTitle(agent: string) {
+function formatAgentTitle(
+  agent: string,
+  t: ReturnType<typeof useTranslations>,
+) {
   return agent === "unified"
-    ? "Unified"
+    ? t("labels.unified")
     : agent.charAt(0).toUpperCase() + agent.slice(1);
 }
 
@@ -125,14 +131,18 @@ function formatPlacementPath(placement: SkillPlacement, action: SkillAction) {
   return placement.path;
 }
 
-function formatPlacementMeta(placement: SkillPlacement, action: SkillAction) {
+function formatPlacementMeta(
+  placement: SkillPlacement,
+  action: SkillAction,
+  t: ReturnType<typeof useTranslations>,
+) {
   if (action === "enable") {
-    return `Currently disabled at ${placement.path}`;
+    return t("meta.currentlyDisabledAt", { path: placement.path });
   }
   if (placement.status === "disabled") {
-    return `Currently in disabled storage`;
+    return t("meta.currentlyInDisabledStorage");
   }
-  return `Currently active`;
+  return t("meta.currentlyActive");
 }
 
 function groupPlacementsByPath(
@@ -212,16 +222,23 @@ function deriveLinkedSelection(
   };
 }
 
-function formatGroupTitle(group: PlacementGroup) {
-  return group.agents.map(formatAgentTitle).join(", ");
+function formatGroupTitle(
+  group: PlacementGroup,
+  t: ReturnType<typeof useTranslations>,
+) {
+  return group.agents.map((agent) => formatAgentTitle(agent, t)).join(", ");
 }
 
-function formatGroupMeta(group: PlacementGroup, action: SkillAction) {
-  const base = formatPlacementMeta(group.placements[0], action);
+function formatGroupMeta(
+  group: PlacementGroup,
+  action: SkillAction,
+  t: ReturnType<typeof useTranslations>,
+) {
+  const base = formatPlacementMeta(group.placements[0], action, t);
   if (group.agents.length <= 1) {
     return base;
   }
-  return `${base} · Shared by ${group.agents.length} agents`;
+  return `${base} · ${t("meta.sharedByAgents", { count: group.agents.length })}`;
 }
 
 function isUnifiedGroup(group: PlacementGroup, action: SkillAction) {
@@ -231,6 +248,22 @@ function isUnifiedGroup(group: PlacementGroup, action: SkillAction) {
 
 function entryKindIcon(entryKind: string) {
   return entryKind === "symlink" ? Link2 : Folder;
+}
+
+function formatEntryKindLabel(
+  entryKind: string,
+  t: ReturnType<typeof useTranslations>,
+) {
+  if (entryKind === "symlink") {
+    return t("entryKind.symlink");
+  }
+  if (entryKind === "file") {
+    return t("entryKind.file");
+  }
+  if (entryKind === "directory") {
+    return t("entryKind.directory");
+  }
+  return entryKind;
 }
 
 function TruncatedPath({
@@ -260,6 +293,7 @@ export function SkillActionsMenu({
   onDeleted,
   className,
 }: SkillActionsMenuProps) {
+  const t = useTranslations("skills.actionsMenu");
   const [open, setOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<SkillAction | null>(null);
   const [applyToAll, setApplyToAll] = useState(true);
@@ -271,8 +305,8 @@ export function SkillActionsMenu({
   const isMenuDisabled = !skill.manageable;
   const disabledReason =
     skill.scope === "inside_project"
-      ? "InsideTheProject skills are read-only and cannot be managed here."
-      : "This skill is read-only and cannot be managed.";
+      ? t("disabledReason.insideProject")
+      : t("disabledReason.readOnly");
 
   const actionablePlacements = confirmAction ? getActionablePlacements(skill, confirmAction) : [];
   const actionableGroups = confirmAction
@@ -304,6 +338,7 @@ export function SkillActionsMenu({
         selectedCount,
         actionableGroups.length,
         selectedActionablePlacements,
+        t,
       )
     : null;
   const isBusy = pendingAction !== null;
@@ -356,14 +391,14 @@ export function SkillActionsMenu({
       await refreshSkill();
       resetPopover();
       toastManager.add({
-        title: enabled ? "Skill enabled" : "Skill disabled",
+        title: enabled ? t("toasts.enabled.title") : t("toasts.disabled.title"),
         description: skill.title || skill.name,
         type: "success",
       });
     } catch (error) {
       toastManager.add({
-        title: enabled ? "Enable failed" : "Disable failed",
-        description: error instanceof Error ? error.message : "Please try again.",
+        title: enabled ? t("toasts.enabledFailed.title") : t("toasts.disabledFailed.title"),
+        description: error instanceof Error ? error.message : t("toasts.tryAgain"),
         type: "error",
       });
     } finally {
@@ -388,14 +423,14 @@ export function SkillActionsMenu({
       }
 
       toastManager.add({
-        title: "Skill deleted",
+        title: t("toasts.deleted.title"),
         description: skill.title || skill.name,
         type: "success",
       });
     } catch (error) {
       toastManager.add({
-        title: "Delete failed",
-        description: error instanceof Error ? error.message : "Please try again.",
+        title: t("toasts.deletedFailed.title"),
+        description: error instanceof Error ? error.message : t("toasts.tryAgain"),
         type: "error",
       });
     } finally {
@@ -437,7 +472,7 @@ export function SkillActionsMenu({
       onClick={(event) => event.stopPropagation()}
       className={cn("size-8 cursor-pointer rounded-lg", className)}
       disabled={isBusy || isMenuDisabled}
-      title="Manage skill"
+      title={t("manageSkill")}
     >
       {isBusy ? (
         <Loader2 className="size-4 animate-spin" />
@@ -510,7 +545,7 @@ export function SkillActionsMenu({
                     }}
                   />
                   <span className="text-sm font-medium text-foreground">
-                    Apply to all locations ({actionableGroups.length})
+                    {t("confirm.applyToAll", { count: actionableGroups.length })}
                   </span>
                 </label>
 
@@ -526,8 +561,11 @@ export function SkillActionsMenu({
                   >
                     <span className="text-sm text-foreground">
                       {applyToAll
-                        ? `Review locations (${actionableGroups.length})`
-                        : `Choose locations (${selectedCount}/${actionableGroups.length})`}
+                        ? t("confirm.reviewLocations", { count: actionableGroups.length })
+                        : t("confirm.chooseLocations", {
+                            selected: selectedCount,
+                            total: actionableGroups.length,
+                          })}
                     </span>
                     <ChevronDown
                       className={cn(
@@ -565,11 +603,11 @@ export function SkillActionsMenu({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-foreground">
-                                {formatGroupTitle(group)}
+                                {formatGroupTitle(group, t)}
                               </span>
                                 {isUnifiedGroup(group, confirmAction!) ? (
                                 <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                                  Unified
+                                  {t("labels.unified")}
                                 </span>
                               ) : null}
                               {(() => {
@@ -577,7 +615,7 @@ export function SkillActionsMenu({
                                 return (
                                   <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                                     <EntryKindIcon className="size-3" />
-                                    {group.entryKind}
+                                    {formatEntryKindLabel(group.entryKind, t)}
                                   </span>
                                 );
                               })()}
@@ -587,17 +625,17 @@ export function SkillActionsMenu({
                               className="mt-1 text-[11px] text-foreground"
                             />
                               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                                {formatGroupMeta(group, confirmAction!)}
+                                {formatGroupMeta(group, confirmAction!, t)}
                               </p>
                               {group.symlinkTarget ? (
                               <TruncatedPath
-                                value={`Target: ${group.symlinkTarget}`}
+                                value={`${t("labels.target")}: ${group.symlinkTarget}`}
                                 className="mt-1 text-[11px] text-muted-foreground"
                               />
                             ) : null}
                             {autoSelectedLocationKeys.includes(group.key) ? (
                               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                                Included automatically because its target is selected.
+                                {t("confirm.autoIncluded")}
                               </p>
                             ) : null}
                           </div>
@@ -613,11 +651,11 @@ export function SkillActionsMenu({
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-foreground">
-                              {formatGroupTitle(group)}
+                              {formatGroupTitle(group, t)}
                             </span>
                               {isUnifiedGroup(group, confirmAction!) ? (
                                 <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                                  Unified
+                                  {t("labels.unified")}
                                 </span>
                               ) : null}
                             {(() => {
@@ -625,7 +663,7 @@ export function SkillActionsMenu({
                               return (
                                 <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                                   <EntryKindIcon className="size-3" />
-                                  {group.entryKind}
+                                  {formatEntryKindLabel(group.entryKind, t)}
                                 </span>
                               );
                             })()}
@@ -645,11 +683,11 @@ export function SkillActionsMenu({
               <div className="rounded-lg border border-border bg-muted/20 p-3">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-foreground">
-                    {formatGroupTitle(actionableGroups[0])}
+                    {formatGroupTitle(actionableGroups[0], t)}
                   </p>
                   {isUnifiedGroup(actionableGroups[0], confirmAction!) ? (
                     <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                      Unified
+                      {t("labels.unified")}
                     </span>
                   ) : null}
                   {(() => {
@@ -657,7 +695,7 @@ export function SkillActionsMenu({
                     return (
                       <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                         <EntryKindIcon className="size-3" />
-                        {actionableGroups[0].entryKind}
+                        {formatEntryKindLabel(actionableGroups[0].entryKind, t)}
                       </span>
                     );
                   })()}
@@ -667,18 +705,18 @@ export function SkillActionsMenu({
                   className="mt-1 text-[11px] text-foreground"
                 />
                 <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                  {formatGroupMeta(actionableGroups[0], confirmAction!)}
+                  {formatGroupMeta(actionableGroups[0], confirmAction!, t)}
                 </p>
                 {actionableGroups[0].symlinkTarget ? (
                   <TruncatedPath
-                    value={`Target: ${actionableGroups[0].symlinkTarget}`}
+                    value={`${t("labels.target")}: ${actionableGroups[0].symlinkTarget}`}
                     className="mt-1 text-[11px] text-muted-foreground"
                   />
                 ) : null}
               </div>
             ) : (
               <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                No skill locations are available for this action.
+                {t("confirm.noLocations")}
               </div>
             )}
 
@@ -690,7 +728,7 @@ export function SkillActionsMenu({
                 disabled={isBusy}
                 onClick={() => setConfirmAction(null)}
               >
-                Back
+                {t("actions.back")}
               </Button>
               <Button
                 variant={confirmCopy.confirmVariant}
@@ -714,7 +752,7 @@ export function SkillActionsMenu({
                 onClick={() => setConfirmAction("enable")}
               >
                 <Eye className="size-4" />
-                Enable ({enableGroupCount})
+                {t("actions.enableWithCount", { count: enableGroupCount })}
               </Button>
             ) : null}
             {skill.can_toggle && disableGroupCount > 0 ? (
@@ -725,7 +763,7 @@ export function SkillActionsMenu({
                 onClick={() => setConfirmAction("disable")}
               >
                 <EyeOff className="size-4" />
-                Disable ({disableGroupCount})
+                {t("actions.disableWithCount", { count: disableGroupCount })}
               </Button>
             ) : null}
             {skill.can_delete ? (
@@ -736,7 +774,7 @@ export function SkillActionsMenu({
                 onClick={() => setConfirmAction("delete")}
               >
                 <Trash2 className="size-4" />
-                Delete
+                {t("actions.delete")}
               </Button>
             ) : null}
           </div>

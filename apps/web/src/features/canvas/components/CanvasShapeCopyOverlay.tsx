@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Check, Copy, Loader2 } from "lucide-react";
 import { useEditor, useValue, type TLShapeId } from "tldraw";
 import {
@@ -72,6 +73,7 @@ function ShapeCopyButton({
   shapeId: TLShapeId;
   editor: ReturnType<typeof useEditor>;
 }) {
+  const t = useTranslations("Canvas.chrome");
   const terminalRefs = useCanvasTerminalRefs();
 
   const topRight = useValue(
@@ -119,8 +121,8 @@ function ShapeCopyButton({
 
       if (!payload.trim()) {
         toastManager.add({
-          title: "Canvas",
-          description: "Nothing to copy from this shape",
+          title: t("common.canvas"),
+          description: t("shapeCopyOverlay.nothingToCopyFromThisShape"),
           type: "warning",
         });
         setState("idle");
@@ -129,8 +131,10 @@ function ShapeCopyButton({
 
       const ok = await copyToClipboard(payload);
       toastManager.add({
-        title: "Canvas",
-        description: ok ? "Copied to clipboard" : "Copy failed",
+        title: t("common.canvas"),
+        description: ok
+          ? t("shapeCopyOverlay.copiedToClipboard")
+          : t("shapeCopyOverlay.copyFailed"),
         type: ok ? "success" : "error",
       });
       setState(ok ? "done" : "idle");
@@ -139,8 +143,8 @@ function ShapeCopyButton({
       }
     } catch (err) {
       toastManager.add({
-        title: "Canvas",
-        description: err instanceof Error ? err.message : "Copy failed",
+        title: t("common.canvas"),
+        description: err instanceof Error ? err.message : t("shapeCopyOverlay.copyFailed"),
         type: "error",
       });
       setState("idle");
@@ -152,7 +156,7 @@ function ShapeCopyButton({
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="Copy shape content for the agent"
+          aria-label={t("shapeCopyOverlay.copyShapeContentForAgent")}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => void handleCopy(event)}
           style={{
@@ -180,7 +184,7 @@ function ShapeCopyButton({
         sideOffset={6}
         className={COPY_TOOLTIP_Z_CLASS}
       >
-        Copy shape content for the agent
+        {t("shapeCopyOverlay.copyShapeContentForAgent")}
       </TooltipContent>
     </Tooltip>
   );

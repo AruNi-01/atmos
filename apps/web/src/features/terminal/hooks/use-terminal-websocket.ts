@@ -25,6 +25,7 @@ interface UseTerminalWebSocketReturn {
   isConnected: boolean;
   isReconnecting: boolean;
   sendInput: (data: string) => void;
+  sendEnter: () => void;
   sendTerminalReport: (data: string) => void;
   sendResize: (size: TerminalSize) => void;
   sendCreate: (workspaceId: string) => void;
@@ -76,6 +77,16 @@ export function useTerminalWebSocket({
         type: "terminal_input",
         session_id: sessionId,
         data,
+      });
+    },
+    [sessionId, sendMessage]
+  );
+
+  const sendEnter = useCallback(
+    () => {
+      sendMessage({
+        type: "terminal_enter",
+        session_id: sessionId,
       });
     },
     [sessionId, sendMessage]
@@ -315,6 +326,7 @@ export function useTerminalWebSocket({
     isConnected,
     isReconnecting,
     sendInput,
+    sendEnter,
     sendTerminalReport,
     sendResize,
     sendCreate,

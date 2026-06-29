@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import type { DraggableAttributes, DraggableSyntheticListeners } from "@workspace/ui";
 import {
   Ellipsis,
@@ -183,6 +184,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   isActiveProject,
   isSelected = false,
 }) {
+  const t = useTranslations("AppShell.chrome");
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const initialLetter = project.name.charAt(0).toUpperCase();
@@ -300,8 +302,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     const value = logoInput.trim();
     if (!value) {
       toastManager.add({
-        title: "Logo is required",
-        description: "Choose a local image file or enter a remote URL.",
+        title: t("projectItem.logo.logoRequiredTitle"),
+        description: t("projectItem.logo.logoRequiredDescription"),
         type: "error",
       });
       return;
@@ -309,8 +311,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
 
     if (!isRemoteLogoSource(value) && !isSupportedProjectLogoPath(value)) {
       toastManager.add({
-        title: "Unsupported logo file",
-        description: "Please choose an image file such as PNG, JPG, SVG, or WebP.",
+        title: t("projectItem.logo.unsupportedLogoFileTitle"),
+        description: t("projectItem.logo.unsupportedLogoFileDescription"),
         type: "error",
       });
       return;
@@ -319,7 +321,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     onSetLogo(project.id, value);
     setShowLogoDialog(false);
     setShowLogoBrowser(false);
-  }, [logoInput, onSetLogo, project.id]);
+  }, [logoInput, onSetLogo, project.id, t]);
 
   return (
     <div
@@ -384,7 +386,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right">
-                    Building on main/master directory, not workspace/worktree
+                    {t("projectItem.mainDirectoryTooltip")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -430,7 +432,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    Quick New Workspace
+                    {t("projectItem.quickNewWorkspace")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -469,13 +471,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 >
                   <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
                     <Plus className="size-4 mr-2" />
-                    <span>New Workspace</span>
+                    <span>{t("managementCenter.items.newWorkspace")}</span>
                   </DropdownMenuItem>
 
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="cursor-pointer">
                       <Palette className="size-4 mr-2" />
-                      <span>Set Color</span>
+                      <span>{t("projectItem.setColor")}</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-[195px] p-3">
                       <div className="grid grid-cols-6 gap-1 mb-1">
@@ -491,7 +493,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                         <button
                           onClick={() => onSetColor(project.id, undefined)}
                           className="size-6 rounded hover:cursor-pointer hover:bg-sidebar-accent transition-colors border border-sidebar-border/50 flex items-center justify-center"
-                          title="None"
+                          title={t("projectItem.none")}
                         >
                           <X className="size-4 text-muted-foreground" />
                         </button>
@@ -502,10 +504,10 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                           <PopoverTrigger asChild>
                             <button
                               className="flex items-center gap-2 px-1 text-xs hover:bg-sidebar-accent rounded transition-colors border border-sidebar-border hover:cursor-pointer w-full"
-                              title="Custom Color"
+                              title={t("projectItem.customColor")}
                             >
                               <Palette className="size-4 shrink-0" />
-                              <span className="font-medium whitespace-nowrap">Custom Color</span>
+                              <span className="font-medium whitespace-nowrap">{t("projectItem.customColor")}</span>
                               <div
                                 className="size-6 m-[2px] rounded-sm shrink-0 ml-auto"
                                 style={{
@@ -563,12 +565,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     className="cursor-pointer"
                   >
                     <ImageIcon className="size-4 mr-2" />
-                    <span>Set Logo</span>
+                    <span>{t("projectItem.logo.setLogo")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
                     <FileCode className="size-4 mr-2" />
-                    <span>Workspace Scripts</span>
+                    <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -576,7 +578,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     onClick={() => onDelete(project.id)}
                   >
                     <Trash2 className="size-4 mr-2" />
-                    <span>Delete Project</span>
+                    <span>{t("projectItem.deleteProject")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -640,7 +642,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               ))}
             </SortableContext>
             {project.workspaces.length === 0 && (
-              <div className="py-2 text-[12px] text-muted-foreground italic ml-4">No workspaces</div>
+              <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
             )}
           </div>
         </div>
@@ -656,29 +658,35 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       >
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>Set Logo</DialogTitle>
+            <DialogTitle>{t("projectItem.logo.setLogo")}</DialogTitle>
             <DialogDescription>
-              Choose a local image file or paste a remote image URL. The app only distinguishes between local and remote sources.
+              {t("projectItem.logo.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor={`project-logo-source-${project.id}`}>Logo Source</Label>
+              <Label htmlFor={`project-logo-source-${project.id}`}>{t("projectItem.logo.sourceLabel")}</Label>
               <Input
                 id={`project-logo-source-${project.id}`}
                 value={logoInput}
                 onChange={(e) => setLogoInput(e.target.value)}
-                placeholder="https://example.com/logo.png or /path/to/logo.png"
+                placeholder={t("projectItem.logo.sourcePlaceholder")}
               />
               <p className="text-xs text-muted-foreground">
-                Detected as {logoInput.trim() ? (isRemoteLogoSource(logoInput.trim()) ? "remote URL" : "local file path") : "unknown"}.
+                {t("projectItem.logo.detectedAs", {
+                  source: logoInput.trim()
+                    ? isRemoteLogoSource(logoInput.trim())
+                      ? t("projectItem.logo.detectedSourceRemote")
+                      : t("projectItem.logo.detectedSourceLocal")
+                    : t("projectItem.logo.detectedSourceUnknown"),
+                })}
               </p>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium">Local file</p>
+                <p className="text-sm font-medium">{t("projectItem.logo.localFileTitle")}</p>
                 <p className="text-xs text-muted-foreground">
-                  Pick any local image file and save its absolute path.
+                  {t("projectItem.logo.localFileDescription")}
                 </p>
               </div>
               <Button
@@ -687,7 +695,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 className="cursor-pointer shrink-0"
                 onClick={() => setShowLogoBrowser(true)}
               >
-                Browse...
+                {t("projectItem.logo.browse")}
               </Button>
             </div>
           </div>
@@ -703,7 +711,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 setLogoInput("");
               }}
             >
-              Remove Logo
+              {t("projectItem.logo.removeLogo")}
             </Button>
             <Button
               type="button"
@@ -714,10 +722,10 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 setShowLogoBrowser(false);
               }}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="button" className="cursor-pointer" onClick={handleSaveLogo}>
-              Save
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -728,16 +736,16 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         onSelect={(path) => {
           if (!isSupportedProjectLogoPath(path)) {
             toastManager.add({
-              title: "Unsupported logo file",
-              description: "Please choose an image file such as PNG, JPG, SVG, or WebP.",
+              title: t("projectItem.logo.unsupportedLogoFileTitle"),
+              description: t("projectItem.logo.unsupportedLogoFileDescription"),
               type: "error",
             });
             return;
           }
           setLogoInput(path);
         }}
-        title="Select Logo Image"
-        selectLabel="Use File"
+        title={t("projectItem.logo.selectLogoImage")}
+        selectLabel={t("projectItem.logo.useFile")}
         dirsOnly={false}
       />
     </div>

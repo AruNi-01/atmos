@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { createTranslator } from "next-intl";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { fsApi, gitApi } from "@/api/ws-api";
 import type { CatalogData } from "@/features/wiki/lib/wiki-utils";
 import { normalizeCatalog } from "@/features/wiki/lib/wiki-utils";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export interface WikiUpdateStatus {
   hasUpdate: boolean;
@@ -61,6 +65,30 @@ function ensureContext(
 
 let _loadCatalogId = 0;
 let _loadPageId = 0;
+let cachedWikiStoreLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedWikiStoreTranslator: any = null;
+
+function wikiStoreT(
+  key:
+    | "invalidCatalogFormat"
+    | "catalogFileNotFound"
+    | "failedToLoadCatalog"
+    | "pageNotFound"
+    | "failedToLoadPage",
+  values?: Record<string, string | number>,
+) {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedWikiStoreTranslator || cachedWikiStoreLocale !== locale) {
+    cachedWikiStoreLocale = locale;
+    cachedWikiStoreTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "wiki.store",
+    });
+  }
+  return cachedWikiStoreTranslator(key as never, values);
+}
 
 export const useWikiStore = create<WikiStore>()((set) => ({
   contextStates: {},
@@ -125,10 +153,10 @@ export const useWikiStore = create<WikiStore>()((set) => ({
           const raw = JSON.parse(response.content) as CatalogData;
           catalog = normalizeCatalog(raw);
         } catch {
-          catalogError = "Invalid _catalog.json format. Please regenerate the wiki.";
+          catalogError = wikiStoreT("invalidCatalogFormat");
         }
       } else {
-        catalogError = "Catalog file not found.";
+        catalogError = wikiStoreT("catalogFileNotFound");
       }
 
       set((state) => ({
@@ -152,7 +180,8 @@ export const useWikiStore = create<WikiStore>()((set) => ({
             ...ensureContext(state.contextStates, contextId),
             catalog: null,
             catalogLoading: false,
-            catalogError: err instanceof Error ? err.message : "Failed to load catalog.",
+            catalogError:
+              err instanceof Error ? err.message : wikiStoreT("failedToLoadCatalog"),
           },
         },
       }));
@@ -267,7 +296,7 @@ export const useWikiStore = create<WikiStore>()((set) => ({
       if (requestId !== _loadPageId) return;
 
       const content = response.exists && response.content ? response.content : null;
-      const contentError = !content ? `Page not found: ${filePath}` : null;
+      const contentError = !content ? wikiStoreT("pageNotFound", { filePath }) : null;
 
       set((state) => ({
         contextStates: {
@@ -290,7 +319,8 @@ export const useWikiStore = create<WikiStore>()((set) => ({
             ...ensureContext(state.contextStates, contextId),
             activeContent: null,
             contentLoading: false,
-            contentError: err instanceof Error ? err.message : "Failed to load page.",
+            contentError:
+              err instanceof Error ? err.message : wikiStoreT("failedToLoadPage"),
           },
         },
       }));

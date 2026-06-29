@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { GitCommit as GitCommitIcon, Copy, Check, Github, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
 import { cn } from '@/shared/lib/utils';
 import { formatDistanceToNow, format } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface CommitListItem {
@@ -67,7 +69,13 @@ function HashCopyButton({ hash, shortHash }: { hash: string; shortHash: string }
 }
 
 function CommitRow({ commit, owner, repo }: { commit: CommitListItem; owner?: string; repo?: string }) {
-  const timeAgo = formatDistanceToNow(commit.timestamp, { addSuffix: true });
+  const locale = useLocale();
+  const t = useTranslations('github.commitList');
+  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
+  const timeAgo = formatDistanceToNow(commit.timestamp, {
+    addSuffix: true,
+    locale: relativeTimeLocale,
+  });
   const fullMessage = commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject;
   const githubUrl = commit.githubUrl ?? (owner && repo ? `https://github.com/${owner}/${repo}/commit/${commit.hash}` : null);
   const canOpenGithub = githubUrl && commit.isPushed !== false;
@@ -121,7 +129,7 @@ function CommitRow({ commit, owner, repo }: { commit: CommitListItem; owner?: st
                 )}
               </TooltipTrigger>
               <TooltipContent side="top" className="text-[11px]">
-                {canOpenGithub ? 'View on GitHub' : 'Local commit — not yet pushed to remote'}
+                {canOpenGithub ? t('tooltips.viewOnGithub') : t('tooltips.localOnly')}
               </TooltipContent>
             </Tooltip>
           )}
@@ -139,11 +147,12 @@ interface CommitListProps {
 }
 
 export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
+  const t = useTranslations('github.commitList');
   if (loading && commits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-muted-foreground gap-3">
         <Loader2 className="size-5 animate-spin opacity-50" />
-        <span className="text-xs font-medium">Loading commits…</span>
+        <span className="text-xs font-medium">{t('loading')}</span>
       </div>
     );
   }
@@ -152,7 +161,7 @@ export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50 gap-3 p-8">
         <GitCommitIcon className="size-8 opacity-20" />
-        <span className="text-xs text-center">No commits found</span>
+        <span className="text-xs text-center">{t('empty')}</span>
       </div>
     );
   }
@@ -177,7 +186,9 @@ export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
           <div key={group.dateLabel}>
             <div className="flex items-center gap-2 px-3 py-2 sticky top-0 bg-background/90 backdrop-blur-sm z-10 border-b border-sidebar-border/30">
               <GitCommitIcon className="size-3.5 text-muted-foreground/60 shrink-0" />
-              <span className="text-[11px] font-semibold text-muted-foreground">Commits on {group.dateLabel}</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {t('groupTitle', { date: group.dateLabel })}
+              </span>
               {loading && <Loader2 className="size-3 animate-spin text-muted-foreground/40 ml-auto" />}
             </div>
             <div className="border border-sidebar-border/40 rounded-md mx-2 my-1.5 overflow-hidden divide-y divide-sidebar-border/25">

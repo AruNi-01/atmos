@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export function ActionsDetailModal({
   isOpen,
   onOpenChange,
 }: ActionsDetailModalProps) {
+  const t = useTranslations("github.actionsDetailModal");
   const agentFixContext = useAgentFixContext();
   const send = useWebSocketStore((s) => s.send);
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
@@ -143,11 +145,11 @@ export function ActionsDetailModal({
           showCloseButton={false}
           className="max-w-2xl sm:max-w-2xl w-full h-[80vh] px-6 pb-6 pt-0 flex flex-col gap-0 overflow-hidden"
         >
-          <DialogTitle className="sr-only">Loading Workflow Run</DialogTitle>
+          <DialogTitle className="sr-only">{t("loading.title")}</DialogTitle>
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-muted-foreground">
               <Loader2 className="size-6 animate-spin opacity-50" />
-              <span className="text-xs">Loading Workflow Run...</span>
+              <span className="text-xs">{t("loading.body")}</span>
             </div>
           </div>
         </DialogContent>
@@ -177,7 +179,7 @@ export function ActionsDetailModal({
             <WorkflowIcon className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
               <DialogTitle className="text-base font-bold whitespace-nowrap">
-                Workflow Run #{effectiveRun.databaseId}
+                {t("title", { runId: effectiveRun.databaseId })}
               </DialogTitle>
               <span className="text-muted-foreground/30 font-light select-none">
                 |
@@ -227,7 +229,7 @@ export function ActionsDetailModal({
                     {effectiveRun.workflowName}
                   </span>
                 </div>
-                <span>triggered via</span>
+                <span>{t("metadata.triggeredVia")}</span>
                 <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate shadow-sm capitalize mr-1">
                   {effectiveRun.event}
                 </span>
@@ -255,13 +257,13 @@ export function ActionsDetailModal({
                   </div>
                 )}
 
-                <span>on target branch</span>
+                <span>{t("metadata.targetBranch")}</span>
                 <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
-                  {effectiveRun.headBranch || "unknown"}
+                  {effectiveRun.headBranch || t("metadata.unknownBranch")}
                 </span>
                 {effectiveRun.headSha && (
                   <>
-                    <span>at commit</span>
+                    <span>{t("metadata.atCommit")}</span>
                     <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[100px] shadow-sm">
                       {effectiveRun.headSha.substring(0, 7)}
                     </span>
@@ -305,21 +307,25 @@ export function ActionsDetailModal({
                   </div>
                   <div className="flex-1">
                     <h5 className="text-sm font-bold flex items-center justify-between capitalize">
-                      {isCompleted
-                        ? `${effectiveRun.conclusion} `
-                        : `${effectiveRun.status} `}
+                      {formatGithubActionState(
+                        isCompleted ? effectiveRun.conclusion : effectiveRun.status,
+                        t,
+                      )}
                       <span className="text-[10px] text-muted-foreground font-normal normal-case flex items-center gap-1">
                         <Clock className="size-3" />
-                        {createdAtTimestamp ?? "Unknown start time"}
+                        {createdAtTimestamp ?? t("statusCard.unknownStartTime")}
                         {createdAtTimeAgo && ` (${createdAtTimeAgo})`}
                       </span>
                     </h5>
                     <p className="text-[11px] text-muted-foreground mt-0.5 flex flex-col gap-1">
-                      This workflow run is currently{" "}
-                      {isCompleted
-                        ? effectiveRun.conclusion
-                        : effectiveRun.status}
-                      .
+                      {t("statusCard.currently", {
+                        status: formatGithubActionState(
+                          isCompleted
+                            ? effectiveRun.conclusion
+                            : effectiveRun.status,
+                          t,
+                        ),
+                      })}
                     </p>
                   </div>
                 </div>
@@ -360,4 +366,47 @@ export function ActionsDetailModal({
 
 function WorkflowIcon(props: React.ComponentProps<typeof Rocket>) {
   return <Rocket {...props} />;
+}
+
+function formatGithubActionState(
+  value: string | null | undefined,
+  t: ReturnType<typeof useTranslations>,
+) {
+  switch (value) {
+    case "queued":
+      return t("states.queued");
+    case "in_progress":
+      return t("states.inProgress");
+    case "completed":
+      return t("states.completed");
+    case "success":
+      return t("states.success");
+    case "failure":
+      return t("states.failure");
+    case "skipped":
+      return t("states.skipped");
+    case "cancelled":
+      return t("states.cancelled");
+    case "neutral":
+      return t("states.neutral");
+    case "pending":
+      return t("states.pending");
+    case "requested":
+      return t("states.requested");
+    case "stale":
+      return t("states.stale");
+    case "timed_out":
+      return t("states.timedOut");
+    case "action_required":
+      return t("states.actionRequired");
+    case "startup_failure":
+      return t("states.startupFailure");
+    case "unknown":
+    case "":
+    case null:
+    case undefined:
+      return t("states.unknown");
+    default:
+      return value.replace(/_/g, " ");
+  }
 }

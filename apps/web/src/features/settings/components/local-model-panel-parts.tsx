@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   type LocalModelEntry,
   type LocalModelHfResolveResponse,
@@ -46,33 +47,42 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-function formatTimeRemaining(seconds: number): string {
+function formatTimeRemaining(
+  seconds: number,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
   if (seconds >= 60) {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.round(seconds % 60);
-    return `${minutes}min ${remainingSeconds}s`;
+    return t("time.minutesSeconds", {
+      minutes,
+      seconds: remainingSeconds,
+    });
   }
-  return `${Math.round(seconds)}s`;
+  return t("time.seconds", { seconds: Math.round(seconds) });
 }
 
-function statusLabel(state: LocalModelStatus): string {
+function statusLabel(
+  state: LocalModelStatus,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
   switch (state.status) {
     case "not_installed":
-      return "Not installed";
+      return t("status.notInstalled");
     case "downloading_runtime":
-      return `Downloading runtime… ${(state.progress * 100).toFixed(1)}%`;
+      return t("status.downloadingRuntime", { progress: (state.progress * 100).toFixed(1) });
     case "downloading_model":
-      return `Downloading model… ${(state.progress * 100).toFixed(1)}%`;
+      return t("status.downloadingModel", { progress: (state.progress * 100).toFixed(1) });
     case "installed_not_running":
-      return "Model installed, not running";
+      return t("status.installedNotRunning");
     case "starting":
-      if (state.stage === "launching_process") return "Launching process…";
-      if (state.stage === "waiting_for_ready") return "Waiting for ready…";
-      return "Starting…";
+      if (state.stage === "launching_process") return t("status.launchingProcess");
+      if (state.stage === "waiting_for_ready") return t("status.waitingForReady");
+      return t("status.starting");
     case "running":
-      return "Running";
+      return t("status.running");
     case "failed":
-      return `Failed: ${state.error}`;
+      return t("status.failed", { error: state.error });
   }
 }
 
@@ -112,6 +122,7 @@ function ProgressBar({ value }: { value: number }) {
 }
 
 export function StatusBadge({ state }: { state: LocalModelStatus }) {
+  const t = useTranslations("Settings.localModel");
   const busy = isTransitioning(state);
 
   return (
@@ -130,7 +141,7 @@ export function StatusBadge({ state }: { state: LocalModelStatus }) {
       ) : (
         <CircleDot className="size-3.5" />
       )}
-      {statusLabel(state)}
+      {statusLabel(state, t)}
     </div>
   );
 }
@@ -144,6 +155,7 @@ export function CustomModelDialog({
   onOpenChange: (open: boolean) => void;
   onAdded: () => void;
 }) {
+  const t = useTranslations("Settings.localModel");
   const [url, setUrl] = useState("");
   const [resolved, setResolved] =
     useState<LocalModelHfResolveResponse | null>(null);
@@ -173,7 +185,7 @@ export function CustomModelDialog({
   const handleResolve = async (nextUrl = url) => {
     const trimmed = nextUrl.trim();
     if (!trimmed) {
-      setError("Paste a Hugging Face GGUF URL first.");
+      setError(t("custom.errors.pasteUrlFirst"));
       return;
     }
     setResolving(true);
@@ -195,7 +207,7 @@ export function CustomModelDialog({
     } catch (e) {
       setResolved(null);
       setError(
-        e instanceof Error ? e.message : "Failed to resolve Hugging Face URL",
+        e instanceof Error ? e.message : t("custom.errors.resolveUrl"),
       );
     } finally {
       setResolving(false);
@@ -214,7 +226,7 @@ export function CustomModelDialog({
         setRamFootprintMb(String(result.model.ram_footprint_mb));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to resolve GGUF file");
+      setError(e instanceof Error ? e.message : t("custom.errors.resolveFile"));
     } finally {
       setResolving(false);
     }
@@ -240,7 +252,7 @@ export function CustomModelDialog({
       onOpenChange(false);
       reset();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to add custom model");
+      setError(e instanceof Error ? e.message : t("custom.errors.addModel"));
     } finally {
       setSaving(false);
     }
@@ -256,23 +268,22 @@ export function CustomModelDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add custom Hugging Face model</DialogTitle>
+          <DialogTitle>{t("custom.dialogTitle")}</DialogTitle>
           <DialogDescription>
-            Paste a Hugging Face model page or GGUF file URL. If the model page
-            has no GGUF files, Atmos will search public GGUF variants.
+            {t("custom.dialogDescription")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-xs font-medium text-foreground">
-              Hugging Face URL
+              {t("custom.urlLabel")}
             </label>
             <div className="flex gap-2">
               <input
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://huggingface.co/Qwen/Qwen2.5-0.5B"
+                placeholder={t("custom.urlPlaceholder")}
                 className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <Button
@@ -284,7 +295,7 @@ export function CustomModelDialog({
                 {resolving ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  "Resolve"
+                  t("custom.resolve")
                 )}
               </Button>
             </div>
@@ -293,12 +304,11 @@ export function CustomModelDialog({
           {resolved?.kind === "choices" && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-foreground">
-                Choose a GGUF file
+                {t("custom.chooseFileTitle")}
               </p>
               {resolved.choices.some((choice) => choice.discovered) && (
                 <p className="text-xs text-muted-foreground">
-                  No GGUF file was found in the pasted repo, so these candidates
-                  were discovered from Hugging Face search.
+                  {t("custom.discoveredChoicesDescription")}
                 </p>
               )}
               <div className="max-h-48 space-y-1 overflow-auto rounded-lg border border-border p-2">
@@ -321,13 +331,14 @@ export function CustomModelDialog({
                       <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {choice.size_bytes != null && (
                           <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                            Storage ~{formatBytes(choice.size_bytes)}
+                            {t("custom.storageApprox", { size: formatBytes(choice.size_bytes) })}
                           </span>
                         )}
                         {choice.ram_footprint_mb != null && (
                           <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                            Min memory ~
-                            {formatBytes(choice.ram_footprint_mb * 1024 * 1024)}
+                            {t("custom.minMemoryApprox", {
+                              size: formatBytes(choice.ram_footprint_mb * 1024 * 1024),
+                            })}
                           </span>
                         )}
                       </span>
@@ -337,7 +348,7 @@ export function CustomModelDialog({
                       target="_blank"
                       rel="noreferrer"
                       className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
-                      aria-label={`Open ${choice.filename} in browser`}
+                      aria-label={t("custom.openInBrowserAria", { filename: choice.filename })}
                     >
                       <ExternalLink className="size-3.5" />
                     </a>
@@ -352,7 +363,7 @@ export function CustomModelDialog({
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0 text-xs text-muted-foreground">
                   <p className="font-medium text-foreground">
-                    Selected GGUF file
+                    {t("custom.selectedFileTitle")}
                   </p>
                   <p className="mt-0.5 break-all" title={selectedUrl}>
                     {selectedUrl}
@@ -366,13 +377,13 @@ export function CustomModelDialog({
                     className="justify-self-start text-xs sm:justify-self-end"
                     onClick={handleChooseAnother}
                   >
-                    Choose another file
+                    {t("custom.chooseAnother")}
                   </Button>
                 )}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-xs font-medium text-foreground">
-                  Display name
+                  {t("custom.displayNameLabel")}
                   <input
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
@@ -380,7 +391,7 @@ export function CustomModelDialog({
                   />
                 </label>
                 <label className="space-y-1 text-xs font-medium text-foreground">
-                  Min memory (MB)
+                  {t("custom.minMemoryLabel")}
                   <input
                     value={ramFootprintMb}
                     onChange={(event) => setRamFootprintMb(event.target.value)}
@@ -390,8 +401,8 @@ export function CustomModelDialog({
                 </label>
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>Storage ~{formatBytes(resolvedModel.size_bytes)}</span>
-                <span>SHA256 {resolvedModel.sha256.slice(0, 12)}…</span>
+                <span>{t("custom.storageApprox", { size: formatBytes(resolvedModel.size_bytes) })}</span>
+                <span>{t("custom.sha256Prefix", { hash: resolvedModel.sha256.slice(0, 12) })}</span>
               </div>
             </div>
           )}
@@ -405,11 +416,11 @@ export function CustomModelDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button disabled={!resolvedModel || saving} onClick={handleSave}>
             {saving ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-            Add model
+            {t("custom.addModel")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -440,6 +451,7 @@ export function ModelCard({
   onCustomDelete,
   busy,
 }: ModelCardProps) {
+  const t = useTranslations("Settings.localModel");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isRunning = state.status === "running" && state.model_id === model.id;
@@ -474,12 +486,12 @@ export function ModelCard({
               </span>
               {model.recommended && (
                 <Badge variant="secondary" className="text-xs">
-                  Recommended
+                  {t("badges.recommended")}
                 </Badge>
               )}
               {model.custom && (
                 <Badge variant="outline" className="text-xs">
-                  Custom
+                  {t("badges.custom")}
                 </Badge>
               )}
             </div>
@@ -489,11 +501,11 @@ export function ModelCard({
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <HardDrive className="size-3" />
-                Storage ~{formatBytes(model.size_bytes)}
+                {t("model.storageApprox", { size: formatBytes(model.size_bytes) })}
               </span>
               <span className="flex items-center gap-1">
                 <MemoryStick className="size-3" />
-                Min memory ~{formatBytes(model.ram_footprint_mb * 1024 * 1024)}
+                {t("model.minMemoryApprox", { size: formatBytes(model.ram_footprint_mb * 1024 * 1024) })}
               </span>
               {model.license_url &&
               (model.license_url.startsWith("http://") ||
@@ -526,10 +538,10 @@ export function ModelCard({
                 <ProgressBar value={downloadProgress} />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
-                    Downloading model weights
+                    {t("model.downloadingWeights")}
                     {state.status === "downloading_model" &&
                     state.eta_seconds != null
-                      ? ` — ~${formatTimeRemaining(state.eta_seconds)} remaining`
+                      ? ` ${t("model.remainingEta", { eta: formatTimeRemaining(state.eta_seconds, t) })}`
                       : ""}
                   </span>
                   <span>{downloadProgress.toFixed(0)}%</span>
@@ -549,11 +561,11 @@ export function ModelCard({
                     onClick={() => onDownload(model.id)}
                   >
                     <Download className="mr-1.5 size-3.5" />
-                    Download
+                    {t("common.download")}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Download model to ~/.atmos/local-model-runtime/models/
+                  {t("model.downloadTooltip")}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -570,7 +582,7 @@ export function ModelCard({
                     onClick={() => onStart(model.id)}
                   >
                     <Play className="mr-1.5 size-3.5" />
-                    Start
+                    {t("common.start")}
                   </Button>
                   {(canDeleteFiles || canRemove) && (
                     <Tooltip>
@@ -583,13 +595,13 @@ export function ModelCard({
                           onClick={() => setConfirmDelete(true)}
                         >
                           <Trash2 className="mr-1.5 size-3.5" />
-                          Delete
+                          {t("common.delete")}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
                         {model.custom
-                          ? "Remove custom model"
-                          : "Delete model files"}
+                          ? t("model.removeCustomTooltip")
+                          : t("model.deleteFilesTooltip")}
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -600,11 +612,11 @@ export function ModelCard({
                     <span>
                       <Button size="sm" variant="outline" disabled>
                         <Play className="mr-1.5 size-3.5" />
-                        Start
+                        {t("common.start")}
                       </Button>
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>Download Runtime first</TooltipContent>
+                  <TooltipContent>{t("model.downloadRuntimeFirst")}</TooltipContent>
                 </Tooltip>
               ))}
 
@@ -616,7 +628,7 @@ export function ModelCard({
                 onClick={onStop}
               >
                 <Square className="mr-1.5 size-3.5" />
-                Stop
+                {t("common.stop")}
               </Button>
             )}
           </div>
@@ -627,26 +639,19 @@ export function ModelCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {model.custom ? "Remove custom model?" : "Delete model files?"}
+              {model.custom ? t("deleteDialog.removeCustomTitle") : t("deleteDialog.deleteFilesTitle")}
             </DialogTitle>
             <DialogDescription>
               {model.custom ? (
-                <>
-                  This will remove <strong>{model.display_name}</strong> from
-                  your custom models and delete its downloaded files if present.
-                </>
+                t("deleteDialog.removeCustomDescription", { name: model.display_name })
               ) : (
-                <>
-                  This will permanently delete the downloaded model files for{" "}
-                  <strong>{model.display_name}</strong>. You can re-download it
-                  later.
-                </>
+                t("deleteDialog.deleteFilesDescription", { name: model.display_name })
               )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -659,7 +664,7 @@ export function ModelCard({
                 }
               }}
             >
-              {model.custom ? "Remove" : "Delete"}
+              {model.custom ? t("common.remove") : t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

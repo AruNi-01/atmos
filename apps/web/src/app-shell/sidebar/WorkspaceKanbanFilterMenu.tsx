@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   DropdownMenu,
@@ -117,6 +118,7 @@ export function WorkspaceKanbanFilterMenu({
   groupingMode = "project",
   onGroupingModeChange,
 }: WorkspaceKanbanFilterMenuProps) {
+  const t = useTranslations("appShell.kanban");
   const [labelFilterQuery, setLabelFilterQuery] = React.useState("");
   const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
   const activeFilterCount = getActiveWorkspaceKanbanFilterCount(filters);
@@ -198,7 +200,7 @@ export function WorkspaceKanbanFilterMenu({
               </span>
             ) : null}
             <ListFilter className={cn("size-4", showLabel && "mr-1")} />
-            {showLabel ? "Filter" : null}
+            {showLabel ? t("filter.trigger") : null}
           </Button>
         )}
       </DropdownMenuTrigger>
@@ -206,7 +208,7 @@ export function WorkspaceKanbanFilterMenu({
         {showGrouping && onGroupingModeChange ? (
           <>
             <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
-              Group By
+              {t("grouping.sectionLabel")}
             </DropdownMenuLabel>
             {SIDEBAR_GROUPING_OPTIONS.map((option) => (
               <DropdownMenuItem
@@ -218,13 +220,13 @@ export function WorkspaceKanbanFilterMenu({
                 className="cursor-pointer"
               >
                 <option.icon className="size-4 text-muted-foreground" />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
                 {groupingMode === option.value ? <Check className="ml-auto size-4" /> : null}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator className="mx-2" />
             <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
-              Filter
+              {t("filter.sectionLabel")}
             </DropdownMenuLabel>
           </>
         ) : null}
@@ -232,19 +234,19 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Folder className="size-4" />
-            Project
+            {t("filter.project")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             <div className="p-2">
               <Input
                 value={projectFilterQuery}
                 onChange={(e) => setProjectFilterQuery(e.target.value)}
-                placeholder="Search projects..."
+                placeholder={t("filter.searchProjects")}
                 className="h-7 text-xs"
               />
             </div>
             {filteredProjectOptions.length === 0 ? (
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">No matching projects</div>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("filter.noMatchingProjects")}</div>
             ) : (
               filteredProjectOptions.map((project) => (
                 <DropdownMenuItem
@@ -266,7 +268,7 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <CircleCheck className="size-4" />
-            Status
+            {t("filter.status")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             {WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => (
@@ -279,7 +281,7 @@ export function WorkspaceKanbanFilterMenu({
                 className="cursor-pointer"
               >
                 <option.icon className={cn("size-4", option.className)} />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
                 {filters.statuses.includes(option.value) ? <Check className="ml-auto size-4" /> : null}
               </DropdownMenuItem>
             ))}
@@ -289,7 +291,7 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Flag className="size-4" />
-            Priority
+            {t("filter.priority")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             {WORKSPACE_PRIORITY_OPTIONS.map((option) => (
@@ -302,7 +304,7 @@ export function WorkspaceKanbanFilterMenu({
                 className="cursor-pointer"
               >
                 <option.icon className={cn("size-4", option.className)} />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
                 {filters.priorities.includes(option.value) ? <Check className="ml-auto size-4" /> : null}
               </DropdownMenuItem>
             ))}
@@ -312,19 +314,19 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Tags className="size-4" />
-            Labels
+            {t("filter.labels")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             <div className="p-2">
               <Input
                 value={labelFilterQuery}
                 onChange={(e) => setLabelFilterQuery(e.target.value)}
-                placeholder="Search labels..."
+                placeholder={t("filter.searchLabels")}
                 className="h-7 text-xs"
               />
             </div>
             {filteredLabelOptions.length === 0 ? (
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">No matching labels</div>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("filter.noMatchingLabels")}</div>
             ) : (
               filteredLabelOptions.map((label) => (
                 <DropdownMenuItem
@@ -351,7 +353,7 @@ export function WorkspaceKanbanFilterMenu({
               onClick={clearAllFilters}
               className="text-xs font-medium text-muted-foreground"
             >
-              Clear All Filters
+              {t("filter.clearAll")}
             </DropdownMenuItem>
           </>
         ) : null}
@@ -363,7 +365,7 @@ export function WorkspaceKanbanFilterMenu({
           className="cursor-pointer pl-2 [&>span:first-child]:hidden"
         >
           <Timer className="size-4 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate">Automation Workspace</span>
+          <span className="min-w-0 flex-1 truncate">{t("filter.automationWorkspace")}</span>
           <Switch
             checked={filters.showAutomationWorkspaces}
             tabIndex={-1}

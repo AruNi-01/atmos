@@ -4,6 +4,7 @@ import {
   shouldReuseWebServer,
   shouldStartWebServer,
   webAppDir,
+  webHealthURL,
   webServerCommand,
 } from "./fixtures/app-server";
 
@@ -13,6 +14,8 @@ export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.e2e.ts",
   outputDir: "./test-results",
+  globalSetup: "./fixtures/global-setup.ts",
+  globalTeardown: "./fixtures/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
@@ -35,15 +38,15 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: shouldStartWebServer
-    ? {
-        command: webServerCommand(),
-        cwd: webAppDir,
-        url: baseURL,
-        reuseExistingServer: shouldReuseWebServer && !isCI,
-        timeout: 120_000,
-        stdout: "pipe",
-        stderr: "pipe",
-      }
+      ? {
+          command: webServerCommand(),
+          cwd: webAppDir,
+          url: webHealthURL,
+          reuseExistingServer: shouldReuseWebServer && !isCI,
+          timeout: 900_000,
+          stdout: "pipe",
+          stderr: "pipe",
+        }
     : undefined,
   projects: [
     {

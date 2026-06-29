@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@workspace/ui";
 
@@ -58,6 +59,7 @@ export function AggregateDetail({
   deletingKeyId: string | null;
   switchingProviderId: string | null;
 }) {
+  const t = useTranslations("appShell.usagePopover");
   const providerOrderIndex = useMemo(
     () => new Map(providerOrder.map((id, index) => [id, index])),
     [providerOrder],
@@ -77,16 +79,16 @@ export function AggregateDetail({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">All Providers</div>
+          <div className="text-[18px] font-semibold tracking-tight text-foreground">{t("detail.allProviders")}</div>
           <UsageSwitch
             checked={allSwitchEnabled}
             onCheckedChange={onToggleAllProviders}
             disabled={isAllSwitching}
-            ariaLabel="All provider usage switch"
+            ariaLabel={t("detail.allProviderUsageSwitch")}
           />
         </div>
         <div className="text-sm font-medium text-foreground/90">
-          Active {aggregate.enabled_count}/{aggregate.total_count}
+          {t("detail.activeCount", { enabled: aggregate.enabled_count, total: aggregate.total_count })}
         </div>
       </div>
 
@@ -107,7 +109,7 @@ export function AggregateDetail({
         </AnimatePresence>
       ) : (
         <div className="rounded-[16px] border border-border/60 bg-background/60 px-4 py-3 text-sm text-foreground/90">
-          No active providers
+          {t("detail.noActiveProviders")}
         </div>
       )}
     </div>
@@ -131,6 +133,7 @@ function AggregateProviderRow({
   deletingKeyId: string | null;
   isSwitching: boolean;
 }) {
+  const t = useTranslations("appShell.usagePopover");
   const [open, setOpen] = useState(false);
   const metrics = usageMetrics(provider);
   const extraDetailSections = extraSections(provider);
@@ -138,7 +141,7 @@ function AggregateProviderRow({
   const primaryMetric = metrics[0] ?? null;
   const creditsBalance = firstRowValue(provider, "Credits", "Balance");
   const creditsState = firstRowValue(provider, "Credits", "State");
-  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
   const collapsedSubtitle =
     planLabel ??
     (accountLabel && accountLabel !== provider.label ? accountLabel : null);
@@ -146,7 +149,7 @@ function AggregateProviderRow({
     provider.auth_state.detail ??
     provider.warnings[0] ??
     provider.fetch_state.message ??
-    "Add local auth or token for this provider so Atmos can detect usage.";
+    t("detail.detectHint");
   const isDetected = provider.enabled;
 
   return (
@@ -185,7 +188,7 @@ function AggregateProviderRow({
                   checked={provider.switch_enabled}
                   onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
                   disabled={isSwitching}
-                  ariaLabel={`${provider.label} refresh switch`}
+                  ariaLabel={t("detail.providerRefreshSwitch", { provider: provider.label })}
                 />
               </div>
             </div>
@@ -200,15 +203,15 @@ function AggregateProviderRow({
               {isDetected
                 ? primaryMetric?.percent !== null && primaryMetric?.percent !== undefined
                   ? `${primaryMetric.percent.toFixed(0)}%`
-                  : (creditsBalance ?? creditsState ?? "Active")
-                : "Not detected"}
+                  : (creditsBalance ?? creditsState ?? t("detail.active"))
+                : t("detail.notDetected")}
             </div>
             <div className="text-[11px] text-foreground/90">
               {isDetected
                 ? primaryMetric?.percent !== null && primaryMetric?.percent !== undefined
                   ? primaryMetric.label
-                  : "Status"
-                : "Setup"}
+                  : t("detail.status")
+                : t("detail.setup")}
             </div>
           </div>
           <ChevronDown
@@ -245,11 +248,11 @@ function AggregateProviderRow({
                 />
               ) : (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-foreground">Detection required</div>
+                  <div className="text-sm font-medium text-foreground">{t("detail.detectionRequired")}</div>
                   <div className="text-[11px] leading-5 text-foreground/90">{detectHint}</div>
                   <div className="rounded-[12px] bg-muted/35 px-3 py-2 text-[11px] leading-5 text-foreground/90">
                     {provider.auth_state.setup_hint ??
-                      "Sign in to the local app or add a supported local token/config so Atmos can detect this provider."}
+                      t("detail.detectSetupHint")}
                   </div>
                   {provider.manual_setup ? (
                     <ProviderApiKeyManager
@@ -298,6 +301,7 @@ function DetectedProviderDetails({
   isSavingManualSetup: boolean;
   deletingKeyId: string | null;
 }) {
+  const t = useTranslations("appShell.usagePopover");
   return (
     <>
       <div className="flex items-start justify-between gap-4">
@@ -330,10 +334,14 @@ function DetectedProviderDetails({
                 </div>
               ) : null}
               <div className="mt-1 flex items-center justify-between gap-4 text-[11px]">
-                <div className="text-foreground">{displayMetricUsedText(metric)}</div>
+                <div className="text-foreground">{displayMetricUsedText(metric, t("detail.usedSuffix"))}</div>
                 <div className="text-foreground/90">
                   {metric.percent !== null && metric.percent !== undefined
-                    ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at)
+                    ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
+                      resetUnknownLabel: t("formatters.resetUnknown"),
+                      resettingNowLabel: t("formatters.resettingNow"),
+                      resetsInPrefixLabel: t("formatters.resetsIn"),
+                    })
                     : null}
                 </div>
               </div>
@@ -341,17 +349,17 @@ function DetectedProviderDetails({
           ))
         ) : (
           <div>
-            <div className="text-sm font-medium text-foreground">Usage</div>
-            <div className="mt-1 text-[11px] text-foreground/90">No usage data</div>
+            <div className="text-sm font-medium text-foreground">{t("detail.usage")}</div>
+            <div className="mt-1 text-[11px] text-foreground/90">{t("detail.noUsageData")}</div>
           </div>
         )}
 
         {creditsBalance || creditsState ? (
           <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-2.5 text-sm">
-            <div className="text-foreground">Credits</div>
+            <div className="text-foreground">{t("detail.credits")}</div>
             <div className="text-right">
-              <div className="text-foreground">{creditsBalance ?? "Unknown"}</div>
-              <div className="text-[11px] text-foreground/90">{creditsState ?? "Credits"}</div>
+              <div className="text-foreground">{creditsBalance ?? t("detail.unknown")}</div>
+              <div className="text-[11px] text-foreground/90">{creditsState ?? t("detail.credits")}</div>
             </div>
           </div>
         ) : null}
@@ -392,7 +400,8 @@ export function ProviderDetail({
   deletingKeyId: string | null;
   isSwitching: boolean;
 }) {
-  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
+  const t = useTranslations("appShell.usagePopover");
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
   const metrics = usageMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
@@ -412,7 +421,7 @@ export function ProviderDetail({
                 checked={provider.switch_enabled}
                 onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
                 disabled={isSwitching}
-                ariaLabel={`${provider.label} refresh switch`}
+                ariaLabel={t("detail.providerRefreshSwitch", { provider: provider.label })}
               />
             </div>
             {provider.id === "zed" && periodLabel ? (
@@ -442,10 +451,14 @@ export function ProviderDetail({
             </div>
           ) : null}
           <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <div className="text-foreground">{displayMetricUsedText(metric)}</div>
+            <div className="text-foreground">{displayMetricUsedText(metric, t("detail.usedSuffix"))}</div>
             <div className="text-foreground/90">
               {metric.percent !== null && metric.percent !== undefined
-                ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at)
+                ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at, {
+                  resetUnknownLabel: t("formatters.resetUnknown"),
+                  resettingNowLabel: t("formatters.resettingNow"),
+                  resetsInPrefixLabel: t("formatters.resetsIn"),
+                })
                 : null}
             </div>
           </div>
@@ -454,10 +467,10 @@ export function ProviderDetail({
 
       {showCredits ? (
         <section className="border-t border-border/70 pt-5">
-          <div className="text-[18px] font-semibold tracking-tight text-foreground">Credits</div>
+          <div className="text-[18px] font-semibold tracking-tight text-foreground">{t("detail.credits")}</div>
           <div className="mt-4 h-2 rounded-full bg-muted/60" />
           <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-            <div className="text-foreground">{creditsBalance ?? creditsState ?? "Unknown"}</div>
+            <div className="text-foreground">{creditsBalance ?? creditsState ?? t("detail.unknown")}</div>
             <div className="text-foreground/90">{creditsState && creditsBalance ? creditsState : null}</div>
           </div>
           {warningText ? (

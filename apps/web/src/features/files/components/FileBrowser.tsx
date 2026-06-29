@@ -6,6 +6,7 @@ import {
   useCallback,
   useRef,
 } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -46,11 +47,12 @@ export function FileBrowser({
   open,
   onOpenChange,
   onSelect,
-  title = 'Browse Files',
-  selectLabel = 'Select',
+  title,
+  selectLabel,
   dirsOnly = true,
   showHidden: initialShowHidden = false,
 }: FileBrowserProps) {
+  const t = useTranslations('files.components');
   const { isConnected, connectionState } = useWebSocket();
 
   const [currentPath, setCurrentPath] = useState<string>('');
@@ -81,11 +83,11 @@ export function FileBrowser({
       setPathInput(result.path);
       setIsSearchMode(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load directory');
+      setError(err instanceof Error ? err.message : t('fileBrowser.errors.failedToLoadDirectory'));
     } finally {
       setIsLoading(false);
     }
-  }, [dirsOnly, showHidden]);
+  }, [dirsOnly, showHidden, t]);
 
   // 搜索目录（递归）
   const searchDirectories = useCallback(async (query: string) => {
@@ -102,7 +104,7 @@ export function FileBrowser({
           setPathInput(result.path);
           setIsSearchMode(false);
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to load directory');
+          setError(err instanceof Error ? err.message : t('fileBrowser.errors.failedToLoadDirectory'));
         } finally {
           setIsLoading(false);
         }
@@ -127,11 +129,11 @@ export function FileBrowser({
       setIsSearchMode(true);
       setPathInput(searchPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed');
+      setError(err instanceof Error ? err.message : t('fileBrowser.errors.searchFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [currentPath, dirsOnly, showHidden]);
+  }, [currentPath, dirsOnly, showHidden, t]);
 
   // Store the latest searchDirectories implementation in a ref
   useEffect(() => {
@@ -169,12 +171,12 @@ export function FileBrowser({
           const homeDir = await fsApi.getHomeDir();
           await loadDirectory(homeDir);
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to initialize');
+          setError(err instanceof Error ? err.message : t('fileBrowser.errors.failedToInitialize'));
         }
       };
       init();
     }
-  }, [open, isConnected, loadDirectory]);
+  }, [open, isConnected, loadDirectory, t]);
 
   // 当 showHidden 改变时重新加载
   useEffect(() => {
@@ -240,16 +242,16 @@ export function FileBrowser({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl h-[80vh] flex flex-col gap-3">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{title ?? t('fileBrowser.title')}</DialogTitle>
         </DialogHeader>
 
         {/* 连接状态提示 */}
         {connectionState !== 'connected' && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm">
             <span className="text-yellow-700 dark:text-yellow-300">
-              {connectionState === 'connecting' && 'Connecting to server...'}
-              {connectionState === 'reconnecting' && 'Reconnecting to server...'}
-              {connectionState === 'disconnected' && 'Not connected to server'}
+              {connectionState === 'connecting' && t('fileBrowser.connection.connecting')}
+              {connectionState === 'reconnecting' && t('fileBrowser.connection.reconnecting')}
+              {connectionState === 'disconnected' && t('fileBrowser.connection.disconnected')}
             </span>
           </div>
         )}
@@ -260,7 +262,7 @@ export function FileBrowser({
             <Input
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
-              placeholder="Enter path..."
+              placeholder={t('fileBrowser.pathPlaceholder')}
               className="flex-1 font-mono text-sm"
             />
           </form>
@@ -272,7 +274,7 @@ export function FileBrowser({
                 size="icon"
                 onClick={() => parentPath && loadDirectory(parentPath)}
                 disabled={!parentPath || isLoading}
-                title="Go to parent directory"
+                title={t('fileBrowser.actions.goToParentDirectory')}
                 className="cursor-pointer"
               >
                 <ChevronUp className="w-4 h-4" />
@@ -286,7 +288,7 @@ export function FileBrowser({
                   loadDirectory(homeDir);
                 }}
                 disabled={isLoading}
-                title="Go to home directory"
+                title={t('fileBrowser.actions.goToHomeDirectory')}
                 className="cursor-pointer"
               >
                 <Home className="w-4 h-4" />
@@ -297,7 +299,7 @@ export function FileBrowser({
                 size="icon"
                 onClick={() => loadDirectory(currentPath)}
                 disabled={isLoading}
-                title="Refresh"
+                title={t('fileBrowser.actions.refresh')}
                 className="cursor-pointer"
               >
                 <RotateCw className="w-4 h-4" />
@@ -312,7 +314,7 @@ export function FileBrowser({
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={isSearchMode ? "Searching all folders..." : "Search folders recursively..."}
+            placeholder={isSearchMode ? t('fileBrowser.search.searchingAllFolders') : t('fileBrowser.search.searchFoldersRecursively')}
             className="pl-9 pr-10 font-mono text-sm"
           />
           {searchQuery && (
@@ -335,7 +337,7 @@ export function FileBrowser({
               onCheckedChange={(checked) => setShowHidden(checked === true)}
             />
             <label htmlFor="showHidden" className="text-sm text-muted-foreground cursor-pointer">
-              Show hidden files
+              {t('fileBrowser.showHiddenFiles')}
             </label>
           </div>
         )}
@@ -356,16 +358,19 @@ export function FileBrowser({
           ) : entries.length === 0 ? (
             <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
               {searchQuery
-                ? `No folders match "${searchQuery}"`
+                ? t('fileBrowser.empty.noFoldersMatch', { query: searchQuery })
                 : isSearchMode
-                  ? 'No results found'
-                  : 'Empty directory'}
+                  ? t('fileBrowser.empty.noResultsFound')
+                  : t('fileBrowser.empty.emptyDirectory')}
             </div>
           ) : (
             <div className="p-2">
               {isSearchMode && searchQuery && (
                 <div className="text-xs text-muted-foreground px-3 py-1 mb-1 sticky top-0 bg-background">
-                  {entries.length} {entries.length === 1 ? 'folder' : 'folders'} found matching &quot;{searchQuery}&quot;
+                  {t('fileBrowser.search.foldersFoundMatching', {
+                    count: entries.length,
+                    query: searchQuery,
+                  })}
                 </div>
               )}
               {entries.map((entry) => (
@@ -388,7 +393,7 @@ export function FileBrowser({
                   )}
                   {entry.is_git_repo && (
                     <span className="text-xs text-orange-500 bg-orange-400/10 px-2 py-0.5 rounded">
-                      Git Repo
+                      {t('fileBrowser.gitRepo')}
                     </span>
                   )}
                 </div>
@@ -400,20 +405,22 @@ export function FileBrowser({
         {/* 搜索结果信息 */}
         {isSearchMode && entries.length > 0 && (
           <div className="text-xs text-muted-foreground shrink-0">
-            Found {entries.length} {entries.length === 1 ? 'folder' : 'folders'} • Double-click to browse
+            {t('fileBrowser.search.foundFoldersDoubleClickToBrowse', {
+              count: entries.length,
+            })}
           </div>
         )}
 
         {/* 当前选中信息 */}
         {selectedEntry && (
           <div className="text-sm text-muted-foreground truncate shrink-0">
-            Selected: <span className="font-mono">{selectedEntry.path}</span>
+            {t('fileBrowser.selected')} <span className="font-mono">{selectedEntry.path}</span>
           </div>
         )}
 
         <DialogFooter className="flex gap-2 shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
-            Cancel
+            {t('fileBrowser.actions.cancel')}
           </Button>
           {dirsOnly && !isSearchMode && (
             <Button
@@ -422,7 +429,7 @@ export function FileBrowser({
               disabled={!currentPath}
               className="cursor-pointer"
             >
-              Select Current Directory
+              {t('fileBrowser.actions.selectCurrentDirectory')}
             </Button>
           )}
           <Button
@@ -430,7 +437,7 @@ export function FileBrowser({
             disabled={!selectedEntry}
             className="cursor-pointer"
           >
-            {selectLabel}
+            {selectLabel ?? t('fileBrowser.actions.select')}
           </Button>
         </DialogFooter>
       </DialogContent>

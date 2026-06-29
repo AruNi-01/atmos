@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { useShallow } from 'zustand/shallow';
 import {
@@ -65,6 +66,7 @@ function formatDate(dateStr?: string) {
 }
 
 export function LabelSettingsSection() {
+  const t = useTranslations('settings.labelSection');
   const {
     workspaceLabels,
     updateWorkspaceLabel,
@@ -171,6 +173,19 @@ export function LabelSettingsSection() {
     }, 250);
   };
 
+  const labelSourceLabel = React.useCallback(
+    (source?: string | null) => {
+      if (source === 'gitHub_issue') {
+        return t('sources.githubIssue');
+      }
+      if (source === 'gitHub_pr') {
+        return t('sources.githubPr');
+      }
+      return t('sources.manual');
+    },
+    [t],
+  );
+
   const handleSave = async () => {
     const trimmedName = editName.trim();
     if (!trimmedName) return;
@@ -179,7 +194,7 @@ export function LabelSettingsSection() {
       isCreatingNew &&
       workspaceLabels.some((label) => label.name.toLowerCase() === trimmedName.toLowerCase())
     ) {
-      toastManager.add({ title: 'A label with this name already exists', type: 'error' });
+      toastManager.add({ title: t('toasts.duplicateName'), type: 'error' });
       return;
     }
 
@@ -190,7 +205,7 @@ export function LabelSettingsSection() {
         (label) => label.id !== editingLabel && label.name.toLowerCase() === trimmedName.toLowerCase(),
       )
     ) {
-      toastManager.add({ title: 'A label with this name already exists', type: 'error' });
+      toastManager.add({ title: t('toasts.duplicateName'), type: 'error' });
       return;
     }
 
@@ -200,14 +215,19 @@ export function LabelSettingsSection() {
       if (isCreatingNew) {
         await createWorkspaceLabel({ name: trimmedName, color: hexColor });
         setIsCreatingNew(false);
-        toastManager.add({ title: 'Label created', type: 'success' });
+        toastManager.add({ title: t('toasts.created'), type: 'success' });
       } else if (editingLabel) {
         await updateWorkspaceLabel(editingLabel, { name: trimmedName, color: hexColor });
         setEditingLabel(null);
-        toastManager.add({ title: 'Label updated', type: 'success' });
+        toastManager.add({ title: t('toasts.updated'), type: 'success' });
       }
     } catch {
-      toastManager.add({ title: isCreatingNew ? 'Failed to create label' : 'Failed to update label', type: 'error' });
+      toastManager.add({
+        title: isCreatingNew
+          ? t('toasts.createFailed')
+          : t('toasts.updateFailed'),
+        type: 'error',
+      });
     }
   };
 
@@ -225,7 +245,7 @@ export function LabelSettingsSection() {
         <div className="relative w-64">
           <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Filter by name..."
+            placeholder={t('filters.searchPlaceholder')}
             value={filterQuery}
             onChange={(event) => setFilterQuery(event.target.value)}
             className="h-8 pl-8 text-sm"
@@ -237,8 +257,8 @@ export function LabelSettingsSection() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="deleted">Deleted</SelectItem>
+              <SelectItem value="active">{t('filters.status.active')}</SelectItem>
+              <SelectItem value="deleted">{t('filters.status.deleted')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -259,7 +279,7 @@ export function LabelSettingsSection() {
                   }}
                 >
                   <Plus className="size-3.5" />
-                  New
+                  {t('actions.new')}
                 </Button>
               </PopoverTrigger>
               {isCreatingNew && (
@@ -290,7 +310,7 @@ export function LabelSettingsSection() {
                   <Checkbox
                     checked={isAllSelected}
                     onCheckedChange={toggleSelectAll}
-                    aria-label="Select all labels"
+                    aria-label={t('table.selectAllAriaLabel')}
                   />
                 </TableHead>
                 <TableHead
@@ -298,7 +318,7 @@ export function LabelSettingsSection() {
                   onClick={() => handleSort('name')}
                 >
                   <div className="flex items-center gap-1">
-                    Name
+                    {t('table.columns.name')}
                     {sortField === 'name' ? (
                       sortDirection === 'asc' ? (
                         <ArrowUp className="size-3" />
@@ -314,7 +334,7 @@ export function LabelSettingsSection() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button type="button" className="flex cursor-pointer select-none items-center gap-1 hover:text-foreground">
-                        Source
+                        {t('table.columns.source')}
                         <ListFilter className={`size-3 ${selectedSources.size > 0 ? 'text-primary' : 'text-muted-foreground/50'}`} />
                       </button>
                     </DropdownMenuTrigger>
@@ -335,7 +355,7 @@ export function LabelSettingsSection() {
                         }}
                       >
                         <Checkbox checked={selectedSources.has('manual')} />
-                        <span>Manual</span>
+                        <span>{t('filters.sources.manual')}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="flex cursor-pointer items-center gap-2"
@@ -353,7 +373,7 @@ export function LabelSettingsSection() {
                         }}
                       >
                         <Checkbox checked={selectedSources.has('gitHub_issue')} />
-                        <span>GitHub Issue</span>
+                        <span>{t('filters.sources.githubIssue')}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="flex cursor-pointer items-center gap-2"
@@ -371,7 +391,7 @@ export function LabelSettingsSection() {
                         }}
                       >
                         <Checkbox checked={selectedSources.has('gitHub_pr')} />
-                        <span>GitHub PR</span>
+                        <span>{t('filters.sources.githubPr')}</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -381,7 +401,7 @@ export function LabelSettingsSection() {
                   onClick={() => handleSort('createdAt')}
                 >
                   <div className="flex items-center gap-1">
-                    Created
+                    {t('table.columns.created')}
                     {sortField === 'createdAt' ? (
                       sortDirection === 'asc' ? (
                         <ArrowUp className="size-3" />
@@ -393,14 +413,16 @@ export function LabelSettingsSection() {
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="w-8">Action</TableHead>
+                <TableHead className="w-8">{t('table.columns.action')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAndSortedLabels.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                    {filterQuery.trim() ? 'No matching labels found' : 'No labels created yet'}
+                    {filterQuery.trim()
+                      ? t('empty.filtered')
+                      : t('empty.default')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -413,7 +435,7 @@ export function LabelSettingsSection() {
                       <Checkbox
                         checked={selectedLabels.has(label.id)}
                         onCheckedChange={() => toggleSelect(label.id)}
-                        aria-label={`Select ${label.name}`}
+                        aria-label={t('table.selectRowAriaLabel', { name: label.name })}
                       />
                     </TableCell>
                     <TableCell>
@@ -427,7 +449,7 @@ export function LabelSettingsSection() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs capitalize text-muted-foreground">
-                        {label.source === 'manual' ? 'Manual' : label.source === 'gitHub_issue' ? 'GitHub Issue' : 'GitHub PR'}
+                        {labelSourceLabel(label.source)}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -457,7 +479,7 @@ export function LabelSettingsSection() {
                                       className="cursor-pointer"
                                     >
                                       <SlidersHorizontal className="mr-2 size-4" />
-                                      Edit
+                                      {t('actions.edit')}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       variant="destructive"
@@ -469,7 +491,7 @@ export function LabelSettingsSection() {
                                       }}
                                     >
                                       <Trash2 className="mr-2 size-4" />
-                                      Delete
+                                      {t('actions.delete')}
                                     </DropdownMenuItem>
                                   </>
                                 ) : (
@@ -477,16 +499,16 @@ export function LabelSettingsSection() {
                                     onClick={async () => {
                                       try {
                                         await restoreWorkspaceLabel(label.id);
-                                        toastManager.add({ title: 'Label restored', type: 'success' });
+                                        toastManager.add({ title: t('toasts.restored'), type: 'success' });
                                         await fetchWorkspaceLabels(true);
                                       } catch {
-                                        toastManager.add({ title: 'Failed to restore label', type: 'error' });
+                                        toastManager.add({ title: t('toasts.restoreFailed'), type: 'error' });
                                       }
                                     }}
                                     className="cursor-pointer"
                                   >
                                     <RotateCcw className="mr-2 size-4" />
-                                    Restore
+                                    {t('actions.restore')}
                                   </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
@@ -519,13 +541,19 @@ export function LabelSettingsSection() {
       {selectedLabels.size > 0 && (
         <div className="flex items-center justify-between px-2 py-1">
           <span className="text-sm text-muted-foreground">
-            {selectedLabels.size} of {filteredAndSortedLabels.length} row{filteredAndSortedLabels.length !== 1 ? 's' : ''} selected
+            {t('selection.summary', {
+              selected: selectedLabels.size,
+              total: filteredAndSortedLabels.length,
+              rowLabel: filteredAndSortedLabels.length === 1
+                ? t('selection.rowLabel.one')
+                : t('selection.rowLabel.other'),
+            })}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 gap-1">
                 <MoreHorizontal className="size-3.5" />
-                Actions
+                {t('actions.menu')}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -539,7 +567,7 @@ export function LabelSettingsSection() {
                 }}
               >
                 <Trash2 className="mr-2 size-4" />
-                Delete All
+                {t('actions.deleteAll')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -549,16 +577,25 @@ export function LabelSettingsSection() {
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent showCloseButton={false} className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete {deleteConfirmIsBatch ? 'Labels' : 'Label'}?</DialogTitle>
+            <DialogTitle>
+              {deleteConfirmIsBatch
+                ? t('deleteConfirm.title.batch')
+                : t('deleteConfirm.title.single')}
+            </DialogTitle>
             <DialogDescription>
               {deleteConfirmIsBatch
-                ? `Are you sure you want to delete ${selectedLabels.size} selected label${selectedLabels.size !== 1 ? 's' : ''}? This action cannot be undone.`
-                : 'Are you sure you want to delete this label? This action cannot be undone.'}
+                ? t('deleteConfirm.description.batch', {
+                    count: selectedLabels.size,
+                    labelWord: selectedLabels.size === 1
+                      ? t('deleteConfirm.labelWord.one')
+                      : t('deleteConfirm.labelWord.other'),
+                  })
+                : t('deleteConfirm.description.single')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline">{t('actions.cancel')}</Button>
             </DialogClose>
             <Button
               variant="destructive"
@@ -568,7 +605,15 @@ export function LabelSettingsSection() {
                     const idsToDelete = Array.from(selectedLabels);
                     await Promise.all(idsToDelete.map((id) => deleteWorkspaceLabel(id)));
                     setSelectedLabels(new Set());
-                    toastManager.add({ title: `${idsToDelete.length} label${idsToDelete.length !== 1 ? 's' : ''} deleted`, type: 'success' });
+                    toastManager.add({
+                      title: t('toasts.batchDeleted', {
+                        count: idsToDelete.length,
+                        labelWord: idsToDelete.length === 1
+                          ? t('toasts.labelWord.one')
+                          : t('toasts.labelWord.other'),
+                      }),
+                      type: 'success',
+                    });
                   } else if (deleteConfirmLabelId) {
                     await deleteWorkspaceLabel(deleteConfirmLabelId);
                     setSelectedLabels((prev) => {
@@ -576,15 +621,20 @@ export function LabelSettingsSection() {
                       next.delete(deleteConfirmLabelId);
                       return next;
                     });
-                    toastManager.add({ title: 'Label deleted', type: 'success' });
+                    toastManager.add({ title: t('toasts.deleted'), type: 'success' });
                   }
                 } catch {
-                  toastManager.add({ title: deleteConfirmIsBatch ? 'Failed to delete labels' : 'Failed to delete label', type: 'error' });
+                  toastManager.add({
+                    title: deleteConfirmIsBatch
+                      ? t('toasts.batchDeleteFailed')
+                      : t('toasts.deleteFailed'),
+                    type: 'error',
+                  });
                 }
                 setDeleteConfirmOpen(false);
               }}
             >
-              Delete
+              {t('actions.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>

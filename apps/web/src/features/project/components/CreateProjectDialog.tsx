@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { 
   Dialog, 
   DialogContent, 
@@ -25,6 +26,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
   isOpen, 
   onClose 
 }) => {
+  const t = useTranslations('project.createProjectDialog');
   const addProject = useProjectStore(s => s.addProject);
   const { isConnected, connectionState } = useWebSocket();
   
@@ -69,13 +71,13 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
         });
         
         if (!result.is_git_repo) {
-          setValidationError('Warning: This is not a Git repository');
+          setValidationError(t('validation.warningNotGitRepo'));
         }
       } else {
-        setValidationError(result.error || 'Invalid path');
+        setValidationError(result.error || t('validation.invalidPath'));
       }
     } catch (e) {
-      setValidationError(e instanceof Error ? e.message : 'Validation failed');
+      setValidationError(e instanceof Error ? e.message : t('validation.failed'));
     } finally {
       setIsValidating(false);
     }
@@ -113,7 +115,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
       setValidationError(null);
       setValidationInfo(null);
     } catch (e) {
-      setValidationError(e instanceof Error ? e.message : 'Failed to import project');
+      setValidationError(e instanceof Error ? e.message : t('submit.failed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -132,29 +134,29 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Import Project</DialogTitle>
+            <DialogTitle>{t('title')}</DialogTitle>
           </DialogHeader>
           
           {/* 连接状态提示 */}
           {connectionState !== 'connected' && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm mb-4">
               <span className="text-yellow-700 dark:text-yellow-300">
-                {connectionState === 'connecting' && 'Connecting to server...'}
-                {connectionState === 'reconnecting' && 'Reconnecting to server...'}
-                {connectionState === 'disconnected' && 'Not connected to server. File browsing will not work.'}
+                {connectionState === 'connecting' && t('connection.connecting')}
+                {connectionState === 'reconnecting' && t('connection.reconnecting')}
+                {connectionState === 'disconnected' && t('connection.disconnected')}
               </span>
             </div>
           )}
           
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="path">Project Path</Label>
+              <Label htmlFor="path">{t('fields.path.label')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="path"
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
-                  placeholder="/path/to/your/project"
+                  placeholder={t('fields.path.placeholder')}
                   className="flex-1 font-mono text-sm"
                 />
                 <Button 
@@ -164,14 +166,14 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
                   disabled={!isConnected}
                   className="cursor-pointer"
                 >
-                  Browse...
+                  {t('fields.path.browse')}
                 </Button>
               </div>
               
               {/* 验证状态 */}
               {isValidating && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span className="animate-spin">⏳</span> Validating path...
+                  <span className="animate-spin">⏳</span> {t('validation.validating')}
                 </p>
               )}
               
@@ -180,16 +182,16 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
                 <div className="text-xs space-y-1">
                   {validationInfo.isGitRepo ? (
                     <p className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                      <span>✓</span> Git repository detected
+                      <span>✓</span> {t('validation.gitRepoDetected')}
                       {validationInfo.defaultBranch && (
                         <span className="text-muted-foreground">
-                          (branch: {validationInfo.defaultBranch})
+                          {t('validation.branch', { branch: validationInfo.defaultBranch })}
                         </span>
                       )}
                     </p>
                   ) : (
                     <p className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                      <span>⚠</span> Not a Git repository (will be imported as a plain directory)
+                      <span>⚠</span> {t('validation.notGitRepo')}
                     </p>
                   )}
                 </div>
@@ -204,28 +206,28 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="name">Project Name</Label>
+              <Label htmlFor="name">{t('fields.name.label')}</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Project Name"
+                placeholder={t('fields.name.placeholder')}
               />
               <p className="text-xs text-muted-foreground">
-                This name will be displayed in the sidebar.
+                {t('fields.name.help')}
               </p>
             </div>
             
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose} className="cursor-pointer">
-                Cancel
+                {t('actions.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 disabled={isSubmitting || !name || !path || Boolean(validationError && !validationInfo)}
                 className="cursor-pointer"
               >
-                {isSubmitting ? 'Importing...' : 'Import Project'}
+                {isSubmitting ? t('actions.importing') : t('actions.import')}
               </Button>
             </DialogFooter>
           </form>
@@ -237,8 +239,8 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
         open={showFileBrowser}
         onOpenChange={setShowFileBrowser}
         onSelect={handleFileBrowserSelect}
-        title="Select Project Directory"
-        selectLabel="Select"
+        title={t('fileBrowser.title')}
+        selectLabel={t('fileBrowser.select')}
         dirsOnly={true}
       />
     </>

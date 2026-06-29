@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Input,
   ScrollArea,
@@ -58,6 +59,7 @@ interface ArchivedWorkspacesViewProps {
 }
 
 export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ viewSwitcher }) => {
+  const t = useTranslations('Workspace.components.archivedView');
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -91,8 +93,8 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
     } catch (error) {
       console.error('Failed to load archived workspaces:', error);
       toastManager.add({
-        title: "Error",
-        description: "Failed to load archived workspaces",
+        title: t('toasts.loadErrorTitle'),
+        description: t('toasts.loadErrorDescription'),
         type: "error"
       });
     } finally {
@@ -113,8 +115,8 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
     } catch (error) {
       console.error('Failed to restore workspace:', error);
       toastManager.add({
-        title: "Restore Failed",
-        description: "Could not restore workspace",
+        title: t('toasts.restoreFailedTitle'),
+        description: t('toasts.restoreFailedDescription'),
         type: "error"
       });
     } finally {
@@ -138,8 +140,8 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
       } catch (error) {
         console.error("Failed to delete workspace", error);
         toastManager.add({
-          title: "Delete Failed",
-          description: "Could not delete workspace",
+          title: t('toasts.deleteFailedTitle'),
+          description: t('toasts.deleteFailedDescription'),
           type: "error"
         });
       }
@@ -226,10 +228,10 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                     <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground border border-border">
                       <Archive className="size-5" />
                     </div>
-                    Archived Workspaces
+                    {t('header.title')}
                   </h2>
                   <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                    View and manage archived workspaces. Restore them to continue working.
+                    {t('header.description')}
                   </p>
                 </div>
                 {viewSwitcher ? <div className="shrink-0">{viewSwitcher}</div> : null}
@@ -243,7 +245,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search archived workspaces..."
+                  placeholder={t('searchPlaceholder')}
                   className="pl-10 h-12 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
                   autoFocus
                 />
@@ -277,16 +279,16 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                     <Archive className="size-10 text-muted-foreground/30" />
                   </div>
                   <h3 className="text-lg font-semibold text-foreground">
-                    {archivedWorkspaces.length === 0 ? "No archived workspaces" : "No results found"}
+                    {archivedWorkspaces.length === 0 ? t('empty.noArchivedTitle') : t('empty.noResultsTitle')}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
                     {archivedWorkspaces.length === 0
-                      ? "When you archive a workspace, it will appear here for safe keeping."
-                      : `We couldn't find any archived workspaces matching "${searchQuery}".`}
+                      ? t('empty.noArchivedDescription')
+                      : t('empty.noResultsDescription', { query: searchQuery ?? '' })}
                   </p>
                   {searchQuery && (
                     <Button variant="link" onClick={() => setSearchQuery("")} className="mt-4">
-                      Clear search query
+                      {t('empty.clearSearch')}
                     </Button>
                   )}
                 </motion.div>
@@ -318,7 +320,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                             size="sm"
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg transition-colors border border-transparent hover:border-destructive/20"
                             onClick={() => handleDeleteProject(projectId, projectName)}
-                            title="Delete project"
+                            title={t('actions.deleteProject')}
                           >
                             <Trash2 className="size-4" />
                           </Button>
@@ -354,7 +356,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <span className="text-[11px] text-muted-foreground/70 font-medium truncate block">
-                                      Archived {formatRelativeTime(ws.archived_at)}
+                                      {t('archivedAt', { time: formatRelativeTime(ws.archived_at) })}
                                     </span>
                                   </div>
                                 </div>
@@ -366,14 +368,14 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                     className="h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer rounded-lg shadow-sm font-medium text-xs transition-all"
                                     onClick={() => handleRestore(ws)}
                                     disabled={restoringIds.has(ws.guid)}
-                                    title="Restore"
+                                    title={t('actions.restore')}
                                   >
                                     {restoringIds.has(ws.guid) ? (
                                       <Loader2 className="size-3.5 animate-spin" />
                                     ) : (
                                       <div className="flex items-center gap-1.5">
                                         <RotateCw className="size-3.5" />
-                                        Restore
+                                        {t('actions.restore')}
                                       </div>
                                     )}
                                   </Button>
@@ -382,11 +384,11 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                     size="sm"
                                     className="h-8 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20 cursor-pointer rounded-lg shadow-sm font-medium text-xs transition-all"
                                     onClick={() => handleDelete(ws)}
-                                    title="Delete permanently"
+                                    title={t('actions.deletePermanently')}
                                   >
                                     <div className="flex items-center gap-1.5">
                                       <Trash2 className="size-3.5" />
-                                      Delete
+                                      {t('actions.delete')}
                                     </div>
                                   </Button>
                                 </div>
@@ -433,8 +435,8 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
             } catch (error) {
               console.error("Failed to delete workspace", error);
               toastManager.add({
-                title: "Delete Failed",
-                description: "Could not delete workspace",
+                title: t('toasts.deleteFailedTitle'),
+                description: t('toasts.deleteFailedDescription'),
                 type: "error"
               });
             }

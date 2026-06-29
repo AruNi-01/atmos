@@ -1,8 +1,28 @@
 import type { AppshotPendingPreview, AppshotRecordDetail } from "../types";
+import { createTranslator } from "next-intl";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export const MAX_INLINE_APPSHOT_IMAGE_CHARS = 512 * 1024;
-const OVERSIZED_WARNING =
-  "Screenshot preview was hidden because the inline image payload is too large.";
+let cachedAppshotLibLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedAppshotLibTranslator: any = null;
+
+function appshotLibT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedAppshotLibTranslator || cachedAppshotLibLocale !== locale) {
+    cachedAppshotLibLocale = locale;
+    cachedAppshotLibTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "appshot.lib",
+    });
+  }
+  return cachedAppshotLibTranslator(key as never);
+}
+
+const OVERSIZED_WARNING = appshotLibT("payload.oversizedWarning");
 
 export function toBoundedScreenshotDataUrl(payload: string | null): string | null {
   if (!payload) {

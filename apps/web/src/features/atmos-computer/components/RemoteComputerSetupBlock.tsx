@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button, cn, toastManager } from '@workspace/ui';
 import { Check, Copy, LoaderCircle } from 'lucide-react';
 import { fetchRegisterToken } from '@/features/connection/lib/fetch-register-token';
@@ -30,6 +31,8 @@ function CommandBlock({
   actionLabel?: string;
   loading?: boolean;
 }) {
+  const t = useTranslations('atmosComputer.remoteSetup');
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -45,7 +48,7 @@ function CommandBlock({
             ) : (
               <Copy className="mr-2 size-4" />
             )}
-            {loading ? 'Generating…' : copied ? 'Copied' : actionLabel}
+            {loading ? t('actions.generating') : copied ? t('actions.copied') : actionLabel}
           </Button>
         </div>
       </div>
@@ -76,6 +79,7 @@ export function RemoteComputerSetupBlock({
   relaySecretKey?: string;
   busy: boolean;
 }) {
+  const t = useTranslations('atmosComputer.remoteSetup');
   const registerCommandShown = useAtmosComputerStore(state => state.registerCommandShown);
   const registerTokenExpiresAt = useAtmosComputerStore(state => state.registerTokenExpiresAt);
   const setRegisterCommandShown = useAtmosComputerStore(state => state.setRegisterCommandShown);
@@ -106,8 +110,8 @@ export function RemoteComputerSetupBlock({
     } catch (err) {
       clearRegistrationState();
       toastManager.add({
-        title: 'Could not prepare registration code',
-        description: err instanceof Error ? err.message : 'Try again.',
+        title: t('toasts.prepareFailed'),
+        description: err instanceof Error ? err.message : t('toasts.tryAgain'),
         type: 'error',
       });
       return null;
@@ -148,30 +152,30 @@ export function RemoteComputerSetupBlock({
       setCopiedSetup(true);
       setTimeout(() => setCopiedSetup(false), 2000);
     } catch {
-      toastManager.add({ title: 'Copy failed', type: 'error' });
+      toastManager.add({ title: t('toasts.copyFailed'), type: 'error' });
     }
   }
 
   const setupDescription = !hasAccessToken
-    ? 'Use an access key above first.'
+    ? t('description.useAccessKeyFirst')
     : loadingToken
-      ? 'Preparing registration code…'
+      ? t('description.preparing')
         : needsCode
           ? tokenExpired
-            ? 'Registration code expired — generate and copy a fresh setup command.'
-            : 'Generate and copy a setup command to link this remote computer to your access key above.'
-        : 'Run on the remote computer. The registration code is one-time use and expires in about 15 minutes.';
+            ? t('description.expired')
+            : t('description.generateAndCopy')
+        : t('description.runOnRemote');
 
   const actionLabel = needsCode
     ? tokenExpired
-      ? 'Regenerate & Copy'
-      : 'Generate & Copy'
-    : 'Copy';
+      ? t('actions.regenerateAndCopy')
+      : t('actions.generateAndCopy')
+    : t('actions.copy');
 
   return (
     <div className="space-y-4 rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-4">
       <CommandBlock
-        title="Register & Start One Computer"
+        title={t('title')}
         description={setupDescription}
         command={setupCommand}
         copied={copiedSetup}

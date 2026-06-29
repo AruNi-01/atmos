@@ -1,12 +1,16 @@
 "use client";
 
 import { create } from "zustand";
+import { createTranslator } from "next-intl";
 
 import {
   localServicesApi,
   type LocalServicesScanRequest,
   type LocalServicesScanResponse,
 } from "@/api/ws/local-services-api";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 type ScopeState = {
   data: LocalServicesScanResponse | null;
@@ -19,6 +23,23 @@ interface LocalServicesStore {
   scopes: Record<string, ScopeState>;
   scan: (request: LocalServicesScanRequest) => Promise<LocalServicesScanResponse | null>;
   clear: (key: string) => void;
+}
+
+let cachedLocalServicesStoreLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedLocalServicesStoreTranslator: any = null;
+
+function localServicesStoreT(key: "scanFailed"): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedLocalServicesStoreTranslator || cachedLocalServicesStoreLocale !== locale) {
+    cachedLocalServicesStoreLocale = locale;
+    cachedLocalServicesStoreTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "localServices.store",
+    });
+  }
+  return cachedLocalServicesStoreTranslator(key as never);
 }
 
 export function localServicesScopeKey(request: LocalServicesScanRequest): string {
@@ -69,7 +90,7 @@ export const useLocalServicesStore = create<LocalServicesStore>((set, get) => ({
       }));
       return data;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to scan local services.";
+      const message = error instanceof Error ? error.message : localServicesStoreT("scanFailed");
       set((state) => ({
         scopes: {
           ...state.scopes,

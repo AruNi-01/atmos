@@ -8,7 +8,7 @@ import {
   type LlmProvidersFile,
 } from "@/api/ws-api";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
-import { WIKI_LANGUAGE_OPTIONS } from "@/features/wiki/lib/wiki-languages";
+import { getWikiLanguageOptions } from "@/features/wiki/lib/wiki-languages";
 
 export type ProviderDraft = {
   clientKey: string;
@@ -36,6 +36,10 @@ export type ModalDraftState = {
 };
 
 export type SaveState = "idle" | "saving" | "saved";
+export type TranslateFn = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string;
 
 export const EMPTY_ROUTING: RoutingDraft = {
   features: {
@@ -105,32 +109,37 @@ export function localAgentLabel(
 export function agentCliRouteLabel(
   value?: string | null,
   localAgentOptions: readonly LocalAgentOption[] = BUILT_IN_LOCAL_AGENT_OPTIONS,
+  t?: TranslateFn,
 ): string | null {
   const agentId = parseAgentCliRouteValue(value);
   if (!agentId) return null;
-  return `Local Agent CLI · ${localAgentLabel(agentId, localAgentOptions)}`;
+
+  const label = localAgentLabel(agentId, localAgentOptions);
+  return t
+    ? t("appShell.llmProviders.featureSelect.localAgentCliValue", { agent: label })
+    : label;
 }
 
 export const KIND_OPTIONS: Array<{
   value: LlmProviderKind;
-  label: string;
-  hint: string;
+  labelKey: string;
+  hintKey: string;
 }> = [
   {
     value: "openai-compatible",
-    label: "OpenAI-compatible",
-    hint: "/chat/completions style endpoints",
+    labelKey: "appShell.llmProviders.kindOptions.openaiCompatible.label",
+    hintKey: "appShell.llmProviders.kindOptions.openaiCompatible.hint",
   },
   {
     value: "anthropic-compatible",
-    label: "Anthropic-compatible",
-    hint: "/v1/messages style endpoints",
+    labelKey: "appShell.llmProviders.kindOptions.anthropicCompatible.label",
+    hintKey: "appShell.llmProviders.kindOptions.anthropicCompatible.hint",
   },
 ];
 
 export const DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS = "4096";
 export const DEFAULT_PROVIDER_TIMEOUT_MS = "20000";
-export const FEATURE_LANGUAGE_OPTIONS = WIKI_LANGUAGE_OPTIONS.filter(
+export const FEATURE_LANGUAGE_OPTIONS = getWikiLanguageOptions().filter(
   (option) => option.value !== "other",
 );
 
@@ -139,8 +148,11 @@ export function normalizeFeatureLanguage(value?: string | null): string | null {
   return normalized ? normalized : null;
 }
 
-export function languageButtonLabel(language?: string | null): string {
-  return normalizeFeatureLanguage(language) ?? "Output language";
+export function languageButtonLabel(
+  language: string | null | undefined,
+  t: TranslateFn,
+): string {
+  return normalizeFeatureLanguage(language) ?? t("appShell.llmProviders.common.outputLanguage");
 }
 
 export function resolveFeatureLanguagePreset(language?: string | null): string {
@@ -210,6 +222,7 @@ function buildDraftIdMap(providers: ProviderDraft[]): Map<string, string> {
 
 export function buildProviderNameIssues(
   providers: ProviderDraft[],
+  t: TranslateFn,
 ): Record<string, string | null> {
   const generatedByClientKey = new Map<string, string>();
   const duplicates = new Set<string>();
@@ -230,17 +243,23 @@ export function buildProviderNameIssues(
     providers.map((provider) => {
       const name = provider.name.trim();
       if (!name) {
-        return [provider.clientKey, "Provider name is required."];
+        return [
+          provider.clientKey,
+          t("appShell.llmProviders.validation.providerNameRequired"),
+        ];
       }
       const generatedId = slugifyProviderId(name);
       if (!generatedId) {
         return [
           provider.clientKey,
-          "Provider name must contain letters or numbers.",
+          t("appShell.llmProviders.validation.providerNameInvalid"),
         ];
       }
       if (duplicates.has(generatedId)) {
-        return [provider.clientKey, "Provider name is duplicated."];
+        return [
+          provider.clientKey,
+          t("appShell.llmProviders.validation.providerNameDuplicated"),
+        ];
       }
       return [provider.clientKey, null];
     }),
@@ -256,8 +275,9 @@ export function providerLabel(
 export function validateProvider(
   provider: ProviderDraft,
   providers: ProviderDraft[],
+  t: TranslateFn,
 ): string | null {
-  const nameIssue = buildProviderNameIssues(providers)[provider.clientKey];
+  const nameIssue = buildProviderNameIssues(providers, t)[provider.clientKey];
   if (nameIssue) {
     return nameIssue;
   }
@@ -265,18 +285,24 @@ export function validateProvider(
   const trimmedTimeout = provider.timeout_ms.trim();
   if (trimmedTimeout) {
     if (!/^\d+$/.test(trimmedTimeout)) {
-      return `Timeout for provider "${providerLabel(provider)}" must be a whole number in milliseconds.`;
+      return t("appShell.llmProviders.validation.timeoutWholeNumber", {
+        provider: providerLabel(provider),
+      });
     }
     const timeoutMs = Number(trimmedTimeout);
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
-      return `Timeout for provider "${providerLabel(provider)}" is out of range.`;
+      return t("appShell.llmProviders.validation.timeoutOutOfRange", {
+        provider: providerLabel(provider),
+      });
     }
   }
 
   const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
   if (trimmedMaxOutputTokens) {
     if (!/^\d+$/.test(trimmedMaxOutputTokens)) {
-      return `Max output tokens for provider "${providerLabel(provider)}" must be a whole number.`;
+      return t("appShell.llmProviders.validation.maxOutputTokensWholeNumber", {
+        provider: providerLabel(provider),
+      });
     }
     const maxOutputTokens = Number(trimmedMaxOutputTokens);
     if (
@@ -284,10 +310,14 @@ export function validateProvider(
       maxOutputTokens <= 0 ||
       maxOutputTokens > 4294967295
     ) {
-      return `Max output tokens for provider "${providerLabel(provider)}" is out of range.`;
+      return t("appShell.llmProviders.validation.maxOutputTokensOutOfRange", {
+        provider: providerLabel(provider),
+      });
     }
   } else if (provider.kind === "anthropic-compatible") {
-    return `Anthropic-compatible provider "${providerLabel(provider)}" requires max output tokens.`;
+    return t("appShell.llmProviders.validation.anthropicMaxOutputTokensRequired", {
+      provider: providerLabel(provider),
+    });
   }
 
   return null;
@@ -296,6 +326,7 @@ export function validateProvider(
 export function validateRouting(
   routing: RoutingDraft,
   providers: ProviderDraft[],
+  t: TranslateFn,
 ): string | null {
   const clientKeys = new Set(providers.map((provider) => provider.clientKey));
   for (const selected of [
@@ -306,7 +337,7 @@ export function validateRouting(
       continue;
     }
     if (selected && !clientKeys.has(selected)) {
-      return "Routing references a provider that does not exist.";
+      return t("appShell.llmProviders.validation.routingProviderMissing");
     }
   }
   return null;

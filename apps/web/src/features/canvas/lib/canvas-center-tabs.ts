@@ -6,6 +6,10 @@ import {
   LayoutDashboard,
   type LucideIcon,
 } from "lucide-react";
+import { createTranslator } from "next-intl";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 export const CANVAS_CENTER_OVERVIEW_TAB_ID = "overview";
 
@@ -72,6 +76,23 @@ export type CanvasCenterTabDraft = DistributiveOmit<CanvasCenterTab, "id" | "tit
 
 type CanvasCenterTabWithoutId = DistributiveOmit<CanvasCenterTab, "id">;
 
+let cachedCanvasCenterTabsLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasCenterTabsTranslator: any = null;
+
+function canvasCenterTabsT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedCanvasCenterTabsTranslator || cachedCanvasCenterTabsLocale !== locale) {
+    cachedCanvasCenterTabsLocale = locale;
+    cachedCanvasCenterTabsTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.centerTabs",
+    });
+  }
+  return cachedCanvasCenterTabsTranslator(key as never);
+}
+
 function omitUndefinedProperties<T extends Record<string, unknown>>(value: T): T {
   const next: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
@@ -85,7 +106,7 @@ function omitUndefinedProperties<T extends Record<string, unknown>>(value: T): T
 function basename(path: string): string {
   const trimmed = path.replace(/\/+$/, "");
   const parts = trimmed.split("/");
-  return parts.at(-1) || trimmed || "Untitled";
+  return parts.at(-1) || trimmed || canvasCenterTabsT("untitled");
 }
 
 export function createCanvasCenterTabId(tab: CanvasCenterTabWithoutId): string {
@@ -109,7 +130,7 @@ export function createCanvasCenterTab(tab: CanvasCenterTabDraft): CanvasCenterTa
   const title =
     tab.title ??
     (tab.kind === "overview"
-      ? "Overview"
+      ? canvasCenterTabsT("titles.overview")
       : tab.kind === "file"
       ? basename(tab.path)
       : tab.kind === "changes-group" || tab.kind === "review-group"
@@ -188,15 +209,15 @@ export function getCanvasCenterTabIcon(tab: CanvasCenterTab): LucideIcon {
 export function getCanvasCenterTabSubtitle(tab: CanvasCenterTab): string {
   switch (tab.kind) {
     case "overview":
-      return "Overview";
+      return canvasCenterTabsT("subtitles.overview");
     case "file":
       return tab.path;
     case "changes-group":
-      return "Changed files";
+      return canvasCenterTabsT("subtitles.changedFiles");
     case "changes-file":
       return tab.filePath;
     case "review-group":
-      return "Review diff";
+      return canvasCenterTabsT("subtitles.reviewDiff");
     case "review-file":
       return tab.filePath;
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   ScrollArea,
   Loader2,
@@ -66,6 +67,7 @@ import {
 } from './terminal-sections';
 
 export const TerminalManagerView: React.FC = () => {
+  const t = useTranslations('terminal.managerView');
   const [data, setData] = useState<TerminalOverviewResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
@@ -148,9 +150,9 @@ export const TerminalManagerView: React.FC = () => {
               <SquareTerminal className="size-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">Terminal Manager</h2>
+              <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">{t('title')}</h2>
               <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                Monitor and manage active terminal sessions and system health.
+                {t('description')}
               </p>
             </div>
           </div>
@@ -165,7 +167,7 @@ export const TerminalManagerView: React.FC = () => {
                 className="h-10 px-4 rounded-xl bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10 transition-all cursor-pointer font-medium text-xs shadow-sm"
               >
                 <Trash2 className={cn("mr-2 size-3.5", isCleaning && "animate-spin")} />
-                Clean Up ({data?.tmux.stale_client_sessions})
+                {t('cleanUpButton', { count: data?.tmux.stale_client_sessions ?? 0 })}
               </Button>
             )}
             <Button
@@ -174,7 +176,7 @@ export const TerminalManagerView: React.FC = () => {
               onClick={loadData}
               disabled={isLoading}
               className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
-              title="Refresh Stats"
+              title={t('refreshStats')}
             >
               {isLoading ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
             </Button>
@@ -191,10 +193,10 @@ export const TerminalManagerView: React.FC = () => {
         ) : error ? (
           <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
             <AlertTriangle className="size-16 mb-4 opacity-30 text-amber-500" />
-            <p className="text-base font-medium">Failed to load terminal data</p>
+            <p className="text-base font-medium">{t('loadErrorTitle')}</p>
             <p className="text-sm mt-1">{error}</p>
             <Button variant="outline" size="sm" onClick={loadData} className="mt-4 cursor-pointer">
-              Retry
+              {t('retry')}
             </Button>
           </div>
         ) : data ? (
@@ -204,7 +206,7 @@ export const TerminalManagerView: React.FC = () => {
               <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background flex-wrap">
                 <div className="flex items-center gap-2">
                   <Activity className="size-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">System Health</span>
+                  <span className="text-sm font-medium">{t('systemHealth')}</span>
                 </div>
                 <div className="flex items-center gap-4 ml-auto text-sm flex-wrap">
                   {/* Tmux Status */}
@@ -215,7 +217,7 @@ export const TerminalManagerView: React.FC = () => {
                       <AlertTriangle className="size-3.5 text-amber-500" />
                     )}
                     <span className="text-muted-foreground">
-                      tmux {data.tmux.installed ? (data.tmux.version || 'installed') : 'not found'}
+                      tmux {data.tmux.installed ? (data.tmux.version || t('tmuxInstalledFallback')) : t('tmuxNotFound')}
                     </span>
                   </div>
 
@@ -230,7 +232,7 @@ export const TerminalManagerView: React.FC = () => {
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs text-xs">
-                          System PTY device usage. Each terminal session uses one PTY device. If this reaches the limit, no new terminals can be opened system-wide.
+                          {t('ptyUsageTooltip')}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -240,7 +242,7 @@ export const TerminalManagerView: React.FC = () => {
                   <div className="flex items-center gap-1.5">
                     <div className="size-2 rounded-full bg-emerald-500" />
                     <span className="text-muted-foreground">
-                      {data.active_session_count} active
+                      {t('activeSessionsLabel', { count: data.active_session_count })}
                     </span>
                   </div>
 
@@ -251,11 +253,11 @@ export const TerminalManagerView: React.FC = () => {
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 cursor-help">
                             <AlertTriangle className="size-3.5" />
-                            <span>{data.tmux.stale_client_sessions} stale</span>
+                            <span>{t('staleSessionsLabel', { count: data.tmux.stale_client_sessions })}</span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs text-xs">
-                          Stale sessions are orphaned tmux client connections left behind by previous crashes or hot-reloads. Each one holds a PTY device. Click &quot;Clean Up&quot; to release them.
+                          {t('staleSessionsTooltip', { action: t('cleanUpAction') })}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -268,11 +270,11 @@ export const TerminalManagerView: React.FC = () => {
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-1.5 text-red-500 cursor-help">
                             <Skull className="size-3.5" />
-                            <span>{data.orphaned_process_count} orphan{data.orphaned_process_count > 1 ? 's' : ''}</span>
+                            <span>{t('orphanedProcessesLabel', { count: data.orphaned_process_count })}</span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs text-xs">
-                          Orphaned shell processes (PPID=1) that may be holding PTY devices. See the Orphaned Processes section below for details.
+                          {t('orphanedProcessesTooltip')}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

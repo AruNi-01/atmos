@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Dialog,
@@ -55,6 +56,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   onProjectWikiReplaceAndRun,
   onComplete,
 }) => {
+  const t = useTranslations("wiki.updateDialog");
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [isRunning, setIsRunning] = useState(false);
@@ -88,7 +90,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       const result = await skillsApi.installProjectWiki();
       if (result.success) {
         toastManager.add({
-          title: "Skill installed",
+          title: t("toasts.skillInstalled.title"),
           description: result.message,
           type: "success",
         });
@@ -98,8 +100,8 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       }
     } catch (err) {
       toastManager.add({
-        title: "Install failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: t("toasts.installFailed.title"),
+        description: err instanceof Error ? err.message : t("errors.unknown"),
         type: "error",
       });
     } finally {
@@ -112,25 +114,25 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       if (onSwitchToProjectWikiAndRun) {
         onSwitchToProjectWikiAndRun(command);
         toastManager.add({
-          title: "Wiki update started",
-          description: "Switched to Project Wiki tab. Check progress there.",
+          title: t("toasts.started.title"),
+          description: t("toasts.started.description"),
           type: "info",
         });
       } else if (terminalGridRef?.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
-          label: "Generate Project Wiki",
+          label: t("terminalLabel"),
           command,
         });
         onSwitchToTerminal?.();
         toastManager.add({
-          title: "Wiki update started",
-          description: "Switched to Project Wiki tab. Check progress there.",
+          title: t("toasts.started.title"),
+          description: t("toasts.started.description"),
           type: "info",
         });
       } else {
         toastManager.add({
-          title: "Terminal not ready",
-          description: "Please wait and try again.",
+          title: t("toasts.terminalNotReady.title"),
+          description: t("toasts.terminalNotReady.description"),
           type: "error",
         });
       }
@@ -143,6 +145,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       onSwitchToProjectWikiAndRun,
       onComplete,
       onOpenChange,
+      t,
     ]
   );
 
@@ -186,14 +189,14 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       doRunUpdate(cmd);
     } catch (err) {
       toastManager.add({
-        title: "Failed to close previous terminal",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: t("toasts.closePreviousFailed.title"),
+        description: err instanceof Error ? err.message : t("errors.unknown"),
         type: "error",
       });
     } finally {
       setIsRunning(false);
     }
-  }, [workspaceId, pendingCommand, doRunUpdate, onProjectWikiReplaceAndRun]);
+  }, [workspaceId, pendingCommand, doRunUpdate, onProjectWikiReplaceAndRun, t]);
 
   return (
     <>
@@ -202,17 +205,21 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RotateCw className="size-5 text-foreground" />
-              Update Project Wiki
+              {t("title")}
             </DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-muted-foreground text-sm">
                 <p>
-                  Code has changed since the wiki was generated. Run an incremental update to regenerate
-                  only the affected pages.
+                  {t("description")}
                 </p>
                 {typeof commitCount === "number" && commitCount > 0 && (
                   <p className="rounded-md bg-muted/60 px-3 py-2 text-muted-foreground">
-                    Current Wiki is <span className="font-semibold text-foreground">{commitCount}</span> commit{commitCount === 1 ? "" : "s"} behind the latest code repository.
+                    {t.rich("commitCount", {
+                      count: commitCount,
+                      strong: (chunks) => (
+                        <span className="font-semibold text-foreground">{chunks}</span>
+                      ),
+                    })}
                   </p>
                 )}
               </div>
@@ -223,8 +230,8 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                 <p className="text-sm text-muted-foreground">
                   {skillLoading
-                    ? "Checking wiki skills..."
-                    : "Wiki skills (project-wiki, project-wiki-update) are not installed."}
+                    ? t("skills.checking")
+                    : t("skills.notInstalled")}
                 </p>
                 {!skillLoading && (
                   <Button
@@ -233,18 +240,18 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
                     onClick={handleInstallSkill}
                     disabled={isInstalling}
                     className="cursor-pointer"
-                  >
-                    {isInstalling ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin mr-2" />
-                        Installing...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="size-4 mr-2" />
-                        Install wiki skills
-                      </>
-                    )}
+                    >
+                      {isInstalling ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin mr-2" />
+                          {t("skills.installing")}
+                        </>
+                      ) : (
+                        <>
+                          <Download className="size-4 mr-2" />
+                          {t("skills.install")}
+                        </>
+                      )}
                   </Button>
                 )}
               </div>
@@ -266,7 +273,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning}>
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button
               onClick={handleRunUpdate}
@@ -275,12 +282,12 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Starting...
+                  {t("actions.starting")}
                 </>
               ) : (
                 <>
                   <RotateCw className="size-4 mr-2" />
-                                     Update Wiki
+                  {t("actions.updateWiki")}
                 </>
               )}
             </Button>
@@ -294,24 +301,23 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Project Wiki generation in progress</DialogTitle>
+            <DialogTitle>{t("conflict.title")}</DialogTitle>
             <DialogDescription>
-              A Project Wiki terminal is already running. Continuing will close it and start the
-              update. Any in-progress work may be interrupted.
+              {t("conflict.description")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}>
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning}>
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Starting...
+                  {t("actions.starting")}
                 </>
               ) : (
-                "Replace & update"
+                t("actions.replaceAndUpdate")
               )}
             </Button>
           </DialogFooter>

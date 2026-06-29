@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
@@ -27,6 +28,7 @@ import {
 import { TerminalBlock } from "./TerminalBlock";
 
 export function ToolOrSkillBlock(props: ToolCallBlock) {
+  const t = useTranslations("Agent.components.toolOrSkill");
   const {
     tool,
     description,
@@ -74,7 +76,7 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
 
   const diffFiles: { oldFile: FileContents; newFile: FileContents } | null = (() => {
     if (!isError && !diffPatch && isDiffObject(raw_output)) {
-      const name = raw_output.name ?? "file";
+      const name = raw_output.name ?? t("file");
       return {
         oldFile: { name, contents: raw_output.old_content },
         newFile: { name, contents: raw_output.new_content },
@@ -89,7 +91,7 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
         ? raw_output
         : JSON.stringify(raw_output, null, 2)
       : !isError
-        ? description || "Processing..."
+        ? description || t("processing")
         : undefined;
 
   const errorText = isError
@@ -108,7 +110,7 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
       }
       if (typeof detail === "string" && detail.trim()) return detail;
       if (description && description.trim() && description.trim().toLowerCase() !== "tool") return description;
-      return "Execution failed";
+      return t("executionFailed");
     })()
     : null;
 
@@ -119,13 +121,13 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
       <ToolHeader
         variant={asSkill ? "skill" : "tool"}
         state={state}
-        title={asSkill ? `Skill: ${skillName}` : toolDisplayName}
+        title={asSkill ? t("skillTitle", { name: skillName }) : toolDisplayName}
         icon={asSkill ? undefined : getToolIcon(tool)}
       />
       <ToolContent>
         <ToolInput
           input={raw_input}
-          label={asSkill ? "Args" : "Parameters"}
+          label={asSkill ? t("args") : t("parameters")}
         />
         {diffPatch ? (
           <div className="mt-1 max-h-[360px] overflow-auto rounded-md border border-border/50">
@@ -133,7 +135,7 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
               <PatchDiff patch={diffPatch} options={diffOptions} />
             ) : (
               <div className="px-3 py-2 text-xs text-muted-foreground">
-                Loading diff...
+                {t("loadingDiff")}
               </div>
             )}
           </div>
@@ -147,7 +149,7 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
               />
             ) : (
               <div className="px-3 py-2 text-xs text-muted-foreground">
-                Loading diff...
+                {t("loadingDiff")}
               </div>
             )}
           </div>

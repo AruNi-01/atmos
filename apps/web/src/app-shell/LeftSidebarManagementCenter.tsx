@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +31,7 @@ type WorkspaceKanbanViewProps = React.ComponentProps<typeof WorkspaceKanbanView>
 
 type ManagementCenterItem = {
   id: string;
-  label: string;
+  labelKey: string;
   icon: typeof FolderKanban;
   path?: string;
   kind?: "kanban" | "new-workspace" | "canvas";
@@ -87,16 +88,17 @@ export function LeftSidebarManagementCenter({
   onArchiveWorkspace,
   onDeleteWorkspace,
 }: LeftSidebarManagementCenterProps) {
+  const t = useTranslations("AppShell.chrome");
   const managementCenterItems = useMemo<ManagementCenterItem[]>(() => {
     const all: ManagementCenterItem[] = [
-      { id: "workspaces", label: "Workspaces", icon: FolderKanban, path: "/workspaces" },
-      { id: "skills", label: "Skills", icon: Puzzle, path: "/skills" },
-      { id: "terminals", label: "Terminals", icon: SquareTerminal, path: "/terminals" },
-      { id: "agents", label: "Agents", icon: Bot, path: "/agents" },
-      { id: "automations", label: "Automations", icon: Timer, path: "/automations" },
-      { id: "canvas", label: "Canvas", icon: Presentation, kind: "canvas" },
-      { id: "kanban", label: "Kanban", icon: SquareKanban, kind: "kanban" },
-      { id: "new-workspace", label: "New Workspace", icon: Plus, kind: "new-workspace" },
+      { id: "workspaces", labelKey: "managementCenter.items.workspaces", icon: FolderKanban, path: "/workspaces" },
+      { id: "skills", labelKey: "managementCenter.items.skills", icon: Puzzle, path: "/skills" },
+      { id: "terminals", labelKey: "managementCenter.items.terminals", icon: SquareTerminal, path: "/terminals" },
+      { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
+      { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
+      { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
+      { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, kind: "kanban" },
+      { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
     ];
 
     return all.filter((item) => {
@@ -115,7 +117,7 @@ export function LeftSidebarManagementCenter({
       >
         <div className="flex items-center gap-2">
           <Layers className="size-4" />
-          <span>Management Center</span>
+          <span>{t("managementCenter.title")}</span>
         </div>
         <div className={cn("text-muted-foreground transition-transform duration-200", isExpanded ? "rotate-90" : "")}>
           <ArrowRight className="size-3.5" />
@@ -205,6 +207,7 @@ function ManagementCenterCard({
   onArchiveWorkspace: WorkspaceKanbanViewProps["onArchiveWorkspace"];
   onDeleteWorkspace: WorkspaceKanbanViewProps["onDeleteWorkspace"];
 }) {
+  const t = useTranslations("AppShell.chrome");
   const Icon = item.icon;
   const isOddCount = totalItems % 2 === 1;
   const isLeftColumnOnTwoCol = index % 2 === 0;
@@ -244,7 +247,7 @@ function ManagementCenterCard({
         </div>
         <div className="flex items-center justify-center h-1/2 w-full px-1">
           <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
-            {item.label}
+            {t(item.labelKey)}
           </span>
         </div>
       </div>
@@ -282,7 +285,7 @@ function ManagementCenterCard({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <div className="flex items-center gap-2">
-            <span>Canvas</span>
+            <span>{t("managementCenter.items.canvas")}</span>
             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
               <Command className="size-3" />
               <span className="text-xs">⇧</span>
@@ -304,7 +307,7 @@ function ManagementCenterCard({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <div className="flex items-center gap-2">
-            <span>New Workspace</span>
+            <span>{t("managementCenter.items.newWorkspace")}</span>
             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
               <Command className="size-3" />
               <span className="text-xs">N</span>

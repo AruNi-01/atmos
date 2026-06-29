@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import "streamdown/styles.css";
 import {
   Confirmation,
@@ -17,6 +18,7 @@ import { ChevronDown, Loader2, MessageSquare } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { SessionUsageBadge } from "./UsageBadges";
 import { AgentActivityIndicator } from "./AgentActivityIndicator";
 import { PermissionActionButton } from "./MessageQueueDock";
@@ -60,9 +62,12 @@ export function AgentChatPanel({
   contextOverride,
   transformPrompt,
 }: AgentChatPanelProps = {}) {
+  const t = useTranslations("Agent.components.chatPanel");
   const canFullscreen = variant !== "standalone" && (allowFullscreen ?? true);
   const [fullscreenRequested, setFullscreenRequested] = useState(false);
   const isFullscreen = canFullscreen && fullscreenRequested;
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
+  const reserveStandaloneTrafficLights = variant === "standalone" && needsTrafficLightsPadding;
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
@@ -364,12 +369,27 @@ export function AgentChatPanel({
     variant,
   ]);
 
+  const historySidebarExpandLabel = t("history.expand");
+  const historySidebarHideLabel = t("history.hide");
   const historySidebarToggle = (
     <AgentChatHistorySidebarToggle
       collapsed={historySidebarCollapsed}
+      expandLabel={historySidebarExpandLabel}
+      hideLabel={historySidebarHideLabel}
       onToggle={() => setHistorySidebarCollapsed((current) => !current)}
     />
   );
+  const trafficLightsHistorySidebarToggle = (
+    <AgentChatHistorySidebarToggle
+      collapsed={historySidebarCollapsed}
+      className="size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+      expandLabel={historySidebarExpandLabel}
+      hideLabel={historySidebarHideLabel}
+      iconClassName="size-4"
+      onToggle={() => setHistorySidebarCollapsed((current) => !current)}
+    />
+  );
+  const showTrafficLightsHistoryToggle = showsWideHistoryLayout && reserveStandaloneTrafficLights;
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
     : "w-full";
@@ -411,6 +431,7 @@ export function AgentChatPanel({
         "relative flex overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",
         !showsWideHistoryLayout && "flex-col",
+        reserveStandaloneTrafficLights && "pt-8",
         variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
         variant === "sidebar" && !isFullscreen && "h-full min-h-0",
         variant === "standalone" && "h-dvh min-h-0 w-full",
@@ -433,10 +454,17 @@ export function AgentChatPanel({
         </>
       )}
 
+      {showTrafficLightsHistoryToggle ? (
+        <div className="absolute left-[86px] top-1 z-50 flex h-7 items-center">
+          {trafficLightsHistorySidebarToggle}
+        </div>
+      ) : null}
+
       {showsWideHistoryLayout && (
         <AgentChatHistorySidebarFrame
           frameRef={historySidebarFrameRef}
           collapsed={historySidebarCollapsed}
+          expandLabel={historySidebarExpandLabel}
           width={historySidebarWidth}
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
@@ -462,7 +490,7 @@ export function AgentChatPanel({
               activeAgent ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name) : null
             }
             canCreateNewSession={canUseCurrentMode}
-            sidebarControl={historySidebarToggle}
+            projects={session.projects}
           />
         </AgentChatHistorySidebarFrame>
       )}
@@ -511,6 +539,7 @@ export function AgentChatPanel({
           loadHistorySessions={loadHistorySessions}
           handleSelectHistorySession={handleSelectHistorySession}
           historyTriggerClassName={showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined}
+          historySidebarControl={showsWideHistoryLayout && !showTrafficLightsHistoryToggle ? historySidebarToggle : null}
           handleClose={handleClosePanel}
           handleLogoutAgent={handleLogoutAgent}
           displaySessionTitle={displaySessionTitle}
@@ -539,9 +568,9 @@ export function AgentChatPanel({
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   <span>
                     {loadingAgents && !isConnecting && !isResumingHistory
-                      ? "Loading..."
+                      ? t("loading")
                       : isResumingHistory
-                        ? "Restoring session..."
+                        ? t("restoringSession")
                         : connectionPhaseLabel}
                   </span>
                 </span>
@@ -555,11 +584,11 @@ export function AgentChatPanel({
             {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
-                title={isResumedSession ? "Session resumed" : "Start a conversation"}
+                title={isResumedSession ? t("empty.resumedTitle") : t("empty.startTitle")}
                 description={
                   isResumedSession
-                    ? "This agent restored the session context. Send a message to continue."
-                    : "Type a message below to begin chatting"
+                    ? t("empty.resumedDescription")
+                    : t("empty.startDescription")
                 }
               />
             )}
@@ -592,7 +621,7 @@ export function AgentChatPanel({
                 <ChevronDown className="size-4" />
               </span>
               <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
-                Bottom
+                {t("bottom")}
               </span>
             </ConversationScrollButton>
           </div>
@@ -622,7 +651,7 @@ export function AgentChatPanel({
                 shineColor={["#d97706", "#b45309"]}
               />
               <ConfirmationRequest>
-                <span className="font-medium text-amber-500">Permission requested</span>
+                <span className="font-medium text-amber-500">{t("permissionRequested")}</span>
                 <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
                   {pendingPermission.description}
                 </p>
@@ -649,12 +678,12 @@ export function AgentChatPanel({
                 ) : (
                   <>
                     <PermissionActionButton
-                      label="Deny"
+                      label={t("deny")}
                       variant="outline"
                       onClick={() => handlePermission("reject_once")}
                     />
                     <PermissionActionButton
-                      label="Allow"
+                      label={t("allow")}
                       onClick={() => handlePermission("allow_once")}
                     />
                   </>

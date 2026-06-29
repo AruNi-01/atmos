@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Bot } from "lucide-react";
 import { cn } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -21,6 +22,7 @@ export function AgentFixToolbar({
   source: AgentFixPromptSource;
   variant?: "bottom" | "inline";
 }) {
+  const t = useTranslations("agent.fixToolbar");
   const {
     availableAgents,
     rememberSelectedAgent,
@@ -60,12 +62,12 @@ export function AgentFixToolbar({
         />
       )}
       copyAction={{
-        ariaLabel: "Copy Agent Fix prompt",
+        ariaLabel: t("copyAction.ariaLabel"),
         disabled: isCopying || isLaunching,
         isLoading: isCopying,
-        label: "Prompt",
+        label: t("copyAction.label"),
         onClick: copyPrompt,
-        title: "Copy Prompt",
+        title: t("copyAction.title"),
       }}
       primaryAction={{
         disabled: disableLaunch,
@@ -75,7 +77,7 @@ export function AgentFixToolbar({
           <Bot className={cn(size === "xs" ? "size-3" : "size-3.5", "shrink-0")} />
         ),
         isLoading: isLaunching,
-        label: "Agent Fix",
+        label: t("primaryAction.label"),
         onClick: launchAgentFix,
       }}
     />

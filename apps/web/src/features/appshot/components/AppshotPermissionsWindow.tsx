@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Badge, Button, cn } from "@workspace/ui";
 import {
   Check,
@@ -27,28 +28,10 @@ const PERMISSION_ORDER: AppshotPermissionName[] = [
   "accessibility",
   "screen_recording",
 ];
-
-const PERMISSION_COPY: Record<
-  AppshotPermissionName,
-  {
-    title: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }
-> = {
-  accessibility: {
-    title: "Accessibility",
-    description: "Lets Atmos read app structure, labels, and focused-window context.",
-    icon: MousePointer2,
-  },
-  screen_recording: {
-    title: "Screen Recording",
-    description: "Lets Atmos capture the focused window as a local Appshot preview.",
-    icon: MonitorUp,
-  },
-};
+type AppshotComponentsTranslator = ReturnType<typeof useTranslations>;
 
 export function AppshotPermissionsWindow() {
+  const t = useTranslations("appshot.components");
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -74,7 +57,7 @@ export function AppshotPermissionsWindow() {
     };
   }, [refreshStatus]);
 
-  const permissions = normalizePermissions(status);
+  const permissions = normalizePermissions(status, t);
   const ready = permissions.every((permission) => permission.granted);
 
   const grantPermission = React.useCallback(
@@ -108,14 +91,13 @@ export function AppshotPermissionsWindow() {
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">Enable Appshots</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">{t("permissionsWindow.title")}</h1>
               <Badge variant="outline" className="rounded-md text-[10px] font-normal">
-                macOS permissions
+                {t("permissionsWindow.macosPermissions")}
               </Badge>
             </div>
             <p className="mt-2 max-w-[560px] text-sm leading-6 text-muted-foreground">
-              Atmos needs local access to read focused app structure and capture
-              window previews for Appshots.
+              {t("permissionsWindow.description")}
             </p>
           </div>
         </div>
@@ -136,10 +118,10 @@ export function AppshotPermissionsWindow() {
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
             ) : ready ? (
-              <p className="text-sm text-muted-foreground">Appshots are ready.</p>
+              <p className="text-sm text-muted-foreground">{t("permissionsWindow.ready")}</p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Grant both permissions, then return to Atmos.
+                {t("permissionsWindow.grantBothPermissions")}
               </p>
             )}
           </div>
@@ -157,7 +139,7 @@ export function AppshotPermissionsWindow() {
               ) : (
                 <RefreshCw className="size-4" />
               )}
-              Refresh
+              {t("permissionsWindow.refresh")}
             </Button>
           </div>
         </div>
@@ -175,7 +157,8 @@ function PermissionRow({
   opening: boolean;
   onGrant: (permission: AppshotPermissionState) => Promise<void>;
 }) {
-  const copy = PERMISSION_COPY[permission.name];
+  const t = useTranslations("appshot.components");
+  const copy = getPermissionCopy(t)[permission.name];
   const Icon = copy.icon;
 
   return (
@@ -195,7 +178,7 @@ function PermissionRow({
       {permission.granted ? (
         <span className="flex shrink-0 items-center gap-1.5 text-sm text-emerald-500">
           <Check className="size-4" />
-          Done
+          {t("permissionsWindow.done")}
         </span>
       ) : (
         <Button
@@ -207,14 +190,42 @@ function PermissionRow({
           className="shrink-0 cursor-pointer"
         >
           {opening ? <Loader2 className="size-4 animate-spin" /> : null}
-          Grant
+          {t("permissionsWindow.grant")}
         </Button>
       )}
     </div>
   );
 }
 
-function normalizePermissions(status: AppshotStatus | null): AppshotPermissionState[] {
+function getPermissionCopy(
+  t: AppshotComponentsTranslator,
+): Record<
+  AppshotPermissionName,
+  {
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+> {
+  return {
+    accessibility: {
+      title: t("permissionsWindow.permissions.accessibility.title"),
+      description: t("permissionsWindow.permissions.accessibility.description"),
+      icon: MousePointer2,
+    },
+    screen_recording: {
+      title: t("permissionsWindow.permissions.screenRecording.title"),
+      description: t("permissionsWindow.permissions.screenRecording.description"),
+      icon: MonitorUp,
+    },
+  };
+}
+
+function normalizePermissions(
+  status: AppshotStatus | null,
+  t: AppshotComponentsTranslator,
+): AppshotPermissionState[] {
+  const permissionCopy = getPermissionCopy(t);
   const byName = new Map<AppshotPermissionName, AppshotPermissionState>();
   for (const permission of [
     ...(status?.permissions ?? []),
@@ -230,11 +241,11 @@ function normalizePermissions(status: AppshotStatus | null): AppshotPermissionSt
     }
     return {
       name,
-      display_name: PERMISSION_COPY[name].title,
+      display_name: permissionCopy[name].title,
       granted: false,
       required_for: [],
       recovery_action: {
-        label: "Grant",
+        label: t("permissionsWindow.grant"),
         target: name,
         manual_steps: [],
       },

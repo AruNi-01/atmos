@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useTranslations } from 'next-intl';
 import { OpenFile } from '@/features/editor/store/use-editor-store';
 import {
   Loader2,
@@ -16,14 +17,19 @@ import { cn, Button } from '@workspace/ui';
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 
 // Dynamic import CodeMirror editor to avoid SSR issues
-const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
-  ssr: false,
-  loading: () => (
+function LoadingEditorFallback() {
+  const t = useTranslations("Editor.components");
+  return (
     <div className="flex items-center justify-center h-full">
       <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <span className="sr-only">Loading Editor...</span>
+      <span className="sr-only">{t("fileViewer.loadingEditor")}</span>
     </div>
-  ),
+  );
+}
+
+const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
+  ssr: false,
+  loading: () => <LoadingEditorFallback />,
 });
 
 
@@ -36,21 +42,24 @@ interface FileViewerProps {
 }
 
 const UnsupportedView: React.FC<{ fileName: string; uri: string; ext?: string }> = ({ fileName, uri, ext }) => {
+  const t = useTranslations("Editor.components");
   return (
     <div className="h-full w-full flex flex-col items-center justify-center bg-background p-6 gap-4 text-center select-none">
       <div className="size-20 rounded-full bg-muted flex items-center justify-center">
         <FileWarning className="size-10 text-muted-foreground" />
       </div>
       <div className="space-y-1">
-        <h3 className="font-medium text-lg">Preview not available</h3>
+        <h3 className="font-medium text-lg">{t("fileViewer.previewNotAvailable")}</h3>
         <p className="text-sm text-muted-foreground max-w-xs mx-auto text-pretty">
-          {ext ? `"${ext.toUpperCase()}" files` : "This file"} cannot be previewed directly.
+          {ext
+            ? t("fileViewer.fileTypeCannotPreview", { ext: ext.toUpperCase() })
+            : t("fileViewer.thisFileCannotPreview")}
         </p>
       </div>
       <Button variant="outline" size="sm" className="gap-2" asChild>
         <a href={uri} download={fileName} target="_blank" rel="noopener noreferrer">
           <Download className="size-4" />
-          Download File
+          {t("fileViewer.downloadFile")}
         </a>
       </Button>
     </div>
@@ -60,6 +69,7 @@ const UnsupportedView: React.FC<{ fileName: string; uri: string; ext?: string }>
 
 
 const ImageViewer: React.FC<{ uri: string; fileName: string; onError: () => void }> = ({ uri, fileName, onError }) => {
+  const t = useTranslations("Editor.components");
   const [scale, setScale] = useState(1);
   const [isHovered, setIsHovered] = useState(false);
   const [inputValue, setInputValue] = useState("100%");
@@ -123,7 +133,7 @@ const ImageViewer: React.FC<{ uri: string; fileName: string; onError: () => void
         )}>
           {isHovered ? (
             <>
-              <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleZoomOut} title="Zoom Out">
+              <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleZoomOut} title={t("fileViewer.zoomOut")}>
                 <ZoomOut className="size-4" />
               </Button>
               <input
@@ -134,11 +144,11 @@ const ImageViewer: React.FC<{ uri: string; fileName: string; onError: () => void
                 onBlur={handleInputBlur}
                 className="w-12 text-center text-xs bg-transparent border-none outline-none font-mono focus:bg-muted/50 rounded"
               />
-              <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleZoomIn} title="Zoom In">
+              <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleZoomIn} title={t("fileViewer.zoomIn")}>
                 <ZoomIn className="size-4" />
               </Button>
               <div className="w-px h-4 bg-border mx-1" />
-              <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleReset} title="Reset">
+              <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleReset} title={t("fileViewer.reset")}>
                 <RotateCw className="size-4" />
               </Button>
             </>
@@ -167,6 +177,7 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
   fileName,
   onError
 }) => {
+  const t = useTranslations("Editor.components");
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tiff'].includes(ext);
   const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(ext);
   const isAudio = ['mp3', 'wav'].includes(ext);
@@ -181,7 +192,7 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
       <div className="h-full w-full flex items-center justify-center bg-black/5">
         <video controls className="max-w-full max-h-full" onError={onError}>
           <source src={uri} />
-          Your browser does not support the video tag.
+          {t("fileViewer.browserNoVideo")}
         </video>
       </div>
     );
@@ -192,7 +203,7 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
       <div className="h-full w-full flex items-center justify-center bg-black/5">
         <audio controls onError={onError}>
           <source src={uri} />
-          Your browser does not support the audio tag.
+          {t("fileViewer.browserNoAudio")}
         </audio>
       </div>
     );
@@ -203,7 +214,7 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
       <iframe
         src={uri}
         className="w-full h-full border-none"
-        title={`Preview of ${fileName}`}
+        title={t("fileViewer.pdfPreviewTitle", { fileName })}
         onError={onError}
       />
     );

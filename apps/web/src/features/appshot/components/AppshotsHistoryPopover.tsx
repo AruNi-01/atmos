@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Badge, Button, ScrollArea, Skeleton, cn } from "@workspace/ui";
 import {
   AlertCircle,
@@ -40,6 +41,7 @@ const DETAIL_BATCH_SIZE = 3;
 const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Left ⇧", "Right ⇧"];
 
 export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
+  const t = useTranslations("appshot.components");
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);
   const [statusError, setStatusError] = React.useState<string | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(false);
@@ -220,7 +222,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     }
     const requestId = previewRequestRef.current + 1;
     previewRequestRef.current = requestId;
-    const alt = `Screenshot preview for ${record.metadata.app_name}`;
+    const alt = t("history.previewAlt", { appName: record.metadata.app_name });
     setPreviewImage({
       timestamp: record.timestamp,
       src: record.snapshot_url,
@@ -240,7 +242,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
         setHistoryError(err instanceof Error ? err.message : String(err));
       }
     }
-  }, []);
+  }, [t]);
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
@@ -248,14 +250,14 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Camera className="size-4 text-muted-foreground" />
-            <p className="text-sm font-medium text-popover-foreground">Appshots</p>
+            <p className="text-sm font-medium text-popover-foreground">{t("history.title")}</p>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
-            title="Refresh Appshots"
-            aria-label="Refresh Appshots"
+            title={t("history.refreshTitle")}
+            aria-label={t("history.refreshAriaLabel")}
             onClick={() => {
               void refreshStatus();
               void refreshHistory();
@@ -266,13 +268,13 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
           </Button>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Capture another app with{" "}
+          {t("history.description.beforeShortcut")}{" "}
           <ShortcutKeySequence
             keys={APPSHOT_CAPTURE_SHORTCUT_KEYS}
             className="mx-1 align-middle"
             keyClassName="h-4 min-w-4 rounded px-1 text-[9px]"
           />
-          , review the preview, then copy a local Appshot reference for agents to read.
+          {t("history.description.afterShortcut")}
         </p>
       </div>
 
@@ -281,7 +283,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
 
       {status && !status.supported ? (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          {status.reason || "Appshots are not supported in this runtime."}
+          {status.reason || t("history.unsupportedInThisRuntime")}
         </div>
       ) : null}
 
@@ -297,11 +299,10 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs font-medium text-popover-foreground">
                 <ShieldAlert className="size-3.5 text-warning" />
-                Permissions required
+                {t("history.permissionsRequiredTitle")}
               </div>
               <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                Open the Atmos Appshots window to grant Accessibility and
-                Screen Recording permissions.
+                {t("history.permissionsRequiredDescription")}
               </p>
             </div>
             <Button
@@ -311,7 +312,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
               onClick={() => void handleOpenPermission()}
               className="shrink-0 cursor-pointer"
             >
-              Enable
+              {t("history.enable")}
             </Button>
           </div>
         </div>
@@ -321,7 +322,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
 
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-popover-foreground">Recent records</p>
+          <p className="text-xs font-medium text-popover-foreground">{t("history.recentRecords")}</p>
           {records.length > 0 ? (
             <Badge variant="outline" className="rounded-md text-[10px] font-normal">
               {records.length}
@@ -330,7 +331,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
         </div>
 
         <ScrollArea
-          aria-label="Recent Appshot records"
+          aria-label={t("history.recentRecordsAriaLabel")}
           className="h-[min(42vh,360px)] min-h-[160px] pr-1"
           scrollbarGutter
         >
@@ -339,7 +340,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
               <HistorySkeleton />
             ) : records.length === 0 ? (
               <div className="rounded-md border border-border bg-muted/20 px-3 py-6 text-center text-xs text-muted-foreground">
-                No Appshots yet.
+                {t("history.noAppshotsYet")}
               </div>
             ) : (
               visibleRecords.map((item) => {
@@ -374,7 +375,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
             className="w-full cursor-pointer"
           >
             <ChevronDown className="size-4" />
-            More
+            {t("history.more")}
           </Button>
         ) : null}
       </div>
@@ -390,9 +391,10 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
 }
 
 function InlineError({ message }: { message: string }) {
+  const t = useTranslations("appshot.components");
   return (
     <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-      <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-label={t("history.errorIconAriaLabel")} />
       <span className="min-w-0 break-words">{message}</span>
     </div>
   );

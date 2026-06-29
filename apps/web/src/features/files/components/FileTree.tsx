@@ -4,6 +4,7 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTree } from '@headless-tree/react';
 import { asyncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
+import { useTranslations } from 'next-intl';
 import { cn, Loader2, Folder, toastManager } from '@workspace/ui';
 import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
@@ -54,6 +55,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   revealEnabled = true,
   onOpenFile,
 }) => {
+  const t = useTranslations('files.components');
   const { effectiveContextId } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const openFile = useEditorStore((s) => s.openFile);
@@ -267,12 +269,18 @@ export const FileTree: React.FC<FileTreeProps> = ({
       targetPath: parentPath,
       parentPath,
       initialName: '',
-      title: mode === 'create-file' ? 'New File' : 'New Folder',
+      title:
+        mode === 'create-file'
+          ? t('fileTree.panels.newFile.title')
+          : t('fileTree.panels.newFolder.title'),
       description:
         mode === 'create-file'
-          ? `Create a new file in ${getBaseName(parentPath)}.`
-          : `Create a new folder in ${getBaseName(parentPath)}.`,
-      confirmLabel: mode === 'create-file' ? 'Create File' : 'Create Folder',
+          ? t('fileTree.panels.newFile.description', { name: getBaseName(parentPath) })
+          : t('fileTree.panels.newFolder.description', { name: getBaseName(parentPath) }),
+      confirmLabel:
+        mode === 'create-file'
+          ? t('fileTree.panels.newFile.confirmLabel')
+          : t('fileTree.panels.newFolder.confirmLabel'),
     });
     setPanelName('');
   };
@@ -284,9 +292,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
       targetPath: selectedItem.path,
       parentPath: getParentPath(selectedItem.path),
       initialName: selectedItem.name,
-      title: 'Rename',
-      description: `Rename ${selectedItem.name}.`,
-      confirmLabel: 'Rename',
+      title: t('fileTree.panels.rename.title'),
+      description: t('fileTree.panels.rename.description', { name: selectedItem.name }),
+      confirmLabel: t('fileTree.panels.rename.confirmLabel'),
     });
     setPanelName(selectedItem.name);
   };
@@ -301,15 +309,15 @@ export const FileTree: React.FC<FileTreeProps> = ({
       await fsApi.duplicatePath(selectedItem.path, destination);
       await handleRefresh();
       toastManager.add({
-        title: 'Duplicated',
-        description: `${selectedItem.name} duplicated.`,
+        title: t('fileTree.toasts.duplicated.title'),
+        description: t('fileTree.toasts.duplicated.description', { name: selectedItem.name }),
         type: 'success',
       });
     } catch (error) {
       console.error('Failed to duplicate path:', error);
       toastManager.add({
-        title: 'Duplicate failed',
-        description: `Could not duplicate ${selectedItem.name}.`,
+        title: t('fileTree.toasts.duplicateFailed.title'),
+        description: t('fileTree.toasts.duplicateFailed.description', { name: selectedItem.name }),
         type: 'error',
       });
     } finally {
@@ -327,16 +335,16 @@ export const FileTree: React.FC<FileTreeProps> = ({
       closeFilesByPrefix(selectedItem.path, editorContextId || undefined);
       await handleRefresh();
       toastManager.add({
-        title: 'Success',
-        description: 'Deleted successfully.',
+        title: t('fileTree.toasts.deleted.title'),
+        description: t('fileTree.toasts.deleted.description'),
         type: 'success',
       });
       closeOverlays();
     } catch (error) {
       console.error('Failed to delete path:', error);
       toastManager.add({
-        title: 'Delete failed',
-        description: error instanceof Error ? error.message : `Could not delete ${selectedItem.name}.`,
+        title: t('fileTree.toasts.deleteFailed.title'),
+        description: error instanceof Error ? error.message : t('fileTree.toasts.deleteFailed.description', { name: selectedItem.name }),
         type: 'error',
       });
     } finally {
@@ -350,8 +358,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
     const trimmedName = panelName.trim();
     if (!trimmedName) {
       toastManager.add({
-        title: 'Name required',
-        description: 'Please enter a name.',
+        title: t('fileTree.toasts.nameRequired.title'),
+        description: t('fileTree.toasts.nameRequired.description'),
         type: 'warning',
       });
       return;
@@ -380,13 +388,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
       }
 
       toastManager.add({
-        title: 'Success',
+        title: t('fileTree.toasts.actionSuccess.title'),
         description:
           panelState.mode === 'create-file'
-            ? 'File created.'
+            ? t('fileTree.toasts.actionSuccess.fileCreated')
             : panelState.mode === 'create-folder'
-              ? 'Folder created.'
-              : 'Renamed successfully.',
+              ? t('fileTree.toasts.actionSuccess.folderCreated')
+              : t('fileTree.toasts.actionSuccess.renamed'),
         type: 'success',
       });
       closePanel();
@@ -394,8 +402,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
     } catch (error) {
       console.error('File tree action failed:', error);
       toastManager.add({
-        title: 'Action failed',
-        description: error instanceof Error ? error.message : 'Operation failed.',
+        title: t('fileTree.toasts.actionFailed.title'),
+        description: error instanceof Error ? error.message : t('fileTree.toasts.actionFailed.description'),
         type: 'error',
       });
     } finally {
@@ -558,7 +566,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       <div className="px-4 py-8 text-center">
         <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
         <p className="text-muted-foreground text-xs text-pretty italic">
-          No files found
+          {t('fileTree.empty.noFilesFound')}
         </p>
       </div>
     );
@@ -570,7 +578,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     <div ref={menuAnchorRef} className="relative">
       <div
         ref={tree.registerElement}
-        {...tree.getContainerProps('File tree')}
+        {...tree.getContainerProps(t('fileTree.containerAriaLabel'))}
         className={cn(
           'text-sm rounded-md transition-colors',
           isTreeHighlighted && 'bg-sidebar-accent/35',
@@ -606,6 +614,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                     : { x: event.clientX, y: event.clientY };
                 setMenuState({ ...point, itemPath });
               }}
+              rootPath={rootPath}
             />
           );
         })}

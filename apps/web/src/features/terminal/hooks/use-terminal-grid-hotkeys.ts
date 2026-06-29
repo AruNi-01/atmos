@@ -11,6 +11,7 @@ type UseTerminalGridHotkeysOptions = {
   pinPaneToCanvas: (id?: string | null) => void;
   requestCloseTerminal: (id?: string | null) => void;
   splitFocusedTerminal: (direction: "row" | "column") => void;
+  toggleFocusedAgentInput: () => void;
 };
 
 export function useTerminalGridHotkeys({
@@ -22,6 +23,7 @@ export function useTerminalGridHotkeys({
   pinPaneToCanvas,
   requestCloseTerminal,
   splitFocusedTerminal,
+  toggleFocusedAgentInput,
 }: UseTerminalGridHotkeysOptions) {
   React.useEffect(() => {
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
@@ -49,6 +51,13 @@ export function useTerminalGridHotkeys({
         event.preventDefault();
         event.stopImmediatePropagation();
         onNewTerminalTab?.();
+        return;
+      }
+
+      if (!event.shiftKey && (event.key.toLowerCase() === "g" || event.code === "KeyG")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        toggleFocusedAgentInput();
         return;
       }
 
@@ -103,5 +112,6 @@ export function useTerminalGridHotkeys({
     requestCloseTerminal,
     splitFocusedTerminal,
     terminalHotkeyScopeRef,
+    toggleFocusedAgentInput,
   ]);
 }

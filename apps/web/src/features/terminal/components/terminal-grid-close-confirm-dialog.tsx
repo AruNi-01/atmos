@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 
 import {
@@ -25,6 +26,8 @@ export function TerminalGridCloseConfirmDialog({
   onCancel,
   onConfirm,
 }: TerminalGridCloseConfirmDialogProps) {
+  const t = useTranslations("Terminal.chrome");
+
   return (
     <Dialog
       open={open}
@@ -50,17 +53,17 @@ export function TerminalGridCloseConfirmDialog({
           <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <AlertTriangle className="size-5" />
           </div>
-          <DialogTitle>Close terminal?</DialogTitle>
+          <DialogTitle>{t("closeConfirm.title")}</DialogTitle>
           <DialogDescription className="max-w-none text-left leading-relaxed">
-            Close <span className="font-medium text-foreground">{title}</span>? This will terminate the current terminal session.
+            {t("closeConfirm.description", { title })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} className="cursor-pointer">
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="destructive" onClick={onConfirm} className="cursor-pointer" autoFocus>
-            Close
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

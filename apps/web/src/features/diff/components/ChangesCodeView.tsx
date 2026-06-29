@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, SelectedLineRange } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
+import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { Loader2 } from 'lucide-react';
 import { gitApi } from '@/api/ws-api';
@@ -62,6 +63,7 @@ export function ChangesCodeView({
   contextId,
   navigationTarget: navigationTargetProp,
 }: ChangesCodeViewProps) {
+  const t = useTranslations('diff.codeView');
   const { resolvedTheme } = useTheme();
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
@@ -308,7 +310,7 @@ export function ChangesCodeView({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load changes');
+          setError(err instanceof Error ? err.message : t('errors.loadChangesFallback'));
           setInitialItems([]);
           setIsLoading(false);
         }
@@ -319,7 +321,7 @@ export function ChangesCodeView({
     return () => {
       cancelled = true;
     };
-  }, [groupFiles, groupKind, repoPath]);
+  }, [groupFiles, groupKind, repoPath, t]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
@@ -483,7 +485,7 @@ export function ChangesCodeView({
   if (!groupKind) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Unknown changes group
+        {t('unknownChangesGroup')}
       </div>
     );
   }
@@ -494,7 +496,7 @@ export function ChangesCodeView({
         <DiffCodeViewScaffold
           items={treeItems}
           selectedPath={selectedPath}
-          ariaLabel={`${groupLabel} files`}
+          ariaLabel={t('fileTreeAria', { label: groupLabel })}
           loading
           loadingTreeLabel={groupLabel}
           defaultTreeVisible={false}
@@ -518,7 +520,7 @@ export function ChangesCodeView({
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-red-500 mb-2">Error loading changes</p>
+          <p className="text-red-500 mb-2">{t('errors.loadChangesTitle')}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -528,7 +530,7 @@ export function ChangesCodeView({
   if (initialItems.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-muted-foreground text-sm">
-        No files in this group
+        {t('noFilesInGroup')}
       </div>
     );
   }
@@ -544,10 +546,12 @@ export function ChangesCodeView({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span className="truncate text-sm font-medium text-foreground">{groupLabel}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {treeItems.length} file{treeItems.length === 1 ? '' : 's'}
+          {t('fileCount', { count: treeItems.length })}
         </span>
         {compareRef ? (
-          <span className="shrink-0 text-xs text-muted-foreground">vs {compareRef}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t('compareRef', { compareRef })}
+          </span>
         ) : null}
         {stashedPromptChip}
       </div>
@@ -579,7 +583,7 @@ export function ChangesCodeView({
       <DiffCodeViewScaffold
         items={treeItems}
         selectedPath={selectedPath}
-        ariaLabel={`${groupLabel} files`}
+        ariaLabel={t('fileTreeAria', { label: groupLabel })}
         toolbar={toolbar}
         defaultTreeVisible={false}
         onSelectFile={handleSelectFile}

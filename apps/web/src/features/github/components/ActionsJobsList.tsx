@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@workspace/ui";
 import {
   Box,
@@ -43,6 +44,7 @@ export function ActionsJobsList({
   run: ActionRun;
   runId: number | null | undefined;
 }) {
+  const t = useTranslations("github.actionsJobsList");
   const [expandedJobIds, setExpandedJobIds] = React.useState<Set<string>>(
     () => new Set(),
   );
@@ -88,15 +90,15 @@ export function ActionsJobsList({
 
   const buildJobAgentFixSource = React.useCallback(
     (job: ActionJob) => {
-      const jobName = job.name || run.workflowName || "job";
+      const jobName = job.name || run.workflowName || t("agentFix.fallbackJobName");
       return {
         id: `ci-job:${owner}/${repo}:${run.databaseId}:${job.databaseId ?? job.id ?? jobName}`,
         family: "ci_job" as const,
         context: agentFixContext,
-        label: `Fix CI: ${jobName}`,
+        label: t("agentFix.label", { jobName }),
         disabledReason: agentFixContext
           ? null
-          : "Open a workspace or project to run Agent Fix.",
+          : t("agentFix.disabledReason"),
         getPrompt: () => ({
           prompt: buildGithubActionsJobFixPrompt({
             owner,
@@ -104,18 +106,18 @@ export function ActionsJobsList({
             run,
             job,
           }),
-          terminalTabTitle: `Fix CI: ${jobName}`,
-          terminalPaneLabel: `Fix ${jobName}`,
+          terminalTabTitle: t("agentFix.terminalTabTitle", { jobName }),
+          terminalPaneLabel: t("agentFix.terminalPaneLabel", { jobName }),
         }),
       };
     },
-    [agentFixContext, owner, repo, run],
+    [agentFixContext, owner, repo, run, t],
   );
 
   return (
     <div className="flex flex-col gap-3">
       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-        <Box className="size-3.5" /> Jobs
+        <Box className="size-3.5" /> {t("sectionTitle")}
       </h4>
       <div className="border rounded-xl flex flex-col divide-y divide-border overflow-hidden bg-background">
         {detailLoading ? (
@@ -154,7 +156,7 @@ export function ActionsJobsList({
         ) : (
           <div className="py-8 text-center text-xs text-muted-foreground/60 flex flex-col items-center">
             <Box className="size-8 opacity-20 mb-2" />
-            No jobs found in this workflow run.
+            {t("empty")}
           </div>
         )}
       </div>
@@ -242,6 +244,7 @@ function ActionJobRow({
   selectedStepKey: string | null;
   steps: ActionStep[];
 }) {
+  const t = useTranslations("github.actionsJobsList");
   const jobSuccess = job.conclusion === "success";
   const jobFailure = job.conclusion === "failure";
   const jobSkipped = job.conclusion === "skipped";
@@ -290,14 +293,14 @@ function ActionJobRow({
           <span className="font-semibold text-sm truncate">{job.name}</span>
           {jobSkipped && (
             <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm shrink-0">
-              skipped
+              {t("states.skipped")}
             </span>
           )}
         </div>
 
         {steps.length > 0 && (
           <div className="hidden sm:flex text-[11px] text-muted-foreground/70 shrink-0 gap-1 opacity-70">
-            <span>{steps.length} steps</span>
+            <span>{t("stepsCount", { count: steps.length })}</span>
           </div>
         )}
 
@@ -419,6 +422,7 @@ function ActionStepsList({
   selectedStepKey: string | null;
   steps: ActionStep[];
 }) {
+  const t = useTranslations("github.actionsJobsList");
   return (
     <div
       className={cn(
@@ -434,7 +438,10 @@ function ActionStepsList({
             {steps.map((step, stepIndex) => {
               const stepKey = getActionStepKey(jobKey, step, stepIndex);
               const isSelected = selectedStepKey === stepKey;
-              const stepStatus = step.conclusion || step.status || "unknown";
+              const stepStatus = formatGithubActionState(
+                step.conclusion || step.status || "unknown",
+                t,
+              );
               const stepStartedAt = getStartedAt(step);
               const stepCompletedAt = getCompletedAt(step);
               const stepStartedLabel = formatActionTimestamp(stepStartedAt);
@@ -481,7 +488,7 @@ function ActionStepsList({
                             : "text-foreground/90",
                         )}
                       >
-                        {step.name || `Step ${stepIndex + 1}`}
+                        {step.name || t("stepFallback", { index: stepIndex + 1 })}
                       </span>
                       <div className="flex shrink-0 items-center gap-2">
                         {stepDuration && (
@@ -491,7 +498,9 @@ function ActionStepsList({
                         )}
                         <button
                           type="button"
-                          aria-label={`Open ${step.name || "step"} on GitHub`}
+                          aria-label={t("openStepAriaLabel", {
+                            stepName: step.name || t("stepAriaFallback"),
+                          })}
                           tabIndex={isExpanded ? 0 : -1}
                           onKeyDown={(event) => {
                             event.stopPropagation();
@@ -515,14 +524,14 @@ function ActionStepsList({
 
                     {isSelected && (
                       <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-md border border-border/40 bg-muted/20 p-2 sm:grid-cols-2">
-                        <StepMeta label="Status" value={stepStatus} />
-                        <StepMeta label="Duration" value={stepDuration ?? "-"} />
+                        <StepMeta label={t("meta.status")} value={stepStatus} />
+                        <StepMeta label={t("meta.duration")} value={stepDuration ?? "-"} />
                         <StepMeta
-                          label="Started"
+                          label={t("meta.started")}
                           value={stepStartedLabel ?? "-"}
                         />
                         <StepMeta
-                          label="Completed"
+                          label={t("meta.completed")}
                           value={stepCompletedLabel ?? "-"}
                         />
                       </div>
@@ -641,4 +650,47 @@ function StepMeta({ label, value }: { label: string; value: string }) {
       </span>
     </div>
   );
+}
+
+function formatGithubActionState(
+  value: string | null | undefined,
+  t: ReturnType<typeof useTranslations>,
+) {
+  switch (value) {
+    case "queued":
+      return t("states.queued");
+    case "in_progress":
+      return t("states.inProgress");
+    case "completed":
+      return t("states.completed");
+    case "success":
+      return t("states.success");
+    case "failure":
+      return t("states.failure");
+    case "skipped":
+      return t("states.skipped");
+    case "cancelled":
+      return t("states.cancelled");
+    case "neutral":
+      return t("states.neutral");
+    case "pending":
+      return t("states.pending");
+    case "requested":
+      return t("states.requested");
+    case "stale":
+      return t("states.stale");
+    case "timed_out":
+      return t("states.timedOut");
+    case "action_required":
+      return t("states.actionRequired");
+    case "startup_failure":
+      return t("states.startupFailure");
+    case "unknown":
+    case "":
+    case null:
+    case undefined:
+      return t("states.unknown");
+    default:
+      return value.replace(/_/g, " ");
+  }
 }

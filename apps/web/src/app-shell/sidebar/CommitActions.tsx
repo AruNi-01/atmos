@@ -8,6 +8,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+import { useTranslations } from "next-intl";
 import {
   Upload,
   Loader2,
@@ -37,7 +38,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useEditorStore, EDITOR_CONFLICT_RESOLVE_ALL_PATH } from "@/features/editor/store/use-editor-store";
-import { useGitStore } from "@/features/git/store/use-git-store";
+import {
+  formatGitActionErrorForDisplay,
+  isConflictActionError,
+  useGitStore,
+} from "@/features/git/store/use-git-store";
 import {
   GitChangedFile,
   functionSettingsApi,
@@ -152,6 +157,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   setPendingAgentChatMode,
   setAgentChatOpen,
 }) => {
+  const t = useTranslations("AppShell.chrome");
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGeneratingCommitMessage, setIsGeneratingCommitMessage] =
@@ -223,38 +229,18 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   }, [commitMessage, isGeneratingCommitMessage]);
 
   const formatActionError = useCallback((error: unknown) => {
-    if (!(error instanceof Error)) {
-      return "Unknown error";
-    }
-
-    return error.message
-      .replace(/^\[[^\]]+\]\s*/i, "")
-      .replace(/^Request failed:\s*/i, "")
-      .replace(/^Validation error:\s*/i, "")
-      .trim();
-  }, []);
-
-  const isMergeConflictError = useCallback((message: string) => {
-    const normalized = message.toLowerCase();
-    return (
-      normalized.includes("conflict") ||
-      normalized.includes("automatic merge failed") ||
-      normalized.includes("fix conflicts and then commit the result") ||
-      normalized.includes("unmerged files") ||
-      normalized.includes("resolve all conflicts manually")
-    );
-  }, []);
+    return formatGitActionErrorForDisplay(error) || t("commitActions.unknownError");
+  }, [t]);
 
   const shouldSilenceConflictError = useCallback(
     (error: unknown) => {
-      const description = formatActionError(error);
-      if (isMergeConflictError(description)) {
+      if (isConflictActionError(error)) {
         return true;
       }
 
       return useGitStore.getState().gitStatus?.has_merge_conflicts ?? false;
     },
-    [formatActionError, isMergeConflictError],
+    [],
   );
 
   const showActionErrorToast = useCallback(
@@ -293,9 +279,8 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   const handleOpenConflictResolver = useCallback(async () => {
     if (conflictedFiles.length === 0) {
       toastManager.add({
-        title: "No conflicted files found",
-        description:
-          "Refresh repository state if Git still reports an unresolved merge.",
+        title: t("commitActions.noConflictedFilesFoundTitle"),
+        description: t("commitActions.noConflictedFilesFoundDescription"),
         type: "warning",
       });
       return;
@@ -306,43 +291,35 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       workspaceId || undefined,
       { preview: false },
     );
-  }, [conflictedFiles.length, openEditorFile, workspaceId]);
+  }, [conflictedFiles.length, openEditorFile, t, workspaceId]);
 
   const handleCopyConflictPrompt = useCallback(async () => {
-    const repoPath = currentProjectPath ?? "the current repository";
+    const repoPath = currentProjectPath ?? t("commitActions.conflictPromptFallbackRepoPath");
     const contextLabel =
       currentWorkspace?.name?.trim() ||
       currentProject?.name?.trim() ||
-      "this workspace";
-    const prompt = `Resolve the current Git merge conflicts in ${contextLabel} (${repoPath}).
-
-Inspect every conflicted file carefully.
-
-Rules:
-- If both sides are functionally independent, preserve both behaviors.
-- If the two sides are not independent, or the correct resolution is ambiguous, stop and ask the user for confirmation before deciding.
-- Do not make unilateral accept-ours, accept-theirs, or accept-both decisions.
-- Do not create a commit unless the user explicitly asks for one.
-- Stage the resolved files after resolving them.
-
-Report back which files were resolved and whether any conflicts still need user confirmation.`;
+      t("commitActions.conflictPromptFallbackWorkspace");
+    const prompt = t("commitActions.conflictPromptBody", {
+      contextLabel,
+      repoPath,
+    });
 
     try {
       await navigator.clipboard.writeText(prompt);
       toastManager.add({
-        title: "Conflict prompt copied",
-        description: "Paste it into Agent Chat to ask for conflict resolution.",
+        title: t("commitActions.conflictPromptCopiedTitle"),
+        description: t("commitActions.conflictPromptCopiedDescription"),
         type: "success",
       });
     } catch (error) {
       console.error(error);
       toastManager.add({
-        title: "Failed to copy conflict prompt",
-        description: "Clipboard access is not available.",
+        title: t("commitActions.failedToCopyConflictPromptTitle"),
+        description: t("commitActions.failedToCopyConflictPromptDescription"),
         type: "error",
       });
     }
-  }, [currentProject?.name, currentProjectPath, currentWorkspace?.name]);
+  }, [currentProject?.name, currentProjectPath, currentWorkspace?.name, t]);
 
   const handlePublish = async () => {
     setIsGlobalActionLoading(true);
@@ -352,7 +329,7 @@ Report back which files were resolved and whether any conflicts still need user 
       if (!shouldSilenceConflictError(e)) {
         console.error(e);
       }
-      showActionErrorToast("Failed to publish branch", e);
+      showActionErrorToast(t("commitActions.failedToPublishBranch"), e);
     } finally {
       setIsGlobalActionLoading(false);
     }
@@ -390,7 +367,7 @@ Report back which files were resolved and whether any conflicts still need user 
       if (!shouldSilenceConflictError(e)) {
         console.error(e);
       }
-      showActionErrorToast("Failed to commit changes", e);
+      showActionErrorToast(t("commitActions.failedToCommitChanges"), e);
     } finally {
       setIsCommitting(false);
     }
@@ -399,9 +376,8 @@ Report back which files were resolved and whether any conflicts still need user 
   const handleGenerateCommitMessage = async () => {
     if (!currentProjectPath) {
       toastManager.add({
-        title: "No Repository Context",
-        description:
-          "Open a project workspace first to generate a commit message.",
+        title: t("commitActions.noRepositoryContextTitle"),
+        description: t("commitActions.noRepositoryContextDescription"),
         type: "error",
       });
       return;
@@ -463,8 +439,8 @@ Report back which files were resolved and whether any conflicts still need user 
         }
       } catch (error) {
         toastManager.add({
-          title: "Failed to generate commit message",
-          description: error instanceof Error ? error.message : "Unknown error",
+          title: t("commitActions.failedToGenerateCommitMessageTitle"),
+          description: error instanceof Error ? error.message : t("commitActions.unknownError"),
           type: "error",
         });
       } finally {
@@ -482,9 +458,8 @@ Report back which files were resolved and whether any conflicts still need user 
 
     if (!agentHasAgents) {
       toastManager.add({
-        title: "No ACP Agent Available",
-        description:
-          "Install an ACP agent first to use AI commit message generation.",
+        title: t("commitActions.noAcpAgentAvailableTitle"),
+        description: t("commitActions.noAcpAgentAvailableDescription"),
         type: "error",
       });
       return;
@@ -495,15 +470,15 @@ Report back which files were resolved and whether any conflicts still need user 
         await skillsApi.isGitCommitSkillInstalledInSystem();
       if (!skillInstalled) {
         const toastId = toastManager.add({
-          title: "Git Commit Skill Not Found",
-          description: "The git-commit skill is not installed.",
+          title: t("commitActions.gitCommitSkillNotFoundTitle"),
+          description: t("commitActions.gitCommitSkillNotFoundDescription"),
           type: "error",
           timeout: 0,
           actionProps: {
-            children: "Install Now",
+            children: t("commitActions.installNow"),
             onClick: async () => {
               toastManager.update(toastId, {
-                title: "Installing git-commit skill...",
+                title: t("commitActions.installingGitCommitSkill"),
                 type: "loading",
                 description: undefined,
                 actionProps: undefined,
@@ -511,14 +486,14 @@ Report back which files were resolved and whether any conflicts still need user 
               try {
                 await skillsApi.syncSingleSystemSkill("git-commit");
                 toastManager.update(toastId, {
-                  title: "Git Commit Skill Installed",
+                  title: t("commitActions.gitCommitSkillInstalled"),
                   type: "success",
                   timeout: 3000,
                 });
               } catch {
                 toastManager.update(toastId, {
-                  title: "Install Failed",
-                  description: "Please try again.",
+                  title: t("commitActions.installFailedTitle"),
+                  description: t("commitActions.installFailedDescription"),
                   type: "error",
                   timeout: 5000,
                 });
@@ -530,9 +505,8 @@ Report back which files were resolved and whether any conflicts still need user 
       }
     } catch {
       toastManager.add({
-        title: "Skill Check Failed",
-        description:
-          "Unable to verify git-commit skill status. Please try again.",
+        title: t("commitActions.skillCheckFailedTitle"),
+        description: t("commitActions.skillCheckFailedDescription"),
         type: "error",
       });
       return;
@@ -545,7 +519,7 @@ Report back which files were resolved and whether any conflicts still need user 
     const contextName =
       basenameFromPath(currentWorkspace?.localPath) ??
       currentProject?.name ??
-      "Project";
+      t("commitActions.acpSessionTitleFallbackProject");
     const now = new Date();
     const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     enqueueAgentChatPrompt({
@@ -556,17 +530,22 @@ Report back which files were resolved and whether any conflicts still need user 
       forceNewSession: shouldForceNewSession,
       origin: "git_commit",
       ...(shouldForceNewSession
-        ? { sessionTitle: `${contextName}_GitCommit_${timeStr}` }
+        ? {
+            sessionTitle: t("commitActions.acpSessionTitle", {
+              contextName,
+              time: timeStr,
+            }),
+          }
         : {}),
     });
     setPendingAgentChatMode("default");
     setAgentChatOpen(true);
     toastManager.add({
-      title: "Commit Prompt Queued",
+      title: t("commitActions.commitPromptQueuedTitle"),
       description:
         agentIsBusy && !shouldForceNewSession
-          ? "The ACP git-commit prompt was added to the chat queue."
-          : "The ACP git-commit prompt was queued and will run in Agent Chat.",
+          ? t("commitActions.commitPromptQueuedBusyDescription")
+          : t("commitActions.commitPromptQueuedDescription"),
       type: "success",
     });
   };
@@ -635,11 +614,11 @@ Report back which files were resolved and whether any conflicts still need user 
               placeholder={
                 isGeneratingCommitMessage
                   ? ""
-                  : "Message (⌘+Enter to commit)"
+                  : t("commitActions.messagePlaceholder")
               }
               value={
                 isGeneratingCommitMessage && !commitMessage
-                  ? "Generating commit message..."
+                  ? t("commitActions.generatingCommitMessage")
                   : commitMessage
               }
               onChange={(e) => {
@@ -727,20 +706,19 @@ Report back which files were resolved and whether any conflicts still need user 
               >
                 {gitCommitLlmProviderLabel ? (
                   <p className="px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                    LLM Provider is enabled for git commit generation.
+                    {t("commitActions.llmProviderEnabled")}
                     <span className="block pt-1 text-foreground/80">
-                      Click to generate directly here with{" "}
-                      {gitCommitLlmProviderLabel}.
+                      {t("commitActions.llmProviderEnabledDescription", {
+                        provider: gitCommitLlmProviderLabel,
+                      })}
                     </span>
                   </p>
                 ) : (
                   <>
                     <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                      No LLM Provider is enabled for git commit
-                      generation.
+                      {t("commitActions.noLlmProviderEnabled")}
                       <span className="block pt-1">
-                        Configure one in LLM Providers to generate
-                        directly in this input.
+                        {t("commitActions.noLlmProviderEnabledDescription")}
                       </span>
                     </p>
                     <div className="border-t border-border mx-1.5 my-1" />
@@ -752,15 +730,14 @@ Report back which files were resolved and whether any conflicts still need user 
                               htmlFor="acp-new-session"
                               className="text-xs font-medium text-popover-foreground cursor-help select-none"
                             >
-                              New ACP Session
+                              {t("commitActions.newAcpSession")}
                             </label>
                           </TooltipTrigger>
                           <TooltipContent
                             side="top"
                             className="max-w-[200px] text-xs"
                           >
-                            Starts a fresh ACP session each time, which
-                            may take ~10s to initialize.
+                            {t("commitActions.newAcpSessionTooltip")}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -773,8 +750,7 @@ Report back which files were resolved and whether any conflicts still need user 
                     </div>
                     <div className="border-t border-border mx-1.5 my-1" />
                     <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                      Fallback mode uses ACP Agent to generate the commit
-                      message and commit locally.
+                      {t("commitActions.fallbackModeDescription")}
                     </p>
                   </>
                 )}
@@ -790,9 +766,9 @@ Report back which files were resolved and whether any conflicts still need user 
                   : showPublishButton
                   ? handlePublish
                   : showSyncPushButton
-                    ? () => handleGlobalAction(syncChanges, "Failed to sync and push")
+                    ? () => handleGlobalAction(syncChanges, t("commitActions.failedToSyncAndPush"))
                     : showPushButton
-                    ? () => handleGlobalAction(pushChanges, "Failed to push changes")
+                    ? () => handleGlobalAction(pushChanges, t("commitActions.failedToPushChanges"))
                     : handleCommit
               }
               disabled={isPrimaryButtonDisabled}
@@ -811,22 +787,30 @@ Report back which files were resolved and whether any conflicts still need user 
               )}
               <span>
                 {hasMergeConflicts
-                  ? "Need Resolve Conflicts"
+                  ? t("commitActions.needResolveConflicts")
                   : showPublishButton
                   ? isGlobalActionLoading
-                    ? "Publishing..."
-                    : "Publish Branch"
+                    ? t("commitActions.publishing")
+                    : t("commitActions.publishBranch")
                   : showSyncPushButton
                     ? isGlobalActionLoading
-                      ? "Syncing..."
-                      : `Sync & Push${gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : ""}${(gitStatus?.upstream_behind_count ?? 0) > 0 ? ` ↓${gitStatus?.upstream_behind_count}` : ""}`
+                      ? t("commitActions.syncing")
+                      : t("commitActions.syncAndPush", {
+                          unpushedSuffix: gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : "",
+                          behindSuffix:
+                            (gitStatus?.upstream_behind_count ?? 0) > 0
+                              ? ` ↓${gitStatus?.upstream_behind_count}`
+                              : "",
+                        })
                   : showPushButton
                     ? isGlobalActionLoading
-                      ? "Pushing..."
-                      : `Push ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ""}`
+                      ? t("commitActions.pushing")
+                      : t("commitActions.push", {
+                          suffix: gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : "",
+                        })
                     : isCommitting
-                      ? "Committing..."
-                      : "Commit"}
+                      ? t("commitActions.committing")
+                      : t("common.commit")}
               </span>
             </button>
 
@@ -846,7 +830,7 @@ Report back which files were resolved and whether any conflicts still need user 
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    Ask Agent to resolve this conflict
+                    {t("commitActions.askAgentToResolveConflict")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -869,17 +853,17 @@ Report back which files were resolved and whether any conflicts still need user 
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, "Failed to pull changes")}>
-                    <ArrowDown className="mr-2 size-4" /> Pull
+                  <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, t("commitActions.failedToPullChanges"))}>
+                    <ArrowDown className="mr-2 size-4" /> {t("common.pull")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, "Failed to push changes")}>
-                    <Upload className="mr-2 size-4" /> Push
+                  <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, t("commitActions.failedToPushChanges"))}>
+                    <Upload className="mr-2 size-4" /> {t("common.push")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
-                    <RotateCw className="mr-2 size-4" /> Fetch
+                  <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, t("commitActions.failedToFetchChanges"))}>
+                    <RotateCw className="mr-2 size-4" /> {t("common.fetch")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
-                    <CloudSync className="mr-2 size-4" /> Sync with Remote
+                  <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, t("commitActions.failedToSyncWithRemote"))}>
+                    <CloudSync className="mr-2 size-4" /> {t("commitActions.syncWithRemote")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

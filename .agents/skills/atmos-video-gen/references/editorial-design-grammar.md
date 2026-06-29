@@ -94,6 +94,10 @@ A mobile lock screen, notification, calendar, or chat moment that proves Atmos c
 
 Agent chips, icons, or logos arranged with enough density to show breadth. Prefer real current icons. Do not imply support is limited to only the few shown.
 
+**Lottie Insert**
+
+A short vector animation used as a precise accent inside the edit: logo lockup, icon swarm, diagram trace, metric beat, lower third, or CTA punctuation. Use this to sharpen a moment that benefits from reusable vector motion, not to replace product proof with abstract decoration.
+
 **CTA Frame**
 
 Return to a calm, bright layout. Show the Atmos name, one concise positioning line, `https://atmos.land`, the GitHub link for public promos, and two small proof panels if space allows.
@@ -106,6 +110,7 @@ These effects are practical in HyperFrames with regular HTML/CSS/React motion:
 - Use `clip-path`, overflow-hidden wrappers, or mask divs for wipes and crop reveals.
 - Use opacity plus blur only as a transition helper; do not make blurred screenshots the main proof.
 - Build reusable local components such as `CaptionPill`, `ChapterCard`, `ProductStage`, `SplitWorkflow`, `AgentMatrix`, and `PhoneInsert` when a project repeats a frame family.
+- Use a verified Lottie insert when logo, type, icon, counter, or diagram motion needs to stay crisp and reusable. Keep it short, transparent by default, and composited around real proof rather than replacing it.
 - Keep screenshots in `object-fit: contain` or carefully controlled crops so UI remains inspectable.
 - Use shadows and borders lightly to separate product captures from the stage; do not turn every screen into a glossy glass card.
 - Add small, timed overlays for callouts, counters, status pills, or cursor focus, but avoid noisy particles and decorative motion unrelated to the product story.
@@ -117,6 +122,7 @@ Before the final render, make a 1fps contact sheet of the generated video and in
 - More than two adjacent frames use the same layout and motion idea.
 - Product UI is absent for a long stretch in a product-led promo.
 - Screenshots are too small, blurred, desaturated, or cropped so tightly that the proof is unclear.
+- Lottie appears as ambient decoration for too long, obscures the product, or becomes the whole point of the scene without carrying real story/proof value.
 - The video could be described as "text cards over a gradient" or "a generic AI reel."
 - The CTA appears without enough preceding proof.
 - The palette collapses into all graphite, all purple-blue, muddy amber/brown, or grayscale.

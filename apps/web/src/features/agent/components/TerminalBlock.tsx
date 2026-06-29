@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   AcpTerminal,
   AcpTerminalHeader,
@@ -21,6 +22,7 @@ export function TerminalBlock({
   raw_input,
   raw_output,
 }: ToolCallBlock) {
+  const t = useTranslations("Agent.components");
   const state = toolStatusToState(status);
   const isRunning = state === "input-available";
   const isError = state === "output-error";
@@ -52,7 +54,7 @@ export function TerminalBlock({
       className={isError ? "border-red-500/50 w-full" : "w-full"}
     >
       <AcpTerminalHeader>
-        <AcpTerminalTitle>Run Script</AcpTerminalTitle>
+        <AcpTerminalTitle>{t("terminalBlock.title")}</AcpTerminalTitle>
         <div className="flex items-center gap-1">
           <AcpTerminalStatus />
           <AcpTerminalActions>

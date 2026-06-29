@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,6 @@ import { Check, ChevronRight, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
 import { FixActionsMenu } from "@/features/diff/components/review/FixActionsMenu";
-import { CODE_REVIEW_SKILLS } from "@/features/code-review";
 import {
   compareReviewTimestamps,
   sortReviewSessions,
@@ -38,6 +38,7 @@ type SessionGroup = {
 };
 
 export const ReviewActions: React.FC = () => {
+  const t = useTranslations("diff.reviewActions");
   const {
     sessions,
     currentSession,
@@ -74,13 +75,15 @@ export const ReviewActions: React.FC = () => {
   }, [setCodeReviewDialogOpen]);
 
   const revisionLabel = useMemo(() => {
-    if (!currentSession || !currentRevision) return "Live";
+    if (!currentSession || !currentRevision) return t("revision.live");
     const sorted = [...currentSession.revisions].sort((a, b) =>
       compareReviewTimestamps(a.created_at, b.created_at),
     );
     const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
-    return idx >= 0 ? `v${idx + 1}` : "Revision";
-  }, [currentRevision, currentSession]);
+    return idx >= 0
+      ? t("revision.versionLabel", { number: idx + 1 })
+      : t("revision.fallback");
+  }, [currentRevision, currentSession, t]);
 
   const getSortedRevisions = useCallback(
     (session: ReviewSessionDto) =>
@@ -108,22 +111,22 @@ export const ReviewActions: React.FC = () => {
     const groups: SessionGroup[] = [
       {
         status: "active",
-        label: "Active",
+        label: t("groups.active"),
         sessions: sortedSessions.filter((session) => session.status === "active"),
       },
       {
         status: "closed",
-        label: "Closed",
+        label: t("groups.closed"),
         sessions: sortedSessions.filter((session) => session.status === "closed"),
       },
       {
         status: "archived",
-        label: "Archived",
+        label: t("groups.archived"),
         sessions: sortedSessions.filter((session) => session.status === "archived"),
       },
     ];
     return groups.filter((group) => group.sessions.length > 0);
-  }, [sessions]);
+  }, [sessions, t]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -187,6 +190,11 @@ export const ReviewActions: React.FC = () => {
     null,
   );
   const [renameValue, setRenameValue] = useState("");
+  const getErrorDescription = useCallback(
+    (error: unknown) =>
+      error instanceof Error ? error.message : t("errors.unknown"),
+    [t],
+  );
   const handleOpenRename = useCallback((session: ReviewSessionDto) => {
     setRenameValue(session.title ?? "");
     setRenameSessionGuid(session.guid);
@@ -198,19 +206,19 @@ export const ReviewActions: React.FC = () => {
       await reviewWsApi.renameSession(renameSessionGuid, title);
       await loadSessions();
       toastManager.add({
-        title: "Session renamed",
-        description: `Session renamed to "${title}"`,
+        title: t("toasts.renameSuccess.title"),
+        description: t("toasts.renameSuccess.description", { title }),
         type: "success",
       });
       setRenameSessionGuid(null);
     } catch (error) {
       toastManager.add({
-        title: "Failed to rename session",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("toasts.renameError.title"),
+        description: getErrorDescription(error),
         type: "error",
       });
     }
-  }, [loadSessions, renameSessionGuid, renameValue]);
+  }, [getErrorDescription, loadSessions, renameSessionGuid, renameValue, t]);
 
   const handleCloseSessionByGuid = useCallback(
     async (sessionGuid: string) => {
@@ -219,13 +227,13 @@ export const ReviewActions: React.FC = () => {
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to close session",
-          description: error instanceof Error ? error.message : "Unknown error",
+          title: t("toasts.closeError.title"),
+          description: getErrorDescription(error),
           type: "error",
         });
       }
     },
-    [loadSessions],
+    [getErrorDescription, loadSessions, t],
   );
 
   const handleArchiveSessionByGuid = useCallback(
@@ -235,13 +243,13 @@ export const ReviewActions: React.FC = () => {
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to archive session",
-          description: error instanceof Error ? error.message : "Unknown error",
+          title: t("toasts.archiveError.title"),
+          description: getErrorDescription(error),
           type: "error",
         });
       }
     },
-    [loadSessions],
+    [getErrorDescription, loadSessions, t],
   );
 
   const handleActivateSessionByGuid = useCallback(
@@ -251,13 +259,13 @@ export const ReviewActions: React.FC = () => {
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to activate session",
-          description: error instanceof Error ? error.message : "Unknown error",
+          title: t("toasts.activateError.title"),
+          description: getErrorDescription(error),
           type: "error",
         });
       }
     },
-    [loadSessions],
+    [getErrorDescription, loadSessions, t],
   );
 
   const renderSessionMenuItem = useCallback(
@@ -275,7 +283,7 @@ export const ReviewActions: React.FC = () => {
             )}
           >
             <span className="flex-1 truncate">
-              {s.title?.trim() || "Review Session"}
+              {s.title?.trim() || t("session.untitled")}
             </span>
             {activeSession && (
               <Check className="size-3.5 shrink-0 text-foreground" />
@@ -285,7 +293,9 @@ export const ReviewActions: React.FC = () => {
             {sortedRevisions.map((rev, idx) => {
               const activeRevision =
                 activeSession && rev.guid === currentRevision?.guid;
-              const label = `v${sortedRevisions.length - idx}`;
+              const label = t("revision.versionLabel", {
+                number: sortedRevisions.length - idx,
+              });
 
               return (
                 <DropdownMenuItem
@@ -297,7 +307,7 @@ export const ReviewActions: React.FC = () => {
                     {label}
                   </span>
                   <span className="flex-1 truncate text-muted-foreground">
-                    {rev.title?.trim() || "Revision"}
+                    {rev.title?.trim() || t("revision.fallback")}
                   </span>
                   <Check
                     className={cn(
@@ -316,7 +326,7 @@ export const ReviewActions: React.FC = () => {
                 onClick={() => void handleActivateSessionByGuid(s.guid)}
                 className="text-xs"
               >
-                Activate Session
+                {t("actions.activateSession")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
@@ -324,14 +334,14 @@ export const ReviewActions: React.FC = () => {
               className="text-xs"
               disabled={s.status !== "active"}
             >
-              Close Session
+              {t("actions.closeSession")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => void handleArchiveSessionByGuid(s.guid)}
               className="text-xs"
               disabled={s.status === "archived"}
             >
-              Archive Session
+              {t("actions.archiveSession")}
             </DropdownMenuItem>
             <DropdownMenuSub
               open={renameSessionGuid === s.guid}
@@ -347,7 +357,7 @@ export const ReviewActions: React.FC = () => {
                 className="text-xs cursor-pointer"
                 disabled={s.status !== "active"}
               >
-                <span className="flex-1">Rename</span>
+                <span className="flex-1">{t("actions.rename")}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent
                 className="w-56 p-3"
@@ -370,14 +380,14 @@ export const ReviewActions: React.FC = () => {
                     onClick={() => setRenameSessionGuid(null)}
                     className="px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
                   >
-                    Cancel
+                    {t("actions.cancel")}
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleSubmitRename()}
                     className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
                   >
-                    Save
+                    {t("actions.save")}
                   </button>
                 </div>
               </DropdownMenuSubContent>
@@ -414,11 +424,11 @@ export const ReviewActions: React.FC = () => {
               <button
                 type="button"
                 className="inline-flex items-center gap-1.5 px-2.5 h-full text-[13px] text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer min-w-0 max-w-full"
-                title={currentSession?.title?.trim() || "Session"}
+                title={currentSession?.title?.trim() || t("session.title")}
               >
                 <span className="font-medium shrink-0">{revisionLabel}</span>
                 <span className="text-muted-foreground truncate min-w-0">
-                  {currentSession?.title?.trim() || "Session"}
+                  {currentSession?.title?.trim() || t("session.title")}
                 </span>
               </button>
             </DropdownMenuTrigger>
@@ -431,7 +441,7 @@ export const ReviewActions: React.FC = () => {
                 className="text-xs"
                 disabled={isCreating}
               >
-                New Session
+                {t("actions.newSession")}
               </DropdownMenuItem>
               {sessionGroups.map((group, groupIndex) => {
                 const isArchived = group.status === "archived";
@@ -513,7 +523,7 @@ export const ReviewActions: React.FC = () => {
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-            title="Refresh review data"
+            title={t("actions.refreshReviewData")}
           >
             {isRefreshing ? (
               <LoaderCircle className="size-3.5 animate-spin" />

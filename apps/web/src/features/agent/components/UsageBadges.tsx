@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +13,7 @@ import { Gauge, Coins } from "lucide-react";
 import type { AgentUsage, AgentTurnUsage } from "@/features/agent/hooks/use-agent-session";
 
 export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; className?: string }) {
+  const t = useTranslations("Agent.components");
   const hasContextWindow = usage.used != null && usage.size != null && usage.size > 0;
   const hasCost = usage.cost?.amount != null;
   const used = hasContextWindow ? usage.used : null;
@@ -61,7 +63,7 @@ export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; cla
             {hasContextWindow && used != null && size != null && percent != null ? (
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold">Context Window</span>
+                  <span className="font-semibold">{t("usageBadges.session.contextWindow")}</span>
                   <span className="font-mono">{percent.toFixed(1)}%</span>
                 </div>
                 <div className="space-y-1">
@@ -81,7 +83,7 @@ export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; cla
             {hasCost ? (
               <div className="flex flex-col">
                 {hasContextWindow ? <div className="mb-2 h-px w-full bg-background/20" /> : null}
-                <span className="text-[10px] uppercase">Estimated Cost</span>
+                <span className="text-[10px] uppercase">{t("usageBadges.session.estimatedCost")}</span>
                 <span className="text-xs font-mono font-semibold">
                   {(usage.cost?.amount ?? 0).toFixed(4)} {usage.cost?.currency ?? "USD"}
                 </span>
@@ -95,6 +97,7 @@ export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; cla
 }
 
 export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
+  const t = useTranslations("Agent.components");
   const totalTokens = usage.totalTokens ?? 0;
   const total = totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : totalTokens;
 
@@ -106,26 +109,26 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted/40 hover:text-foreground cursor-help">
             <Coins className="size-3" />
-            <span>{total} tokens</span>
+            <span>{t("usageBadges.turn.summary", { total })}</span>
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" className="p-3 w-52 z-100">
           <div className="space-y-1.5">
             <div className="mb-1 pb-1 text-xs font-semibold">
-              Turn Token Usage
+              {t("usageBadges.turn.title")}
             </div>
             <div className="h-px w-full bg-background/20" />
             <div className="flex justify-between text-[11px]">
-              <span>Input</span>
+              <span>{t("usageBadges.turn.input")}</span>
               <span className="font-mono">{(usage.inputTokens ?? 0).toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span>Output</span>
+              <span>{t("usageBadges.turn.output")}</span>
               <span className="font-mono">{(usage.outputTokens ?? 0).toLocaleString()}</span>
             </div>
             {usage.thoughtTokens != null && (
               <div className="flex justify-between text-[11px]">
-                <span>Thought</span>
+                <span>{t("usageBadges.turn.thought")}</span>
                 <span className="font-mono">{(usage.thoughtTokens ?? 0).toLocaleString()}</span>
               </div>
             )}
@@ -134,13 +137,13 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
                 <div className="h-px w-full bg-background/20" />
                 {usage.cachedReadTokens != null && (
                   <div className="flex justify-between text-[11px]">
-                    <span>Cache Read</span>
+                    <span>{t("usageBadges.turn.cacheRead")}</span>
                     <span className="font-mono">{(usage.cachedReadTokens ?? 0).toLocaleString()}</span>
                   </div>
                 )}
                 {usage.cachedWriteTokens != null && (
                   <div className="flex justify-between text-[11px]">
-                    <span>Cache Write</span>
+                    <span>{t("usageBadges.turn.cacheWrite")}</span>
                     <span className="font-mono">{(usage.cachedWriteTokens ?? 0).toLocaleString()}</span>
                   </div>
                 )}
@@ -149,7 +152,7 @@ export function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
             <div className="mt-1 pt-1 text-[11px] font-bold">
               <div className="mb-1 h-px w-full bg-background/20" />
               <div className="flex justify-between">
-                <span>Total</span>
+                <span>{t("usageBadges.turn.total")}</span>
                 <span className="font-mono">{(usage.totalTokens ?? 0).toLocaleString()}</span>
               </div>
             </div>

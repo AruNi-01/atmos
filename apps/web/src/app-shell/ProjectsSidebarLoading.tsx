@@ -1,10 +1,12 @@
 'use client';
 
 import { Skeleton } from '@workspace/ui';
+import { useTranslations } from 'next-intl';
 
 export function ProjectsSidebarLoading() {
+  const t = useTranslations('appShell.projectsSidebarLoading');
   return (
-    <div className="space-y-2 px-2 py-2" aria-busy="true" aria-label="Loading projects">
+    <div className="space-y-2 px-2 py-2" aria-busy="true" aria-label={t('ariaLabel')}>
       {[0, 1, 2].map((key) => (
         <div key={key} className="rounded-lg border border-sidebar-border/60 px-2 py-2">
           <div className="flex items-center gap-2">

@@ -1,12 +1,12 @@
 'use client';
 
 import type { RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import type { DiffLineAnnotation } from '@pierre/diffs';
 import type { ReviewCommentDto, ReviewMessageDto } from '@/api/ws-api';
 import { MessageBubble } from '@/features/diff/components/review/MessageBubble';
 import { ReviewMessageActionsMenu } from '@/features/diff/components/review/ReviewMessageActionsMenu';
 import {
-  reviewCommentStatusLabel,
   statusTone,
 } from '@/features/diff/components/review/utils';
 import { cn } from '@/shared/lib/utils';
@@ -100,6 +100,21 @@ export function DiffViewerReviewAnnotation({
   onUpdateMessage,
   onDeleteMessage,
 }: DiffViewerReviewAnnotationProps) {
+  const t = useTranslations('diff.reviewAnnotations');
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'open':
+        return t('status.open');
+      case 'agent_fixed':
+        return t('status.agentFixed');
+      case 'fixed':
+        return t('status.fixed');
+      case 'dismissed':
+        return t('status.dismissed');
+      default:
+        return status.replaceAll('_', ' ');
+    }
+  };
   if (annotation.metadata?.kind === 'composer') {
     if (!inlineCommentDraft) return null;
     return (
@@ -107,17 +122,22 @@ export function DiffViewerReviewAnnotation({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-0.5">
             <p className="text-sm font-medium leading-5 text-foreground">
-              Comment on {inlineCommentDraft.startLine === inlineCommentDraft.endLine ? `L${inlineCommentDraft.startLine}` : `L${inlineCommentDraft.startLine}-L${inlineCommentDraft.endLine}`}
+              {inlineCommentDraft.startLine === inlineCommentDraft.endLine
+                ? t('composer.titleSingle', { line: inlineCommentDraft.startLine })
+                : t('composer.titleRange', {
+                    startLine: inlineCommentDraft.startLine,
+                    endLine: inlineCommentDraft.endLine,
+                  })}
             </p>
             <p className="text-xs leading-4 text-muted-foreground">
-              Add a review comment directly on this diff.
+              {t('composer.description')}
             </p>
           </div>
           <button
             type="button"
             className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={onInlineCommentCancel}
-            aria-label="Cancel comment"
+            aria-label={t('composer.cancelCommentAria')}
           >
             <X className="size-4" />
           </button>
@@ -137,7 +157,7 @@ export function DiffViewerReviewAnnotation({
               onInlineCommentSubmit();
             }
           }}
-          placeholder="Describe the issue or expected change..."
+          placeholder={t('composer.placeholder')}
           className="mt-3 min-h-20 resize-y rounded-md border-border/70 bg-muted/20 font-sans text-sm leading-5 focus:bg-background"
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -150,12 +170,12 @@ export function DiffViewerReviewAnnotation({
                 disabled={isSubmittingInlineComment}
               >
                 {isSubmittingInlineComment ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Add Comment
+                {t('composer.actions.addComment')}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
               <div className="flex items-center gap-2">
-                <span>Add comment</span>
+                <span>{t('composer.tooltips.addComment')}</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" />
                   <CornerDownLeft className="size-3" />
@@ -163,15 +183,15 @@ export function DiffViewerReviewAnnotation({
               </div>
             </TooltipContent>
           </Tooltip>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 rounded-md px-2.5 text-xs font-medium"
-            onClick={onInlineCommentCancel}
-          >
-            Cancel
-          </Button>
-        </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-md px-2.5 text-xs font-medium"
+              onClick={onInlineCommentCancel}
+            >
+              {t('composer.actions.cancel')}
+            </Button>
+          </div>
       </div>
     );
   }
@@ -183,11 +203,12 @@ export function DiffViewerReviewAnnotation({
     replyDraftCommentGuid === comment.guid;
   const title =
     comment.title?.trim() ||
-    `Comment on L${comment.anchor_start_line}${
-      comment.anchor_start_line === comment.anchor_end_line
-        ? ''
-        : `-${comment.anchor_end_line}`
-    }`;
+    (comment.anchor_start_line === comment.anchor_end_line
+      ? t('comment.titleSingle', { line: comment.anchor_start_line })
+      : t('comment.titleRange', {
+          startLine: comment.anchor_start_line,
+          endLine: comment.anchor_end_line,
+        }));
   return (
     <div className={cn(
       'mx-3 my-2 rounded-md border p-3 font-sans shadow-sm',
@@ -208,7 +229,7 @@ export function DiffViewerReviewAnnotation({
         type="button"
         onClick={() => onToggleInlineCommentExpanded(comment.guid)}
         className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left font-sans"
-        aria-label={expanded ? "Collapse comment" : "Expand comment"}
+        aria-label={expanded ? t('comment.collapseAria') : t('comment.expandAria')}
       >
         <ChevronRight
           className={cn(
@@ -227,7 +248,7 @@ export function DiffViewerReviewAnnotation({
             statusTone(comment.status),
           )}
         >
-          {reviewCommentStatusLabel(comment.status)}
+          {getStatusLabel(comment.status)}
         </span>
       </button>
 
@@ -279,7 +300,7 @@ export function DiffViewerReviewAnnotation({
                     onReplySubmit(comment);
                   }
                 }}
-                placeholder="Reply to this comment..."
+                placeholder={t('reply.placeholder')}
                 className="min-h-20 rounded-md border-border/70 bg-background font-sans text-sm leading-5"
                 autoFocus
               />
@@ -292,7 +313,7 @@ export function DiffViewerReviewAnnotation({
                   onClick={onReplyCancel}
                 >
                   <X className="mr-1.5 size-3.5" />
-                  Cancel
+                  {t('reply.actions.cancel')}
                 </Button>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -303,12 +324,12 @@ export function DiffViewerReviewAnnotation({
                       onClick={() => onReplySubmit(comment)}
                     >
                       <SendHorizontal className="mr-1.5 size-3.5" />
-                      Reply
+                      {t('reply.actions.reply')}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="flex items-center gap-2">
-                      <span>Send reply</span>
+                      <span>{t('reply.tooltips.sendReply')}</span>
                       <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                         <Command className="size-3" />
                         <CornerDownLeft className="size-3" />
@@ -328,7 +349,7 @@ export function DiffViewerReviewAnnotation({
                 onClick={() => onToggleReplyDraft(comment.guid)}
               >
                 <MessageSquareReply className="mr-1.5 size-3.5" />
-                Reply
+                {t('reply.actions.reply')}
               </Button>
             </div>
           )}

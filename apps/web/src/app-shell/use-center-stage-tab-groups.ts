@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useTranslations } from "next-intl";
 import { arrayMove, type DragEndEvent } from "@workspace/ui";
 
 import {
@@ -26,6 +29,7 @@ export function useCenterStageTabGroups({
   effectiveContextId: string | null;
   openFiles: OpenFile[];
 }) {
+  const t = useTranslations("appShell.centerStageTabGroups");
   const [tabGroupOrderByContext, setTabGroupOrderByContext] =
     React.useState<TabGroupOrderByContext>(() => readCenterStageTabGroupOrder());
 
@@ -42,7 +46,7 @@ export function useCenterStageTabGroups({
         file,
       }));
     if (fileTabsGroup.length > 0) {
-      groups.push({ key: "file", label: "File", tabs: fileTabsGroup });
+      groups.push({ key: "file", label: t("groups.file"), tabs: fileTabsGroup });
     }
 
     const diffTabsGroup = openFiles
@@ -55,7 +59,7 @@ export function useCenterStageTabGroups({
         file,
       }));
     if (diffTabsGroup.length > 0) {
-      groups.push({ key: "diff", label: "Diff", tabs: diffTabsGroup });
+      groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabsGroup });
     }
 
     const reviewTabsGroup = openFiles
@@ -68,7 +72,7 @@ export function useCenterStageTabGroups({
         file,
       }));
     if (reviewTabsGroup.length > 0) {
-      groups.push({ key: "review-diff", label: "Review", tabs: reviewTabsGroup });
+      groups.push({ key: "review-diff", label: t("groups.review"), tabs: reviewTabsGroup });
     }
 
     const conflictTabsGroup = openFiles
@@ -81,11 +85,11 @@ export function useCenterStageTabGroups({
         file,
       }));
     if (conflictTabsGroup.length > 0) {
-      groups.push({ key: "conflict", label: "Conflict Resolve", tabs: conflictTabsGroup });
+      groups.push({ key: "conflict", label: t("groups.conflict"), tabs: conflictTabsGroup });
     }
 
     return groups;
-  }, [openFiles]);
+  }, [openFiles, t]);
 
   const orderedGroupedTabItems = React.useMemo(() => {
     const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;

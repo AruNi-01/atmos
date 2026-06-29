@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -31,15 +32,15 @@ type PopoverAlign = "start" | "center" | "end";
 
 export const WORKSPACE_PRIORITY_OPTIONS: Array<{
   value: WorkspacePriority;
-  label: string;
+  labelKey: string;
   className: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { value: "no_priority", label: "No priority", className: "text-muted-foreground", icon: PriorityNoneIcon },
-  { value: "urgent", label: "Urgent", className: "text-red-500/85", icon: PriorityUrgentIcon },
-  { value: "high", label: "High", className: "text-orange-500", icon: PriorityBarsHighIcon },
-  { value: "medium", label: "Medium", className: "text-yellow-500", icon: PriorityBarsMediumIcon },
-  { value: "low", label: "Low", className: "text-emerald-500", icon: PriorityBarsLowIcon },
+  { value: "no_priority", labelKey: "priority.noPriority", className: "text-muted-foreground", icon: PriorityNoneIcon },
+  { value: "urgent", labelKey: "priority.urgent", className: "text-red-500/85", icon: PriorityUrgentIcon },
+  { value: "high", labelKey: "priority.high", className: "text-orange-500", icon: PriorityBarsHighIcon },
+  { value: "medium", labelKey: "priority.medium", className: "text-yellow-500", icon: PriorityBarsMediumIcon },
+  { value: "low", labelKey: "priority.low", className: "text-emerald-500", icon: PriorityBarsLowIcon },
 ];
 
 export const WORKSPACE_PRIORITY_SORT_WEIGHT: Record<WorkspacePriority, number> = {
@@ -50,7 +51,13 @@ export const WORKSPACE_PRIORITY_SORT_WEIGHT: Record<WorkspacePriority, number> =
   urgent: 4,
 };
 
-const LABEL_COLOR_PRESETS = [...PROJECT_COLOR_PRESETS, { name: "Cyan", color: "#06b6d4" }];
+const LABEL_COLOR_PRESETS = [
+  ...PROJECT_COLOR_PRESETS.map((preset) => ({
+    ...preset,
+    labelKey: `labelEditor.colorPreset.${preset.name.toLowerCase().replace(/\s+/g, "")}`,
+  })),
+  { name: "Cyan", color: "#06b6d4", labelKey: "labelEditor.colorPreset.cyan" },
+];
 
 function PriorityNoneIcon({ className }: { className?: string }) {
   return (
@@ -159,18 +166,20 @@ export function WorkspacePrioritySelect({
   labelClassName,
   showLabel = triggerVariant !== "icon",
   disabled,
-  title = "Priority",
+  title,
   surface,
   onOpenChange,
 }: WorkspacePrioritySelectProps) {
+  const t = useTranslations("appShell.kanban");
   const meta = getWorkspacePriorityMeta(value);
   const Icon = meta.icon;
   const isDisabled = disabled || !onChange;
+  const resolvedTitle = title ?? t("priority.trigger");
   const trigger = (
     <button
       type="button"
       disabled={isDisabled}
-      title={title}
+      title={resolvedTitle}
       className={cn(
         triggerVariant === "icon"
           ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
@@ -180,7 +189,7 @@ export function WorkspacePrioritySelect({
       )}
     >
       <Icon className={cn("shrink-0", triggerVariant === "icon" ? "size-4" : "size-4", meta.className, iconClassName)} />
-      {showLabel ? <span className={cn("font-medium", labelClassName)}>{meta.label}</span> : null}
+      {showLabel ? <span className={cn("font-medium", labelClassName)}>{t(meta.labelKey)}</span> : null}
     </button>
   );
 
@@ -205,7 +214,7 @@ export function WorkspacePrioritySelect({
                 className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
               >
                 <OptionIcon className={cn("shrink-0", option.className)} />
-                <span className="font-medium">{option.label}</span>
+                <span className="font-medium">{t(option.labelKey)}</span>
               </DropdownMenuRadioItem>
             );
           })}
@@ -244,18 +253,20 @@ export function WorkspaceStatusSelect({
   labelClassName,
   showLabel = triggerVariant !== "icon",
   disabled,
-  title = "Status",
+  title,
   surface,
   onOpenChange,
 }: WorkspaceStatusSelectProps) {
+  const t = useTranslations("appShell.kanban");
   const meta = getWorkspaceWorkflowStatusMeta(value);
   const Icon = meta.icon;
   const isDisabled = disabled || !onChange;
+  const resolvedTitle = title ?? t("status.trigger");
   const trigger = (
     <button
       type="button"
       disabled={isDisabled}
-      title={title}
+      title={resolvedTitle}
       className={cn(
         triggerVariant === "icon"
           ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
@@ -265,7 +276,7 @@ export function WorkspaceStatusSelect({
       )}
     >
       <Icon className={cn("size-3.5 shrink-0", meta.className, iconClassName)} />
-      {showLabel ? <span className={cn(labelClassName)}>{meta.label}</span> : null}
+      {showLabel ? <span className={cn(labelClassName)}>{t(meta.labelKey)}</span> : null}
     </button>
   );
 
@@ -290,7 +301,7 @@ export function WorkspaceStatusSelect({
                 className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
               >
                 <OptionIcon className={cn("size-4", option.className)} />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
               </DropdownMenuRadioItem>
             );
           })}
@@ -331,6 +342,7 @@ export function WorkspaceLabelPicker({
   surface,
   onOpenChange,
 }: WorkspaceLabelPickerProps) {
+  const t = useTranslations("appShell.kanban");
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [isOpen, setIsOpen] = React.useState(false);
@@ -398,7 +410,7 @@ export function WorkspaceLabelPicker({
     <button
       type="button"
       disabled={!onChange}
-      title="Labels"
+      title={t("labels.trigger")}
       className={cn(
         triggerVariant === "icon"
           ? "relative inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -409,13 +421,15 @@ export function WorkspaceLabelPicker({
       )}
     >
       {triggerVariant === "add" ? (
-        "+ Label"
+        t("labels.addButton")
       ) : (
         <>
           <Tags className="size-3.5 shrink-0" />
           {triggerVariant === "summary" ? (
             <span className="text-xs text-muted-foreground">
-              {labels.length > 0 ? `${labels.length} labels` : "Add labels"}
+              {labels.length > 0
+                ? t("labels.summary.selected", { count: labels.length })
+                : t("labels.summary.empty")}
             </span>
           ) : null}
           {triggerVariant === "icon" && labels.length > 0 ? (
@@ -454,7 +468,7 @@ export function WorkspaceLabelPicker({
                 type="button"
                 className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
-                <span>Create New</span>
+                <span>{t("labels.createNew")}</span>
                 <span className="text-muted-foreground">+</span>
               </button>
             </PopoverTrigger>
@@ -474,14 +488,14 @@ export function WorkspaceLabelPicker({
         <Input
           value={labelSearchQuery}
           onChange={(event) => setLabelSearchQuery(event.target.value)}
-          placeholder="Search labels"
+          placeholder={t("labels.searchPlaceholder")}
           className="h-7 text-xs"
         />
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {availableLabels.length === 0 ? (
-            <div className="py-2 text-center text-xs text-muted-foreground">No labels yet</div>
+            <div className="py-2 text-center text-xs text-muted-foreground">{t("labels.empty")}</div>
           ) : filteredAvailableLabels.length === 0 ? (
-            <div className="py-2 text-center text-xs text-muted-foreground">No matching labels</div>
+            <div className="py-2 text-center text-xs text-muted-foreground">{t("labels.noMatch")}</div>
           ) : filteredAvailableLabels.map((label) => {
             const SourceIcon = label.source === 'manual' ? UserPen : label.source === 'gitHub_issue' ? CircleDot : GitPullRequest;
             return (
@@ -581,6 +595,7 @@ export function LabelEditorContent({
   onSubmit: () => void;
   popoverContentProps?: React.ComponentPropsWithoutRef<typeof PopoverContent>;
 }) {
+  const t = useTranslations("appShell.kanban");
   return (
     <PopoverContent
       data-workspace-popover-surface={surface ? "true" : undefined}
@@ -596,7 +611,7 @@ export function LabelEditorContent({
         <Input
           value={newLabelName}
           onChange={(event) => setNewLabelName(event.target.value)}
-          placeholder={editingLabel ? "Label name" : "New label"}
+          placeholder={editingLabel ? t("labelEditor.editPlaceholder") : t("labelEditor.createPlaceholder")}
           className="h-7 flex-1 text-xs"
           autoFocus
         />
@@ -606,7 +621,7 @@ export function LabelEditorContent({
           disabled={!newLabelName.trim()}
           onClick={() => onSubmit()}
         >
-          {editingLabel ? "Save" : "Add"}
+          {editingLabel ? t("labelEditor.save") : t("labelEditor.add")}
         </Button>
       </div>
       <div className="grid grid-cols-6 gap-1">
@@ -617,7 +632,7 @@ export function LabelEditorContent({
             onClick={() => setNewLabelColor({ ...parseHexColor(preset.color), a: 1 })}
             className="h-6 w-full rounded border border-border/50 transition-transform hover:scale-105"
             style={{ backgroundColor: preset.color }}
-            title={preset.name}
+            title={t(preset.labelKey)}
           />
         ))}
       </div>

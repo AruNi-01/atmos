@@ -1,10 +1,14 @@
 'use client';
 
+import { createTranslator } from 'next-intl';
 import { create } from 'zustand';
 import { toastManager } from '@workspace/ui';
 
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
 
 interface WorkspaceSettingsState {
   closePrOnDelete: boolean;
@@ -27,6 +31,26 @@ interface WorkspaceSettingsState {
   setConfirmBeforeArchive: (value: boolean) => Promise<void>;
   setKillTmuxOnArchive: (value: boolean) => Promise<void>;
   setCloseAcpOnArchive: (value: boolean) => Promise<void>;
+}
+
+type SettingsLocale = 'en' | 'zh';
+
+let cachedLocale: SettingsLocale | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedTranslator: any = null;
+
+function workspaceSettingsT(key: string, values?: Record<string, string | number>) {
+  const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'settings.store.workspace',
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
 }
 
 const DEFAULT_CLOSE_PR = false;
@@ -94,8 +118,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ closePrOnDelete: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update close PR on delete setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('closePrOnDeleteFailed'),
         type: 'error',
       });
     }
@@ -113,8 +137,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ closeIssueOnDelete: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update close Issue on delete setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('closeIssueOnDeleteFailed'),
         type: 'error',
       });
     }
@@ -132,8 +156,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ deleteRemoteBranch: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update delete remote branch setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('deleteRemoteBranchFailed'),
         type: 'error',
       });
     }
@@ -151,8 +175,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ confirmBeforeDelete: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update confirm before delete setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('confirmBeforeDeleteFailed'),
         type: 'error',
       });
     }
@@ -170,8 +194,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ branchPrefix: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update branch prefix setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('branchPrefixFailed'),
         type: 'error',
       });
     }
@@ -189,8 +213,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ confirmBeforeArchive: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update confirm before archive setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('confirmBeforeArchiveFailed'),
         type: 'error',
       });
     }
@@ -208,8 +232,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ killTmuxOnArchive: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update kill tmux on archive setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('killTmuxOnArchiveFailed'),
         type: 'error',
       });
     }
@@ -227,8 +251,8 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
         set({ closeAcpOnArchive: previous });
       }
       toastManager.add({
-        title: 'Settings Sync Failed',
-        description: 'Failed to update close ACP on archive setting.',
+        title: workspaceSettingsT('syncFailedTitle'),
+        description: workspaceSettingsT('closeAcpOnArchiveFailed'),
         type: 'error',
       });
     }

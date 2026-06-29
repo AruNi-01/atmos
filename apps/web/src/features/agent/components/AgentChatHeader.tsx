@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -87,6 +88,7 @@ interface AgentChatHeaderProps {
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
   historyTriggerClassName?: string;
+  historySidebarControl?: React.ReactNode;
 
   // Close
   handleClose: () => void;
@@ -138,6 +140,7 @@ export function AgentChatHeader({
   loadHistorySessions,
   handleSelectHistorySession,
   historyTriggerClassName,
+  historySidebarControl,
   handleClose,
   handleLogoutAgent,
   displaySessionTitle,
@@ -147,6 +150,7 @@ export function AgentChatHeader({
   sessionTitleSource,
   sessionId,
 }: AgentChatHeaderProps) {
+  const t = useTranslations("Agent.components");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
   const displayedAgentName = isConnected && activeAgent
     ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
@@ -158,7 +162,9 @@ export function AgentChatHeader({
     (sessionTitleSource === "auto" || sessionTitleSource === "agent");
   const animatedSessionTitle = shouldAnimateSessionTitle ? displaySessionTitle : null;
   const displayedCwd = sessionCwd ?? localPath;
-  const displayedCwdLabel = sessionCwd ? "Current working directory" : "Context directory";
+  const displayedCwdLabel = sessionCwd
+    ? t("header.cwd.current")
+    : t("header.cwd.context");
 
   return (
     <div
@@ -173,6 +179,7 @@ export function AgentChatHeader({
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex items-center gap-2 shrink-0">
+            {historySidebarControl}
             <div className="relative size-5">
               <div
                 className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${headerHovered
@@ -203,8 +210,8 @@ export function AgentChatHeader({
                       ? "translate-y-0 scale-100 opacity-100"
                       : "translate-y-[2px] scale-90 opacity-0 pointer-events-none"
                       }`}
-                    aria-label="New chat session"
-                    title="New session (default agent)"
+                    aria-label={t("header.newSession.aria")}
+                    title={t("header.newSession.defaultTitle")}
                   >
                     <Plus className="size-4 shrink-0" />
                   </button>
@@ -216,11 +223,11 @@ export function AgentChatHeader({
                   onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
                 >
                   <div className="px-2 py-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">Create session with agent</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t("header.newSession.createWithAgent")}</p>
                   </div>
                   <div className="max-h-56 overflow-auto">
                     {installedAgents.length === 0 && (
-                      <div className="px-2 py-3 text-xs text-muted-foreground">No installed agent</div>
+                      <div className="px-2 py-3 text-xs text-muted-foreground">{t("header.newSession.noInstalledAgent")}</div>
                     )}
                     {installedAgents.map((agent) => {
                       const isDefault = agent.id === defaultRegistryId;
@@ -259,13 +266,15 @@ export function AgentChatHeader({
                                     e.stopPropagation();
                                     handleSetDefaultAgent(agent.id);
                                   }}
-                                  aria-label={isDefault ? "Current default agent" : `Set ${agent.name} as default`}
+                                  aria-label={isDefault
+                                    ? t("header.defaultAgent.currentAria")
+                                    : t("header.defaultAgent.setAria", { name: agent.name })}
                                 >
                                   <Heart className={`size-3.5 ${isDefault ? "fill-primary" : ""}`} />
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="z-100 text-[10px] py-1 px-2">
-                                {isDefault ? "Default agent" : "Set as default"}
+                                {isDefault ? t("header.defaultAgent.tooltipCurrent") : t("header.defaultAgent.tooltipSet")}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -352,13 +361,15 @@ export function AgentChatHeader({
                     type="button"
                     onClick={handleToggleFullscreen}
                     className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    aria-label={isFullscreen ? "Exit fullscreen chat" : "Open chat fullscreen"}
+                    aria-label={isFullscreen
+                      ? t("header.fullscreen.exitAria")
+                      : t("header.fullscreen.openAria")}
                   >
                     {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  {isFullscreen ? t("header.fullscreen.exitTooltip") : t("header.fullscreen.openTooltip")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -371,13 +382,13 @@ export function AgentChatHeader({
                     <button
                       type="button"
                       className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      aria-label="More chat actions"
+                      aria-label={t("header.moreActions.aria")}
                     >
                       <MoreHorizontal className="size-4" />
                     </button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">More actions</TooltipContent>
+                <TooltipContent side="bottom">{t("header.moreActions.tooltip")}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <DropdownMenuContent align="end" className="w-52">
@@ -387,7 +398,7 @@ export function AgentChatHeader({
                 onSelect={handleExportConversation}
               >
                 <Download className="size-4" />
-                <span>Export conversation</span>
+                <span>{t("header.actions.exportConversation")}</span>
               </DropdownMenuItem>
               {variant === "modal" && handleOpenStandaloneWindow ? (
                 <DropdownMenuItem
@@ -395,7 +406,7 @@ export function AgentChatHeader({
                   onSelect={() => void handleOpenStandaloneWindow()}
                 >
                   <ExternalLink className="size-4" />
-                  <span>Open in window</span>
+                  <span>{t("header.actions.openInWindow")}</span>
                 </DropdownMenuItem>
               ) : null}
               {canLogout ? (
@@ -406,16 +417,16 @@ export function AgentChatHeader({
                   onSelect={() => setLogoutConfirmOpen(true)}
                 >
                   <LogOut className="size-4" />
-                  <span>Log out agent</span>
+                  <span>{t("header.actions.logoutAgent")}</span>
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
           <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
             <DialogContent className="w-72 gap-3 p-4" showCloseButton={false}>
-              <DialogTitle className="text-sm">Log out agent?</DialogTitle>
+              <DialogTitle className="text-sm">{t("header.logout.title")}</DialogTitle>
               <DialogDescription className="text-xs leading-5">
-                This clears the agent authentication for the current workspace context.
+                {t("header.logout.description")}
               </DialogDescription>
               <DialogFooter className="mt-1 flex-row justify-end gap-2">
                 <button
@@ -423,7 +434,7 @@ export function AgentChatHeader({
                   className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   onClick={() => setLogoutConfirmOpen(false)}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="button"
@@ -434,7 +445,7 @@ export function AgentChatHeader({
                     void handleLogoutAgent();
                   }}
                 >
-                  Log out
+                  {t("header.logout.action")}
                 </button>
               </DialogFooter>
             </DialogContent>
@@ -444,7 +455,7 @@ export function AgentChatHeader({
               type="button"
               onClick={handleClose}
               className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Close chat"
+              aria-label={t("header.closeChatAria")}
             >
               <X className="size-4" />
             </button>
@@ -459,7 +470,7 @@ export function AgentChatHeader({
                 {isAutoGeneratingTitle ? (
                   <span className="truncate text-xs">
                     <TextShimmer as="span" duration={1.5}>
-                      Generating title...
+                      {t("header.generatingTitle")}
                     </TextShimmer>
                   </span>
                 ) : animatedSessionTitle ? (
@@ -481,7 +492,7 @@ export function AgentChatHeader({
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
-              {displaySessionTitle ?? "Generating title..."}
+              {displaySessionTitle ?? t("header.generatingTitle")}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

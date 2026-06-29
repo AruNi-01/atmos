@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export function AppshotRecordRow({
   onDelete,
   onPreview,
 }: AppshotRecordRowProps) {
+  const t = useTranslations("appshot.components");
   const summary = summarizeAppshotRecord(record);
   const disabled = deleting || copying;
   const previewLabel =
@@ -34,7 +36,7 @@ export function AppshotRecordRow({
   const windowLabel =
     summary.title && summary.title !== summary.appLabel
       ? summary.title
-      : "Untitled window";
+      : t("history.recordRow.untitledWindow");
 
   return (
     <div
@@ -48,13 +50,13 @@ export function AppshotRecordRow({
           <button
             type="button"
             className="block h-full w-full cursor-zoom-in overflow-hidden"
-            aria-label={`Preview screenshot for ${previewLabel}`}
+            aria-label={t("history.recordRow.previewScreenshotAriaLabel", { label: previewLabel })}
             onClick={() => onPreview(record)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets. */}
             <img
               src={record.snapshot_url}
-              alt={`Screenshot preview for ${previewLabel}`}
+              alt={t("history.recordRow.previewScreenshotAlt", { label: previewLabel })}
               className="h-full w-full object-cover"
               draggable={false}
             />
@@ -85,8 +87,8 @@ export function AppshotRecordRow({
               variant="ghost"
               size="icon-xs"
               disabled={disabled}
-              title={copied ? "Copied" : "Copy Appshot reference"}
-              aria-label={copied ? "Copied Appshot reference" : "Copy Appshot reference"}
+              title={copied ? t("history.recordRow.copiedTitle") : t("history.recordRow.copyTitle")}
+              aria-label={copied ? t("history.recordRow.copiedAriaLabel") : t("history.recordRow.copyAriaLabel")}
               onClick={() => onCopy(record.timestamp)}
               className="cursor-pointer"
             >
@@ -97,8 +99,8 @@ export function AppshotRecordRow({
               variant="ghost"
               size="icon-xs"
               disabled={disabled}
-              title="Delete Appshot record"
-              aria-label="Delete Appshot record"
+              title={t("history.recordRow.deleteTitle")}
+              aria-label={t("history.recordRow.deleteAriaLabel")}
               onClick={() => onDelete(record.timestamp)}
               className="cursor-pointer text-muted-foreground hover:text-destructive"
             >

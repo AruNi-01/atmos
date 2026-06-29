@@ -3,6 +3,7 @@
 import type { MutableRefObject } from 'react';
 import type { CodeViewItem, CodeViewScrollBehavior } from '@pierre/diffs';
 import type { CodeViewHandle } from '@pierre/diffs/react';
+import { useTranslations } from 'next-intl';
 import { ChevronRight } from 'lucide-react';
 import { getFileIconProps } from '@workspace/ui';
 import { cn } from '@/shared/lib/utils';
@@ -27,6 +28,15 @@ export function renderDiffHeaderPrefix<LAnnotation>(args: {
   viewerRef: MutableRefObject<CodeViewHandle<LAnnotation> | null>;
   pathByFileName: Map<string, string>;
 }) {
+  return <DiffHeaderPrefix {...args} />;
+}
+
+function DiffHeaderPrefix<LAnnotation>(args: {
+  item: CodeViewItem<LAnnotation>;
+  viewerRef: MutableRefObject<CodeViewHandle<LAnnotation> | null>;
+  pathByFileName: Map<string, string>;
+}) {
+  const t = useTranslations('diff.codeViewUi');
   if (args.item.type !== 'diff') return null;
   const fileDiff = args.item.fileDiff;
   const filePath = filePathFromHeaderContext(fileDiff, args.pathByFileName);
@@ -51,8 +61,8 @@ export function renderDiffHeaderPrefix<LAnnotation>(args: {
           isEmptyDiff
             ? undefined
             : collapsed
-              ? 'Expand diff'
-              : 'Collapse diff'
+              ? t('expandDiff')
+              : t('collapseDiff')
         }
         className={cn(
           'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors',

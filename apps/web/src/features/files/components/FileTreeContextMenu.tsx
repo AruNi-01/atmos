@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   cn,
   Loader2,
@@ -92,6 +93,7 @@ export function FileTreeContextMenu({
   handlePanelInputKeyDown,
   applyRenameSelection,
 }: FileTreeContextMenuProps) {
+  const t = useTranslations('files.components');
   return (
     <DropdownMenu
       open={!!menuState}
@@ -130,23 +132,23 @@ export function FileTreeContextMenu({
             >
               <DropdownMenuSubTrigger>
                 <FilePlus2 />
-                New File
+                {t('fileTreeContextMenu.actions.newFile')}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-80 p-3">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      {panelState?.title ?? 'New File'}
+                      {panelState?.title ?? t('fileTreeContextMenu.panels.newFile.title')}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {panelState?.description ?? `Create a new file in ${getBaseName(selectedItem.path)}.`}
+                      {panelState?.description ?? t('fileTreeContextMenu.panels.newFile.description', { name: getBaseName(selectedItem.path) })}
                     </p>
                   </div>
                   <Input
                     ref={panelInputRef}
                     value={panelName}
                     onChange={(event) => setPanelName(event.target.value)}
-                    placeholder="Enter file name"
+                    placeholder={t('fileTreeContextMenu.panels.newFile.placeholder')}
                     onKeyDown={handlePanelInputKeyDown}
                   />
                   <div className="flex items-center justify-end gap-2">
@@ -156,11 +158,11 @@ export function FileTreeContextMenu({
                       disabled={isMutating}
                       onClick={closePanel}
                     >
-                      Cancel
+                      {t('fileTreeContextMenu.actions.cancel')}
                     </Button>
                     <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
                       {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                      Create
+                      {t('fileTreeContextMenu.actions.create')}
                     </Button>
                   </div>
                 </div>
@@ -178,23 +180,23 @@ export function FileTreeContextMenu({
             >
               <DropdownMenuSubTrigger>
                 <FolderPlus />
-                New Folder
+                {t('fileTreeContextMenu.actions.newFolder')}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-80 p-3">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      {panelState?.title ?? 'New Folder'}
+                      {panelState?.title ?? t('fileTreeContextMenu.panels.newFolder.title')}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {panelState?.description ?? `Create a new folder in ${getBaseName(selectedItem.path)}.`}
+                      {panelState?.description ?? t('fileTreeContextMenu.panels.newFolder.description', { name: getBaseName(selectedItem.path) })}
                     </p>
                   </div>
                   <Input
                     ref={panelInputRef}
                     value={panelName}
                     onChange={(event) => setPanelName(event.target.value)}
-                    placeholder="Enter folder name"
+                    placeholder={t('fileTreeContextMenu.panels.newFolder.placeholder')}
                     onKeyDown={handlePanelInputKeyDown}
                   />
                   <div className="flex items-center justify-end gap-2">
@@ -204,11 +206,11 @@ export function FileTreeContextMenu({
                       disabled={isMutating}
                       onClick={closePanel}
                     >
-                      Cancel
+                      {t('fileTreeContextMenu.actions.cancel')}
                     </Button>
                     <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
                       {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                      Create
+                      {t('fileTreeContextMenu.actions.create')}
                     </Button>
                   </div>
                 </div>
@@ -227,8 +229,8 @@ export function FileTreeContextMenu({
                 } catch (error) {
                   console.error('Failed to open in default app:', error);
                   toastManager.add({
-                    title: 'Open failed',
-                    description: 'Could not open in default app.',
+                    title: t('fileTreeContextMenu.toast.openFailedTitle'),
+                    description: t('fileTreeContextMenu.toast.openFailedDescription'),
                     type: 'error',
                   });
                 } finally {
@@ -237,31 +239,31 @@ export function FileTreeContextMenu({
               }}
             >
               <ExternalLink />
-              Open in Default App
+              {t('fileTreeContextMenu.actions.openInDefaultApp')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleDuplicate} disabled={isMutating}>
               <Files />
-              Duplicate
+              {t('fileTreeContextMenu.actions.duplicate')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={async () => {
-                await copyToClipboard(selectedItem.path, 'Path copied');
+                await copyToClipboard(selectedItem.path, t('fileTreeContextMenu.toast.pathCopied'));
                 closeMenu();
               }}
             >
               <Copy />
-              Copy Path
+              {t('fileTreeContextMenu.actions.copyPath')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={async () => {
-                await copyToClipboard(relativePath || selectedItem.path, 'Relative path copied');
+                await copyToClipboard(relativePath || selectedItem.path, t('fileTreeContextMenu.toast.relativePathCopied'));
                 closeMenu();
               }}
             >
               <Copy />
-              Copy Relative Path
+              {t('fileTreeContextMenu.actions.copyRelativePath')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub
@@ -276,23 +278,23 @@ export function FileTreeContextMenu({
             >
               <DropdownMenuSubTrigger>
                 <Pencil />
-                Rename
+                {t('fileTreeContextMenu.actions.rename')}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-80 p-3">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      {panelState?.title ?? 'Rename'}
+                      {panelState?.title ?? t('fileTreeContextMenu.panels.rename.title')}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {panelState?.description ?? `Rename ${selectedItem.name}.`}
+                      {panelState?.description ?? t('fileTreeContextMenu.panels.rename.description', { name: selectedItem.name })}
                     </p>
                   </div>
                   <Input
                     ref={panelInputRef}
                     value={panelName}
                     onChange={(event) => setPanelName(event.target.value)}
-                    placeholder="Enter name"
+                    placeholder={t('fileTreeContextMenu.panels.rename.placeholder')}
                     onFocus={(event) => {
                       if (panelState?.mode !== 'rename') return;
                       if (!renameSelectionAppliedRef.current) {
@@ -309,11 +311,11 @@ export function FileTreeContextMenu({
                       disabled={isMutating}
                       onClick={closePanel}
                     >
-                      Cancel
+                      {t('fileTreeContextMenu.actions.cancel')}
                     </Button>
                     <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
                       {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                      Rename
+                      {t('fileTreeContextMenu.actions.rename')}
                     </Button>
                   </div>
                 </div>
@@ -341,7 +343,7 @@ export function FileTreeContextMenu({
                   }}
                 >
                   <Trash2 className="size-4 shrink-0" />
-                  Delete
+                  {t('fileTreeContextMenu.actions.delete')}
                 </button>
               </PopoverTrigger>
               <PopoverContent
@@ -355,12 +357,14 @@ export function FileTreeContextMenu({
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      {selectedItem?.isDir ? 'Delete Folder?' : 'Delete File?'}
+                      {selectedItem?.isDir
+                        ? t('fileTreeContextMenu.deleteConfirm.deleteFolderTitle')
+                        : t('fileTreeContextMenu.deleteConfirm.deleteFileTitle')}
                     </p>
                     <p className="text-xs leading-relaxed text-muted-foreground">
                       {selectedItem?.isDir
-                        ? `Delete "${selectedItem.name}" and everything inside it. This cannot be undone.`
-                        : `Delete "${selectedItem?.name}". This cannot be undone.`}
+                        ? t('fileTreeContextMenu.deleteConfirm.deleteFolderDescription', { name: selectedItem.name })
+                        : t('fileTreeContextMenu.deleteConfirm.deleteFileDescription', { name: selectedItem?.name ?? '' })}
                     </p>
                   </div>
                   <div className="flex items-center justify-end gap-2">
@@ -374,7 +378,7 @@ export function FileTreeContextMenu({
                         closeOverlays();
                       }}
                     >
-                      Cancel
+                      {t('fileTreeContextMenu.actions.cancel')}
                     </Button>
                     <Button
                       variant="destructive"
@@ -387,7 +391,7 @@ export function FileTreeContextMenu({
                       }}
                     >
                       {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                      Delete
+                      {t('fileTreeContextMenu.actions.delete')}
                     </Button>
                   </div>
                 </div>

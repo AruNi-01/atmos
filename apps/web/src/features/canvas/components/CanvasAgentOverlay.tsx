@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { useEditor, useValue, type TLShapeId } from "tldraw";
 import { Bot, Check, Copy, Crosshair } from "lucide-react";
 import {
@@ -22,9 +23,6 @@ import {
 } from "../lib/canvas-agent-activity";
 
 const SKILL_PATH = "~/.atmos/skills/.system/atmos-canvas-agent/SKILL.md";
-const AGENT_INSTRUCTION_BLURB = `You can drive my open Atmos Canvas via \`atmos canvas\`.
-
-Read the skill first: ${SKILL_PATH}`;
 
 /** Window after activity within which the bridge is rendered as "Active". */
 const ACTIVE_WINDOW_MS = 30_000;
@@ -121,7 +119,7 @@ function ShapeRing({
 /**
  * SharePanel cluster: one status-aware Bot button that opens a popover with
  * the enable toggle, the instruction snippet (visible + copy), and a
- * "Last change · Jump" row.
+ * 包含最近活动与跳转动作的摘要行。
  *
  * `onJump` is injected from the parent (CanvasView) rather than read via
  * `useEditor()` here: this component is rendered through tldraw's SharePanel
@@ -138,6 +136,7 @@ export function CanvasAgentBridgeControls({
   iconButtonClass: string;
   onJump: () => void;
 }) {
+  const t = useTranslations("canvas.agentBridge");
   const [open, setOpen] = React.useState(false);
   const activity = useActivity(bridge.activity);
   const viewState = useAgentViewState(bridge.activity);
@@ -160,8 +159,8 @@ export function CanvasAgentBridgeControls({
       */}
       <PopoverTrigger
         type="button"
-        aria-label="Canvas Agent Bridge"
-        title="Canvas Agent Bridge"
+        aria-label={t("trigger.aria")}
+        title={t("trigger.title")}
         className={cn(
           "relative inline-flex items-center justify-center",
           iconButtonClass,
@@ -220,7 +219,9 @@ function BridgePopoverBody({
   status: "off" | "idle" | "active";
   onJump: () => void;
 }) {
+  const t = useTranslations("canvas.agentBridge");
   const [isCopied, setIsCopied] = React.useState(false);
+  const instructionBlurb = buildCanvasAgentInstructionBlurb(t);
 
   React.useEffect(() => {
     if (!isCopied) return;
@@ -232,44 +233,45 @@ function BridgePopoverBody({
 
   const handleCopy = React.useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(AGENT_INSTRUCTION_BLURB);
+      await navigator.clipboard.writeText(instructionBlurb);
       setIsCopied(true);
       toastManager.add({
-        title: "Canvas",
-        description: "Agent instructions copied.",
+        title: t("toast.title"),
+        description: t("toast.copied"),
         type: "success",
       });
     } catch (err) {
       toastManager.add({
-        title: "Canvas",
+        title: t("toast.title"),
         description:
           err instanceof Error
-            ? `Failed to copy: ${err.message}`
-            : "Failed to copy to clipboard",
+            ? t("toast.copyFailedWithMessage", { message: err.message })
+            : t("toast.copyFailed"),
         type: "error",
       });
     }
-  }, []);
+  }, [instructionBlurb, t]);
 
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <div className="text-sm font-semibold">Canvas Agent Bridge</div>
+        <div className="text-sm font-semibold">{t("title")}</div>
         <StatusPill status={status} />
       </div>
 
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
-          <div className="text-sm font-medium">Enable bridge</div>
+          <div className="text-sm font-medium">{t("enable.title")}</div>
           <div className="text-xs text-muted-foreground">
-            Allow any agent to drive this canvas via{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-[10px]">atmos canvas</code> commands.
+            {t("enable.descriptionPrefix")}{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-[10px]">atmos canvas</code>{" "}
+            {t("enable.descriptionSuffix")}
           </div>
         </div>
         <Switch
           checked={bridge.acceptsCommands}
           onCheckedChange={(value) => bridge.setAcceptsCommands(Boolean(value))}
-          aria-label="Enable canvas agent bridge"
+          aria-label={t("enable.aria")}
         />
       </div>
 
@@ -277,7 +279,7 @@ function BridgePopoverBody({
         <div className="mb-3 border-t border-border" />
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="text-xs font-medium text-muted-foreground">
-            Paste this to your agent
+            {t("snippet.label")}
           </div>
           <Button
             variant="ghost"
@@ -286,11 +288,11 @@ function BridgePopoverBody({
             className="h-6 gap-1 px-2 text-[11px]"
           >
             {isCopied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
-            {isCopied ? "Copied" : "Copy"}
+            {isCopied ? t("snippet.copied") : t("snippet.copy")}
           </Button>
         </div>
         <pre className="max-h-44 overflow-auto rounded-md border border-border bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono text-muted-foreground">
-          {AGENT_INSTRUCTION_BLURB}
+          {instructionBlurb}
         </pre>
       </div>
 
@@ -309,6 +311,20 @@ function LastActivityRow({
   activity: CanvasAgentActivity | null;
   onJump: () => void;
 }) {
+  const t = useTranslations("canvas.agentBridge");
+  const tr = React.useCallback(
+    (key: string, values?: Record<string, string | number>) =>
+      t(key as never, values as never),
+    [t],
+  );
+  const lastChangeLabel = tr("activity.lastChange");
+  const jumpLabel = tr("activity.jump");
+  const emptyPrefix = tr("activity.emptyPrefix");
+  const emptySuffix = tr("activity.emptySuffix");
+  const separator = React.useCallback(
+    (label: string) => tr("activity.separator", { relativeLabel: label }),
+    [tr],
+  );
   // Refresh the "Xs ago" label every 1s only while we have something to show.
   // Owned by an effect (not derived in render) so render stays pure.
   const [relativeLabel, setRelativeLabel] = React.useState("");
@@ -317,18 +333,19 @@ function LastActivityRow({
       setRelativeLabel("");
       return;
     }
-    setRelativeLabel(formatRelativeTime(activity.at));
-    const t = setInterval(() => {
-      setRelativeLabel(formatRelativeTime(activity.at));
+    setRelativeLabel(formatRelativeTime(activity.at, tr));
+    const intervalId = setInterval(() => {
+      setRelativeLabel(formatRelativeTime(activity.at, tr));
     }, 1_000);
-    return () => clearInterval(t);
-  }, [activity]);
+    return () => clearInterval(intervalId);
+  }, [activity, tr]);
 
   if (!activity) {
     return (
       <div className="text-xs text-muted-foreground">
-        No agent activity yet. Run any <code className="rounded bg-muted px-1 py-0.5 text-[10px]">atmos canvas</code>{" "}
-        verb to see it here.
+        {emptyPrefix}{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">atmos canvas</code>{" "}
+        {emptySuffix}
       </div>
     );
   }
@@ -338,10 +355,10 @@ function LastActivityRow({
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="min-w-0 text-xs">
-        <div className="text-muted-foreground">Last change</div>
+        <div className="text-muted-foreground">{lastChangeLabel}</div>
         <div className="truncate font-mono text-[11px] text-foreground">
           {activity.command}
-          <span className="text-muted-foreground"> · {relativeLabel}</span>
+          <span className="text-muted-foreground">{separator(relativeLabel)}</span>
         </div>
       </div>
       <Button
@@ -352,14 +369,15 @@ function LastActivityRow({
         className="h-7 gap-1 px-2 text-[11px]"
       >
         <Crosshair className="size-3" />
-        Jump
+        {jumpLabel}
       </Button>
     </div>
   );
 }
 
 function StatusPill({ status }: { status: "off" | "idle" | "active" }) {
-  const label = status === "off" ? "Off" : status === "active" ? "Active" : "Listening";
+  const t = useTranslations("canvas.agentBridge");
+  const label = status === "off" ? t("status.off") : status === "active" ? t("status.active") : t("status.listening");
   const tone =
     status === "off"
       ? "bg-muted text-muted-foreground"
@@ -388,13 +406,20 @@ function StatusPill({ status }: { status: "off" | "idle" | "active" }) {
   );
 }
 
-function formatRelativeTime(at: number): string {
+function formatRelativeTime(
+  at: number,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
   const seconds = Math.max(0, Math.floor((Date.now() - at) / 1_000));
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) {
+    return t("relative.seconds", { count: seconds });
+  }
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) {
+    return t("relative.minutes", { count: minutes });
+  }
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return t("relative.hours", { count: hours });
 }
 
 function useActivity(store: CanvasAgentActivityStore): CanvasAgentActivity | null {
@@ -430,5 +455,10 @@ function useTimeWindow(at: number | null, windowMs: number): boolean {
 }
 
 // Re-exported for tests / callers who want to embed the blurb elsewhere.
-export const CANVAS_AGENT_INSTRUCTION_BLURB = AGENT_INSTRUCTION_BLURB;
 export const CANVAS_AGENT_SKILL_PATH = SKILL_PATH;
+
+export function buildCanvasAgentInstructionBlurb(
+  t: ReturnType<typeof useTranslations>,
+): string {
+  return t("instructionBlurb", { skillPath: SKILL_PATH });
+}

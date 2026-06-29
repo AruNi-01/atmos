@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   DropdownMenu,
@@ -53,6 +54,7 @@ export function PRActionBar({
   onMerge,
   onReopen,
 }: PRActionBarProps) {
+  const t = useTranslations('github.prDetailModalActions');
   const [isOpen, setIsOpen] = React.useState(false);
   const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(false);
   const [isToolbarHovered, setIsToolbarHovered] = React.useState(false);
@@ -189,7 +191,7 @@ export function PRActionBar({
                     className="shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
                   >
                     {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
-                    Close PR
+                    {t('closePr')}
                   </Button>
                   <div className="flex h-8 items-stretch gap-px shadow-sm rounded-md overflow-hidden">
                     <Button
@@ -203,7 +205,7 @@ export function PRActionBar({
                       )}
                     >
                       {actionLoading === 'merge' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
-                      {mergeStrategy === 'merge' ? 'Merge pull request' : mergeStrategy === 'squash' ? 'Squash and merge' : 'Rebase and merge'}
+                      {mergeStrategy === 'merge' ? t('mergeStrategies.merge.label') : mergeStrategy === 'squash' ? t('mergeStrategies.squash.label') : t('mergeStrategies.rebase.label')}
                     </Button>
 
                     <DropdownMenu open={isMergeMenuOpen} onOpenChange={handleMergeMenuOpenChange}>
@@ -222,22 +224,22 @@ export function PRActionBar({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[320px] p-1">
                         <MergeStrategyItem
-                          title="Create a merge commit"
-                          description="All commits from this branch will be added to the base branch via a merge commit."
+                          title={t('mergeStrategies.merge.title')}
+                          description={t('mergeStrategies.merge.description')}
                           selected={mergeStrategy === 'merge'}
                           onSelect={() => onMergeStrategyChange('merge')}
                         />
                         <div className="h-px bg-border/40 my-1" />
                         <MergeStrategyItem
-                          title="Squash and merge"
-                          description={`The ${pr.commits?.length || 0} commits from this branch will be combined into one commit in the base branch.`}
+                          title={t('mergeStrategies.squash.title')}
+                          description={t('mergeStrategies.squash.description', { count: pr.commits?.length || 0 })}
                           selected={mergeStrategy === 'squash'}
                           onSelect={() => onMergeStrategyChange('squash')}
                         />
                         <div className="h-px bg-border/40 my-1" />
                         <MergeStrategyItem
-                          title="Rebase and merge"
-                          description={`The ${pr.commits?.length || 0} commits from this branch will be rebased and added to the base branch.`}
+                          title={t('mergeStrategies.rebase.title')}
+                          description={t('mergeStrategies.rebase.description', { count: pr.commits?.length || 0 })}
                           selected={mergeStrategy === 'rebase'}
                           onSelect={() => onMergeStrategyChange('rebase')}
                         />
@@ -254,7 +256,7 @@ export function PRActionBar({
                   className="shadow-sm hover:shadow-md transition-all font-semibold"
                 >
                   {actionLoading === 'reopen' ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <RotateCw className="mr-2 size-4" />}
-                  Reopen PR
+                  {t('reopenPr')}
                 </Button>
               ) : pr?.state === 'MERGED' ? (
                 <Button
@@ -264,7 +266,7 @@ export function PRActionBar({
                   className="shadow-sm bg-purple-600/90 text-white opacity-100 cursor-default"
                 >
                   <GitMerge className="mr-2 size-4" />
-                  Merged
+                  {t('merged')}
                 </Button>
               ) : null}
             </div>
@@ -273,7 +275,7 @@ export function PRActionBar({
 
         <button
           type="button"
-          aria-label="Show PR actions"
+          aria-label={t('showActions')}
           onClick={openToolbar}
           onFocus={openToolbar}
           onMouseEnter={openToolbar}
@@ -300,6 +302,7 @@ function MergeStrategyItem({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const t = useTranslations('github.prDetailModalActions');
   return (
     <DropdownMenuItem
       className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
@@ -307,7 +310,7 @@ function MergeStrategyItem({
     >
       <div className="flex items-center justify-between w-full">
         <span className="font-bold text-[13px]">{title}</span>
-        {selected && <Check className="size-3.5 text-blue-500" />}
+        {selected && <Check className="size-3.5 text-blue-500" aria-label={t('selected')} />}
       </div>
       <p className="text-[11px] text-muted-foreground leading-normal">
         {description}

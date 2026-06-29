@@ -12,6 +12,7 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri::{LogicalPosition, Position, TitleBarStyle};
 
 const AGENT_CHAT_WINDOW_LABEL: &str = "agent-chat";
+const PREVIEW_BROWSER_WINDOW_LABEL: &str = "preview-browser";
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
@@ -95,6 +96,63 @@ pub fn open_agent_chat_window(
         .visible(false)
         .build()
         .map_err(|error| format!("failed to open Agent Chat window: {error}"))?;
+
+    let _ = window.center();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_preview_browser_window(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    locale: Option<String>,
+    url: Option<String>,
+    workspace_id: Option<String>,
+    project_id: Option<String>,
+) -> Result<(), String> {
+    let api_port = current_api_port(&state)?;
+    let url = preview_browser_window_url(
+        locale.as_deref(),
+        api_port,
+        url.as_deref(),
+        workspace_id.as_deref(),
+        project_id.as_deref(),
+    )?;
+
+    if let Some(existing) = app.get_webview_window(PREVIEW_BROWSER_WINDOW_LABEL) {
+        let _ = existing.navigate(url);
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let mut builder = WebviewWindowBuilder::new(
+        &app,
+        PREVIEW_BROWSER_WINDOW_LABEL,
+        WebviewUrl::External(url),
+    )
+    .title("Atmos Preview")
+    .inner_size(1280.0, 860.0)
+    .min_inner_size(760.0, 520.0)
+    .resizable(true)
+    .decorations(true);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .hidden_title(true)
+            .title_bar_style(TitleBarStyle::Overlay)
+            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 18.0)));
+    }
+
+    let window = builder
+        .transparent(false)
+        .shadow(true)
+        .visible(false)
+        .build()
+        .map_err(|error| format!("failed to open Preview browser window: {error}"))?;
 
     let _ = window.center();
     let _ = window.show();
@@ -360,6 +418,36 @@ fn agent_chat_window_url(
         }
         if let Some(value) = trim_query_value(session_cwd) {
             query.append_pair("sessionCwd", value);
+        }
+        if let Some(value) = trim_query_value(workspace_id) {
+            query.append_pair("workspaceId", value);
+        }
+        if let Some(value) = trim_query_value(project_id) {
+            query.append_pair("projectId", value);
+        }
+    }
+
+    Ok(url)
+}
+
+fn preview_browser_window_url(
+    locale: Option<&str>,
+    api_port: u16,
+    preview_url: Option<&str>,
+    workspace_id: Option<&str>,
+    project_id: Option<&str>,
+) -> Result<tauri::Url, String> {
+    let locale = sanitize_locale(locale).ok_or_else(|| {
+        "failed to open Preview browser window: missing active locale".to_string()
+    })?;
+    let mut url = format!("http://127.0.0.1:{api_port}/{locale}/preview/")
+        .parse::<tauri::Url>()
+        .map_err(|error| format!("invalid Preview browser window URL: {error}"))?;
+
+    {
+        let mut query = url.query_pairs_mut();
+        if let Some(value) = trim_query_value(preview_url) {
+            query.append_pair("pvUrl", value);
         }
         if let Some(value) = trim_query_value(workspace_id) {
             query.append_pair("workspaceId", value);

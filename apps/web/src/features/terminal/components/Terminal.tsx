@@ -56,6 +56,8 @@ export interface TerminalRef {
   clear: () => void;
   write: (data: string) => void;
   sendText: (data: string) => void;
+  sendEnter: () => void;
+  getCursorClientPoint: () => { x: number; y: number } | null;
   scrollToBottom: () => void;
   /** Paste clipboard content into the terminal */
   paste: () => Promise<void>;
@@ -272,7 +274,7 @@ const Terminal = ({
     });
   }, [scheduleInputReady]);
 
-  const { isConnected, isReconnecting, sendInput, sendTerminalReport, sendResize, sendDestroy, connect, disconnect } =
+  const { isConnected, isReconnecting, sendInput, sendEnter, sendTerminalReport, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
@@ -291,6 +293,70 @@ const Terminal = ({
 
   const uiStatus = isReconnecting ? "reconnecting" : status;
 
+  const getCursorClientPoint = useCallback(() => {
+    const terminal = terminalRef.current;
+    const container = containerRef.current;
+    if (!terminal || !container || terminal.cols <= 0 || terminal.rows <= 0) {
+      return null;
+    }
+
+    const renderedCursor = container.querySelector<HTMLElement>(".xterm-cursor");
+    if (renderedCursor) {
+      const cursorRect = renderedCursor.getBoundingClientRect();
+      if (cursorRect.width > 0 && cursorRect.height > 0) {
+        return {
+          x: cursorRect.left,
+          y: cursorRect.top + cursorRect.height / 2,
+        };
+      }
+    }
+
+    const screen =
+      container.querySelector<HTMLElement>(".xterm-screen") ??
+      container.querySelector<HTMLElement>(".xterm-rows") ??
+      container.querySelector<HTMLElement>(".xterm");
+    if (!screen) return null;
+
+    const rect = screen.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+
+    const buffer = terminal.buffer.active;
+    const dimensions = (
+      terminal as typeof terminal & {
+        _core?: {
+          _renderService?: {
+            dimensions?: {
+              css?: {
+                cell?: {
+                  width?: number;
+                  height?: number;
+                };
+              };
+            };
+          };
+        };
+      }
+    )._core?._renderService?.dimensions?.css?.cell;
+    const measuredRow = container.querySelector<HTMLElement>(".xterm-rows > div");
+    const cellWidth =
+      typeof dimensions?.width === "number" && dimensions.width > 0
+        ? dimensions.width
+        : rect.width / terminal.cols;
+    const cellHeight =
+      typeof dimensions?.height === "number" && dimensions.height > 0
+        ? dimensions.height
+        : measuredRow
+          ? measuredRow.getBoundingClientRect().height
+          : rect.height / terminal.rows;
+    const cursorX = Math.max(0, Math.min(buffer.cursorX, terminal.cols - 1));
+    const cursorY = Math.max(0, Math.min(buffer.cursorY, terminal.rows - 1));
+
+    return {
+      x: rect.left + cursorX * cellWidth,
+      y: rect.top + (cursorY + 0.5) * cellHeight,
+    };
+  }, []);
+
   // Update terminal when reconnecting
   useEffect(() => {
     if (isReconnecting) {
@@ -307,6 +373,8 @@ const Terminal = ({
       clear: () => terminalRef.current?.clear(),
       write: (data: string) => terminalRef.current?.write(data),
       sendText: (data: string) => sendInput(data),
+      sendEnter,
+      getCursorClientPoint,
       scrollToBottom: () => {
         const terminal = terminalRef.current;
         if (terminal) {
@@ -346,7 +414,7 @@ const Terminal = ({
         return lines.join("\n");
       },
     }),
-    [sendDestroy, disconnect, sendInput]
+    [sendDestroy, disconnect, sendInput, sendEnter, getCursorClientPoint]
   );
 
   // Update terminal theme when system theme changes

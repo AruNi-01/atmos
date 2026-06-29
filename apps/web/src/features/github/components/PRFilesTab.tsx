@@ -4,10 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
 import { processFile } from '@pierre/diffs';
+import { useLocale, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
 import { MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
@@ -78,6 +80,9 @@ function FileCommentThread({
   agentFixSource?: AgentFixPromptSource;
   thread: ReviewComment[];
 }) {
+  const locale = useLocale();
+  const t = useTranslations('github.prFilesTab');
+  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const first = thread[0];
   const firstLine = first?.line ?? first?.original_line ?? null;
   const firstLogin = first?.user?.login?.trim();
@@ -132,7 +137,7 @@ function FileCommentThread({
               agentFixSettingsOpen && "opacity-0",
             )}
           >
-            {firstLine != null ? `Line ${firstLine}` : 'Comment'}
+            {firstLine != null ? t('thread.lineLabel', { line: firstLine }) : t('thread.commentLabel')}
           </span>
           {agentFixSource ? (
             <span
@@ -163,12 +168,15 @@ function FileCommentThread({
                 <div className="flex items-center gap-2 mb-1">
                   <Avatar className="size-4 border border-border/50 shrink-0">
                     <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
-                    <AvatarFallback className="text-[6px]">{c.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="text-[6px]">{c.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="font-semibold text-foreground/90 truncate">{c.user?.login}</span>
                   {c.created_at && (
                     <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
-                      {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(c.created_at), {
+                        addSuffix: true,
+                        locale: relativeTimeLocale,
+                      })}
                     </span>
                   )}
                 </div>
@@ -206,6 +214,7 @@ export function PRFilesTab({
   title,
   url,
 }: PRFilesTabProps) {
+  const t = useTranslations('github.prFilesTab');
   const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -261,8 +270,8 @@ export function PRFilesTab({
         id: `pr-review-file:${owner}/${repo}#${prNumber}:${path}:${line ?? 'line'}:${first?.id ?? 'thread'}`,
         family: 'pr_review',
         context: agentFixContext,
-        label: `Fix PR review: ${fileName}`,
-        disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+        label: t('agentFix.label', { fileName }),
+        disabledReason: agentFixContext ? null : t('agentFix.disabledReason'),
         getPrompt: () => ({
           prompt: buildPrReviewThreadFixPrompt(
             {
@@ -281,12 +290,12 @@ export function PRFilesTab({
               comments: thread,
             },
           ),
-          terminalTabTitle: `PR #${prNumber} review fix`,
-          terminalPaneLabel: `Fix ${fileName}`,
+          terminalTabTitle: t('agentFix.terminalTabTitle', { prNumber }),
+          terminalPaneLabel: t('agentFix.terminalPaneLabel', { fileName }),
         }),
       };
     },
-    [agentFixContext, baseRefName, headRefName, owner, prNumber, repo, title, url],
+    [agentFixContext, baseRefName, headRefName, owner, prNumber, repo, t, title, url],
   );
   const treeItems = useMemo(
     () =>
@@ -506,10 +515,10 @@ export function PRFilesTab({
         <DiffCodeViewScaffold
           items={treeItems}
           selectedPath={selectedCodeViewPath ?? undefined}
-          ariaLabel="PR changed files"
+          ariaLabel={t('tree.ariaLabel')}
           toolbar={toolbar}
           loading
-          loadingTreeLabel="Files"
+          loadingTreeLabel={t('tree.loadingLabel')}
           onSelectFile={() => {}}
         >
           <div />
@@ -523,7 +532,7 @@ export function PRFilesTab({
       <DiffCodeViewScaffold
         items={treeItems}
         selectedPath={selectedCodeViewPath ?? undefined}
-        ariaLabel="PR changed files"
+        ariaLabel={t('tree.ariaLabel')}
         toolbar={toolbar}
         renderFileInlineDecoration={(item) => {
           const count = commentsByPath.get(item.path)?.length ?? 0;
@@ -551,7 +560,7 @@ export function PRFilesTab({
           </div>
           ) : !loading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-              No diff content
+              {t('empty.noDiffContent')}
             </div>
           ) : null}
           {Array.from(fileLevelThreads.entries()).map(([path, threads]) => (

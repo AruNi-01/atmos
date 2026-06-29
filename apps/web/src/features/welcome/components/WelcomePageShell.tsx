@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 
 import { Button, cn } from "@workspace/ui";
@@ -70,12 +71,13 @@ export function WelcomePageBackdrop() {
 }
 
 export function WelcomeCloseButton({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("Welcome.components");
   return (
     <button
       type="button"
       onClick={onClose}
       className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
-      aria-label="Close"
+      aria-label={t("shell.close")}
     >
       <ChevronDown className="h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_infinite]" strokeWidth={1.2} />
       <ChevronDown className="h-5 w-9 -mt-2.5 animate-[bounce-down_1.6s_ease-in-out_0.15s_infinite]" strokeWidth={1.2} />
@@ -90,6 +92,7 @@ export function WelcomeComposerPlaceholder({
   exitingPlaceholder: string | null;
   visiblePlaceholder: string;
 }) {
+  const t = useTranslations("Welcome.components");
   return (
     <span className="flex items-baseline gap-1 overflow-hidden">
       <span className="relative shrink-0 whitespace-nowrap">
@@ -112,7 +115,7 @@ export function WelcomeComposerPlaceholder({
         key={`hint-${visiblePlaceholder}`}
         className="welcome-placeholder-hint min-w-0 flex-1 truncate text-muted-foreground/45"
       >
-        (@ mention , / command, or paste img directly)
+        {t("shell.placeholderHint")}
       </span>
     </span>
   );
@@ -127,10 +130,11 @@ export function WelcomeProjectRequirementNotice({
   onAddProject?: () => void;
   projectCount: number;
 }) {
+  const t = useTranslations("Welcome.components");
   if (isInitialProjectsLoading) {
     return (
       <div className="mt-5 rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-        Loading your projects and workspaces...
+        {t("shell.loadingProjects")}
       </div>
     );
   }
@@ -139,9 +143,9 @@ export function WelcomeProjectRequirementNotice({
 
   return (
     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-      <span>Add a project before creating a workspace from the welcome composer.</span>
+      <span>{t("shell.addProjectNotice")}</span>
       <Button type="button" variant="outline" className="rounded-md" onClick={onAddProject}>
-        Add Project
+        {t("shell.addProject")}
       </Button>
     </div>
   );

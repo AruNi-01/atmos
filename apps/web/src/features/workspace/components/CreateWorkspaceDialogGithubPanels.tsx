@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui';
+import { useTranslations } from 'next-intl';
 import { CloudDownload, ExternalLink, GitBranch, Loader2, Sparkles } from 'lucide-react';
 import type { GithubIssuePayload, GithubPrPayload } from '@/api/ws-api';
 import type { RepoContext } from '@/features/workspace/components/CreateWorkspaceDialogTypes';
@@ -57,6 +58,17 @@ export function IssueLinkPanel({
   onLoadIssueFromUrl,
   onAutoExtractTodosChange,
 }: IssueLinkPanelProps) {
+  const t = useTranslations('Workspace.components.githubPanels.issue');
+  const stateLabel = (state: string) => {
+    switch (state) {
+      case 'open':
+        return t('states.open');
+      case 'closed':
+        return t('states.closed');
+      default:
+        return state;
+    }
+  };
   return (
     <div className="border-t border-border">
       <div className="space-y-4 px-6 py-5">
@@ -64,7 +76,7 @@ export function IssueLinkPanel({
           <>
             <div className="grid gap-2">
               <Label htmlFor="issue-select">
-                {isPreselectedIssue ? 'Linked GitHub Issue' : 'Select from repository'}
+                {isPreselectedIssue ? t('linkedLabel') : t('selectFromRepository')}
               </Label>
               <Select
                 value={selectedIssueNumber}
@@ -77,14 +89,14 @@ export function IssueLinkPanel({
                 >
                   <SelectValue
                     placeholder={
-                      isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'
+                      isIssuesLoading ? t('placeholders.loadingIssues') : issues.length === 0 ? t('placeholders.noIssuesAvailable') : t('placeholders.selectIssue')
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {issues.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      No GitHub issues found
+                      {t('empty.noGithubIssuesFound')}
                     </div>
                   ) : (
                     issues.map((issue) => (
@@ -103,7 +115,7 @@ export function IssueLinkPanel({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="issue-url">Or paste issue URL</Label>
+              <Label htmlFor="issue-url">{t('pasteUrlLabel')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="issue-url"
@@ -118,7 +130,7 @@ export function IssueLinkPanel({
                   size="icon"
                   onClick={onLoadIssueFromUrl}
                   disabled={isIssuePreviewLoading || !issueUrl.trim() || isPreselectedIssue}
-                  title="Load issue"
+                  title={t('actions.loadIssue')}
                 >
                   {isIssuePreviewLoading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -131,11 +143,11 @@ export function IssueLinkPanel({
           </>
         ) : selectedProjectId ? (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            This project does not expose a GitHub remote, so issue import is unavailable.
+            {t('fallbacks.projectWithoutGithub')}
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            Select a project first to load GitHub issue sync.
+            {t('fallbacks.selectProjectFirst')}
           </div>
         )}
 
@@ -148,7 +160,7 @@ export function IssueLinkPanel({
         {isIssuePreviewLoading ? (
           <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading issue preview
+            {t('loadingPreview')}
           </div>
         ) : issuePreview ? (
           <Card className="border-border bg-muted/20">
@@ -167,7 +179,7 @@ export function IssueLinkPanel({
                       onClick={() => window.open(issuePreview.url, '_blank', 'noopener,noreferrer')}
                     >
                       <ExternalLink className="size-3" />
-                      Open on GitHub
+                      {t('actions.openOnGithub')}
                     </Button>
                   </div>
                   <h3 className="mt-1 truncate text-sm font-medium text-foreground">
@@ -175,7 +187,7 @@ export function IssueLinkPanel({
                   </h3>
                 </div>
                 <Badge variant="secondary" className="capitalize shrink-0">
-                  {issuePreview.state}
+                  {stateLabel(issuePreview.state)}
                 </Badge>
               </div>
 
@@ -205,7 +217,7 @@ export function IssueLinkPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2 font-medium text-foreground">
               <Sparkles className="size-4 text-muted-foreground" />
-              Auto-extract TODOs with LLM
+              {t('autoExtractTitle')}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
           </div>
@@ -252,13 +264,27 @@ export function PrLinkPanel({
   onLoadPrFromUrl,
   onAutoExtractTodosChange,
 }: PrLinkPanelProps) {
+  const t = useTranslations('Workspace.components.githubPanels.pr');
+  const stateLabel = (state: string, isDraft: boolean) => {
+    if (isDraft) return t('states.draft');
+    switch (state) {
+      case 'open':
+        return t('states.open');
+      case 'closed':
+        return t('states.closed');
+      case 'merged':
+        return t('states.merged');
+      default:
+        return state;
+    }
+  };
   return (
     <div className="border-t border-border">
       <div className="space-y-4 px-6 py-5">
         {repoContext ? (
           <>
             <div className="grid gap-2">
-              <Label htmlFor="pr-select">Select from repository</Label>
+              <Label htmlFor="pr-select">{t('selectFromRepository')}</Label>
               <Select
                 value={selectedPrNumber}
                 onValueChange={onSelectPr}
@@ -270,14 +296,14 @@ export function PrLinkPanel({
                 >
                   <SelectValue
                     placeholder={
-                      isPrsLoading ? 'Loading PRs...' : prs.length === 0 ? 'No PRs available' : 'Select PR'
+                      isPrsLoading ? t('placeholders.loadingPrs') : prs.length === 0 ? t('placeholders.noPrsAvailable') : t('placeholders.selectPr')
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {prs.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      No GitHub PRs found
+                      {t('empty.noGithubPrsFound')}
                     </div>
                   ) : (
                     prs.map((pr) => (
@@ -296,7 +322,7 @@ export function PrLinkPanel({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="pr-url">Or paste PR URL</Label>
+              <Label htmlFor="pr-url">{t('pasteUrlLabel')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="pr-url"
@@ -310,7 +336,7 @@ export function PrLinkPanel({
                   size="icon"
                   onClick={onLoadPrFromUrl}
                   disabled={isPrPreviewLoading || !prUrl.trim()}
-                  title="Load PR"
+                  title={t('actions.loadPr')}
                 >
                   {isPrPreviewLoading ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -323,11 +349,11 @@ export function PrLinkPanel({
           </>
         ) : selectedProjectId ? (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            This project does not expose a GitHub remote, so PR import is unavailable.
+            {t('fallbacks.projectWithoutGithub')}
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-            Select a project first to load GitHub PRs.
+            {t('fallbacks.selectProjectFirst')}
           </div>
         )}
 
@@ -340,7 +366,7 @@ export function PrLinkPanel({
         {isPrPreviewLoading ? (
           <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading PR preview
+            {t('loadingPreview')}
           </div>
         ) : prPreview ? (
           <Card className="border-border bg-muted/20">
@@ -359,7 +385,7 @@ export function PrLinkPanel({
                       onClick={() => window.open(prPreview.url, '_blank', 'noopener,noreferrer')}
                     >
                       <ExternalLink className="size-3" />
-                      Open on GitHub
+                      {t('actions.openOnGithub')}
                     </Button>
                   </div>
                   <h3 className="mt-1 truncate text-sm font-medium text-foreground">
@@ -378,7 +404,7 @@ export function PrLinkPanel({
                   </div>
                 </div>
                 <Badge variant="secondary" className="capitalize shrink-0">
-                  {prPreview.is_draft ? 'draft' : prPreview.state}
+                  {stateLabel(prPreview.state, prPreview.is_draft)}
                 </Badge>
               </div>
 
@@ -393,13 +419,13 @@ export function PrLinkPanel({
               )}
 
               <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
-                {prPreview.body?.trim() || 'No PR description provided.'}
+                {prPreview.body?.trim() || t('noDescription')}
               </p>
 
               <div className="rounded-md border border-border bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
-                The workspace will reuse{' '}
+                {t('reuseBranchPrefix')}{' '}
                 <span className="font-mono text-foreground">{prPreview.head_ref}</span> directly
-                — no new branch will be created.
+                {t('reuseBranchSuffix')}
               </div>
             </CardContent>
           </Card>
@@ -414,7 +440,7 @@ export function PrLinkPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2 font-medium text-foreground">
               <Sparkles className="size-4 text-muted-foreground" />
-              Auto-extract TODOs with LLM
+              {t('autoExtractTitle')}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
           </div>

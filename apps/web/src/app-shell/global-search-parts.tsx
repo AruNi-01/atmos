@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
   Bot,
@@ -169,9 +170,11 @@ interface CodeSearchResultItemProps {
 }
 
 export function CodeSearchResultItem({ match, onHover, onSelect }: CodeSearchResultItemProps) {
+  const t = useTranslations("appShell.globalSearchParts");
   const fileName = match.file_path.split("/").pop() || match.file_path;
   const iconProps = getFileIconProps({ name: fileName, isDir: false });
   const value = `${match.file_path}:${match.line_number}`;
+  const lineLabel = t("line", { line: match.line_number });
 
   return (
     <CommandItem
@@ -189,7 +192,7 @@ export function CodeSearchResultItem({ match, onHover, onSelect }: CodeSearchRes
           <span className="truncate text-[13px] font-medium">{match.file_path}</span>
         </div>
         <span className="shrink-0 font-mono text-[10px] font-bold uppercase tabular-nums text-muted-foreground/60 group-data-[selected=true]:text-muted-foreground">
-          Line {match.line_number}
+          {lineLabel}
         </span>
       </div>
       <div className="w-full pl-10">
@@ -214,6 +217,7 @@ export function CodePreviewTooltip({
   hoveredValue,
   selectedValue,
 }: CodePreviewTooltipProps) {
+  const t = useTranslations("appShell.globalSearchParts");
   const activeValue = hoveredValue || selectedValue;
   const match = codeSearchResults.find((item) => `${item.file_path}:${item.line_number}` === activeValue);
 
@@ -221,6 +225,7 @@ export function CodePreviewTooltip({
 
   const fileName = match.file_path.split("/").pop() || match.file_path;
   const iconProps = getFileIconProps({ name: fileName, isDir: false });
+  const lineShortLabel = t("lineShort", { line: match.line_number });
 
   return (
     <div className="pointer-events-none absolute bottom-0 left-[calc(100%+8px)] z-50 w-[440px] origin-bottom-left animate-in rounded-xl border border-border bg-popover p-4 shadow-2xl duration-150 fade-in zoom-in-95">
@@ -228,7 +233,7 @@ export function CodePreviewTooltip({
         <img {...iconProps} alt="" className="size-4" />
         <span className="flex-1 truncate text-xs font-bold text-foreground">{match.file_path}</span>
         <span className="rounded border border-border/20 bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-          L{match.line_number}
+          {lineShortLabel}
         </span>
       </div>
       <div className="space-y-1 overflow-hidden font-mono text-[11px] leading-relaxed">

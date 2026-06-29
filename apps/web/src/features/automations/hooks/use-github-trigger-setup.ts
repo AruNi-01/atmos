@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
 import {
@@ -35,6 +36,7 @@ export function useGithubTriggerSetup({
   initialAutomation: AutomationDetail | null;
   trigger: TriggerChoice;
 }) {
+  const t = useTranslations("automation.githubTriggerSetup");
   const githubPrereqs = useGithubRelayPrerequisites();
   const [githubRouteId, setGithubRouteId] = React.useState(generateGithubRouteId);
   const [githubInstallations, setGithubInstallations] = React.useState<GithubInstallation[]>([]);
@@ -71,9 +73,9 @@ export function useGithubTriggerSetup({
   );
   const githubSetupMessage = githubRelayReady
     ? githubInstallations.length > 0
-      ? "Choose an installation and repository. Relay stores route metadata only."
-      : "Install or update the Atmos GitHub App for this Relay tenant."
-    : "GitHub webhooks require a connected Atmos Computer with Relay configured.";
+      ? t("setupMessages.chooseInstallation")
+      : t("setupMessages.installOrUpdateApp")
+    : t("setupMessages.relayRequired");
   const githubSenderLoginList = React.useMemo(
     () => parseGithubSenderLogins(githubSenderLogins),
     [githubSenderLogins],
@@ -167,11 +169,11 @@ export function useGithubTriggerSetup({
       applyGithubInstallations(installations);
     } catch (err) {
       setGithubInstallations([]);
-      setGithubError(err instanceof Error ? err.message : "Failed to load GitHub installations");
+      setGithubError(err instanceof Error ? err.message : t("errors.loadInstallations"));
     } finally {
       setGithubLoading(false);
     }
-  }, [applyGithubInstallations, githubPrereqs, githubRelayReady]);
+  }, [applyGithubInstallations, githubPrereqs, githubRelayReady, t]);
 
   React.useEffect(() => {
     if (trigger !== "github" || !githubRelayReady) {
@@ -189,7 +191,7 @@ export function useGithubTriggerSetup({
       .catch((err) => {
         if (cancelled) return;
         setGithubInstallations([]);
-        setGithubError(err instanceof Error ? err.message : "Failed to load GitHub installations");
+        setGithubError(err instanceof Error ? err.message : t("errors.loadInstallations"));
       })
       .finally(() => {
         if (!cancelled) setGithubLoading(false);
@@ -197,7 +199,7 @@ export function useGithubTriggerSetup({
     return () => {
       cancelled = true;
     };
-  }, [applyGithubInstallations, githubPrereqs, githubRelayReady, trigger]);
+  }, [applyGithubInstallations, githubPrereqs, githubRelayReady, t, trigger]);
 
   React.useEffect(() => {
     if (trigger !== "github" || !githubRelayReady || !githubInstallationId) {
@@ -226,7 +228,7 @@ export function useGithubTriggerSetup({
       .catch((err) => {
         if (cancelled) return;
         setGithubRepositories([]);
-        setGithubError(err instanceof Error ? err.message : "Failed to load GitHub repositories");
+        setGithubError(err instanceof Error ? err.message : t("errors.loadRepositories"));
       })
       .finally(() => {
         if (!cancelled) setGithubRepositoriesLoading(false);
@@ -240,6 +242,7 @@ export function useGithubTriggerSetup({
     githubRelayReady,
     initialGithubConfig,
     mode,
+    t,
     trigger,
   ]);
 
@@ -356,18 +359,18 @@ export function useGithubTriggerSetup({
         }
         const openedWindow = window.open(session.install_url, "_blank");
         if (!openedWindow) {
-          throw new Error("Browser blocked the GitHub setup window. Allow pop-ups for Atmos and try again.");
+          throw new Error(t("errors.popupBlocked"));
         }
         openedWindow.opener = null;
         setGithubSetupRefreshAvailable(true);
       } catch (err) {
         reservedBrowserWindow?.close();
-        setGithubError(err instanceof Error ? err.message : "Failed to start GitHub setup");
+        setGithubError(err instanceof Error ? err.message : t("errors.startSetupFailed"));
       } finally {
         setGithubLoading(false);
       }
     },
-    [githubPrereqs],
+    [githubPrereqs, t],
   );
 
   const resetGithubSetupButton = React.useCallback(() => {

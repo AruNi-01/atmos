@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Circle,
   GitCompare,
@@ -106,13 +107,15 @@ export function CenterStageStickyTabActions({
 
 export function CenterStageOverviewTab({
   className,
-  tooltipContent = "Overview",
+  tooltipContent,
   value = "overview",
 }: {
   className?: string;
   tooltipContent?: React.ReactNode;
   value?: string;
 }) {
+  const t = useTranslations("appShell.centerStageSharedTabs");
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -126,7 +129,7 @@ export function CenterStageOverviewTab({
           <LayoutDashboard className="size-3.5" />
         </TabsTab>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{tooltipContent}</TooltipContent>
+      <TooltipContent side="bottom">{tooltipContent ?? t("overview")}</TooltipContent>
     </Tooltip>
   );
 }
@@ -157,7 +160,7 @@ export function getCenterStageSurfaceTabVariant(path: string): CenterStageSurfac
 }
 
 export function CenterStageSurfaceContentTab({
-  closeLabel = "Close tab",
+  closeLabel,
   isDirty = false,
   isPreview = false,
   name,
@@ -181,6 +184,7 @@ export function CenterStageSurfaceContentTab({
   value: string;
   variant?: CenterStageSurfaceTabVariant;
 }) {
+  const t = useTranslations("appShell.centerStageSharedTabs");
   const resolvedTooltip = tooltip ?? path;
   const isDiff = variant === "diff" || variant === "diff-group" || variant === "review-diff";
 
@@ -220,7 +224,7 @@ export function CenterStageSurfaceContentTab({
             {onClose ? (
               <span
                 role="button"
-                aria-label={closeLabel}
+                aria-label={closeLabel ?? t("closeTab")}
                 onClick={(event) => {
                   event.stopPropagation();
                   onClose();

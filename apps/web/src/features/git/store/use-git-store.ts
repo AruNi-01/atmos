@@ -1,24 +1,51 @@
 'use client';
 
 import { create } from 'zustand';
+import { createTranslator } from 'next-intl';
 import { gitApi, GitChangedFile, GitChangedFilesResponse, GitStatusResponse } from '@/api/ws-api';
+import enMessages from '../../../../messages/en.json';
+import zhMessages from '../../../../messages/zh.json';
+import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { useGitInfoStore } from './use-git-info-store';
 
-function formatGitActionError(error: unknown): string {
+let cachedGitStoreLocale: 'en' | 'zh' | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedGitStoreTranslator: any = null;
+
+function gitStoreT(
+  key:
+    | 'actionErrors.mergeConflicts'
+    | 'actionErrors.localChangesWouldBeOverwritten'
+    | 'actionErrors.noUpstreamBranch'
+    | 'actionErrors.fastForwardNotPossible'
+    | 'actionErrors.notGitRepository',
+): string {
+  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  if (!cachedGitStoreTranslator || cachedGitStoreLocale !== locale) {
+    cachedGitStoreLocale = locale;
+    cachedGitStoreTranslator = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'git.store',
+    });
+  }
+  return cachedGitStoreTranslator(key as never);
+}
+
+export function cleanGitActionErrorMessage(error: unknown): string {
   if (!(error instanceof Error)) {
-    return "";
+    return '';
   }
 
   return error.message
     .replace(/^\[[^\]]+\]\s*/i, "")
     .replace(/^Request failed:\s*/i, "")
     .replace(/^Validation error:\s*/i, "")
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
-function isConflictActionError(error: unknown): boolean {
-  const message = formatGitActionError(error);
+export function isConflictActionError(error: unknown): boolean {
+  const message = cleanGitActionErrorMessage(error).toLowerCase();
   return (
     message.includes("conflict") ||
     message.includes("automatic merge failed") ||
@@ -26,6 +53,46 @@ function isConflictActionError(error: unknown): boolean {
     message.includes("unmerged files") ||
     message.includes("resolve all conflicts manually")
   );
+}
+
+export function formatGitActionErrorForDisplay(error: unknown): string {
+  const message = cleanGitActionErrorMessage(error);
+  if (!message) return '';
+
+  const normalized = message.toLowerCase();
+
+  if (isConflictActionError(error)) {
+    return gitStoreT('actionErrors.mergeConflicts');
+  }
+
+  if (
+    normalized.includes('would be overwritten by merge') ||
+    normalized.includes('your local changes to the following files would be overwritten')
+  ) {
+    return gitStoreT('actionErrors.localChangesWouldBeOverwritten');
+  }
+
+  if (
+    normalized.includes('no upstream branch') ||
+    normalized.includes('has no upstream branch') ||
+    normalized.includes('no tracking information for the current branch')
+  ) {
+    return gitStoreT('actionErrors.noUpstreamBranch');
+  }
+
+  if (
+    normalized.includes('not possible to fast-forward') ||
+    normalized.includes('cannot fast-forward') ||
+    normalized.includes('divergent branches')
+  ) {
+    return gitStoreT('actionErrors.fastForwardNotPossible');
+  }
+
+  if (normalized.includes('not a git repository')) {
+    return gitStoreT('actionErrors.notGitRepository');
+  }
+
+  return message;
 }
 
 // ===== 类型定义 =====

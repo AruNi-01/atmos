@@ -57,6 +57,7 @@ import {
 } from "@/shared/components/ui/chart";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
+import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
   ChartSkeleton,
@@ -72,29 +73,30 @@ import {
   HEATMAP_GAP,
   agentPalette,
   buildAgentSeries,
+  buildCurveChartConfig,
+  buildHeatmapAgentRadarChartConfig,
+  buildHeatmapDayLabels,
   buildHeatmapMonthLabels,
   buildHeatmapWeeks,
   buildTimelineSeries,
+  buildTokenMixChartConfig,
   buildYearAgentShares,
   calculateHeatmapPopoverPosition,
   calculateYearAgentRadarMax,
-  curveChartConfig,
   darkHeatmapPalette,
   formatAxisTokens,
   formatCompactNumber,
+  formatDetailedNumber,
   formatGeneratedAt,
   formatHeatmapAriaLabel,
   formatTooltipTokens,
   getAnchorRect,
-  heatmapAgentRadarChartConfig,
   heatmapColor,
-  heatmapDayLabels,
   humanizeId,
   lightHeatmapPalette,
   mergeYearLists,
   sortDailyUsage,
   summarizeYear,
-  tokenMixChartConfig,
   type HeatmapHoverState,
   type Resolution,
 } from "@/app-shell/token-usage-dialog-utils";
@@ -131,10 +133,46 @@ export function TokenUsageDialog({
   const [chartsReady, setChartsReady] = React.useState(false);
   const requestRef = React.useRef(0);
   const { resolvedTheme } = useTheme();
+  const t = useTranslations("appShell.tokenUsageDialog");
+  const locale = useLocale();
   const onEvent = useWebSocketStore((state) => state.onEvent);
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const isDarkTheme = resolvedTheme !== "light";
   const heatmapPalette = isDarkTheme ? darkHeatmapPalette : lightHeatmapPalette;
+  const curveChartConfig = React.useMemo(
+    () =>
+      buildCurveChartConfig({
+        tokens: t("charts.curve.tokens"),
+        messages: t("charts.curve.messages"),
+      }),
+    [t],
+  );
+  const tokenMixChartConfig = React.useMemo(
+    () =>
+      buildTokenMixChartConfig({
+        input: t("charts.mix.input"),
+        output: t("charts.mix.output"),
+        cache: t("charts.mix.cache"),
+        reasoning: t("charts.mix.reasoning"),
+      }),
+    [t],
+  );
+  const heatmapAgentRadarChartConfig = React.useMemo(
+    () =>
+      buildHeatmapAgentRadarChartConfig({
+        share: t("charts.radar.share"),
+      }),
+    [t],
+  );
+  const heatmapDayLabels = React.useMemo(
+    () =>
+      buildHeatmapDayLabels({
+        mon: t("heatmap.days.mon"),
+        wed: t("heatmap.days.wed"),
+        fri: t("heatmap.days.fri"),
+      }),
+    [t],
+  );
 
   const loadOverview = React.useCallback(
     async ({ refresh = false }: { refresh?: boolean } = {}) => {
@@ -166,7 +204,7 @@ export function TokenUsageDialog({
         }
 
         setError(
-          loadError instanceof Error ? loadError.message : "Failed to load token usage overview",
+          loadError instanceof Error ? loadError.message : t("errors.loadOverviewFallback"),
         );
       } finally {
         if (requestRef.current === requestId) {
@@ -175,7 +213,7 @@ export function TokenUsageDialog({
         }
       }
     },
-    [],
+    [t],
   );
 
   const deferredOverview = React.useDeferredValue(overview);
@@ -272,8 +310,8 @@ export function TokenUsageDialog({
   }, [heatmapYear, overview?.generated_at]);
 
   const timelineSeries = React.useMemo(
-    () => buildTimelineSeries(sortedDays, resolution),
-    [resolution, sortedDays],
+    () => buildTimelineSeries(sortedDays, resolution, locale),
+    [locale, resolution, sortedDays],
   );
 
   const heatmapWeeks = React.useMemo(
@@ -281,8 +319,8 @@ export function TokenUsageDialog({
     [heatmapYear, sortedDays],
   );
   const heatmapMonthLabels = React.useMemo(
-    () => buildHeatmapMonthLabels(heatmapWeeks, heatmapYear),
-    [heatmapWeeks, heatmapYear],
+    () => buildHeatmapMonthLabels(heatmapWeeks, heatmapYear, locale),
+    [heatmapWeeks, heatmapYear, locale],
   );
   const heatmapGridWidth = React.useMemo(
     () =>
@@ -300,8 +338,8 @@ export function TokenUsageDialog({
   );
 
   const agentSeries = React.useMemo(
-    () => buildAgentSeries(sortedDays, resolution),
-    [resolution, sortedDays],
+    () => buildAgentSeries(sortedDays, resolution, locale),
+    [locale, resolution, sortedDays],
   );
 
   const heatmapSummary = React.useMemo(
@@ -323,18 +361,25 @@ export function TokenUsageDialog({
         agentSeries.keys.map((key, index) => [
           key,
           {
-            label: key === "other" ? "Other" : humanizeId(key),
+            label: key === "other" ? t("charts.agent.other") : humanizeId(key),
             color: agentPalette[index % agentPalette.length],
           },
         ]),
       ) satisfies ChartConfig,
-    [agentSeries.keys],
+    [agentSeries.keys, t],
   );
-  const generatedAtLabel = overview ? formatGeneratedAt(overview.generated_at) : "Not loaded";
+  const generatedAtLabel = overview
+    ? formatGeneratedAt(overview.generated_at, locale)
+    : t("header.generatedAt.notLoaded");
   const rangeLabel =
     overview?.summary.range_start && overview.summary.range_end
-      ? `${overview.summary.range_start} -> ${overview.summary.range_end}`
-      : "No range";
+      ? t("range.withBounds", {
+          start: overview.summary.range_start,
+          end: overview.summary.range_end,
+        })
+      : t("range.empty");
+  const resolutionLabel =
+    resolution === "month" ? t("resolution.options.month") : t("resolution.options.day");
 
   const handleRefresh = React.useCallback(() => {
     void loadOverview({ refresh: true });
@@ -349,9 +394,9 @@ export function TokenUsageDialog({
       {!hideTrigger ? (
         <DialogTrigger asChild>
           <button
-            aria-label="Token usage"
+            aria-label={t("trigger.label")}
             className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-            title="Token usage"
+            title={t("trigger.title")}
           >
             <ChartColumnBig className="size-4" />
           </button>
@@ -367,10 +412,8 @@ export function TokenUsageDialog({
         )}
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>Token usage</DialogTitle>
-          <DialogDescription>
-            Full-screen token usage dashboard based on local session history.
-          </DialogDescription>
+          <DialogTitle>{t("dialog.title")}</DialogTitle>
+          <DialogDescription>{t("dialog.description")}</DialogDescription>
         </DialogHeader>
 
         <div
@@ -399,7 +442,7 @@ export function TokenUsageDialog({
                   <CardContent className="flex items-center gap-3 py-6">
                     <Activity className="size-4 text-destructive" />
                     <div className="space-y-1">
-                      <div className="text-sm font-medium">Failed to load token usage</div>
+                      <div className="text-sm font-medium">{t("errors.loadOverviewTitle")}</div>
                       <div className="text-sm text-muted-foreground">{error}</div>
                     </div>
                   </CardContent>
@@ -418,17 +461,23 @@ export function TokenUsageDialog({
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
                         <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
-                          Contribution heatmap
+                          {t("heatmap.kicker")}
                         </CardDescription>
                         <CardTitle className="text-2xl font-semibold tracking-tight">
                           {showInitialSkeleton
-                            ? "Loading yearly contribution..."
-                            : `${formatCompactNumber(heatmapSummary.totalTokens)} tokens in ${heatmapYear || "the selected year"}`}
+                            ? t("heatmap.loadingTitle")
+                            : t("heatmap.title", {
+                                tokens: formatCompactNumber(heatmapSummary.totalTokens, locale),
+                                year: heatmapYear || t("heatmap.selectedYearFallback"),
+                              })}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
                           {showInitialSkeleton
-                            ? "Building heatmap from local session history"
-                            : `${formatCompactNumber(heatmapSummary.activeDays)} active days · ${formatCompactNumber(heatmapSummary.totalMessages)} messages`}
+                            ? t("heatmap.loadingDescription")
+                            : t("heatmap.summary", {
+                                activeDays: formatCompactNumber(heatmapSummary.activeDays, locale),
+                                messages: formatCompactNumber(heatmapSummary.totalMessages, locale),
+                              })}
                         </p>
                       </div>
 
@@ -441,7 +490,7 @@ export function TokenUsageDialog({
                             onValueChange={(value) => setSelectedYear(value)}
                           >
                             <SelectTrigger className="h-10 w-[140px] rounded-sm border-border/70 bg-background/80 text-sm">
-                              <SelectValue placeholder="Select year" />
+                              <SelectValue placeholder={t("heatmap.selectYearPlaceholder")} />
                             </SelectTrigger>
                             <SelectContent>
                               {[...availableYears].reverse().map((year) => (
@@ -463,7 +512,7 @@ export function TokenUsageDialog({
                           <HeatmapSkeleton />
                         ) : emptyState ? (
                           <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
-                            No local token activity found for this year.
+                            {t("heatmap.empty")}
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
@@ -524,7 +573,12 @@ export function TokenUsageDialog({
                                             type="button"
                                             className="size-[12px] rounded-[3px] border border-border/50 outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring"
                                             style={{ backgroundColor: heatmapColor(cell.level, heatmapPalette) }}
-                                            aria-label={formatHeatmapAriaLabel(cell)}
+                                            aria-label={formatHeatmapAriaLabel(
+                                              cell,
+                                              locale,
+                                              ({ date, tokens, messages }) =>
+                                                t("heatmap.ariaLabel", { date, tokens, messages }),
+                                            )}
                                             onMouseEnter={(event) =>
                                               setHoveredHeatmapCell({
                                                 cell,
@@ -550,7 +604,7 @@ export function TokenUsageDialog({
 
                                 <div />
                                 <div className="flex items-center justify-end gap-2 pt-2 text-sm text-muted-foreground">
-                                  <span>Less</span>
+                                  <span>{t("heatmap.legend.less")}</span>
                                   {([0, 1, 2, 3, 4] as const).map((level) => (
                                     <span
                                       key={level}
@@ -558,7 +612,7 @@ export function TokenUsageDialog({
                                       style={{ backgroundColor: heatmapColor(level, heatmapPalette) }}
                                     />
                                   ))}
-                                  <span>More</span>
+                                  <span>{t("heatmap.legend.more")}</span>
                                 </div>
                               </div>
 
@@ -600,7 +654,7 @@ export function TokenUsageDialog({
                                 />
                                 <Radar
                                   dataKey="sharePercent"
-                                  name="Share"
+                                  name={heatmapAgentRadarChartConfig.share.label}
                                   stroke="var(--color-chart-2)"
                                   fill="var(--color-chart-2)"
                                   fillOpacity={0.26}
@@ -611,7 +665,7 @@ export function TokenUsageDialog({
                           </ChartContainer>
                         ) : (
                           <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/60 bg-background/35 text-sm text-muted-foreground">
-                            No agent activity found for this year.
+                            {t("heatmap.agentShareEmpty")}
                           </div>
                         )}
                       </div>
@@ -623,10 +677,10 @@ export function TokenUsageDialog({
               <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
-                    Chart resolution
+                    {t("resolution.kicker")}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Switch between daily and monthly aggregation for the all-time charts below.
+                    {t("resolution.description")}
                   </div>
                 </div>
 
@@ -640,10 +694,10 @@ export function TokenUsageDialog({
                 >
                   <TabsList className="border border-border/70 bg-background/70 p-1">
                     <TabsTrigger value="month" className="px-4">
-                      By month
+                      {t("resolution.options.month")}
                     </TabsTrigger>
                     <TabsTrigger value="day" className="px-4">
-                      By day
+                      {t("resolution.options.day")}
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -653,10 +707,10 @@ export function TokenUsageDialog({
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="pb-2">
                     <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
-                      Trend
+                      {t("trend.kicker")}
                     </CardDescription>
                     <CardTitle className="text-xl">
-                      Token curve by {resolution === "month" ? "month" : "day"}
+                      {t("trend.title", { resolution: resolutionLabel })}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-2">
@@ -683,7 +737,7 @@ export function TokenUsageDialog({
                             <YAxis
                               axisLine={false}
                               tickLine={false}
-                              tickFormatter={(value) => formatAxisTokens(Number(value))}
+                              tickFormatter={(value) => formatAxisTokens(Number(value), locale)}
                               width={46}
                             />
                             <ChartTooltip
@@ -691,9 +745,11 @@ export function TokenUsageDialog({
                               content={
                                 <ChartTooltipContent
                                   formatter={(value, name) =>
-                                    name === "Messages"
-                                      ? `${Number(value).toLocaleString()}`
-                                      : formatTooltipTokens(Number(value))
+                                    name === curveChartConfig.messages.label
+                                      ? formatDetailedNumber(Number(value), locale)
+                                      : formatTooltipTokens(Number(value), locale, ({ value }) =>
+                                          t("tooltip.tokens", { value }),
+                                        )
                                   }
                                 />
                               }
@@ -724,10 +780,10 @@ export function TokenUsageDialog({
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="pb-2">
                     <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
-                      Sources
+                      {t("sources.kicker")}
                     </CardDescription>
                     <CardTitle className="text-xl">
-                      Agent distribution by {resolution === "month" ? "month" : "day"}
+                      {t("sources.title", { resolution: resolutionLabel })}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-2">
@@ -748,14 +804,18 @@ export function TokenUsageDialog({
                             <YAxis
                               axisLine={false}
                               tickLine={false}
-                              tickFormatter={(value) => formatAxisTokens(Number(value))}
+                              tickFormatter={(value) => formatAxisTokens(Number(value), locale)}
                               width={46}
                             />
                             <ChartTooltip
                               cursor={false}
                               content={
                                 <ChartTooltipContent
-                                  formatter={(value) => formatTooltipTokens(Number(value))}
+                                  formatter={(value) =>
+                                    formatTooltipTokens(Number(value), locale, ({ value: displayValue }) =>
+                                      t("tooltip.tokens", { value: displayValue }),
+                                    )
+                                  }
                                 />
                               }
                             />
@@ -781,10 +841,10 @@ export function TokenUsageDialog({
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="pb-2">
                     <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
-                      Shape
+                      {t("shape.kicker")}
                     </CardDescription>
                     <CardTitle className="text-xl">
-                      Token mix by {resolution === "month" ? "month" : "day"}
+                      {t("shape.title", { resolution: resolutionLabel })}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-2">
@@ -805,14 +865,18 @@ export function TokenUsageDialog({
                             <YAxis
                               axisLine={false}
                               tickLine={false}
-                              tickFormatter={(value) => formatAxisTokens(Number(value))}
+                              tickFormatter={(value) => formatAxisTokens(Number(value), locale)}
                               width={46}
                             />
                             <ChartTooltip
                               cursor={false}
                               content={
                                 <ChartTooltipContent
-                                  formatter={(value) => formatTooltipTokens(Number(value))}
+                                  formatter={(value) =>
+                                    formatTooltipTokens(Number(value), locale, ({ value: displayValue }) =>
+                                      t("tooltip.tokens", { value: displayValue }),
+                                    )
+                                  }
                                 />
                               }
                             />

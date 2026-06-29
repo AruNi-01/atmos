@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   AlertCircle,
   ArrowRight,
@@ -46,6 +47,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   onFinish,
   compact = false,
 }) => {
+  const t = useTranslations("Workspace.components.setupProgress");
+  const stepT = useTranslations("Workspace.components.workspaceSetup.steps");
   const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, failedStepKey, setupContext } =
     progress;
   const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
@@ -54,6 +57,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     () => getWorkspaceSetupCurrentStepKey(progress),
     [progress],
   );
+  const failedStepToSkip = failedStepKey ?? currentStepKey;
 
   // requirement.md is pre-filled synchronously during workspace creation
   // (see backend `handle_workspace_create`). The step is still surfaced in
@@ -71,36 +75,36 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     if (hasGithubPr) {
       return {
         id: "write_requirement" as const,
-        title: "Fill PR Spec",
-        description: "Linked GitHub PR was written into requirement.md.",
+        title: stepT("fillPrSpec"),
+        description: t("stepDescriptions.linkedPrWritten"),
       };
     }
 
     if (hasGithubIssue) {
       return {
         id: "write_requirement" as const,
-        title: "Fill Issue Spec",
-        description: "Linked GitHub issue was written into requirement.md.",
+        title: stepT("fillIssueSpec"),
+        description: t("stepDescriptions.linkedIssueWritten"),
       };
     }
 
     return {
       id: "write_requirement" as const,
-      title: "Write Requirement Spec",
-      description: "Initial requirement specification saved for this workspace.",
+      title: stepT("writeRequirementSpec"),
+      description: t("stepDescriptions.requirementSaved"),
     };
-  }, [setupContext]);
+  }, [setupContext, stepT, t]);
 
   const todoStep = useMemo(
     () =>
       !!setupContext?.autoExtractTodos
         ? {
             id: "extract_todos" as const,
-            title: "Extract TODOs",
-            description: "Generate task.md from the linked issue with the routed LLM provider.",
+            title: stepT("extractTodos"),
+            description: t("stepDescriptions.extractTodos"),
           }
         : null,
-    [setupContext?.autoExtractTodos],
+    [setupContext?.autoExtractTodos, stepT, t],
   );
 
   const showSetupScriptStep =
@@ -117,8 +121,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     }> = [
       {
         id: "create_worktree",
-        title: "Create Workspace",
-        description: "Create the worktree and reserve the workspace directory.",
+        title: stepT("createWorkspace"),
+        description: t("stepDescriptions.createWorkspace"),
       },
     ];
 
@@ -133,24 +137,26 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     if (showSetupScriptStep) {
       nextSteps.push({
         id: "run_setup_script",
-        title: "Run Setup Script",
-        description: "Execute project setup commands for this workspace.",
+        title: stepT("runSetupScript"),
+        description: t("stepDescriptions.runSetupScript"),
       });
     }
 
     nextSteps.push({
       id: "ready",
-      title: "Ready",
-      description: "Finalize setup and hand off to the workspace.",
+      title: stepT("ready"),
+      description: t("stepDescriptions.ready"),
     });
 
     return nextSteps;
-  }, [contextStep, showSetupScriptStep, todoStep]);
+  }, [contextStep, showSetupScriptStep, stepT, t, todoStep]);
 
   const currentStepIndex = Math.max(
     0,
     steps.findIndex((step) => step.id === currentStepKey),
   );
+  const displayStepTitle =
+    steps.find((step) => step.id === failedStepToSkip)?.title ?? stepTitle;
   const useCompactSteps = steps.length >= 5;
   const progressValue =
     status === "completed"
@@ -289,14 +295,13 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       console.error("Failed to confirm extracted TODOs:", error);
       setConfirmingTodosState({ key: confirmationKey, value: false });
       toastManager.add({
-        title: "Could not continue setup",
-        description: "Failed to save the generated TODOs into task.md.",
+        title: t("toasts.continueFailedTitle"),
+        description: t("toasts.continueFailedDescription"),
         type: "error",
       });
     }
   };
 
-  const failedStepToSkip = failedStepKey ?? currentStepKey;
   const skippableFailedStepKey =
     status === "error" && failedStepToSkip !== "create_worktree"
       ? failedStepToSkip
@@ -317,8 +322,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       console.error("Failed to skip setup step:", error);
       setSkippingFailedStepState({ workspaceId, value: false });
       toastManager.add({
-        title: "Could not skip setup step",
-        description: "Failed to continue setup from the next step.",
+        title: t("toasts.skipFailedTitle"),
+        description: t("toasts.skipFailedDescription"),
         type: "error",
       });
     }
@@ -361,8 +366,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
         )}>
           <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">Workspace is ready</p>
-            <p>Setup completed. You can enter the workspace and start building.</p>
+            <p className="text-sm font-medium text-foreground">{t("states.readyTitle")}</p>
+            <p>{t("states.readyDescription")}</p>
           </div>
         </div>
       );
@@ -377,11 +382,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           <div className="flex items-center justify-between border-b border-white/5 bg-[#161b22] px-4 py-2">
             <div className="flex gap-1.5">
               <div className="size-2.5 rounded-full bg-[#ff5f56]" />
-              <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
-              <div className="size-2.5 rounded-full bg-[#27c93f]" />
-            </div>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[#8b949e]">
-              Setup Output
+            <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
+            <div className="size-2.5 rounded-full bg-[#27c93f]" />
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#8b949e]">
+              {t("outputLabel")}
             </span>
           </div>
           <div className={cn("flex-1 overflow-hidden bg-[#09090b]", compact ? "p-3" : "p-4")}>
@@ -398,12 +403,12 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           compact ? "min-h-[160px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
         )}>
           <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">Workspace setup failed</p>
+            <p className="text-sm font-medium text-foreground">{t("states.failedTitle")}</p>
             <p className="text-sm text-muted-foreground">
-              {stepTitle || "The current setup step failed before the workspace became ready."}
+              {displayStepTitle || t("states.failedFallbackDescription")}
             </p>
             <p className="text-xs text-muted-foreground">
-              Adjust the conflicting input if needed, then retry initialization.
+              {t("states.failedHint")}
             </p>
           </div>
         </div>
@@ -417,8 +422,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
         )}>
           <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">Creating workspace worktree</p>
-            <p>Reserving the workspace directory and preparing the branch checkout.</p>
+            <p className="text-sm font-medium text-foreground">{t("states.creatingWorktreeTitle")}</p>
+            <p>{t("states.creatingWorktreeDescription")}</p>
           </div>
         </div>
       );
@@ -437,11 +442,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           )}>
             <div>
               <p className="text-sm font-medium text-foreground">
-                {progress.requiresConfirmation ? "Review initial TODOs" : "Generating initial TODOs"}
+                {progress.requiresConfirmation ? t("todo.reviewTitle") : t("todo.generatingTitle")}
               </p>
               {progress.requiresConfirmation && (
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Confirm this markdown to write it into .atmos/context/task.md and continue setup.
+                  {t("todo.confirmDescription")}
                 </p>
               )}
             </div>
@@ -454,17 +459,17 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                   setIsTodoEditing(!isTodoEditing);
                 }}
                 className="flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
-                title={isTodoEditing ? "Switch to Preview mode" : "Switch to Edit mode"}
+                title={isTodoEditing ? t("todo.switchToPreviewMode") : t("todo.switchToEditMode")}
               >
                 {isTodoEditing ? (
                   <>
                     <Eye className="size-3" />
-                    <span>Preview</span>
+                    <span>{t("todo.preview")}</span>
                   </>
                 ) : (
                   <>
                     <Pencil className="size-3" />
-                    <span>Edit</span>
+                    <span>{t("todo.edit")}</span>
                   </>
                 )}
               </button>
@@ -485,7 +490,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               )
             ) : (
               <div className="flex h-full min-h-[160px] items-center justify-center text-sm text-muted-foreground">
-                Waiting for the routed LLM provider to stream TODO markdown...
+                {t("todo.waiting")}
               </div>
             )}
           </div>
@@ -500,10 +505,10 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
         )}>
           <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">Running workspace setup script</p>
+            <p className="text-sm font-medium text-foreground">{t("states.runningSetupScriptTitle")}</p>
             <p>
-              Waiting for the project setup command to finish.
-              {!output.trim() ? " Output will appear here once the script writes to the terminal." : ""}
+              {t("states.runningSetupScriptDescription")}
+              {!output.trim() ? ` ${t("states.runningSetupScriptOutputHint")}` : ""}
             </p>
           </div>
         </div>
@@ -516,8 +521,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
         )}>
         <div className="max-w-md space-y-2">
-          <p className="text-sm font-medium text-foreground">Preparing workspace</p>
-          <p>Setup is still in progress. This view will update as the next step starts.</p>
+          <p className="text-sm font-medium text-foreground">{t("states.preparingTitle")}</p>
+          <p>{t("states.preparingDescription")}</p>
         </div>
       </div>
     );
@@ -533,16 +538,16 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         compact ? "pt-0" : "pt-4",
       )}>
         <h2 className={cn("font-bold tracking-tight", compact ? "text-lg" : "text-3xl")}>
-          Workspace Setup
+          {t("header.title")}
         </h2>
         <p className="text-muted-foreground">
           {status === "completed"
-            ? "Everything is ready."
+            ? t("header.completed")
             : status === "error"
-              ? "Setup stopped before completion."
+              ? t("header.error")
               : isStale
-                ? "Setup appears to be unresponsive. You can retry or skip."
-                : "Preparing this workspace based on your creation options."}
+                ? t("header.stale")
+                : t("header.inProgress")}
         </p>
       </div>
 
@@ -610,7 +615,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             ) : (
               <Terminal className="size-4 text-primary" />
             )}
-            {stepTitle}
+            {displayStepTitle}
           </span>
           <span className="tabular-nums text-muted-foreground">
             {Math.round(progressValue)}%
@@ -641,7 +646,9 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               onMouseLeave={() => setIsHovered(false)}
             >
               <Clock className="size-5" />
-              Start Building {localCountdown > 0 && `(${localCountdown}s)`}
+              {localCountdown > 0
+                ? t("actions.startBuildingWithCountdown", { seconds: localCountdown })
+                : t("actions.startBuilding")}
               <ArrowRight className="size-5" />
             </Button>
           ) : status === "error" ? (
@@ -660,10 +667,10 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                   {isSkippingFailedStep ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
-                      Skipping...
+                      {t("actions.skipping")}
                     </>
                   ) : (
-                    "Skip"
+                    t("actions.skip")
                   )}
                 </Button>
               )}
@@ -676,7 +683,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                 )}
                 onClick={() => retryWorkspaceSetup(workspaceId)}
               >
-                Retry Initialization
+                {t("actions.retryInitialization")}
               </Button>
             </>
           ) : isStale ? (
@@ -690,7 +697,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                 )}
                 onClick={onFinish}
               >
-                Skip & Enter Workspace
+                {t("actions.skipAndEnterWorkspace")}
               </Button>
               <Button
                 variant="destructive"
@@ -701,7 +708,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                 )}
                 onClick={() => retryWorkspaceSetup(workspaceId)}
               >
-                Retry Initialization
+                {t("actions.retryInitialization")}
               </Button>
             </>
           ) : progress.requiresConfirmation ? (
@@ -717,11 +724,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               {isConfirmingTodos ? (
                 <>
                   <Loader2 className="size-5 animate-spin" />
-                  Saving TODOs...
+                  {t("actions.savingTodos")}
                 </>
               ) : (
                 <>
-                  Next: Save TODOs
+                  {t("actions.nextSaveTodos")}
                   <ArrowRight className="size-5" />
                 </>
               )}
@@ -732,7 +739,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         <div className={cn("flex w-full items-center justify-center", compact ? "h-5" : "h-6")}>
           {status === "completed" && !compact && (
             <p className="animate-pulse text-center text-xs text-muted-foreground">
-              Tip: Press{" "}
+              {t("tip.press")}{" "}
               <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-bold font-sans">
                 ⌘
               </kbd>{" "}
@@ -740,7 +747,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-bold font-sans">
                 Enter
               </kbd>{" "}
-              to continue
+              {t("tip.toContinue")}
             </p>
           )}
         </div>

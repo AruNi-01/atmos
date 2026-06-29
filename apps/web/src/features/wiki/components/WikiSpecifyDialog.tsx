@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Dialog,
@@ -20,7 +21,7 @@ import {
 } from "@workspace/ui";
 import { Download, Loader2, FilePlus } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
-import { WIKI_LANGUAGE_OPTIONS } from "../lib/wiki-languages";
+import { getWikiLanguageOptions } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
@@ -66,6 +67,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   onProjectWikiReplaceAndRun,
   onComplete,
 }) => {
+  const t = useTranslations("wiki.specifyDialog");
   const [topic, setTopic] = useState("");
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
@@ -78,6 +80,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   const [skillLoading, setSkillLoading] = useState(true);
   const [isInstalling, setIsInstalling] = useState(false);
   const currentAgentRunConfig = agentRunConfigs[agentId] ?? null;
+  const languageOptions = getWikiLanguageOptions();
 
   const checkSystemSkill = useCallback(async () => {
     setSkillLoading(true);
@@ -102,7 +105,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       const result = await skillsApi.installProjectWiki();
       if (result.success) {
         toastManager.add({
-          title: "Skill installed",
+          title: t("toasts.skillInstalled.title"),
           description: result.message,
           type: "success",
         });
@@ -112,8 +115,8 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       }
     } catch (err) {
       toastManager.add({
-        title: "Install failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: t("toasts.installFailed.title"),
+        description: err instanceof Error ? err.message : t("errors.unknown"),
         type: "error",
       });
     } finally {
@@ -126,25 +129,25 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       if (onSwitchToProjectWikiAndRun) {
         onSwitchToProjectWikiAndRun(command);
         toastManager.add({
-          title: "Specify Wiki started",
-          description: "Switched to Project Wiki tab. Check progress there.",
+          title: t("toasts.started.title"),
+          description: t("toasts.started.description"),
           type: "info",
         });
       } else if (terminalGridRef?.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
-          label: "Specify Project Wiki",
+          label: t("terminalLabel"),
           command,
         });
         onSwitchToTerminal?.();
         toastManager.add({
-          title: "Specify Wiki started",
-          description: "Switched to Project Wiki tab. Check progress there.",
+          title: t("toasts.started.title"),
+          description: t("toasts.started.description"),
           type: "info",
         });
       } else {
         toastManager.add({
-          title: "Terminal not ready",
-          description: "Please wait and try again.",
+          title: t("toasts.terminalNotReady.title"),
+          description: t("toasts.terminalNotReady.description"),
           type: "error",
         });
       }
@@ -157,6 +160,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       onSwitchToProjectWikiAndRun,
       onComplete,
       onOpenChange,
+      t,
     ]
   );
 
@@ -164,8 +168,8 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     const trimmed = topic.trim();
     if (!trimmed) {
       toastManager.add({
-        title: "Topic required",
-        description: "Please enter a topic for the wiki article.",
+        title: t("toasts.topicRequired.title"),
+        description: t("toasts.topicRequired.description"),
         type: "error",
       });
       return;
@@ -192,7 +196,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [topic, agentId, currentAgentRunConfig, language, customLanguage, workspaceId, doRunSpecify]);
+  }, [topic, agentId, currentAgentRunConfig, language, customLanguage, workspaceId, doRunSpecify, t]);
 
   const handleConfirmReplaceAndRun = useCallback(async () => {
     const cmd = pendingCommand;
@@ -210,14 +214,14 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       doRunSpecify(cmd);
     } catch (err) {
       toastManager.add({
-        title: "Failed to close previous terminal",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: t("toasts.closePreviousFailed.title"),
+        description: err instanceof Error ? err.message : t("errors.unknown"),
         type: "error",
       });
     } finally {
       setIsRunning(false);
     }
-  }, [workspaceId, pendingCommand, doRunSpecify, onProjectWikiReplaceAndRun]);
+  }, [workspaceId, pendingCommand, doRunSpecify, onProjectWikiReplaceAndRun, t]);
 
   const handleExampleClick = (example: string) => {
     setTopic(example);
@@ -230,11 +234,10 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FilePlus className="size-5 text-muted-foreground" />
-              Specify Wiki
+              {t("title")}
             </DialogTitle>
             <DialogDescription>
-              Generate a focused wiki article on a specific topic. The article will be added to the
-              Specify Wiki section, separate from Getting Started and Deep Dive.
+              {t("description")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -242,8 +245,8 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                 <p className="text-sm text-muted-foreground">
                   {skillLoading
-                    ? "Checking wiki skills..."
-                    : "Wiki skills (project-wiki, project-wiki-specify) are not installed."}
+                    ? t("skills.checking")
+                    : t("skills.notInstalled")}
                 </p>
                 {!skillLoading && (
                   <Button
@@ -252,36 +255,42 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                     onClick={handleInstallSkill}
                     disabled={isInstalling}
                     className="cursor-pointer"
-                  >
-                    {isInstalling ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin mr-2" />
-                        Installing...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="size-4 mr-2" />
-                        Install wiki skills
-                      </>
-                    )}
+                    >
+                      {isInstalling ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin mr-2" />
+                          {t("skills.installing")}
+                        </>
+                      ) : (
+                        <>
+                          <Download className="size-4 mr-2" />
+                          {t("skills.install")}
+                        </>
+                      )}
                   </Button>
                 )}
               </div>
             )}
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-                Topic
+                {t("topic.label")}
               </label>
               <Textarea
-                placeholder="e.g., Explore how [feature] is implemented"
+                placeholder={t("topic.placeholder")}
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 rows={3}
                 className="resize-none"
               />
-              <p className="text-xs text-muted-foreground mt-1.5">Examples (click to use):</p>
+              <p className="text-xs text-muted-foreground mt-1.5">{t("topic.examplesLabel")}</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
-                {TOPIC_EXAMPLES.map((ex) => (
+                {[
+                  t("topic.examples.featureImplementation"),
+                  t("topic.examples.technologyChoice"),
+                  t("topic.examples.moduleOverview"),
+                  t("topic.examples.mechanismDesign"),
+                  t("topic.examples.architectureDecision"),
+                ].map((ex) => (
                   <button
                     key={ex}
                     type="button"
@@ -309,7 +318,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
             />
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-                Article language
+                {t("language.label")}
               </label>
               <div className="flex gap-2 flex-wrap">
                 <Select value={language} onValueChange={setLanguage}>
@@ -317,7 +326,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {WIKI_LANGUAGE_OPTIONS.map((opt) => (
+                    {languageOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
@@ -326,7 +335,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                 </Select>
                 {language === "other" && (
                   <Input
-                    placeholder="e.g. Italian, Vietnamese"
+                    placeholder={t("language.customPlaceholder")}
                     value={customLanguage}
                     onChange={(e) => setCustomLanguage(e.target.value)}
                     className="flex-1 min-w-[120px]"
@@ -337,7 +346,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning} className="cursor-pointer">
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button
               onClick={handleRunSpecify}
@@ -347,12 +356,12 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Starting...
+                  {t("actions.starting")}
                 </>
               ) : (
                 <>
                   <FilePlus className="size-4 mr-2" />
-                  Generate Article
+                  {t("actions.generateArticle")}
                 </>
               )}
             </Button>
@@ -366,24 +375,23 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Project Wiki generation in progress</DialogTitle>
+            <DialogTitle>{t("conflict.title")}</DialogTitle>
             <DialogDescription>
-              A Project Wiki terminal is already running. Continuing will close it and start the
-              specify task. Any in-progress work may be interrupted.
+              {t("conflict.description")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))} className="cursor-pointer">
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning} className="cursor-pointer">
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Starting...
+                  {t("actions.starting")}
                 </>
               ) : (
-                "Replace & run"
+                t("actions.replaceAndRun")
               )}
             </Button>
           </DialogFooter>

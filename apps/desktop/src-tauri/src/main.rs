@@ -337,6 +337,7 @@ fn main() {
             commands::clear_client_session_cmd,
             commands::get_version_info,
             commands::open_agent_chat_window,
+            commands::open_preview_browser_window,
             commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,
@@ -554,11 +555,11 @@ fn show_startup_error(app_handle: &tauri::AppHandle, failure: &StartupFailure) {
 
     if let Some(main) = app_handle.get_webview_window("main") {
         let _ = main.set_background_color(Some(SPLASH_BACKGROUND_COLOR));
-        let target = main
-            .url()
-            .ok()
-            .and_then(|current| current.join(&startup_error_page_path(failure)).ok())
-            .or_else(|| "tauri://localhost/startup-error.html".parse().ok());
+        // Always use the bundled startup error asset so dev startup failures do
+        // not depend on the external Next dev server routing this page.
+        let target = format!("tauri://localhost{}", startup_error_page_path(failure))
+            .parse()
+            .ok();
 
         if let Some(url) = target {
             let _ = main.navigate(url);

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Dialog, DialogContent, Input, Label } from '@workspace/ui';
 import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/shared/types/domain';
 import {
@@ -38,6 +39,7 @@ import {
   resolveWorkspaceIssueTodoProvider,
   sanitizeCreateWorkspaceErrorMessage,
 } from '@/features/welcome/lib/welcome-page-helpers';
+import { setWorkspaceGitignoreDirsMessages } from '@/features/workspace/store/workspace-gitignore-dirs-store';
 
 interface CreateWorkspaceDialogProps {
   isOpen: boolean;
@@ -60,6 +62,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   requireProjectSelection = false,
   preselectedIssue,
 }: CreateWorkspaceDialogProps) => {
+  const t = useTranslations('Workspace.components');
   const router = useAppRouter();
   const projects = useProjectStore((s) => s.projects);
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
@@ -124,6 +127,19 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const generatedBranchRef = useRef<string | null>(null);
   const branchFieldRef = useRef<HTMLDivElement | null>(null);
   const branchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setWorkspaceGitignoreDirsMessages({
+      settingsSyncFailedTitle: t('gitignoreStore.settingsSyncFailedTitle'),
+      invalidPathTitle: t('gitignoreStore.invalidPathTitle'),
+      invalidPathDescription: t('gitignoreStore.invalidPathDescription'),
+      failedMasterSwitch: t('gitignoreStore.failedMasterSwitch'),
+      failedStrategy: t('gitignoreStore.failedStrategy'),
+      failedAddCustom: t('gitignoreStore.failedAddCustom'),
+      failedRemoveDirectory: t('gitignoreStore.failedRemoveDirectory'),
+      failedUpdatePath: t('gitignoreStore.failedUpdatePath'),
+    });
+  }, [t]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === projectId) ?? null,
@@ -335,14 +351,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               });
             } catch (error) {
               if (!cancelled) {
-                setPrError(error instanceof Error ? error.message : 'Failed to load GitHub PRs');
+                setPrError(error instanceof Error ? error.message : t('createDialog.pr.errors.failedToLoadPrs'));
               }
             }
           }
         }
       } catch (error) {
         if (!cancelled) {
-          setIssueError(error instanceof Error ? error.message : 'Failed to load GitHub issues');
+          setIssueError(error instanceof Error ? error.message : t('createDialog.issue.errors.failedToLoadIssues'));
         }
       } finally {
         if (!cancelled) {
@@ -358,7 +374,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, preselectedIssue, selectedProjectId, selectedProjectPath]);
+  }, [isOpen, preselectedIssue, selectedProjectId, selectedProjectPath, t]);
 
   useEffect(() => {
     if (!issuePreview) {
@@ -469,14 +485,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       const previewRepo = `${preview.owner}/${preview.repo}`;
       if (currentRepo && currentRepo !== previewRepo) {
         setPrPreview(null);
-        setPrError(`PR belongs to ${previewRepo}, but current project is ${currentRepo}.`);
+        setPrError(t('createDialog.pr.errors.repoMismatch', { previewRepo, currentRepo }));
         return;
       }
       setPrPreview(preview);
       clearIssueSelection();
     } catch (error) {
       setPrPreview(null);
-      setPrError(error instanceof Error ? error.message : 'Failed to load PR preview');
+      setPrError(error instanceof Error ? error.message : t('createDialog.pr.errors.failedToLoadPreview'));
     } finally {
       setIsPrPreviewLoading(false);
     }
@@ -496,7 +512,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         prs: fetchedPrs,
       });
     } catch (error) {
-      setPrError(error instanceof Error ? error.message : 'Failed to refresh GitHub PRs');
+      setPrError(error instanceof Error ? error.message : t('createDialog.pr.errors.failedToRefreshPrs'));
     } finally {
       setIsPrsLoading(false);
     }
@@ -521,7 +537,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
       if (currentRepo && currentRepo !== previewRepo) {
         setIssuePreview(null);
-        setIssueError(`Issue belongs to ${previewRepo}, but current project is ${currentRepo}.`);
+        setIssueError(t('createDialog.issue.errors.repoMismatch', { previewRepo, currentRepo }));
         return;
       }
 
@@ -529,7 +545,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       clearPrSelection();
     } catch (error) {
       setIssuePreview(null);
-      setIssueError(error instanceof Error ? error.message : 'Failed to load issue preview');
+      setIssueError(error instanceof Error ? error.message : t('createDialog.issue.errors.failedToLoadPreview'));
     } finally {
       setIsIssuePreviewLoading(false);
     }
@@ -549,7 +565,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         issues: fetchedIssues,
       });
     } catch (error) {
-      setIssueError(error instanceof Error ? error.message : 'Failed to refresh GitHub issues');
+      setIssueError(error instanceof Error ? error.message : t('createDialog.issue.errors.failedToRefreshIssues'));
     } finally {
       setIsIssuesLoading(false);
     }
@@ -653,7 +669,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     } catch (error) {
       clearWorkspaceCreationOverlay();
       const message = sanitizeCreateWorkspaceErrorMessage(
-        error instanceof Error ? error.message : 'Failed to create workspace',
+        error instanceof Error ? error.message : t('createDialog.errors.failedToCreateWorkspace'),
       );
 
       if (isBranchConflictError(message)) {
@@ -686,8 +702,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     });
   };
 
-  const repoLabel = repoContext ? `${repoContext.owner}/${repoContext.repo}` : 'No GitHub repository';
-  const issueBodyPreview = issuePreview?.body?.trim() || 'No issue description provided.';
+  const repoLabel = repoContext ? `${repoContext.owner}/${repoContext.repo}` : t('createDialog.repo.noGithubRepository');
+  const issueBodyPreview = issuePreview?.body?.trim() || t('createDialog.issue.noDescription');
   const canAutoExtractTodosIssue = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
   const canAutoExtractTodosPr = !!prPreview && !!todoProviderLabel && !isLlmRoutingLoading;
   const filteredRemoteBranches = useMemo(
@@ -698,11 +714,16 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   );
   const buildAutoExtractDescription = (kind: 'issue' | 'pr') => {
     const hasPreview = kind === 'issue' ? !!issuePreview : !!prPreview;
-    if (!hasPreview) return `Import a GitHub ${kind === 'pr' ? 'PR' : 'issue'} first.`;
-    if (isLlmRoutingLoading) return 'Checking LLM routing...';
+    if (!hasPreview) return t('createDialog.autoExtract.importFirst', {
+      kind: kind === 'pr' ? t('createDialog.common.pr') : t('createDialog.common.issue'),
+    });
+    if (isLlmRoutingLoading) return t('createDialog.autoExtract.checkingRouting');
     if (todoProviderLabel)
-      return `Uses ${todoProviderLabel} to extract an initial task checklist from the ${kind === 'pr' ? 'PR' : 'issue'} description.`;
-    return 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
+      return t('createDialog.autoExtract.usesProvider', {
+        provider: todoProviderLabel,
+        kind: kind === 'pr' ? t('createDialog.common.pr') : t('createDialog.common.issue'),
+      });
+    return t('createDialog.autoExtract.configureRouting');
   };
   const autoExtractDescriptionIssue = buildAutoExtractDescription('issue');
   const autoExtractDescriptionPr = buildAutoExtractDescription('pr');
@@ -723,20 +744,20 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             {!defaultProjectId && projectSelectionInHeader && (
               <ProjectSelectField
                 id="project-inline"
-                label="Project"
-                placeholder="Please select a project"
+                label={t('createDialog.fields.project')}
+                placeholder={t('createDialog.projectSelect.pleaseSelectProject')}
                 value={projectId}
                 projects={projects}
                 onChange={setProjectId}
-                requireSelectionMessage="Please select a project to continue."
+                requireSelectionMessage={t('createDialog.projectSelect.requireSelectionMessage')}
               />
             )}
 
             {!defaultProjectId && !projectSelectionInHeader && (
               <ProjectSelectField
                 id="project"
-                label="Project"
-                placeholder="Select a project"
+                label={t('createDialog.fields.project')}
+                placeholder={t('createDialog.projectSelect.selectProject')}
                 value={projectId}
                 projects={projects}
                 onChange={setProjectId}
@@ -746,16 +767,16 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="workspace-name">Name</Label>
+                <Label htmlFor="workspace-name">{t('createDialog.fields.name')}</Label>
                 <Input
                   id="workspace-name"
                   value={name}
                   onChange={handleNameChange}
-                  placeholder="Workspace display name, typing..."
+                  placeholder={t('createDialog.name.placeholder')}
                   autoFocus
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave empty to let Atmos generate a name, or import one from a GitHub issue.
+                  {t('createDialog.name.help')}
                 </p>
               </div>
 

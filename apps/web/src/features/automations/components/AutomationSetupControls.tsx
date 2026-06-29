@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Input,
@@ -62,6 +63,7 @@ export function AutomationSetupControls({
   environmentPickerProps: EnvironmentPickerProps;
   triggerPickerProps: TriggerPickerProps;
 }) {
+  const t = useTranslations("automation.setupControls");
   const [openControl, setOpenControl] = React.useState<"environment" | "trigger" | null>(null);
   const handleTriggerOpenChange = React.useCallback(
     (open: boolean) => {
@@ -82,7 +84,7 @@ export function AutomationSetupControls({
           <PopoverTrigger asChild>
             <ControlButton
               icon={CalendarClock}
-              label="Trigger"
+              label={t("triggerLabel")}
               value={triggerLabel}
               valid={triggerValid}
             />
@@ -118,7 +120,7 @@ export function AutomationSetupControls({
           <PopoverTrigger asChild>
             <ControlButton
               icon={FolderGit2}
-              label="Environment"
+              label={t("environmentLabel")}
               value={environmentLabel}
               valid={environmentValid}
             />
@@ -159,6 +161,7 @@ export function AutomationSetupSubmitButton({
   disabledSubmit: boolean;
   isSubmitting: boolean;
 }) {
+  const t = useTranslations("automation.setupControls");
   return (
     <div className="flex justify-end">
       <Tooltip>
@@ -170,10 +173,10 @@ export function AutomationSetupSubmitButton({
             disabled={disabledSubmit}
             aria-label={
               isSubmitting
-                ? "Saving automation"
+                ? t("submit.saving")
                 : mode === "create"
-                  ? "Create automation"
-                  : "Update automation"
+                  ? t("submit.createAria")
+                  : t("submit.updateAria")
             }
           >
             {isSubmitting ? (
@@ -184,7 +187,7 @@ export function AutomationSetupSubmitButton({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {mode === "create" ? "Create Automation" : "Update Automation"}
+          {mode === "create" ? t("submit.create") : t("submit.update")}
         </TooltipContent>
       </Tooltip>
     </div>
@@ -200,6 +203,7 @@ function NameInlineControl({
   valid: boolean;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("automation.setupControls");
   return (
     <div
       className={cn(
@@ -212,7 +216,7 @@ function NameInlineControl({
         htmlFor="automation-display-name"
         className="shrink-0 font-medium text-foreground/88"
       >
-        Name
+        {t("name.label")}
       </label>
       <Input
         id="automation-display-name"
@@ -223,7 +227,7 @@ function NameInlineControl({
             event.preventDefault();
           }
         }}
-        placeholder="Daily repo health"
+        placeholder={t("name.placeholder")}
         maxLength={80}
         className="h-7 !w-[8rem] min-w-0 flex-none rounded-none border-0 !bg-transparent px-1.5 py-0 text-sm text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:border-transparent focus-visible:ring-0 dark:!bg-transparent sm:!w-[9rem]"
       />

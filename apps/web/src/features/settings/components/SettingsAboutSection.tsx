@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@workspace/ui";
 import { Download, ExternalLink, LoaderCircle, RotateCcw } from "lucide-react";
 
@@ -39,6 +40,7 @@ export function SettingsAboutSection({
   onCheckCliVersion,
   onCheckForUpdate,
 }: SettingsAboutSectionProps) {
+  const t = useTranslations("settings.aboutSection");
   const isChecking = status.stage === "checking";
   const isDownloading = status.stage === "downloading";
   const isInstalling = status.stage === "installing";
@@ -51,33 +53,33 @@ export function SettingsAboutSection({
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
           <div>
-            <p className="text-base font-medium text-foreground">Runtime</p>
+            <p className="text-base font-medium text-foreground">{t("runtime.title")}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Current environment that is rendering this settings panel.
+              {t("runtime.description")}
             </p>
           </div>
           <div className="flex items-center text-sm font-medium text-foreground">
-            {isTauriRuntime() ? "Desktop" : "Web"}
+            {isTauriRuntime() ? t("runtime.desktop") : t("runtime.web")}
           </div>
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
           <div>
-            <p className="text-base font-medium text-foreground">Version</p>
+            <p className="text-base font-medium text-foreground">{t("version.title")}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Current app version reported by the desktop runtime.
+              {t("version.description")}
             </p>
           </div>
           <div className="flex items-center text-sm font-medium text-foreground">
-            {appVersion || "Unavailable"}
+            {appVersion || t("version.unavailable")}
           </div>
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
           <div>
-            <p className="text-base font-medium text-foreground">Atmos CLI</p>
+            <p className="text-base font-medium text-foreground">{t("cli.title")}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Check for the latest CLI updates.
+              {t("cli.description")}
             </p>
           </div>
           <div className="flex items-center">
@@ -92,7 +94,7 @@ export function SettingsAboutSection({
                 ) : (
                   <Download className="mr-2 size-4" />
                 )}
-                Install Update
+                {t("cli.installUpdate")}
               </Button>
             ) : (
               <Button
@@ -106,7 +108,7 @@ export function SettingsAboutSection({
                 ) : (
                   <RotateCcw className="mr-2 size-4" />
                 )}
-                Check for Updates
+                {t("cli.checkForUpdates")}
               </Button>
             )}
           </div>
@@ -115,9 +117,9 @@ export function SettingsAboutSection({
         {isTauriRuntime() && (
           <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
             <div>
-              <p className="text-base font-medium text-foreground">Check for updates</p>
+              <p className="text-base font-medium text-foreground">{t("desktop.title")}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Query the desktop updater for the latest available release.
+                {t("desktop.description")}
               </p>
             </div>
             <div className="flex items-center">
@@ -132,7 +134,7 @@ export function SettingsAboutSection({
                 ) : (
                   <RotateCcw className="mr-2 size-4" />
                 )}
-                Check for Updates
+                {t("desktop.checkForUpdates")}
               </Button>
             </div>
           </div>
@@ -144,13 +146,20 @@ export function SettingsAboutSection({
 
 export function renderDesktopUpdateAvailableToast(
   info: UpdateInfo,
+  copy: {
+    manualDescription: string;
+    automaticDescription: string;
+    openGitHub: string;
+    whatsNew: string;
+    install: string;
+  },
   onInstall?: () => void,
 ) {
   if (info.manualDownloadOnly) {
     return (
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          This prerelease version is available from GitHub releases.
+          {copy.manualDescription}
         </p>
         <Button size="sm" asChild>
           <a
@@ -159,7 +168,7 @@ export function renderDesktopUpdateAvailableToast(
             rel="noopener noreferrer"
           >
             <ExternalLink className="mr-1.5 size-3.5" />
-            Open GitHub
+            {copy.openGitHub}
           </a>
         </Button>
       </div>
@@ -169,7 +178,7 @@ export function renderDesktopUpdateAvailableToast(
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        A newer desktop version is ready to install.
+        {copy.automaticDescription}
       </p>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" asChild>
@@ -179,12 +188,12 @@ export function renderDesktopUpdateAvailableToast(
             rel="noopener noreferrer"
           >
             <ExternalLink className="mr-1.5 size-3.5" />
-            What&apos;s New
+            {copy.whatsNew}
           </a>
         </Button>
         <Button size="sm" onClick={onInstall}>
           <Download className="mr-1.5 size-3.5" />
-          Install
+          {copy.install}
         </Button>
       </div>
     </div>

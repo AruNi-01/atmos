@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import {
   Button,
@@ -37,9 +38,6 @@ import type { TerminalAgentReasoningSupport } from "@/features/agent/lib/termina
 import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 import { cn } from "@/shared/lib/utils";
 
-const AUTOMATION_SNAPSHOT_TOOLTIP =
-  "Saved configs are just templates. This automation keeps its own snapshot.";
-
 type TerminalAgentRunConfigSharedProps = {
   agentId: string;
   agentLabel: string;
@@ -70,6 +68,7 @@ export function TerminalAgentRunConfigContent({
   showActions?: boolean;
   liveApply?: boolean;
 }) {
+  const t = useTranslations("Agent.components");
   const [, setSettingsModalOpen] = useQueryState(
     "settingsModal",
     settingsModalParams.settingsModal,
@@ -181,14 +180,14 @@ export function TerminalAgentRunConfigContent({
       if (conflicts.length > 0) {
         return {
           config: null,
-          error: `Remove conflicting extra args: ${conflicts.join(", ")}.`,
+          error: t("runConfig.errors.removeConflictingArgs", { args: conflicts.join(", ") }),
         };
       }
       return { config: nextConfig, error: null };
     } catch (nextError) {
       return {
         config: null,
-        error: nextError instanceof Error ? nextError.message : "Invalid extra args.",
+        error: nextError instanceof Error ? nextError.message : t("runConfig.errors.invalidExtraArgs"),
       };
     }
   }, [
@@ -201,6 +200,7 @@ export function TerminalAgentRunConfigContent({
     reasoningEnabled,
     reasoningSupport.mode,
     reasoningValue,
+    t,
   ]);
 
   const handleApply = React.useCallback(() => {
@@ -233,16 +233,16 @@ export function TerminalAgentRunConfigContent({
     <div className={cn("space-y-4", embedded ? "w-full" : "pt-2")}>
       {showHeader ? (!embedded ? (
         <>
-          <DialogTitle>{agentLabel} run config</DialogTitle>
+          <DialogTitle>{t("runConfig.title", { agentLabel })}</DialogTitle>
           <DialogDescription>
-            Configure model, reasoning, and native CLI args for this agent.
+            {t("runConfig.description")}
           </DialogDescription>
         </>
       ) : (
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{agentLabel} run config</p>
+          <p className="text-sm font-medium text-foreground">{t("runConfig.title", { agentLabel })}</p>
           <p className="text-xs text-muted-foreground">
-            Configure model, reasoning, and native CLI args for this agent.
+            {t("runConfig.description")}
           </p>
         </div>
       )) : null}
@@ -252,22 +252,22 @@ export function TerminalAgentRunConfigContent({
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <span>Saved config</span>
+                <span>{t("runConfig.savedConfig.label")}</span>
               </div>
               <button
                 type="button"
                 onClick={handleOpenCodeAgentSettings}
                 className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                Manage configs
+                {t("common.manageConfigs")}
               </button>
             </div>
             <Select value={selectedTemplateId} onValueChange={applyTemplate}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a saved config" />
+                <SelectValue placeholder={t("runConfig.savedConfig.placeholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">No saved config</SelectItem>
+                <SelectItem value="__none__">{t("runConfig.savedConfig.none")}</SelectItem>
                 {filteredSavedConfigs.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
                     {item.name}
@@ -278,7 +278,7 @@ export function TerminalAgentRunConfigContent({
           </div>
         ) : purpose === "automation" ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Run settings are saved as an automation snapshot.</span>
+            <span>{t("runConfig.automation.info")}</span>
             <Tooltip open={automationTooltipOpen} delayDuration={400}>
               <TooltipTrigger asChild>
                 <button
@@ -293,7 +293,7 @@ export function TerminalAgentRunConfigContent({
                 </button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-xs leading-5">
-                {AUTOMATION_SNAPSHOT_TOOLTIP}
+                {t("runConfig.automation.tooltip")}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -304,11 +304,11 @@ export function TerminalAgentRunConfigContent({
         <div className="space-y-3 rounded-xl border border-border p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-foreground">Model</p>
+              <p className="text-sm font-medium text-foreground">{t("runConfig.model.title")}</p>
               <p className="text-xs text-muted-foreground">
                 {capability.modelInputMode === "catalog"
-                  ? "Enter or pick the model for this run."
-                  : "Enter the model id for this run."}
+                  ? t("runConfig.model.catalogDescription")
+                  : t("runConfig.model.manualDescription")}
               </p>
             </div>
             <Switch checked={modelEnabled} onCheckedChange={setModelEnabled} />
@@ -318,7 +318,9 @@ export function TerminalAgentRunConfigContent({
               {capability.modelInputMode === "catalog" && modelCatalog?.status === "ok" ? (
                 <Select value={modelValue || undefined} onValueChange={setModelValue}>
                   <SelectTrigger>
-                    <SelectValue placeholder={modelCatalogLoading ? "Loading models…" : "Choose a model"} />
+                    <SelectValue placeholder={modelCatalogLoading
+                      ? t("runConfig.model.loadingModels")
+                      : t("runConfig.model.chooseModel")} />
                   </SelectTrigger>
                   <SelectContent>
                     {catalogModels.map((item) => (
@@ -332,20 +334,26 @@ export function TerminalAgentRunConfigContent({
                 <Input
                   value={modelValue}
                   onChange={(event) => setModelValue(event.target.value)}
-                  placeholder={definition?.modelList?.supported ? "e.g. claude-sonnet-4.8" : "Enter model id"}
+                  placeholder={definition?.modelList?.supported
+                    ? t("runConfig.model.examplePlaceholder")
+                    : t("runConfig.model.enterModelId")}
                 />
               )}
               {capability.modelInputMode === "catalog" ? (
                 <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
                   <span>
                     {modelCatalogLoading
-                      ? "Loading available models…"
+                      ? t("runConfig.model.loadingAvailableModels")
                       : modelCatalog?.status === "ok"
-                        ? `Using ${modelCatalog.source === "cache" ? "cached" : "live"} model list.`
-                        : modelCatalog?.message ?? "Live model list unavailable. Enter a model id manually."}
+                        ? t("runConfig.model.usingSource", {
+                          source: modelCatalog.source === "cache"
+                            ? t("runConfig.model.source.cached")
+                            : t("runConfig.model.source.live"),
+                        })
+                        : modelCatalog?.message ?? t("runConfig.model.liveUnavailable")}
                   </span>
                   <Button type="button" variant="ghost" size="sm" onClick={() => void reloadModelCatalog()}>
-                    Refresh
+                    {t("common.refresh")}
                   </Button>
                 </div>
               ) : null}
@@ -358,11 +366,11 @@ export function TerminalAgentRunConfigContent({
         <div className="space-y-3 rounded-xl border border-border p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-foreground">Reasoning</p>
+              <p className="text-sm font-medium text-foreground">{t("runConfig.reasoning.title")}</p>
               <p className="text-xs text-muted-foreground">
                 {reasoningSupport.mode === "manual"
-                  ? "Enter the agent-specific reasoning value for this run."
-                  : "Choose the reasoning setting for this run."}
+                  ? t("runConfig.reasoning.manualDescription")
+                  : t("runConfig.reasoning.enumDescription")}
               </p>
             </div>
             <Switch checked={reasoningEnabled} onCheckedChange={setReasoningEnabled} />
@@ -372,12 +380,12 @@ export function TerminalAgentRunConfigContent({
               <Input
                 value={reasoningValue}
                 onChange={(event) => setReasoningValue(event.target.value)}
-                placeholder={reasoningSupport.placeholder ?? "Enter reasoning value"}
+                placeholder={reasoningSupport.placeholder ?? t("runConfig.reasoning.enterValue")}
               />
             ) : (
               <Select value={reasoningValue} onValueChange={setReasoningValue}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose reasoning" />
+                  <SelectValue placeholder={t("runConfig.reasoning.choose")} />
                 </SelectTrigger>
                 <SelectContent>
                   {reasoningOptions.map((item) => (
@@ -394,15 +402,15 @@ export function TerminalAgentRunConfigContent({
 
       <div className="space-y-2 rounded-xl border border-border p-4">
         <div>
-          <p className="text-sm font-medium text-foreground">Extra args</p>
+          <p className="text-sm font-medium text-foreground">{t("runConfig.extraArgs.title")}</p>
           <p className="text-xs text-muted-foreground">
-            Optional native CLI args. Structured model or reasoning flags should not be duplicated here.
+            {t("runConfig.extraArgs.description")}
           </p>
         </div>
         <Input
           value={extraArgsText}
           onChange={(event) => setExtraArgsText(event.target.value)}
-          placeholder="e.g. --temperature 0.2 --foo bar"
+          placeholder={t("runConfig.extraArgs.placeholder")}
         />
       </div>
 
@@ -411,10 +419,10 @@ export function TerminalAgentRunConfigContent({
       {showActions ? (
         <div className="flex items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="button" onClick={handleApply}>
-            Apply
+            {t("common.apply")}
           </Button>
         </div>
       ) : null}

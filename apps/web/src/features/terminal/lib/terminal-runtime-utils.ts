@@ -3,6 +3,7 @@ import type {
   ClipboardSelectionType,
   IClipboardProvider,
 } from "@xterm/addon-clipboard";
+import type { TerminalPaneAgent } from "../types/index";
 
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { terminalFont } from "./theme";
@@ -11,6 +12,7 @@ const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
 const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
 const NERD_FONT_TEST_GLYPH = "\uE0B6";
 const SHIFT_ENTER_CSI_U = "\x1b[13;2u";
+const CTRL_ENTER_CSI_U = "\x1b[13;5u";
 const MIN_TERMINAL_COLS = 20;
 const MIN_TERMINAL_ROWS = 8;
 
@@ -70,6 +72,36 @@ export function wrapBracketedPaste(text: string): string {
 
 export function shiftEnterInput(): string {
   return isTauriRuntime() ? SHIFT_ENTER_CSI_U : "\n";
+}
+
+export function ctrlEnterInput(): string {
+  return CTRL_ENTER_CSI_U;
+}
+
+export type TerminalAgentSubmitMode =
+  | "text-enter"
+  | "text-ctrl-enter"
+  | "bracketed-paste-enter";
+
+export function resolveTerminalAgentSubmitMode(
+  agent?: TerminalPaneAgent,
+): TerminalAgentSubmitMode {
+  const values = [
+    agent?.id,
+    agent?.command,
+    agent?.pipeCommand,
+    agent?.label,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.trim().toLowerCase());
+
+  if (values.some((value) => value.includes("cursor"))) {
+    return "text-ctrl-enter";
+  }
+  if (values.some((value) => value.includes("codex"))) {
+    return "bracketed-paste-enter";
+  }
+  return "text-enter";
 }
 
 export function normalizeSnapshotData(data: string): string {

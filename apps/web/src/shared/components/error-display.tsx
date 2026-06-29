@@ -1,4 +1,5 @@
 import { cn } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 
 interface ErrorDisplayProps {
   message?: string;
@@ -9,10 +10,11 @@ interface ErrorDisplayProps {
 
 export function ErrorDisplay({
   message,
-  fallbackMessage = "An unexpected error occurred.",
+  fallbackMessage,
   onRetry,
   className,
 }: ErrorDisplayProps) {
+  const t = useTranslations("shared.errorDisplay");
   return (
     <div
       className={cn(
@@ -37,16 +39,16 @@ export function ErrorDisplay({
           </svg>
         </div>
         <h2 className="text-lg font-semibold text-foreground">
-          Something went wrong
+          {t("title")}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {message || fallbackMessage}
+          {message || fallbackMessage || t("fallbackMessage")}
         </p>
         <button
           onClick={onRetry}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          Try Again
+          {t("retry")}
         </button>
       </div>
     </div>

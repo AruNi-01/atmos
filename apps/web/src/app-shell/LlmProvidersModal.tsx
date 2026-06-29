@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { BrainCircuit } from "lucide-react";
 import {
   Button,
@@ -68,6 +69,7 @@ export function LlmProviderEditorDialog({
   providerId?: string | null;
   onSaved?: () => void;
 }) {
+  const t = useTranslations();
   const [version, setVersion] = useState(1);
   const [providers, setProviders] = useState<ProviderDraft[]>([]);
   const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
@@ -108,8 +110,8 @@ export function LlmProviderEditorDialog({
         );
         if (!selected) {
           toastManager.add({
-            title: "Provider not found",
-            description: "The selected provider no longer exists.",
+            title: t("appShell.llmProviders.toasts.providerNotFound.title"),
+            description: t("appShell.llmProviders.toasts.providerNotFound.description"),
             type: "error",
           });
           onOpenChange(false);
@@ -127,15 +129,17 @@ export function LlmProviderEditorDialog({
       setTestOutput("");
     } catch (error) {
       toastManager.add({
-        title: "Failed to load provider settings",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("appShell.llmProviders.toasts.loadProviderSettings.title"),
+        description: error instanceof Error
+          ? error.message
+          : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
       onOpenChange(false);
     } finally {
       setLoading(false);
     }
-  }, [onOpenChange, providerId]);
+  }, [onOpenChange, providerId, t]);
 
   useEffect(() => {
     if (!open) return;
@@ -154,10 +158,10 @@ export function LlmProviderEditorDialog({
 
   const providerNameIssue = useMemo(() => {
     if (!providerEditor) return null;
-    return buildProviderNameIssues(providerEditorCandidates)[
+    return buildProviderNameIssues(providerEditorCandidates, t)[
       providerEditor.clientKey
     ];
-  }, [providerEditor, providerEditorCandidates]);
+  }, [providerEditor, providerEditorCandidates, t]);
 
   const showProviderNameIssue =
     !!providerNameIssue && (providerNameTouched || providerSaveAttempted);
@@ -200,10 +204,14 @@ export function LlmProviderEditorDialog({
       setTestStatus("pass");
       setTestOutput(streamedOutput || result.text || "");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error
+        ? error.message
+        : t("appShell.llmProviders.common.unknownError");
       setTestStatus("fail");
       setTestOutput(
-        streamedOutput ? `${streamedOutput}\n\n[ERROR] ${message}` : `[ERROR] ${message}`,
+        streamedOutput
+          ? `${streamedOutput}\n\n${t("appShell.llmProviders.providerEditor.test.errorPrefix")} ${message}`
+          : `${t("appShell.llmProviders.providerEditor.test.errorPrefix")} ${message}`,
       );
     } finally {
       providerTestUnsubscribeRef.current?.();
@@ -218,10 +226,11 @@ export function LlmProviderEditorDialog({
     const validationError = validateProvider(
       providerEditor,
       providerEditorCandidates,
+      t,
     );
     if (validationError) {
       toastManager.add({
-        title: "Invalid provider settings",
+        title: t("appShell.llmProviders.toasts.invalidProviderSettings.title"),
         description: validationError,
         type: "error",
       });
@@ -250,8 +259,10 @@ export function LlmProviderEditorDialog({
     } catch (error) {
       setProviderSaveState("idle");
       toastManager.add({
-        title: "Failed to save provider",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("appShell.llmProviders.toasts.saveProvider.title"),
+        description: error instanceof Error
+          ? error.message
+          : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
     }
@@ -295,8 +306,10 @@ export function LlmProviderEditorDialog({
     } catch (error) {
       setProviderSaveState("idle");
       toastManager.add({
-        title: "Failed to delete provider",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("appShell.llmProviders.toasts.deleteProvider.title"),
+        description: error instanceof Error
+          ? error.message
+          : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
     }
@@ -305,9 +318,9 @@ export function LlmProviderEditorDialog({
   const selectedProviderIsUnsaved =
     !!providerEditor && !providerEditor.persistedId;
   const selectedProviderHint = selectedProviderIsUnsaved
-    ? "New provider"
+    ? "appShell.llmProviders.providerDialog.description.newProvider"
     : providerEditor
-      ? KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hint
+      ? KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hintKey ?? null
       : null;
 
   return (
@@ -318,10 +331,14 @@ export function LlmProviderEditorDialog({
             <div className="flex size-9 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm">
               <BrainCircuit className="size-4 text-primary" />
             </div>
-            {providerId ? "Edit Provider" : "Add Provider"}
+            {providerId
+              ? t("appShell.llmProviders.providerDialog.title.edit")
+              : t("appShell.llmProviders.providerDialog.title.add")}
           </DialogTitle>
           <DialogDescription>
-            {selectedProviderHint ?? "Configure a lightweight provider for background tasks."}
+            {selectedProviderHint
+              ? t(selectedProviderHint)
+              : t("appShell.llmProviders.providerDialog.description.default")}
           </DialogDescription>
         </DialogHeader>
 
@@ -366,6 +383,7 @@ export function LlmRoutingDialog({
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
 }) {
+  const t = useTranslations();
   const [version, setVersion] = useState(1);
   const [providers, setProviders] = useState<ProviderDraft[]>([]);
   const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
@@ -394,15 +412,17 @@ export function LlmRoutingDialog({
       setRoutingSaveState("idle");
     } catch (error) {
       toastManager.add({
-        title: "Failed to load routing settings",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("appShell.llmProviders.toasts.loadRoutingSettings.title"),
+        description: error instanceof Error
+          ? error.message
+          : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
       onOpenChange(false);
     } finally {
       setLoading(false);
     }
-  }, [onOpenChange]);
+  }, [onOpenChange, t]);
 
   useEffect(() => {
     if (!open) return;
@@ -419,10 +439,10 @@ export function LlmRoutingDialog({
   );
 
   const handleSaveRouting = async () => {
-    const validationError = validateRouting(routingDraft, providers);
+    const validationError = validateRouting(routingDraft, providers, t);
     if (validationError) {
       toastManager.add({
-        title: "Invalid routing settings",
+        title: t("appShell.llmProviders.toasts.invalidRoutingSettings.title"),
         description: validationError,
         type: "error",
       });
@@ -443,8 +463,10 @@ export function LlmRoutingDialog({
     } catch (error) {
       setRoutingSaveState("idle");
       toastManager.add({
-        title: "Failed to save routing settings",
-        description: error instanceof Error ? error.message : "Unknown error",
+        title: t("appShell.llmProviders.toasts.saveRoutingSettings.title"),
+        description: error instanceof Error
+          ? error.message
+          : t("appShell.llmProviders.common.unknownError"),
         type: "error",
       });
     }
@@ -459,10 +481,10 @@ export function LlmRoutingDialog({
               <div className="flex size-9 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm">
                 <BrainCircuit className="size-4 text-primary" />
               </div>
-              Routing
+              {t("appShell.llmProviders.routingDialog.title")}
             </DialogTitle>
             <DialogDescription>
-              Choose which provider handles each lightweight background feature.
+              {t("appShell.llmProviders.routingDialog.description")}
             </DialogDescription>
           </DialogHeader>
 
@@ -478,16 +500,16 @@ export function LlmRoutingDialog({
 
           <DialogFooter className="border-t border-border px-6 py-4">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Close
+              {t("appShell.llmProviders.common.close")}
             </Button>
             <SaveStateButton
               state={routingSaveState}
-              idleLabel="Save"
-              savingLabel="Saving..."
-              savedLabel="Saved"
+              idleLabel={t("appShell.llmProviders.common.save")}
+              savingLabel={t("appShell.llmProviders.common.saving")}
+              savedLabel={t("appShell.llmProviders.common.saved")}
               onClick={() => void handleSaveRouting()}
               disabled={routingSaveState === "saving" || loading}
-              measureLabel="Save"
+              measureLabel={t("appShell.llmProviders.common.save")}
             />
           </DialogFooter>
         </DialogContent>

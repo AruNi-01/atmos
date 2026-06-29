@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Button,
   Collapsible,
@@ -59,21 +60,22 @@ export function CreateWorkspaceHeader({
   isRepoLoading,
   repoLabel,
 }: CreateWorkspaceHeaderProps) {
+  const t = useTranslations('Workspace.components');
   return (
     <DialogHeader className="flex flex-row items-start justify-between gap-4 pr-8">
-      <DialogTitle>{isBuildFromIssue ? 'Build Workspace from Issue' : 'Create New Workspace'}</DialogTitle>
+      <DialogTitle>{isBuildFromIssue ? t('createDialog.header.buildFromIssue') : t('createDialog.header.createNew')}</DialogTitle>
       <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
         <Github className="size-3.5" />
         {!projectSelectionInHeader ? (
           <>
-            <span>{selectedProjectName ?? 'Unknown project'}</span>
+            <span>{selectedProjectName ?? t('createDialog.header.unknownProject')}</span>
             <span className="opacity-40">•</span>
           </>
         ) : null}
         {isRepoLoading ? (
           <span className="inline-flex items-center gap-1">
             <Loader2 className="size-3 animate-spin" />
-            Detecting repository
+            {t('createDialog.header.detectingRepository')}
           </span>
         ) : (
           <span>{repoLabel}</span>
@@ -151,9 +153,10 @@ export function BaseBranchField({
   onFilterChange,
   onSelectBranch,
 }: BaseBranchFieldProps) {
+  const t = useTranslations('Workspace.components');
   return (
     <div className="grid gap-2">
-      <Label htmlFor="workspace-base-branch-trigger">Base branch</Label>
+      <Label htmlFor="workspace-base-branch-trigger">{t('createDialog.fields.baseBranch')}</Label>
       <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>
           <button
@@ -174,19 +177,19 @@ export function BaseBranchField({
           className="w-[var(--radix-dropdown-menu-trigger-width)] p-3 bg-background overflow-visible"
         >
           <div className="space-y-2">
-            <p className="text-[12px] text-muted-foreground">Select target branch</p>
+            <p className="text-[12px] text-muted-foreground">{t('createDialog.baseBranch.selectTargetBranch')}</p>
             <Input
               value={branchFilter}
               onChange={(event) => onFilterChange(event.target.value)}
               onKeyDown={(event) => event.stopPropagation()}
-              placeholder="Search branches..."
+              placeholder={t('createDialog.baseBranch.searchBranches')}
               className="h-8 text-[12px] bg-background"
             />
           </div>
           <ScrollArea className="h-[240px] mt-2 overflow-x-auto">
             <div className="p-1 w-max min-w-full">
               {isLoading ? (
-                <div className="p-2 text-[12px] text-muted-foreground text-center">Loading branches...</div>
+                <div className="p-2 text-[12px] text-muted-foreground text-center">{t('createDialog.baseBranch.loadingBranches')}</div>
               ) : filteredRemoteBranches.length > 0 ? (
                 filteredRemoteBranches.map((remoteBranch) => (
                   <DropdownMenuItem
@@ -209,18 +212,18 @@ export function BaseBranchField({
                   </DropdownMenuItem>
                 ))
               ) : (
-                <div className="p-2 text-[12px] text-muted-foreground text-center">No matching branches</div>
+                <div className="p-2 text-[12px] text-muted-foreground text-center">{t('createDialog.baseBranch.noMatchingBranches')}</div>
               )}
             </div>
           </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
       <p className="text-xs text-muted-foreground">
-        Workspace worktree and downstream Git comparisons will use this remote branch.
+        {t('createDialog.baseBranch.help')}
       </p>
       {!!selectedProjectId && !isLoading && remoteBranches.length === 0 && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          No remote branches found for this project.
+          {t('createDialog.baseBranch.noRemoteBranches')}
         </div>
       )}
     </div>
@@ -246,15 +249,16 @@ export function WorkspaceBranchField({
   onBranchChange,
   onRegenerateBranch,
 }: WorkspaceBranchFieldProps) {
+  const t = useTranslations('Workspace.components');
   return (
     <div ref={branchFieldRef} className="grid gap-2">
-      <Label htmlFor="workspace-branch">Current workspace branch</Label>
+      <Label htmlFor="workspace-branch">{t('createDialog.fields.currentWorkspaceBranch')}</Label>
       <Input
         id="workspace-branch"
         ref={branchInputRef}
         value={branch}
         onChange={onBranchChange}
-        placeholder="Workspace branch, typing..."
+        placeholder={t('createDialog.workspaceBranch.placeholder')}
       />
       {branchError && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -266,13 +270,13 @@ export function WorkspaceBranchField({
               className="ml-1 h-auto p-0 text-xs align-baseline"
               onClick={onRegenerateBranch}
             >
-              Random generate again
+              {t('createDialog.workspaceBranch.randomGenerateAgain')}
             </Button>
           )}
         </div>
       )}
       <p className="text-xs text-muted-foreground">
-        Branch name is independent from the displayed workspace name.
+        {t('createDialog.workspaceBranch.help')}
       </p>
     </div>
   );
@@ -305,6 +309,7 @@ export function GithubLinkImportSection({
   onRefreshIssues,
   onRefreshPrs,
 }: GithubLinkImportSectionProps) {
+  const t = useTranslations('Workspace.components');
   return (
     <div className="mt-1 rounded-md border border-border bg-background">
       <div className="flex items-center gap-2 p-1.5">
@@ -321,7 +326,7 @@ export function GithubLinkImportSection({
           )}
         >
           <CircleDot className="size-4" />
-          <span className="font-medium">GitHub Issue</span>
+          <span className="font-medium">{t('createDialog.github.issue')}</span>
         </button>
         <button
           type="button"
@@ -336,7 +341,7 @@ export function GithubLinkImportSection({
           )}
         >
           <GitPullRequestArrow className="size-4" />
-          <span className="font-medium">GitHub PR</span>
+          <span className="font-medium">{t('createDialog.github.pr')}</span>
         </button>
         {repoContext && linkType === 'issue' ? (
           <Button
@@ -346,7 +351,7 @@ export function GithubLinkImportSection({
             className="size-7"
             onClick={onRefreshIssues}
             disabled={isIssuesLoading}
-            title="Refresh issues"
+            title={t('createDialog.github.refreshIssues')}
           >
             {isIssuesLoading ? (
               <LoaderCircle className="size-3.5 animate-spin" />
@@ -362,7 +367,7 @@ export function GithubLinkImportSection({
             className="size-7"
             onClick={onRefreshPrs}
             disabled={isPrsLoading}
-            title="Refresh PRs"
+            title={t('createDialog.github.refreshPrs')}
           >
             {isPrsLoading ? (
               <LoaderCircle className="size-3.5 animate-spin" />
@@ -410,6 +415,7 @@ export function CreateWorkspaceFooter({
   onCreateLabel,
   onClose,
 }: CreateWorkspaceFooterProps) {
+  const t = useTranslations('Workspace.components');
   return (
     <DialogFooter className="mt-4 flex w-full flex-row items-center justify-between sm:justify-between">
       <div className="flex items-center gap-2">
@@ -439,10 +445,10 @@ export function CreateWorkspaceFooter({
 
       <div className="flex items-center gap-2">
         <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" disabled={!canSubmit}>
-          {isSubmitting ? 'Creating...' : 'Create Workspace'}
+          {isSubmitting ? t('createDialog.footer.creating') : t('createDialog.footer.createWorkspace')}
         </Button>
       </div>
     </DialogFooter>

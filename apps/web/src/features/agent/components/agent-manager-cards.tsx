@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Button, cn, Skeleton } from "@workspace/ui";
 import type { RegistryAgent, CustomAgent } from "@/api/ws-api";
 import {
@@ -61,6 +62,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
   onInstall,
   onRemoveRequest,
 }) {
+  const t = useTranslations("Agent.components");
   const isInstalling = installingRegistryIds.has(item.id);
 
   return (
@@ -100,7 +102,7 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                 item.installed_version &&
                 needsUpdate(item.installed_version, item.version) && (
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                    (v{item.installed_version} installed)
+                    {t("managerCards.installedVersion", { version: item.installed_version })}
                   </span>
                 )}
             </div>
@@ -118,11 +120,11 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
           )}
         >
           {!item.installed
-            ? "Available"
+            ? t("managerCards.status.available")
             : item.installed_version &&
                 needsUpdate(item.installed_version, item.version)
-              ? "Update Available"
-              : "Installed"}
+              ? t("managerCards.status.updateAvailable")
+              : t("managerCards.status.installed")}
         </span>
       </div>
 
@@ -144,8 +146,8 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                   )
                 }
                 className="inline-flex size-8 items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer transition-colors"
-                title="Open Git repository"
-                aria-label={`Open ${item.name} repository`}
+                title={t("managerCards.repositoryTitle")}
+                aria-label={t("managerCards.repositoryAria", { name: item.name })}
               >
                 <Github className="size-4" />
               </button>
@@ -164,12 +166,12 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
               {isInstalling ? (
                 <>
                   <Loader2 className="mr-1 size-3 animate-spin" />
-                  Installing
+                  {t("managerCards.actions.installing")}
                 </>
               ) : (
                 <>
                   <ArrowDownToLine className="mr-1 size-3.5" />
-                  Install
+                  {t("managerCards.actions.install")}
                 </>
               )}
             </Button>
@@ -187,12 +189,12 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                     {isInstalling ? (
                       <>
                         <Loader2 className="mr-1 size-3 animate-spin" />
-                        Updating
+                        {t("managerCards.actions.updating")}
                       </>
                     ) : (
                       <>
                         <CircleFadingArrowUp className="mr-1 size-3" />
-                        Upgrade
+                        {t("managerCards.actions.upgrade")}
                       </>
                     )}
                   </Button>
@@ -209,12 +211,12 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                 {removingRegistryId === item.id ? (
                   <>
                     <Loader2 className="mr-1 size-3 animate-spin" />
-                    Removing
+                    {t("managerCards.actions.removing")}
                   </>
                 ) : (
                   <>
                     <Trash2 className="mr-1 size-3.5" />
-                    Remove
+                    {t("common.remove")}
                   </>
                 )}
               </Button>
@@ -244,6 +246,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
     onEdit,
     onRemoveRequest,
   }) {
+    const t = useTranslations("Agent.components");
     return (
       <motion.div
         key={`custom-${agent.name}`}
@@ -269,7 +272,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
             </div>
           </div>
           <span className="rounded-full border border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2.5 py-0.5 text-[10px] font-medium">
-            Custom
+            {t("managerCards.status.custom")}
           </span>
         </div>
 
@@ -301,7 +304,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
               className="h-8 rounded-lg px-4 text-xs border-border/60 bg-background opacity-0 pointer-events-none translate-x-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-x-0 hover:bg-muted/50 transition-all"
             >
               <Pencil className="mr-1 size-3.5" />
-              Edit
+              {t("common.edit")}
             </Button>
             <Button
               variant="secondary"
@@ -313,12 +316,12 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
               {removingCustomName === agent.name ? (
                 <>
                   <Loader2 className="mr-1 size-3 animate-spin" />
-                  Removing
+                  {t("managerCards.actions.removing")}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-1 size-3.5" />
-                  Remove
+                  {t("common.remove")}
                 </>
               )}
             </Button>
@@ -341,8 +344,11 @@ export const AgentEmptyState: React.FC<AgentEmptyStateProps> = ({
   message,
   query,
   onClearSearch,
-}) => (
-  <motion.div
+}) => {
+  const t = useTranslations("Agent.components");
+
+  return (
+    <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     className="flex flex-col items-center justify-center py-24 text-center"
@@ -350,17 +356,18 @@ export const AgentEmptyState: React.FC<AgentEmptyStateProps> = ({
     <div className="size-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4">
       <Search className="size-8 text-muted-foreground/30" />
     </div>
-    <h3 className="text-base font-medium text-foreground">No agents found</h3>
+    <h3 className="text-base font-medium text-foreground">{t("managerCards.emptyState.title")}</h3>
     <p className="mt-1 text-sm text-muted-foreground max-w-[280px] text-pretty">
       {message}
     </p>
     {query && (
       <Button variant="link" onClick={onClearSearch} className="mt-4">
-        Clear search filter
+        {t("managerCards.emptyState.clearSearch")}
       </Button>
     )}
   </motion.div>
-);
+  );
+};
 
 /* ------------------------------------------------------------------ */
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Check,
   ChevronDown,
@@ -65,11 +66,12 @@ export function FeatureSelect({
   className?: string;
   onChange: (value: string | null) => void;
 }) {
+  const t = useTranslations();
   const normalizedValue = value === "__none__" ? null : (value ?? null);
   const selectedAgentId = parseAgentCliRouteValue(normalizedValue);
   const selectedProviderValue = selectedAgentId ? null : normalizedValue;
   const selectedLabel =
-    agentCliRouteLabel(normalizedValue, localAgentOptions) ??
+    agentCliRouteLabel(normalizedValue, localAgentOptions, t) ??
     (selectedProviderValue
       ? providerOptions.find((provider) => provider.value === selectedProviderValue)
           ?.label ?? selectedProviderValue
@@ -113,11 +115,15 @@ export function FeatureSelect({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="min-w-0 cursor-pointer">
               <Terminal className="size-4" />
-              <span className="min-w-0 flex-1 truncate">Local Agent CLI</span>
+              <span className="min-w-0 flex-1 truncate">
+                {t("appShell.llmProviders.featureSelect.localAgentCli")}
+              </span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-h-72 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto">
               {localAgentOptions.length === 0 ? (
-                <DropdownMenuItem disabled>No local agents</DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  {t("appShell.llmProviders.featureSelect.noLocalAgents")}
+                </DropdownMenuItem>
               ) : (
                 localAgentOptions.map((agent) => (
                   <DropdownMenuItem
@@ -161,6 +167,7 @@ export function FeatureLanguageAction({
   value?: string | null;
   onChange: (value: string | null) => void;
 }) {
+  const t = useTranslations();
   const preset = resolveFeatureLanguagePreset(value);
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState(preset);
@@ -211,8 +218,8 @@ export function FeatureLanguageAction({
             "h-7 w-7",
             normalizeFeatureLanguage(value) && "text-primary",
           )}
-          title={languageButtonLabel(value)}
-          aria-label={languageButtonLabel(value)}
+          title={languageButtonLabel(value, t)}
+          aria-label={languageButtonLabel(value, t)}
         >
           <Languages className="h-4 w-4" />
         </Button>
@@ -224,9 +231,11 @@ export function FeatureLanguageAction({
         className="w-72 space-y-3 p-4"
       >
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">Output language</p>
+          <p className="text-sm font-medium text-foreground">
+            {t("appShell.llmProviders.common.outputLanguage")}
+          </p>
           <p className="text-xs text-muted-foreground">
-            Force this feature to respond in a specific language.
+            {t("appShell.llmProviders.featureLanguage.description")}
           </p>
         </div>
 
@@ -244,23 +253,29 @@ export function FeatureLanguageAction({
           }}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Use prompt default" />
+            <SelectValue
+              placeholder={t("appShell.llmProviders.featureLanguage.usePromptDefault")}
+            />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none__">Use prompt default</SelectItem>
+            <SelectItem value="__none__">
+              {t("appShell.llmProviders.featureLanguage.usePromptDefault")}
+            </SelectItem>
             {FEATURE_LANGUAGE_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
             ))}
-            <SelectItem value="other">Other (custom)</SelectItem>
+            <SelectItem value="other">
+              {t("appShell.llmProviders.featureLanguage.otherCustom")}
+            </SelectItem>
           </SelectContent>
         </Select>
 
         {selection === "other" && (
           <Input
             value={customValue}
-            placeholder="e.g. 简体中文"
+            placeholder={t("appShell.llmProviders.featureLanguage.customPlaceholder")}
             onChange={(event) => {
               const nextCustomValue = event.target.value;
               setCustomValue(nextCustomValue);

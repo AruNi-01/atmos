@@ -1,6 +1,35 @@
+import { createTranslator } from "next-intl";
+
 import { wsRequest } from "@/api/ws/request";
 import { parseGithubTriggerConfig } from "@/api/ws/automation-dtos";
 import type { GithubEventFamily, GithubInt64, GithubTriggerConfig } from "@/features/automations/types";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+
+type AutomationsLocale = "en" | "zh";
+
+let cachedLocale: AutomationsLocale | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedTranslator: any = null;
+
+function automationsT(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const locale: AutomationsLocale =
+    currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedTranslator || cachedLocale !== locale) {
+    cachedLocale = locale;
+    cachedTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "automation" as never,
+    });
+  }
+
+  return cachedTranslator(key as never, values as never);
+}
 
 export interface GithubInstallation {
   installation_id: GithubInt64;
@@ -60,7 +89,9 @@ export async function createGithubSetupSession(
   server_id: string;
 }> {
   if (!hasGithubRelayPrerequisites(prereqs) || !prereqs.serverId) {
-    throw new Error("Connect this Computer to Atmos Relay before setting up GitHub.");
+    throw new Error(
+      automationsT("githubRelay.errors.connectComputerBeforeSetup"),
+    );
   }
   return githubRelayRequest(prereqs, "automation_github_setup_session", {
       server_id: prereqs.serverId,
@@ -97,7 +128,9 @@ export async function upsertGithubRoute(
   enabled: boolean,
 ): Promise<GithubRouteUpsertResult> {
   if (!hasGithubRelayPrerequisites(prereqs) || !prereqs.serverId) {
-    throw new Error("Connect this Computer to Atmos Relay before syncing the GitHub route.");
+    throw new Error(
+      automationsT("githubRelay.errors.connectComputerBeforeSync"),
+    );
   }
   return githubRelayRequest(prereqs, "automation_github_event_route_upsert", {
       route_id: config.route_id,
@@ -122,7 +155,9 @@ export async function deleteGithubRoute(
     return;
   }
   if (!hasGithubRelayPrerequisites(prereqs)) {
-    throw new Error("Connect this Computer to Atmos Relay before removing the GitHub route.");
+    throw new Error(
+      automationsT("githubRelay.errors.connectComputerBeforeRemove"),
+    );
   }
   try {
     await githubRelayRequest(prereqs, "automation_github_event_route_delete", {
@@ -148,7 +183,7 @@ async function githubRelayRequest<T>(
 ): Promise<T> {
   const accessToken = prereqs.accessToken.trim();
   if (!accessToken && !prereqs.serverCredentialsAvailable) {
-    throw new Error("Atmos Relay Access Token is missing.");
+    throw new Error(automationsT("githubRelay.errors.accessTokenMissing"));
   }
   const relayPayload: Record<string, unknown> = {
     relay_url: prereqs.relayUrl,

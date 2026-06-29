@@ -1,10 +1,14 @@
 "use client";
 
+import { createTranslator } from "next-intl";
 import {
   createShapeId,
   type Editor,
   type TLShapeId,
 } from "tldraw";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { Project } from "@/shared/types/domain";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
@@ -54,6 +58,23 @@ export type RelatedCanvasTerminalResult = {
   tmuxWindowName: string;
 };
 
+let cachedRelatedCanvasTerminalLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRelatedCanvasTerminalTranslator: any = null;
+
+function relatedCanvasTerminalT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedRelatedCanvasTerminalTranslator || cachedRelatedCanvasTerminalLocale !== locale) {
+    cachedRelatedCanvasTerminalLocale = locale;
+    cachedRelatedCanvasTerminalTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.relatedTerminal",
+    });
+  }
+  return cachedRelatedCanvasTerminalTranslator(key as never);
+}
+
 function toRelatedCanvasTerminalSourceContext(
   source: RelatedCanvasTerminalSourceContext | RelatedCanvasTerminalSourceShape | null | undefined,
 ): RelatedCanvasTerminalSourceContext | null {
@@ -94,23 +115,29 @@ export function resolveRelatedCanvasTerminalFrameName(
 ) {
   const sourceContext = toRelatedCanvasTerminalSourceContext(source);
   if (!sourceContext) {
-    return "Workspace";
+    return relatedCanvasTerminalT("fallback.workspace");
   }
 
   for (const project of projects) {
     if (sourceContext.contextScope === "project" && project.id === sourceContext.workspaceId) {
-      return project.name || sourceContext.projectName || "Project";
+      return project.name || sourceContext.projectName || relatedCanvasTerminalT("fallback.project");
     }
 
     const workspace = project.workspaces.find((candidate) => candidate.id === sourceContext.workspaceId);
     if (workspace) {
-      return workspace.displayName || workspace.name || sourceContext.workspaceName || project.name || "Workspace";
+      return (
+        workspace.displayName ||
+        workspace.name ||
+        sourceContext.workspaceName ||
+        project.name ||
+        relatedCanvasTerminalT("fallback.workspace")
+      );
     }
   }
 
   return sourceContext.contextScope === "project"
-    ? sourceContext.projectName || "Project"
-    : sourceContext.workspaceName || sourceContext.projectName || "Workspace";
+    ? sourceContext.projectName || relatedCanvasTerminalT("fallback.project")
+    : sourceContext.workspaceName || sourceContext.projectName || relatedCanvasTerminalT("fallback.workspace");
 }
 
 const RELATED_TERMINAL_GAP = 32;

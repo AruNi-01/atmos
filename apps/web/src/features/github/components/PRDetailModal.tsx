@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ import {
   PanelRightOpen,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
 import { cn } from '@/shared/lib/utils';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
@@ -86,6 +88,9 @@ interface PRDetailModalProps {
 type PRMainTab = 'description' | 'discussion' | 'commits' | 'files';
 
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
+  const locale = useLocale();
+  const t = useTranslations('github.prDetailModal');
+  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
@@ -122,8 +127,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
         id: `pr-review:${owner}/${repo}#${prNumber}:${thread.path}:${thread.line ?? 'line'}`,
         family: 'pr_review',
         context: agentFixContext,
-        label: `Fix PR review: ${fileName}`,
-        disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+        label: t('agentFix.threadLabel', { fileName }),
+        disabledReason: agentFixContext ? null : t('agentFix.openWorkspace'),
         getPrompt: () => ({
           prompt: buildPrReviewThreadFixPrompt(
             {
@@ -137,12 +142,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
             },
             thread,
           ),
-          terminalTabTitle: `PR #${prNumber} review fix`,
-          terminalPaneLabel: `Fix ${fileName}`,
+          terminalTabTitle: t('agentFix.terminalTabTitle', { prNumber }),
+          terminalPaneLabel: t('agentFix.threadPaneLabel', { fileName }),
         }),
       };
     },
-    [agentFixContext, branch, owner, pr, prNumber, repo],
+    [agentFixContext, branch, owner, pr, prNumber, repo, t],
   );
 
   const buildReviewAgentFixSource = React.useCallback(
@@ -151,13 +156,13 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       const threads = item.reviewCommentThreads ?? [];
       if (!item.body?.trim() && threads.length === 0) return undefined;
       const reviewId = (item as unknown as Record<string, unknown>).id;
-      const author = item.author?.login || 'reviewer';
+      const author = item.author?.login || t('agentFix.reviewerFallback');
       return {
         id: `pr-review:${owner}/${repo}#${prNumber}:review:${String(reviewId ?? item.createdAt)}`,
         family: 'pr_review',
         context: agentFixContext,
-        label: `Fix ${author} review`,
-        disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+        label: t('agentFix.reviewLabel', { author }),
+        disabledReason: agentFixContext ? null : t('agentFix.openWorkspace'),
         getPrompt: () => ({
           prompt: buildPrReviewFixPrompt(
             {
@@ -177,12 +182,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               threads,
             },
           ),
-          terminalTabTitle: `PR #${prNumber} review fix`,
-          terminalPaneLabel: `Fix ${author} review`,
+          terminalTabTitle: t('agentFix.terminalTabTitle', { prNumber }),
+          terminalPaneLabel: t('agentFix.reviewPaneLabel', { author }),
         }),
       };
     },
-    [agentFixContext, branch, owner, pr, prNumber, repo],
+    [agentFixContext, branch, owner, pr, prNumber, repo, t],
   );
 
   // Reset tab state when modal opens/closes or PR changes
@@ -423,7 +428,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
           <DialogHeader className="pr-24 flex flex-row items-center gap-3 space-y-0 pt-6 pb-4 shrink-0 relative">
             <Github className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
-              <DialogTitle className="text-base font-bold whitespace-nowrap">Pull Request #{prNumber}</DialogTitle>
+              <DialogTitle className="text-base font-bold whitespace-nowrap">{t('header.title', { prNumber: prNumber ?? 0 })}</DialogTitle>
               <span className="text-muted-foreground/30 font-light select-none">|</span>
               <DialogDescription className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium" title={`${owner}/${repo} • ${branch}`}>
                 {owner}/{repo} • {branch}
@@ -435,7 +440,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               <button
                 className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
                 onClick={() => setIsSidebarCollapsed(v => !v)}
-                title={isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+                title={isSidebarCollapsed ? t('header.showSidebar') : t('header.hideSidebar')}
               >
                 {isSidebarCollapsed ? <PanelRightOpen className="size-3.5" /> : <PanelRightClose className="size-3.5" />}
               </button>
@@ -481,7 +486,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                           <h3 className="truncate text-base font-semibold text-foreground">{pr.title}</h3>
                           {pr.isDraft && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground uppercase shrink-0">
-                              Draft
+                              {t('states.draft')}
                             </span>
                           )}
                         </div>
@@ -494,19 +499,19 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             <span className="font-semibold text-foreground/90">{pr.author?.login}</span>
                             {(pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')) && (
                               <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                bot
+                                {t('states.bot')}
                               </span>
                             )}
                           </div>
-                          <span>wants to merge</span>
+                          <span>{t('summary.wantsToMerge')}</span>
                           <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate min-w-[30px] shadow-sm">
-                            {pr.commits?.length || 0} commits
+                            {t('summary.commits', { count: pr.commits?.length || 0 })}
                           </span>
-                          <span>into</span>
+                          <span>{t('summary.into')}</span>
                           <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate shadow-sm">
                             {pr.baseRefName || 'main'}
                           </span>
-                          <span>from</span>
+                          <span>{t('summary.from')}</span>
                           <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
                             {pr.headRefName || branch}
                           </span>
@@ -517,7 +522,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                               setBranchCopied(true);
                               setTimeout(() => setBranchCopied(false), 1500);
                             }}
-                            title="Copy branch name"
+                            title={t('summary.copyBranchName')}
                           >
                             {branchCopied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
                           </button>
@@ -531,12 +536,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                         className="min-w-0 overflow-x-auto"
                       >
                         <TabsList className="w-fit min-w-max gap-0">
-                          <TabsTab value="description" className="text-[12px] px-3 h-8">Description</TabsTab>
+                          <TabsTab value="description" className="text-[12px] px-3 h-8">{t('tabs.description')}</TabsTab>
                           <TabsTab value="discussion" className="text-[12px] px-3 h-8">
-                            {`Discussion${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
+                            {t('tabs.discussion')}{sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}
                           </TabsTab>
-                          <TabsTab value="commits" className="text-[12px] px-3 h-8">Commits ({pr.commits?.length || 0})</TabsTab>
-                          <TabsTab value="files" className="text-[12px] px-3 h-8">Files changed ({pr.changedFiles ?? 0})</TabsTab>
+                          <TabsTab value="commits" className="text-[12px] px-3 h-8">{t('tabs.commits', { count: pr.commits?.length || 0 })}</TabsTab>
+                          <TabsTab value="files" className="text-[12px] px-3 h-8">{t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}</TabsTab>
                         </TabsList>
                       </Tabs>
                     </div>
@@ -567,21 +572,21 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                         </div>
                         <div className="flex-1 select-none">
                           <h5 className="text-sm font-bold">
-                            {pr.mergeable === 'MERGEABLE' ? 'No conflicts with base branch' : 'Conflict check in progress'}
+                            {pr.mergeable === 'MERGEABLE' ? t('status.mergeableTitle') : t('status.checkingTitle')}
                           </h5>
                           <div className="flex items-center justify-between gap-4">
                             <p className="text-[11px] text-muted-foreground mt-0.5">
-                              {pr.mergeable === 'MERGEABLE' ? 'Merging can be performed automatically.' : 'Determining if this PR can be merged without manual intervention.'}
+                              {pr.mergeable === 'MERGEABLE' ? t('status.mergeableDescription') : t('status.checkingDescription')}
                             </p>
                             {!pr.isDraft && (
                               <div className="text-[11px] text-muted-foreground shrink-0">
-                                Still in progress? {" "}
+                                {t('status.stillInProgress')}{' '}
                                 <button
                                   onClick={handleDraft}
                                   disabled={!!actionLoading}
                                   className="hover:text-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] underline decoration-dotted underline-offset-4"
                                 >
-                                  Convert to draft
+                                  {t('status.convertToDraft')}
                                 </button>
                               </div>
                             )}
@@ -597,8 +602,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                         </div>
                         <div className="flex-1 flex items-center justify-between gap-4">
                           <div className="min-w-0">
-                            <h5 className="text-sm font-bold text-foreground">This pull request is still a work in progress</h5>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">Draft pull requests cannot be merged until they are marked as ready.</p>
+                            <h5 className="text-sm font-bold text-foreground">{t('draftBanner.title')}</h5>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{t('draftBanner.description')}</p>
                           </div>
                           <Button
                             variant="outline"
@@ -607,7 +612,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             onClick={handleReady}
                             disabled={!!actionLoading}
                           >
-                            Ready for review
+                            {t('draftBanner.readyForReview')}
                           </Button>
                         </div>
                       </div>
@@ -664,16 +669,21 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                         <span className="font-bold text-foreground">{item.author?.login}</span>
                                         {isBot && (
                                           <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                            bot
+                                            {t('states.bot')}
                                           </span>
                                         )}
                                         <span className="opacity-80">
-                                          {item.type === 'review' ? (item.state === 'APPROVED' ? 'approved' : 'reviewed') : 'commented'}
+                                          {item.type === 'review'
+                                            ? (item.state === 'APPROVED' ? t('conversation.approved') : t('conversation.reviewed'))
+                                            : t('conversation.commented')}
                                         </span>
                                         {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
                                           <span className="flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-px rounded text-[10px] font-medium">
                                             <FileCode className="size-3" />
-                                            {item.reviewCommentThreads.length} file{item.reviewCommentThreads.length > 1 ? 's' : ''}
+                                            {t('conversation.filesCount', {
+                                              count: item.reviewCommentThreads.length,
+                                              suffix: item.reviewCommentThreads.length > 1 ? 's' : '',
+                                            })}
                                           </span>
                                         )}
                                         <span
@@ -690,7 +700,10 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                               reviewAgentFixSettingsOpen && "opacity-0",
                                             )}
                                           >
-                                            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                                            {formatDistanceToNow(new Date(item.createdAt), {
+                                              addSuffix: true,
+                                              locale: relativeTimeLocale,
+                                            })}
                                           </span>
                                           {reviewAgentFixSource ? (
                                             <span
@@ -720,7 +733,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                         </div>
                                       ) : hasReviewThreads ? null : (
                                         <div className="p-4 bg-background">
-                                          <span className="text-muted-foreground/60 italic text-[12px]">No comment body</span>
+                                          <span className="text-muted-foreground/60 italic text-[12px]">{t('conversation.noCommentBody')}</span>
                                         </div>
                                       )}
                                     </div>
@@ -749,12 +762,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                               case 'closed':
                                 icon = <XCircle className="size-3.5 text-white" />;
                                 colorClass = "bg-red-500";
-                                actionText = "closed this";
+                                actionText = t('activity.closed');
                                 break;
                               case 'reopened':
                                 icon = <RotateCw className="size-3.5 text-white" />;
                                 colorClass = "bg-emerald-500";
-                                actionText = "reopened this";
+                                actionText = t('activity.reopened');
                                 break;
                               case 'merged':
                                 icon = <GitMerge className="size-3.5 text-white" />;
@@ -763,47 +776,50 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 const shortId = commitId?.substring(0, 7);
                                 actionText = (
                                   <>
-                                    merged commit <span className="font-mono bg-muted/50 px-1 rounded">{shortId || 'unknown'}</span> into <span className="font-semibold text-foreground/80">{pr.baseRefName || 'main'}</span>
+                                    {t('activity.mergedCommit')}{' '}
+                                    <span className="font-mono bg-muted/50 px-1 rounded">{shortId || t('activity.unknownCommit')}</span>{' '}
+                                    {t('activity.intoBase')}{' '}
+                                    <span className="font-semibold text-foreground/80">{pr.baseRefName || 'main'}</span>
                                   </>
                                 );
                                 break;
                               case 'committed':
                                 icon = <GitCommit className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted border border-border/50";
-                                actionText = "committed";
+                                actionText = t('activity.committed');
                                 break;
                               case 'head_ref_force_pushed':
                                 icon = <GitCommit className="size-3.5 text-white" />;
                                 colorClass = "bg-amber-500";
-                                actionText = "force-pushed this";
+                                actionText = t('activity.forcePushed');
                                 break;
                               case 'reviewed':
                                 if (item.state === 'APPROVED') {
                                   icon = <CheckCircle2 className="size-3.5 text-white" />;
                                   colorClass = "bg-emerald-500";
-                                  actionText = "approved this PR";
+                                  actionText = t('activity.approvedPr');
                                 } else {
                                   icon = <MessageSquare className="size-3.5 text-white" />;
                                   colorClass = "bg-muted-foreground";
-                                  actionText = "left a review";
+                                  actionText = t('activity.leftReview');
                                 }
                                 break;
                               case 'referenced':
                               case 'cross-referenced':
                                 icon = <ExternalLink className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted border border-border/50";
-                                actionText = item.event === 'cross-referenced' ? "referenced this pull request" : "referenced this";
+                                actionText = item.event === 'cross-referenced' ? t('activity.crossReferenced') : t('activity.referenced');
                                 break;
                               case 'ready_for_review':
                                 icon = <Eye className="size-3.5 text-white" />;
                                 colorClass = "bg-blue-500";
-                                actionText = "marked this pull request as ready for review";
+                                actionText = t('activity.readyForReview');
                                 break;
                               case 'converted_to_draft':
                               case 'convert_to_draft':
                                 icon = <GitPullRequest className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted border border-border/50";
-                                actionText = "marked this pull request as draft";
+                                actionText = t('activity.convertedToDraft');
                                 break;
                               case 'assigned':
                               case 'unassigned':
@@ -811,44 +827,49 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 colorClass = item.event === 'assigned' ? "bg-blue-600" : "bg-muted-foreground";
                                 const isSelf = item.assignee?.login === (item.actor?.login || item.author?.login);
                                 actionText = item.event === 'assigned'
-                                  ? (isSelf ? "self-assigned this" : `assigned ${item.assignee?.login}`)
-                                  : (isSelf ? "removed their assignment" : `unassigned ${item.assignee?.login}`);
+                                  ? (isSelf ? t('activity.selfAssigned') : t('activity.assigned', { login: item.assignee?.login || '' }))
+                                  : (isSelf ? t('activity.removedOwnAssignment') : t('activity.unassigned', { login: item.assignee?.login || '' }));
                                 break;
                               case 'labeled':
                               case 'unlabeled':
                                 icon = <Tag className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted";
-                                actionText = `${item.event === 'labeled' ? 'added' : 'removed'} the ${item.label?.name || 'label'} label`;
+                                actionText = item.event === 'labeled'
+                                  ? t('activity.addedLabel', { label: item.label?.name || t('activity.labelFallback') })
+                                  : t('activity.removedLabel', { label: item.label?.name || t('activity.labelFallback') });
                                 break;
                               case 'review_requested':
                               case 'review_request_removed':
                                 icon = <Eye className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted";
                                 actionText = item.event === 'review_requested'
-                                  ? `requested a review from ${item.requested_reviewer?.login || 'someone'}`
-                                  : `removed review request for ${item.requested_reviewer?.login || 'someone'}`;
+                                  ? t('activity.requestedReview', { login: item.requested_reviewer?.login || t('activity.someone') })
+                                  : t('activity.removedReviewRequest', { login: item.requested_reviewer?.login || t('activity.someone') });
                                 break;
                               case 'milestoned':
                               case 'demilestoned':
                                 icon = <Milestone className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted";
                                 actionText = item.event === 'milestoned'
-                                  ? `added this to the ${item.milestone?.title} milestone`
-                                  : `removed this from the ${item.milestone?.title} milestone`;
+                                  ? t('activity.addedToMilestone', { title: item.milestone?.title || '' })
+                                  : t('activity.removedFromMilestone', { title: item.milestone?.title || '' });
                                 break;
                               case 'renamed':
                                 icon = <Edit2 className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted";
-                                actionText = `changed the title from "${item.rename?.from}" to "${item.rename?.to}"`;
+                                actionText = t('activity.renamed', {
+                                  from: item.rename?.from || '',
+                                  to: item.rename?.to || '',
+                                });
                                 break;
                               case 'deployed':
                               case 'deployment_status':
                                 icon = <Rocket className="size-3.5 text-white" />;
                                 colorClass = "bg-sidebar-accent shadow-sm";
-                                const env = item.deployment?.environment || item.environment || 'Preview';
+                                const env = item.deployment?.environment || item.environment || t('activity.preview');
                                 actionText = (
                                   <>
-                                    deployed to <span className="font-bold">{env}</span>
+                                    {t('activity.deployedTo')} <span className="font-bold">{env}</span>
                                     {item.deployment_status?.target_url && (
                                       <a
                                         href={item.deployment_status.target_url}
@@ -856,7 +877,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                         rel="noreferrer"
                                         className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] inline-flex items-center gap-1"
                                       >
-                                        View deployment <ExternalLink className="size-2.5" />
+                                        {t('activity.viewDeployment')} <ExternalLink className="size-2.5" />
                                       </a>
                                     )}
                                   </>
@@ -865,7 +886,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                               case 'head_ref_deleted':
                                 icon = <GitBranch className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted";
-                                actionText = "deleted the branch";
+                                actionText = t('activity.deletedBranch');
                                 break;
                               default:
                                 actionText = (item.event || '').replace(/_/g, ' ');
@@ -889,7 +910,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                     <span className="font-semibold text-foreground/90">{item.author?.login}</span>
                                     {isBot && (
                                       <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                        bot
+                                        {t('states.bot')}
                                       </span>
                                     )}
                                     <span className="text-muted-foreground">{actionText}</span>
@@ -906,7 +927,10 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                       </Tooltip>
                                     )}
                                     <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
-                                      {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                                      {formatDistanceToNow(new Date(item.createdAt), {
+                                        addSuffix: true,
+                                        locale: relativeTimeLocale,
+                                      })}
                                     </span>
                                   </div>
                                 </div>
@@ -921,7 +945,10 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                         <XCircle className="size-3 text-red-500" />
                                       )}
                                       <span>
-                                        {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} of {pr.statusCheckRollup.length} checks passed
+                                        {t('activity.checksPassed', {
+                                          passed: pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length,
+                                          total: pr.statusCheckRollup.length,
+                                        })}
                                       </span>
                                     </div>
                                   </div>
@@ -978,7 +1005,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             onClick={loadMoreTimeline}
                             className="flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium text-muted-foreground border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]"
                           >
-                            Load more timeline events
+                            {t('activity.loadMore')}
                           </button>
                         </div>
                       )}
@@ -1036,7 +1063,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               />
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">Detailed info not found...</div>
+            <div className="text-sm text-muted-foreground">{t('notFound')}</div>
           )}
         </div>
 

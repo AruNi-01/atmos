@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   Button,
   Dialog,
@@ -24,6 +25,8 @@ export function TerminalCloseConfirmDialog({
   description: string;
   onConfirm: () => void | Promise<void>;
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onOpenChange(false)}>
       <DialogContent>
@@ -33,7 +36,7 @@ export function TerminalCloseConfirmDialog({
         </DialogHeader>
         <DialogFooter className="gap-4">
           <Button variant="outline" className="cursor-pointer" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="destructive"
@@ -42,7 +45,7 @@ export function TerminalCloseConfirmDialog({
               void onConfirm();
             }}
           >
-            Close
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -59,6 +62,8 @@ export function UnsavedChangesDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const t = useTranslations("AppShell.chrome");
+
   return (
     <Dialog
       open={!!fileToClose}
@@ -66,18 +71,19 @@ export function UnsavedChangesDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Unsaved Changes</DialogTitle>
+          <DialogTitle>{t("centerStageDialogs.unsavedChanges.title")}</DialogTitle>
           <DialogDescription>
-            &quot;{fileToClose?.name}&quot; has unsaved changes. Do you want to discard
-            them?
+            {t("centerStageDialogs.unsavedChanges.description", {
+              name: fileToClose?.name ?? "",
+            })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="destructive" onClick={onConfirm}>
-            Discard Changes
+            {t("centerStageDialogs.unsavedChanges.discard")}
           </Button>
         </DialogFooter>
       </DialogContent>

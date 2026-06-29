@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Attachments,
   Attachment,
@@ -28,6 +29,8 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
   entryIndex: number;
   registryId: string;
 }) {
+  const t = useTranslations("Agent.components.chatPanel");
+
   return (
     <div
       data-entry-index={entryIndex}
@@ -38,8 +41,8 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
         <div className="group relative">
           <MessageCopyButton
             text={entry.content}
-            ariaLabel="Copy user message"
-            title="Copy message"
+            ariaLabel={t("copy.userAria")}
+            title={t("copy.message")}
             className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
           />
           <Message from="user">
@@ -71,8 +74,8 @@ export const AgentChatEntryView = React.memo(function AgentChatEntryView({
               <div className="mt-2 flex items-center gap-2">
                 <MessageCopyButton
                   text={getAssistantCopyText(entry)}
-                  ariaLabel="Copy current turn message"
-                  title="Copy turn"
+                  ariaLabel={t("copy.turnAria")}
+                  title={t("copy.turn")}
                   className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 />
                 {entry.usage && (

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Popover,
   PopoverContent,
@@ -58,6 +59,7 @@ export function AgentChatHistoryPopover({
   isConnecting,
   triggerClassName,
 }: AgentChatHistoryPopoverProps) {
+  const t = useTranslations("Agent.components");
   return (
     <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
       <TooltipProvider delayDuration={200}>
@@ -70,30 +72,30 @@ export function AgentChatHistoryPopover({
                   "rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
                   triggerClassName,
                 )}
-                aria-label="Chat history"
+                aria-label={t("historyPopover.triggerAria")}
               >
                 <History className="size-4" />
               </button>
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Chat history</TooltipContent>
+          <TooltipContent side="bottom">{t("historyPopover.triggerTooltip")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <p className="text-sm font-medium shrink-0">
-            Chat history
+            {t("historyPopover.title")}
           </p>
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="truncate text-[10px] text-muted-foreground/70 cursor-help max-w-[140px]">
-                  ACP sessions
+                  {t("historyPopover.sourceLabel")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs break-all">
                 <p className="text-[11px]">
-                  Showing sessions reported by the selected ACP agent
+                  {t("historyPopover.sourceTooltip")}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -106,7 +108,7 @@ export function AgentChatHistoryPopover({
             </div>
           ) : historySessions.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              {historyUnsupportedReason ?? "No history yet"}
+              {historyUnsupportedReason ?? t("historyPopover.empty")}
             </div>
           ) : (
             <div className="p-1">
@@ -125,7 +127,7 @@ export function AgentChatHistoryPopover({
                     title={historyResumeUnsupportedReason ?? undefined}
                   >
                     <span className="w-full truncate font-medium">
-                      {s.title || "New chat"}
+                      {s.title || t("historyPopover.newChat")}
                     </span>
                     {(displayedCwd || displayedTime) ? (
                       <span className="flex w-full min-w-0 items-center gap-2 text-[11px] text-muted-foreground/80">
@@ -156,7 +158,7 @@ export function AgentChatHistoryPopover({
                   onClick={() => loadHistorySessions(historyCursor)}
                   disabled={historyLoading}
                 >
-                  {historyLoading ? "Loading..." : "Load more"}
+                  {historyLoading ? t("common.loading") : t("historyPopover.loadMore")}
                 </button>
               )}
             </div>

@@ -18,6 +18,7 @@ export type {
   WsTerminalResponse,
   WsTerminalCreate,
   WsTerminalInput,
+  WsTerminalEnter,
   WsTerminalResize,
   WsTerminalClose,
   WsTerminalCreated,

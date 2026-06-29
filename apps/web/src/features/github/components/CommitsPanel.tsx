@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useEffect, useCallback, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { GitCommit as GitCommitIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { cn } from '@/shared/lib/utils';
@@ -32,6 +33,7 @@ function toCommitListItem(c: GitCommit, owner?: string, repo?: string): CommitLi
 }
 
 export function CommitsPanel({ repoPath, owner, repo, onRefreshReady, onLoadingChange }: CommitsPanelProps) {
+  const t = useTranslations('github.commitsPanel');
   const { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh } = useGitLog({ repoPath });
   const items = useMemo(() => commits.map(c => toCommitListItem(c, owner, repo)), [commits, owner, repo]);
 
@@ -63,10 +65,10 @@ export function CommitsPanel({ repoPath, owner, repo, onRefreshReady, onLoadingC
                       <ChevronLeft className="size-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-[11px]">Previous page</TooltipContent>
+                  <TooltipContent side="top" className="text-[11px]">{t('previousPage')}</TooltipContent>
                 </Tooltip>
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-sidebar-accent/50 rounded-sm border border-sidebar-border/30 select-none">
-                  <span className="text-[10px] text-muted-foreground/60 font-medium tracking-tight">PAGE</span>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium tracking-tight">{t('page')}</span>
                   <span className="text-[11px] text-foreground font-bold font-mono">{page + 1}</span>
                 </div>
                 <Tooltip>
@@ -84,7 +86,7 @@ export function CommitsPanel({ repoPath, owner, repo, onRefreshReady, onLoadingC
                       <ChevronRight className="size-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-[11px]">Next page</TooltipContent>
+                  <TooltipContent side="top" className="text-[11px]">{t('nextPage')}</TooltipContent>
                 </Tooltip>
               </div>
               <div className="flex-1" />

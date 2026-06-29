@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   Check,
@@ -96,6 +97,7 @@ export function HeaderGitContext({
   uncommittedCount,
   unpushedCount,
 }: HeaderGitContextProps) {
+  const t = useTranslations("header");
   if (!currentWorkspace && !currentProject) {
     return null;
   }
@@ -119,7 +121,7 @@ export function HeaderGitContext({
                   onMouseEnter={() => prIconRef.current?.startAnimation()}
                   onMouseLeave={() => prIconRef.current?.stopAnimation()}
                   className="flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                  aria-label={`Open PR #${currentBranchPR.number}`}
+                  aria-label={t("gitContext.openPr", { number: currentBranchPR.number })}
                 >
                   {currentBranchPR.state === "CLOSED" || currentBranchPR.state === "MERGED" ? (
                     <GitPullRequestClosedIcon
@@ -154,7 +156,7 @@ export function HeaderGitContext({
               value={editedCurrentBranch}
               onChange={(e) => setEditedCurrentBranch(e.target.value)}
               className="h-6 w-48 text-[13px] px-2 py-0 bg-secondary/50 border-transparent focus:bg-background transition-colors rounded-sm focus:border-primary/20"
-              placeholder="branch-name"
+              placeholder={t("gitContext.branchNamePlaceholder")}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void onSaveCurrentBranch();
                 if (e.key === "Escape") onCancelEditCurrentBranch();
@@ -164,14 +166,14 @@ export function HeaderGitContext({
             <button
               onClick={() => void onSaveCurrentBranch()}
               className="relative z-20 flex size-6 items-center justify-center rounded-sm text-success transition-colors hover:bg-success/10 shrink-0"
-              aria-label="Save current branch"
+              aria-label={t("gitContext.saveCurrentBranch")}
             >
               <Check className="size-3.5" />
             </button>
             <button
               onClick={onCancelEditCurrentBranch}
               className="size-6 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground transition-colors shrink-0"
-              aria-label="Cancel editing"
+              aria-label={t("gitContext.cancelEditing")}
             >
               <X className="size-3.5" />
             </button>
@@ -232,11 +234,11 @@ export function HeaderGitContext({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="w-72 p-3 bg-background overflow-visible">
             <div className="space-y-2">
-              <p className="text-[12px] text-foreground/90">Select target branch</p>
+              <p className="text-[12px] text-foreground/90">{t("gitContext.selectTargetBranch")}</p>
               <Input
                 value={targetBranchFilter}
                 onChange={(e) => setTargetBranchFilter(e.target.value)}
-                placeholder="Search branches..."
+                placeholder={t("gitContext.searchBranches")}
                 className="h-8 text-[12px] bg-background"
               />
             </div>
@@ -244,7 +246,7 @@ export function HeaderGitContext({
               <div className="p-1 w-max min-w-full">
                 {isLoadingBranches ? (
                   <div className="p-2 text-[12px] text-muted-foreground text-center">
-                    Loading branches...
+                    {t("gitContext.loadingBranches")}
                   </div>
                 ) : filteredBranches.length > 0 ? (
                   filteredBranches.map((branch) => (
@@ -273,7 +275,7 @@ export function HeaderGitContext({
                   ))
                 ) : (
                   <div className="p-2 text-[12px] text-muted-foreground text-center">
-                    No matching branches
+                    {t("gitContext.noMatchingBranches")}
                   </div>
                 )}
               </div>

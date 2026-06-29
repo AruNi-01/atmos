@@ -1,9 +1,9 @@
 import type { AtmosSubAgentMessage, SubAgentAdapter } from "../types";
-import { looksLikeCursorTaskSubAgent, rawInputObject, toStatus } from "../utils";
+import { looksLikeCursorTaskSubAgent, rawInputObject, subAgentT, toStatus } from "../utils";
 
 function normalizeCursorTitle(description: string): string {
   const trimmed = description.trim();
-  if (!trimmed) return "Subagent Task";
+  if (!trimmed) return subAgentT("subagent.subagentTask");
   return trimmed;
 }
 
@@ -22,7 +22,7 @@ export const cursorSubAgentAdapter: SubAgentAdapter = {
       id: block.tool_call_id,
       vendor,
       title: normalizeCursorTitle(description),
-      description: "Cursor subagent task",
+      description: subAgentT("subagent.cursorSubagentTask"),
       prompt: null,
       status: toStatus(block.status),
       detailMode: "status_only",

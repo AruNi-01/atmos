@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Skeleton,
@@ -20,7 +21,7 @@ import {
 } from "@workspace/ui";
 import { BookOpen, Copy, Loader2, Download, AlertTriangle } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
-import { WIKI_LANGUAGE_OPTIONS } from "../lib/wiki-languages";
+import { getWikiLanguageOptions } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import { skillsApi } from "@/api/ws-api";
@@ -65,6 +66,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   onProjectWikiReplaceAndRun,
   onRetryCheck,
 }) => {
+  const t = useTranslations("wiki.setup");
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -125,48 +127,48 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     const command = buildCommand(agentId, prompt, currentAgentRunConfig);
     navigator.clipboard.writeText(command);
     toastManager.add({
-      title: "Copied to clipboard",
-      description: "Paste and run this command in your Code Agent terminal.",
+      title: t("toasts.copiedTitle"),
+      description: t("toasts.copiedDescription"),
       type: "success",
     });
-  }, [agentId, currentAgentRunConfig, language, customLanguage]);
+  }, [agentId, currentAgentRunConfig, customLanguage, language, t]);
 
   const doRunGenerate = useCallback(
     (command: string) => {
       if (onSwitchToProjectWikiAndRun) {
         onSwitchToProjectWikiAndRun(command);
         toastManager.add({
-          title: "Wiki generation started",
-          description: "Switched to Project Wiki tab. Check progress there.",
+          title: t("toasts.generationStartedTitle"),
+          description: t("toasts.generationStartedDescription"),
           type: "info",
         });
       } else if (terminalGridRef.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
-          label: "Generate Project Wiki",
+          label: t("terminalLabel"),
           command,
         });
         onSwitchToTerminal();
         toastManager.add({
-          title: "Wiki generation started",
-          description: "Switched to Project Wiki tab. Check progress there.",
+          title: t("toasts.generationStartedTitle"),
+          description: t("toasts.generationStartedDescription"),
           type: "info",
         });
       } else {
         toastManager.add({
-          title: "Terminal not ready",
-          description: "Please wait and try again.",
+          title: t("toasts.terminalNotReadyTitle"),
+          description: t("toasts.terminalNotReadyDescription"),
           type: "error",
         });
       }
     },
-    [terminalGridRef, onSwitchToTerminal, onSwitchToProjectWikiAndRun]
+    [onSwitchToProjectWikiAndRun, onSwitchToTerminal, t, terminalGridRef]
   );
 
   const handleGenerate = useCallback(async () => {
     if (!effectivePath) {
       toastManager.add({
-        title: "Cannot generate",
-        description: "Project path not available.",
+        title: t("toasts.cannotGenerateTitle"),
+        description: t("toasts.cannotGenerateDescription"),
         type: "error",
       });
       return;
@@ -193,7 +195,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [effectivePath, workspaceId, agentId, currentAgentRunConfig, language, customLanguage, doRunGenerate]);
+  }, [agentId, currentAgentRunConfig, customLanguage, doRunGenerate, effectivePath, language, t, workspaceId]);
 
   const handleConfirmReplaceAndGenerate = useCallback(async () => {
     const cmd = pendingCommand;
@@ -233,24 +235,27 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           <div className="size-12 mx-auto mb-3 rounded-xl bg-muted flex items-center justify-center">
             <BookOpen className="size-6 text-muted-foreground" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Generate Project Wiki</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Create a navigable project wiki in{" "}
-            <code className="text-xs bg-muted px-1 rounded">.atmos/wiki/</code> using a Code Agent.
+            {t("descriptionPrefix")}{" "}
+            <code className="text-xs bg-muted px-1 rounded">.atmos/wiki/</code>{" "}
+            {t("descriptionSuffix")}
           </p>
         </div>
 
         {/* Notices */}
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-foreground space-y-2">
-          <p className="font-medium">Before you start</p>
+          <p className="font-medium">{t("notices.title")}</p>
           <ul className="list-disc list-inside space-y-1 text-muted-foreground">
             <li>
-              Project Wiki generation takes <strong>10–30 minutes</strong>, depending on project
-              complexity.
+              {t.rich("notices.estimatedDuration", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </li>
             <li>
-              To avoid frequent approval prompts, generation uses <strong>YOLO mode</strong> by
-              default (auto-approve).
+              {t.rich("notices.approvalMode", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </li>
           </ul>
         </div>
@@ -259,7 +264,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         {skillMissing && (
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
             <p className="text-sm text-muted-foreground">
-              The project-wiki skill is not installed. Install it to use the full skill instructions.
+              {t("skillMissing.description")}
             </p>
             <Button
               variant="outline"
@@ -271,12 +276,12 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
               {isInstalling ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Installing...
+                  {t("skillMissing.installing")}
                 </>
               ) : (
                 <>
                   <Download className="size-4 mr-2" />
-                  Install project-wiki skill
+                  {t("skillMissing.installButton")}
                 </>
               )}
             </Button>
@@ -304,7 +309,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         {/* Language */}
         <div>
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-            Wiki language
+            {t("languageLabel")}
           </label>
           <div className="flex gap-2 flex-wrap">
             <Select value={language} onValueChange={setLanguage}>
@@ -312,7 +317,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {WIKI_LANGUAGE_OPTIONS.map((opt) => (
+                {getWikiLanguageOptions().map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>
@@ -321,7 +326,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
             </Select>
             {language === "other" && (
               <Input
-                placeholder="e.g. Italian, Vietnamese"
+                placeholder={t("customLanguagePlaceholder")}
                 value={customLanguage}
                 onChange={(e) => setCustomLanguage(e.target.value)}
                 className="flex-1 min-w-[120px]"
@@ -340,10 +345,10 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
             {isGenerating ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-2" />
-                Starting...
+                {t("actions.starting")}
               </>
             ) : (
-              "Generate Wiki"
+              t("actions.generate")
             )}
           </Button>
           <Button
@@ -353,12 +358,12 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
             className="flex-1 sm:flex-none"
           >
             <Copy className="size-4 mr-2" />
-            Copy prompt for agent
+            {t("actions.copyPrompt")}
           </Button>
         </div>
 
         <p className="text-[11px] text-muted-foreground text-center">
-          A new terminal tab will open and run the agent. Return to Wiki when done.
+          {t("footnote")}
         </p>
       </div>
 
@@ -368,10 +373,10 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="size-5 text-amber-500" />
-              Project Wiki generation in progress
+              {t("conflictDialog.title")}
             </DialogTitle>
             <DialogDescription>
-              A Project Wiki terminal is already running. Continuing will close it and start a new generation. Any in-progress work may be interrupted.
+              {t("conflictDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-4">
@@ -380,7 +385,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
               className="cursor-pointer"
               onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}
             >
-              Cancel
+              {t("conflictDialog.cancel")}
             </Button>
             <Button
               className="cursor-pointer"
@@ -390,10 +395,10 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
               {isGenerating ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Starting...
+                  {t("actions.starting")}
                 </>
               ) : (
-                "Replace & generate"
+                t("conflictDialog.confirm")
               )}
             </Button>
           </DialogFooter>

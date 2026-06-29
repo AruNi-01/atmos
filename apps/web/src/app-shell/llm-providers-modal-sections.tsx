@@ -1,4 +1,5 @@
 import type React from "react";
+import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
 import {
   Button,
@@ -51,6 +52,8 @@ export function ProviderEditorFields({
   onProviderNameTouched: () => void;
   setProviderEditor: React.Dispatch<React.SetStateAction<ProviderDraft | null>>;
 }) {
+  const t = useTranslations();
+
   if (loading || !providerEditor) {
     return (
       <div className="space-y-4">
@@ -64,7 +67,7 @@ export function ProviderEditorFields({
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Field
-        label="Provider name"
+        label={t("appShell.llmProviders.providerEditor.fields.name.label")}
         labelAccessory={
           showProviderNameIssue && providerNameIssue ? (
             <span className="text-xs font-medium text-destructive">
@@ -82,7 +85,7 @@ export function ProviderEditorFields({
               current ? { ...current, name: event.target.value } : current,
             );
           }}
-          placeholder="OpenRouter Fast"
+          placeholder={t("appShell.llmProviders.providerEditor.fields.name.placeholder")}
           className={cn(
             showProviderNameIssue &&
               "border-destructive focus-visible:ring-destructive/30",
@@ -90,19 +93,21 @@ export function ProviderEditorFields({
         />
       </Field>
 
-      <Field label="Provider key">
+      <Field label={t("appShell.llmProviders.providerEditor.fields.key.label")}>
         <Input
           value={
             providerEditor.name.trim()
               ? slugifyProviderId(providerEditor.name)
               : ""
           }
-          placeholder="Generated from name"
+          placeholder={t("appShell.llmProviders.providerEditor.fields.key.placeholder")}
           disabled
         />
       </Field>
 
-      <Field label="Compatibility">
+      <Field
+        label={t("appShell.llmProviders.providerEditor.fields.compatibility.label")}
+      >
         <Select
           value={providerEditor.kind}
           onValueChange={(value) => {
@@ -129,16 +134,18 @@ export function ProviderEditorFields({
           <SelectContent>
             {KIND_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </Field>
 
-      <Field label="Enabled">
+      <Field label={t("appShell.llmProviders.providerEditor.fields.enabled.label")}>
         <div className="flex h-10 items-center justify-between rounded-xl border border-border px-3">
-          <span className="text-sm text-foreground">Provider status</span>
+          <span className="text-sm text-foreground">
+            {t("appShell.llmProviders.providerEditor.fields.enabled.status")}
+          </span>
           <Switch
             checked={providerEditor.enabled}
             onCheckedChange={(checked) =>
@@ -150,7 +157,7 @@ export function ProviderEditorFields({
         </div>
       </Field>
 
-      <Field label="Timeout (ms)">
+      <Field label={t("appShell.llmProviders.providerEditor.fields.timeout.label")}>
         <Input
           value={providerEditor.timeout_ms}
           onChange={(event) =>
@@ -162,7 +169,9 @@ export function ProviderEditorFields({
         />
       </Field>
 
-      <Field label="Max output tokens">
+      <Field
+        label={t("appShell.llmProviders.providerEditor.fields.maxOutputTokens.label")}
+      >
         <Input
           value={providerEditor.max_output_tokens}
           onChange={(event) =>
@@ -175,12 +184,15 @@ export function ProviderEditorFields({
           placeholder={
             providerEditor.kind === "anthropic-compatible"
               ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
-              : "Optional"
+              : t("appShell.llmProviders.providerEditor.fields.maxOutputTokens.placeholder")
           }
         />
       </Field>
 
-      <Field label="Base URL" className="md:col-span-2">
+      <Field
+        label={t("appShell.llmProviders.providerEditor.fields.baseUrl.label")}
+        className="md:col-span-2"
+      >
         <Input
           value={providerEditor.base_url}
           onChange={(event) =>
@@ -196,7 +208,10 @@ export function ProviderEditorFields({
         />
       </Field>
 
-      <Field label="API key" className="md:col-span-2">
+      <Field
+        label={t("appShell.llmProviders.providerEditor.fields.apiKey.label")}
+        className="md:col-span-2"
+      >
         <Input
           type="password"
           value={providerEditor.api_key}
@@ -205,11 +220,14 @@ export function ProviderEditorFields({
               current ? { ...current, api_key: event.target.value } : current,
             )
           }
-          placeholder="sk-... or env:OPENROUTER_API_KEY"
+          placeholder={t("appShell.llmProviders.providerEditor.fields.apiKey.placeholder")}
         />
       </Field>
 
-      <Field label="Model" className="md:col-span-2">
+      <Field
+        label={t("appShell.llmProviders.providerEditor.fields.model.label")}
+        className="md:col-span-2"
+      >
         <Input
           value={providerEditor.model}
           onChange={(event) =>
@@ -259,6 +277,8 @@ export function ProviderEditorFooter({
   onTestProvider: () => void | Promise<void>;
   onSaveProvider: () => void | Promise<void>;
 }) {
+  const t = useTranslations();
+
   return (
     <DialogFooter className="border-t border-border px-6 py-4">
       <div className="flex w-full items-center">
@@ -276,7 +296,7 @@ export function ProviderEditorFooter({
                   disabled={providerSaveState === "saving" || loading}
                 >
                   <Trash2 className="size-4" />
-                  Delete
+                  {t("appShell.llmProviders.common.delete")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent
@@ -284,14 +304,16 @@ export function ProviderEditorFooter({
                 side="top"
                 align="start"
               >
-                <p className="text-sm text-foreground">Delete this provider?</p>
+                <p className="text-sm text-foreground">
+                  {t("appShell.llmProviders.providerEditor.deleteConfirm.title")}
+                </p>
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => onDeleteConfirmOpenChange(false)}
                   >
-                    Cancel
+                    {t("appShell.llmProviders.common.cancel")}
                   </Button>
                   <Button
                     variant="destructive"
@@ -301,14 +323,14 @@ export function ProviderEditorFooter({
                       void onDeleteProvider();
                     }}
                   >
-                    Delete
+                    {t("appShell.llmProviders.common.delete")}
                   </Button>
                 </div>
               </PopoverContent>
             </Popover>
           ) : (
             <Button variant="ghost" onClick={onCancel}>
-              Cancel
+              {t("appShell.llmProviders.common.cancel")}
             </Button>
           )}
         </div>
@@ -316,7 +338,7 @@ export function ProviderEditorFooter({
         <div className="flex flex-1 items-center justify-end gap-2">
           {providerId ? (
             <Button variant="ghost" onClick={onCancel}>
-              Cancel
+              {t("appShell.llmProviders.common.cancel")}
             </Button>
           ) : null}
           <Popover open={testPopoverOpen} onOpenChange={onTestPopoverOpenChange}>
@@ -338,41 +360,49 @@ export function ProviderEditorFooter({
                 disabled={loading || !providerEditor}
               >
                 {testStatus === "testing"
-                  ? "TESTING..."
+                  ? t("appShell.llmProviders.providerEditor.test.testing")
                   : testStatus === "pass"
-                    ? "PASS"
+                    ? t("appShell.llmProviders.providerEditor.test.pass")
                     : testStatus === "fail"
-                      ? "FAIL"
-                      : "TEST"}
+                      ? t("appShell.llmProviders.providerEditor.test.fail")
+                      : t("appShell.llmProviders.providerEditor.test.idle")}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[420px] p-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-foreground">
-                    Provider Test
+                    {t("appShell.llmProviders.providerEditor.test.title")}
                   </p>
                   <Button variant="ghost" onClick={() => void onTestProvider()}>
-                    RETEST
+                    {t("appShell.llmProviders.providerEditor.test.retest")}
                   </Button>
                 </div>
                 <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/20 p-3 text-xs whitespace-pre-wrap text-foreground">
                   {testOutput ||
                     (testStatus === "testing"
-                      ? "Streaming response..."
-                      : "Click TEST to start.")}
+                      ? t("appShell.llmProviders.providerEditor.test.streaming")
+                      : t("appShell.llmProviders.providerEditor.test.empty"))}
                 </pre>
               </div>
             </PopoverContent>
           </Popover>
           <SaveStateButton
             state={providerSaveState}
-            idleLabel={providerId ? "Save changes" : "Create provider"}
-            savingLabel="Saving..."
-            savedLabel="Saved"
+            idleLabel={
+              providerId
+                ? t("appShell.llmProviders.providerEditor.actions.saveChanges")
+                : t("appShell.llmProviders.providerEditor.actions.createProvider")
+            }
+            savingLabel={t("appShell.llmProviders.common.saving")}
+            savedLabel={t("appShell.llmProviders.common.saved")}
             onClick={() => void onSaveProvider()}
             disabled={providerSaveState === "saving" || loading || !providerEditor}
-            measureLabel={providerId ? "Save changes" : "Create provider"}
+            measureLabel={
+              providerId
+                ? t("appShell.llmProviders.providerEditor.actions.saveChanges")
+                : t("appShell.llmProviders.providerEditor.actions.createProvider")
+            }
           />
         </div>
       </div>
@@ -393,6 +423,8 @@ export function RoutingFeatureBindings({
   localAgentOptions: readonly LocalAgentOption[];
   setRoutingDraft: React.Dispatch<React.SetStateAction<RoutingDraft>>;
 }) {
+  const t = useTranslations();
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -406,11 +438,11 @@ export function RoutingFeatureBindings({
   return (
     <>
       <FeatureSelect
-        label="Git commit generator"
+        label={t("appShell.llmProviders.routing.fields.gitCommit.label")}
         value={routingDraft.features.git_commit}
         providerOptions={providerOptions}
         localAgentOptions={localAgentOptions}
-        noneLabel="Disabled"
+        noneLabel={t("appShell.llmProviders.routing.fields.none")}
         action={
           <FeatureLanguageAction
             value={routingDraft.features.git_commit_language}
@@ -437,11 +469,11 @@ export function RoutingFeatureBindings({
       />
 
       <FeatureSelect
-        label="Workspace issue TODO extraction"
+        label={t("appShell.llmProviders.routing.fields.workspaceIssueTodo.label")}
         value={routingDraft.features.workspace_issue_todo}
         providerOptions={providerOptions}
         localAgentOptions={localAgentOptions}
-        noneLabel="Disabled"
+        noneLabel={t("appShell.llmProviders.routing.fields.none")}
         action={
           <FeatureLanguageAction
             value={routingDraft.features.workspace_issue_todo_language}

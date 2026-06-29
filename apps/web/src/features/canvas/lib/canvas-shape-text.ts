@@ -1,4 +1,8 @@
 import type { Editor, TLShape, TLShapeId } from "tldraw";
+import { createTranslator } from "next-intl";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
@@ -17,6 +21,23 @@ const MAX_FRAME_TREE_DEPTH = 24;
 const ANSI_RE =
   // eslint-disable-next-line no-control-regex
   /\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
+
+let cachedCanvasShapeTextLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasShapeTextTranslator: any = null;
+
+function canvasShapeTextT(key: string, values?: Record<string, unknown>): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedCanvasShapeTextTranslator || cachedCanvasShapeTextLocale !== locale) {
+    cachedCanvasShapeTextLocale = locale;
+    cachedCanvasShapeTextTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "canvas.shapeText",
+    });
+  }
+  return cachedCanvasShapeTextTranslator(key as never, values);
+}
 
 export function stripAnsi(text: string): string {
   return text.replace(ANSI_RE, "");
@@ -117,13 +138,13 @@ export function plainTextFromShape(
 export function formatCanvasTerminalMetadata(shape: CanvasTerminalShape): string {
   const p = shape.props;
   const lines = [
-    `Terminal: ${p.terminalName}`,
-    `Tmux window: ${p.tmuxWindowName}`,
-    `Project: ${p.projectName}`,
-    `Workspace: ${p.workspaceName}`,
+    canvasShapeTextT("terminalMetadata.terminal", { value: p.terminalName }),
+    canvasShapeTextT("terminalMetadata.tmuxWindow", { value: p.tmuxWindowName }),
+    canvasShapeTextT("terminalMetadata.project", { value: p.projectName }),
+    canvasShapeTextT("terminalMetadata.workspace", { value: p.workspaceName }),
   ];
   if (p.localPath) {
-    lines.push(`Path: ${p.localPath}`);
+    lines.push(canvasShapeTextT("terminalMetadata.path", { value: p.localPath }));
   }
   return lines.join("\n");
 }
@@ -133,7 +154,7 @@ function frameDisplayName(shape: TLShape): string {
   if (typeof name === "string" && name.trim()) {
     return name.trim();
   }
-  return "Frame";
+  return canvasShapeTextT("frameFallback");
 }
 
 /**
@@ -173,7 +194,7 @@ export function formatCanvasShapeBlock(
 ): string {
   const header = shapeHeading(shape, depth);
   if (!body.trim()) {
-    return `${header}\n${indentBodyLines("_(no text content)_", depth)}`;
+    return `${header}\n${indentBodyLines(canvasShapeTextT("noTextContent"), depth)}`;
   }
   return `${header}\n${indentBodyLines(body, depth)}`;
 }
@@ -246,7 +267,7 @@ export async function formatShapeTextForCopyAsync(
           })
         ).text;
     const header = shapeHeading(shape, depth);
-    return body.trim() ? `${header}\n\n${body.trim()}` : `${header}\n_(no text content)_`;
+    return body.trim() ? `${header}\n\n${body.trim()}` : `${header}\n${canvasShapeTextT("noTextContent")}`;
   }
 
   const body = plainTextFromShape(shape) ?? "";
@@ -270,5 +291,5 @@ export async function formatCanvasShapesForCopy(
   if (blocks.length === 1) {
     return blocks[0]!;
   }
-  return `## Canvas selection (${blocks.length} shapes)\n\n${blocks.join("\n\n")}`;
+  return `${canvasShapeTextT("selectionHeader", { count: blocks.length })}\n\n${blocks.join("\n\n")}`;
 }

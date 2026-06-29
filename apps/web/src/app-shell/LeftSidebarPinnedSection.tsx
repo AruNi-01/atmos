@@ -12,6 +12,7 @@ import {
   verticalListSortingStrategy,
 } from "@workspace/ui";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
 import {
   getWorkspaceTimeGroupLabel,
@@ -55,6 +56,8 @@ export function LeftSidebarPinnedSection({
   onDividerHoverChange: (hovered: boolean) => void;
   onUpdatePinOrder: (workspaceIds: string[]) => void | Promise<void>;
 }) {
+  const t = useTranslations("appShell");
+
   if (pinnedWorkspaces.length === 0) {
     return null;
   }
@@ -98,7 +101,7 @@ export function LeftSidebarPinnedSection({
                     showProjectName: true,
                     rightContext,
                     sortingDisabled: isSortingDisabled,
-                    sortingDisabledMessage: "Clear workspace filters before reordering pinned workspaces.",
+                    sortingDisabledMessage: t("leftPinnedSection.sortingDisabledMessage"),
                   });
                 })}
               </div>
@@ -126,12 +129,12 @@ export function LeftSidebarPinnedSection({
           )}
           {isCollapsed ? (
             <span className="text-[11px] relative pr-1">
-              <span className={cn("transition-opacity duration-200", isDividerHovered ? "opacity-0" : "opacity-100")}>Pinned</span>
-              <span className={cn("absolute left-0 top-0 transition-opacity duration-200", isDividerHovered ? "opacity-100" : "opacity-0")}>Expand</span>
+              <span className={cn("transition-opacity duration-200", isDividerHovered ? "opacity-0" : "opacity-100")}>{t("leftPinnedSection.pinned")}</span>
+              <span className={cn("absolute left-0 top-0 transition-opacity duration-200", isDividerHovered ? "opacity-100" : "opacity-0")}>{t("leftPinnedSection.expand")}</span>
             </span>
           ) : (
             <span className="text-[11px] overflow-hidden max-w-0 opacity-0 group-hover/divider:max-w-[60px] group-hover/divider:opacity-100 group-hover/divider:pr-1 transition-all duration-300 whitespace-nowrap">
-              Collapse
+              {t("leftPinnedSection.collapse")}
             </span>
           )}
         </div>

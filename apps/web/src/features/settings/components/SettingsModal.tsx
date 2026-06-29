@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
   Dialog,
@@ -205,6 +206,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   activeSectionOverride,
 }) => {
+  const t = useTranslations('settings.modal');
   const {
     appVersion,
     cliVersionInfo,
@@ -252,6 +254,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [savedRunConfigs, setSavedRunConfigs] = useState<TerminalAgentSavedRunConfig[]>([]);
   const [runConfigsLoading, setRunConfigsLoading] = useState(false);
   const [savingRunConfigs, setSavingRunConfigs] = useState(false);
+  const getErrorDescription = React.useCallback(
+    (error: unknown) => (error instanceof Error ? error.message : t('unknownError')),
+    [t],
+  );
   const {
     fileLinkOpenMode,
     fileLinkOpenApp,
@@ -388,8 +394,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSavedAgentCustomSettings(nextBuiltInSettings);
     } catch (error) {
       toastManager.add({
-        title: 'Failed to save built-in agent',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.saveBuiltInAgentTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -436,8 +442,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         [agentId]: { ...prev[agentId], enabled: previousEnabled },
       }));
       toastManager.add({
-        title: 'Failed to update agent visibility',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.updateAgentVisibilityTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -478,8 +484,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSavedCustomAgents(nextSavedCustomAgents);
     }).catch((error) => {
       toastManager.add({
-        title: 'Failed to remove custom agent',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.removeCustomAgentTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
       void loadAgentSettings();
@@ -504,8 +510,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     if (!currentAgent.label.trim() || !currentAgent.cmd.trim()) {
       toastManager.add({
-        title: 'Custom agent is incomplete',
-        description: 'Name and command are required before saving.',
+        title: t('errors.customAgentIncompleteTitle'),
+        description: t('errors.customAgentIncompleteDescription'),
         type: 'error',
       });
       return;
@@ -536,8 +542,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSavedCustomAgents(nextSavedCustomAgents);
     } catch (error) {
       toastManager.add({
-        title: 'Failed to save custom agent',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.saveCustomAgentTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -573,8 +579,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         agent.id === id ? { ...agent, enabled: savedAgent.enabled !== false } : agent
       )));
       toastManager.add({
-        title: 'Failed to update agent visibility',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.updateAgentVisibilityTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -605,8 +611,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setLlmConfig(config);
     } catch (error) {
       toastManager.add({
-        title: 'Failed to load LLM settings',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.loadLlmSettingsTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -668,8 +674,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       void useFunctionSettingsStore.getState().load();
     } catch (error) {
       toastManager.add({
-        title: 'Failed to save run configs',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.saveRunConfigsTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
       throw error;
@@ -700,8 +706,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch (error) {
       setLlmConfig(llmConfig);
       toastManager.add({
-        title: 'Failed to update provider',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.updateProviderTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -726,8 +732,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch (error) {
       setLlmConfig(previousConfig);
       toastManager.add({
-        title: 'Failed to update routing',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: t('errors.updateRoutingTitle'),
+        description: getErrorDescription(error),
         type: 'error',
       });
     } finally {
@@ -815,8 +821,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const granted = await requestBrowserNotificationPermission();
       if (!granted) {
         toastManager.add({
-          title: 'Browser notification permission denied',
-          description: 'Please allow notifications in your browser settings.',
+          title: t('errors.browserNotificationPermissionDeniedTitle'),
+          description: t('errors.browserNotificationPermissionDeniedDescription'),
           type: 'error',
         });
         return;
@@ -828,9 +834,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
-        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogTitle className="sr-only">{t('dialog.title')}</DialogTitle>
         <DialogDescription className="sr-only">
-          Manage ATMOS settings, product information, and desktop updates.
+          {t('dialog.description')}
         </DialogDescription>
 
         <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)]">

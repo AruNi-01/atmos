@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import {
   Button,
   DropdownMenu,
@@ -16,24 +17,6 @@ import {
   QuickOpenAppIcon,
   type QuickOpenAppName,
 } from '@/app-shell/quick-open-apps';
-
-const TERMINAL_LINK_MODE_OPTIONS = [
-  {
-    value: 'atmos',
-    label: 'Atmos',
-    description: 'Open files in the built-in editor and reveal directories in Files.',
-  },
-  {
-    value: 'finder',
-    label: 'Finder',
-    description: 'Open files and directories in Finder.',
-  },
-  {
-    value: 'app',
-    label: 'Quick Open App',
-    description: 'Open terminal file links with a selected external app.',
-  },
-] as const;
 
 export function TerminalSettingsSection({
   fileLinkOpenMode,
@@ -52,18 +35,36 @@ export function TerminalSettingsSection({
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
 }) {
+  const t = useTranslations('settings.terminalSection');
+  const terminalLinkModeOptions = [
+    {
+      value: 'atmos',
+      label: t('linkModes.atmos.label'),
+      description: t('linkModes.atmos.description'),
+    },
+    {
+      value: 'finder',
+      label: t('linkModes.finder.label'),
+      description: t('linkModes.finder.description'),
+    },
+    {
+      value: 'app',
+      label: t('linkModes.app.label'),
+      description: t('linkModes.app.description'),
+    },
+  ] as const;
   const activeTerminalLinkMode =
-    TERMINAL_LINK_MODE_OPTIONS.find((option) => option.value === fileLinkOpenMode) ??
-    TERMINAL_LINK_MODE_OPTIONS[0];
+    terminalLinkModeOptions.find((option) => option.value === fileLinkOpenMode) ??
+    terminalLinkModeOptions[0];
   const activeQuickOpenApp = QUICK_OPEN_APP_MAP[fileLinkOpenApp];
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border">
       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
         <div>
-          <p className="text-base font-medium text-foreground">File link open mode</p>
+          <p className="text-base font-medium text-foreground">{t('fileLinkOpenMode.title')}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Choose how terminal file and directory links should open when clicked.
+            {t('fileLinkOpenMode.description')}
           </p>
         </div>
         <div className="flex items-center justify-end gap-3">
@@ -109,7 +110,7 @@ export function TerminalSettingsSection({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
-              {TERMINAL_LINK_MODE_OPTIONS.map((option) => (
+              {terminalLinkModeOptions.map((option) => (
                 <DropdownMenuItem
                   key={option.value}
                   className="cursor-pointer items-start"
@@ -130,14 +131,13 @@ export function TerminalSettingsSection({
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
         <div>
-          <p className="text-base font-medium text-foreground">Default split agent</p>
+          <p className="text-base font-medium text-foreground">{t('defaultSplitAgent.title')}</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            When enabled, plain split (toolbar click, ⌘D, or context menu) reuses the last agent you
-            picked from a split submenu. Hover split to choose a different agent.
+            {t('defaultSplitAgent.description')}
           </p>
           {lastSplitAgentId ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              Last split agent:{' '}
+              {t('defaultSplitAgent.lastAgent')}{' '}
               <span className="font-medium text-foreground">{lastSplitAgentId}</span>
             </p>
           ) : null}

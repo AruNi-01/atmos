@@ -1,36 +1,61 @@
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
+import { createTranslator } from "next-intl";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export const SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY = "atmos:settings-search-highlight";
+
+let cachedSettingsModalLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedSettingsModalTranslator: any = null;
+
+function settingsModalT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedSettingsModalTranslator || cachedSettingsModalLocale !== locale) {
+    cachedSettingsModalLocale = locale;
+    cachedSettingsModalTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "settings.modal",
+    });
+  }
+  try {
+    return cachedSettingsModalTranslator(key as never);
+  } catch {
+    return key;
+  }
+}
 
 export const SETTINGS_GROUPS = [
   {
     id: "interface",
-    label: "Interface",
-    description: "Layout, editor, canvas, and keyboard preferences",
+    label: settingsModalT("groups.interface.label"),
+    description: settingsModalT("groups.interface.description"),
     items: ["layout", "editor", "canvas", "terminal"] as const,
   },
   {
     id: "ai-agents",
-    label: "AI & Agents",
-    description: "AI providers and code agent configurations",
+    label: settingsModalT("groups.aiAgents.label"),
+    description: settingsModalT("groups.aiAgents.description"),
     items: ["ai", "code-agent"] as const,
   },
   {
     id: "system-integration",
-    label: "System & Integration",
-    description: "Integrations, Tunnel Connector, and notifications",
+    label: settingsModalT("groups.systemIntegration.label"),
+    description: settingsModalT("groups.systemIntegration.description"),
     items: ["integrations", "tunnel-connector", "atmos-computer", "notify"] as const,
   },
   {
     id: "workspace-projects",
-    label: "Workspace & Projects",
-    description: "Workspace management and labels",
+    label: settingsModalT("groups.workspaceProjects.label"),
+    description: settingsModalT("groups.workspaceProjects.description"),
     items: ["workspace", "labels"] as const,
   },
   {
     id: "more",
-    label: "More",
-    description: "Shortcuts, experiments, and about",
+    label: settingsModalT("groups.more.label"),
+    description: settingsModalT("groups.more.description"),
     items: ["shortcuts", "experiments", "about"] as const,
   },
 ] as const;
@@ -38,78 +63,78 @@ export const SETTINGS_GROUPS = [
 export const SETTINGS_SECTIONS = [
   {
     id: "layout",
-    label: "Layout",
-    description: "Panel arrangement and sidebar preferences",
+    label: settingsModalT("sections.layout.label"),
+    description: settingsModalT("sections.layout.description"),
   },
   {
     id: "editor",
-    label: "Editor",
-    description: "Code editor preferences and features",
+    label: settingsModalT("sections.editor.label"),
+    description: settingsModalT("sections.editor.description"),
   },
   {
     id: "canvas",
-    label: "Canvas",
-    description: "Canvas board preferences and auto-save behavior",
+    label: settingsModalT("sections.canvas.label"),
+    description: settingsModalT("sections.canvas.description"),
   },
   {
     id: "code-agent",
-    label: "Code Agent",
-    description: "Agent startup commands and custom parameters",
+    label: settingsModalT("sections.codeAgent.label"),
+    description: settingsModalT("sections.codeAgent.description"),
   },
   {
     id: "terminal",
-    label: "Terminal",
-    description: "Terminal preferences and link behavior",
+    label: settingsModalT("sections.terminal.label"),
+    description: settingsModalT("sections.terminal.description"),
   },
   {
     id: "workspace",
-    label: "Workspace",
-    description: "Deletion behavior and cleanup options",
+    label: settingsModalT("sections.workspace.label"),
+    description: settingsModalT("sections.workspace.description"),
   },
   {
     id: "labels",
-    label: "Labels",
-    description: "Manage workspace labels and their properties",
+    label: settingsModalT("sections.labels.label"),
+    description: settingsModalT("sections.labels.description"),
   },
   {
     id: "integrations",
-    label: "Integrations",
-    description: "External tool integrations and status",
+    label: settingsModalT("sections.integrations.label"),
+    description: settingsModalT("sections.integrations.description"),
   },
   {
     id: "ai",
-    label: "AI & Provider",
-    description: "Providers and lightweight task routing",
+    label: settingsModalT("sections.ai.label"),
+    description: settingsModalT("sections.ai.description"),
   },
   {
     id: "notify",
-    label: "Notify",
-    description: "Notification channels and agent event triggers",
+    label: settingsModalT("sections.notify.label"),
+    description: settingsModalT("sections.notify.description"),
   },
   {
     id: "tunnel-connector",
-    label: "Tunnel Connector",
-    description: "Tunnel providers and remote browser access",
+    label: settingsModalT("sections.tunnelConnector.label"),
+    description: settingsModalT("sections.tunnelConnector.description"),
   },
   {
     id: "atmos-computer",
-    label: "Atmos Computer",
-    description: "Connect to your computers from anywhere",
+    label: settingsModalT("sections.atmosComputer.label"),
+    description: settingsModalT("sections.atmosComputer.description"),
   },
   {
     id: "shortcuts",
-    label: "Shortcuts",
-    description: "Keyboard shortcuts across the application",
+    label: settingsModalT("sections.shortcuts.label"),
+    description: settingsModalT("sections.shortcuts.description"),
   },
   {
     id: "experiments",
-    label: "Experiments",
-    description: "Optional and preview features disabled by default",
+    label: settingsModalT("sections.experiments.label"),
+    description: settingsModalT("sections.experiments.description"),
   },
   {
     id: "about",
-    label: "About",
-    description: "Product overview and desktop updates",
+    label: settingsModalT("sections.about.label"),
+    description: settingsModalT("sections.about.description"),
   },
 ] as const satisfies ReadonlyArray<{
   id: SettingsModalTab;
@@ -422,571 +447,452 @@ type SettingsSearchItemDefinition = {
   keywords?: readonly string[];
 };
 
+function settingsModalSearchItem(
+  key: string,
+  options: {
+    hasDescription?: boolean;
+    keywords?: readonly string[];
+  } = {},
+): SettingsSearchItemDefinition {
+  return {
+    label: settingsModalT(`search.items.${key}.label`),
+    description: options.hasDescription ? settingsModalT(`search.items.${key}.description`) : undefined,
+    keywords: options.keywords,
+  };
+}
+
 const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
   layout: [
-    {
-      label: "Project Files show side",
-      description: "Choose which sidebar displays the project file tree.",
+    settingsModalSearchItem("layout.projectFilesShowSide", {
+      hasDescription: true,
       keywords: ["left sidebar", "right sidebar", "project file tree"],
-    },
-    {
-      label: "Workspace Sidebar Two-Column Layout",
-      description: "Configure optional two-column workspace browser modes.",
+    }),
+    settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
+      hasDescription: true,
       keywords: ["project sidebar", "by time", "by status", "second column"],
-    },
-    {
-      label: "Project sidebar two-column layout",
+    }),
+    settingsModalSearchItem("layout.projectSidebarTwoColumnLayout", {
       keywords: ["projects in first column", "workspaces in second column"],
-    },
-    {
-      label: "Show pinned workspaces in second column",
+    }),
+    settingsModalSearchItem("layout.showPinnedWorkspacesInSecondColumn", {
       keywords: ["pinned section", "project two-column layout"],
-    },
-    {
-      label: "Second column uses Kanban cards",
+    }),
+    settingsModalSearchItem("layout.secondColumnUsesKanbanCards", {
       keywords: ["kanban", "workspace cards", "properties visibility"],
-    },
-    {
-      label: "By Time group uses second column",
+    }),
+    settingsModalSearchItem("layout.byTimeGroupUsesSecondColumn", {
       keywords: ["time grouping", "sidebar by time"],
-    },
-    {
-      label: "By Status group uses second column",
+    }),
+    settingsModalSearchItem("layout.byStatusGroupUsesSecondColumn", {
       keywords: ["status grouping", "sidebar by status"],
-    },
-    {
-      label: "Header layout",
+    }),
+    settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
-    },
-    {
-      label: "Workspace summary button",
+    }),
+    settingsModalSearchItem("layout.workspaceSummaryButton", {
       keywords: ["project", "task", "note", "commit shortcuts"],
-    },
-    {
-      label: "TASK section",
+    }),
+    settingsModalSearchItem("layout.taskSection", {
       keywords: ["task counts", "summary popover"],
-    },
-    {
-      label: "NOTE section",
+    }),
+    settingsModalSearchItem("layout.noteSection", {
       keywords: ["note preview", "markdown editor", "preview popover"],
-    },
-    {
-      label: "Commit & Push section",
+    }),
+    settingsModalSearchItem("layout.commitAndPushSection", {
       keywords: ["repository change status", "commit controls", "push controls"],
-    },
-    {
-      label: "Footer layout",
+    }),
+    settingsModalSearchItem("layout.footerLayout", {
       keywords: ["status strips", "app footer"],
-    },
-    {
-      label: "WebSocket connection status",
+    }),
+    settingsModalSearchItem("layout.webSocketConnectionStatus", {
       keywords: ["connection state", "active websocket clients"],
-    },
-    {
-      label: "Local Services",
+    }),
+    settingsModalSearchItem("layout.localServices", {
       keywords: ["project local services", "workspace local services"],
-    },
-    {
-      label: "AI Quota Usage carousel",
+    }),
+    settingsModalSearchItem("layout.aiQuotaUsageCarousel", {
       keywords: ["usage summaries", "provider picks", "ai usage"],
-    },
-    {
-      label: "Agent Status Panel",
+    }),
+    settingsModalSearchItem("layout.agentStatusPanel", {
       keywords: ["running agent sessions", "agent hooks"],
-    },
-    {
-      label: "ACP Agent Chat entry",
+    }),
+    settingsModalSearchItem("layout.acpAgentChatEntry", {
       keywords: ["floating acp chat", "footer", "experiments"],
-    },
+    }),
   ],
   editor: [
-    {
-      label: "Code Editor",
-      description: "Configure typing, navigation, and inline source-code affordances.",
+    settingsModalSearchItem("editor.codeEditor", {
+      hasDescription: true,
       keywords: ["typing", "navigation", "source code"],
-    },
-    {
-      label: "Auto Save",
+    }),
+    settingsModalSearchItem("editor.autoSave", {
       keywords: ["automatically saves", "2 seconds", "current file"],
-    },
-    {
-      label: "Line Wrap",
+    }),
+    settingsModalSearchItem("editor.lineWrap", {
       keywords: ["wrap long lines", "horizontal scrolling"],
-    },
-    {
-      label: "Bracket Matching",
+    }),
+    settingsModalSearchItem("editor.bracketMatching", {
       keywords: ["matching brackets", "bracket pairs"],
-    },
-    {
-      label: "Minimap",
+    }),
+    settingsModalSearchItem("editor.minimap", {
       keywords: ["right side", "quick navigation"],
-    },
-    {
-      label: "Breadcrumbs",
+    }),
+    settingsModalSearchItem("editor.breadcrumbs", {
       keywords: ["breadcrumb navigation", "top of editor"],
-    },
-    {
-      label: "Line Highlight",
+    }),
+    settingsModalSearchItem("editor.lineHighlight", {
       keywords: ["current line", "matching selections"],
-    },
-    {
-      label: "Git Integration",
+    }),
+    settingsModalSearchItem("editor.gitIntegration", {
       keywords: ["git changes", "diff information"],
-    },
-    {
-      label: "Diff",
+    }),
+    settingsModalSearchItem("editor.diff", {
       keywords: ["default diff layout", "toolbar view options"],
-    },
-    {
-      label: "Diff layout",
+    }),
+    settingsModalSearchItem("editor.diffLayout", {
       keywords: ["side by side", "unified", "center review", "pull request diffs"],
-    },
-    {
-      label: "Diff backgrounds",
+    }),
+    settingsModalSearchItem("editor.diffBackgrounds", {
       keywords: ["tint added lines", "removed lines"],
-    },
-    {
-      label: "Diff line numbers",
+    }),
+    settingsModalSearchItem("editor.diffLineNumbers", {
       keywords: ["source line numbers", "diff panes"],
-    },
-    {
-      label: "Diff word wrap",
+    }),
+    settingsModalSearchItem("editor.diffWordWrap", {
       keywords: ["wrap long diff lines", "horizontal scrolling"],
-    },
-    {
-      label: "Indicator Style",
+    }),
+    settingsModalSearchItem("editor.indicatorStyle", {
       keywords: ["changed lines", "gutter", "bar indicators", "classic indicators", "no indicators"],
-    },
+    }),
   ],
   canvas: [
-    {
-      label: "Auto-save Interval",
+    settingsModalSearchItem("canvas.autoSaveInterval", {
       keywords: ["automatically saves", "seconds"],
-    },
-    {
-      label: "Max rendered terminals per canvas page",
+    }),
+    settingsModalSearchItem("canvas.maxRenderedTerminalsPerCanvasPage", {
       keywords: ["live terminals", "oldest attached live terminal", "rendering limit"],
-    },
-    {
-      label: "Terminal context lines",
+    }),
+    settingsModalSearchItem("canvas.terminalContextLines", {
       keywords: ["copying a canvas terminal", "extract-text", "tmux pane", "xterm buffer"],
-    },
+    }),
   ],
   "code-agent": [
-    {
-      label: "Built-in Agents",
+    settingsModalSearchItem("codeAgent.builtInAgents", {
       keywords: ["startup command", "parameters", "claude", "codex", "gemini"],
-    },
-    {
-      label: "Built-in agent command",
+    }),
+    settingsModalSearchItem("codeAgent.builtInAgentCommand", {
       keywords: ["command", "startup command"],
-    },
-    {
-      label: "Built-in agent parameters",
+    }),
+    settingsModalSearchItem("codeAgent.builtInAgentParameters", {
       keywords: ["parameters", "flags", "startup parameters"],
-    },
-    {
-      label: "Custom Agents",
+    }),
+    settingsModalSearchItem("codeAgent.customAgents", {
       keywords: ["add your own agents", "custom commands", "custom parameters"],
-    },
-    {
-      label: "Custom agent name",
+    }),
+    settingsModalSearchItem("codeAgent.customAgentName", {
       keywords: ["agent name", "new agent"],
-    },
-    {
-      label: "Custom agent command",
+    }),
+    settingsModalSearchItem("codeAgent.customAgentCommand", {
       keywords: ["my-agent", "custom command"],
-    },
-    {
-      label: "Custom agent parameters",
+    }),
+    settingsModalSearchItem("codeAgent.customAgentParameters", {
       keywords: ["--yolo", "custom flags"],
-    },
-    {
-      label: "Code Agent Run Configs",
+    }),
+    settingsModalSearchItem("codeAgent.codeAgentRunConfigs", {
       keywords: ["saved run configs", "default command presets", "add run config", "edit run config"],
-    },
-    {
-      label: "Run Config name",
+    }),
+    settingsModalSearchItem("codeAgent.runConfigName", {
       keywords: ["cursor sonnet high", "config name"],
-    },
-    {
-      label: "Run Config agent",
+    }),
+    settingsModalSearchItem("codeAgent.runConfigAgent", {
       keywords: ["select an agent", "agent option"],
-    },
-    {
-      label: "Agent Hook Status",
+    }),
+    settingsModalSearchItem("codeAgent.agentHookStatus", {
       keywords: ["install hooks", "uninstall hooks", "running state", "tool configs"],
-    },
-    {
-      label: "Behaviour",
+    }),
+    settingsModalSearchItem("codeAgent.behaviour", {
       keywords: ["idle agent sessions", "managed in memory"],
-    },
-    {
-      label: "Idle session cleanup",
+    }),
+    settingsModalSearchItem("codeAgent.idleSessionCleanup", {
       keywords: ["remove idle agent sessions", "every 5 minutes", "timeout"],
-    },
+    }),
   ],
   terminal: [
-    {
-      label: "File link open mode",
+    settingsModalSearchItem("terminal.fileLinkOpenMode", {
       keywords: ["terminal file links", "directory links", "atmos", "finder", "quick open app"],
-    },
-    {
-      label: "Quick Open App",
+    }),
+    settingsModalSearchItem("terminal.quickOpenApp", {
       keywords: ["external app", "finder", "terminal", "cursor", "zed", "vs code"],
-    },
-    {
-      label: "Default split agent",
+    }),
+    settingsModalSearchItem("terminal.defaultSplitAgent", {
       keywords: ["split terminal", "last agent", "toolbar click", "command d", "context menu"],
-    },
+    }),
   ],
   workspace: [
-    {
-      label: "Branch Naming",
+    settingsModalSearchItem("workspace.branchNaming", {
       keywords: ["git branch prefix", "new workspace branches"],
-    },
-    {
-      label: "Branch prefix",
+    }),
+    settingsModalSearchItem("workspace.branchPrefix", {
       keywords: ["workspace branches", "prefix"],
-    },
-    {
-      label: "GitIgnore Directories Sync",
+    }),
+    settingsModalSearchItem("workspace.gitignoreDirectoriesSync", {
       keywords: ["git worktree add", ".gitignore", "symlink", "copy", "project root"],
-    },
-    {
-      label: "GitIgnore built-in defaults",
+    }),
+    settingsModalSearchItem("workspace.gitignoreBuiltInDefaults", {
       keywords: ["built-in defaults", "symlink", "copy", "off"],
-    },
-    {
-      label: "GitIgnore custom directories",
+    }),
+    settingsModalSearchItem("workspace.gitignoreCustomDirectories", {
       keywords: ["custom directories", "relative path", "project root"],
-    },
-    {
-      label: "Deletion Behavior",
+    }),
+    settingsModalSearchItem("workspace.deletionBehavior", {
       keywords: ["workspace delete", "project deletion"],
-    },
-    {
-      label: "Close associated PR",
+    }),
+    settingsModalSearchItem("workspace.closeAssociatedPr", {
       keywords: ["github pull request", "delete workspace"],
-    },
-    {
-      label: "Close associated Issue",
+    }),
+    settingsModalSearchItem("workspace.closeAssociatedIssue", {
       keywords: ["github issue", "delete workspace"],
-    },
-    {
-      label: "Delete remote branch",
+    }),
+    settingsModalSearchItem("workspace.deleteRemoteBranch", {
       keywords: ["github branch", "remote branch"],
-    },
-    {
-      label: "Confirm before delete",
+    }),
+    settingsModalSearchItem("workspace.confirmBeforeDelete", {
       keywords: ["confirmation dialog", "delete workspace"],
-    },
-    {
-      label: "Archive Behavior",
+    }),
+    settingsModalSearchItem("workspace.archiveBehavior", {
       keywords: ["workspace archive", "restore later"],
-    },
-    {
-      label: "Confirm before archive",
+    }),
+    settingsModalSearchItem("workspace.confirmBeforeArchive", {
       keywords: ["confirmation dialog", "archive workspace"],
-    },
-    {
-      label: "Kill tmux session",
+    }),
+    settingsModalSearchItem("workspace.killTmuxSession", {
       keywords: ["terminate tmux", "pty processes", "archive"],
-    },
-    {
-      label: "Close ACP Chat Session",
+    }),
+    settingsModalSearchItem("workspace.closeAcpChatSession", {
       keywords: ["agent chat sessions", "archive workspace"],
-    },
+    }),
   ],
   labels: [
-    {
-      label: "Filter by name",
+    settingsModalSearchItem("labels.filterByName", {
       keywords: ["label search", "label name"],
-    },
-    {
-      label: "Active labels",
+    }),
+    settingsModalSearchItem("labels.activeLabels", {
       keywords: ["active", "workspace labels"],
-    },
-    {
-      label: "Deleted labels",
+    }),
+    settingsModalSearchItem("labels.deletedLabels", {
       keywords: ["deleted", "restore label"],
-    },
-    {
-      label: "Label source",
+    }),
+    settingsModalSearchItem("labels.labelSource", {
       keywords: ["manual", "github issue", "github pr"],
-    },
-    {
-      label: "Label color",
+    }),
+    settingsModalSearchItem("labels.labelColor", {
       keywords: ["swatch", "workspace label color"],
-    },
-    {
-      label: "Delete labels",
+    }),
+    settingsModalSearchItem("labels.deleteLabels", {
       keywords: ["batch delete", "delete selected labels"],
-    },
-    {
-      label: "Restore labels",
+    }),
+    settingsModalSearchItem("labels.restoreLabels", {
       keywords: ["restore deleted label"],
-    },
+    }),
   ],
   integrations: [
-    {
-      label: "GitHub CLI",
+    settingsModalSearchItem("integrations.githubCli", {
       keywords: ["gh", "github issues", "pull requests", "workflows"],
-    },
-    {
-      label: "GitHub CLI Installation Status",
+    }),
+    settingsModalSearchItem("integrations.githubCliInstallationStatus", {
       keywords: ["installed", "not installed", "install github cli"],
-    },
-    {
-      label: "GitHub CLI Authentication Status",
+    }),
+    settingsModalSearchItem("integrations.githubCliAuthenticationStatus", {
       keywords: ["authenticated", "not authenticated", "gh auth login"],
-    },
-    {
-      label: "Tmux",
+    }),
+    settingsModalSearchItem("integrations.tmux", {
       keywords: ["terminal sessions", "tmux server"],
-    },
-    {
-      label: "Tmux Installation Status",
+    }),
+    settingsModalSearchItem("integrations.tmuxInstallationStatus", {
       keywords: ["installed tmux", "not installed"],
-    },
-    {
-      label: "Atmos Tmux Configuration",
+    }),
+    settingsModalSearchItem("integrations.atmosTmuxConfiguration", {
       keywords: ["~/.atmos/atmos.sock", "terminal persistence", "session management"],
-    },
+    }),
   ],
   ai: [
-    {
-      label: "Providers",
+    settingsModalSearchItem("ai.providers", {
       keywords: ["api keys", "endpoints", "default models", "background tasks", "add provider"],
-    },
-    {
-      label: "Provider Test",
+    }),
+    settingsModalSearchItem("ai.providerTest", {
       keywords: ["test provider", "retest", "streaming response"],
-    },
-    {
-      label: "Provider enabled",
+    }),
+    settingsModalSearchItem("ai.providerEnabled", {
       keywords: ["enable provider", "disable provider"],
-    },
-    {
-      label: "Routing",
+    }),
+    settingsModalSearchItem("ai.routing", {
       keywords: ["choose provider", "tasks", "feature select"],
-    },
-    {
-      label: "Git commit generator",
+    }),
+    settingsModalSearchItem("ai.gitCommitGenerator", {
       keywords: ["commit message", "language", "prompt default"],
-    },
-    {
-      label: "Workspace issue TODO extraction",
+    }),
+    settingsModalSearchItem("ai.workspaceIssueTodoExtraction", {
       keywords: ["todo extraction", "workspace issue", "language"],
-    },
-    {
-      label: "Local Model",
+    }),
+    settingsModalSearchItem("ai.localModel", {
       keywords: ["on-device", "no api key", "managed local model", "runtime"],
-    },
+    }),
   ],
   notify: [
-    {
-      label: "Notification Channels",
+    settingsModalSearchItem("notify.notificationChannels", {
       keywords: ["agents need attention", "notification channel"],
-    },
-    {
-      label: "Browser notifications",
+    }),
+    settingsModalSearchItem("notify.browserNotifications", {
       keywords: ["native browser notifications", "agents need attention", "test browser"],
-    },
-    {
-      label: "Desktop notifications",
+    }),
+    settingsModalSearchItem("notify.desktopNotifications", {
       keywords: ["system-level notifications", "desktop app", "test desktop"],
-    },
-    {
-      label: "In-app toast",
+    }),
+    settingsModalSearchItem("notify.inAppToast", {
       keywords: ["top-right app toasts", "agents need attention", "finish"],
-    },
-    {
-      label: "Event Triggers",
+    }),
+    settingsModalSearchItem("notify.eventTriggers", {
       keywords: ["agent events", "trigger notifications"],
-    },
-    {
-      label: "Agent permission requested",
+    }),
+    settingsModalSearchItem("notify.agentPermissionRequested", {
       keywords: ["approval", "waiting for approval"],
-    },
-    {
-      label: "Agent task complete",
+    }),
+    settingsModalSearchItem("notify.agentTaskComplete", {
       keywords: ["agent finishes", "running idle"],
-    },
-    {
-      label: "Automation run outcomes",
+    }),
+    settingsModalSearchItem("notify.automationRunOutcomes", {
       keywords: ["automation completes", "fails", "cancelled", "interrupted"],
-    },
-    {
-      label: "Push Servers",
+    }),
+    settingsModalSearchItem("notify.pushServers", {
       keywords: ["self-hosted push", "ntfy", "bark", "gotify", "custom webhooks"],
-    },
-    {
-      label: "Push automation outcomes",
+    }),
+    settingsModalSearchItem("notify.pushAutomationOutcomes", {
       keywords: ["forward automation outcome notifications", "push servers"],
-    },
-    {
-      label: "Push server URL",
+    }),
+    settingsModalSearchItem("notify.pushServerUrl", {
       keywords: ["https", "webhook url", "ntfy url", "gotify url"],
-    },
-    {
-      label: "Push server token",
+    }),
+    settingsModalSearchItem("notify.pushServerToken", {
       keywords: ["auth token", "optional auth token"],
-    },
-    {
-      label: "Push server topic",
+    }),
+    settingsModalSearchItem("notify.pushServerTopic", {
       keywords: ["ntfy topic"],
-    },
-    {
-      label: "Push server device key",
+    }),
+    settingsModalSearchItem("notify.pushServerDeviceKey", {
       keywords: ["bark device key"],
-    },
+    }),
   ],
   "tunnel-connector": [
-    {
-      label: "Tunnel Connector providers",
+    settingsModalSearchItem("tunnelConnector.providers", {
       keywords: ["remote browser access", "local atmos instance"],
-    },
-    {
-      label: "Cloudflare tunnel",
+    }),
+    settingsModalSearchItem("tunnelConnector.cloudflareTunnel", {
       keywords: ["cloudflare", "install", "authenticate", "start tunnel"],
-    },
-    {
-      label: "ngrok tunnel",
+    }),
+    settingsModalSearchItem("tunnelConnector.ngrokTunnel", {
       keywords: ["ngrok", "auth token", "configure token", "start tunnel"],
-    },
-    {
-      label: "Tunnel auth token",
+    }),
+    settingsModalSearchItem("tunnelConnector.authToken", {
       keywords: ["paste auth token", "configure token"],
-    },
-    {
-      label: "Start Tunnel",
+    }),
+    settingsModalSearchItem("tunnelConnector.startTunnel", {
       keywords: ["start tunnel", "remote browser"],
-    },
-    {
-      label: "Stop Tunnel",
+    }),
+    settingsModalSearchItem("tunnelConnector.stopTunnel", {
       keywords: ["stop tunnel", "remote browser"],
-    },
-    {
-      label: "View Tunnel",
+    }),
+    settingsModalSearchItem("tunnelConnector.viewTunnel", {
       keywords: ["view tunnel", "renew tunnel", "reuse token"],
-    },
+    }),
   ],
   "atmos-computer": [
-    {
-      label: "Access Key",
+    settingsModalSearchItem("atmosComputer.accessKey", {
       keywords: ["access token", "register new computers", "registration codes", "identity"],
-    },
-    {
-      label: "Generate Access Key",
+    }),
+    settingsModalSearchItem("atmosComputer.generateAccessKey", {
       keywords: ["create access key", "generate token"],
-    },
-    {
-      label: "Save Access Key",
+    }),
+    settingsModalSearchItem("atmosComputer.saveAccessKey", {
       keywords: ["paste access key", "switch identity", "hosted web"],
-    },
-    {
-      label: "Rotate Access Token",
+    }),
+    settingsModalSearchItem("atmosComputer.rotateAccessToken", {
       keywords: ["security refresh", "relay access token exposed"],
-    },
-    {
-      label: "Private Relay",
+    }),
+    settingsModalSearchItem("atmosComputer.privateRelay", {
       keywords: ["self-hosted relay", "official atmos relay"],
-    },
-    {
-      label: "Relay URL",
+    }),
+    settingsModalSearchItem("atmosComputer.relayUrl", {
       keywords: ["https://relay.atmos.land", "private relay url"],
-    },
-    {
-      label: "Private Relay token",
+    }),
+    settingsModalSearchItem("atmosComputer.privateRelayToken", {
       keywords: ["relay authentication", "secret key", "x-atmos-relay-secret"],
-    },
-    {
-      label: "Register Computer",
+    }),
+    settingsModalSearchItem("atmosComputer.registerComputer", {
       keywords: ["remote computer", "network", "cloud", "registration code"],
-    },
-    {
-      label: "Register & Start One Computer",
+    }),
+    settingsModalSearchItem("atmosComputer.registerAndStartOneComputer", {
       keywords: ["remote computer setup command", "register token"],
-    },
-    {
-      label: "This Computer",
+    }),
+    settingsModalSearchItem("atmosComputer.thisComputer", {
       keywords: ["register this computer", "online", "offline", "relay reconnect"],
-    },
-    {
-      label: "My Computers",
+    }),
+    settingsModalSearchItem("atmosComputer.myComputers", {
       keywords: ["computers linked", "refresh", "remove computer", "connect"],
-    },
+    }),
   ],
   shortcuts: [
-    {
-      label: "Global shortcuts",
+    settingsModalSearchItem("shortcuts.globalShortcuts", {
       keywords: ["toggle left sidebar", "toggle right sidebar", "command palette", "global search", "quick open file"],
-    },
-    {
-      label: "Workspace shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.workspaceShortcuts", {
       keywords: ["new workspace overlay", "canvas overlay", "kanban overlay", "open create workspace"],
-    },
-    {
-      label: "Center Stage Tabs shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
       keywords: ["overview tab", "fixed terminal tab", "terminal tab"],
-    },
-    {
-      label: "Terminal shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.terminalShortcuts", {
       keywords: ["split terminal", "new terminal tab", "close terminal pane", "find in terminal"],
-    },
-    {
-      label: "Appshots shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.appshotsShortcuts", {
       keywords: ["capture focused app", "appshot"],
-    },
-    {
-      label: "Editor shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.editorShortcuts", {
       keywords: ["save current file", "find in editor"],
-    },
-    {
-      label: "Submit & Commit shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.submitAndCommitShortcuts", {
       keywords: ["submit prompt", "commit message"],
-    },
-    {
-      label: "Diff Viewer shortcuts",
+    }),
+    settingsModalSearchItem("shortcuts.diffViewerShortcuts", {
       keywords: ["multi-select lines", "annotation"],
-    },
+    }),
   ],
   experiments: [
-    {
-      label: "Terminals (Management Center)",
+    settingsModalSearchItem("experiments.terminalsManagementCenter", {
       keywords: ["monitor terminal usage", "manage terminal usage"],
-    },
-    {
-      label: "ACP Agents (Management Center and footer ACP Chat)",
+    }),
+    settingsModalSearchItem("experiments.acpAgentsManagementCenter", {
       keywords: ["acp chat panel", "gui agent conversations", "footer"],
-    },
-    {
-      label: "Automations (Management Center)",
+    }),
+    settingsModalSearchItem("experiments.automationsManagementCenter", {
       keywords: ["automation creation", "scheduled runs", "github-triggered automation"],
-    },
-    {
-      label: "Project Wiki (Center Tabs)",
+    }),
+    settingsModalSearchItem("experiments.projectWikiCenterTabs", {
       keywords: ["project documentation", "knowledge base", "center stage tab"],
-    },
+    }),
   ],
   about: [
-    {
-      label: "Runtime",
+    settingsModalSearchItem("about.runtime", {
       keywords: ["web", "desktop", "runtime"],
-    },
-    {
-      label: "Version",
+    }),
+    settingsModalSearchItem("about.version", {
       keywords: ["app version", "desktop version"],
-    },
-    {
-      label: "Atmos CLI",
+    }),
+    settingsModalSearchItem("about.atmosCli", {
       keywords: ["cli version", "install cli", "check cli version"],
-    },
-    {
-      label: "Check for updates",
+    }),
+    settingsModalSearchItem("about.checkForUpdates", {
       keywords: ["desktop updates", "check update"],
-    },
+    }),
   ],
 };
 

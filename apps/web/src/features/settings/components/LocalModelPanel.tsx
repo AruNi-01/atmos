@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   type LocalModelListResponse,
   type LocalModelStatus,
@@ -38,6 +39,7 @@ const LOCAL_MODEL_REFRESH_EVENT = "atmos-local-model-refresh";
 // ─── RuntimeControl ──────────────────────────────────────────────────────────
 
 export function LocalModelRuntimeControl() {
+  const t = useTranslations("Settings.localModel");
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -50,11 +52,11 @@ export function LocalModelRuntimeControl() {
       setData(res);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to inspect runtime");
+      setError(e instanceof Error ? e.message : t("errors.inspectRuntime"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -84,7 +86,7 @@ export function LocalModelRuntimeControl() {
           : prev,
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Runtime download failed");
+      setError(e instanceof Error ? e.message : t("errors.runtimeDownloadFailed"));
     } finally {
       setBusy(false);
     }
@@ -96,7 +98,7 @@ export function LocalModelRuntimeControl() {
       await localModelApi.deleteRuntime();
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete runtime");
+      setError(e instanceof Error ? e.message : t("errors.deleteRuntime"));
     } finally {
       setBusy(false);
     }
@@ -125,7 +127,7 @@ export function LocalModelRuntimeControl() {
               onClick={() => setConfirmDeleteRuntime(true)}
             >
               <Trash2 className="mr-1.5 size-3.5" />
-              Delete
+              {t("common.delete")}
             </Button>
           </>
         ) : (
@@ -142,7 +144,7 @@ export function LocalModelRuntimeControl() {
             )}
             {downloading && progress !== null
               ? `${Math.round(progress as number)}%`
-              : "Download"}
+              : t("common.download")}
           </Button>
         )}
       </div>
@@ -151,14 +153,14 @@ export function LocalModelRuntimeControl() {
       <Dialog open={confirmDeleteRuntime} onOpenChange={setConfirmDeleteRuntime}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete runtime?</DialogTitle>
+            <DialogTitle>{t("runtime.deleteDialogTitle")}</DialogTitle>
             <DialogDescription>
-              This will permanently delete the llama-server runtime binary. You can re-download it later.
+              {t("runtime.deleteDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDeleteRuntime(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -167,7 +169,7 @@ export function LocalModelRuntimeControl() {
                 void handleDeleteRuntime();
               }}
             >
-              Delete
+              {t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -183,6 +185,7 @@ interface LocalModelPanelProps {
 }
 
 export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
+  const t = useTranslations("Settings.localModel");
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,17 +202,17 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       setData(res);
       setError(null);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to load models";
+      const msg = e instanceof Error ? e.message : t("errors.loadModels");
       // If the error mentions manifest fetch failure, show a more helpful message
       if (msg.includes("manifest") || msg.includes("HTTP error")) {
-        setError("Using bundled local model catalog. Remote catalog unavailable.");
+        setError(t("errors.remoteCatalogUnavailable"));
       } else {
         setError(msg);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Initial load
   useEffect(() => {
@@ -298,7 +301,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
           : prev,
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Download failed");
+      setError(e instanceof Error ? e.message : t("errors.downloadFailed"));
     } finally {
       setBusy(false);
     }
@@ -314,7 +317,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       // Don't immediately load - let WebSocket events and polling handle state updates
       // This prevents overwriting the "starting" state before backend updates it
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start model");
+      setError(e instanceof Error ? e.message : t("errors.startModel"));
       await load();
     } finally {
       setBusy(false);
@@ -327,7 +330,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       await localModelApi.stop();
       // Don't immediately load - let WebSocket events and polling handle state updates
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to stop model");
+      setError(e instanceof Error ? e.message : t("errors.stopModel"));
       await load();
     } finally {
       setBusy(false);
@@ -340,7 +343,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       await localModelApi.delete(modelId);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete model");
+      setError(e instanceof Error ? e.message : t("errors.deleteModel"));
     } finally {
       setBusy(false);
     }
@@ -352,7 +355,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       await localModelApi.deleteCustom(modelId);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to remove custom model");
+      setError(e instanceof Error ? e.message : t("errors.removeCustomModel"));
     } finally {
       setBusy(false);
     }
@@ -402,7 +405,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
               setData(res);
               setError(null);
             } catch (e) {
-              setError(e instanceof Error ? e.message : "Failed to refresh manifest");
+              setError(e instanceof Error ? e.message : t("errors.refreshManifest"));
             } finally {
               setRefreshing(false);
             }
@@ -414,7 +417,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
           ) : (
             <RotateCw className="mr-1.5 size-3.5" />
           )}
-          Refresh
+          {t("common.refresh")}
         </Button>
       </div>
 
@@ -429,8 +432,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
       {/* Model list */}
       {data && data.models.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-          No models available in the manifest. Check your network connection or
-          try again later.
+          {t("emptyState.noModels")}
         </div>
       ) : data ? (
         <div className="space-y-2">
@@ -458,20 +460,17 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
         onClick={() => setCustomDialogOpen(true)}
       >
         <Plus className="mr-1.5 size-3.5" />
-        Add custom model
+        {t("custom.addModelButton")}
       </Button>
 
       <div className="flex items-start gap-2 rounded-lg border border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
         <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
         <span>
-          Local models are compact (≤ 4 B parameters) and optimised for simple
-          tasks like git commit messages. Download Runtime before starting a
-          model. Output quality may be lower than cloud-hosted models — choose
-          carefully when binding features. Model files are stored in{" "}
+          {t("infoBanner.prefix")}{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
             ~/.atmos/local-model-runtime/
           </code>
-          .
+          {t("infoBanner.suffix")}
         </span>
       </div>
 

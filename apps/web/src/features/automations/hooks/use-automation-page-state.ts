@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { useQueryState } from "nuqs";
 
@@ -38,6 +39,7 @@ async function copyTextToClipboard(text: string) {
 }
 
 export function useAutomationPageState() {
+  const t = useTranslations("automation.pageState");
   const {
     automations,
     agents,
@@ -187,8 +189,8 @@ export function useAutomationPageState() {
         setSelectedDetail(null);
         if (showToast) {
           toastManager.add({
-            title: "Failed to load automation",
-            description: err instanceof Error ? err.message : "Unknown error",
+            title: t("errors.loadAutomation"),
+            description: err instanceof Error ? err.message : t("errors.unknown"),
             type: "error",
           });
         }
@@ -197,7 +199,7 @@ export function useAutomationPageState() {
         setDetailLoading(false);
       }
     },
-    [getAutomation, upsertAutomation],
+    [getAutomation, t, upsertAutomation],
   );
 
   React.useEffect(() => {
@@ -219,8 +221,8 @@ export function useAutomationPageState() {
         if (!cancelled) {
           setSelectedDetail(null);
           toastManager.add({
-            title: "Failed to load automation",
-            description: err instanceof Error ? err.message : "Unknown error",
+            title: t("errors.loadAutomation"),
+            description: err instanceof Error ? err.message : t("errors.unknown"),
             type: "error",
           });
         }
@@ -254,7 +256,7 @@ export function useAutomationPageState() {
     async (request: AutomationCreateRequest) => {
       const detail = await createAutomation(request);
       toastManager.add({
-        title: "Automation created",
+        title: t("toasts.created"),
         description: detail.display_name,
         type: "success",
       });
@@ -273,6 +275,7 @@ export function useAutomationPageState() {
       setRunParam,
       setRuns,
       upsertAutomation,
+      t,
     ],
   );
 
@@ -280,7 +283,7 @@ export function useAutomationPageState() {
     async (request: AutomationUpdateRequest) => {
       const detail = await updateAutomation(request);
       toastManager.add({
-        title: "Automation updated",
+        title: t("toasts.updated"),
         description: detail.display_name,
         type: "success",
       });
@@ -290,7 +293,7 @@ export function useAutomationPageState() {
       void setPageView("list");
       return detail;
     },
-    [setAutomationParam, setPageView, updateAutomation, upsertAutomation],
+    [setAutomationParam, setPageView, t, updateAutomation, upsertAutomation],
   );
 
   const handleDefinitionAction = React.useCallback(
@@ -314,13 +317,13 @@ export function useAutomationPageState() {
           ]);
           if (run.status === "failed") {
             toastManager.add({
-              title: "Automation run failed to start",
+              title: t("toasts.runFailedToStart"),
               description: run.error_message ?? automation.display_name,
               type: "error",
             });
           } else {
             toastManager.add({
-              title: "Automation run started",
+              title: t("toasts.runStarted"),
               description: automation.display_name,
               type: "success",
             });
@@ -330,7 +333,7 @@ export function useAutomationPageState() {
           upsertAutomation(detail);
           setSelectedDetail(detail);
           toastManager.add({
-            title: "Schedule paused",
+            title: t("toasts.schedulePaused"),
             description: automation.display_name,
             type: "info",
           });
@@ -350,7 +353,7 @@ export function useAutomationPageState() {
             void setPageView("list");
           }
           toastManager.add({
-            title: "Automation deleted",
+            title: t("toasts.deleted"),
             description: automation.display_name,
             type: "success",
           });
@@ -359,7 +362,7 @@ export function useAutomationPageState() {
           upsertAutomation(detail);
           setSelectedDetail(detail);
           toastManager.add({
-            title: "Schedule resumed",
+            title: t("toasts.scheduleResumed"),
             description: automation.display_name,
             type: "success",
           });
@@ -368,11 +371,11 @@ export function useAutomationPageState() {
         toastManager.add({
           title:
             action === "run"
-              ? "Run now failed"
+              ? t("errors.runNowFailed")
               : action === "delete"
-                ? "Delete failed"
-                : "Schedule update failed",
-          description: err instanceof Error ? err.message : "Unknown error",
+                ? t("errors.deleteFailed")
+                : t("errors.scheduleUpdateFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
@@ -394,6 +397,7 @@ export function useAutomationPageState() {
       setRunParam,
       setRuns,
       setSelectedRun,
+      t,
       upsertAutomation,
     ],
   );
@@ -408,9 +412,7 @@ export function useAutomationPageState() {
             automation.trigger_config_json,
           );
           if (!githubConfig) {
-            throw new Error(
-              "GitHub trigger setup is incomplete. Open Edit to finish the route setup first.",
-            );
+            throw new Error(t("errors.githubSetupIncomplete"));
           }
           detail = await updateAutomation({
             automation_guid: automation.guid,
@@ -434,14 +436,14 @@ export function useAutomationPageState() {
           setSelectedDetail(detail);
         }
         toastManager.add({
-          title: enabled ? "Automation enabled" : "Automation disabled",
+          title: enabled ? t("toasts.enabled") : t("toasts.disabled"),
           description: automation.display_name,
           type: enabled ? "success" : "info",
         });
       } catch (err) {
         toastManager.add({
-          title: enabled ? "Enable failed" : "Disable failed",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: enabled ? t("errors.enableFailed") : t("errors.disableFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
@@ -451,6 +453,7 @@ export function useAutomationPageState() {
     [
       pauseAutomation,
       resumeAutomation,
+      t,
       updateAutomation,
       upsertAutomation,
     ],
@@ -476,21 +479,21 @@ export function useAutomationPageState() {
             .catch(() => undefined),
         ]);
         toastManager.add({
-          title: "Run cancelled",
+          title: t("toasts.runCancelled"),
           description: formatShortId(run.guid),
           type: "info",
         });
       } catch (err) {
         toastManager.add({
-          title: "Cancel failed",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: t("errors.cancelFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
         setBusyAction(null);
       }
     },
-    [cancelRun, loadRuns, refreshAutomation, selectedAutomationGuid, setRuns, setSelectedRun],
+    [cancelRun, loadRuns, refreshAutomation, selectedAutomationGuid, setRuns, setSelectedRun, t],
   );
 
   const handleContinueInTerminal = React.useCallback(
@@ -503,10 +506,12 @@ export function useAutomationPageState() {
         if (!contextId) {
           setStandaloneChatRunGuid(run.guid);
           toastManager.add({
-            title: "Opening standalone conversation",
+            title: t("toasts.openingStandaloneConversation"),
             description: copied
-              ? "Continuation prompt copied to clipboard."
-              : `Clipboard unavailable. Prompt saved at ${response.prompt_path}`,
+              ? t("toasts.promptCopied")
+              : t("toasts.clipboardUnavailable", {
+                  promptPath: response.prompt_path,
+                }),
             type: copied ? "success" : "warning",
           });
           return;
@@ -529,16 +534,18 @@ export function useAutomationPageState() {
           : `/project?id=${contextId}&tab=terminal`;
         router.push(route);
         toastManager.add({
-          title: "Opening terminal",
+          title: t("toasts.openingTerminal"),
           description: copied
-            ? "Continuation prompt copied to clipboard."
-            : `Clipboard unavailable. Prompt saved at ${response.prompt_path}`,
+            ? t("toasts.promptCopied")
+            : t("toasts.clipboardUnavailable", {
+                promptPath: response.prompt_path,
+              }),
           type: copied ? "success" : "warning",
         });
       } catch (err) {
         toastManager.add({
-          title: "Failed to continue in terminal",
-          description: err instanceof Error ? err.message : "Unknown error",
+          title: t("errors.continueInTerminalFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
           type: "error",
         });
       } finally {
@@ -547,7 +554,7 @@ export function useAutomationPageState() {
         );
       }
     },
-    [continueInTerminal, ensureWorkspaceVisible, router, showOpening],
+    [continueInTerminal, ensureWorkspaceVisible, router, showOpening, t],
   );
 
   const handleReload = React.useCallback(() => {

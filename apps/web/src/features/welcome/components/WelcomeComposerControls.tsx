@@ -21,6 +21,7 @@ import {
   LoaderCircle,
   Plus,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type {
   Project,
   WorkspaceLabel,
@@ -54,6 +55,8 @@ export function WelcomeAgentSelector({
   onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
   purpose?: "interactive" | "automation";
 }) {
+  const t = useTranslations("Welcome.components.composerControls");
+
   return (
     <TerminalAgentSelectorWithRunConfig
       variant="floating"
@@ -63,7 +66,7 @@ export function WelcomeAgentSelector({
       runConfigByAgentId={runConfigByAgentId}
       onRunConfigChange={onRunConfigChange}
       onEmptyAction={onConnectAgent}
-      emptyActionLabel="Connect agents"
+      emptyActionLabel={t("connectAgents")}
       purpose={purpose}
     />
   );
@@ -104,6 +107,8 @@ export function WelcomeComposerControls({
   workflowStatus: WorkspaceWorkflowStatus;
   workspaceLabels: WorkspaceLabel[];
 }) {
+  const t = useTranslations("Welcome.components.composerControls");
+
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -119,15 +124,17 @@ export function WelcomeComposerControls({
               )}
             >
               {isInitialProjectsLoading ? (
-                <span className="truncate font-medium text-muted-foreground">Loading projects…</span>
+                <span className="truncate font-medium text-muted-foreground">
+                  {t("loadingProjects")}
+                </span>
               ) : projects.length === 0 ? (
                 <>
                   <Plus className="size-3.5 shrink-0" />
-                  <span className="truncate font-medium">Add a project first</span>
+                  <span className="truncate font-medium">{t("addProjectFirst")}</span>
                 </>
               ) : (
                 <span className="truncate font-medium">
-                  {selectedProject?.name ?? "Select project"}
+                  {selectedProject?.name ?? t("selectProject")}
                 </span>
               )}
               <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
@@ -135,7 +142,7 @@ export function WelcomeComposerControls({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-56">
             <DropdownMenuItem onClick={onAddProject} className="cursor-pointer font-medium">
-              Add Project
+              {t("addProject")}
             </DropdownMenuItem>
             {projects.length > 0 ? (
               <>
@@ -192,7 +199,11 @@ export function WelcomeComposerControls({
             size="icon"
             className="size-9 shrink-0 rounded-md self-end md:self-auto"
             disabled={disabledSubmit}
-            aria-label={isSubmitting ? "Creating workspace" : "Create workspace and run agent"}
+            aria-label={
+              isSubmitting
+                ? t("creatingWorkspaceAria")
+                : t("createWorkspaceAndRunAgentAria")
+            }
           >
             {isSubmitting ? (
               <LoaderCircle className="size-4 animate-spin" />
@@ -203,7 +214,7 @@ export function WelcomeComposerControls({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <div className="flex items-center gap-2">
-            <span>Create Workspace</span>
+            <span>{t("createWorkspace")}</span>
             <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
               <Command className="size-3" />
               <ArrowBigUp className="size-3" />

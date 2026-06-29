@@ -20,9 +20,42 @@ permissions:
   contents: read
 
 jobs:
+  plan:
+    name: Plan web checks
+    runs-on: ubuntu-latest
+    outputs:
+      run_lint_typecheck: ${{ steps.changes.outputs.lint_typecheck }}
+      run_build: ${{ steps.changes.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            lint_typecheck:
+              - "apps/web/src/**"
+              - "apps/web/package.json"
+              - "apps/web/tsconfig.json"
+              - "apps/web/eslint.config.mjs"
+              - "packages/**"
+              - "package.json"
+              - "bun.lock"
+            build:
+              - "apps/web/**"
+              - "packages/**"
+              - "package.json"
+              - "bun.lock"
+              - ".github/workflows/ci-web.yml"
+              - ".github/actions/setup-bun/**"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.run_lint_typecheck == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-bun
@@ -32,6 +65,8 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.run_lint_typecheck == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-bun
@@ -46,7 +81,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [plan, lint, typecheck]
+    if: always() && needs.plan.outputs.run_build == 'true' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.typecheck.result == 'success' || needs.typecheck.result == 'skipped')
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-bun

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { flushSync } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { EditorView } from '@codemirror/view';
@@ -25,6 +26,7 @@ import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
+import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -52,6 +54,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   contextId,
   surfaceActive = true,
 }) => {
+  const t = useTranslations("Editor.components");
   const { effectiveContextId } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
@@ -306,6 +309,24 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     };
   }, [loadSettings]);
 
+  useEffect(() => {
+    setCodeMirrorSearchPanelMessages({
+      findInFile: t('searchPanel.findInFile'),
+      replaceWith: t('searchPanel.replaceWith'),
+      hideReplace: t('searchPanel.hideReplace'),
+      showReplace: t('searchPanel.showReplace'),
+      find: t('searchPanel.find'),
+      previousMatch: t('searchPanel.previousMatch'),
+      nextMatch: t('searchPanel.nextMatch'),
+      closeSearch: t('searchPanel.closeSearch'),
+      matchCase: t('searchPanel.matchCase'),
+      wholeWord: t('searchPanel.wholeWord'),
+      regexp: t('searchPanel.regexp'),
+      replace: t('searchPanel.replace'),
+      replaceAll: t('searchPanel.replaceAll'),
+    });
+  }, [t]);
+
   // Selection popover for copying code to AI
   const getSelectionInfo = useCallback(() => {
     if (isPreview) {
@@ -378,8 +399,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     const timer = setTimeout(() => {
       void saveFile(file.path, editorContextId || undefined).catch(() => {
         toastManager.add({
-          title: 'Auto Save Failed',
-          description: `Failed to auto-save ${file.name}`,
+          title: t('codeMirror.autoSaveFailedTitle'),
+          description: t('codeMirror.autoSaveFailedDescription', { fileName: file.name }),
           type: 'error',
         });
       });
@@ -395,6 +416,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     file.path,
     saveFile,
     editorContextId,
+    t,
   ]);
 
   // Toggle preview
@@ -409,18 +431,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     try {
       await saveFile(file.path, editorContextId || undefined);
       toastManager.add({
-        title: 'Saved',
-        description: `${file.name} saved successfully`,
+        title: t('codeMirror.savedTitle'),
+        description: t('codeMirror.savedDescription', { fileName: file.name }),
         type: 'success',
       });
     } catch {
       toastManager.add({
-        title: 'Save Failed',
-        description: `Failed to save ${file.name}`,
+        title: t('codeMirror.saveFailedTitle'),
+        description: t('codeMirror.saveFailedDescription', { fileName: file.name }),
         type: 'error',
       });
     }
-  }, [editorContextId, file.path, file.name, saveFile]);
+  }, [editorContextId, file.path, file.name, saveFile, t]);
 
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
@@ -446,8 +468,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         type="button"
         onClick={togglePreview}
         className={buttonClassName}
-        title={isPreview ? 'Show Editor' : 'Show Preview'}
-        aria-label={isPreview ? 'Show Editor' : 'Show Preview'}
+        title={isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview')}
+        aria-label={isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview')}
       >
         {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
@@ -459,8 +481,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         <button
           type="button"
           className={triggerClassName}
-          title="Editor Settings"
-          aria-label="Open editor settings"
+          title={t('codeMirror.editorSettings')}
+          aria-label={t('codeMirror.openEditorSettings')}
         >
           <Settings2 className="size-3.5" />
         </button>
@@ -476,11 +498,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Line Wrap
+                  {t('codeMirror.settings.lineWrap')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Wrap long lines inside the editor instead of scrolling horizontally.
+                {t('codeMirror.settings.lineWrapTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -499,11 +521,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Auto Save
+                  {t('codeMirror.settings.autoSave')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Automatically saves the current file after 2 seconds of no typing.
+                {t('codeMirror.settings.autoSaveTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -522,11 +544,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Bracket Matching
+                  {t('codeMirror.settings.bracketMatching')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Highlight matching brackets and show bracket pairs.
+                {t('codeMirror.settings.bracketMatchingTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -545,11 +567,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Minimap
+                  {t('codeMirror.settings.minimap')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Show a minimap on the right side for quick navigation.
+                {t('codeMirror.settings.minimapTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -568,11 +590,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Breadcrumbs
+                  {t('codeMirror.settings.breadcrumbs')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Show breadcrumb navigation at the top of the editor.
+                {t('codeMirror.settings.breadcrumbsTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -591,11 +613,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Line Highlight
+                  {t('codeMirror.settings.lineHighlight')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Highlight the current line and matching selections.
+                {t('codeMirror.settings.lineHighlightTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -614,11 +636,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  Git Integration
+                  {t('codeMirror.settings.gitIntegration')}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                Show git changes and diff information in the editor.
+                {t('codeMirror.settings.gitIntegrationTooltip')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -708,7 +730,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                           >
                             {siblingsData.length === 0 ? (
                               <div className="text-xs text-muted-foreground px-2 py-4 text-center">
-                                No files found
+                                {t('codeMirror.noFilesFound')}
                               </div>
                             ) : (
                               <FileTree
@@ -735,8 +757,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                     type="button"
                     onClick={handleSearchClick}
                     className={toolbarIconBtnClass}
-                    title="Search (Cmd+F)"
-                    aria-label="Search"
+                    title={t('codeMirror.searchWithShortcut')}
+                    aria-label={t('codeMirror.search')}
                   >
                     <Search className="size-3.5" />
                   </button>
