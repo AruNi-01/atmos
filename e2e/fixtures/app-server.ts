@@ -37,7 +37,7 @@ function hasWorkingFrontend(port: number): boolean {
 }
 
 function shellCommand(lines: string[]): string {
-  const script = lines.join("\n");
+  const script = ["set -euo pipefail", ...lines].join("\n");
   const escapedScript = script.replace(/'/g, `'\\''`);
   return `bash -lc '${escapedScript}'`;
 }
@@ -67,15 +67,26 @@ export const shouldReuseWebServer =
 
 function staticExportCommands(): string[] {
   const outDir = path.join(repoRoot, "apps", "web", "out");
-  if (process.env.E2E_SKIP_WEB_BUILD === "1") {
-    return [];
+  const buildCommands: string[] = [];
+  if (process.env.E2E_SKIP_WEB_BUILD !== "1") {
+    buildCommands.push(
+      `if [ ! -d "${outDir}" ] || [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
+      `  rm -rf "${outDir}"`,
+      `  cd "${repoRoot}"`,
+      `  BUILD_TARGET="local-web" NEXT_TELEMETRY_DISABLED="1" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
+      `fi`,
+    );
   }
 
   return [
-    `if [ ! -d "${outDir}" ] || [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
-    `  rm -rf "${outDir}"`,
-    `  cd "${repoRoot}"`,
-    `  BUILD_TARGET="local-web" NEXT_TELEMETRY_DISABLED="1" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
+    ...buildCommands,
+    `if [ ! -f "${outDir}/index.html" ] && [ -f "${outDir}/en/index.html" ]; then`,
+    `  cp "${outDir}/en/index.html" "${outDir}/index.html"`,
+    `fi`,
+    `if [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
+    `  echo "Missing static web export at ${outDir}" >&2`,
+    `  find "${outDir}" -maxdepth 2 -type f 2>/dev/null | sort | head -80 >&2 || true`,
+    `  exit 1`,
     `fi`,
   ];
 }
