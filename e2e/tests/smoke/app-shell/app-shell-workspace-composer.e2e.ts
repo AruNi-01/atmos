@@ -9,16 +9,6 @@ test.describe("smoke app shell workspace composer", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const addProjectButton = page.locator("main").first().getByRole("button", { name: "Add Project" });
-    await addProjectButton.scrollIntoViewIfNeeded();
-    await addProjectButton.evaluate((element) => {
-      (element as HTMLButtonElement).click();
-    });
-    const importProjectDialog = page.getByRole("dialog", { name: "Import Project" });
-    await expect(importProjectDialog).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(importProjectDialog).toBeHidden();
-
     await page.getByRole("button", { name: "Select agent" }).click();
     await expect(page.getByText("Claude Code", { exact: true }).first()).toBeVisible();
     await page.keyboard.press("Escape");

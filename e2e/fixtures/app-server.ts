@@ -37,7 +37,7 @@ function hasWorkingFrontend(port: number): boolean {
 }
 
 function shellCommand(lines: string[]): string {
-  const script = lines.join("\n");
+  const script = ["set -euo pipefail", ...lines].join("\n");
   const escapedScript = script.replace(/'/g, `'\\''`);
   return `bash -lc '${escapedScript}'`;
 }
@@ -57,6 +57,7 @@ const existingWebPort = process.env.E2E_BASE_URL
 
 export const webPort = useSingleServer ? apiPort : configuredWebPort;
 export const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${webPort}`;
+export const webHealthURL = `${baseURL}/en`;
 
 export const shouldStartWebServer =
   process.env.E2E_START_WEB !== "0" && !process.env.E2E_BASE_URL;
@@ -66,15 +67,26 @@ export const shouldReuseWebServer =
 
 function staticExportCommands(): string[] {
   const outDir = path.join(repoRoot, "apps", "web", "out");
-  if (process.env.E2E_SKIP_WEB_BUILD === "1") {
-    return [];
+  const buildCommands: string[] = [];
+  if (process.env.E2E_SKIP_WEB_BUILD !== "1") {
+    buildCommands.push(
+      `if [ ! -d "${outDir}" ] || [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
+      `  rm -rf "${outDir}"`,
+      `  cd "${repoRoot}"`,
+      `  BUILD_TARGET="local-web" NEXT_TELEMETRY_DISABLED="1" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
+      `fi`,
+    );
   }
 
   return [
-    `if [ ! -d "${outDir}" ] || [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
-    `  rm -rf "${outDir}"`,
-    `  cd "${repoRoot}"`,
-    `  BUILD_TARGET="local-web" NEXT_PUBLIC_BUILD_TARGET="local-web" NEXT_PUBLIC_API_PORT="${apiPort}" bun --filter web build`,
+    ...buildCommands,
+    `if [ ! -f "${outDir}/index.html" ] && [ -f "${outDir}/en/index.html" ]; then`,
+    `  cp "${outDir}/en/index.html" "${outDir}/index.html"`,
+    `fi`,
+    `if [ ! -f "${outDir}/index.html" ] || [ ! -f "${outDir}/en/index.html" ]; then`,
+    `  echo "Missing static web export at ${outDir}" >&2`,
+    `  find "${outDir}" -maxdepth 2 -type f 2>/dev/null | sort | head -80 >&2 || true`,
+    `  exit 1`,
     `fi`,
   ];
 }
@@ -89,7 +101,7 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
     `if ! lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
     `  rm -f "${'$'}api_log"`,
     `  ${env}just dev-api --port ${apiPort} --web-port ${correspondingWebPort} >"${'$'}api_log" 2>&1 & api_pid=$!`,
-    `  for _ in {1..60}; do`,
+    `  for _ in {1..600}; do`,
     `    if lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
     `      break`,
     `    fi`,
@@ -107,6 +119,22 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
     `if [ -n "${'$'}api_pid" ]; then`,
     `  trap 'if [ -n "$api_pid" ]; then kill "$api_pid" >/dev/null 2>&1 || true; fi' EXIT`,
     `fi`,
+    `if ${serveStatic ? "true" : "false"}; then`,
+    `  for _ in {1..120}; do`,
+    `    if curl -fsS --max-time 2 "http://127.0.0.1:${correspondingWebPort}/en" > /dev/null; then`,
+    `      break`,
+    `    fi`,
+    `    if [ -n "${'$'}api_pid" ] && ! kill -0 "${'$'}api_pid" >/dev/null 2>&1; then`,
+    `      cat "${'$'}api_log"`,
+    `      exit 1`,
+    `    fi`,
+    `    sleep 1`,
+    `  done`,
+    `  if ! curl -fsS --max-time 2 "http://127.0.0.1:${correspondingWebPort}/en" > /dev/null; then`,
+    `    cat "${'$'}api_log" 2>/dev/null || true`,
+    `    exit 1`,
+    `  fi`,
+    `fi`,
   ];
 }
 
@@ -122,7 +150,7 @@ export function webServerCommand(): string {
 
   if (startNextDev) {
     lines.push(`cd "${webAppDir}"`);
-    lines.push(`NEXT_PUBLIC_API_PORT="${apiPort}" bun x next dev --turbopack --port ${webPort}`);
+    lines.push(`NEXT_PUBLIC_API_PORT="${apiPort}" bun ./node_modules/next/dist/bin/next dev --turbopack --port ${webPort}`);
     return shellCommand(lines);
   }
 

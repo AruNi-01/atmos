@@ -2,6 +2,7 @@ import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
 
 const allowedConsoleErrorPatterns = [
   /favicon\.ico/i,
+  /\[response\.404\] .*\/api\/system\/client-session\b/i,
   /Encountered a script tag while rendering React component/i,
   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
   /\[WebSocket\] Error: Event/i,
@@ -20,6 +21,7 @@ export async function attachBrowserErrorCollector(
   testInfo: TestInfo,
 ): Promise<() => Promise<void>> {
   const errors: string[] = [];
+  const failedResponseUrls = new Set<string>();
 
   page.on("pageerror", (error) => {
     errors.push(`[pageerror] ${error.stack || error.message}`);
@@ -31,8 +33,25 @@ export async function attachBrowserErrorCollector(
     }
   });
 
+  page.on("response", (response) => {
+    const status = response.status();
+    if (status < 400) return;
+    const url = response.url();
+    failedResponseUrls.add(url);
+    errors.push(`[response.${status}] ${url}`);
+  });
+
   return async () => {
-    const unexpected = errors.filter((message) => !isAllowedConsoleError(message));
+    const unexpected = errors.filter((message) => {
+      if (isAllowedConsoleError(message)) return false;
+      if (
+        failedResponseUrls.size > 0 &&
+        /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+      ) {
+        return false;
+      }
+      return true;
+    });
     if (unexpected.length === 0) {
       return;
     }

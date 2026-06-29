@@ -2,11 +2,11 @@ import { expect, test } from "../../../fixtures/test";
 import { expectHealthyRoute } from "../support/app-smoke";
 
 test.describe("smoke onboarding local", () => {
-  test("@smoke shows the local onboarding tab by default", async ({ page }) => {
+  test("@smoke shows the local onboarding tab", async ({ page }) => {
     await expectHealthyRoute(page, "en", "/setup");
 
-    const localTab = page.getByRole("tab", { name: /Local Server/i });
-    const remoteTab = page.getByRole("tab", { name: /Remote/i });
+    const localTab = page.getByRole("tab", { name: /^Local$/i });
+    const remoteTab = page.getByRole("tab", { name: /^Remote$/i });
 
     await expect(localTab).toBeVisible({
       timeout: 30_000,
@@ -15,7 +15,7 @@ test.describe("smoke onboarding local", () => {
     await localTab.click();
     await expect(localTab).toHaveAttribute("aria-selected", "true");
     await expect(
-      page.getByRole("heading", { name: /Local Atmos Server/i }),
+      page.getByRole("heading", { name: /Local Atmos Computer/i }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Check again" })).toBeVisible();
   });
@@ -25,15 +25,17 @@ test.describe("smoke onboarding local", () => {
   }) => {
     await expectHealthyRoute(page, "en", "/setup");
 
-    await expect(page.getByRole("tab", { name: /Local Server/i })).toBeVisible();
-    await page.getByRole("tab", { name: /Local Server/i }).click();
-    await expect(page.getByRole("tab", { name: /Local Server/i })).toHaveAttribute(
+    await expect(page.getByRole("tab", { name: /^Local$/i })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole("tab", { name: /^Local$/i }).click();
+    await expect(page.getByRole("tab", { name: /^Local$/i })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     await page.getByRole("button", { name: "Check again" }).click();
     await expect(
-      page.getByRole("heading", { name: /Local Atmos Server/i }),
+      page.getByRole("heading", { name: /Local Atmos Computer/i }),
     ).toBeVisible();
   });
 });
