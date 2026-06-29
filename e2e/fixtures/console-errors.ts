@@ -20,6 +20,7 @@ export async function attachBrowserErrorCollector(
   testInfo: TestInfo,
 ): Promise<() => Promise<void>> {
   const errors: string[] = [];
+  const failedResponseUrls = new Set<string>();
 
   page.on("pageerror", (error) => {
     errors.push(`[pageerror] ${error.stack || error.message}`);
@@ -31,8 +32,25 @@ export async function attachBrowserErrorCollector(
     }
   });
 
+  page.on("response", (response) => {
+    const status = response.status();
+    if (status < 400) return;
+    const url = response.url();
+    failedResponseUrls.add(url);
+    errors.push(`[response.${status}] ${url}`);
+  });
+
   return async () => {
-    const unexpected = errors.filter((message) => !isAllowedConsoleError(message));
+    const unexpected = errors.filter((message) => {
+      if (isAllowedConsoleError(message)) return false;
+      if (
+        failedResponseUrls.size > 0 &&
+        /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+      ) {
+        return false;
+      }
+      return true;
+    });
     if (unexpected.length === 0) {
       return;
     }

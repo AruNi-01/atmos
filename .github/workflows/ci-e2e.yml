@@ -212,6 +212,9 @@ jobs:
     needs: [plan, run]
     if: ${{ always() && !cancelled() && needs.plan.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-e2e-pages-report
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
