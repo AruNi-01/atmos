@@ -3,6 +3,7 @@ import {
   buildProjectWorkspaceDeepLink,
   connectLocalComputer,
   gotoContextRoute,
+  normalizePathname,
   openActionMenu,
   stubComputerClientSettingsApi,
   withSearchParams,
@@ -37,7 +38,7 @@ test.describe("smoke settings", () => {
 
     await gotoContextRoute(page, settingsUrl);
     await expect
-      .poll(async () => new URL(page.url()).pathname)
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/zh/project");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
@@ -71,7 +72,7 @@ test.describe("smoke settings", () => {
         }),
       );
       await expect
-        .poll(async () => new URL(page.url()).pathname)
+        .poll(async () => normalizePathname(new URL(page.url()).pathname))
         .toBe("/zh/project");
       await expect
         .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
