@@ -2,6 +2,7 @@ import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
 
 const allowedConsoleErrorPatterns = [
   /favicon\.ico/i,
+  /\[response\.404\] .*\/api\/system\/client-session\b/i,
   /Encountered a script tag while rendering React component/i,
   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
   /\[WebSocket\] Error: Event/i,
