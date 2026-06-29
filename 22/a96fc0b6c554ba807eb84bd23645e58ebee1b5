@@ -1,0 +1,19 @@
+e2e/scripts/run-ci-suite.mjs
+  s_9fab8631a4e97f::t_37bce8a29ae279 56-58,62-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "22a96fc0b6c554ba807eb84bd23645e58ebee1b5",
+  "prompts": {},
+  "sessions": {
+    "s_9fab8631a4e97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10c7-9b95-7012-b686-826356045b20",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
