@@ -89,7 +89,7 @@ function startApiCommands(correspondingWebPort: number, serveStatic: boolean): s
     `if ! lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
     `  rm -f "${'$'}api_log"`,
     `  ${env}just dev-api --port ${apiPort} --web-port ${correspondingWebPort} >"${'$'}api_log" 2>&1 & api_pid=$!`,
-    `  for _ in {1..60}; do`,
+    `  for _ in {1..600}; do`,
     `    if lsof -iTCP:${apiPort} -sTCP:LISTEN >/dev/null 2>&1; then`,
     `      break`,
     `    fi`,
