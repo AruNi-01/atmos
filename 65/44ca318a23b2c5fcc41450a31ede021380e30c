@@ -1,0 +1,22 @@
+.github/workflows/ci-e2e.yml
+  s_9fab8631a4e97f::t_6c2fd47f15171c 185,195-196
+  s_9fab8631a4e97f::t_bb6661cb5ac348 197
+.github/actions/setup-e2e/action.yml
+  s_9fab8631a4e97f::t_57053582b4f0b5 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "6544ca318a23b2c5fcc41450a31ede021380e30c",
+  "prompts": {},
+  "sessions": {
+    "s_9fab8631a4e97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10c7-9b95-7012-b686-826356045b20",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
