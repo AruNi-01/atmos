@@ -1,9 +1,13 @@
 import type { Page } from "@playwright/test";
-import { apiPort } from "../../../fixtures/app-server";
+import { apiPort, repoRoot } from "../../../fixtures/app-server";
 import { expect } from "../../../fixtures/test";
-import { repoRoot } from "../../../fixtures/app-server";
 
 export const locales = ["en", "zh"] as const;
+const configuredSeedProjectPath = process.env.E2E_SEED_PROJECT_PATH?.trim();
+
+type ProjectRecord = { guid: string; main_file_path?: string | null; name?: string | null };
+type WorkspaceRecord = { guid: string; is_archived?: boolean | null };
+type SmokeProjectSeed = { projectGuid: string; workspaceGuid: string };
 
 export const routes = [
   "",
@@ -14,6 +18,8 @@ export const routes = [
   "/terminals",
   "/workspaces",
 ] as const;
+
+let smokeProjectSeed: Promise<SmokeProjectSeed> | null = null;
 
 export async function expectHealthyRoute(
   page: Page,
@@ -86,6 +92,7 @@ export async function connectLocalComputer(page: Page): Promise<void> {
     .getByRole("button", { name: "Connect" });
 
   if (await searchButton.isVisible().catch(() => false)) {
+    await ensureProjectWorkspaceSeed(page);
     return;
   }
 
@@ -105,6 +112,7 @@ export async function connectLocalComputer(page: Page): Promise<void> {
   await expect(searchButton).toBeVisible({
     timeout: 45_000,
   });
+  await ensureProjectWorkspaceSeed(page);
 }
 
 export async function buildProjectWorkspaceDeepLink(
@@ -112,11 +120,74 @@ export async function buildProjectWorkspaceDeepLink(
   locale: (typeof locales)[number],
 ): Promise<string> {
   const origin = new URL(page.url()).origin;
-  const target = await page.evaluate(
-    async ({ apiPort, repoRoot }) => {
+  const target = await ensureProjectWorkspaceSeed(page);
+
+  const targetUrl = new URL(`/${locale}/project`, origin);
+  targetUrl.searchParams.set("id", target.projectGuid);
+  targetUrl.searchParams.set("pvUrl", `${origin}/${locale}/workspace?id=${target.workspaceGuid}`);
+  targetUrl.searchParams.set("activeSettingTab", "shortcuts");
+  targetUrl.searchParams.set("lsTab", "files");
+  return targetUrl.toString();
+}
+
+export function withSearchParams(
+  baseUrl: string,
+  params: Record<string, string | null | undefined>,
+): string {
+  const url = new URL(baseUrl);
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === "") {
+      url.searchParams.delete(key);
+    } else {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+}
+
+export async function getRightSidebar(page: Page) {
+  const asides = page.locator("aside");
+  await expect
+    .poll(async () => asides.count(), {
+      timeout: 45_000,
+    })
+    .toBeGreaterThan(0);
+  const resolvedCount = await asides.count();
+  expect(resolvedCount, "missing sidebars for context page").toBeGreaterThan(0);
+  return asides.nth(resolvedCount - 1);
+}
+
+export async function gotoContextRoute(page: Page, url: string): Promise<void> {
+  const response = await page.goto(url, {
+    waitUntil: "domcontentloaded",
+  });
+  expect(response, `missing navigation response for ${url}`).not.toBeNull();
+  expect(response!.status(), `unexpected status for ${url}`).toBeLessThan(500);
+  await expect
+    .poll(async () => page.locator("html").getAttribute("lang"))
+    .toBe("zh");
+  const rightSidebar = await getRightSidebar(page);
+  await expect(rightSidebar).toBeVisible();
+  await page.waitForTimeout(400);
+}
+
+async function ensureProjectWorkspaceSeed(page: Page): Promise<SmokeProjectSeed> {
+  if (!smokeProjectSeed) {
+    smokeProjectSeed = createProjectWorkspaceSeedData(page);
+  }
+
+  try {
+    return await smokeProjectSeed;
+  } catch (error) {
+    smokeProjectSeed = null;
+    throw error;
+  }
+}
+
+function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
+  return page.evaluate(
+    async ({ apiPort, repoRoot, seedProjectPath }) => {
       type ApiResponse<T> = { success: boolean; data: T };
-      type ProjectRecord = { guid: string; main_file_path?: string | null; name?: string | null };
-      type WorkspaceRecord = { guid: string; is_archived?: boolean | null };
 
       const apiBase = `http://127.0.0.1:${apiPort}`;
 
@@ -202,13 +273,21 @@ export async function buildProjectWorkspaceDeepLink(
       }
 
       let projects = await listProjects();
+      const candidateProjectPaths = [seedProjectPath, repoRoot].filter(
+        (value): value is string => Boolean(value),
+      );
       let targetProject =
-        projects.find((project) => project.main_file_path === repoRoot) ??
-        projects.find((project) => project.main_file_path?.endsWith("/OpenSource/atmos")) ??
+        projects.find((project) =>
+          candidateProjectPaths.some(
+            (candidate) =>
+              candidate && (project.main_file_path === candidate || project.main_file_path?.endsWith(candidate)),
+          ),
+        ) ??
         projects[0] ??
         null;
 
       if (!targetProject) {
+        const createProjectPath = candidateProjectPaths[0] ?? repoRoot;
         const createPayload = await parseApiResponse<ProjectRecord>(
           await fetch(`${apiBase}/api/project`, {
             method: "POST",
@@ -217,7 +296,7 @@ export async function buildProjectWorkspaceDeepLink(
             },
             body: JSON.stringify({
               name: "Atmos E2E",
-              main_file_path: repoRoot,
+              main_file_path: createProjectPath,
               sidebar_order: 0,
               border_color: null,
             }),
@@ -228,7 +307,6 @@ export async function buildProjectWorkspaceDeepLink(
           throw new Error("project create API returned unsuccessful response");
         }
         targetProject = createPayload.data;
-        projects = await listProjects();
       }
 
       let workspaces = await listWorkspaces(targetProject.guid);
@@ -270,54 +348,6 @@ export async function buildProjectWorkspaceDeepLink(
         workspaceGuid: targetWorkspace.guid,
       };
     },
-    { apiPort, repoRoot },
+    { apiPort, repoRoot, seedProjectPath: configuredSeedProjectPath },
   );
-
-  const targetUrl = new URL(`/${locale}/project`, origin);
-  targetUrl.searchParams.set("id", target.projectGuid);
-  targetUrl.searchParams.set("pvUrl", `${origin}/${locale}/workspace?id=${target.workspaceGuid}`);
-  targetUrl.searchParams.set("activeSettingTab", "shortcuts");
-  targetUrl.searchParams.set("lsTab", "files");
-  return targetUrl.toString();
-}
-
-export function withSearchParams(
-  baseUrl: string,
-  params: Record<string, string | null | undefined>,
-): string {
-  const url = new URL(baseUrl);
-  for (const [key, value] of Object.entries(params)) {
-    if (value == null || value === "") {
-      url.searchParams.delete(key);
-    } else {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
-}
-
-export async function getRightSidebar(page: Page) {
-  const asides = page.locator("aside");
-  await expect
-    .poll(async () => asides.count(), {
-      timeout: 45_000,
-    })
-    .toBeGreaterThan(0);
-  const resolvedCount = await asides.count();
-  expect(resolvedCount, "missing sidebars for context page").toBeGreaterThan(0);
-  return asides.nth(resolvedCount - 1);
-}
-
-export async function gotoContextRoute(page: Page, url: string): Promise<void> {
-  const response = await page.goto(url, {
-    waitUntil: "domcontentloaded",
-  });
-  expect(response, `missing navigation response for ${url}`).not.toBeNull();
-  expect(response!.status(), `unexpected status for ${url}`).toBeLessThan(500);
-  await expect
-    .poll(async () => page.locator("html").getAttribute("lang"))
-    .toBe("zh");
-  const rightSidebar = await getRightSidebar(page);
-  await expect(rightSidebar).toBeVisible();
-  await page.waitForTimeout(400);
 }
