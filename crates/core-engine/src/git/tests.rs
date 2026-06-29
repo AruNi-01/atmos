@@ -386,6 +386,8 @@ fn changed_files_preserve_rename_numstat_counts() {
         .trim()
         .to_string();
 
+    git(&repo_path, &["config", "diff.renames", "false"]);
+
     let branch_changes = engine
         .get_changed_files(&repo_path, Some(&base_commit), false)
         .expect("branch compare changed files should be available");

@@ -383,7 +383,10 @@ export function useGitLog({
   limit?: number;
 }) {
   const send = useWebSocketStore(s => s.send);
-  const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [commitState, setCommitState] = useState<{
+    scopeKey: string | null | undefined;
+    commits: GitCommit[];
+  }>({ scopeKey: branchKey, commits: [] });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -400,7 +403,7 @@ export function useGitLog({
     const requestBranchKey = branchKeyRef.current;
 
     if (!repoPath) {
-      setCommits([]);
+      setCommitState({ scopeKey: requestBranchKey, commits: [] });
       setHasMore(false);
       setPage(0);
       setLoading(false);
@@ -422,7 +425,7 @@ export function useGitLog({
         return;
       }
       const fetched: GitCommit[] = result?.commits ?? [];
-      setCommits(fetched);
+      setCommitState({ scopeKey: requestBranchKey, commits: fetched });
       setHasMore(fetched.length >= limit);
       setPage(pageIndex);
     } catch (e) {
@@ -433,7 +436,7 @@ export function useGitLog({
         return;
       }
       console.error(e);
-      setCommits([]);
+      setCommitState({ scopeKey: requestBranchKey, commits: [] });
     } finally {
       if (
         requestIdRef.current === requestId &&
@@ -444,9 +447,16 @@ export function useGitLog({
     }
   }, [repoPath, limit, send]);
 
+  const resetAndFetchPage = useCallback((pageIndex: number) => {
+    setCommitState({ scopeKey: branchKeyRef.current, commits: [] });
+    setHasMore(false);
+    setPage(0);
+    void fetchPage(pageIndex);
+  }, [fetchPage]);
+
   useEffect(() => {
-    fetchPage(0);
-  }, [branchKey, fetchPage]);
+    resetAndFetchPage(0);
+  }, [branchKey, resetAndFetchPage]);
 
   const goToPrevPage = useCallback(() => {
     if (page > 0) fetchPage(page - 1);
@@ -458,5 +468,14 @@ export function useGitLog({
 
   const refresh = useCallback(() => fetchPage(page), [fetchPage, page]);
 
-  return { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh };
+  const isCurrentScope = commitState.scopeKey === branchKey;
+  return {
+    commits: isCurrentScope ? commitState.commits : [],
+    loading: loading || (!!repoPath && !isCurrentScope),
+    page: isCurrentScope ? page : 0,
+    hasMore: isCurrentScope ? hasMore : false,
+    goToPrevPage,
+    goToNextPage,
+    refresh,
+  };
 }
