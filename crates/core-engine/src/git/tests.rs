@@ -112,6 +112,12 @@ fn clone_repo(root: &Path, origin_path: &Path, name: &str) -> PathBuf {
     clone_path
 }
 
+fn file_url(path: &Path) -> String {
+    reqwest::Url::from_file_path(path)
+        .expect("path should convert to file URL")
+        .to_string()
+}
+
 #[test]
 fn git_fetch_targets_current_refs_for_shallow_repositories() {
     let (root, origin_path) = setup_remote_repo("targeted-shallow-fetch");
@@ -122,7 +128,7 @@ fn git_fetch_targets_current_refs_for_shallow_repositories() {
     git(&seed_path, &["checkout", "main"]);
 
     let repo_path = root.join("shallow-work");
-    let origin_url = format!("file://{}", origin_path.display());
+    let origin_url = file_url(&origin_path);
     git(
         &root,
         &[
@@ -166,6 +172,60 @@ fn git_fetch_targets_current_refs_for_shallow_repositories() {
     ));
 
     fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn git_fetch_targets_non_origin_upstream_for_shallow_repositories() {
+    let (root, origin_path) = setup_remote_repo("targeted-shallow-upstream-fetch");
+    let repo_path = root.join("shallow-upstream-work");
+    let origin_url = file_url(&origin_path);
+    git(
+        &root,
+        &[
+            "clone",
+            "--depth=1",
+            "--branch",
+            "main",
+            &origin_url,
+            repo_path.to_str().expect("valid path"),
+        ],
+    );
+    configure_repo(&repo_path);
+    git(&repo_path, &["remote", "add", "upstream", &origin_url]);
+    git(&repo_path, &["fetch", "upstream", "main"]);
+    git(
+        &repo_path,
+        &["branch", "--set-upstream-to=upstream/main", "main"],
+    );
+
+    let seed_path = root.join("seed");
+    let before_upstream = git_output(&repo_path, &["rev-parse", "upstream/main"]);
+    commit_file(
+        &seed_path,
+        "README.md",
+        "upstream update\n",
+        "upstream update",
+    );
+    git(&seed_path, &["push", "origin", "main"]);
+
+    GitEngine::new()
+        .fetch(&repo_path)
+        .expect("targeted shallow fetch should update upstream ref");
+
+    let after_upstream = git_output(&repo_path, &["rev-parse", "upstream/main"]);
+    assert_ne!(before_upstream, after_upstream);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn branch_name_validation_rejects_invalid_names() {
+    GitEngine::validate_branch_name("feature/scope").expect("valid branch should pass");
+
+    assert!(GitEngine::validate_branch_name("bad branch").is_err());
+    assert!(GitEngine::validate_branch_name("feature.lock").is_err());
+    assert!(GitEngine::validate_branch_name("feature/scope ").is_err());
+    assert!(GitEngine::validate_branch_name("").is_err());
 }
 
 #[test]

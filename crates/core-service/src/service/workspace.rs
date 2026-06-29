@@ -7,6 +7,7 @@ use crate::service::workspace_support::{
 use crate::service::workspace_todos::{
     build_issue_todo_request, normalize_task_markdown, render_requirement_markdown,
 };
+use crate::utils::function_settings::read_workspace_branch_prefix;
 use crate::utils::workspace_name_generator;
 use crate::{GithubIssuePayload, GithubPrPayload, WorkspaceAttachmentPayload};
 use core_engine::{FsEngine, GitEngine};
@@ -41,27 +42,6 @@ pub struct WorkspaceService {
     db: Arc<DatabaseConnection>,
     git_engine: GitEngine,
     fs_engine: FsEngine,
-}
-
-fn read_workspace_branch_prefix() -> String {
-    let path = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".atmos")
-        .join("function_settings.json");
-    if path.exists() {
-        std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
-            .and_then(|v| {
-                v.get("workspace_settings")?
-                    .get("branch_prefix")?
-                    .as_str()
-                    .map(String::from)
-            })
-            .unwrap_or_else(|| "atmos".to_string())
-    } else {
-        "atmos".to_string()
-    }
 }
 
 fn apply_workspace_branch_prefix(branch: String, branch_prefix: Option<&str>) -> String {
@@ -480,6 +460,11 @@ impl WorkspaceService {
         } else {
             apply_workspace_branch_prefix(final_branch, branch_prefix.as_deref())
         };
+        GitEngine::validate_branch_name(&final_branch).map_err(|error| {
+            ServiceError::Validation(format!(
+                "Invalid workspace branch `{final_branch}`: {error}"
+            ))
+        })?;
 
         // For PR-linked workspaces, reusing the existing local branch is expected.
         if github_pr_payload.is_none() && existing_branches.contains(&final_branch) {
