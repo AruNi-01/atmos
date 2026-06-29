@@ -1,0 +1,23 @@
+e2e/fixtures/console-errors.ts
+  s_9fab8631a4e97f::t_5bf185e3682a9b 23,35-42,44-53
+.github/workflows/ci-e2e.yml
+  s_9fab8631a4e97f::t_20170929d55dbb 215-217
+e2e/scripts/run-ci-suite.mjs
+  s_9fab8631a4e97f::t_7b657d97b7ec1c 7,10,24,28-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "ae7567a7032625ddfe893b72d4d5549c5547ad49",
+  "prompts": {},
+  "sessions": {
+    "s_9fab8631a4e97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10c7-9b95-7012-b686-826356045b20",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
