@@ -175,109 +175,7 @@ jobs:
           SETTINGS: ${{ steps.changes.outputs.settings }}
           WORKSPACE: ${{ steps.changes.outputs.workspace }}
           SPECS: ${{ steps.changes.outputs.specs }}
-        run: |
-          node <<'NODE'
-          const fs = require("node:fs");
-
-          const smokeSuites = [
-            "smoke-routes",
-            "smoke-onboarding",
-            "smoke-app-shell",
-            "smoke-project",
-            "smoke-settings",
-            "smoke-workspace",
-          ];
-
-          const manualTargets = {
-            "all-smoke": smokeSuites,
-            "smoke-stateless": ["smoke-stateless"],
-            "smoke-stateful": ["smoke-stateful"],
-            "smoke-routes": ["smoke-routes"],
-            "smoke-onboarding": ["smoke-onboarding"],
-            "smoke-app-shell": ["smoke-app-shell"],
-            "smoke-project": ["smoke-project"],
-            "smoke-settings": ["smoke-settings"],
-            "smoke-workspace": ["smoke-workspace"],
-            specs: ["specs"],
-            full: ["full"],
-          };
-
-          const eventName = process.env.EVENT_NAME;
-          const gitRef = process.env.GITHUB_REF || "";
-          const isForkPr = process.env.IS_FORK_PR === "true";
-          const target = process.env.TARGET || "auto";
-          const flags = {
-            anyFrontend: process.env.ANY_FRONTEND === "true",
-            global: process.env.GLOBAL === "true",
-            routes: process.env.ROUTES === "true",
-            onboarding: process.env.ONBOARDING === "true",
-            appShell: process.env.APP_SHELL === "true",
-            project: process.env.PROJECT === "true",
-            settings: process.env.SETTINGS === "true",
-            workspace: process.env.WORKSPACE === "true",
-            specs: process.env.SPECS === "true",
-          };
-
-          const suites = [];
-          const add = (suite) => {
-            if (!suites.includes(suite)) {
-              suites.push(suite);
-            }
-          };
-          const addMany = (items) => items.forEach(add);
-
-          if (target !== "auto") {
-            addMany(manualTargets[target] || []);
-          } else if (eventName === "workflow_dispatch") {
-            addMany(smokeSuites);
-          } else if (flags.global) {
-            addMany(smokeSuites);
-            if (flags.specs) {
-              add("specs");
-            }
-          } else {
-            if (flags.routes) add("smoke-routes");
-            if (flags.onboarding) add("smoke-onboarding");
-            if (flags.appShell) add("smoke-app-shell");
-            if (flags.project) add("smoke-project");
-            if (flags.settings) add("smoke-settings");
-            if (flags.workspace) add("smoke-workspace");
-            if (flags.specs) add("specs");
-
-            if (flags.anyFrontend && suites.length === 0) {
-              addMany(smokeSuites);
-            }
-          }
-
-          const shouldRun = suites.length > 0;
-          const publishReport =
-            shouldRun &&
-            !isForkPr &&
-            ((process.env.REQUESTED_PUBLISH_REPORT === "true" &&
-              eventName === "workflow_dispatch") ||
-              eventName === "pull_request" ||
-              (eventName === "push" && gitRef === "refs/heads/main"));
-
-          const output = [
-            `suites=${JSON.stringify(suites)}`,
-            `should_run=${shouldRun}`,
-            `publish_report=${publishReport}`,
-          ].join("\n");
-
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `${output}\n`);
-
-          const summaryLines = [
-            "### Planned E2E suites",
-            "",
-            `- Event: \`${eventName}\``,
-            `- Target: \`${target}\``,
-            `- Publish HTML report to GitHub Pages: \`${publishReport}\``,
-            isForkPr ? "- GitHub Pages publish is skipped for fork PRs because workflow write permissions are not available." : null,
-            `- Selected suites: ${shouldRun ? suites.map((suite) => `\`${suite}\``).join(", ") : "none"}`,
-          ].filter(Boolean);
-
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summaryLines.join("\n")}\n`);
-          NODE
+        run: node e2e/scripts/plan-ci-suites.cjs
 
   run:
     name: E2E - ${{ matrix.suite }}
@@ -346,75 +244,7 @@ jobs:
 
       - name: Write GitHub summary
         working-directory: e2e
-        run: |
-          node <<'NODE'
-          const fs = require("node:fs");
-
-          const resultsPath = "reports/merged/results.json";
-          if (!fs.existsSync(resultsPath)) {
-            fs.appendFileSync(
-              process.env.GITHUB_STEP_SUMMARY,
-              "### Playwright summary\n\nMerged JSON report was not generated.\n",
-            );
-            process.exit(0);
-          }
-
-          const report = JSON.parse(fs.readFileSync(resultsPath, "utf8"));
-          const stats = report.stats || {};
-          const failures = [];
-
-          function walkSuite(suite) {
-            for (const spec of suite.specs || []) {
-              if (spec.ok === false) {
-                const firstTest = (spec.tests || [])[0] || {};
-                const firstResult = (firstTest.results || [])[0] || {};
-                const firstError = firstResult.error || (firstResult.errors || [])[0];
-                failures.push({
-                  title: spec.title,
-                  project: firstTest.projectName || firstTest.projectId || "unknown",
-                  message: firstError?.message
-                    ? firstError.message.split("\n")[0]
-                    : "See HTML report for details.",
-                });
-              }
-            }
-            for (const child of suite.suites || []) {
-              walkSuite(child);
-            }
-          }
-
-          for (const suite of report.suites || []) {
-            walkSuite(suite);
-          }
-
-          const lines = [
-            "### Playwright summary",
-            "",
-            "| Metric | Value |",
-            "| --- | --- |",
-            `| Expected | ${stats.expected ?? 0} |`,
-            `| Unexpected | ${stats.unexpected ?? 0} |`,
-            `| Flaky | ${stats.flaky ?? 0} |`,
-            `| Skipped | ${stats.skipped ?? 0} |`,
-            `| Duration | ${Math.round((stats.duration ?? 0) / 1000)}s |`,
-            "",
-            "- Merged HTML report artifact: `playwright-html-report`",
-            "- Raw matrix blob artifacts: `playwright-blob-*`",
-            "- GitHub Actions artifacts are downloadable archives; direct in-browser HTML viewing is provided via GitHub Pages when this workflow publishes a Pages report.",
-          ];
-
-          if (failures.length > 0) {
-            lines.push("", "#### Failed specs", "");
-            for (const failure of failures.slice(0, 10)) {
-              lines.push(`- [${failure.project}] ${failure.title} — ${failure.message}`);
-            }
-            if (failures.length > 10) {
-              lines.push(`- ...and ${failures.length - 10} more failures in the HTML report`);
-            }
-          }
-
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join("\n")}\n`);
-          NODE
+        run: node scripts/write-e2e-summary.cjs
 
       - name: Upload merged HTML report
         if: always() && !cancelled()
@@ -445,61 +275,7 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
         working-directory: e2e
-        run: |
-          node <<'NODE'
-          const fs = require("node:fs");
-          const path = require("node:path");
-
-          const eventName = process.env.GITHUB_EVENT_NAME;
-          const repo = process.env.GITHUB_REPOSITORY;
-          const owner = process.env.GITHUB_REPOSITORY_OWNER;
-          const repoName = repo.split("/")[1];
-          const runId = process.env.GITHUB_RUN_ID;
-          const refName = (process.env.GITHUB_REF_NAME || "manual").replace(/[^a-zA-Z0-9._-]+/g, "-");
-          const prNumber = process.env.PR_NUMBER;
-
-          let reportPath;
-          if (eventName === "pull_request" && prNumber) {
-            reportPath = `e2e-reports/pr-${prNumber}/run-${runId}`;
-          } else if (eventName === "push") {
-            reportPath = `e2e-reports/branch-${refName}/run-${runId}`;
-          } else {
-            reportPath = `e2e-reports/manual-${refName}/run-${runId}`;
-          }
-
-          const reportUrl = `https://${owner}.github.io/${repoName}/${reportPath}/`;
-          const sourceDir = path.resolve("reports/merged/html");
-          const siteRoot = path.resolve("reports/pages-site");
-          const targetDir = path.join(siteRoot, reportPath);
-
-          fs.mkdirSync(targetDir, { recursive: true });
-          fs.cpSync(sourceDir, targetDir, { recursive: true });
-          fs.writeFileSync(path.join(siteRoot, ".nojekyll"), "");
-
-          const indexHtml = `<!doctype html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <title>Atmos E2E Reports</title>
-              <style>
-                body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 40px; color: #111827; }
-                a { color: #2563eb; }
-                code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
-              </style>
-            </head>
-            <body>
-              <h1>Atmos E2E Reports</h1>
-              <p>Latest report published by this workflow:</p>
-              <p><a href="${`/${repoName}/${reportPath}/`}">${reportPath}</a></p>
-              <p>This Pages site stores static Playwright HTML reports for GitHub workflow runs.</p>
-            </body>
-          </html>`;
-          fs.writeFileSync(path.join(siteRoot, "index.html"), indexHtml, "utf8");
-
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `report_path=${reportPath}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `report_url=${reportUrl}\n`);
-          NODE
+        run: node scripts/prepare-pages-report.cjs
 
       - name: Deploy GitHub Pages report branch
         if: needs.plan.outputs.publish_report == 'true'
@@ -518,61 +294,17 @@ jobs:
           REPORT_URL: ${{ steps.pages_meta.outputs.report_url }}
         with:
           script: |
-            const fs = require("node:fs");
-            const marker = "<!-- atmos-e2e-report -->";
-            const report = JSON.parse(fs.readFileSync("e2e/reports/merged/results.json", "utf8"));
-            const stats = report.stats || {};
-            const failures = [];
-
-            function walkSuite(suite) {
-              for (const spec of suite.specs || []) {
-                if (spec.ok === false) {
-                  const firstTest = (spec.tests || [])[0] || {};
-                  const firstResult = (firstTest.results || [])[0] || {};
-                  const firstError = firstResult.error || (firstResult.errors || [])[0];
-                  failures.push({
-                    title: spec.title,
-                    project: firstTest.projectName || firstTest.projectId || "unknown",
-                    message: firstError?.message
-                      ? firstError.message.split("\n")[0]
-                      : "See HTML report for details.",
-                  });
-                }
-              }
-              for (const child of suite.suites || []) {
-                walkSuite(child);
-              }
+            const {
+              REPORT_COMMENT_MARKER,
+              buildPrCommentBody,
+              readJsonReport,
+            } = require("./e2e/scripts/e2e-report-utils.cjs");
+            const report = readJsonReport("e2e/reports/merged/results.json");
+            if (!report) {
+              core.setFailed("Merged JSON report was not generated.");
+              return;
             }
-
-            for (const suite of report.suites || []) {
-              walkSuite(suite);
-            }
-
-            const lines = [
-              marker,
-              "## E2E report",
-              "",
-              `- HTML report: [Open report](${process.env.REPORT_URL})`,
-              `- Expected: ${stats.expected ?? 0}`,
-              `- Unexpected: ${stats.unexpected ?? 0}`,
-              `- Flaky: ${stats.flaky ?? 0}`,
-              `- Skipped: ${stats.skipped ?? 0}`,
-              `- Duration: ${Math.round((stats.duration ?? 0) / 1000)}s`,
-            ];
-
-            if (failures.length > 0) {
-              lines.push("", "### Failed specs", "");
-              for (const failure of failures.slice(0, 10)) {
-                lines.push(`- [${failure.project}] ${failure.title} — ${failure.message}`);
-              }
-              if (failures.length > 10) {
-                lines.push(`- ...and ${failures.length - 10} more failures in the HTML report`);
-              }
-            } else {
-              lines.push("", "All selected E2E suites passed.");
-            }
-
-            const body = lines.join("\n");
+            const body = buildPrCommentBody(report, process.env.REPORT_URL);
             const issue_number = context.issue.number;
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -581,7 +313,7 @@ jobs:
               per_page: 100,
             });
             const existing = comments.find((comment) =>
-              comment.user?.type === "Bot" && comment.body?.includes(marker)
+              comment.user?.type === "Bot" && comment.body?.includes(REPORT_COMMENT_MARKER)
             );
 
             if (existing) {
