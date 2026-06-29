@@ -5,6 +5,12 @@ use crate::error::Result;
 
 use super::{run_git, try_run_git, ChangedFileInfo, ChangedFilesInfo, FileDiffInfo, GitEngine};
 
+struct NameStatusEntry {
+    status: String,
+    old_path: String,
+    new_path: String,
+}
+
 fn is_unmerged_porcelain_status(status: &str) -> bool {
     matches!(status, "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
 }
@@ -385,7 +391,7 @@ impl GitEngine {
             ],
         )?;
 
-        let status = if let Some(line) = status_stdout.lines().next() {
+        let worktree_status = if let Some(line) = status_stdout.lines().next() {
             let code = &line[0..2];
             match code.trim() {
                 "M" | " M" | "MM" => "M",
@@ -404,12 +410,40 @@ impl GitEngine {
         } else {
             self.resolve_preferred_compare_ref(repo_path, base_branch)?
         };
+        let compare_entry = if let Some(base_ref) = compare_ref.as_deref() {
+            Self::find_name_status_entry(
+                try_run_git(
+                    repo_path,
+                    &[
+                        "-c",
+                        "core.quotePath=false",
+                        "diff",
+                        "--find-renames",
+                        "--name-status",
+                        base_ref,
+                    ],
+                )?
+                .as_deref(),
+                file_path,
+            )
+        } else {
+            None
+        };
+        let (status, old_path, new_path) = if let Some(entry) = compare_entry {
+            (entry.status, entry.old_path, entry.new_path)
+        } else {
+            (
+                worktree_status,
+                file_path.to_string(),
+                file_path.to_string(),
+            )
+        };
 
         let old_content = if against_index {
             if status == "A" {
                 String::new()
             } else {
-                let spec = format!(":{file_path}");
+                let spec = format!(":{old_path}");
                 try_run_git(repo_path, &["show", &spec])?.unwrap_or_default()
             }
         } else if status == "A" {
@@ -417,15 +451,15 @@ impl GitEngine {
         } else {
             let show_ref = compare_ref
                 .as_deref()
-                .map(|base_ref| format!("{base_ref}:{file_path}"))
-                .unwrap_or_else(|| format!("HEAD:{file_path}"));
+                .map(|base_ref| format!("{base_ref}:{old_path}"))
+                .unwrap_or_else(|| format!("HEAD:{old_path}"));
             try_run_git(repo_path, &["show", &show_ref])?.unwrap_or_default()
         };
 
         let new_content = if status == "D" {
             String::new()
         } else {
-            Self::read_worktree_blob_content(repo_path, file_path)
+            Self::read_worktree_blob_content(repo_path, &new_path)
         };
 
         Ok(FileDiffInfo {
@@ -478,55 +512,42 @@ impl GitEngine {
             .unwrap_or_default()
         };
 
-        let mut status = "M".to_string();
-        let mut old_path = file_path.to_string();
-        let mut new_path = file_path.to_string();
+        let entry =
+            Self::find_name_status_entry(Some(&name_status), file_path).unwrap_or_else(|| {
+                NameStatusEntry {
+                    status: "M".to_string(),
+                    old_path: file_path.to_string(),
+                    new_path: file_path.to_string(),
+                }
+            });
 
-        for line in name_status.lines() {
-            let parts: Vec<&str> = line.split('\t').collect();
-            if parts.len() < 2 {
-                continue;
-            }
-
-            let status_code = parts[0].chars().next().unwrap_or('M');
-            let (candidate_old_path, candidate_new_path) =
-                if matches!(status_code, 'R' | 'C') && parts.len() >= 3 {
-                    (Self::unquote_path(parts[1]), Self::unquote_path(parts[2]))
-                } else {
-                    let path = Self::unquote_path(parts[1]);
-                    (path.clone(), path)
-                };
-
-            if candidate_old_path != file_path && candidate_new_path != file_path {
-                continue;
-            }
-
-            status = Self::normalize_name_status_code(status_code).to_string();
-            old_path = candidate_old_path;
-            new_path = candidate_new_path;
-            break;
-        }
-
-        let old_content = if status == "A" {
+        let old_content = if entry.status == "A" {
             String::new()
         } else if let Some(parent_ref) = parent_ref.as_deref() {
-            try_run_git(repo_path, &["show", &format!("{parent_ref}:{old_path}")])?
-                .unwrap_or_default()
+            try_run_git(
+                repo_path,
+                &["show", &format!("{parent_ref}:{}", entry.old_path)],
+            )?
+            .unwrap_or_default()
         } else {
             String::new()
         };
 
-        let new_content = if status == "D" {
+        let new_content = if entry.status == "D" {
             String::new()
         } else {
-            try_run_git(repo_path, &["show", &format!("{commit}:{new_path}")])?.unwrap_or_default()
+            try_run_git(
+                repo_path,
+                &["show", &format!("{commit}:{}", entry.new_path)],
+            )?
+            .unwrap_or_default()
         };
 
         Ok(FileDiffInfo {
             file_path: file_path.to_string(),
             old_content,
             new_content,
-            status,
+            status: entry.status,
             compare_ref: Some(commit),
         })
     }
@@ -583,6 +604,19 @@ impl GitEngine {
     }
 
     fn build_name_status_entries(output: Option<&str>) -> Vec<(String, String)> {
+        Self::parse_name_status_entries(output)
+            .into_iter()
+            .map(|entry| (entry.new_path, entry.status))
+            .collect()
+    }
+
+    fn find_name_status_entry(output: Option<&str>, file_path: &str) -> Option<NameStatusEntry> {
+        Self::parse_name_status_entries(output)
+            .into_iter()
+            .find(|entry| entry.old_path == file_path || entry.new_path == file_path)
+    }
+
+    fn parse_name_status_entries(output: Option<&str>) -> Vec<NameStatusEntry> {
         let Some(output) = output else {
             return Vec::new();
         };
@@ -597,13 +631,18 @@ impl GitEngine {
 
                 let status_code = parts[0].chars().next().unwrap_or('M');
                 let status = Self::normalize_name_status_code(status_code).to_string();
-                let path_index = if matches!(status_code, 'R' | 'C') && parts.len() >= 3 {
-                    2
+                let (old_path, new_path) = if matches!(status_code, 'R' | 'C') && parts.len() >= 3 {
+                    (Self::unquote_path(parts[1]), Self::unquote_path(parts[2]))
                 } else {
-                    1
+                    let path = Self::unquote_path(parts[1]);
+                    (path.clone(), path)
                 };
 
-                Some((Self::unquote_path(parts[path_index]), status))
+                Some(NameStatusEntry {
+                    status,
+                    old_path,
+                    new_path,
+                })
             })
             .collect()
     }

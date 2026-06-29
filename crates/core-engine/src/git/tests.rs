@@ -400,6 +400,13 @@ fn changed_files_preserve_rename_numstat_counts() {
     assert_eq!(branch_rename.additions, 1);
     assert_eq!(branch_rename.deletions, 0);
 
+    let branch_diff = engine
+        .get_file_diff(&repo_path, "src/new_name.txt", Some(&base_commit), false)
+        .expect("branch compare renamed file diff should be available");
+    assert_eq!(branch_diff.status, "R");
+    assert_eq!(branch_diff.old_content, "one\ntwo\n");
+    assert_eq!(branch_diff.new_content, "one\ntwo\nthree\n");
+
     let commit_changes = engine
         .get_changed_files_for_commit(&repo_path, &rename_commit)
         .expect("commit patch changed files should be available");
