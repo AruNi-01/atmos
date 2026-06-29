@@ -4,6 +4,41 @@ use crate::error::{EngineError, Result};
 
 use super::{run_git, try_run_git, types::parse_worktree_list, GitEngine, WorktreeInfo};
 
+fn normalize_remote_branch_name(branch: &str) -> &str {
+    let branch = branch.trim();
+    let branch = branch.strip_prefix("refs/heads/").unwrap_or(branch);
+    branch.strip_prefix("origin/").unwrap_or(branch)
+}
+
+fn remote_branch_fetch_refspec(branch: &str) -> Option<String> {
+    let normalized = normalize_remote_branch_name(branch);
+    (!normalized.is_empty())
+        .then(|| format!("refs/heads/{normalized}:refs/remotes/origin/{normalized}"))
+}
+
+fn is_shallow_repository(repo_path: &Path) -> bool {
+    try_run_git(repo_path, &["rev-parse", "--is-shallow-repository"])
+        .ok()
+        .flatten()
+        .is_some_and(|stdout| stdout.trim() == "true")
+}
+
+fn fetch_remote_branch(repo_path: &Path, branch: &str) {
+    let Some(refspec) = remote_branch_fetch_refspec(branch) else {
+        return;
+    };
+
+    let mut args = vec!["fetch", "--no-tags"];
+    if is_shallow_repository(repo_path) {
+        args.push("--depth=1");
+    }
+    args.extend(["origin", &refspec]);
+
+    if let Err(e) = run_git(repo_path, &args) {
+        tracing::warn!("Git fetch warning for {}: {}", branch, e);
+    }
+}
+
 impl GitEngine {
     /// Get the atmos workspace base directory: ~/.atmos/workspaces
     pub fn get_workspaces_base_dir(&self) -> Result<PathBuf> {
@@ -51,10 +86,10 @@ impl GitEngine {
             )));
         }
 
-        // Fetch latest from remote (non-fatal)
-        if let Err(e) = run_git(repo_path, &["fetch", "origin"]) {
-            tracing::warn!("Git fetch warning: {}", e);
-        }
+        // Fetch only the requested base branch. A plain `git fetch origin` can
+        // pull every remote branch in shallow CI checkouts and stall workspace
+        // creation, even though this refresh is non-fatal.
+        fetch_remote_branch(repo_path, base_branch);
 
         let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
 
@@ -114,17 +149,19 @@ impl GitEngine {
             )));
         }
 
-        if let Err(e) = run_git(repo_path, &["fetch", "origin", remote_branch]) {
-            tracing::warn!("Git fetch warning for {}: {}", remote_branch, e);
-        }
+        let remote_branch = normalize_remote_branch_name(remote_branch).to_string();
+        fetch_remote_branch(repo_path, &remote_branch);
 
         let worktree_str = worktree_path
             .to_str()
             .ok_or_else(|| EngineError::Git("Non-UTF-8 worktree path".into()))?;
 
         let local_branches = self.list_branches(repo_path).unwrap_or_default();
-        let result = if local_branches.iter().any(|b| b == remote_branch) {
-            run_git(repo_path, &["worktree", "add", worktree_str, remote_branch])
+        let result = if local_branches.iter().any(|b| b == &remote_branch) {
+            run_git(
+                repo_path,
+                &["worktree", "add", worktree_str, &remote_branch],
+            )
         } else {
             let remote_ref = format!("origin/{}", remote_branch);
             run_git(
@@ -134,7 +171,7 @@ impl GitEngine {
                     "add",
                     "--track",
                     "-b",
-                    remote_branch,
+                    &remote_branch,
                     worktree_str,
                     &remote_ref,
                 ],

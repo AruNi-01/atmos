@@ -26,8 +26,13 @@ test.describe("smoke project", () => {
       .poll(async () => new URL(page.url()).searchParams.get("id"))
       .toBeTruthy();
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("pvUrl") ?? "")
-      .toContain("/zh/workspace?id=");
+      .poll(async () => {
+        const pvUrl = new URL(page.url()).searchParams.get("pvUrl");
+        if (!pvUrl) return "";
+        const parsed = new URL(pvUrl);
+        return `${normalizePathname(parsed.pathname)}:${parsed.searchParams.has("id")}`;
+      })
+      .toBe("/zh/workspace:true");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("files");

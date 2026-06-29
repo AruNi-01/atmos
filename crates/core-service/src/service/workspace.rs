@@ -43,6 +43,39 @@ pub struct WorkspaceService {
     fs_engine: FsEngine,
 }
 
+fn read_workspace_branch_prefix() -> String {
+    let path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".atmos")
+        .join("function_settings.json");
+    if path.exists() {
+        std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+            .and_then(|v| {
+                v.get("workspace_settings")?
+                    .get("branch_prefix")?
+                    .as_str()
+                    .map(String::from)
+            })
+            .unwrap_or_else(|| "atmos".to_string())
+    } else {
+        "atmos".to_string()
+    }
+}
+
+fn apply_workspace_branch_prefix(branch: String, branch_prefix: Option<&str>) -> String {
+    let Some(prefix_with_slash) = branch_prefix else {
+        return branch;
+    };
+
+    if branch.starts_with(prefix_with_slash) {
+        branch
+    } else {
+        format!("{}{}", prefix_with_slash, branch)
+    }
+}
+
 impl WorkspaceService {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self {
@@ -317,13 +350,26 @@ impl WorkspaceService {
             existing_names.insert(ws.name.clone());
         }
 
-        let existing_vec: Vec<String> = existing_names.iter().cloned().collect();
         let project_scope = sanitize_workspace_handle(&project.name);
         let project_scope = if project_scope.is_empty() {
             "project".to_string()
         } else {
             project_scope
         };
+        let branch_prefix = read_workspace_branch_prefix();
+        let branch_prefix = branch_prefix.trim().trim_end_matches('/');
+        let branch_prefix = (!branch_prefix.is_empty()).then(|| format!("{branch_prefix}/"));
+        let mut generated_name_conflicts = existing_names.clone();
+        if let Some(prefix_with_slash) = branch_prefix.as_deref() {
+            for branch in &existing_branches {
+                if let Some(handle) = branch.strip_prefix(prefix_with_slash) {
+                    if !handle.trim().is_empty() {
+                        generated_name_conflicts.insert(with_project_scope(&project_scope, handle));
+                    }
+                }
+            }
+        }
+        let existing_vec: Vec<String> = generated_name_conflicts.iter().cloned().collect();
         let requested_display_name = display_name
             .as_deref()
             .map(str::trim)
@@ -390,7 +436,17 @@ impl WorkspaceService {
                     ));
                 }
 
-                if !existing_names.contains(&final_name) {
+                let candidate_branch = final_name
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(final_name.as_str())
+                    .to_string();
+                let candidate_branch =
+                    apply_workspace_branch_prefix(candidate_branch, branch_prefix.as_deref());
+
+                if !existing_names.contains(&final_name)
+                    && !existing_branches.contains(&candidate_branch)
+                {
                     let worktree_path = self.git_engine.get_worktree_path(&final_name)?;
                     if !worktree_path.exists() {
                         break;
@@ -418,43 +474,11 @@ impl WorkspaceService {
             requested_branch
         };
 
-        // Apply configurable branch prefix (e.g. "atmos/") from function settings
-        let final_branch = {
-            let branch_prefix = {
-                let path = dirs::home_dir()
-                    .unwrap_or_else(|| std::path::PathBuf::from("."))
-                    .join(".atmos")
-                    .join("function_settings.json");
-                if path.exists() {
-                    std::fs::read_to_string(&path)
-                        .ok()
-                        .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
-                        .and_then(|v| {
-                            v.get("workspace_settings")?
-                                .get("branch_prefix")?
-                                .as_str()
-                                .map(String::from)
-                        })
-                        .unwrap_or_else(|| "atmos".to_string())
-                } else {
-                    "atmos".to_string()
-                }
-            };
-
-            // Skip prefixing for PR-linked workspaces — use PR branch as-is
-            if github_pr_payload.is_some() {
-                final_branch
-            } else if !branch_prefix.is_empty() {
-                let prefix_normalized = branch_prefix.trim_end_matches('/');
-                let prefix_with_slash = format!("{}/", prefix_normalized);
-                if !final_branch.starts_with(&prefix_with_slash) {
-                    format!("{}{}", prefix_with_slash, final_branch)
-                } else {
-                    final_branch
-                }
-            } else {
-                final_branch
-            }
+        // Skip prefixing for PR-linked workspaces — use PR branch as-is.
+        let final_branch = if github_pr_payload.is_some() {
+            final_branch
+        } else {
+            apply_workspace_branch_prefix(final_branch, branch_prefix.as_deref())
         };
 
         // For PR-linked workspaces, reusing the existing local branch is expected.
