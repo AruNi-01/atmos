@@ -1,0 +1,28 @@
+crates/core-engine/src/git/mod.rs
+  s_41e45bb8c95691::t_81f85d52e45f69 75
+  s_41e45bb8c95691::t_550dd72282a7eb 66-74,76-98
+crates/core-engine/src/git/worktrees.rs
+  s_41e45bb8c95691::t_550dd72282a7eb 5-8,60-62,123-125
+crates/core-engine/src/git/actions.rs
+  s_41e45bb8c95691::t_36d43d3c0efddf 5-7
+  s_41e45bb8c95691::t_550dd72282a7eb 145-180
+crates/core-engine/src/git/tests.rs
+  s_41e45bb8c95691::t_14493a817f711c 46-55,115-169
+  s_41e45bb8c95691::t_c7d189b9858d4d 170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "4d790a4436e3df99b8b3df3327742d854ae592c0",
+  "prompts": {},
+  "sessions": {
+    "s_41e45bb8c95691": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f112f-c721-7490-b7d5-fb690faa3e0d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
