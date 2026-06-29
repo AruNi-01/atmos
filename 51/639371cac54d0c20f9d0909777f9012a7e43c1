@@ -1,0 +1,21 @@
+e2e/playwright.config.ts
+  s_9fab8631a4e97f::t_21e18e12ef4598 45
+e2e/fixtures/app-server.ts
+  s_9fab8631a4e97f::t_ae3f114ad60ebf 92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "51639371cac54d0c20f9d0909777f9012a7e43c1",
+  "prompts": {},
+  "sessions": {
+    "s_9fab8631a4e97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10c7-9b95-7012-b686-826356045b20",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
