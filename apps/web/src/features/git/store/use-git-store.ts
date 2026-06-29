@@ -224,6 +224,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       compareRef: null,
       compareMode: 'branch',
       compareBaseRef: null,
+      ...(path ? {} : { isLoading: false }),
     });
     if (path) {
       void get().refreshRepositoryState({ fetchRemote: true });
@@ -240,6 +241,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
         compareBaseRef: null,
         totalAdditions: 0,
         totalDeletions: 0,
+        isLoading: false,
       });
       useGitInfoStore.setState({
         currentBranch: null,
@@ -254,6 +256,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
         defaultBranchBehind: null,
         githubOwner: null,
         githubRepo: null,
+        isLoadingStatus: false,
       });
     }
   },
@@ -770,6 +773,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
       compareRef: null,
       compareMode: 'branch',
       compareBaseRef: null,
+      isLoading: false,
     });
+    useGitInfoStore.setState({ isLoadingStatus: false });
   },
 }));

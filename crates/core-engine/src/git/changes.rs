@@ -522,48 +522,49 @@ impl GitEngine {
         let Some(output) = output else {
             return HashMap::new();
         };
-        output
-            .lines()
-            .filter_map(|line| {
-                let parts: Vec<&str> = line.split('\t').collect();
-                if parts.len() >= 3 {
-                    let additions = parts[0].parse().unwrap_or(0);
-                    let deletions = parts[1].parse().unwrap_or(0);
-                    Some((
-                        Self::normalize_numstat_path(parts[2]),
-                        (additions, deletions),
-                    ))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
+        let mut files = HashMap::new();
+        for line in output.lines() {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() < 3 {
+                continue;
+            }
 
-    fn normalize_numstat_path(path: &str) -> String {
-        let unquoted = Self::unquote_path(path);
-        if !unquoted.contains(" => ") {
-            return unquoted;
+            let additions = parts[0].parse().unwrap_or(0);
+            let deletions = parts[1].parse().unwrap_or(0);
+            let counts = (additions, deletions);
+            let raw_path = Self::unquote_path(parts[2]);
+            if let Some(normalized_path) = Self::normalize_numstat_rename_path(&raw_path) {
+                files.entry(normalized_path).or_insert(counts);
+            }
+            files.insert(raw_path, counts);
         }
 
-        if let (Some(open), Some(close)) = (unquoted.find('{'), unquoted.rfind('}')) {
+        files
+    }
+
+    fn normalize_numstat_rename_path(path: &str) -> Option<String> {
+        if !path.contains(" => ") {
+            return None;
+        }
+
+        if let (Some(open), Some(close)) = (path.find('{'), path.rfind('}')) {
             if open < close {
-                let inner = &unquoted[open + 1..close];
+                let inner = &path[open + 1..close];
                 if let Some((_, new_name)) = inner.split_once(" => ") {
-                    return format!(
+                    return Some(format!(
                         "{}{}{}",
-                        &unquoted[..open],
+                        &path[..open],
                         new_name,
-                        &unquoted[close + 1..]
-                    );
+                        &path[close + 1..]
+                    ));
                 }
             }
         }
 
-        if let Some((_, new_path)) = unquoted.rsplit_once(" => ") {
-            new_path.to_string()
+        if let Some((_, new_path)) = path.rsplit_once(" => ") {
+            Some(new_path.to_string())
         } else {
-            unquoted
+            None
         }
     }
 

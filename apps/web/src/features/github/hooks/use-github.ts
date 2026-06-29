@@ -389,6 +389,10 @@ export function useGitLog({
   const [hasMore, setHasMore] = useState(true);
   const requestIdRef = useRef(0);
   const branchKeyRef = useRef(branchKey);
+  if (branchKeyRef.current !== branchKey) {
+    branchKeyRef.current = branchKey;
+    requestIdRef.current += 1;
+  }
 
   const fetchPage = useCallback(async (pageIndex: number) => {
     const requestId = requestIdRef.current + 1;
@@ -441,7 +445,6 @@ export function useGitLog({
   }, [repoPath, limit, send]);
 
   useEffect(() => {
-    branchKeyRef.current = branchKey;
     fetchPage(0);
   }, [branchKey, fetchPage]);
 

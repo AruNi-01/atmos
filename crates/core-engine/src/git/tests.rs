@@ -414,6 +414,55 @@ fn changed_files_preserve_rename_numstat_counts() {
 }
 
 #[test]
+fn changed_files_preserve_literal_arrow_path_numstat_counts() {
+    let (root, origin_path) = setup_remote_repo("literal-arrow-numstat");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    fs::create_dir_all(repo_path.join("src")).expect("src dir should be created");
+    commit_file(&repo_path, "src/a => b.txt", "one\n", "add arrow file");
+    let base_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    commit_file(
+        &repo_path,
+        "src/a => b.txt",
+        "one\ntwo\n",
+        "modify arrow file",
+    );
+    let arrow_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let branch_changes = engine
+        .get_changed_files(&repo_path, Some(&base_commit), false)
+        .expect("branch compare changed files should be available");
+    let branch_file = branch_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/a => b.txt")
+        .expect("branch compare should include literal arrow file");
+    assert_eq!(branch_file.status, "M");
+    assert_eq!(branch_file.additions, 1);
+    assert_eq!(branch_file.deletions, 0);
+
+    let commit_changes = engine
+        .get_changed_files_for_commit(&repo_path, &arrow_commit)
+        .expect("commit patch changed files should be available");
+    let commit_file = commit_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/a => b.txt")
+        .expect("commit patch should include literal arrow file");
+    assert_eq!(commit_file.status, "M");
+    assert_eq!(commit_file.additions, 1);
+    assert_eq!(commit_file.deletions, 0);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
 fn changed_files_for_merge_commit_uses_first_parent_patch() {
     let (root, origin_path) = setup_remote_repo("merge-commit-patch");
     let repo_path = clone_repo(&root, &origin_path, "work");
