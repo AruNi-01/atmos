@@ -2,7 +2,9 @@ use std::path::Path;
 
 use crate::error::{EngineError, Result};
 
-use super::{run_git, try_run_git_with_stderr, GitEngine};
+use super::{
+    fetch_remote_branch, is_shallow_repository, run_git, try_run_git_with_stderr, GitEngine,
+};
 
 impl GitEngine {
     /// Commit all staged and unstaged changes
@@ -140,6 +142,42 @@ impl GitEngine {
 
     /// Fetch from remote
     pub fn fetch(&self, repo_path: &Path) -> Result<()> {
+        if is_shallow_repository(repo_path) {
+            let mut branches = Vec::new();
+            if let Some(upstream) = self.get_upstream_branch_ref(repo_path)? {
+                branches.push(upstream);
+            }
+            if let Ok(current_branch) = self.get_current_branch(repo_path) {
+                if current_branch != "HEAD" {
+                    branches.push(current_branch);
+                }
+            }
+            if let Some(default_branch) = self.get_remote_default_branch(repo_path)? {
+                branches.push(default_branch);
+            }
+
+            branches.sort();
+            branches.dedup();
+
+            let mut fetched_any = false;
+            let mut last_error = None;
+            for branch in branches {
+                match fetch_remote_branch(repo_path, &branch) {
+                    Ok(()) => fetched_any = true,
+                    Err(error) => last_error = Some(error),
+                }
+            }
+
+            if fetched_any {
+                tracing::info!("Fetched targeted remote refs for shallow repository");
+                return Ok(());
+            }
+
+            if let Some(error) = last_error {
+                return Err(error);
+            }
+        }
+
         run_git(repo_path, &["fetch", "origin"])?;
         tracing::info!("Fetched from remote");
         Ok(())

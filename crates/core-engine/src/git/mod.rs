@@ -63,6 +63,39 @@ fn try_run_git(repo_path: &Path, args: &[&str]) -> Result<Option<String>> {
     }
 }
 
+pub(super) fn normalize_remote_branch_name(branch: &str) -> &str {
+    let branch = branch.trim();
+    let branch = branch.strip_prefix("refs/heads/").unwrap_or(branch);
+    branch.strip_prefix("origin/").unwrap_or(branch)
+}
+
+pub(super) fn remote_branch_fetch_refspec(branch: &str) -> Option<String> {
+    let normalized = normalize_remote_branch_name(branch);
+    (!normalized.is_empty())
+        .then(|| format!("+refs/heads/{normalized}:refs/remotes/origin/{normalized}"))
+}
+
+pub(super) fn is_shallow_repository(repo_path: &Path) -> bool {
+    try_run_git(repo_path, &["rev-parse", "--is-shallow-repository"])
+        .ok()
+        .flatten()
+        .is_some_and(|stdout| stdout.trim() == "true")
+}
+
+pub(super) fn fetch_remote_branch(repo_path: &Path, branch: &str) -> Result<()> {
+    let Some(refspec) = remote_branch_fetch_refspec(branch) else {
+        return Ok(());
+    };
+
+    let mut args = vec!["fetch", "--no-tags"];
+    if is_shallow_repository(repo_path) {
+        args.push("--depth=1");
+    }
+    args.extend(["origin", &refspec]);
+
+    run_git(repo_path, &args).map(|_| ())
+}
+
 /// Like `try_run_git` but also returns stderr on failure.
 fn try_run_git_with_stderr(
     repo_path: &Path,

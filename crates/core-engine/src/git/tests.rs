@@ -43,6 +43,16 @@ fn git_output(current_dir: &Path, args: &[&str]) -> String {
     String::from_utf8(output.stdout).expect("git stdout should be utf-8")
 }
 
+fn git_succeeds(current_dir: &Path, args: &[&str]) -> bool {
+    Command::new("git")
+        .current_dir(current_dir)
+        .args(args)
+        .output()
+        .expect("git command should run")
+        .status
+        .success()
+}
+
 fn write_file(path: &Path, content: &str) {
     fs::write(path, content).expect("file should be written");
 }
@@ -100,6 +110,62 @@ fn clone_repo(root: &Path, origin_path: &Path, name: &str) -> PathBuf {
     );
     configure_repo(&clone_path);
     clone_path
+}
+
+#[test]
+fn git_fetch_targets_current_refs_for_shallow_repositories() {
+    let (root, origin_path) = setup_remote_repo("targeted-shallow-fetch");
+    let seed_path = root.join("seed");
+    git(&seed_path, &["checkout", "-b", "extra"]);
+    commit_file(&seed_path, "extra.txt", "extra\n", "extra branch");
+    git(&seed_path, &["push", "origin", "extra"]);
+    git(&seed_path, &["checkout", "main"]);
+
+    let repo_path = root.join("shallow-work");
+    let origin_url = format!("file://{}", origin_path.display());
+    git(
+        &root,
+        &[
+            "clone",
+            "--depth=1",
+            "--branch",
+            "main",
+            &origin_url,
+            repo_path.to_str().expect("valid path"),
+        ],
+    );
+    configure_repo(&repo_path);
+    git(
+        &repo_path,
+        &[
+            "config",
+            "--replace-all",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        ],
+    );
+
+    let before_main = git_output(&repo_path, &["rev-parse", "origin/main"]);
+    commit_file(&seed_path, "README.md", "remote update\n", "remote update");
+    git(&seed_path, &["push", "origin", "main"]);
+
+    assert!(!git_succeeds(
+        &repo_path,
+        &["show-ref", "--verify", "refs/remotes/origin/extra"]
+    ));
+
+    GitEngine::new()
+        .fetch(&repo_path)
+        .expect("targeted shallow fetch should succeed");
+
+    let after_main = git_output(&repo_path, &["rev-parse", "origin/main"]);
+    assert_ne!(before_main, after_main);
+    assert!(!git_succeeds(
+        &repo_path,
+        &["show-ref", "--verify", "refs/remotes/origin/extra"]
+    ));
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
 }
 
 #[test]
