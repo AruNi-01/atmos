@@ -53,9 +53,15 @@ const env = {
   PLAYWRIGHT_BLOB_OUTPUT_DIR:
     process.env.PLAYWRIGHT_BLOB_OUTPUT_DIR ?? `reports/blob/${suite}`,
 };
+if (env.CI && !env.CARGO_BUILD_JOBS) {
+  env.CARGO_BUILD_JOBS = "1";
+}
 
 if (dryRun) {
   console.log(`PLAYWRIGHT_BLOB_OUTPUT_DIR=${env.PLAYWRIGHT_BLOB_OUTPUT_DIR}`);
+  if (env.CARGO_BUILD_JOBS) {
+    console.log(`CARGO_BUILD_JOBS=${env.CARGO_BUILD_JOBS}`);
+  }
   console.log(`bunx ${args.join(" ")}`);
   process.exit(0);
 }
