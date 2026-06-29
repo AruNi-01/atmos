@@ -529,12 +529,42 @@ impl GitEngine {
                 if parts.len() >= 3 {
                     let additions = parts[0].parse().unwrap_or(0);
                     let deletions = parts[1].parse().unwrap_or(0);
-                    Some((parts[2].to_string(), (additions, deletions)))
+                    Some((
+                        Self::normalize_numstat_path(parts[2]),
+                        (additions, deletions),
+                    ))
                 } else {
                     None
                 }
             })
             .collect()
+    }
+
+    fn normalize_numstat_path(path: &str) -> String {
+        let unquoted = Self::unquote_path(path);
+        if !unquoted.contains(" => ") {
+            return unquoted;
+        }
+
+        if let (Some(open), Some(close)) = (unquoted.find('{'), unquoted.rfind('}')) {
+            if open < close {
+                let inner = &unquoted[open + 1..close];
+                if let Some((_, new_name)) = inner.split_once(" => ") {
+                    return format!(
+                        "{}{}{}",
+                        &unquoted[..open],
+                        new_name,
+                        &unquoted[close + 1..]
+                    );
+                }
+            }
+        }
+
+        if let Some((_, new_path)) = unquoted.rsplit_once(" => ") {
+            new_path.to_string()
+        } else {
+            unquoted
+        }
     }
 
     fn build_name_status_entries(output: Option<&str>) -> Vec<(String, String)> {

@@ -11,6 +11,12 @@ import { useGitInfoStore } from './use-git-info-store';
 let cachedGitStoreLocale: 'en' | 'zh' | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedGitStoreTranslator: any = null;
+let gitRefreshRequestId = 0;
+
+function invalidateGitRefreshRequests(): number {
+  gitRefreshRequestId += 1;
+  return gitRefreshRequestId;
+}
 
 function gitStoreT(
   key:
@@ -211,7 +217,14 @@ export const useGitStore = create<GitStore>((set, get) => ({
   setCurrentRepoPath: (path) => {
     if (get().currentRepoPath === path) return;
 
-    set({ currentRepoPath: path, compareMode: 'branch', compareBaseRef: null });
+    invalidateGitRefreshRequests();
+    set({
+      currentRepoPath: path,
+      compareFiles: [],
+      compareRef: null,
+      compareMode: 'branch',
+      compareBaseRef: null,
+    });
     if (path) {
       void get().refreshRepositoryState({ fetchRemote: true });
     } else {
@@ -248,6 +261,9 @@ export const useGitStore = create<GitStore>((set, get) => ({
   refreshRepositoryState: async (options) => {
     const { currentRepoPath } = get();
     if (!currentRepoPath) return;
+    const requestId = invalidateGitRefreshRequests();
+    const isCurrentRequest = () =>
+      gitRefreshRequestId === requestId && get().currentRepoPath === currentRepoPath;
 
     const fetchRemote = options?.fetchRemote ?? false;
 
@@ -286,21 +302,31 @@ export const useGitStore = create<GitStore>((set, get) => ({
           return null;
         });
 
+      if (!isCurrentRequest()) return;
+      const currentState = get();
+      const shouldApplyCompare =
+        currentState.compareMode === compareMode &&
+        currentState.compareBaseRef === compareBaseRef;
+
       set({
         gitStatus: status,
         stagedFiles: worktreeResponse.staged_files,
         unstagedFiles: worktreeResponse.unstaged_files,
         untrackedFiles: worktreeResponse.untracked_files,
-        compareFiles: compareResponse?.compare_ref
-          ? [
-              ...compareResponse.staged_files,
-              ...compareResponse.unstaged_files,
-              ...compareResponse.untracked_files,
-            ]
-          : [],
-        compareRef: compareResponse?.compare_ref ?? null,
-        compareMode,
-        compareBaseRef,
+        ...(shouldApplyCompare
+          ? {
+              compareFiles: compareResponse?.compare_ref
+                ? [
+                    ...compareResponse.staged_files,
+                    ...compareResponse.unstaged_files,
+                    ...compareResponse.untracked_files,
+                  ]
+                : [],
+              compareRef: compareResponse?.compare_ref ?? null,
+              compareMode,
+              compareBaseRef,
+            }
+          : {}),
         totalAdditions: worktreeResponse.total_additions,
         totalDeletions: worktreeResponse.total_deletions,
         isBranchPublished: worktreeResponse.is_branch_published,
@@ -324,6 +350,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to refresh repository state:', error);
+      if (!isCurrentRequest()) return;
       set({
         gitStatus: null,
         stagedFiles: [],
@@ -338,7 +365,9 @@ export const useGitStore = create<GitStore>((set, get) => ({
       });
       useGitInfoStore.setState({ isLoadingStatus: false });
     } finally {
-      set({ isLoading: false });
+      if (isCurrentRequest()) {
+        set({ isLoading: false });
+      }
     }
   },
 
@@ -383,6 +412,9 @@ export const useGitStore = create<GitStore>((set, get) => ({
   refreshChangedFiles: async () => {
     const { currentRepoPath } = get();
     if (!currentRepoPath) return;
+    const requestId = invalidateGitRefreshRequests();
+    const isCurrentRequest = () =>
+      gitRefreshRequestId === requestId && get().currentRepoPath === currentRepoPath;
 
     try {
       set({ isLoading: true });
@@ -408,26 +440,36 @@ export const useGitStore = create<GitStore>((set, get) => ({
           console.error('Failed to refresh compare changes:', error);
           return null;
         });
+      if (!isCurrentRequest()) return;
+      const currentState = get();
+      const shouldApplyCompare =
+        currentState.compareMode === compareMode &&
+        currentState.compareBaseRef === compareBaseRef;
       set({
         stagedFiles: worktreeResponse.staged_files,
         unstagedFiles: worktreeResponse.unstaged_files,
         untrackedFiles: worktreeResponse.untracked_files,
-        compareFiles: compareResponse?.compare_ref
-          ? [
-              ...compareResponse.staged_files,
-              ...compareResponse.unstaged_files,
-              ...compareResponse.untracked_files,
-            ]
-          : [],
-        compareRef: compareResponse?.compare_ref ?? null,
-        compareMode,
-        compareBaseRef,
+        ...(shouldApplyCompare
+          ? {
+              compareFiles: compareResponse?.compare_ref
+                ? [
+                    ...compareResponse.staged_files,
+                    ...compareResponse.unstaged_files,
+                    ...compareResponse.untracked_files,
+                  ]
+                : [],
+              compareRef: compareResponse?.compare_ref ?? null,
+              compareMode,
+              compareBaseRef,
+            }
+          : {}),
         totalAdditions: worktreeResponse.total_additions,
         totalDeletions: worktreeResponse.total_deletions,
         isBranchPublished: worktreeResponse.is_branch_published,
       });
     } catch (error) {
       console.error('Failed to refresh changed files:', error);
+      if (!isCurrentRequest()) return;
       set({
         stagedFiles: [],
         unstagedFiles: [],
@@ -440,7 +482,9 @@ export const useGitStore = create<GitStore>((set, get) => ({
         totalDeletions: 0,
       });
     } finally {
-      set({ isLoading: false });
+      if (isCurrentRequest()) {
+        set({ isLoading: false });
+      }
     }
   },
 
@@ -720,6 +764,12 @@ export const useGitStore = create<GitStore>((set, get) => ({
   },
 
   resetCompareMode: () => {
-    set({ compareMode: 'branch', compareBaseRef: null });
+    invalidateGitRefreshRequests();
+    set({
+      compareFiles: [],
+      compareRef: null,
+      compareMode: 'branch',
+      compareBaseRef: null,
+    });
   },
 }));

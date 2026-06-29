@@ -373,15 +373,36 @@ export interface GitCommit {
 }
 
 // Local Git commit log (current branch)
-export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; limit?: number }) {
+export function useGitLog({
+  repoPath,
+  branchKey,
+  limit = 30,
+}: {
+  repoPath: string | null;
+  branchKey?: string | null;
+  limit?: number;
+}) {
   const send = useWebSocketStore(s => s.send);
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const requestIdRef = useRef(0);
+  const branchKeyRef = useRef(branchKey);
 
   const fetchPage = useCallback(async (pageIndex: number) => {
-    if (!repoPath) return;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const requestBranchKey = branchKeyRef.current;
+
+    if (!repoPath) {
+      setCommits([]);
+      setHasMore(false);
+      setPage(0);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -390,21 +411,39 @@ export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; l
         limit,
         offset: pageIndex * limit,
       });
+      if (
+        requestIdRef.current !== requestId ||
+        branchKeyRef.current !== requestBranchKey
+      ) {
+        return;
+      }
       const fetched: GitCommit[] = result?.commits ?? [];
       setCommits(fetched);
       setHasMore(fetched.length >= limit);
       setPage(pageIndex);
     } catch (e) {
+      if (
+        requestIdRef.current !== requestId ||
+        branchKeyRef.current !== requestBranchKey
+      ) {
+        return;
+      }
       console.error(e);
       setCommits([]);
     } finally {
-      setLoading(false);
+      if (
+        requestIdRef.current === requestId &&
+        branchKeyRef.current === requestBranchKey
+      ) {
+        setLoading(false);
+      }
     }
   }, [repoPath, limit, send]);
 
   useEffect(() => {
+    branchKeyRef.current = branchKey;
     fetchPage(0);
-  }, [fetchPage]);
+  }, [branchKey, fetchPage]);
 
   const goToPrevPage = useCallback(() => {
     if (page > 0) fetchPage(page - 1);

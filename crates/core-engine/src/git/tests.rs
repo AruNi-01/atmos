@@ -367,6 +367,53 @@ fn changed_files_for_commit_returns_only_that_commit_patch() {
 }
 
 #[test]
+fn changed_files_preserve_rename_numstat_counts() {
+    let (root, origin_path) = setup_remote_repo("rename-numstat");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    fs::create_dir_all(repo_path.join("src")).expect("src dir should be created");
+    commit_file(&repo_path, "src/old_name.txt", "one\ntwo\n", "add old file");
+    let base_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    git(&repo_path, &["mv", "src/old_name.txt", "src/new_name.txt"]);
+    write_file(&repo_path.join("src/new_name.txt"), "one\ntwo\nthree\n");
+    git(&repo_path, &["add", "-A"]);
+    git(&repo_path, &["commit", "-m", "rename with edit"]);
+    let rename_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let branch_changes = engine
+        .get_changed_files(&repo_path, Some(&base_commit), false)
+        .expect("branch compare changed files should be available");
+    let branch_rename = branch_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/new_name.txt")
+        .expect("branch compare should include renamed file");
+    assert_eq!(branch_rename.status, "R");
+    assert_eq!(branch_rename.additions, 1);
+    assert_eq!(branch_rename.deletions, 0);
+
+    let commit_changes = engine
+        .get_changed_files_for_commit(&repo_path, &rename_commit)
+        .expect("commit patch changed files should be available");
+    let commit_rename = commit_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/new_name.txt")
+        .expect("commit patch should include renamed file");
+    assert_eq!(commit_rename.status, "R");
+    assert_eq!(commit_rename.additions, 1);
+    assert_eq!(commit_rename.deletions, 0);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
 fn changed_files_for_merge_commit_uses_first_parent_patch() {
     let (root, origin_path) = setup_remote_repo("merge-commit-patch");
     let repo_path = clone_repo(&root, &origin_path, "work");

@@ -1015,7 +1015,7 @@
         "noContext": "没有仓库上下文",
         "changes": {
           "refreshChanges": "刷新变更",
-          "diffTab": "文件 Diff",
+          "diffTab": "文件对比",
           "selectScope": "选择变更范围",
           "showAsList": "以列表显示",
           "showAsTree": "以树状显示",

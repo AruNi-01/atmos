@@ -49,8 +49,19 @@ impl GitEngine {
         base_branch: Option<&str>,
     ) -> Result<Option<String>> {
         if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
-            if let Ok(remote_ref) = self.resolve_remote_branch_ref(repo_path, base_branch) {
-                return Ok(Some(remote_ref));
+            match self.resolve_remote_branch_ref(repo_path, base_branch) {
+                Ok(remote_ref) => return Ok(Some(remote_ref)),
+                Err(error) => {
+                    let is_missing_remote_ref = matches!(
+                        &error,
+                        EngineError::Git(message)
+                            if message.starts_with("Remote branch origin/")
+                                && message.ends_with(" does not exist")
+                    );
+                    if !is_missing_remote_ref {
+                        return Err(error);
+                    }
+                }
             }
 
             let explicit_ref = base_branch.trim();

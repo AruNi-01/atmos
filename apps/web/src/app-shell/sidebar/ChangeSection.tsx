@@ -315,7 +315,11 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     confirmingActionKey !== null || runningActionKey !== null;
   const hasSectionActions =
     !readOnly &&
-    Boolean(onStageAll || (kind === "staged" && onUnstageAll) || isDestructiveSection);
+    Boolean(
+      onStageAll ||
+        (kind === "staged" && onUnstageAll) ||
+        (isDestructiveSection && onDiscardAll),
+    );
   const runAction = async (
     actionKey: string,
     action?: () => void | Promise<void>,
@@ -618,8 +622,80 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     </>
   );
 
+  const renderSectionActions = (variant: "header" | "headerless") => {
+    if (!hasSectionActions) return null;
+
+    return (
+      <div
+        className={cn(
+          "absolute z-10 flex items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
+          variant === "header"
+            ? "top-1/2 right-2 -translate-y-1/2"
+            : "top-1 right-2",
+          hasActiveSectionAction
+            ? "opacity-100 pointer-events-auto"
+            : variant === "header"
+              ? "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100"
+              : "pointer-events-none opacity-0 group-hover/headerless:pointer-events-auto group-hover/headerless:opacity-100",
+        )}
+      >
+        {onStageAll && (
+          <button
+            type="button"
+            onPointerDown={stopActionEvent}
+            onMouseDown={stopActionEvent}
+            onDoubleClick={stopActionEvent}
+            onClick={(e) => {
+              stopActionEvent(e);
+              void runAction(`${kind}-bulk-stage`, onStageAll);
+            }}
+            title={t("changeSection.stageAll")}
+            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+          >
+            <Plus className="size-3.5" />
+          </button>
+        )}
+        {kind === "staged" && onUnstageAll && (
+          <button
+            type="button"
+            onPointerDown={stopActionEvent}
+            onMouseDown={stopActionEvent}
+            onDoubleClick={stopActionEvent}
+            onClick={(e) => {
+              stopActionEvent(e);
+              void runAction(`${kind}-bulk-unstage`, onUnstageAll);
+            }}
+            title={t("changeSection.unstageAll")}
+            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+          >
+            <Minus className="size-3.5" />
+          </button>
+        )}
+        {isDestructiveSection
+          ? renderConfirmableMinusAction({
+              actionKey: `${kind}-bulk-discard`,
+              onConfirm: onDiscardAll,
+              title:
+                kind === "untracked"
+                  ? t("changeSection.deleteAllUntrackedTitle")
+                  : t("changeSection.discardAllUnstagedTitle"),
+              description:
+                kind === "untracked"
+                  ? t("changeSection.deleteAllUntrackedDescription")
+                  : t("changeSection.discardAllUnstagedDescription"),
+            })
+          : null}
+      </div>
+    );
+  };
+
   if (hideHeader) {
-    return <div className="w-full">{content}</div>;
+    return (
+      <div className="group/headerless relative w-full">
+        {content}
+        {renderSectionActions("headerless")}
+      </div>
+    );
   }
 
   return (
@@ -638,63 +714,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </span>
         </CollapsibleTrigger>
 
-        {hasSectionActions ? (
-          <div
-            className={cn(
-              "absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
-              hasActiveSectionAction
-                ? "opacity-100 pointer-events-auto"
-                : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
-            )}
-          >
-            {onStageAll && (
-              <button
-                type="button"
-                onPointerDown={stopActionEvent}
-                onMouseDown={stopActionEvent}
-                onDoubleClick={stopActionEvent}
-                onClick={(e) => {
-                  stopActionEvent(e);
-                  void runAction(`${kind}-bulk-stage`, onStageAll);
-                }}
-                title={t("changeSection.stageAll")}
-                className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-              >
-                <Plus className="size-3.5" />
-              </button>
-            )}
-            {kind === "staged" && onUnstageAll && (
-              <button
-                type="button"
-                onPointerDown={stopActionEvent}
-                onMouseDown={stopActionEvent}
-                onDoubleClick={stopActionEvent}
-                onClick={(e) => {
-                  stopActionEvent(e);
-                  void runAction(`${kind}-bulk-unstage`, onUnstageAll);
-                }}
-                title={t("changeSection.unstageAll")}
-                className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-              >
-                <Minus className="size-3.5" />
-              </button>
-            )}
-            {isDestructiveSection
-              ? renderConfirmableMinusAction({
-                  actionKey: `${kind}-bulk-discard`,
-                  onConfirm: onDiscardAll,
-                  title:
-                    kind === "untracked"
-                      ? t("changeSection.deleteAllUntrackedTitle")
-                      : t("changeSection.discardAllUnstagedTitle"),
-                  description:
-                    kind === "untracked"
-                      ? t("changeSection.deleteAllUntrackedDescription")
-                      : t("changeSection.discardAllUnstagedDescription"),
-                })
-              : null}
-          </div>
-        ) : null}
+        {renderSectionActions("header")}
       </div>
 
       <CollapsibleContent>

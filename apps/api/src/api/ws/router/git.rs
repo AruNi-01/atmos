@@ -99,14 +99,29 @@ impl WsMessageService {
 
     pub(super) fn handle_git_changed_files(&self, req: GitChangedFilesRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let info = if let Some(commit_ref) = req.commit_ref.as_deref() {
+        let info = if let Some(commit_ref) = req
+            .commit_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
             self.git_engine
                 .get_changed_files_for_commit(&path, commit_ref)
                 .map_err(|e| {
                     ServiceError::Validation(format!("Failed to get changed files: {}", e))
                 })?
         } else {
-            let base_ref = req.base_ref.as_deref().or(req.base_branch.as_deref());
+            let base_ref = req
+                .base_ref
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .or_else(|| {
+                    req.base_branch
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                });
             self.git_engine
                 .get_changed_files(&path, base_ref, req.use_preferred_compare)
                 .map_err(|e| {

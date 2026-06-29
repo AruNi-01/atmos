@@ -418,6 +418,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const changesScope = activeChangesScopeState.scope;
   const selectedCommitHash = activeChangesScopeState.selectedCommitHash;
   const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
+  useEffect(() => {
+    resetCompareMode();
+    if (hasWorkingContext) {
+      void refreshRepositoryState({ fetchRemote: true });
+    }
+  }, [changesScopeKey, hasWorkingContext, refreshRepositoryState, resetCompareMode]);
   const setChangesScopeMenuOpen = useCallback(
     (open: boolean) => {
       setChangesScopeState((current) => ({
@@ -432,6 +438,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const commitLog = useGitLog({
     repoPath: hasWorkingContext ? currentProjectPath ?? null : null,
+    branchKey: hasWorkingContext ? currentBranch ?? null : null,
   });
   const selectedCommit = useMemo(
     () => commitLog.commits.find((commit) => commit.hash === selectedCommitHash),
