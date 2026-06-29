@@ -75,6 +75,14 @@ impl RemoteBranchFetchTarget {
             self.branch, self.remote, self.branch
         )
     }
+
+    pub(super) fn local_branch_name(&self) -> String {
+        if self.remote == "origin" {
+            self.branch.clone()
+        } else {
+            format!("{}/{}", self.remote, self.branch)
+        }
+    }
 }
 
 fn list_remotes(repo_path: &Path) -> Result<Vec<String>> {
@@ -199,16 +207,24 @@ impl GitEngine {
                 EngineError::Git(format!("Failed to execute git check-ref-format: {}", e))
             })?;
 
-        if output.status.success() {
-            Ok(())
-        } else {
+        if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(EngineError::Git(format!(
+            return Err(EngineError::Git(format!(
                 "{} is not a valid branch name: {}",
                 branch_name,
                 stderr.trim()
-            )))
+            )));
         }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.trim_end() != branch_name {
+            return Err(EngineError::Git(format!(
+                "{} is not a valid branch name: shorthand branch references are not allowed",
+                branch_name
+            )));
+        }
+
+        Ok(())
     }
 }
 

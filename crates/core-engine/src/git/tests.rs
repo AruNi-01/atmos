@@ -1,4 +1,4 @@
-use super::{sync_worktree_local_excludes, GitEngine};
+use super::{remote_branch_fetch_target, sync_worktree_local_excludes, GitEngine};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -219,9 +219,37 @@ fn git_fetch_targets_non_origin_upstream_for_shallow_repositories() {
 }
 
 #[test]
+fn non_origin_remote_branch_uses_remote_qualified_local_branch_name() {
+    let (root, origin_path) = setup_remote_repo("remote-qualified-local-branch");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    git(
+        &repo_path,
+        &[
+            "remote",
+            "add",
+            "upstream",
+            origin_path.to_str().expect("valid path"),
+        ],
+    );
+
+    let origin_target = remote_branch_fetch_target(&repo_path, "origin/main")
+        .expect("origin target should resolve")
+        .expect("origin target should be present");
+    assert_eq!(origin_target.local_branch_name(), "main");
+
+    let upstream_target = remote_branch_fetch_target(&repo_path, "upstream/main")
+        .expect("upstream target should resolve")
+        .expect("upstream target should be present");
+    assert_eq!(upstream_target.local_branch_name(), "upstream/main");
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
 fn branch_name_validation_rejects_invalid_names() {
     GitEngine::validate_branch_name("feature/scope").expect("valid branch should pass");
 
+    assert!(GitEngine::validate_branch_name("@{-1}").is_err());
     assert!(GitEngine::validate_branch_name("bad branch").is_err());
     assert!(GitEngine::validate_branch_name("feature.lock").is_err());
     assert!(GitEngine::validate_branch_name("feature/scope ").is_err());

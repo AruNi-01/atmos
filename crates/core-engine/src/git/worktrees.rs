@@ -129,12 +129,10 @@ impl GitEngine {
             .to_str()
             .ok_or_else(|| EngineError::Git("Non-UTF-8 worktree path".into()))?;
 
+        let local_branch = remote_target.local_branch_name();
         let local_branches = self.list_branches(repo_path).unwrap_or_default();
-        let result = if local_branches.iter().any(|b| b == &remote_target.branch) {
-            run_git(
-                repo_path,
-                &["worktree", "add", worktree_str, &remote_target.branch],
-            )
+        let result = if local_branches.iter().any(|b| b == &local_branch) {
+            run_git(repo_path, &["worktree", "add", worktree_str, &local_branch])
         } else {
             let remote_ref = format!("{}/{}", remote_target.remote, remote_target.branch);
             run_git(
@@ -144,7 +142,7 @@ impl GitEngine {
                     "add",
                     "--track",
                     "-b",
-                    &remote_target.branch,
+                    &local_branch,
                     worktree_str,
                     &remote_ref,
                 ],
