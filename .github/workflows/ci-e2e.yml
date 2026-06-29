@@ -182,7 +182,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.should_run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -191,6 +191,9 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: ./.github/actions/setup-e2e
+
+      - name: Build API server
+        run: cargo build --bin api
 
       - name: Run suite
         working-directory: e2e
