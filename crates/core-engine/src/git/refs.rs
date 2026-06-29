@@ -49,9 +49,28 @@ impl GitEngine {
         base_branch: Option<&str>,
     ) -> Result<Option<String>> {
         if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
-            return self
-                .resolve_remote_branch_ref(repo_path, base_branch)
-                .map(Some);
+            if let Ok(remote_ref) = self.resolve_remote_branch_ref(repo_path, base_branch) {
+                return Ok(Some(remote_ref));
+            }
+
+            let explicit_ref = base_branch.trim();
+            if try_run_git(
+                repo_path,
+                &[
+                    "rev-parse",
+                    "--verify",
+                    &format!("{explicit_ref}^{{commit}}"),
+                ],
+            )?
+            .is_some()
+            {
+                return Ok(Some(explicit_ref.to_string()));
+            }
+
+            return Err(EngineError::Git(format!(
+                "Compare ref {} does not exist",
+                explicit_ref
+            )));
         }
 
         if let Some(upstream_ref) = self.get_upstream_branch_ref(repo_path)? {

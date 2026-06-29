@@ -99,10 +99,20 @@ impl WsMessageService {
 
     pub(super) fn handle_git_changed_files(&self, req: GitChangedFilesRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let info = self
-            .git_engine
-            .get_changed_files(&path, req.base_branch.as_deref(), req.use_preferred_compare)
-            .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
+        let info = if let Some(commit_ref) = req.commit_ref.as_deref() {
+            self.git_engine
+                .get_changed_files_for_commit(&path, commit_ref)
+                .map_err(|e| {
+                    ServiceError::Validation(format!("Failed to get changed files: {}", e))
+                })?
+        } else {
+            let base_ref = req.base_ref.as_deref().or(req.base_branch.as_deref());
+            self.git_engine
+                .get_changed_files(&path, base_ref, req.use_preferred_compare)
+                .map_err(|e| {
+                    ServiceError::Validation(format!("Failed to get changed files: {}", e))
+                })?
+        };
 
         let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
             json!({
@@ -135,15 +145,16 @@ impl WsMessageService {
 
     pub(super) fn handle_git_file_diff(&self, req: GitFileDiffRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let diff = self
-            .git_engine
-            .get_file_diff(
-                &path,
-                &req.file_path,
-                req.base_branch.as_deref(),
-                req.against_index,
-            )
-            .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?;
+        let diff = if let Some(commit_ref) = req.commit_ref.as_deref() {
+            self.git_engine
+                .get_file_diff_for_commit(&path, &req.file_path, commit_ref)
+                .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?
+        } else {
+            let base_ref = req.base_ref.as_deref().or(req.base_branch.as_deref());
+            self.git_engine
+                .get_file_diff(&path, &req.file_path, base_ref, req.against_index)
+                .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?
+        };
 
         Ok(json!({
             "file_path": diff.file_path,

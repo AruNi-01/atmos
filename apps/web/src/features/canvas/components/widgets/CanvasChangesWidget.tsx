@@ -125,12 +125,19 @@ function CanvasChangesWidgetBody({
       groupPath,
       filePath,
     }: {
-      kind: "staged" | "unstaged" | "untracked" | "compared";
+      kind: DiffChangeGroupKind;
       groupPath: string;
       filePath: string;
       preview: boolean;
     }) => {
-      if (kind === "compared" || !repoPath) return;
+      if (
+        kind === "branch" ||
+        kind === "commit" ||
+        kind === "compared" ||
+        !repoPath
+      ) {
+        return;
+      }
       setSelectedFilePath(filePath);
       openCenterTab(
         createCanvasCenterTab({

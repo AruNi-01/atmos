@@ -11,6 +11,7 @@ interface RefreshableTabsTabProps {
   refreshTitle: string;
   onRefresh: () => Promise<unknown> | void;
   isRefreshing?: boolean;
+  forceActionsVisible?: boolean;
   className?: string;
   trailingAction?: (options: { isVisible: boolean }) => React.ReactNode;
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export function RefreshableTabsTab({
   refreshTitle,
   onRefresh,
   isRefreshing = false,
+  forceActionsVisible = false,
   className,
   trailingAction,
   children,
@@ -31,7 +33,7 @@ export function RefreshableTabsTab({
 
   const isActive = value === activeValue;
   const showRefreshButton =
-    isActive && (isHovered || isRefreshPending || isRefreshing);
+    isActive && (isHovered || isRefreshPending || isRefreshing || forceActionsVisible);
   const isSpinning = isRefreshPending || isRefreshing;
 
   const handleRefresh = useCallback(

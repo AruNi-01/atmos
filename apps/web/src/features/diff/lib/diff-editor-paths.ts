@@ -6,7 +6,13 @@ import { currentAppLocale } from '@/shared/lib/current-app-locale';
 
 export const EDITOR_DIFF_GROUP_PREFIX = 'diff-group://';
 
-export type DiffChangeGroupKind = 'staged' | 'unstaged' | 'untracked';
+export type DiffChangeGroupKind =
+  | 'staged'
+  | 'unstaged'
+  | 'untracked'
+  | 'branch'
+  | 'commit'
+  | 'compared';
 let cachedDiffLocale: 'en' | 'zh' | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedDiffTranslator: any = null;
@@ -34,6 +40,15 @@ export const DIFF_GROUP_TAB_LABELS = {
   get untracked() {
     return diffT('diffGroup.untracked');
   },
+  get branch() {
+    return diffT('diffGroup.branch');
+  },
+  get commit() {
+    return diffT('diffGroup.commit');
+  },
+  get compared() {
+    return diffT('diffGroup.compared');
+  },
 } as Record<DiffChangeGroupKind, string>;
 
 export function buildDiffGroupPath(kind: DiffChangeGroupKind): string {
@@ -47,7 +62,14 @@ export function isDiffGroupEditorPath(path: string): boolean {
 export function getDiffGroupKind(path: string): DiffChangeGroupKind | null {
   if (!isDiffGroupEditorPath(path)) return null;
   const kind = path.slice(EDITOR_DIFF_GROUP_PREFIX.length) as DiffChangeGroupKind;
-  if (kind === 'staged' || kind === 'unstaged' || kind === 'untracked') {
+  if (
+    kind === 'staged' ||
+    kind === 'unstaged' ||
+    kind === 'untracked' ||
+    kind === 'branch' ||
+    kind === 'commit' ||
+    kind === 'compared'
+  ) {
     return kind;
   }
   return null;
@@ -66,41 +88,21 @@ interface GitFilesForGroupInput {
   compareRef: string | null;
 }
 
-function applyCompareStats(
-  files: GitChangedFile[],
-  compareStatsByPath: Map<string, GitChangedFile>,
-): GitChangedFile[] {
-  return files
-    .filter((file) => compareStatsByPath.has(file.path))
-    .map((file) => {
-      const stats = compareStatsByPath.get(file.path);
-      if (!stats) return file;
-      return {
-        ...file,
-        additions: stats.additions ?? file.additions,
-        deletions: stats.deletions ?? file.deletions,
-      };
-    });
-}
-
 export function getFilesForDiffGroup(
   kind: DiffChangeGroupKind,
   git: GitFilesForGroupInput,
 ): GitChangedFile[] {
-  const compareStatsByPath = git.compareRef
-    ? new Map(git.compareFiles.map((file) => [file.path, file]))
-    : null;
-
-  const pick = (files: GitChangedFile[]) =>
-    compareStatsByPath ? applyCompareStats(files, compareStatsByPath) : files;
-
   switch (kind) {
     case 'staged':
-      return pick(git.stagedFiles);
+      return git.stagedFiles;
     case 'unstaged':
-      return pick(git.unstagedFiles);
+      return git.unstagedFiles;
     case 'untracked':
       return git.untrackedFiles;
+    case 'branch':
+    case 'commit':
+    case 'compared':
+      return git.compareRef ? git.compareFiles : [];
     default:
       return [];
   }

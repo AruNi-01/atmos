@@ -1015,18 +1015,31 @@
         "noContext": "No repository context",
         "changes": {
           "refreshChanges": "Refresh changes",
+          "diffTab": "Files Diff",
+          "selectScope": "Select changes scope",
           "showAsList": "Show as list",
           "showAsTree": "Show as tree",
           "showChangedFilesAsList": "Show changed files as list",
           "showChangedFilesAsTree": "Show changed files as tree",
           "refreshCommits": "Refresh commits",
+          "loadingCommits": "Loading commits...",
+          "noCommitsOnBranch": "No commits on branch",
+          "noCommitChanges": "Commit {commit} has no file changes",
           "noChangesAgainst": "No changes against {compareRef}",
           "noChangesDetected": "No changes detected",
           "compareWithDefaultBranch": "Compare with default branch ({branch})",
+          "branchChanges": "Branch changes",
+          "commitChanges": "Commit {commit} changes",
           "stagedChanges": "Staged changes",
           "unstagedChanges": "Unstaged changes",
           "untrackedChanges": "Untracked changes",
-          "noRepositoryContext": "No repository context"
+          "noRepositoryContext": "No repository context",
+          "scope": {
+            "unstaged": "Unstaged",
+            "staged": "Staged",
+            "commit": "Commit",
+            "branch": "Branch"
+          }
         },
         "pr": {
           "refreshOpenPullRequests": "Refresh open pull requests",
@@ -2960,6 +2973,9 @@
         "staged": "Staged",
         "unstaged": "Unstaged",
         "untracked": "Untracked",
+        "branch": "Branch",
+        "commit": "Commit",
+        "compared": "Compared",
         "changes": "Changes"
       }
     }
@@ -6091,6 +6107,7 @@
       "noFilesInGroup": "No files in this group",
       "fileCount": "{count, plural, one {# file} other {# files}}",
       "compareRef": "vs {compareRef}",
+      "commitRef": "commit {commitRef}",
       "reviewRevisionDefaultTitle": "Review",
       "reviewRevisionTitle": "Review v{version}",
       "noReviewRevisionSelected": "No review revision selected",

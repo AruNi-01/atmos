@@ -50,6 +50,23 @@ impl GitEngine {
         } else {
             None
         };
+        let compare_name_status = if let Some(base_ref) = compare_ref.as_deref() {
+            Some(Self::build_name_status_entries(
+                try_run_git(
+                    repo_path,
+                    &[
+                        "-c",
+                        "core.quotePath=false",
+                        "diff",
+                        "--name-status",
+                        base_ref,
+                    ],
+                )?
+                .as_deref(),
+            ))
+        } else {
+            None
+        };
 
         let (staged_numstat, unstaged_numstat) = if let Some(compare_numstat) = compare_numstat {
             (compare_numstat, HashMap::new())
@@ -78,13 +95,63 @@ impl GitEngine {
             )
         };
 
-        let is_compare_mode = compare_ref.is_some();
         let mut staged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut unstaged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut untracked_files: Vec<ChangedFileInfo> = Vec::new();
         let mut total_additions = 0u32;
         let mut total_deletions = 0u32;
-        let mut seen_in_base_mode: HashSet<String> = HashSet::new();
+
+        if let Some(compare_entries) = compare_name_status {
+            let mut seen_in_base_mode: HashSet<String> = HashSet::new();
+
+            for line in status_stdout.lines() {
+                if line.len() < 3 {
+                    continue;
+                }
+                let x = line.chars().next().unwrap_or(' ');
+                let y = line.chars().nth(1).unwrap_or(' ');
+                if x == '?' && y == '?' {
+                    let file_path = Self::unquote_path(&line[3..]);
+                    let additions = Self::count_file_lines(repo_path, &file_path);
+                    total_additions += additions;
+                    untracked_files.push(ChangedFileInfo {
+                        path: file_path,
+                        status: "?".to_string(),
+                        additions,
+                        deletions: 0,
+                        staged: false,
+                    });
+                }
+            }
+
+            for (file_path, status) in compare_entries {
+                if !seen_in_base_mode.insert(file_path.clone()) {
+                    continue;
+                }
+
+                let (additions, deletions) =
+                    staged_numstat.get(&file_path).copied().unwrap_or((0, 0));
+                total_additions += additions;
+                total_deletions += deletions;
+
+                staged_files.push(ChangedFileInfo {
+                    path: file_path,
+                    status,
+                    additions,
+                    deletions,
+                    staged: true,
+                });
+            }
+
+            return Ok(ChangedFilesInfo {
+                staged_files,
+                unstaged_files,
+                untracked_files,
+                total_additions,
+                total_deletions,
+                compare_ref,
+            });
+        }
 
         for line in status_stdout.lines() {
             if line.len() < 3 {
@@ -106,33 +173,6 @@ impl GitEngine {
                     deletions: 0,
                     staged: false,
                 });
-            } else if is_compare_mode {
-                if seen_in_base_mode.insert(file_path.clone()) {
-                    let (additions, deletions) =
-                        staged_numstat.get(&file_path).copied().unwrap_or((0, 0));
-                    total_additions += additions;
-                    total_deletions += deletions;
-
-                    let status_char = if x != ' ' && x != '?' { x } else { y };
-                    let status = match status_char {
-                        'M' => "M",
-                        'A' => "A",
-                        'D' => "D",
-                        'R' => "R",
-                        'C' => "C",
-                        'U' => "U",
-                        _ => "M",
-                    }
-                    .to_string();
-
-                    staged_files.push(ChangedFileInfo {
-                        path: file_path,
-                        status,
-                        additions,
-                        deletions,
-                        staged: true,
-                    });
-                }
             } else {
                 if x != ' ' && x != '?' {
                     let (additions, deletions) =
@@ -200,6 +240,113 @@ impl GitEngine {
             total_additions,
             total_deletions,
             compare_ref,
+        })
+    }
+
+    pub fn get_changed_files_for_commit(
+        &self,
+        repo_path: &Path,
+        commit_ref: &str,
+    ) -> Result<ChangedFilesInfo> {
+        let commit = self.resolve_explicit_commit_ref(repo_path, commit_ref)?;
+        let parent_ref = Self::first_parent_ref(repo_path, &commit)?;
+        let numstat = if let Some(parent_ref) = parent_ref.as_deref() {
+            Self::build_numstat_map(
+                try_run_git(
+                    repo_path,
+                    &[
+                        "-c",
+                        "core.quotePath=false",
+                        "diff",
+                        "--numstat",
+                        parent_ref,
+                        &commit,
+                    ],
+                )?
+                .as_deref(),
+            )
+        } else {
+            Self::build_numstat_map(
+                try_run_git(
+                    repo_path,
+                    &[
+                        "-c",
+                        "core.quotePath=false",
+                        "diff-tree",
+                        "--root",
+                        "--no-commit-id",
+                        "--numstat",
+                        "-r",
+                        &commit,
+                    ],
+                )?
+                .as_deref(),
+            )
+        };
+        let entries = if let Some(parent_ref) = parent_ref.as_deref() {
+            Self::build_name_status_entries(
+                try_run_git(
+                    repo_path,
+                    &[
+                        "-c",
+                        "core.quotePath=false",
+                        "diff",
+                        "--name-status",
+                        parent_ref,
+                        &commit,
+                    ],
+                )?
+                .as_deref(),
+            )
+        } else {
+            Self::build_name_status_entries(
+                try_run_git(
+                    repo_path,
+                    &[
+                        "-c",
+                        "core.quotePath=false",
+                        "diff-tree",
+                        "--root",
+                        "--no-commit-id",
+                        "--name-status",
+                        "-r",
+                        &commit,
+                    ],
+                )?
+                .as_deref(),
+            )
+        };
+
+        let mut staged_files = Vec::new();
+        let mut total_additions = 0u32;
+        let mut total_deletions = 0u32;
+        let mut seen = HashSet::new();
+
+        for (file_path, status) in entries {
+            if !seen.insert(file_path.clone()) {
+                continue;
+            }
+
+            let (additions, deletions) = numstat.get(&file_path).copied().unwrap_or((0, 0));
+            total_additions += additions;
+            total_deletions += deletions;
+
+            staged_files.push(ChangedFileInfo {
+                path: file_path,
+                status,
+                additions,
+                deletions,
+                staged: true,
+            });
+        }
+
+        Ok(ChangedFilesInfo {
+            staged_files,
+            unstaged_files: Vec::new(),
+            untracked_files: Vec::new(),
+            total_additions,
+            total_deletions,
+            compare_ref: Some(commit),
         })
     }
 
@@ -278,6 +425,98 @@ impl GitEngine {
         })
     }
 
+    pub fn get_file_diff_for_commit(
+        &self,
+        repo_path: &Path,
+        file_path: &str,
+        commit_ref: &str,
+    ) -> Result<FileDiffInfo> {
+        let commit = self.resolve_explicit_commit_ref(repo_path, commit_ref)?;
+        let parent_ref = Self::first_parent_ref(repo_path, &commit)?;
+
+        let name_status = if let Some(parent_ref) = parent_ref.as_deref() {
+            try_run_git(
+                repo_path,
+                &[
+                    "-c",
+                    "core.quotePath=false",
+                    "diff",
+                    "--name-status",
+                    parent_ref,
+                    &commit,
+                ],
+            )?
+            .unwrap_or_default()
+        } else {
+            try_run_git(
+                repo_path,
+                &[
+                    "-c",
+                    "core.quotePath=false",
+                    "diff-tree",
+                    "--root",
+                    "--no-commit-id",
+                    "--name-status",
+                    "-r",
+                    &commit,
+                ],
+            )?
+            .unwrap_or_default()
+        };
+
+        let mut status = "M".to_string();
+        let mut old_path = file_path.to_string();
+        let mut new_path = file_path.to_string();
+
+        for line in name_status.lines() {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() < 2 {
+                continue;
+            }
+
+            let status_code = parts[0].chars().next().unwrap_or('M');
+            let (candidate_old_path, candidate_new_path) =
+                if matches!(status_code, 'R' | 'C') && parts.len() >= 3 {
+                    (Self::unquote_path(parts[1]), Self::unquote_path(parts[2]))
+                } else {
+                    let path = Self::unquote_path(parts[1]);
+                    (path.clone(), path)
+                };
+
+            if candidate_old_path != file_path && candidate_new_path != file_path {
+                continue;
+            }
+
+            status = Self::normalize_name_status_code(status_code).to_string();
+            old_path = candidate_old_path;
+            new_path = candidate_new_path;
+            break;
+        }
+
+        let old_content = if status == "A" {
+            String::new()
+        } else if let Some(parent_ref) = parent_ref.as_deref() {
+            try_run_git(repo_path, &["show", &format!("{parent_ref}:{old_path}")])?
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        let new_content = if status == "D" {
+            String::new()
+        } else {
+            try_run_git(repo_path, &["show", &format!("{commit}:{new_path}")])?.unwrap_or_default()
+        };
+
+        Ok(FileDiffInfo {
+            file_path: file_path.to_string(),
+            old_content,
+            new_content,
+            status,
+            compare_ref: Some(commit),
+        })
+    }
+
     /// Parse `git diff --numstat` output into a map of file_path -> (additions, deletions).
     fn build_numstat_map(output: Option<&str>) -> HashMap<String, (u32, u32)> {
         let Some(output) = output else {
@@ -296,6 +535,65 @@ impl GitEngine {
                 }
             })
             .collect()
+    }
+
+    fn build_name_status_entries(output: Option<&str>) -> Vec<(String, String)> {
+        let Some(output) = output else {
+            return Vec::new();
+        };
+
+        output
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() < 2 {
+                    return None;
+                }
+
+                let status_code = parts[0].chars().next().unwrap_or('M');
+                let status = Self::normalize_name_status_code(status_code).to_string();
+                let path_index = if matches!(status_code, 'R' | 'C') && parts.len() >= 3 {
+                    2
+                } else {
+                    1
+                };
+
+                Some((Self::unquote_path(parts[path_index]), status))
+            })
+            .collect()
+    }
+
+    fn normalize_name_status_code(status_code: char) -> &'static str {
+        match status_code {
+            'A' => "A",
+            'D' => "D",
+            'R' => "R",
+            'C' => "C",
+            'U' => "U",
+            _ => "M",
+        }
+    }
+
+    fn resolve_explicit_commit_ref(&self, repo_path: &Path, commit_ref: &str) -> Result<String> {
+        let normalized = commit_ref.trim();
+        if normalized.is_empty() {
+            return Err(crate::error::EngineError::Git(
+                "Commit ref cannot be empty".to_string(),
+            ));
+        }
+
+        let verified = run_git(
+            repo_path,
+            &["rev-parse", "--verify", &format!("{normalized}^{{commit}}")],
+        )?;
+        Ok(verified.trim().to_string())
+    }
+
+    fn first_parent_ref(repo_path: &Path, commit: &str) -> Result<Option<String>> {
+        Ok(
+            try_run_git(repo_path, &["rev-list", "--parents", "-n", "1", commit])?
+                .and_then(|stdout| stdout.split_whitespace().nth(1).map(str::to_string)),
+        )
     }
 
     /// Count lines in a file (used for untracked file additions count).

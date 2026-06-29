@@ -307,6 +307,108 @@ fn preferred_compare_ref_falls_back_to_remote_default_branch() {
 }
 
 #[test]
+fn changed_files_compare_ref_accepts_commit_hash_on_clean_tree() {
+    let (root, origin_path) = setup_remote_repo("compare-commit");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+    let base_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+
+    let changes = engine
+        .get_changed_files(&repo_path, Some(&base_commit), false)
+        .expect("changed files should be available");
+
+    assert_eq!(changes.compare_ref.as_deref(), Some(base_commit.as_str()));
+    assert_eq!(changes.unstaged_files.len(), 0);
+    assert!(changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "feature.txt" && file.status == "A"));
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_for_commit_returns_only_that_commit_patch() {
+    let (root, origin_path) = setup_remote_repo("commit-patch");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    commit_file(&repo_path, "first.txt", "first\n", "first commit");
+    let first_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+    commit_file(&repo_path, "second.txt", "second\n", "second commit");
+
+    let changes = engine
+        .get_changed_files_for_commit(&repo_path, &first_commit)
+        .expect("commit patch changed files should be available");
+
+    assert!(changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "first.txt" && file.status == "A"));
+    assert!(!changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "second.txt"));
+
+    let diff = engine
+        .get_file_diff_for_commit(&repo_path, "first.txt", &first_commit)
+        .expect("commit patch file diff should be available");
+
+    assert_eq!(diff.old_content, "");
+    assert_eq!(diff.new_content, "first\n");
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_for_merge_commit_uses_first_parent_patch() {
+    let (root, origin_path) = setup_remote_repo("merge-commit-patch");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    git(&repo_path, &["checkout", "-b", "feature"]);
+    commit_file(
+        &repo_path,
+        "feature.txt",
+        "feature from branch\n",
+        "feature work",
+    );
+    git(&repo_path, &["checkout", "main"]);
+    git(
+        &repo_path,
+        &["merge", "--no-ff", "feature", "-m", "merge feature"],
+    );
+    let merge_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let changes = engine
+        .get_changed_files_for_commit(&repo_path, &merge_commit)
+        .expect("merge commit patch changed files should be available");
+
+    assert!(changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "feature.txt" && file.status == "A"));
+
+    let diff = engine
+        .get_file_diff_for_commit(&repo_path, "feature.txt", &merge_commit)
+        .expect("merge commit patch file diff should be available");
+
+    assert_eq!(diff.status, "A");
+    assert_eq!(diff.old_content, "");
+    assert_eq!(diff.new_content, "feature from branch\n");
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
 fn push_republishes_branch_when_tracking_default_branch() {
     let (root, origin_path) = setup_remote_repo("push-mismatched-upstream");
     let repo_path = clone_repo(&root, &origin_path, "work");

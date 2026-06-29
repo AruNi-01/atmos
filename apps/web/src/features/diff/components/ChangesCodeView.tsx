@@ -13,8 +13,8 @@ import { useEditorStore, type FileNavigationTarget } from '@/features/editor/sto
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import {
+  DIFF_GROUP_TAB_LABELS,
   getDiffGroupKind,
-  getDiffGroupTabLabel,
   getFilesForDiffGroup,
 } from '@/features/diff/lib/diff-editor-paths';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
@@ -43,9 +43,14 @@ import {
 } from '@/features/diff/lib/code-view-ui';
 
 const CODE_VIEW_BATCH_SIZE = 25;
+const FULL_COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
 
 function yieldToBrowser(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+function formatCommitRefLabel(ref: string): string {
+  return FULL_COMMIT_HASH_RE.test(ref) ? ref.slice(0, 7) : ref;
 }
 
 interface ChangesCodeViewProps {
@@ -69,6 +74,9 @@ export function ChangesCodeView({
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
   const compareRef = useGitStore((s) => s.compareRef);
+  const compareBaseRef = useGitStore((s) => s.compareBaseRef);
+  const effectiveGroupKind =
+    groupKind === 'compared' && compareBaseRef ? 'commit' : groupKind;
   const stagedFiles = useGitStore((s) => s.stagedFiles);
   const unstagedFiles = useGitStore((s) => s.unstagedFiles);
   const untrackedFiles = useGitStore((s) => s.untrackedFiles);
@@ -178,7 +186,50 @@ export function ChangesCodeView({
       })),
     [groupFiles],
   );
-  const groupLabel = getDiffGroupTabLabel(groupPath);
+  const groupLabel = effectiveGroupKind
+    ? DIFF_GROUP_TAB_LABELS[effectiveGroupKind]
+    : '';
+  const displayReferenceLabel =
+    effectiveGroupKind === 'commit'
+      ? compareBaseRef ?? compareRef
+        ? t('commitRef', {
+            commitRef: formatCommitRefLabel((compareBaseRef ?? compareRef)!),
+          })
+        : null
+      : compareRef
+        ? t('compareRef', { compareRef })
+        : null;
+  const diffRequestOptions = useMemo(() => {
+    switch (effectiveGroupKind) {
+      case 'branch':
+      case 'compared':
+        return {
+          againstIndex: false,
+          baseRef: compareRef,
+          commitRef: null,
+        };
+      case 'commit':
+        return {
+          againstIndex: false,
+          baseRef: null,
+          commitRef: compareBaseRef ?? compareRef,
+        };
+      case 'unstaged':
+        return {
+          againstIndex: true,
+          baseRef: null,
+          commitRef: null,
+        };
+      case 'staged':
+      case 'untracked':
+      default:
+        return {
+          againstIndex: false,
+          baseRef: null,
+          commitRef: null,
+        };
+    }
+  }, [compareBaseRef, compareRef, effectiveGroupKind]);
 
   const renderHeaderPrefix = useCallback(
     (item: CodeViewItem<CopyAnnotationMeta>) =>
@@ -221,7 +272,11 @@ export function ChangesCodeView({
     });
 
     const loadFile = async (file: (typeof groupFiles)[number]) => {
-      const diff = await gitApi.getFileDiff(repoPath, file.path);
+      const diff = await gitApi.getFileDiff(repoPath, file.path, null, {
+        againstIndex: diffRequestOptions.againstIndex,
+        baseRef: diffRequestOptions.baseRef,
+        commitRef: diffRequestOptions.commitRef,
+      });
       const fileDiff = parseDiffFromFile(
         { name: file.path, contents: diff.old_content },
         { name: file.path, contents: diff.new_content },
@@ -321,7 +376,7 @@ export function ChangesCodeView({
     return () => {
       cancelled = true;
     };
-  }, [groupFiles, groupKind, repoPath, t]);
+  }, [diffRequestOptions, groupFiles, groupKind, repoPath, t]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
@@ -548,9 +603,9 @@ export function ChangesCodeView({
         <span className="shrink-0 text-xs text-muted-foreground">
           {t('fileCount', { count: treeItems.length })}
         </span>
-        {compareRef ? (
+        {displayReferenceLabel ? (
           <span className="shrink-0 text-xs text-muted-foreground">
-            {t('compareRef', { compareRef })}
+            {displayReferenceLabel}
           </span>
         ) : null}
         {stashedPromptChip}
