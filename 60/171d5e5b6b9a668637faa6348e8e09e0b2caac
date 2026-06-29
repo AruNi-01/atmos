@@ -1,0 +1,25 @@
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  s_b0bd542a2fe8f0::t_bd2f8abb342c6b 3,6,34-41,51,89
+apps/web/src/app-shell/use-sidebar-peek-visibility.ts
+  s_b0bd542a2fe8f0::t_12f23d04ae5c1a 1-132
+apps/web/src/features/agent/components/AgentChatHistorySidebarFrame.tsx
+  s_b0bd542a2fe8f0::t_d020991078ec8b 3,8-9,103-110,113,153
+apps/web/src/features/agent/hooks/use-agent-chat-history-sidebar-layout.ts
+  s_b0bd542a2fe8f0::t_4f1e25d063fd4e 45-48,53,156,168-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "60171d5e5b6b9a668637faa6348e8e09e0b2caac",
+  "prompts": {},
+  "sessions": {
+    "s_b0bd542a2fe8f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10ad-1ef0-7b93-961c-fea9cd8acdc3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
