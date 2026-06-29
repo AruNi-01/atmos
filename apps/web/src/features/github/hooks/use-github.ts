@@ -373,15 +373,44 @@ export interface GitCommit {
 }
 
 // Local Git commit log (current branch)
-export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; limit?: number }) {
+export function useGitLog({
+  repoPath,
+  branchKey,
+  limit = 30,
+}: {
+  repoPath: string | null;
+  branchKey?: string | null;
+  limit?: number;
+}) {
   const send = useWebSocketStore(s => s.send);
-  const [commits, setCommits] = useState<GitCommit[]>([]);
+  const scopeKey = repoPath ? `${repoPath}\u0000${branchKey ?? ''}` : null;
+  const [commitState, setCommitState] = useState<{
+    scopeKey: string | null;
+    commits: GitCommit[];
+  }>({ scopeKey, commits: [] });
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const requestIdRef = useRef(0);
+  const scopeKeyRef = useRef(scopeKey);
+  if (scopeKeyRef.current !== scopeKey) {
+    scopeKeyRef.current = scopeKey;
+    requestIdRef.current += 1;
+  }
 
   const fetchPage = useCallback(async (pageIndex: number) => {
-    if (!repoPath) return;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const requestScopeKey = scopeKeyRef.current;
+
+    if (!repoPath) {
+      setCommitState({ scopeKey: requestScopeKey, commits: [] });
+      setHasMore(false);
+      setPage(0);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -390,21 +419,45 @@ export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; l
         limit,
         offset: pageIndex * limit,
       });
+      if (
+        requestIdRef.current !== requestId ||
+        scopeKeyRef.current !== requestScopeKey
+      ) {
+        return;
+      }
       const fetched: GitCommit[] = result?.commits ?? [];
-      setCommits(fetched);
+      setCommitState({ scopeKey: requestScopeKey, commits: fetched });
       setHasMore(fetched.length >= limit);
       setPage(pageIndex);
     } catch (e) {
+      if (
+        requestIdRef.current !== requestId ||
+        scopeKeyRef.current !== requestScopeKey
+      ) {
+        return;
+      }
       console.error(e);
-      setCommits([]);
+      setCommitState({ scopeKey: requestScopeKey, commits: [] });
     } finally {
-      setLoading(false);
+      if (
+        requestIdRef.current === requestId &&
+        scopeKeyRef.current === requestScopeKey
+      ) {
+        setLoading(false);
+      }
     }
   }, [repoPath, limit, send]);
 
-  useEffect(() => {
-    fetchPage(0);
+  const resetAndFetchPage = useCallback((pageIndex: number) => {
+    setCommitState({ scopeKey: scopeKeyRef.current, commits: [] });
+    setHasMore(false);
+    setPage(0);
+    void fetchPage(pageIndex);
   }, [fetchPage]);
+
+  useEffect(() => {
+    resetAndFetchPage(0);
+  }, [scopeKey, resetAndFetchPage]);
 
   const goToPrevPage = useCallback(() => {
     if (page > 0) fetchPage(page - 1);
@@ -416,5 +469,14 @@ export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; l
 
   const refresh = useCallback(() => fetchPage(page), [fetchPage, page]);
 
-  return { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh };
+  const isCurrentScope = commitState.scopeKey === scopeKey;
+  return {
+    commits: isCurrentScope ? commitState.commits : [],
+    loading: loading || (!!repoPath && !isCurrentScope),
+    page: isCurrentScope ? page : 0,
+    hasMore: isCurrentScope ? hasMore : false,
+    goToPrevPage,
+    goToNextPage,
+    refresh,
+  };
 }

@@ -135,7 +135,15 @@ export const DiffViewer = ({
       : null,
   );
 
-  const { stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef, compareMode } = useGitStore();
+  const {
+    stagedFiles,
+    unstagedFiles,
+    untrackedFiles,
+    compareFiles,
+    compareRef,
+    compareMode,
+    compareBaseRef,
+  } = useGitStore();
 
   useEffect(() => {
     void loadDiffSettings();
@@ -337,7 +345,10 @@ export const DiffViewer = ({
             if (!isNotFoundError) {
               throw err;
             }
-            const diff = await gitApi.getFileDiff(repoPath, filePath);
+            const diff = await gitApi.getFileDiff(repoPath, filePath, null, {
+              baseRef: compareMode === 'ref' ? null : compareRef,
+              commitRef: compareMode === 'ref' ? compareBaseRef : null,
+            });
             const nextOldFile = { name: fileName, contents: diff.old_content };
             const nextNewFile = { name: fileName, contents: diff.new_content };
             setOldFile(nextOldFile);
@@ -346,7 +357,10 @@ export const DiffViewer = ({
             setDiffCompareRef(diff.compare_ref);
           }
         } else {
-          const diff = await gitApi.getFileDiff(repoPath, filePath);
+          const diff = await gitApi.getFileDiff(repoPath, filePath, null, {
+            baseRef: compareMode === 'ref' ? null : compareRef,
+            commitRef: compareMode === 'ref' ? compareBaseRef : null,
+          });
           const nextOldFile = { name: fileName, contents: diff.old_content };
           const nextNewFile = { name: fileName, contents: diff.new_content };
           setOldFile(nextOldFile);
@@ -364,7 +378,7 @@ export const DiffViewer = ({
     };
 
     loadDiff();
-  }, [repoPath, filePath, compareMode, snapshotGuidFromPath, viewerT]);
+  }, [repoPath, filePath, compareBaseRef, compareMode, compareRef, snapshotGuidFromPath, viewerT]);
 
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({

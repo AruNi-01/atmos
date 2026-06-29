@@ -1015,18 +1015,31 @@
         "noContext": "没有仓库上下文",
         "changes": {
           "refreshChanges": "刷新变更",
+          "diffTab": "文件对比",
+          "selectScope": "选择变更范围",
           "showAsList": "以列表显示",
           "showAsTree": "以树状显示",
           "showChangedFilesAsList": "以列表显示变更文件",
           "showChangedFilesAsTree": "以树状显示变更文件",
           "refreshCommits": "刷新提交",
+          "loadingCommits": "正在加载提交...",
+          "noCommitsOnBranch": "当前分支没有提交",
+          "noCommitChanges": "提交 {commit} 没有文件变更",
           "noChangesAgainst": "与 {compareRef} 相比没有变更",
           "noChangesDetected": "未检测到变更",
           "compareWithDefaultBranch": "与默认分支比较（{branch}）",
+          "branchChanges": "分支变更",
+          "commitChanges": "提交 {commit} 的变更",
           "stagedChanges": "已暂存变更",
           "unstagedChanges": "未暂存变更",
           "untrackedChanges": "未跟踪文件",
-          "noRepositoryContext": "没有仓库上下文"
+          "noRepositoryContext": "没有仓库上下文",
+          "scope": {
+            "unstaged": "未暂存",
+            "staged": "已暂存",
+            "commit": "提交",
+            "branch": "分支"
+          }
         },
         "pr": {
           "refreshOpenPullRequests": "刷新打开的拉取请求",
@@ -2960,6 +2973,9 @@
         "staged": "已暂存",
         "unstaged": "未暂存",
         "untracked": "未跟踪",
+        "branch": "分支",
+        "commit": "提交",
+        "compared": "已对比",
         "changes": "变更"
       }
     }
@@ -6091,6 +6107,7 @@
       "noFilesInGroup": "这个分组里没有文件",
       "fileCount": "{count, plural, one {# 个文件} other {# 个文件}}",
       "compareRef": "对比 {compareRef}",
+      "commitRef": "提交 {commitRef}",
       "reviewRevisionDefaultTitle": "评审",
       "reviewRevisionTitle": "评审 v{version}",
       "noReviewRevisionSelected": "未选择评审版本",

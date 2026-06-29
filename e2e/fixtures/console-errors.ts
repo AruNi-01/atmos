@@ -5,6 +5,7 @@ const allowedConsoleErrorPatterns = [
   /\[response\.404\] .*\/api\/system\/client-session\b/i,
   /Encountered a script tag while rendering React component/i,
   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  /\[console\.error\] Error: WebSocket not connected\b/i,
   /\[WebSocket\] Error: Event/i,
 ];
 

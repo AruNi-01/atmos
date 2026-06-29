@@ -35,7 +35,7 @@ function stopActionEvent(
 }
 
 export interface ChangeSectionProps {
-  kind: "staged" | "unstaged" | "untracked" | "compared";
+  kind: DiffChangeGroupKind;
   title: string;
   files: GitChangedFile[];
   defaultOpen?: boolean;
@@ -49,6 +49,7 @@ export interface ChangeSectionProps {
   workspaceId: string | null;
   viewMode?: "list" | "tree";
   selectedFilePath?: string | null;
+  hideHeader?: boolean;
   onOpenDiffFile?: (args: {
     kind: ChangeSectionProps["kind"];
     groupPath: string;
@@ -282,6 +283,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   workspaceId,
   viewMode = "list",
   selectedFilePath,
+  hideHeader = false,
   onOpenDiffFile,
 }) {
   const t = useTranslations("AppShell.chrome");
@@ -313,7 +315,11 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     confirmingActionKey !== null || runningActionKey !== null;
   const hasSectionActions =
     !readOnly &&
-    Boolean(onStageAll || (kind === "staged" && onUnstageAll) || isDestructiveSection);
+    Boolean(
+      onStageAll ||
+        (kind === "staged" && onUnstageAll) ||
+        (isDestructiveSection && onDiscardAll),
+    );
   const runAction = async (
     actionKey: string,
     action?: () => void | Promise<void>,
@@ -428,84 +434,10 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     );
   };
 
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
-      <div className="group/header relative mb-1 rounded-sm px-2 py-1 hover:bg-sidebar-accent/50">
-        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronRight
-            className={cn(
-              "size-3.5 transition-transform duration-200",
-              isOpen && "rotate-90",
-            )}
-          />
-          <span>{title}</span>
-          <span className="text-[10px] ml-1 px-1.5 rounded-full bg-sidebar-accent text-muted-foreground tabular-nums">
-            {orderedFiles.length}
-          </span>
-        </CollapsibleTrigger>
-
-        {hasSectionActions ? (
-          <div
-            className={cn(
-              "absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
-              hasActiveSectionAction
-                ? "opacity-100 pointer-events-auto"
-                : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
-            )}
-          >
-            {onStageAll && (
-              <button
-                type="button"
-                onPointerDown={stopActionEvent}
-                onMouseDown={stopActionEvent}
-                onDoubleClick={stopActionEvent}
-                onClick={(e) => {
-                  stopActionEvent(e);
-                  void runAction(`${kind}-bulk-stage`, onStageAll);
-                }}
-                title={t("changeSection.stageAll")}
-                className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-              >
-                <Plus className="size-3.5" />
-              </button>
-            )}
-            {kind === "staged" && onUnstageAll && (
-              <button
-                type="button"
-                onPointerDown={stopActionEvent}
-                onMouseDown={stopActionEvent}
-                onDoubleClick={stopActionEvent}
-                onClick={(e) => {
-                  stopActionEvent(e);
-                  void runAction(`${kind}-bulk-unstage`, onUnstageAll);
-                }}
-                title={t("changeSection.unstageAll")}
-                className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-              >
-                <Minus className="size-3.5" />
-              </button>
-            )}
-            {isDestructiveSection
-              ? renderConfirmableMinusAction({
-                  actionKey: `${kind}-bulk-discard`,
-                  onConfirm: onDiscardAll,
-                  title:
-                    kind === "untracked"
-                      ? t("changeSection.deleteAllUntrackedTitle")
-                      : t("changeSection.discardAllUnstagedTitle"),
-                  description:
-                    kind === "untracked"
-                      ? t("changeSection.deleteAllUntrackedDescription")
-                      : t("changeSection.discardAllUnstagedDescription"),
-                })
-              : null}
-          </div>
-        ) : null}
-      </div>
-
-      <CollapsibleContent>
+  const content = (
+    <>
         {viewMode === "tree" ? (
-          <div className="mt-0.5 overflow-hidden pb-2">
+          <div className={cn("overflow-hidden", hideHeader ? "pb-0" : "mt-0.5 pb-2")}>
             <DiffFileTree
               items={orderedFiles.map((file) => ({
                 path: file.path,
@@ -516,7 +448,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               selectedPath={selectedDiffFilePath}
               ariaLabel={t("changeSection.treeAriaLabel", { title })}
               className=""
-              indentOffset={28}
+              indentOffset={hideHeader ? 4 : 28}
               isFileActionActive={readOnly ? undefined : (path) =>
                 confirmingActionKey === `${kind}:file:${path}:stage` ||
                 confirmingActionKey === `${kind}:file:${path}:unstage` ||
@@ -660,7 +592,12 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
             />
           </div>
         ) : (
-          <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
+          <div
+            className={cn(
+              "flex flex-col gap-0.5 overflow-hidden",
+              hideHeader ? "pb-0" : "mt-0.5 pb-2",
+            )}
+          >
             {orderedFiles.map((file) => (
               <ChangeFileRow
                 key={file.path}
@@ -682,6 +619,106 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
             ))}
           </div>
         )}
+    </>
+  );
+
+  const renderSectionActions = (variant: "header" | "headerless") => {
+    if (!hasSectionActions) return null;
+
+    return (
+      <div
+        className={cn(
+          "absolute z-10 flex items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
+          variant === "header"
+            ? "top-1/2 right-2 -translate-y-1/2"
+            : "top-1 right-2",
+          hasActiveSectionAction
+            ? "opacity-100 pointer-events-auto"
+            : variant === "header"
+              ? "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100"
+              : "pointer-events-none opacity-0 group-hover/headerless:pointer-events-auto group-hover/headerless:opacity-100",
+        )}
+      >
+        {onStageAll && (
+          <button
+            type="button"
+            onPointerDown={stopActionEvent}
+            onMouseDown={stopActionEvent}
+            onDoubleClick={stopActionEvent}
+            onClick={(e) => {
+              stopActionEvent(e);
+              void runAction(`${kind}-bulk-stage`, onStageAll);
+            }}
+            title={t("changeSection.stageAll")}
+            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+          >
+            <Plus className="size-3.5" />
+          </button>
+        )}
+        {kind === "staged" && onUnstageAll && (
+          <button
+            type="button"
+            onPointerDown={stopActionEvent}
+            onMouseDown={stopActionEvent}
+            onDoubleClick={stopActionEvent}
+            onClick={(e) => {
+              stopActionEvent(e);
+              void runAction(`${kind}-bulk-unstage`, onUnstageAll);
+            }}
+            title={t("changeSection.unstageAll")}
+            className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+          >
+            <Minus className="size-3.5" />
+          </button>
+        )}
+        {isDestructiveSection
+          ? renderConfirmableMinusAction({
+              actionKey: `${kind}-bulk-discard`,
+              onConfirm: onDiscardAll,
+              title:
+                kind === "untracked"
+                  ? t("changeSection.deleteAllUntrackedTitle")
+                  : t("changeSection.discardAllUnstagedTitle"),
+              description:
+                kind === "untracked"
+                  ? t("changeSection.deleteAllUntrackedDescription")
+                  : t("changeSection.discardAllUnstagedDescription"),
+            })
+          : null}
+      </div>
+    );
+  };
+
+  if (hideHeader) {
+    return (
+      <div className="group/headerless relative w-full">
+        {content}
+        {renderSectionActions("headerless")}
+      </div>
+    );
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
+      <div className="group/header relative mb-1 rounded-sm px-2 py-1 hover:bg-sidebar-accent/50">
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronRight
+            className={cn(
+              "size-3.5 transition-transform duration-200",
+              isOpen && "rotate-90",
+            )}
+          />
+          <span>{title}</span>
+          <span className="text-[10px] ml-1 px-1.5 rounded-full bg-sidebar-accent text-muted-foreground tabular-nums">
+            {orderedFiles.length}
+          </span>
+        </CollapsibleTrigger>
+
+        {renderSectionActions("header")}
+      </div>
+
+      <CollapsibleContent>
+        {content}
       </CollapsibleContent>
     </Collapsible>
   );

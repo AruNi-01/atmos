@@ -83,8 +83,15 @@ pub struct GitRenameBranchRequest {
 pub struct GitChangedFilesRequest {
     /// 仓库路径
     pub path: String,
+    /// Remote branch name used for branch comparison.
     #[serde(default)]
     pub base_branch: Option<String>,
+    /// Explicit Git ref used for commit/hash comparison.
+    #[serde(default)]
+    pub base_ref: Option<String>,
+    /// Commit whose own patch should be displayed.
+    #[serde(default)]
+    pub commit_ref: Option<String>,
     #[serde(default)]
     pub use_preferred_compare: bool,
 }
@@ -120,8 +127,15 @@ pub struct GitFileDiffRequest {
     pub path: String,
     /// 文件相对路径
     pub file_path: String,
+    /// Remote branch name used for branch comparison.
     #[serde(default)]
     pub base_branch: Option<String>,
+    /// Explicit Git ref used for commit/hash comparison.
+    #[serde(default)]
+    pub base_ref: Option<String>,
+    /// Commit whose own patch should be displayed.
+    #[serde(default)]
+    pub commit_ref: Option<String>,
     /// 为 true 时对比 index 与工作区（仅未暂存部分）；默认 false 表示对比 compare_ref 与工作区
     #[serde(default)]
     pub against_index: bool,

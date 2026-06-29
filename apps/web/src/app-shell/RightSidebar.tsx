@@ -14,12 +14,20 @@ import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   Check,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
   Tabs,
   TabsList,
   TabsTab,
 } from "@workspace/ui";
 import {
   Play,
+  ChevronDown,
   GitPullRequest,
   GitPullRequestCreate,
   GitPullRequestClosed,
@@ -49,6 +57,7 @@ import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
+import { useGitLog, type GitCommit } from "@/features/github/hooks/use-github";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
@@ -90,6 +99,175 @@ const BASE_TABS: Array<{
 ];
 
 const FILES_TAB = { value: "files" as RightSidebarTab, labelKey: "common.files", Icon: FolderTree };
+
+type ChangesDiffScope = "branch" | "unstaged" | "staged" | "commit";
+
+interface ChangesScopeState {
+  key: string;
+  scope: ChangesDiffScope;
+  selectedCommitHash: string | null;
+  menuOpen: boolean;
+}
+
+function defaultChangesScopeState(key: string): ChangesScopeState {
+  return {
+    key,
+    scope: "branch",
+    selectedCommitHash: null,
+    menuOpen: false,
+  };
+}
+
+interface ChangesScopeMenuProps {
+  scope: ChangesDiffScope;
+  selectedCommitHash: string | null;
+  commits: GitCommit[];
+  loadingCommits: boolean;
+  stagedCount: number;
+  unstagedCount: number;
+  open: boolean;
+  isVisible: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelectScope: (scope: Exclude<ChangesDiffScope, "commit">) => void;
+  onSelectCommit: (commitHash: string) => void;
+}
+
+function formatCommitScopeLabel(commit: GitCommit | undefined, fallbackHash: string | null) {
+  if (commit) return commit.short_hash;
+  return fallbackHash ? fallbackHash.slice(0, 7) : null;
+}
+
+function ChangesScopeMenu({
+  scope,
+  selectedCommitHash,
+  commits,
+  loadingCommits,
+  stagedCount,
+  unstagedCount,
+  open,
+  isVisible,
+  onOpenChange,
+  onSelectScope,
+  onSelectCommit,
+}: ChangesScopeMenuProps) {
+  const t = useTranslations("AppShell.chrome");
+  const selectedCommit = commits.find((commit) => commit.hash === selectedCommitHash);
+  const label =
+    scope === "commit"
+      ? formatCommitScopeLabel(selectedCommit, selectedCommitHash) ??
+        t("rightSidebar.changes.scope.commit")
+      : scope === "branch"
+        ? t("rightSidebar.changes.scope.branch")
+        : scope === "staged"
+          ? t("rightSidebar.changes.scope.staged")
+          : t("rightSidebar.changes.scope.unstaged");
+
+  const renderTrailingCheck = (checked: boolean) =>
+    checked ? <Check className="size-3.5 shrink-0" /> : null;
+  const renderCountBadge = (count: number) =>
+    count > 0 ? (
+      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+        {count}
+      </span>
+    ) : null;
+
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <span
+          role="button"
+          title={t("rightSidebar.changes.selectScope")}
+          aria-label={t("rightSidebar.changes.selectScope")}
+          tabIndex={isVisible ? 0 : -1}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+          }}
+          className="flex h-full min-w-0 max-w-24 cursor-pointer items-center justify-center gap-1 border-l border-sidebar-border/60 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown className="size-3 shrink-0" />
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onSelect={() => onSelectScope("unstaged")}
+        >
+          <span>{t("rightSidebar.changes.scope.unstaged")}</span>
+          {renderCountBadge(unstagedCount)}
+          <span className="flex-1" />
+          {renderTrailingCheck(scope === "unstaged")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onSelect={() => onSelectScope("staged")}
+        >
+          <span>{t("rightSidebar.changes.scope.staged")}</span>
+          {renderCountBadge(stagedCount)}
+          <span className="flex-1" />
+          {renderTrailingCheck(scope === "staged")}
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger
+            className={cn(
+              "group/commit-scope cursor-pointer",
+              scope === "commit" &&
+                "[&>svg:last-child]:hidden hover:[&>svg:last-child]:block data-[state=open]:[&>svg:last-child]:block",
+            )}
+          >
+            <span className="flex-1">{t("rightSidebar.changes.scope.commit")}</span>
+            {scope === "commit" ? (
+              <Check className="size-3.5 shrink-0 group-hover/commit-scope:hidden group-data-[state=open]/commit-scope:hidden" />
+            ) : null}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="max-h-72 w-80 overflow-y-auto">
+            {loadingCommits && commits.length === 0 ? (
+              <DropdownMenuItem disabled>
+                {t("rightSidebar.changes.loadingCommits")}
+              </DropdownMenuItem>
+            ) : commits.length === 0 ? (
+              <DropdownMenuItem disabled>
+                {t("rightSidebar.changes.noCommitsOnBranch")}
+              </DropdownMenuItem>
+            ) : (
+              commits.map((commit) => (
+                <DropdownMenuItem
+                  key={commit.hash}
+                  className="min-w-0 cursor-pointer"
+                  onSelect={() => onSelectCommit(commit.hash)}
+                >
+                  <span className="w-14 shrink-0 font-mono text-[11px] text-muted-foreground">
+                    {commit.short_hash}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
+                  {renderTrailingCheck(
+                    scope === "commit" && selectedCommitHash === commit.hash,
+                  )}
+                </DropdownMenuItem>
+              ))
+            )}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onSelect={() => onSelectScope("branch")}
+        >
+          <span className="flex-1">{t("rightSidebar.changes.scope.branch")}</span>
+          {renderTrailingCheck(scope === "branch")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function buildWikiChatPrompt(
   prompt: string,
@@ -181,6 +359,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     discardAllUnstaged,
     discardAllUntracked,
     compareAgainstDefaultBranch,
+    compareAgainstRef,
+    compareWorktreeChanges,
     resetCompareMode,
     isLoading,
     gitStatus,
@@ -205,10 +385,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     setSidebarUi({ changesFileViewMode: mode });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
-  const [refreshCommitsPanel, setRefreshCommitsPanel] = useState<
-    (() => Promise<unknown> | void) | null
-  >(null);
-  const [isCommitsLoading, setIsCommitsLoading] = useState(false);
   const [actionsRefreshKey] = useState(0);
   const prPanelRef = useRef<PRPanelHandle>(null);
   const [prPanelLoading, setPRPanelLoading] = useState({
@@ -231,49 +407,57 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     currentProjectPath &&
     (workspaceId || projectIdFromUrl)
   );
+  const changesScopeKey = `${currentProjectPath ?? ""}:${currentBranch ?? ""}`;
+  const [changesScopeState, setChangesScopeState] = useState<ChangesScopeState>(
+    () => defaultChangesScopeState(changesScopeKey),
+  );
+  const activeChangesScopeState =
+    changesScopeState.key === changesScopeKey
+      ? changesScopeState
+      : defaultChangesScopeState(changesScopeKey);
+  const changesScope = activeChangesScopeState.scope;
+  const selectedCommitHash = activeChangesScopeState.selectedCommitHash;
+  const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
+  useEffect(() => {
+    resetCompareMode();
+    if (hasWorkingContext) {
+      void refreshRepositoryState({ fetchRemote: true });
+    }
+  }, [changesScopeKey, hasWorkingContext, refreshRepositoryState, resetCompareMode]);
+  const setChangesScopeMenuOpen = useCallback(
+    (open: boolean) => {
+      setChangesScopeState((current) => ({
+        ...(current.key === changesScopeKey
+          ? current
+          : defaultChangesScopeState(changesScopeKey)),
+        menuOpen: open,
+      }));
+    },
+    [changesScopeKey],
+  );
 
-  const compareStatsByPath = useMemo(
-    () => new Map(compareFiles.map((file) => [file.path, file])),
-    [compareFiles],
+  const commitLog = useGitLog({
+    repoPath: hasWorkingContext ? currentProjectPath ?? null : null,
+    branchKey: hasWorkingContext ? currentBranch ?? null : null,
+  });
+  const selectedCommit = useMemo(
+    () => commitLog.commits.find((commit) => commit.hash === selectedCommitHash),
+    [commitLog.commits, selectedCommitHash],
   );
-  const displayedStagedFiles = useMemo(
-    () =>
-      compareRef
-        ? stagedFiles
-            .filter((file) => compareStatsByPath.has(file.path))
-            .map((file) => ({
-              ...file,
-              additions:
-                compareStatsByPath.get(file.path)?.additions ?? file.additions,
-              deletions:
-                compareStatsByPath.get(file.path)?.deletions ?? file.deletions,
-            }))
-        : stagedFiles,
-    [compareRef, compareStatsByPath, stagedFiles],
-  );
-  const displayedUnstagedFiles = useMemo(
-    () =>
-      compareRef
-        ? unstagedFiles
-            .filter((file) => compareStatsByPath.has(file.path))
-            .map((file) => ({
-              ...file,
-              additions:
-                compareStatsByPath.get(file.path)?.additions ?? file.additions,
-              deletions:
-                compareStatsByPath.get(file.path)?.deletions ?? file.deletions,
-            }))
-        : unstagedFiles,
-    [compareRef, compareStatsByPath, unstagedFiles],
-  );
-  const displayedUntrackedFiles = useMemo(
-    () => (compareRef ? untrackedFiles : untrackedFiles),
-    [compareRef, untrackedFiles],
-  );
+
+  const displayedComparedFiles = compareFiles;
+  const displayedStagedFiles = stagedFiles;
+  const displayedUnstagedFiles = unstagedFiles;
+  const displayedUntrackedFiles = untrackedFiles;
+  const selectedCommitLabel =
+    selectedCommit?.short_hash ?? selectedCommitHash?.slice(0, 7) ?? null;
+  const emptyCompareLabel = changesScope === "commit" ? null : compareRef;
   const hasDisplayedChanges =
-    displayedStagedFiles.length > 0 ||
-    displayedUnstagedFiles.length > 0 ||
-    displayedUntrackedFiles.length > 0;
+    changesScope === "branch" || changesScope === "commit"
+      ? displayedComparedFiles.length > 0
+      : changesScope === "staged"
+        ? displayedStagedFiles.length > 0
+        : displayedUnstagedFiles.length > 0 || displayedUntrackedFiles.length > 0;
   const showAgentChatSidebar = activeCenterTab === "wiki";
   const transformWikiChatPrompt = useCallback(
     (prompt: string) =>
@@ -285,20 +469,61 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     [activeWikiPage, currentProject?.mainFilePath, currentProjectPath],
   );
 
-  const handleCommitsRefreshReady = useCallback(
-    (refresh: () => Promise<unknown> | void) => {
-      setRefreshCommitsPanel(() => refresh);
+  const handleSelectChangesScope = useCallback(
+    (scope: Exclude<ChangesDiffScope, "commit">) => {
+      setChangesScopeState({
+        key: changesScopeKey,
+        scope,
+        selectedCommitHash: null,
+        menuOpen: false,
+      });
+
+      if (scope === "branch") {
+        resetCompareMode();
+        void refreshRepositoryState({ fetchRemote: true });
+        return;
+      }
+
+      void compareWorktreeChanges();
     },
-    [],
+    [changesScopeKey, compareWorktreeChanges, refreshRepositoryState, resetCompareMode],
   );
-  const handleCommitsLoadingChange = useCallback((loading: boolean) => {
-    setIsCommitsLoading(loading);
-  }, []);
+
+  const handleSelectCommitScope = useCallback(
+    (commitHash: string) => {
+      setChangesScopeState({
+        key: changesScopeKey,
+        scope: "commit",
+        selectedCommitHash: commitHash,
+        menuOpen: false,
+      });
+      setHasVisitedCommits(true);
+      void compareAgainstRef(commitHash);
+    },
+    [changesScopeKey, compareAgainstRef],
+  );
 
   const handleChangesRefresh = useCallback(async () => {
+    if (changesScope === "commit" && selectedCommitHash) {
+      await compareAgainstRef(selectedCommitHash);
+      return;
+    }
+
+    if (changesScope === "staged" || changesScope === "unstaged") {
+      await compareWorktreeChanges();
+      return;
+    }
+
     resetCompareMode();
     await refreshRepositoryState({ fetchRemote: true });
-  }, [refreshRepositoryState, resetCompareMode]);
+  }, [
+    changesScope,
+    compareAgainstRef,
+    compareWorktreeChanges,
+    refreshRepositoryState,
+    resetCompareMode,
+    selectedCommitHash,
+  ]);
 
   const renderNoContextMessage = (
     <div className="flex h-full flex-col items-center justify-center text-muted-foreground/50">
@@ -398,69 +623,87 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         refreshTitle={t("rightSidebar.changes.refreshChanges")}
                         onRefresh={handleChangesRefresh}
                         isRefreshing={changesSubTab === "changes" && isLoading}
+                        forceActionsVisible={changesScopeMenuOpen}
                         trailingAction={({ isVisible }) => (
-                          <span
-                            role="button"
-                            title={
-                              changesFileViewMode === "tree"
-                                ? t("rightSidebar.changes.showAsList")
-                                : t("rightSidebar.changes.showAsTree")
-                            }
-                            aria-label={
-                              changesFileViewMode === "tree"
-                                ? t("rightSidebar.changes.showChangedFilesAsList")
-                                : t("rightSidebar.changes.showChangedFilesAsTree")
-                            }
-                            tabIndex={isVisible ? 0 : -1}
-                            onPointerDown={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                            }}
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                            }}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setChangesFileViewMode(
-                                changesFileViewMode === "tree" ? "list" : "tree",
-                              );
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key !== "Enter" && event.key !== " ")
-                                return;
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setChangesFileViewMode(
-                                changesFileViewMode === "tree" ? "list" : "tree",
-                              );
-                            }}
-                            className="flex h-full w-8 cursor-pointer items-center justify-center border-l border-sidebar-border/60 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                          >
-                            {changesFileViewMode === "tree" ? (
-                              <List className="size-3.5" />
-                            ) : (
-                              <ListTree className="size-3.5" />
-                            )}
-                          </span>
+                          <>
+                            <ChangesScopeMenu
+                              scope={changesScope}
+                              selectedCommitHash={selectedCommitHash}
+                              commits={commitLog.commits}
+                              loadingCommits={commitLog.loading}
+                              stagedCount={displayedStagedFiles.length}
+                              unstagedCount={
+                                displayedUnstagedFiles.length + displayedUntrackedFiles.length
+                              }
+                              open={changesScopeMenuOpen}
+                              isVisible={isVisible}
+                              onOpenChange={setChangesScopeMenuOpen}
+                              onSelectScope={handleSelectChangesScope}
+                              onSelectCommit={handleSelectCommitScope}
+                            />
+                            <span
+                              role="button"
+                              title={
+                                changesFileViewMode === "tree"
+                                  ? t("rightSidebar.changes.showAsList")
+                                  : t("rightSidebar.changes.showAsTree")
+                              }
+                              aria-label={
+                                changesFileViewMode === "tree"
+                                  ? t("rightSidebar.changes.showChangedFilesAsList")
+                                  : t("rightSidebar.changes.showChangedFilesAsTree")
+                              }
+                              tabIndex={isVisible ? 0 : -1}
+                              onPointerDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                              }}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                              }}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setChangesFileViewMode(
+                                  changesFileViewMode === "tree" ? "list" : "tree",
+                                );
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter" && event.key !== " ")
+                                  return;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setChangesFileViewMode(
+                                  changesFileViewMode === "tree" ? "list" : "tree",
+                                );
+                              }}
+                              className="flex h-full w-8 cursor-pointer items-center justify-center border-l border-sidebar-border/60 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                            >
+                              {changesFileViewMode === "tree" ? (
+                                <List className="size-3.5" />
+                              ) : (
+                                <ListTree className="size-3.5" />
+                              )}
+                            </span>
+                          </>
                         )}
-                        className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+                        className="h-full! basis-2/3 flex-[2_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       >
                         <File className="size-3.5" />
-                        <span>{t("common.files")}</span>
+                        <span>{t("rightSidebar.changes.diffTab")}</span>
                       </RefreshableTabsTab>
                       <RefreshableTabsTab
                         value="commits"
                         activeValue={changesSubTab}
                         refreshTitle={t("rightSidebar.changes.refreshCommits")}
                         onRefresh={async () => {
-                          await refreshCommitsPanel?.();
+                          await commitLog.refresh();
                         }}
                         isRefreshing={
-                          changesSubTab === "commits" && isCommitsLoading
+                          changesSubTab === "commits" && commitLog.loading
                         }
-                        className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+                        className="h-full! basis-1/3 flex-[1_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       >
                         <GitCommitIcon className="size-3.5" />
                         <span>{t("common.commits")}</span>
@@ -485,11 +728,17 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50 gap-3">
                         <Check className="size-8 opacity-20 mb-2" />
                         <span className="text-xs">
-                          {compareRef
-                            ? t("rightSidebar.changes.noChangesAgainst", { compareRef })
+                          {changesScope === "commit" && selectedCommitLabel
+                            ? t("rightSidebar.changes.noCommitChanges", {
+                                commit: selectedCommitLabel,
+                              })
+                            : emptyCompareLabel
+                            ? t("rightSidebar.changes.noChangesAgainst", {
+                                compareRef: emptyCompareLabel,
+                              })
                             : t("rightSidebar.changes.noChangesDetected")}
                         </span>
-                        {!compareRef && gitStatus?.default_branch ? (
+                        {changesScope === "branch" && !compareRef && gitStatus?.default_branch ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -505,39 +754,60 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         ) : null}
                       </div>
                     ) : (
-                      <>
+                      changesScope === "branch" || changesScope === "commit" ? (
+                        <ChangeSection
+                          kind={changesScope === "commit" ? "commit" : "branch"}
+                          title={
+                            changesScope === "commit" && selectedCommitLabel
+                              ? t("rightSidebar.changes.commitChanges", {
+                                  commit: selectedCommitLabel,
+                                })
+                              : t("rightSidebar.changes.branchChanges")
+                          }
+                          files={displayedComparedFiles}
+                          workspaceId={workspaceId}
+                          viewMode={changesFileViewMode}
+                          hideHeader
+                        />
+                      ) : changesScope === "staged" ? (
                         <ChangeSection
                           kind="staged"
                           title={t("rightSidebar.changes.stagedChanges")}
                           files={displayedStagedFiles}
                           workspaceId={workspaceId}
                           viewMode={changesFileViewMode}
+                          hideHeader
                           onUnstage={unstageFiles}
                           onUnstageAll={unstageAll}
                         />
-                        <ChangeSection
-                          kind="unstaged"
-                          title={t("rightSidebar.changes.unstagedChanges")}
-                          files={displayedUnstagedFiles}
-                          workspaceId={workspaceId}
-                          viewMode={changesFileViewMode}
-                          onStage={stageFiles}
-                          onDiscard={discardUnstagedChanges}
-                          onStageAll={stageAllUnstaged}
-                          onDiscardAll={discardAllUnstaged}
-                        />
-                        <ChangeSection
-                          kind="untracked"
-                          title={t("rightSidebar.changes.untrackedChanges")}
-                          files={displayedUntrackedFiles}
-                          workspaceId={workspaceId}
-                          viewMode={changesFileViewMode}
-                          onStage={stageFiles}
-                          onDiscard={discardUntrackedFiles}
-                          onStageAll={stageAllUntracked}
-                          onDiscardAll={discardAllUntracked}
-                        />
-                      </>
+                      ) : (
+                        <>
+                          <ChangeSection
+                            kind="unstaged"
+                            title={t("rightSidebar.changes.unstagedChanges")}
+                            files={displayedUnstagedFiles}
+                            workspaceId={workspaceId}
+                            viewMode={changesFileViewMode}
+                            hideHeader
+                            onStage={stageFiles}
+                            onDiscard={discardUnstagedChanges}
+                            onStageAll={stageAllUnstaged}
+                            onDiscardAll={discardAllUnstaged}
+                          />
+                          <ChangeSection
+                            kind="untracked"
+                            title={t("rightSidebar.changes.untrackedChanges")}
+                            files={displayedUntrackedFiles}
+                            workspaceId={workspaceId}
+                            viewMode={changesFileViewMode}
+                            hideHeader
+                            onStage={stageFiles}
+                            onDiscard={discardUntrackedFiles}
+                            onStageAll={stageAllUntracked}
+                            onDiscardAll={discardAllUntracked}
+                          />
+                        </>
+                      )
                     )}
                   </div>
 
@@ -547,16 +817,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       "-mx-0 flex-1 h-full",
                     )}
                   >
-                    {hasVisitedCommits && currentProjectPath && currentBranch ? (
+                    {hasVisitedCommits && currentProjectPath ? (
                       <CommitsPanel
-                        repoPath={currentProjectPath}
-                        branch={currentBranch}
+                        commits={commitLog.commits}
+                        loading={commitLog.loading}
+                        page={commitLog.page}
+                        hasMore={commitLog.hasMore}
+                        goToPrevPage={commitLog.goToPrevPage}
+                        goToNextPage={commitLog.goToNextPage}
                         owner={githubOwner ?? undefined}
                         repo={githubRepo ?? undefined}
-                        onRefreshReady={handleCommitsRefreshReady}
-                        onLoadingChange={handleCommitsLoadingChange}
                       />
-                    ) : currentProjectPath && currentBranch ? null : (
+                    ) : currentProjectPath ? null : (
                       <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
                         <span className="text-xs">{t("rightSidebar.changes.noRepositoryContext")}</span>
                       </div>

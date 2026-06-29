@@ -1,4 +1,4 @@
-use super::{sync_worktree_local_excludes, GitEngine};
+use super::{remote_branch_fetch_target, sync_worktree_local_excludes, GitEngine};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -41,6 +41,16 @@ fn git_output(current_dir: &Path, args: &[&str]) -> String {
         String::from_utf8_lossy(&output.stderr)
     );
     String::from_utf8(output.stdout).expect("git stdout should be utf-8")
+}
+
+fn git_succeeds(current_dir: &Path, args: &[&str]) -> bool {
+    Command::new("git")
+        .current_dir(current_dir)
+        .args(args)
+        .output()
+        .expect("git command should run")
+        .status
+        .success()
 }
 
 fn write_file(path: &Path, content: &str) {
@@ -100,6 +110,150 @@ fn clone_repo(root: &Path, origin_path: &Path, name: &str) -> PathBuf {
     );
     configure_repo(&clone_path);
     clone_path
+}
+
+fn file_url(path: &Path) -> String {
+    reqwest::Url::from_file_path(path)
+        .expect("path should convert to file URL")
+        .to_string()
+}
+
+#[test]
+fn git_fetch_targets_current_refs_for_shallow_repositories() {
+    let (root, origin_path) = setup_remote_repo("targeted-shallow-fetch");
+    let seed_path = root.join("seed");
+    git(&seed_path, &["checkout", "-b", "extra"]);
+    commit_file(&seed_path, "extra.txt", "extra\n", "extra branch");
+    git(&seed_path, &["push", "origin", "extra"]);
+    git(&seed_path, &["checkout", "main"]);
+
+    let repo_path = root.join("shallow-work");
+    let origin_url = file_url(&origin_path);
+    git(
+        &root,
+        &[
+            "clone",
+            "--depth=1",
+            "--branch",
+            "main",
+            &origin_url,
+            repo_path.to_str().expect("valid path"),
+        ],
+    );
+    configure_repo(&repo_path);
+    git(
+        &repo_path,
+        &[
+            "config",
+            "--replace-all",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        ],
+    );
+
+    let before_main = git_output(&repo_path, &["rev-parse", "origin/main"]);
+    commit_file(&seed_path, "README.md", "remote update\n", "remote update");
+    git(&seed_path, &["push", "origin", "main"]);
+
+    assert!(!git_succeeds(
+        &repo_path,
+        &["show-ref", "--verify", "refs/remotes/origin/extra"]
+    ));
+
+    GitEngine::new()
+        .fetch(&repo_path)
+        .expect("targeted shallow fetch should succeed");
+
+    let after_main = git_output(&repo_path, &["rev-parse", "origin/main"]);
+    assert_ne!(before_main, after_main);
+    assert!(!git_succeeds(
+        &repo_path,
+        &["show-ref", "--verify", "refs/remotes/origin/extra"]
+    ));
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn git_fetch_targets_non_origin_upstream_for_shallow_repositories() {
+    let (root, origin_path) = setup_remote_repo("targeted-shallow-upstream-fetch");
+    let repo_path = root.join("shallow-upstream-work");
+    let origin_url = file_url(&origin_path);
+    git(
+        &root,
+        &[
+            "clone",
+            "--depth=1",
+            "--branch",
+            "main",
+            &origin_url,
+            repo_path.to_str().expect("valid path"),
+        ],
+    );
+    configure_repo(&repo_path);
+    git(&repo_path, &["remote", "add", "upstream", &origin_url]);
+    git(&repo_path, &["fetch", "upstream", "main"]);
+    git(
+        &repo_path,
+        &["branch", "--set-upstream-to=upstream/main", "main"],
+    );
+
+    let seed_path = root.join("seed");
+    let before_upstream = git_output(&repo_path, &["rev-parse", "upstream/main"]);
+    commit_file(
+        &seed_path,
+        "README.md",
+        "upstream update\n",
+        "upstream update",
+    );
+    git(&seed_path, &["push", "origin", "main"]);
+
+    GitEngine::new()
+        .fetch(&repo_path)
+        .expect("targeted shallow fetch should update upstream ref");
+
+    let after_upstream = git_output(&repo_path, &["rev-parse", "upstream/main"]);
+    assert_ne!(before_upstream, after_upstream);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn non_origin_remote_branch_uses_remote_qualified_local_branch_name() {
+    let (root, origin_path) = setup_remote_repo("remote-qualified-local-branch");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    git(
+        &repo_path,
+        &[
+            "remote",
+            "add",
+            "upstream",
+            origin_path.to_str().expect("valid path"),
+        ],
+    );
+
+    let origin_target = remote_branch_fetch_target(&repo_path, "origin/main")
+        .expect("origin target should resolve")
+        .expect("origin target should be present");
+    assert_eq!(origin_target.local_branch_name(), "main");
+
+    let upstream_target = remote_branch_fetch_target(&repo_path, "upstream/main")
+        .expect("upstream target should resolve")
+        .expect("upstream target should be present");
+    assert_eq!(upstream_target.local_branch_name(), "upstream/main");
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn branch_name_validation_rejects_invalid_names() {
+    GitEngine::validate_branch_name("feature/scope").expect("valid branch should pass");
+
+    assert!(GitEngine::validate_branch_name("@{-1}").is_err());
+    assert!(GitEngine::validate_branch_name("bad branch").is_err());
+    assert!(GitEngine::validate_branch_name("feature.lock").is_err());
+    assert!(GitEngine::validate_branch_name("feature/scope ").is_err());
+    assert!(GitEngine::validate_branch_name("").is_err());
 }
 
 #[test]
@@ -302,6 +456,213 @@ fn preferred_compare_ref_falls_back_to_remote_default_branch() {
         .expect("compare ref should resolve");
 
     assert_eq!(compare_ref.as_deref(), Some("origin/main"));
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_compare_ref_accepts_commit_hash_on_clean_tree() {
+    let (root, origin_path) = setup_remote_repo("compare-commit");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+    let base_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+
+    let changes = engine
+        .get_changed_files(&repo_path, Some(&base_commit), false)
+        .expect("changed files should be available");
+
+    assert_eq!(changes.compare_ref.as_deref(), Some(base_commit.as_str()));
+    assert_eq!(changes.unstaged_files.len(), 0);
+    assert!(changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "feature.txt" && file.status == "A"));
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_for_commit_returns_only_that_commit_patch() {
+    let (root, origin_path) = setup_remote_repo("commit-patch");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    commit_file(&repo_path, "first.txt", "first\n", "first commit");
+    let first_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+    commit_file(&repo_path, "second.txt", "second\n", "second commit");
+
+    let changes = engine
+        .get_changed_files_for_commit(&repo_path, &first_commit)
+        .expect("commit patch changed files should be available");
+
+    assert!(changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "first.txt" && file.status == "A"));
+    assert!(!changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "second.txt"));
+
+    let diff = engine
+        .get_file_diff_for_commit(&repo_path, "first.txt", &first_commit)
+        .expect("commit patch file diff should be available");
+
+    assert_eq!(diff.old_content, "");
+    assert_eq!(diff.new_content, "first\n");
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_preserve_rename_numstat_counts() {
+    let (root, origin_path) = setup_remote_repo("rename-numstat");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    fs::create_dir_all(repo_path.join("src")).expect("src dir should be created");
+    commit_file(&repo_path, "src/old_name.txt", "one\ntwo\n", "add old file");
+    let base_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    git(&repo_path, &["mv", "src/old_name.txt", "src/new_name.txt"]);
+    write_file(&repo_path.join("src/new_name.txt"), "one\ntwo\nthree\n");
+    git(&repo_path, &["add", "-A"]);
+    git(&repo_path, &["commit", "-m", "rename with edit"]);
+    let rename_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    git(&repo_path, &["config", "diff.renames", "false"]);
+
+    let branch_changes = engine
+        .get_changed_files(&repo_path, Some(&base_commit), false)
+        .expect("branch compare changed files should be available");
+    let branch_rename = branch_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/new_name.txt")
+        .expect("branch compare should include renamed file");
+    assert_eq!(branch_rename.status, "R");
+    assert_eq!(branch_rename.additions, 1);
+    assert_eq!(branch_rename.deletions, 0);
+
+    let branch_diff = engine
+        .get_file_diff(&repo_path, "src/new_name.txt", Some(&base_commit), false)
+        .expect("branch compare renamed file diff should be available");
+    assert_eq!(branch_diff.status, "R");
+    assert_eq!(branch_diff.old_content, "one\ntwo\n");
+    assert_eq!(branch_diff.new_content, "one\ntwo\nthree\n");
+
+    let commit_changes = engine
+        .get_changed_files_for_commit(&repo_path, &rename_commit)
+        .expect("commit patch changed files should be available");
+    let commit_rename = commit_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/new_name.txt")
+        .expect("commit patch should include renamed file");
+    assert_eq!(commit_rename.status, "R");
+    assert_eq!(commit_rename.additions, 1);
+    assert_eq!(commit_rename.deletions, 0);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_preserve_literal_arrow_path_numstat_counts() {
+    let (root, origin_path) = setup_remote_repo("literal-arrow-numstat");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    fs::create_dir_all(repo_path.join("src")).expect("src dir should be created");
+    commit_file(&repo_path, "src/a => b.txt", "one\n", "add arrow file");
+    let base_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    commit_file(
+        &repo_path,
+        "src/a => b.txt",
+        "one\ntwo\n",
+        "modify arrow file",
+    );
+    let arrow_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let branch_changes = engine
+        .get_changed_files(&repo_path, Some(&base_commit), false)
+        .expect("branch compare changed files should be available");
+    let branch_file = branch_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/a => b.txt")
+        .expect("branch compare should include literal arrow file");
+    assert_eq!(branch_file.status, "M");
+    assert_eq!(branch_file.additions, 1);
+    assert_eq!(branch_file.deletions, 0);
+
+    let commit_changes = engine
+        .get_changed_files_for_commit(&repo_path, &arrow_commit)
+        .expect("commit patch changed files should be available");
+    let commit_file = commit_changes
+        .staged_files
+        .iter()
+        .find(|file| file.path == "src/a => b.txt")
+        .expect("commit patch should include literal arrow file");
+    assert_eq!(commit_file.status, "M");
+    assert_eq!(commit_file.additions, 1);
+    assert_eq!(commit_file.deletions, 0);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn changed_files_for_merge_commit_uses_first_parent_patch() {
+    let (root, origin_path) = setup_remote_repo("merge-commit-patch");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    git(&repo_path, &["checkout", "-b", "feature"]);
+    commit_file(
+        &repo_path,
+        "feature.txt",
+        "feature from branch\n",
+        "feature work",
+    );
+    git(&repo_path, &["checkout", "main"]);
+    git(
+        &repo_path,
+        &["merge", "--no-ff", "feature", "-m", "merge feature"],
+    );
+    let merge_commit = git_output(&repo_path, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
+
+    let changes = engine
+        .get_changed_files_for_commit(&repo_path, &merge_commit)
+        .expect("merge commit patch changed files should be available");
+
+    assert!(changes
+        .staged_files
+        .iter()
+        .any(|file| file.path == "feature.txt" && file.status == "A"));
+
+    let diff = engine
+        .get_file_diff_for_commit(&repo_path, "feature.txt", &merge_commit)
+        .expect("merge commit patch file diff should be available");
+
+    assert_eq!(diff.status, "A");
+    assert_eq!(diff.old_content, "");
+    assert_eq!(diff.new_content, "feature from branch\n");
 
     fs::remove_dir_all(root).expect("temp repo should be removed");
 }

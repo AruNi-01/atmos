@@ -334,10 +334,13 @@ export const gitApi = {
     path: string,
     baseBranch?: string | null,
     usePreferredCompare?: boolean,
+    options?: { baseRef?: string | null; commitRef?: string | null },
   ): Promise<GitChangedFilesResponse> => {
     return wsRequest<GitChangedFilesResponse>("git_changed_files", {
       path,
       base_branch: baseBranch ?? null,
+      base_ref: options?.baseRef ?? null,
+      commit_ref: options?.commitRef ?? null,
       use_preferred_compare: usePreferredCompare ?? false,
     });
   },
@@ -349,12 +352,14 @@ export const gitApi = {
     path: string,
     filePath: string,
     baseBranch?: string | null,
-    options?: { againstIndex?: boolean },
+    options?: { againstIndex?: boolean; baseRef?: string | null; commitRef?: string | null },
   ): Promise<GitFileDiffResponse> => {
     return wsRequest<GitFileDiffResponse>("git_file_diff", {
       path,
       file_path: filePath,
       base_branch: baseBranch ?? null,
+      base_ref: options?.baseRef ?? null,
+      commit_ref: options?.commitRef ?? null,
       against_index: options?.againstIndex ?? false,
     });
   },

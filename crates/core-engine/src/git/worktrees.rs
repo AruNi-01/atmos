@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{EngineError, Result};
 
-use super::{run_git, try_run_git, types::parse_worktree_list, GitEngine, WorktreeInfo};
+use super::{
+    fetch_remote_branch, remote_branch_fetch_target, run_git, try_run_git,
+    types::parse_worktree_list, GitEngine, WorktreeInfo,
+};
 
 impl GitEngine {
     /// Get the atmos workspace base directory: ~/.atmos/workspaces
@@ -51,9 +54,11 @@ impl GitEngine {
             )));
         }
 
-        // Fetch latest from remote (non-fatal)
-        if let Err(e) = run_git(repo_path, &["fetch", "origin"]) {
-            tracing::warn!("Git fetch warning: {}", e);
+        // Fetch only the requested base branch. A plain `git fetch origin` can
+        // pull every remote branch in shallow CI checkouts and stall workspace
+        // creation, even though this refresh is non-fatal.
+        if let Err(e) = fetch_remote_branch(repo_path, base_branch) {
+            tracing::warn!("Git fetch warning for {}: {}", base_branch, e);
         }
 
         let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
@@ -114,7 +119,9 @@ impl GitEngine {
             )));
         }
 
-        if let Err(e) = run_git(repo_path, &["fetch", "origin", remote_branch]) {
+        let remote_target = remote_branch_fetch_target(repo_path, remote_branch)?
+            .ok_or_else(|| EngineError::Git("Remote branch name cannot be empty".to_string()))?;
+        if let Err(e) = fetch_remote_branch(repo_path, remote_branch) {
             tracing::warn!("Git fetch warning for {}: {}", remote_branch, e);
         }
 
@@ -122,11 +129,12 @@ impl GitEngine {
             .to_str()
             .ok_or_else(|| EngineError::Git("Non-UTF-8 worktree path".into()))?;
 
+        let local_branch = remote_target.local_branch_name();
         let local_branches = self.list_branches(repo_path).unwrap_or_default();
-        let result = if local_branches.iter().any(|b| b == remote_branch) {
-            run_git(repo_path, &["worktree", "add", worktree_str, remote_branch])
+        let result = if local_branches.iter().any(|b| b == &local_branch) {
+            run_git(repo_path, &["worktree", "add", worktree_str, &local_branch])
         } else {
-            let remote_ref = format!("origin/{}", remote_branch);
+            let remote_ref = format!("{}/{}", remote_target.remote, remote_target.branch);
             run_git(
                 repo_path,
                 &[
@@ -134,7 +142,7 @@ impl GitEngine {
                     "add",
                     "--track",
                     "-b",
-                    remote_branch,
+                    &local_branch,
                     worktree_str,
                     &remote_ref,
                 ],
@@ -151,7 +159,7 @@ impl GitEngine {
         tracing::info!(
             "Created worktree at {} tracking branch {}",
             worktree_path.display(),
-            remote_branch
+            remote_target.branch
         );
 
         Ok(worktree_path)

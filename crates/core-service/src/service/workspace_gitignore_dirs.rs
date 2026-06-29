@@ -21,6 +21,7 @@
 //! (`.env`, custom prompt dirs, etc.).
 
 use crate::error::{Result, ServiceError};
+use crate::utils::function_settings::{function_settings_path, SETTINGS_FUNCTION_KEY};
 use core_engine::{
     compensate_path, list_ignored_paths_for_many, sync_worktree_local_excludes, CompensateStrategy,
 };
@@ -29,8 +30,6 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// Top-level key inside `function_settings.json`.
-const SETTINGS_FUNCTION_KEY: &str = "workspace_settings";
 /// Sub-key holding the gitignore-dirs config object.
 const SETTINGS_SUB_KEY: &str = "gitignore_dirs";
 
@@ -138,17 +137,6 @@ fn builtin_entries() -> Vec<GitIgnoreDirEntry> {
             builtin: true,
         })
         .collect()
-}
-
-fn function_settings_path() -> PathBuf {
-    let home = dirs::home_dir().unwrap_or_else(|| {
-        tracing::warn!(
-            "[gitignore_dirs] Unable to determine home directory; falling back to current working directory for function_settings.json"
-        );
-        PathBuf::from(".")
-    });
-
-    home.join(".atmos").join("function_settings.json")
 }
 
 fn merge_entries(stored_entries: Vec<GitIgnoreDirEntry>) -> Vec<GitIgnoreDirEntry> {

@@ -1,24 +1,26 @@
 "use client";
 
-import React, { useMemo, useEffect, useCallback, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { GitCommit as GitCommitIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { cn } from '@/shared/lib/utils';
-import { useGitLog, type GitCommit } from '@/features/github/hooks/use-github';
+import type { GitCommit } from '@/features/github/hooks/use-github';
 import { fromUnixTime } from 'date-fns';
 import { CommitList, type CommitListItem } from './CommitList';
 
 interface CommitsPanelProps {
-  repoPath: string;
-  branch: string;
+  commits: GitCommit[];
+  loading: boolean;
+  page: number;
+  hasMore: boolean;
+  goToPrevPage: () => void;
+  goToNextPage: () => void;
   owner?: string;
   repo?: string;
-  onRefreshReady?: (refresh: () => Promise<unknown> | void) => void;
-  onLoadingChange?: (loading: boolean) => void;
 }
 
-function toCommitListItem(c: GitCommit, owner?: string, repo?: string): CommitListItem {
+export function toCommitListItem(c: GitCommit, owner?: string, repo?: string): CommitListItem {
   return {
     hash: c.hash,
     shortHash: c.short_hash,
@@ -32,13 +34,18 @@ function toCommitListItem(c: GitCommit, owner?: string, repo?: string): CommitLi
   };
 }
 
-export function CommitsPanel({ repoPath, owner, repo, onRefreshReady, onLoadingChange }: CommitsPanelProps) {
+export function CommitsPanel({
+  commits,
+  loading,
+  page,
+  hasMore,
+  goToPrevPage,
+  goToNextPage,
+  owner,
+  repo,
+}: CommitsPanelProps) {
   const t = useTranslations('github.commitsPanel');
-  const { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh } = useGitLog({ repoPath });
   const items = useMemo(() => commits.map(c => toCommitListItem(c, owner, repo)), [commits, owner, repo]);
-
-  useEffect(() => { onRefreshReady?.(refresh); }, [onRefreshReady, refresh]);
-  useEffect(() => { onLoadingChange?.(loading); }, [loading, onLoadingChange]);
 
   return (
     <TooltipProvider delayDuration={300}>
