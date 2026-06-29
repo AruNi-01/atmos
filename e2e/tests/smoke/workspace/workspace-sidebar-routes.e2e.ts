@@ -5,6 +5,7 @@ import {
   expectHealthyRoute,
   getRightSidebar,
   gotoContextRoute,
+  normalizePathname,
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../support/app-smoke";
@@ -98,7 +99,7 @@ test.describe("smoke workspace", () => {
     expect(firstResponse, `missing navigation response for ${projectsRoute}`).not.toBeNull();
     expect(firstResponse!.status(), `unexpected status for ${projectsRoute}`).toBeLessThan(500);
     await expect
-      .poll(async () => new URL(page.url()).pathname)
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/zh/workspace");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("id") ?? "")

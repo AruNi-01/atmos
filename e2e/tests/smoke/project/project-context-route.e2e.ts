@@ -3,6 +3,7 @@ import {
   buildProjectWorkspaceDeepLink,
   connectLocalComputer,
   gotoContextRoute,
+  normalizePathname,
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../support/app-smoke";
@@ -19,7 +20,7 @@ test.describe("smoke project", () => {
 
     await gotoContextRoute(page, projectUrl);
     await expect
-      .poll(async () => new URL(page.url()).pathname)
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/zh/project");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("id"))
@@ -46,7 +47,7 @@ test.describe("smoke project", () => {
 
     await gotoContextRoute(page, withSearchParams(projectUrl, { lsTab: "projects" }));
     await expect
-      .poll(async () => new URL(page.url()).pathname)
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/zh/project");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))

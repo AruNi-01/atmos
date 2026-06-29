@@ -19,6 +19,10 @@ export const routes = [
   "/workspaces",
 ] as const;
 
+export function normalizePathname(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+}
+
 let smokeProjectSeed: Promise<SmokeProjectSeed> | null = null;
 
 export async function expectHealthyRoute(

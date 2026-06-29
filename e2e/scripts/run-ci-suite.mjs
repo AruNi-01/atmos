@@ -4,9 +4,10 @@ import { spawn } from "node:child_process";
 
 const suite = process.argv[2];
 const dryRun = process.argv.includes("--dry-run");
+const statefulWorkerArgs = ["--workers=1"];
 
 const suiteMap = {
-  "all-smoke": ["test", "--project=chromium", "tests/smoke"],
+  "all-smoke": ["test", "--project=chromium", "tests/smoke", ...statefulWorkerArgs],
   "smoke-stateless": [
     "test",
     "--project=chromium",
@@ -20,14 +21,14 @@ const suiteMap = {
     "--project=chromium",
     "--grep",
     "@stateful",
-    "--workers=1",
+    ...statefulWorkerArgs,
   ],
   "smoke-routes": ["test", "--project=chromium", "tests/smoke/routes"],
   "smoke-onboarding": ["test", "--project=chromium", "tests/smoke/onboarding"],
-  "smoke-app-shell": ["test", "--project=chromium", "tests/smoke/app-shell"],
-  "smoke-project": ["test", "--project=chromium", "tests/smoke/project"],
-  "smoke-settings": ["test", "--project=chromium", "tests/smoke/settings"],
-  "smoke-workspace": ["test", "--project=chromium", "tests/smoke/workspace"],
+  "smoke-app-shell": ["test", "--project=chromium", "tests/smoke/app-shell", ...statefulWorkerArgs],
+  "smoke-project": ["test", "--project=chromium", "tests/smoke/project", ...statefulWorkerArgs],
+  "smoke-settings": ["test", "--project=chromium", "tests/smoke/settings", ...statefulWorkerArgs],
+  "smoke-workspace": ["test", "--project=chromium", "tests/smoke/workspace", ...statefulWorkerArgs],
   specs: ["test", "tests/specs"],
   full: ["test"],
 };
