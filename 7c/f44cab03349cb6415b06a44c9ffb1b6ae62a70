@@ -1,0 +1,22 @@
+crates/core-engine/src/git/changes.rs
+  s_74d99f1c1da739::t_867ba9c6b7e12d 515-522,527-531,539-543,634
+  s_74d99f1c1da739::t_fd19a9f02cc1c3 8-13,394,413-440,446,454-455,462,524,536,550,607-619,635,637-638,641-645
+crates/core-engine/src/git/tests.rs
+  s_74d99f1c1da739::t_a30e4fe21f2c9f 403-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "7cf44cab03349cb6415b06a44c9ffb1b6ae62a70",
+  "prompts": {},
+  "sessions": {
+    "s_74d99f1c1da739": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f135d-d4df-7992-b88c-d4a88ee038af",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
