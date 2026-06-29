@@ -1,0 +1,43 @@
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  s_b0bd542a2fe8f0::t_194c5889a351ac 82,266,268-270,272-275,283-284
+  s_b0bd542a2fe8f0::t_0e5f125575fa15 33-42
+  s_b0bd542a2fe8f0::t_6f4da11adb34d8 332-352,380-400,414-416,421,423-432,434,436-443
+  s_b0bd542a2fe8f0::t_a7a915e362c7e0 433
+.github/workflows/ci-e2e.yml
+  s_b0bd542a2fe8f0::t_c6e09fd1e04e07 297-305,307,316
+  s_b0bd542a2fe8f0::t_a516c70c888f4f 178,247,278
+e2e/scripts/prepare-pages-report.cjs
+  s_b0bd542a2fe8f0::t_b83aa8336f7299 1-56
+apps/web/src/features/terminal/lib/terminal-agent-input-overlay-utils.ts
+  s_b0bd542a2fe8f0::t_c0e68a355f8502 1-100
+apps/web/src/features/terminal/components/TerminalAgentInputShell.tsx
+  s_b0bd542a2fe8f0::t_4dd361fe91943c 1-129
+e2e/scripts/e2e-report-utils.cjs
+  s_b0bd542a2fe8f0::t_ee1350eb53b635 1-104
+e2e/scripts/write-e2e-summary.cjs
+  s_b0bd542a2fe8f0::t_d1a1dcb1e6a42b 1-20
+apps/web/src/features/terminal/components/TerminalAgentInputPopovers.tsx
+  s_b0bd542a2fe8f0::t_a0924aea227e2f 38,64,109
+  s_b0bd542a2fe8f0::t_a445e73f7f0e83 48
+  s_b0bd542a2fe8f0::t_9ee963cdb1e71b 1-37,39-47,49-63,65-108,110-114
+apps/web/src/features/terminal/components/TerminalAgentFlyingMessagePortal.tsx
+  s_b0bd542a2fe8f0::t_d12a7f1bfe0920 1-34
+e2e/scripts/plan-ci-suites.cjs
+  s_b0bd542a2fe8f0::t_bff05867e3e7cd 1-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "f3a3c17698e428079aff9f956eb5683d1d8c336a",
+  "prompts": {},
+  "sessions": {
+    "s_b0bd542a2fe8f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f10ad-1ef0-7b93-961c-fea9cd8acdc3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
