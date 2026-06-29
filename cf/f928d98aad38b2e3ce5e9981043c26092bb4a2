@@ -1,0 +1,29 @@
+e2e/fixtures/console-errors.ts
+  s_41e45bb8c95691::t_73921144a01c31 8
+crates/core-engine/src/git/worktrees.rs
+  s_41e45bb8c95691::t_acd5e611207f1f 174
+  s_41e45bb8c95691::t_ae2a8df2bcec6e 8-10
+  s_41e45bb8c95691::t_62bdd683dbbcf3 15-16,161-164
+  s_41e45bb8c95691::t_9fe973cfe9b802 19-41,92,153
+  s_41e45bb8c95691::t_c8dfddc75ee3a0 7,11-14,17-18,89-91,152,160
+crates/core-service/src/service/workspace.rs
+  s_41e45bb8c95691::t_5c3deeb20ee87b 46-78,359-372,439-449,477-481
+e2e/tests/smoke/project/project-context-route.e2e.ts
+  s_41e45bb8c95691::t_af6af4805a1f9c 29-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "cff928d98aad38b2e3ce5e9981043c26092bb4a2",
+  "prompts": {},
+  "sessions": {
+    "s_41e45bb8c95691": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f112f-c721-7490-b7d5-fb690faa3e0d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
