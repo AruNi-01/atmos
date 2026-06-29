@@ -1,0 +1,44 @@
+crates/core-engine/src/git/tests.rs
+  s_41e45bb8c95691::t_a53e5ff3b566b3 376
+  s_41e45bb8c95691::t_c69278f78b784f 370-375,377-415
+  s_41e45bb8c95691::t_208753227e3ed6 369
+apps/web/src/features/github/hooks/use-github.ts
+  s_41e45bb8c95691::t_f9af8f0a1bd9fd 391,396,414-419,425-430,434-437,444,446
+  s_41e45bb8c95691::t_fc64fcc092b211 402
+  s_41e45bb8c95691::t_6642bc86890804 376-384,390,394-395,397-401,403-405,438-439
+apps/api/src/api/ws/router/git.rs
+  s_41e45bb8c95691::t_bca68c27538eac 102-107,114-124
+apps/web/messages/zh.json
+  s_41e45bb8c95691::t_96ec22a69e6315 1018
+crates/core-engine/src/git/refs.rs
+  s_41e45bb8c95691::t_d1ad6163c859e5 52-64
+apps/web/src/features/git/store/use-git-store.ts
+  s_41e45bb8c95691::t_e71d745f15fafc 14-19,220-227,264-266,305-310,316-329,353,368-370,415-417,443-447,452-465,472,485-487,767-773
+crates/core-engine/src/git/changes.rs
+  s_41e45bb8c95691::t_a53e5ff3b566b3 532-535,553-558
+  s_41e45bb8c95691::t_5df9a121a2ed6d 543-544,546,548-552,559-562
+  s_41e45bb8c95691::t_90bfcd2fd81ee4 563-567
+  s_41e45bb8c95691::t_784162c8f8b99b 545,547
+  s_41e45bb8c95691::t_3507b6ab0f86a5 568-569
+apps/web/src/app-shell/RightSidebar.tsx
+  s_41e45bb8c95691::t_a1460486682743 421-422,441
+  s_41e45bb8c95691::t_5cc48497d6f5d5 423-426
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  s_41e45bb8c95691::t_b3321af592628f 318-322,625-691,693-698,717
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "934529a21d9b8f42dd8b51603977dcec4a3dc4ac",
+  "prompts": {},
+  "sessions": {
+    "s_41e45bb8c95691": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f112f-c721-7490-b7d5-fb690faa3e0d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
