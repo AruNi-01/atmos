@@ -1851,7 +1851,13 @@
         "actions": {
           "exportConversation": "导出会话",
           "openInWindow": "在窗口中打开",
+          "returnToEmbedded": "回到嵌入聊天",
           "logoutAgent": "退出 Agent 登录"
+        },
+        "standaloneWindow": {
+          "embeddedTitle": "Agent Chat 已在单独窗口中打开",
+          "embeddedDescription": "嵌入聊天已暂停，避免和单独窗口同时操作同一个会话。",
+          "returnHere": "回到当前界面"
         },
         "logout": {
           "title": "要退出 Agent 登录吗？",

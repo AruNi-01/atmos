@@ -84,5 +84,6 @@ function buildBrowserAgentChatUrl(locale: string, options: OpenAgentChatWindowOp
   if (options.workspaceId) params.set("workspaceId", options.workspaceId);
   if (options.projectId) params.set("projectId", options.projectId);
   const query = params.toString();
-  return `/${locale}/agent-chat/${query ? `?${query}` : ""}`;
+  void locale;
+  return `/agent-chat/${query ? `?${query}` : ""}`;
 }

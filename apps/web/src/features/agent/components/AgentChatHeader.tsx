@@ -23,7 +23,7 @@ import {
   TextScramble,
   cn,
 } from "@workspace/ui";
-import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, Plus, X } from "lucide-react";
+import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, PanelLeftOpen, Plus, X } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentCapabilities,
@@ -39,6 +39,7 @@ interface AgentChatHeaderProps {
   variant: "modal" | "sidebar" | "standalone";
   handleDragStart?: (e: React.MouseEvent) => void;
   handleOpenStandaloneWindow?: () => Promise<void>;
+  handleReturnToEmbeddedWindow?: () => void;
   handleToggleFullscreen?: () => void;
   isFullscreen?: boolean;
 
@@ -109,6 +110,7 @@ export function AgentChatHeader({
   variant,
   handleDragStart,
   handleOpenStandaloneWindow,
+  handleReturnToEmbeddedWindow,
   handleToggleFullscreen,
   isFullscreen = false,
   headerHovered,
@@ -384,6 +386,25 @@ export function AgentChatHeader({
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   {isFullscreen ? t("header.fullscreen.exitTooltip") : t("header.fullscreen.openTooltip")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          {variant === "standalone" && handleReturnToEmbeddedWindow ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleReturnToEmbeddedWindow}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={t("header.actions.returnToEmbedded")}
+                  >
+                    <PanelLeftOpen className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t("header.actions.returnToEmbedded")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

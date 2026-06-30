@@ -1851,7 +1851,13 @@
         "actions": {
           "exportConversation": "Export conversation",
           "openInWindow": "Open in window",
+          "returnToEmbedded": "Return to embedded chat",
           "logoutAgent": "Log out agent"
+        },
+        "standaloneWindow": {
+          "embeddedTitle": "Agent chat is open in a separate window",
+          "embeddedDescription": "The embedded chat is paused so the standalone chat stays the only active surface.",
+          "returnHere": "Return chat here"
         },
         "logout": {
           "title": "Log out agent?",
