@@ -1,0 +1,32 @@
+apps/web/src/app-shell/sidebar/useRightSidebarChangesScope.ts
+  s_76ac7ec24ab1a4::t_ccc95bfcc3517d 176-177
+  s_76ac7ec24ab1a4::t_feafed90c7d2a2 1-175,178-182
+apps/web/src/app-shell/sidebar/ChangesScopeMenu.tsx
+  s_76ac7ec24ab1a4::t_321dcb6a57ce24 1-172
+apps/web/src/app-shell/RightSidebar.tsx
+  s_76ac7ec24ab1a4::t_563aa4e2e9acef 250,494,504
+  s_76ac7ec24ab1a4::t_472820e4873f54 234-236,268
+  s_76ac7ec24ab1a4::t_bcc4867c9f67e6 237-249,251-267
+  s_76ac7ec24ab1a4::t_759995934848b6 57,60
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  s_76ac7ec24ab1a4::t_a6b6b73659f3f3 37-67
+  s_76ac7ec24ab1a4::t_6e3890fbd017d0 499-501,509,512-514,522,549-551,559,562-564,572
+  s_76ac7ec24ab1a4::t_36f32ef48dcf3c 246-248,256,259-261,269
+  s_76ac7ec24ab1a4::t_56afec790f03c8 644-646,652,655-657,663
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "7da007c67eba73890445698e18742338ce424c6c",
+  "prompts": {},
+  "sessions": {
+    "s_76ac7ec24ab1a4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f15d4-a3ca-77e1-aece-2e56244ab123",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
