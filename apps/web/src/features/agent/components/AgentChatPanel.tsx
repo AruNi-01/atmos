@@ -431,7 +431,6 @@ export function AgentChatPanel({
         "relative flex overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",
         !showsWideHistoryLayout && "flex-col",
-        reserveStandaloneTrafficLights && "pt-8",
         variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
         variant === "sidebar" && !isFullscreen && "h-full min-h-0",
         variant === "standalone" && "h-dvh min-h-0 w-full",
@@ -455,7 +454,7 @@ export function AgentChatPanel({
       )}
 
       {showTrafficLightsHistoryToggle ? (
-        <div className="absolute left-[86px] top-1 z-50 flex h-7 items-center">
+        <div className="absolute left-[86px] top-3 z-50 flex h-7 items-center">
           {trafficLightsHistorySidebarToggle}
         </div>
       ) : null}
@@ -465,6 +464,7 @@ export function AgentChatPanel({
           frameRef={historySidebarFrameRef}
           collapsed={historySidebarCollapsed}
           expandLabel={historySidebarExpandLabel}
+          showCollapsedExpandButton={false}
           width={historySidebarWidth}
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
@@ -472,6 +472,7 @@ export function AgentChatPanel({
         >
           <AgentChatHistorySidebar
             className="flex"
+            reserveTrafficLightsInset={showTrafficLightsHistoryToggle}
             historySessions={historySessions}
             historyHasMore={historyHasMore}
             historyLoading={historyLoading}
@@ -536,6 +537,7 @@ export function AgentChatPanel({
           historyCursor={historyCursor}
           historyResumeUnsupportedReason={historyResumeUnsupportedReason}
           historyUnsupportedReason={historyUnsupportedReason}
+          trafficLightsContentInset={showTrafficLightsHistoryToggle && historySidebarCollapsed}
           loadHistorySessions={loadHistorySessions}
           handleSelectHistorySession={handleSelectHistorySession}
           historyTriggerClassName={showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined}

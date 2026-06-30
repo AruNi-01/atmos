@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 
+import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { cn } from "@/shared/lib/utils";
 
 export interface PreviewBrowserTab {
@@ -73,17 +74,21 @@ export function PreviewBrowserTabBar({
   onCloseTab,
   onSelectTab,
 }: PreviewBrowserTabBarProps) {
+  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+
   return (
     <div
+      onMouseDown={handleDesktopWindowMouseDown}
+      data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
       className={cn(
-        "flex shrink-0 items-center gap-1 overflow-hidden bg-muted/20 px-2",
-        chromeControls?.needsDesktopPreviewSafeInset ? "h-[68px] pt-8" : "h-9",
+        "flex h-9 shrink-0 items-center gap-1 overflow-hidden bg-muted/10 px-2 select-none",
+        isDesktopDragEnabled && "desktop-drag-region",
       )}
     >
       <div
         className={cn(
           "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
-          chromeControls?.needsDesktopPreviewSafeInset && "pl-[76px]",
+          chromeControls?.needsDesktopPreviewSafeInset && "pl-[112px]",
         )}
       >
         {tabs.map((tab, index) => {
@@ -95,7 +100,7 @@ export function PreviewBrowserTabBar({
             <div
               key={tab.id}
               className={cn(
-                "group/tab flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center overflow-hidden rounded-md border text-xs transition-colors",
+                "desktop-no-drag group/tab flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center overflow-hidden rounded-md border text-xs transition-colors",
                 isActive
                   ? "border-border bg-background text-foreground shadow-sm"
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground",
@@ -155,7 +160,7 @@ export function PreviewBrowserTabBar({
           type="button"
           aria-label="New browser tab"
           title="New browser tab"
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className="desktop-no-drag flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
           onClick={onAddTab}
         >
           <Plus className="size-3.5" />
@@ -163,7 +168,7 @@ export function PreviewBrowserTabBar({
       </div>
 
       {chromeControls ? (
-        <div className="flex shrink-0 items-center gap-1 border-l border-border/70 pl-1">
+        <div className="desktop-no-drag flex shrink-0 items-center gap-1 border-l border-border/70 pl-1">
           {chromeControls.favoritesList}
           {chromeControls.onOpenInWindow ? (
             <button

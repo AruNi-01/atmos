@@ -5,7 +5,6 @@ use crate::state::AppState;
 use crate::updater;
 use runtime_manager::{clear_client_session, local_computer_display_name_opt};
 use serde_json::json;
-use std::time::Duration;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(target_os = "macos")]
@@ -144,7 +143,7 @@ pub fn open_preview_browser_window(
         builder = builder
             .hidden_title(true)
             .title_bar_style(TitleBarStyle::Overlay)
-            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 18.0)));
+            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 16.0)));
     }
 
     let window = builder
@@ -214,11 +213,12 @@ pub async fn send_notification(
 #[tauri::command]
 pub fn preview_bridge_open(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
     url: String,
     bounds: PreviewBridgeBounds,
 ) -> Result<(), String> {
-    preview_bridge::open_preview_window(&app, &session_id, &url, bounds)
+    preview_bridge::open_preview_window(&app, window.label(), &session_id, &url, bounds)
 }
 
 #[tauri::command]
@@ -232,37 +232,41 @@ pub fn preview_bridge_update_bounds(
 #[tauri::command]
 pub fn preview_bridge_set_detached(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
     url: String,
     bounds: PreviewBridgeBounds,
     detached: bool,
 ) -> Result<(), String> {
-    preview_bridge::set_preview_detached(&app, &session_id, &url, bounds, detached)
+    preview_bridge::set_preview_detached(&app, window.label(), &session_id, &url, bounds, detached)
 }
 
 #[tauri::command]
 pub fn preview_bridge_navigate(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
     url: String,
 ) -> Result<(), String> {
-    preview_bridge::navigate_preview_window(&app, &session_id, &url)
+    preview_bridge::navigate_preview_window(&app, window.label(), &session_id, &url)
 }
 
 #[tauri::command]
 pub fn preview_bridge_enter_pick_mode(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
 ) -> Result<(), String> {
-    preview_bridge::enter_pick_mode(&app, &session_id)
+    preview_bridge::enter_pick_mode(&app, window.label(), &session_id)
 }
 
 #[tauri::command]
 pub fn preview_bridge_clear_selection(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
 ) -> Result<(), String> {
-    preview_bridge::clear_selection(&app, &session_id)
+    preview_bridge::clear_selection(&app, window.label(), &session_id)
 }
 
 #[tauri::command]
@@ -295,20 +299,6 @@ pub async fn preview_bridge_probe_url(url: String) -> Result<(), String> {
     if !matches!(parsed.scheme(), "http" | "https") {
         return Ok(());
     }
-
-    let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(4))
-        .timeout(Duration::from_secs(6))
-        .redirect(reqwest::redirect::Policy::limited(10))
-        .build()
-        .map_err(|error| format!("Failed to initialize preview probe: {}", error))?;
-
-    client
-        .get(parsed)
-        .send()
-        .await
-        .map_err(|error| format!("Failed to load preview URL: {}", error))?;
-
     Ok(())
 }
 

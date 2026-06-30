@@ -179,7 +179,8 @@ export function PreviewToolbar({
       <div
         ref={toolbarRowRef}
         className={cn(
-          "flex h-10 items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
+          "flex items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
+          usesToolbarHoverOverlay || usesDesktopToolbarExpand ? "h-10" : "h-9",
           usesToolbarHoverOverlay &&
             "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-b-md border-b border-border/60 bg-background/92 opacity-0 shadow-lg backdrop-blur-md group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
           usesToolbarHoverOverlay && needsDesktopPreviewSafeInset && "top-8",

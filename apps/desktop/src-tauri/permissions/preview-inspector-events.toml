@@ -1,0 +1,6 @@
+"$schema" = "../gen/schemas/desktop-schema.json"
+
+[[permission]]
+identifier = "preview-inspector-events"
+description = "Allows the preview inspector webview to report DOM inspection events back to Atmos."
+commands.allow = ["preview_bridge_event"]

@@ -145,8 +145,11 @@ fn clear_bridge_state(app: &AppHandle) -> Result<(), String> {
 }
 
 fn emit_navigation_changed(app: &AppHandle, session_id: &str, url: &str) {
+    let host_label = bridge_state(app)
+        .map(|state| state.host_label)
+        .unwrap_or_else(|| "main".to_string());
     let _ = app.emit_to(
-        "main",
+        &host_label,
         "desktop-preview:navigation-changed",
         serde_json::json!({
             "sessionId": session_id,
@@ -156,8 +159,11 @@ fn emit_navigation_changed(app: &AppHandle, session_id: &str, url: &str) {
 }
 
 fn emit_detached_changed(app: &AppHandle, session_id: &str, detached: bool) {
+    let host_label = bridge_state(app)
+        .map(|state| state.host_label)
+        .unwrap_or_else(|| "main".to_string());
     let _ = app.emit_to(
-        "main",
+        &host_label,
         "desktop-preview:detached-changed",
         serde_json::json!({
             "sessionId": session_id,
@@ -175,22 +181,68 @@ fn log_preview(app: &AppHandle, message: impl AsRef<str>) {
     );
 }
 
-fn sync_pick_mode(webview: &Webview, session_id: &str, pick_mode: bool) {
-    let script = if pick_mode {
-        format!(
-            "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.enterPickMode({:?});",
-            session_id
-        )
+fn pick_mode_script(session_id: &str, pick_mode: bool) -> String {
+    let method = if pick_mode {
+        "enterPickMode"
     } else {
-        format!(
-            "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.announceReady({:?});",
-            session_id
-        )
+        "announceReady"
     };
-    let _ = webview.eval(format!(
-        "window.__ATMOS_PREVIEW_SESSION_ID__ = {:?}; {}",
-        session_id, script
-    ));
+    format!(
+        r#"
+{}
+(() => {{
+  const sessionId = {session_id:?};
+  const method = {method:?};
+  window.__ATMOS_PREVIEW_SESSION_ID__ = sessionId;
+  let attempts = 0;
+  const sync = () => {{
+    const bridge = window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__;
+    if (bridge && typeof bridge[method] === 'function') {{
+      bridge[method](sessionId);
+      return;
+    }}
+    attempts += 1;
+    if (attempts < 20) window.setTimeout(sync, 50);
+  }};
+  sync();
+}})();
+"#,
+        desktop_bridge_script()
+    )
+}
+
+fn sync_pick_mode(webview: &Webview, session_id: &str, pick_mode: bool) {
+    let _ = webview.eval(pick_mode_script(session_id, pick_mode));
+}
+
+fn eval_preview_surface(app: &AppHandle, script: impl AsRef<str>) -> Result<(), String> {
+    if let Some(preview) = app.get_webview(PREVIEW_INSPECTOR_LABEL) {
+        return preview
+            .eval(script.as_ref())
+            .map_err(|error| error.to_string());
+    }
+
+    if let Some(preview_window) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+        return preview_window
+            .eval(script.as_ref())
+            .map_err(|error| error.to_string());
+    }
+
+    Err("preview inspector window not open".to_string())
+}
+
+fn navigate_preview_surface(app: &AppHandle, url: Url) -> Result<(), String> {
+    if let Some(preview) = app.get_webview(PREVIEW_INSPECTOR_LABEL) {
+        return preview.navigate(url).map_err(|error| error.to_string());
+    }
+
+    if let Some(preview_window) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+        return preview_window
+            .navigate(url)
+            .map_err(|error| error.to_string());
+    }
+
+    Err("preview inspector window not open".to_string())
 }
 
 fn emit_error_page_probe(webview: &Webview, session_id: &str, page_url: &str) {
@@ -291,16 +343,7 @@ fn handle_page_load(app: &AppHandle, webview: &Webview, payload: PageLoadPayload
     }
 
     if let Some(state) = bridge_state(app) {
-        let _ = webview.eval(format!(
-            "window.__ATMOS_PREVIEW_SESSION_ID__ = {:?}; window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.announceReady({:?});",
-            state.session_id, state.session_id
-        ));
-        if state.pick_mode {
-            let _ = webview.eval(format!(
-                "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.enterPickMode({:?});",
-                state.session_id
-            ));
-        }
+        sync_pick_mode(webview, &state.session_id, state.pick_mode);
         emit_navigation_changed(app, &state.session_id, payload.url().as_str());
         emit_error_page_probe(webview, &state.session_id, payload.url().as_str());
     }
@@ -308,6 +351,7 @@ fn handle_page_load(app: &AppHandle, webview: &Webview, payload: PageLoadPayload
 
 fn open_preview_child(
     app: &AppHandle,
+    host_label: &str,
     _session_id: &str,
     url: &str,
     bounds: PreviewBridgeBounds,
@@ -326,11 +370,11 @@ fn open_preview_child(
         return Ok(());
     }
 
-    let main_window = app
-        .get_window("main")
-        .ok_or_else(|| "main window not available".to_string())?;
+    let host_window = app
+        .get_window(host_label)
+        .ok_or_else(|| format!("preview host window not available: {host_label}"))?;
     let app_handle = app.clone();
-    let preview = main_window
+    let preview = host_window
         .add_child(
             WebviewBuilder::new(
                 PREVIEW_INSPECTOR_LABEL,
@@ -383,6 +427,7 @@ fn open_preview_detached_window(
 
 pub fn open_preview_window(
     app: &AppHandle,
+    host_label: &str,
     session_id: &str,
     url: &str,
     bounds: PreviewBridgeBounds,
@@ -394,21 +439,30 @@ pub fn open_preview_window(
             session_id, url, bounds.x, bounds.y, bounds.width, bounds.height
         ),
     );
+    let previous_host_label = bridge_state(app).map(|state| state.host_label);
+    if previous_host_label
+        .as_deref()
+        .is_some_and(|previous| previous != host_label)
+    {
+        close_existing_preview_surface(app)?;
+    }
     update_bridge_state(
         app,
         DesktopPreviewBridgeState {
             session_id: session_id.to_string(),
             current_url: url.to_string(),
+            host_label: host_label.to_string(),
             pick_mode: false,
             detached: false,
         },
     )?;
 
-    open_preview_child(app, session_id, url, bounds)
+    open_preview_child(app, host_label, session_id, url, bounds)
 }
 
 pub fn set_preview_detached(
     app: &AppHandle,
+    host_label: &str,
     session_id: &str,
     url: &str,
     bounds: PreviewBridgeBounds,
@@ -422,14 +476,22 @@ pub fn set_preview_detached(
         ),
     );
 
-    let pick_mode = bridge_state(app)
-        .map(|state| state.pick_mode)
-        .unwrap_or(false);
+    let previous_state = bridge_state(app);
+    if previous_state
+        .as_ref()
+        .map(|state| state.host_label.as_str())
+        .is_some_and(|previous| previous != host_label)
+    {
+        close_existing_preview_surface(app)?;
+    }
+
+    let pick_mode = previous_state.map(|state| state.pick_mode).unwrap_or(false);
     update_bridge_state(
         app,
         DesktopPreviewBridgeState {
             session_id: session_id.to_string(),
             current_url: url.to_string(),
+            host_label: host_label.to_string(),
             pick_mode,
             detached,
         },
@@ -438,34 +500,35 @@ pub fn set_preview_detached(
     if detached {
         open_preview_detached_window(app, session_id, url)?;
     } else {
-        open_preview_child(app, session_id, url, bounds)?;
+        open_preview_child(app, host_label, session_id, url, bounds)?;
     }
     emit_detached_changed(app, session_id, detached);
     Ok(())
 }
 
-pub fn navigate_preview_window(app: &AppHandle, session_id: &str, url: &str) -> Result<(), String> {
+pub fn navigate_preview_window(
+    app: &AppHandle,
+    host_label: &str,
+    session_id: &str,
+    url: &str,
+) -> Result<(), String> {
     log_preview(app, format!("navigate session={} url={}", session_id, url));
+    let previous_state = bridge_state(app);
     update_bridge_state(
         app,
         DesktopPreviewBridgeState {
             session_id: session_id.to_string(),
             current_url: url.to_string(),
-            pick_mode: bridge_state(app)
+            host_label: host_label.to_string(),
+            pick_mode: previous_state
+                .clone()
                 .map(|state| state.pick_mode)
                 .unwrap_or(false),
-            detached: bridge_state(app)
-                .map(|state| state.detached)
-                .unwrap_or(false),
+            detached: previous_state.map(|state| state.detached).unwrap_or(false),
         },
     )?;
 
-    let preview = app
-        .get_webview(PREVIEW_INSPECTOR_LABEL)
-        .ok_or_else(|| "preview inspector window not open".to_string())?;
-    preview
-        .navigate(url.parse::<Url>().map_err(|error| error.to_string())?)
-        .map_err(|error| error.to_string())
+    navigate_preview_surface(app, url.parse::<Url>().map_err(|error| error.to_string())?)
 }
 
 pub fn update_preview_bounds(app: &AppHandle, bounds: PreviewBridgeBounds) -> Result<(), String> {
@@ -489,31 +552,27 @@ pub fn update_preview_bounds(app: &AppHandle, bounds: PreviewBridgeBounds) -> Re
     apply_bounds(&preview, bounds)
 }
 
-pub fn enter_pick_mode(app: &AppHandle, session_id: &str) -> Result<(), String> {
+pub fn enter_pick_mode(app: &AppHandle, host_label: &str, session_id: &str) -> Result<(), String> {
     let mut next_state = bridge_state(app).unwrap_or_default();
     next_state.session_id = session_id.to_string();
+    next_state.host_label = host_label.to_string();
     next_state.pick_mode = true;
     update_bridge_state(app, next_state)?;
 
-    let preview = app
-        .get_webview(PREVIEW_INSPECTOR_LABEL)
-        .ok_or_else(|| "preview inspector window not open".to_string())?;
-    sync_pick_mode(&preview, session_id, true);
-    Ok(())
+    eval_preview_surface(app, pick_mode_script(session_id, true))
 }
 
-pub fn clear_selection(app: &AppHandle, session_id: &str) -> Result<(), String> {
+pub fn clear_selection(app: &AppHandle, host_label: &str, session_id: &str) -> Result<(), String> {
     let mut next_state = bridge_state(app).unwrap_or_default();
     next_state.session_id = session_id.to_string();
+    next_state.host_label = host_label.to_string();
     next_state.pick_mode = false;
     update_bridge_state(app, next_state)?;
 
-    let preview = app
-        .get_webview(PREVIEW_INSPECTOR_LABEL)
-        .ok_or_else(|| "preview inspector window not open".to_string())?;
-    preview
-        .eval("window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.clearSelection?.() ?? window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.exitPickMode?.();")
-        .map_err(|error| error.to_string())
+    eval_preview_surface(
+        app,
+        "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.clearSelection?.() ?? window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.exitPickMode?.();",
+    )
 }
 
 pub fn close_preview_window(app: &AppHandle) -> Result<(), String> {
@@ -573,6 +632,9 @@ pub fn forward_runtime_event(app: &AppHandle, payload: Value) -> Result<(), Stri
         _ => return Ok(()),
     };
 
-    app.emit_to("main", event_name, payload)
+    let host_label = bridge_state(app)
+        .map(|state| state.host_label)
+        .unwrap_or_else(|| "main".to_string());
+    app.emit_to(&host_label, event_name, payload)
         .map_err(|error| error.to_string())
 }

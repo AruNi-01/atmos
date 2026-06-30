@@ -31,6 +31,7 @@ import type {
   AgentImplementationInfo,
 } from "@/api/rest-api";
 import type { ConversationMessage } from "@workspace/ui";
+import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { AgentIcon } from "./AgentIcon";
 import { AgentChatHistoryPopover } from "./AgentChatHistoryPopover";
 
@@ -85,6 +86,7 @@ interface AgentChatHeaderProps {
   historyCursor: string | null;
   historyResumeUnsupportedReason: string | null;
   historyUnsupportedReason: string | null;
+  trafficLightsContentInset?: boolean;
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
   historyTriggerClassName?: string;
@@ -137,6 +139,7 @@ export function AgentChatHeader({
   historyCursor,
   historyResumeUnsupportedReason,
   historyUnsupportedReason,
+  trafficLightsContentInset = false,
   loadHistorySessions,
   handleSelectHistorySession,
   historyTriggerClassName,
@@ -165,14 +168,25 @@ export function AgentChatHeader({
   const displayedCwdLabel = sessionCwd
     ? t("header.cwd.current")
     : t("header.cwd.context");
+  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+  const useNativeWindowDrag = variant === "standalone" && isDesktopDragEnabled;
 
   return (
     <div
+      onMouseDown={
+        useNativeWindowDrag
+          ? handleDesktopWindowMouseDown
+          : variant === "modal" && handleDragStart
+            ? handleDragStart
+            : undefined
+      }
+      data-tauri-drag-region={useNativeWindowDrag ? "true" : undefined}
       className={cn(
-        "flex shrink-0 flex-col gap-1 px-4 py-3",
+        "flex shrink-0 flex-col gap-1 py-3 pr-4",
+        trafficLightsContentInset ? "pl-[124px]" : "pl-4",
+        useNativeWindowDrag && "desktop-drag-region select-none",
         variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"
       )}
-      onMouseDown={variant === "modal" && handleDragStart ? handleDragStart : undefined}
       onMouseEnter={() => setHeaderHovered(true)}
       onMouseLeave={() => setHeaderHovered(false)}
     >

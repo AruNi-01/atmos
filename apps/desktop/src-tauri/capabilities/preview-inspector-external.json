@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "preview-inspector-external",
+  "description": "Allows the desktop preview inspector webview to report preview runtime events from arbitrary HTTP(S) pages.",
+  "windows": [
+    "main",
+    "preview-browser"
+  ],
+  "webviews": [
+    "preview-inspector"
+  ],
+  "remote": {
+    "urls": [
+      "http://*",
+      "https://*"
+    ]
+  },
+  "permissions": [
+    "preview-inspector-events"
+  ]
+}
