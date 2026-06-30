@@ -1,0 +1,219 @@
+apps/web/src/features/run-preview/lib/preview-bridge/types.ts
+  s_c4e354d04507b1::t_b761b7ca16b705 75
+apps/web/AGENTS.md
+  s_c4e354d04507b1::t_4640d27536dd18 87
+apps/web/src/shared/lib/ws-url.ts
+  s_f0b5e7de3a6042::t_3b7c5db339a127 10,61
+  s_f0b5e7de3a6042::t_41130baf0f85b7 7-9
+  s_f0b5e7de3a6042::t_ed3001636d6f6e 62-64
+  s_f0b5e7de3a6042::t_7b32783534cc88 65-71
+apps/desktop/src-tauri/gen/schemas/macOS-schema.json
+  s_dc73316ff67217::t_bcd9dec9affe8b 558-562
+  s_dc73316ff67217::t_20218cf33fd4fd 557
+apps/web/src/features/run-preview/hooks/use-preview-browser-state.ts
+  s_dc73316ff67217::t_2fbecb4b6d35be 170-171
+apps/web/src/app-shell/HostedAppShellGate.tsx
+  s_f0b5e7de3a6042::t_7ef31f6b4a4096 3,19,41-80,101-108,113
+  s_f0b5e7de3a6042::t_0ce2121b8594bb 5,90-93
+  s_f0b5e7de3a6042::t_a5077fc56598b5 130
+apps/web/src/app/layout.tsx
+  s_f0b5e7de3a6042::t_d52a0fa9cb6ccb 9,75
+apps/web/src/app-shell/HostedLandingLoading.tsx
+  s_f0b5e7de3a6042::t_1c5f5f7deba1eb 43,60
+  s_f0b5e7de3a6042::t_ffc76b774ee8b2 35,44
+  s_479a4bdd2fb410::t_5fb2c7d4bf8d6e 54-57
+apps/web/src/features/run-preview/hooks/use-preview-navigation.ts
+  s_81b75144593ebb::t_d97aa078f2f382 169,175
+  s_81b75144593ebb::t_f6cc86caf835dc 18,42,193,195-197,224-225,231
+apps/desktop/src-tauri/src/preview_bridge/mod.rs
+  s_dc73316ff67217::t_c6541ae3697deb 15,124-138,143-175,178,184-187,209-210,216,224,231,245
+  s_c4e354d04507b1::t_4c2bb04c6d03ac 100-101
+  s_dc73316ff67217::t_d4ac4634d94bac 576,582-583,586,596,622-623,628,648
+  s_c4e354d04507b1::t_7a32e8867bf41d 832-835,842-844
+  s_dc73316ff67217::t_45b2354c03a7ae 415,430-440,446-501,506,508,511-513,520,527-528,532-533,544,553,557,562,570
+  s_dc73316ff67217::t_dd425bb204ac57 189,882-898,904,910,914-915,925-926,930-931,934-936
+  s_dc73316ff67217::t_761e055cfcd1a7 947-952,954-957,965,984
+  s_dc73316ff67217::t_5dfd7d732467b2 188,429,441-445,579
+  s_81b75144593ebb::t_6481a3f85a2a7b 928,943,946,953,958-964,966-971
+  s_81b75144593ebb::t_16f66ff788b81b 630-645,655-656,660-669,710-711,718
+  s_81b75144593ebb::t_d758d1b28790f4 17,211-215,217-223,225-226
+  s_c4e354d04507b1::t_a7ecddfb4590f9 836-841
+  s_81b75144593ebb::t_4dae26a04229b1 732-735,747-755,759-761
+  s_dc73316ff67217::t_1cedcd18fcb8b1 688,694,697-700,703,731,738,763-767,770-775,794-795,798,800,803,809,813,815,819,823,827,845-852,855-856,872-874,877
+  s_81b75144593ebb::t_01073621fb3bc3 624-627
+  s_81b75144593ebb::t_b33c57722c8564 507,509-510
+  s_81b75144593ebb::t_db77892b508e54 857-858,864-871,878-879,899-900,905-909,911-912,916-917,920-924,929,937-938
+  s_c4e354d04507b1::t_b761b7ca16b705 55-57
+  s_dc73316ff67217::t_5200f289972758 301-307,313,322-324,328
+  s_dc73316ff67217::t_5130d41ba3a7b7 529
+  s_81b75144593ebb::t_f9bd2ead5743f5 776-777,783-789,802,804-805,927
+  s_81b75144593ebb::t_e15397396964b3 523-525,534-543,545
+  s_dc73316ff67217::t_3be5415eddce6f 191-199
+  s_dc73316ff67217::t_d7561c94afd936 190
+apps/web/src/features/run-preview/components/PreviewBrowserTabBar.tsx
+  s_c4e354d04507b1::t_c538151547a142 9,34,37,94,187-195
+  s_c4e354d04507b1::t_9f3db9d5831660 196-197
+apps/web/src/features/run-preview/AGENTS.md
+  s_c4e354d04507b1::t_56feb531f2b5aa 289
+  s_c4e354d04507b1::t_b586de64e74e1b 290
+apps/desktop/src-tauri/permissions/desktop-app-commands.toml
+  s_dc73316ff67217::t_818e909f898a38 1-25,27-48
+  s_c4e354d04507b1::t_7a32e8867bf41d 26
+apps/web/src/features/run-preview/components/PreviewContent.tsx
+  s_c4e354d04507b1::t_39120f594021f1 50-51,61
+apps/web/src/shared/components/ui/HostedSloganShimmer.tsx
+  s_479a4bdd2fb410::t_58da395f0b2679 8-14,18
+apps/api/src/main.rs
+  s_f0b5e7de3a6042::t_e04092ebb003f8 17-18,20,38,260-269,518
+  s_f0b5e7de3a6042::t_2bfebc77c76d7e 19,259
+  s_f0b5e7de3a6042::t_6b512b2fabbcc2 515-517
+apps/web/src/shared/lib/standalone-window-handoff.ts
+  s_c4e354d04507b1::t_cb26422c9405b4 1-121
+apps/desktop/src-tauri/gen/schemas/acl-manifests.json
+  s_c4e354d04507b1::t_ba306aa7174bff 1
+packages/shared/preview/preview-runtime.js
+  s_c4e354d04507b1::t_b761b7ca16b705 939-941,1770-1772
+  s_c4e354d04507b1::t_d97d649a83fb5e 8,10-11,169,195,295,307,637-638,659,666,671,686,821,823,828,831,836,840,954,982
+  s_c4e354d04507b1::t_f97b33ed6fa0a8 983-984
+  s_c4e354d04507b1::t_4c2bb04c6d03ac 974-981,985
+  s_c4e354d04507b1::t_0976734f65d429 9
+  s_c4e354d04507b1::t_fd8e6e1f765224 806
+  s_c4e354d04507b1::t_e24c9fe699bd85 827,835
+apps/web/src/app/loading.tsx
+  s_479a4bdd2fb410::t_baf47712862c94 4,15-16
+  s_479a4bdd2fb410::t_a11d8905865d50 14
+packages/shared/preview/AGENTS.md
+  s_c4e354d04507b1::t_b7dfefaaf38f6b 1-15,22,24-25,27-38,40-54
+  s_c4e354d04507b1::t_d5edd51f6a787e 16-21,23,26,39
+apps/desktop/src-tauri/capabilities/desktop-app-commands.json
+  s_dc73316ff67217::t_818e909f898a38 1-26
+apps/web/src/shared/lib/desktop-runtime.ts
+  s_f0b5e7de3a6042::t_f3d71709c34a19 20-22
+  s_f0b5e7de3a6042::t_ab572a5b78decd 115-121,127-133
+  s_f0b5e7de3a6042::t_48cf3c57e0ca92 144-149,189,192
+  s_f0b5e7de3a6042::t_2290c12474a9d2 190-191
+  s_f0b5e7de3a6042::t_c0773ceca545ae 193
+apps/web/messages/en.json
+  s_c4e354d04507b1::t_7bfe0a3c55c116 7089-7090,7099-7102
+apps/desktop/src-tauri/gen/schemas/capabilities.json
+  s_dc73316ff67217::t_bcd9dec9affe8b 1
+apps/desktop/src-tauri/src/main.rs
+  s_f0b5e7de3a6042::t_203d09a05176ea 68
+  s_f0b5e7de3a6042::t_41f5a26a14b28e 18
+  s_dc73316ff67217::t_e6f21d5fc4e67e 59
+  s_81b75144593ebb::t_01073621fb3bc3 99
+  s_c4e354d04507b1::t_7a32e8867bf41d 294
+  s_f0b5e7de3a6042::t_d5fdb87a5349d7 14,23,69,480
+  s_dc73316ff67217::t_ba45b908f623ec 234,257,266,331
+  s_f0b5e7de3a6042::t_77349b86a36249 17
+  s_dc73316ff67217::t_f7220cbea04f64 97-98,100-115
+apps/desktop/src-tauri/src/appshot/permissions_window.rs
+  s_dc73316ff67217::t_299c88012f8465 77
+  s_dc73316ff67217::t_55f9380e45a6ca 76
+apps/desktop/src-tauri/src/commands.rs
+  s_dc73316ff67217::t_4cc29d4adfcf69 395,403,430,436
+  s_dc73316ff67217::t_784a58e25e163d 226,229,281-282,286-287,291-292
+  s_c4e354d04507b1::t_7a32e8867bf41d 273-280
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_dc73316ff67217::t_b2e0375dc3dd8e 50,755-758
+  s_81b75144593ebb::t_eb8a8e8c601c77 562-563,602,604
+  s_c4e354d04507b1::t_1c176bd68043d5 1176,1179
+  s_c4e354d04507b1::t_fad417c9e6d950 12-14,16-20,133-136,280-295,297,299-300
+  s_c4e354d04507b1::t_733bdfb1ee3557 15,137,274,296,298
+  s_81b75144593ebb::t_e18cc2ca90539b 177
+  s_81b75144593ebb::t_8f4394dd91cdc0 182-183,195-196,200-206
+  s_81b75144593ebb::t_bf244dc57f4f85 400,405,414,810,814,1081
+  s_81b75144593ebb::t_732d570caaf1b4 538
+  s_c4e354d04507b1::t_67f5d2180ab434 720,784-788
+  s_81b75144593ebb::t_df46159b2520fa 746,780-783,794,796
+  s_81b75144593ebb::t_c53b4c2089e9e0 364
+  s_c4e354d04507b1::t_610f70a0c30f82 1126-1147
+  s_c4e354d04507b1::t_7512a7e273b5de 273
+  s_c4e354d04507b1::t_da555e69d457fb 949
+  s_c4e354d04507b1::t_8809599ae7f4ff 943,945-948,950-955
+  s_c4e354d04507b1::t_3e2124b772eacf 944
+  s_81b75144593ebb::t_d03dfd3d8f3954 207
+apps/web/messages/zh.json
+  s_c4e354d04507b1::t_c08cae4b1661a0 7089-7090,7099-7102
+scripts/desktop/build-web-static.mjs
+  s_f0b5e7de3a6042::t_99f1301d0544f1 72
+  s_f0b5e7de3a6042::t_d8a5bcec997d19 73-75
+apps/desktop/src-tauri/gen/schemas/desktop-schema.json
+  s_dc73316ff67217::t_bcd9dec9affe8b 558-562
+  s_dc73316ff67217::t_fdaacea9d260fd 557
+apps/web/src/features/run-preview/components/PreviewBrowserStandalonePage.tsx
+  s_dc73316ff67217::t_c737df576b0490 39,42
+  s_dc73316ff67217::t_8878eb12aab53c 53
+apps/web/src/shared/components/locale-switcher.tsx
+  s_dc73316ff67217::t_2c7fbfb4c0dde9 4-5,9,13-15
+apps/web/src/features/run-preview/hooks/use-preview-lifecycle-effects.ts
+  s_dc73316ff67217::t_22bd4b531fd46e 107-109
+apps/desktop/src-tauri/src/state.rs
+  s_dc73316ff67217::t_e154b147059fb1 4,31-34,40
+  s_81b75144593ebb::t_8f59e099abead9 2,27-28
+  s_dc73316ff67217::t_ac0633248ed76b 29-30
+apps/web/src/features/run-preview/lib/preview-transports/desktop-transport.ts
+  s_dc73316ff67217::t_15492d93870b99 111,122,124,130-132,138-140
+  s_c4e354d04507b1::t_b761b7ca16b705 102-107
+apps/web/src/app-shell/bootstrap/DesktopStartupPrefetchBootstrap.tsx
+  s_f0b5e7de3a6042::t_282a7033286933 3,11-12,14-15,21-46,163-178,180-184,187,191,194
+  s_f0b5e7de3a6042::t_ad17ff2b1a1efe 5,9,75-98,104-113,121
+  s_f0b5e7de3a6042::t_6154a4275b4dd9 99-100
+  s_f0b5e7de3a6042::t_4b53c44f494ad1 8,10,13,16-20,47-74,114-120,122-130,132-134,136-137,139-162,179,185-186,188-190,192-193,195-203
+  s_f0b5e7de3a6042::t_d3588e13ca701d 204
+apps/web/src/features/run-preview/hooks/use-preview-selection.ts
+  s_c4e354d04507b1::t_a546dcc523eb57 293
+  s_c4e354d04507b1::t_ae12dd01463ce6 276
+apps/web/src/features/run-preview/lib/preview-helper/overlay.ts
+  s_c4e354d04507b1::t_b761b7ca16b705 112-121
+apps/web/next.config.ts
+  s_dc73316ff67217::t_2c7fbfb4c0dde9 93-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "695f02901ec9f6d1f0fe52520b455f7aa2206b62",
+  "prompts": {},
+  "sessions": {
+    "s_479a4bdd2fb410": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f185f-e305-7f10-98b9-6161cb00662b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_81b75144593ebb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f17eb-ae02-70b0-88b3-8c0b86130ade",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c4e354d04507b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f184e-b882-71e3-85ff-63ecbabc2d5f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_dc73316ff67217": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f17d7-1c8b-7ad3-84d3-9ba7016cd73d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_f0b5e7de3a6042": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f167d-fe13-7382-92be-0b36161a882b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
