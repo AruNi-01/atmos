@@ -34,6 +34,37 @@ function stopActionEvent(
   event.stopPropagation();
 }
 
+interface ChangeIconActionButtonProps {
+  title: string;
+  className?: string;
+  onRun: () => void;
+  children: React.ReactNode;
+}
+
+function ChangeIconActionButton({
+  title,
+  className,
+  onRun,
+  children,
+}: ChangeIconActionButtonProps) {
+  return (
+    <button
+      type="button"
+      onPointerDown={stopActionEvent}
+      onMouseDown={stopActionEvent}
+      onDoubleClick={stopActionEvent}
+      onClick={(event) => {
+        stopActionEvent(event);
+        onRun();
+      }}
+      title={title}
+      className={className}
+    >
+      {children}
+    </button>
+  );
+}
+
 export interface ChangeSectionProps {
   kind: DiffChangeGroupKind;
   title: string;
@@ -212,40 +243,30 @@ function ChangeFileRow({
             )}
           >
             {onStage && (
-              <button
-                type="button"
-                onPointerDown={stopActionEvent}
-                onMouseDown={stopActionEvent}
-                onDoubleClick={stopActionEvent}
-                onClick={(e) => {
-                  stopActionEvent(e);
+              <ChangeIconActionButton
+                title={stageLabel}
+                onRun={() => {
                   void runAction(`${kind}:${file.path}:stage`, () =>
                     onStage([file.path]),
                   );
                 }}
-                title={stageLabel}
                 className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Plus className="size-3.5" />
-              </button>
+              </ChangeIconActionButton>
             )}
             {kind === "staged" && onUnstage && (
-              <button
-                type="button"
-                onPointerDown={stopActionEvent}
-                onMouseDown={stopActionEvent}
-                onDoubleClick={stopActionEvent}
-                onClick={(e) => {
-                  stopActionEvent(e);
+              <ChangeIconActionButton
+                title={t("changeSection.unstageChanges")}
+                onRun={() => {
                   void runAction(`${kind}:${file.path}:unstage`, () =>
                     onUnstage([file.path]),
                   );
                 }}
-                title={t("changeSection.unstageChanges")}
                 className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Minus className="size-3.5" />
-              </button>
+              </ChangeIconActionButton>
             )}
             {isDestructiveSection
               ? renderConfirmableMinusAction({
@@ -475,40 +496,30 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 return (
                   <>
                     {onStage && (
-                      <button
-                        type="button"
-                        onPointerDown={stopActionEvent}
-                        onMouseDown={stopActionEvent}
-                        onDoubleClick={stopActionEvent}
-                        onClick={(e) => {
-                          stopActionEvent(e);
+                      <ChangeIconActionButton
+                        title={stageLabel}
+                        onRun={() => {
                           void runAction(`${kind}:file:${file.path}:stage`, () =>
                             onStage([file.path]),
                           );
                         }}
-                        title={stageLabel}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Plus className="size-3.5" />
-                      </button>
+                      </ChangeIconActionButton>
                     )}
                     {kind === "staged" && onUnstage && (
-                      <button
-                        type="button"
-                        onPointerDown={stopActionEvent}
-                        onMouseDown={stopActionEvent}
-                        onDoubleClick={stopActionEvent}
-                        onClick={(e) => {
-                          stopActionEvent(e);
+                      <ChangeIconActionButton
+                        title={t("changeSection.unstageChanges")}
+                        onRun={() => {
                           void runAction(`${kind}:file:${file.path}:unstage`, () =>
                             onUnstage([file.path]),
                           );
                         }}
-                        title={t("changeSection.unstageChanges")}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Minus className="size-3.5" />
-                      </button>
+                      </ChangeIconActionButton>
                     )}
                     {isDestructiveSection
                       ? renderConfirmableMinusAction({
@@ -535,40 +546,30 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 return (
                   <>
                     {onStage && (
-                      <button
-                        type="button"
-                        onPointerDown={stopActionEvent}
-                        onMouseDown={stopActionEvent}
-                        onDoubleClick={stopActionEvent}
-                        onClick={(e) => {
-                          stopActionEvent(e);
+                      <ChangeIconActionButton
+                        title={t("changeSection.stageInFolder", { stageLabel, label })}
+                        onRun={() => {
                           void runAction(`${kind}:dir:${key}:stage`, () =>
                             onStage(paths),
                           );
                         }}
-                        title={t("changeSection.stageInFolder", { stageLabel, label })}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Plus className="size-3.5" />
-                      </button>
+                      </ChangeIconActionButton>
                     )}
                     {kind === "staged" && onUnstage && (
-                      <button
-                        type="button"
-                        onPointerDown={stopActionEvent}
-                        onMouseDown={stopActionEvent}
-                        onDoubleClick={stopActionEvent}
-                        onClick={(e) => {
-                          stopActionEvent(e);
+                      <ChangeIconActionButton
+                        title={t("changeSection.unstageInFolder", { label })}
+                        onRun={() => {
                           void runAction(`${kind}:dir:${key}:unstage`, () =>
                             onUnstage(paths),
                           );
                         }}
-                        title={t("changeSection.unstageInFolder", { label })}
                         className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Minus className="size-3.5" />
-                      </button>
+                      </ChangeIconActionButton>
                     )}
                     {isDestructiveSection
                       ? renderConfirmableMinusAction({
@@ -640,36 +641,26 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
         )}
       >
         {onStageAll && (
-          <button
-            type="button"
-            onPointerDown={stopActionEvent}
-            onMouseDown={stopActionEvent}
-            onDoubleClick={stopActionEvent}
-            onClick={(e) => {
-              stopActionEvent(e);
+          <ChangeIconActionButton
+            title={t("changeSection.stageAll")}
+            onRun={() => {
               void runAction(`${kind}-bulk-stage`, onStageAll);
             }}
-            title={t("changeSection.stageAll")}
             className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
           >
             <Plus className="size-3.5" />
-          </button>
+          </ChangeIconActionButton>
         )}
         {kind === "staged" && onUnstageAll && (
-          <button
-            type="button"
-            onPointerDown={stopActionEvent}
-            onMouseDown={stopActionEvent}
-            onDoubleClick={stopActionEvent}
-            onClick={(e) => {
-              stopActionEvent(e);
+          <ChangeIconActionButton
+            title={t("changeSection.unstageAll")}
+            onRun={() => {
               void runAction(`${kind}-bulk-unstage`, onUnstageAll);
             }}
-            title={t("changeSection.unstageAll")}
             className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
           >
             <Minus className="size-3.5" />
-          </button>
+          </ChangeIconActionButton>
         )}
         {isDestructiveSection
           ? renderConfirmableMinusAction({
