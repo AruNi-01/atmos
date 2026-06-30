@@ -1,0 +1,53 @@
+apps/web/messages/en.json
+  s_c4e354d04507b1::t_ca290182394d36 1854,1857-1860
+  s_c4e354d04507b1::t_d35ce5003b03a9 1861
+apps/web/messages/zh.json
+  s_c4e354d04507b1::t_82bf59c3714f68 1854,1857-1860
+  s_c4e354d04507b1::t_b3178565d24f9a 1861
+apps/web/src/features/agent/components/AgentChatHeader.tsx
+  s_c4e354d04507b1::t_ac048f14d3916c 26,42,113,393-407
+  s_c4e354d04507b1::t_d52927d8c7b7f8 408-410
+apps/web/src/features/agent/lib/desktop-agent-chat-window.ts
+  s_dc73316ff67217::t_299c88012f8465 87-88
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_c4e354d04507b1::t_eabbd2e183f63f 396
+  s_c4e354d04507b1::t_60e1b360edaff5 410
+  s_7fd2c0d9fcac81::t_96976c811fe65b 79-80,438-440,622
+  s_c4e354d04507b1::t_8c7e3f47f6d9b1 491,494,501
+  s_c4e354d04507b1::t_a4a430c4d53f00 349-376,395,405,408-409,411-416
+  s_c4e354d04507b1::t_8bd5f1b334d5ab 3,39-47
+  s_c4e354d04507b1::t_9216a9f3453776 475-490,492-493,495-500,502-507,590
+  s_c4e354d04507b1::t_b2ad68a26e152c 417
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "4358225611677d1a6c5a676346031d9a471aff4f",
+  "prompts": {},
+  "sessions": {
+    "s_7fd2c0d9fcac81": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f17e4-0f62-7423-9ecb-6af3038e3a17",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c4e354d04507b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f184e-b882-71e3-85ff-63ecbabc2d5f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_dc73316ff67217": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f17d7-1c8b-7ad3-84d3-9ba7016cd73d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
