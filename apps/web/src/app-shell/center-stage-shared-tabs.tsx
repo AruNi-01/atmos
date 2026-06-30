@@ -344,30 +344,39 @@ export function CenterStageTabGroupItemContent({
 }
 
 export function CenterStageOpenFileTab({
+  closeLabel,
+  displayPath: displayPathProp,
   file,
   onClose,
   onContextMenuRequest,
   onPreviewPin,
   sessionDisplay,
+  tabValue,
+  variant: variantProp,
 }: {
+  closeLabel?: string;
+  displayPath?: string;
   file: OpenFile;
   onClose: (file: OpenFile) => void;
   onContextMenuRequest: (event: React.MouseEvent<HTMLButtonElement>, file: OpenFile) => void;
   onPreviewPin: (file: OpenFile) => void;
   sessionDisplay: SessionDisplay;
+  tabValue?: string;
+  variant?: CenterStageSurfaceTabVariant;
 }) {
-  const variant = getCenterStageSurfaceTabVariant(file.path);
+  const variant = variantProp ?? getCenterStageSurfaceTabVariant(file.path);
   const isReviewDiff = variant === "review-diff";
-  const displayPath = getEditorSourcePath(file.path);
+  const displayPath = displayPathProp ?? getEditorSourcePath(file.path);
 
   return (
     <CenterStageSurfaceContentTab
-      value={file.path}
+      value={tabValue ?? file.path}
       name={file.name}
       path={displayPath}
       variant={variant}
       isDirty={file.isDirty}
       isPreview={file.isPreview}
+      closeLabel={closeLabel}
       onClose={() => onClose(file)}
       onContextMenu={(event) => {
         event.preventDefault();
