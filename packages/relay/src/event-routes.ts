@@ -15,7 +15,7 @@ const DEFAULT_SETUP_RETURN_ORIGINS = [
   "http://localhost:3030",
   "http://127.0.0.1:3030",
 ];
-const DEFAULT_SETUP_RETURN_URL = "https://app.atmos.land/en/github/setup/complete";
+const DEFAULT_SETUP_RETURN_URL = "https://app.atmos.land/github/setup/complete";
 const SETUP_COMPLETION_PARAMS = ["github_setup", "installation_id"] as const;
 const SUPPORTED_EVENTS = new Set([
   "pull_request",

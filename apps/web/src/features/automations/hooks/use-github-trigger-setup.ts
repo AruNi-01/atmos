@@ -462,8 +462,7 @@ function commentContainsInputValue(filters: GithubTriggerConfig["filters"]): str
 }
 
 function githubSetupCompletionReturnUrl(): string {
-  const locale = currentLocaleFromLocation();
-  const path = `/${locale}/github/setup/complete`;
+  const path = "/github/setup/complete";
   if (typeof window !== "undefined" && !isTauriRuntime()) {
     const { origin, protocol } = window.location;
     if (protocol === "http:" || protocol === "https:") {
@@ -471,12 +470,4 @@ function githubSetupCompletionReturnUrl(): string {
     }
   }
   return `${HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN}${path}`;
-}
-
-function currentLocaleFromLocation(): "en" | "zh" {
-  if (typeof window === "undefined") {
-    return "en";
-  }
-  const firstSegment = window.location.pathname.split("/").filter(Boolean)[0];
-  return firstSegment === "zh" ? "zh" : "en";
 }
