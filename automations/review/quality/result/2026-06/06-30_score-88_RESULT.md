@@ -60,4 +60,4 @@
 
 ## 11. 结果提交与推送
 
-结果文件将随 PR 分支推送到 `origin/codex/quality-fix/2026-06-29`。结果文件提交 hash 将在提交后由最终回复补充；PR 已创建，用户主要通过 https://github.com/AruNi-01/atmos/pull/144 审查修复与报告。
+结果文件初始提交：`d9a241d38 docs: add code quality review result 2026-06-30 score 88`。结果文件随 PR 分支推送到 `origin/codex/quality-fix/2026-06-29`；PR 已创建，用户主要通过 https://github.com/AruNi-01/atmos/pull/144 审查修复与报告。
