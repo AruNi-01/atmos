@@ -11,7 +11,6 @@ type PreviewContentProps = {
   browserTabBar?: React.ReactNode;
   isChromeHidden?: boolean;
   isMaximized: boolean;
-  needsChromeSafeInset?: boolean;
   previewRootRef: React.RefObject<HTMLDivElement | null>;
   toolbarProps: React.ComponentProps<typeof PreviewToolbar>;
   toolbarHoverSuppressed?: boolean;
@@ -22,7 +21,6 @@ export function PreviewContent({
   browserTabBar,
   isChromeHidden = false,
   isMaximized,
-  needsChromeSafeInset = false,
   previewRootRef,
   toolbarProps,
   toolbarHoverSuppressed = false,
@@ -49,8 +47,8 @@ export function PreviewContent({
       {isChromeHidden ? (
         <div
           className={cn(
-            "relative z-20 h-3 shrink-0 overflow-visible",
-            needsChromeSafeInset && "pt-8",
+            "relative z-30 shrink-0 overflow-visible transition-[height] duration-300 ease-in-out",
+            isChromeHovered ? "h-auto" : "h-3",
             toolbarHoverSuppressed && "pointer-events-none",
           )}
           onMouseEnter={() => setIsChromeHovered(true)}
@@ -60,9 +58,8 @@ export function PreviewContent({
         >
           <div
             className={cn(
-              "absolute inset-x-0 top-0 z-20 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
+              "relative inset-x-0 top-0 z-30 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
               isChromeHovered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0",
-              needsChromeSafeInset && "top-8",
             )}
           >
             {chrome}

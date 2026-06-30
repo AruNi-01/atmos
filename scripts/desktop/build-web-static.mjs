@@ -69,6 +69,10 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
     console.log("🔨 Building web static export (BUILD_TARGET=desktop)...");
     run(rootDir, "bun", ["--filter", "web", "build"], {
       BUILD_TARGET: "desktop",
+      NEXT_PUBLIC_BUILD_TARGET: "desktop",
+      // Desktop must always boot through the local runtime, even if a
+      // developer's web .env.local forces hosted onboarding for browser work.
+      NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING: "0",
       NEXT_PUBLIC_TLDRAW_LICENSE_KEY:
         process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ??
         loadWebEnvVar(rootDir, "NEXT_PUBLIC_TLDRAW_LICENSE_KEY") ??

@@ -6,6 +6,7 @@ import {
   Globe,
   Maximize,
   Minimize,
+  PanelLeftOpen,
   PanelTopClose,
   PanelTopOpen,
   Plus,
@@ -30,8 +31,10 @@ export interface PreviewBrowserChromeControls {
   isToolbarHidden: boolean;
   needsDesktopPreviewSafeInset: boolean;
   openInWindowTitle?: string;
+  returnToEmbeddedTitle?: string;
   toolbarToggleTitle: string;
   onOpenInWindow?: () => void;
+  onReturnToEmbedded?: () => void;
   onToggleMaximized: () => void;
   onToggleToolbarHidden: () => void;
 }
@@ -88,7 +91,7 @@ export function PreviewBrowserTabBar({
       <div
         className={cn(
           "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
-          chromeControls?.needsDesktopPreviewSafeInset && "pl-[112px]",
+          chromeControls?.needsDesktopPreviewSafeInset && "pl-[84px]",
         )}
       >
         {tabs.map((tab, index) => {
@@ -179,6 +182,17 @@ export function PreviewBrowserTabBar({
               onClick={chromeControls.onOpenInWindow}
             >
               <ExternalLink className="size-3.5" />
+            </button>
+          ) : null}
+          {chromeControls.onReturnToEmbedded ? (
+            <button
+              type="button"
+              aria-label={chromeControls.returnToEmbeddedTitle}
+              title={chromeControls.returnToEmbeddedTitle}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              onClick={chromeControls.onReturnToEmbedded}
+            >
+              <PanelLeftOpen className="size-3.5" />
             </button>
           ) : null}
           <button

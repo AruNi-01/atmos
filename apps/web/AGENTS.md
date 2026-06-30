@@ -84,6 +84,7 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 - UI atoms from `@workspace/ui`; semantic theme tokens (`bg-background`, etc.)
 - Feature-local dialogs live with their feature, not in a global dialog folder.
 - Settings-specific rules: [src/features/settings/components/AGENTS.md](src/features/settings/components/AGENTS.md)
+- Desktop standalone windows for embedded surfaces such as Preview and Agent Chat must be mutually exclusive with their embedded surface. Use the shared standalone handoff helper so the embedded UI shows a paused placeholder with a return button while the standalone window is active.
 
 ---
 

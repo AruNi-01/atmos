@@ -13,23 +13,6 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "label": "splashscreen",
-        "url": "/splashscreen.html",
-        "width": 1400,
-        "height": 900,
-        "center": true,
-        "resizable": true,
-        "decorations": true,
-        "hiddenTitle": true,
-        "titleBarStyle": "Overlay",
-        "trafficLightPosition": {
-          "x": 14,
-          "y": 21
-        },
-        "alwaysOnTop": true,
-        "visible": true
-      },
-      {
         "label": "main",
         "title": "Atmos",
         "url": "/",

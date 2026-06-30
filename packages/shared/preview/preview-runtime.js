@@ -5,6 +5,10 @@
   var EXTENSION_VERSION = '0.1.5';
   var PICKER_HOVER_COLOR = '#2563eb';
   var PICKER_LOCKED_COLOR = '#f97316';
+  var Z_ANNOTATION_BOX = '2147483643';
+  var Z_SELECTION_SEGMENT = '2147483644';
+  var Z_ANNOTATION_MARKER = '2147483645';
+  var Z_TOP_OVERLAY = '2147483647';
 
   function createPreviewPickerCursor(color) {
     var svg = [
@@ -162,7 +166,7 @@
         segment.style.background = color;
         segment.style.pointerEvents = 'none';
         segment.style.display = 'none';
-        segment.style.zIndex = '2147483646';
+        segment.style.zIndex = Z_SELECTION_SEGMENT;
         doc.documentElement.appendChild(segment);
         return segment;
       });
@@ -188,7 +192,7 @@
       label.style.whiteSpace = 'nowrap';
       label.style.overflow = 'hidden';
       label.style.textOverflow = 'ellipsis';
-      label.style.zIndex = '2147483647';
+      label.style.zIndex = Z_TOP_OVERLAY;
       doc.documentElement.appendChild(label);
       return label;
     }
@@ -288,6 +292,7 @@
 
     const detailsCard = doc.createElement('div');
     detailsCard.dataset.atmosPreviewOverlay = 'true';
+    detailsCard.dataset.atmosPreviewToolbar = 'true';
     detailsCard.style.position = 'fixed';
     detailsCard.style.display = 'none';
     detailsCard.style.pointerEvents = 'auto';
@@ -299,7 +304,7 @@
     detailsCard.style.webkitBackdropFilter = 'blur(18px)';
     detailsCard.style.padding = '18px 20px 20px';
     detailsCard.style.boxSizing = 'border-box';
-    detailsCard.style.zIndex = '2147483647';
+    detailsCard.style.zIndex = Z_TOP_OVERLAY;
     doc.documentElement.appendChild(detailsCard);
 
     detailsCard.addEventListener('mousedown', stopPropagation);
@@ -629,6 +634,8 @@
       if (currentEditingAnnotation && currentEditingAnnotation.id === annotationId) {
         currentEditingAnnotation = null;
         detailsCard.style.display = 'none';
+        noteInput.value = '';
+        updateFooterMode('select');
       }
       if (emitDelete && copyHandler) {
         copyHandler('delete', '', event, annotationId);
@@ -649,17 +656,19 @@
 
       const box = doc.createElement('div');
       box.dataset.atmosPreviewOverlay = 'true';
+      box.dataset.atmosPreviewAnnotation = 'true';
       box.style.position = 'fixed';
       box.style.pointerEvents = 'none';
       box.style.border = '2px solid #22c55e';
       box.style.background = 'rgba(34, 197, 94, 0.08)';
       box.style.boxShadow = '0 0 0 1px rgba(34, 197, 94, 0.18)';
       box.style.borderRadius = '6px';
-      box.style.zIndex = '2147483644';
+      box.style.zIndex = Z_ANNOTATION_BOX;
       doc.documentElement.appendChild(box);
 
       const marker = doc.createElement('div');
       marker.dataset.atmosPreviewOverlay = 'true';
+      marker.dataset.atmosPreviewAnnotation = 'true';
       marker.style.position = 'fixed';
       marker.style.display = 'inline-flex';
       marker.style.alignItems = 'center';
@@ -674,7 +683,7 @@
       marker.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.28)';
       marker.style.pointerEvents = 'auto';
       marker.style.cursor = 'default';
-      marker.style.zIndex = '2147483647';
+      marker.style.zIndex = Z_ANNOTATION_MARKER;
       marker.style.transition = 'width 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease';
       doc.documentElement.appendChild(marker);
 
@@ -794,6 +803,7 @@
       if (currentEditingAnnotation) {
         currentEditingAnnotation = null;
         detailsCard.style.display = 'none';
+        noteInput.value = '';
         updateFooterMode('select');
         return;
       }
@@ -808,21 +818,26 @@
         event.stopPropagation();
       }
       var annotationId = null;
+      var note = (noteInput.value || '').trim();
       if (action === 'add') {
-        var annotation = addAnnotationFromCurrent((noteInput.value || '').trim());
+        var annotation = addAnnotationFromCurrent(note);
         if (!annotation) return;
         annotationId = annotation.id;
         detailsCard.style.display = 'none';
+        currentMeta = null;
+        noteInput.value = '';
       } else if (action === 'update') {
         if (!currentEditingAnnotation) return;
-        currentEditingAnnotation.note = (noteInput.value || '').trim();
+        currentEditingAnnotation.note = note;
         annotationId = currentEditingAnnotation.id;
         currentEditingAnnotation = null;
         detailsCard.style.display = 'none';
+        currentMeta = null;
+        noteInput.value = '';
         updateFooterMode('select');
       }
       if (copyHandler) {
-        copyHandler(action, (noteInput.value || '').trim(), event, annotationId);
+        copyHandler(action, note, event, annotationId);
       }
     }
 
@@ -921,7 +936,9 @@
         }
         cursorStyle.textContent =
           'html, body, body * { cursor: ' + nextCursor + ' !important; }' +
-          '[data-atmos-preview-overlay="true"], [data-atmos-preview-overlay="true"] * { cursor: revert !important; }';
+          '[data-atmos-preview-overlay="true"], [data-atmos-preview-overlay="true"] * { cursor: default !important; }' +
+          '[data-atmos-preview-overlay="true"] button, [data-atmos-preview-overlay="true"] button * { cursor: pointer !important; }' +
+          '[data-atmos-preview-overlay="true"] input, [data-atmos-preview-overlay="true"] textarea, [data-atmos-preview-overlay="true"] [contenteditable="true"] { cursor: text !important; }';
       },
       updateHover(rect, label) {
         place(hoverBox, hoverLabel, rect, label);
@@ -934,6 +951,7 @@
         if (meta) {
           currentMeta = meta;
           currentEditingAnnotation = null;
+          noteInput.value = '';
           updateFooterMode('select');
         }
         place(lockedBox, lockedLabel, rect, label);
@@ -952,6 +970,18 @@
         noteInput.value = '';
         currentMeta = null;
         currentRect = null;
+      },
+      clearAnnotations() {
+        annotations.forEach(function (annotation) {
+          if (annotation.ui) {
+            annotation.ui.box.remove();
+            annotation.ui.marker.remove();
+          }
+        });
+        annotations.length = 0;
+        currentEditingAnnotation = null;
+        noteInput.value = '';
+        updateFooterMode('select');
       },
       onCancel(handler) {
         cancelHandler = handler;
@@ -1737,6 +1767,9 @@
         });
       },
       clearSelection: clearSelection,
+      clearAnnotations: function () {
+        overlay.clearAnnotations();
+      },
       exitPickMode: function () {
         state.enabled = false;
         state.locked = null;

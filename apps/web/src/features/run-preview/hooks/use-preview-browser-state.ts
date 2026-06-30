@@ -4,7 +4,6 @@ import { useQueryState } from "nuqs";
 
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { previewUrlParams } from "@/shared/lib/nuqs/searchParams";
 
 import type { PreviewBrowserTab } from "../components/PreviewBrowserTabBar";
@@ -167,18 +166,9 @@ export function usePreviewBrowserState({
       browserState.tabs[0],
     [browserState.activeTabId, browserState.tabs],
   );
-  const shouldKeepInactivePreviewsMounted = useMemo(
-    () => !isTauriRuntime(),
-    [],
-  );
   const previewTabsToRender = useMemo(
-    () =>
-      shouldKeepInactivePreviewsMounted
-        ? browserState.tabs
-        : activeBrowserTab
-          ? [activeBrowserTab]
-          : [],
-    [activeBrowserTab, browserState.tabs, shouldKeepInactivePreviewsMounted],
+    () => browserState.tabs,
+    [browserState.tabs],
   );
 
   useEffect(() => {

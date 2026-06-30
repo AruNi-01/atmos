@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import { invokeDesktopPreviewBridge } from "@/shared/lib/desktop-preview-bridge";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import type {
   PreviewBridgeController,
@@ -14,7 +13,6 @@ import {
   PREVIEW_EXTENSION_REQUIRED_MESSAGE,
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
   createPreviewLoadError,
-  createPreviewNetworkError,
   type PreviewLoadError,
 } from "../lib/preview-utils";
 
@@ -106,40 +104,9 @@ export function usePreviewLifecycleEffects({
     setIsPreviewLoading(true);
 
     if (preferredTransportMode === "desktop-native") {
-      void hideDesktopPreview();
-
-      let disposed = false;
-      let requestSettled = false;
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => {
-        controller.abort();
-      }, 4500);
-
-      void invokeDesktopPreviewBridge("preview_bridge_probe_url", {
-        url: requestedIframeUrl,
-      }).then(() => {
-        requestSettled = true;
-        if (disposed) return;
-        desktopCommittedUrlRef.current = requestedIframeUrl;
-        setDesktopCommittedUrl(requestedIframeUrl);
-      }).catch((error) => {
-        requestSettled = true;
-        if (disposed) return;
-        desktopCommittedUrlRef.current = "";
-        setDesktopCommittedUrl("");
-        void hideDesktopPreview();
-        setPreviewLoadError(createPreviewNetworkError(requestedIframeUrl, error));
-        setIsPreviewLoading(false);
-      });
-
-      return () => {
-        disposed = true;
-        window.clearTimeout(timeoutId);
-        controller.abort();
-        if (!requestSettled && handledNavigationRequestRef.current === requestKey) {
-          handledNavigationRequestRef.current = null;
-        }
-      };
+      desktopCommittedUrlRef.current = requestedIframeUrl;
+      setDesktopCommittedUrl(requestedIframeUrl);
+      return;
     }
 
     setIframeSrc(requestedIframeUrl);
@@ -147,7 +114,6 @@ export function usePreviewLifecycleEffects({
   }, [
     _setIframeKey,
     desktopCommittedUrlRef,
-    hideDesktopPreview,
     isActive,
     navigationToken,
     preferredTransportMode,

@@ -7086,7 +7086,8 @@
       "actions": {
         "openInBrowser": "在浏览器中打开",
         "openPreviewBrowserWindow": "在新窗口中打开预览浏览器",
-        "failedToOpenPreviewBrowserWindow": "无法打开预览浏览器窗口"
+        "failedToOpenPreviewBrowserWindow": "无法打开预览浏览器窗口",
+        "returnToEmbeddedPreview": "回到嵌入预览"
       },
       "annotations": {
         "copy": "复制",
@@ -7095,11 +7096,10 @@
         "copyTooltipOne": "复制 {count} 条待处理的预览标注。",
         "copyTooltipOther": "复制 {count} 条待处理的预览标注。"
       },
-      "desktop": {
-        "restoreToSidebar": "将预览恢复到侧边栏",
-        "detachWindow": "分离预览窗口",
-        "restoreTooltip": "将桌面预览恢复到侧边栏。",
-        "detachTooltip": "在单独窗口中打开桌面预览。"
+      "standalone": {
+        "embeddedTitle": "预览已在单独窗口中打开",
+        "embeddedDescription": "嵌入预览已暂停，避免和单独窗口同时操作同一个预览。",
+        "returnHere": "回到当前界面"
       },
       "favorite": {
         "add": "添加收藏",

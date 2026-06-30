@@ -7086,7 +7086,8 @@
       "actions": {
         "openInBrowser": "Open in browser",
         "openPreviewBrowserWindow": "Open preview browser in new window",
-        "failedToOpenPreviewBrowserWindow": "Failed to open preview browser window"
+        "failedToOpenPreviewBrowserWindow": "Failed to open preview browser window",
+        "returnToEmbeddedPreview": "Return to embedded preview"
       },
       "annotations": {
         "copy": "Copy",
@@ -7095,11 +7096,10 @@
         "copyTooltipOne": "Copy {count} queued preview annotation.",
         "copyTooltipOther": "Copy {count} queued preview annotations."
       },
-      "desktop": {
-        "restoreToSidebar": "Restore preview to sidebar",
-        "detachWindow": "Detach preview window",
-        "restoreTooltip": "Restore the desktop preview to the sidebar.",
-        "detachTooltip": "Open the desktop preview in a separate window."
+      "standalone": {
+        "embeddedTitle": "Preview is open in a separate window",
+        "embeddedDescription": "The embedded preview is paused so the standalone preview stays the only active surface.",
+        "returnHere": "Return preview here"
       },
       "favorite": {
         "add": "Add favorite",

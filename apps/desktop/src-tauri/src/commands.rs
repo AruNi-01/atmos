@@ -1,4 +1,3 @@
-use crate::locale::sanitize_locale;
 use crate::logging::{self, LogLevel};
 use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
@@ -224,9 +223,10 @@ pub fn preview_bridge_open(
 #[tauri::command]
 pub fn preview_bridge_update_bounds(
     app: tauri::AppHandle,
+    session_id: String,
     bounds: PreviewBridgeBounds,
 ) -> Result<(), String> {
-    preview_bridge::update_preview_bounds(&app, bounds)
+    preview_bridge::update_preview_bounds(&app, &session_id, bounds)
 }
 
 #[tauri::command]
@@ -270,18 +270,26 @@ pub fn preview_bridge_clear_selection(
 }
 
 #[tauri::command]
-pub fn preview_bridge_close(app: tauri::AppHandle) -> Result<(), String> {
-    preview_bridge::close_preview_window(&app)
+pub fn preview_bridge_clear_annotations(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    preview_bridge::clear_annotations(&app, &session_id)
 }
 
 #[tauri::command]
-pub fn preview_bridge_show(app: tauri::AppHandle) -> Result<(), String> {
-    preview_bridge::show_preview_window(&app)
+pub fn preview_bridge_close(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    preview_bridge::close_preview_window(&app, &session_id)
 }
 
 #[tauri::command]
-pub fn preview_bridge_hide(app: tauri::AppHandle) -> Result<(), String> {
-    preview_bridge::hide_preview_window(&app);
+pub fn preview_bridge_show(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    preview_bridge::show_preview_window(&app, &session_id)
+}
+
+#[tauri::command]
+pub fn preview_bridge_hide(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    preview_bridge::hide_preview_window(&app, &session_id);
     Ok(())
 }
 
@@ -384,7 +392,7 @@ pub fn appshot_show_permissions_window(
 }
 
 fn agent_chat_window_url(
-    locale: Option<&str>,
+    _locale: Option<&str>,
     api_port: u16,
     agent: Option<&str>,
     session: Option<&str>,
@@ -392,9 +400,7 @@ fn agent_chat_window_url(
     workspace_id: Option<&str>,
     project_id: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let locale = sanitize_locale(locale)
-        .ok_or_else(|| "failed to open Agent Chat window: missing active locale".to_string())?;
-    let mut url = format!("http://127.0.0.1:{api_port}/{locale}/agent-chat/")
+    let mut url = format!("http://127.0.0.1:{api_port}/agent-chat/")
         .parse::<tauri::Url>()
         .map_err(|error| format!("invalid Agent Chat window URL: {error}"))?;
 
@@ -421,16 +427,13 @@ fn agent_chat_window_url(
 }
 
 fn preview_browser_window_url(
-    locale: Option<&str>,
+    _locale: Option<&str>,
     api_port: u16,
     preview_url: Option<&str>,
     workspace_id: Option<&str>,
     project_id: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let locale = sanitize_locale(locale).ok_or_else(|| {
-        "failed to open Preview browser window: missing active locale".to_string()
-    })?;
-    let mut url = format!("http://127.0.0.1:{api_port}/{locale}/preview/")
+    let mut url = format!("http://127.0.0.1:{api_port}/preview/")
         .parse::<tauri::Url>()
         .map_err(|error| format!("invalid Preview browser window URL: {error}"))?;
 

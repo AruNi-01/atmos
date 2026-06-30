@@ -10,7 +10,6 @@ import {
   Home,
   MessageCirclePlus,
   Monitor,
-  PictureInPicture2,
   Puzzle,
   RotateCw,
   SquareMousePointer,
@@ -52,7 +51,6 @@ interface PreviewToolbarProps {
   favoriteNameDraft: string;
   favoritePopoverOpen: boolean;
   isDownloadingExtension: boolean;
-  isDesktopPreviewDetached: boolean;
   isElementPickerEnabled: boolean;
   isElementPickerTooltipOpen: boolean;
   isRecheckingExtension: boolean;
@@ -86,7 +84,6 @@ interface PreviewToolbarProps {
   handleCopySelectionAnnotations: () => Promise<void>;
   handleRefresh: () => void;
   handleRecheckExtension: () => Promise<void>;
-  handleToggleDesktopPreviewDetached: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
   handleUrlInputBlur: () => void;
   setDesktopToolbarHovered: React.Dispatch<React.SetStateAction<boolean>>;
@@ -116,7 +113,6 @@ export function PreviewToolbar({
   favoriteNameDraft,
   favoritePopoverOpen,
   isDownloadingExtension,
-  isDesktopPreviewDetached,
   isElementPickerEnabled,
   isElementPickerTooltipOpen,
   isRecheckingExtension,
@@ -150,7 +146,6 @@ export function PreviewToolbar({
   handleCopySelectionAnnotations,
   handleRefresh,
   handleRecheckExtension,
-  handleToggleDesktopPreviewDetached,
   handleToggleElementPicker,
   handleUrlInputBlur,
   setDesktopToolbarHovered,
@@ -417,43 +412,6 @@ export function PreviewToolbar({
                         : "annotations.copyTooltipOther",
                       { count: selectionAnnotationCount },
                     )}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-
-            {preferredTransportMode === "desktop-native" ? (
-              <TooltipProvider delayDuration={150}>
-                <Tooltip disableHoverableContent>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex">
-                      <button
-                        onClick={() => {
-                          void handleToggleDesktopPreviewDetached();
-                        }}
-                        disabled={!activeUrl}
-                        className={cn(
-                          "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
-                          activeUrl
-                            ? isDesktopPreviewDetached
-                              ? "text-blue-400 hover:bg-blue-400/10 hover:text-blue-300"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                            : "cursor-not-allowed text-muted-foreground/30",
-                        )}
-                        aria-label={
-                          isDesktopPreviewDetached
-                            ? t("desktop.restoreToSidebar")
-                            : t("desktop.detachWindow")
-                        }
-                      >
-                        <PictureInPicture2 className="size-3.5" />
-                      </button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
-                    {isDesktopPreviewDetached
-                      ? t("desktop.restoreTooltip")
-                      : t("desktop.detachTooltip")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

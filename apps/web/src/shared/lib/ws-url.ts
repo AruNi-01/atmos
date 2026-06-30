@@ -4,6 +4,10 @@ import {
   wsBase,
 } from "./desktop-runtime";
 
+const isDesktopBuild =
+  process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop" ||
+  process.env.BUILD_TARGET === "desktop";
+
 /**
  * Build a fully-qualified WebSocket URL, handling protocol detection,
  * Tauri/desktop runtime config, and dev-mode port defaults.
@@ -44,6 +48,17 @@ export function buildWsUrlSync(
   }
 
   if (isHostedAtmosOrigin()) {
+    const port = process.env.NEXT_PUBLIC_API_PORT || "30303";
+    const url = new URL(path, `ws://127.0.0.1:${port}`);
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        url.searchParams.set(key, value);
+      }
+    }
+    return url.toString();
+  }
+
+  if (isDesktopBuild) {
     const port = process.env.NEXT_PUBLIC_API_PORT || "30303";
     const url = new URL(path, `ws://127.0.0.1:${port}`);
     if (params) {

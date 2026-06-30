@@ -109,7 +109,16 @@ export function createPreviewOverlay(doc: Document): OverlayController {
       }
       [data-atmos-preview-overlay="true"],
       [data-atmos-preview-overlay="true"] * {
-        cursor: revert !important;
+        cursor: default !important;
+      }
+      [data-atmos-preview-overlay="true"] button,
+      [data-atmos-preview-overlay="true"] button * {
+        cursor: pointer !important;
+      }
+      [data-atmos-preview-overlay="true"] input,
+      [data-atmos-preview-overlay="true"] textarea,
+      [data-atmos-preview-overlay="true"] [contenteditable="true"] {
+        cursor: text !important;
       }
     `;
   }

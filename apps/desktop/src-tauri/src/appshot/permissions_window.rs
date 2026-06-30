@@ -1,4 +1,3 @@
-use crate::locale::sanitize_locale;
 use tauri::utils::config::Color;
 use tauri::Url;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -74,9 +73,6 @@ fn appshot_external_url(route: &str, locale: Option<&str>, api_port: u16) -> Res
         .map_err(|error| format!("invalid Appshots window URL: {error}"))
 }
 
-fn appshot_window_route(route: &str, locale: Option<&str>) -> Result<String, String> {
-    let locale = sanitize_locale(locale).ok_or_else(|| {
-        "failed to open Appshots permissions window: missing active locale".to_string()
-    })?;
-    Ok(format!("{locale}/{route}/"))
+fn appshot_window_route(route: &str, _locale: Option<&str>) -> Result<String, String> {
+    Ok(format!("{route}/"))
 }

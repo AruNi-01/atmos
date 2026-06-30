@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import type {
   PreviewBridgeController,
   PreviewTransportMode,
@@ -16,6 +15,7 @@ import {
 interface UsePreviewNavigationParams {
   activeUrl: string;
   desktopCommittedUrlRef: MutableRefObject<string>;
+  desktopPreviewUrlRef: MutableRefObject<string | null>;
   iframeRef: RefObject<HTMLIFrameElement | null>;
   iframeUrlWatcherCleanupRef: MutableRefObject<(() => void) | null>;
   normalizedActiveUrlRef: MutableRefObject<string>;
@@ -39,6 +39,7 @@ interface UsePreviewNavigationParams {
 export function usePreviewNavigation({
   activeUrl,
   desktopCommittedUrlRef,
+  desktopPreviewUrlRef,
   iframeRef,
   iframeUrlWatcherCleanupRef,
   normalizedActiveUrlRef,
@@ -104,21 +105,15 @@ export function usePreviewNavigation({
       setActiveUrl(finalUrl);
       setRequestedIframeUrl(finalUrl);
       setNavigationToken((prev) => prev + 1);
-      if (isTauriRuntime()) {
-        desktopCommittedUrlRef.current = '';
-        setDesktopCommittedUrl('');
-      }
 
       if (!pushHistory) return;
       pushHistoryEntry(finalUrl);
     },
     [
-      desktopCommittedUrlRef,
       normalizedActiveUrlRef,
       pushHistoryEntry,
       setActiveUrl,
       setCurrentPageTitle,
-      setDesktopCommittedUrl,
       setIsUrlInputFocused,
       setNavigationToken,
       setPreviewLoadError,
@@ -171,11 +166,13 @@ export function usePreviewNavigation({
     setPreviewLoadError(null);
     setRequestedIframeUrl('');
     desktopCommittedUrlRef.current = '';
+    desktopPreviewUrlRef.current = null;
     setDesktopCommittedUrl('');
     setIframeSrc('');
     teardownTransport();
   }, [
     desktopCommittedUrlRef,
+    desktopPreviewUrlRef,
     setActiveUrl,
     setCurrentPageTitle,
     setDesktopCommittedUrl,
@@ -193,7 +190,11 @@ export function usePreviewNavigation({
         const controller = transportControllerRef.current;
         if (controller?.mode !== 'desktop-native' || !controller.navigate) return false;
 
+        const targetCanonicalUrl = canonicalizeUrl(targetUrl) || targetUrl;
         skipExternalHistorySyncRef.current = true;
+        desktopCommittedUrlRef.current = targetCanonicalUrl;
+        desktopPreviewUrlRef.current = targetCanonicalUrl;
+        setDesktopCommittedUrl(targetCanonicalUrl);
         setPreviewLoadError(null);
         setCurrentPageTitle('');
         setUrl(targetUrl);
@@ -220,11 +221,14 @@ export function usePreviewNavigation({
       }
     },
     [
+      desktopCommittedUrlRef,
+      desktopPreviewUrlRef,
       iframeRef,
       iframeUrlWatcherCleanupRef,
       preferredTransportMode,
       setActiveUrl,
       setCurrentPageTitle,
+      setDesktopCommittedUrl,
       setPreviewLoadError,
       setUrl,
       transportControllerRef,

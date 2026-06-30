@@ -286,6 +286,8 @@ function handleClick(event) {
 - [ ] Before adding state to a `useCallback` dependency array, trace the full chain to `showDesktopPreview` — if it reaches there, use a ref instead
 - [ ] After modifying any `useCallback` in Preview.tsx, test both **route navigation** and **element selection** in desktop-native mode for flash regressions
 - [ ] Any new `useCallback` that reads selection/navigation state and feeds into `createTransportHandlers` must use refs for frequently-changing values
+- [ ] Do not add a separate desktop-native detach/window button for only the child preview surface. Use the full Preview standalone browser window entry instead.
+- [ ] When the full Preview standalone window is open, the embedded Preview must render a paused placeholder with a return button rather than a second active preview surface.
 
 ### Focus / input
 - [ ] DOM focus events do NOT cross the WKWebView boundary — if new UI elements need to lose focus on child webview interaction, add explicit blur logic in `onCursorChange` or `onNavigationChanged`

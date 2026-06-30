@@ -5,9 +5,8 @@ import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { defaultLocale } from "@atmos/i18n/config";
 import { ThemeProvider } from "@/providers/app/theme-provider";
-import { ThemeReadyBridge } from "@/providers/app/theme-ready-bridge";
 import { WebSocketProvider } from "@/providers/app/websocket-provider";
-import { SplashPrefetchBootstrap } from "@/app-shell/bootstrap/SplashPrefetchBootstrap";
+import { DesktopStartupPrefetchBootstrap } from "@/app-shell/bootstrap/DesktopStartupPrefetchBootstrap";
 import { TmuxCheckProvider } from "@/providers/app/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-bridge";
 import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
@@ -69,12 +68,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             disableTransitionOnChange
             storageKey="atmos:v1:global:theme"
           >
-            <ThemeReadyBridge />
             <DesktopExternalUrlBridge />
             <WorkbenchIntlProvider initialLocale={defaultLocale}>
               <UpdateNotification />
               <WebSocketProvider>
-                <SplashPrefetchBootstrap />
+                <DesktopStartupPrefetchBootstrap />
                 <TmuxCheckProvider>
                   <ToastProvider position="bottom-right">
                     <AgentToastProvider>
@@ -94,4 +92,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-

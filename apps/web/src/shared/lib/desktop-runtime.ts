@@ -17,6 +17,9 @@ let hostedRuntimeOverride: ApiConfig | null = null;
 export const HOSTED_ATMOS_APP_HOST = 'app.atmos.land';
 const forceHostedOnboarding =
   process.env.NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING === '1';
+const isDesktopBuild =
+  process.env.NEXT_PUBLIC_BUILD_TARGET === 'desktop' ||
+  process.env.BUILD_TARGET === 'desktop';
 
 const loopbackApiPort = (): number =>
   parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
@@ -109,11 +112,25 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
           }
           errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
           console.warn('[desktop-runtime] invoke get_api_config failed:', e);
+          if (isDesktopBuild) {
+            cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+            console.warn(
+              `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
+            );
+            return cachedConfig;
+          }
           throw e;
         }
       }
     }
     errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
+    if (isDesktopBuild) {
+      cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+      console.warn(
+        `[desktop-runtime] Tauri invoke bridge unavailable; falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
+      );
+      return cachedConfig;
+    }
     throw new Error('Tauri runtime detected but invoke bridge is unavailable');
   }
 
@@ -121,6 +138,12 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
   if (isHostedAtmosOrigin()) {
     cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     debugLog(`getRuntimeApiConfig: hosted loopback ${cachedConfig.host}:${cachedConfig.port}`);
+    return cachedConfig;
+  }
+
+  if (isDesktopBuild) {
+    cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    debugLog(`getRuntimeApiConfig: desktop loopback ${cachedConfig.host}:${cachedConfig.port}`);
     return cachedConfig;
   }
 
@@ -159,6 +182,11 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
   }
 
   if (isHostedAtmosOrigin()) {
+    cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    return cachedHttpConfig;
+  }
+
+  if (isDesktopBuild) {
     cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     return cachedHttpConfig;
   }

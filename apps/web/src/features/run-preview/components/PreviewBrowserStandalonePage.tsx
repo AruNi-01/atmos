@@ -36,9 +36,10 @@ export function PreviewBrowserStandalonePage() {
             return (
               <div
                 key={tab.id}
+                aria-hidden={!isActiveTab}
                 className={cn(
                   "absolute inset-0 min-h-0",
-                  isActiveTab ? "z-10" : "z-0 hidden",
+                  isActiveTab ? "z-10" : "pointer-events-none invisible z-0",
                 )}
               >
                 <Preview
@@ -49,7 +50,7 @@ export function PreviewBrowserStandalonePage() {
                     setBrowserTabActivePreviewUrl(tab.id, nextUrl)
                   }
                   isActive={isActiveTab}
-                  isMaximized={isPreviewMaximized}
+                  isMaximized={isActiveTab && isPreviewMaximized}
                   isStandaloneBrowserWindow
                   setIsMaximized={setIsPreviewMaximized}
                   workspaceId={workspaceId}

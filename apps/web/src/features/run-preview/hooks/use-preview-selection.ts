@@ -273,6 +273,7 @@ export function usePreviewSelection({
 
     try {
       await navigator.clipboard.writeText(formatPreviewAnnotationsForAI(annotations, t));
+      await Promise.resolve(transportControllerRef.current?.clearAnnotations?.());
       setSelectionAnnotations([]);
       toastManager.add({
         title: t("toast.copiedTitle"),
@@ -289,7 +290,7 @@ export function usePreviewSelection({
         type: 'error',
       });
     }
-  }, [dismissSelectionPopover, t]);
+  }, [dismissSelectionPopover, t, transportControllerRef]);
 
   return {
     dismissSelectionPopover,

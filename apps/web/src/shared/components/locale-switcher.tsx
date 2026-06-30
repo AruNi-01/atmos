@@ -1,18 +1,18 @@
 "use client";
 
-import { useLocale } from "next-intl";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter } from "@atmos/i18n/navigation";
+import { locales, type Locale } from "@atmos/i18n/config";
+import { useWorkbenchLocale } from "@/providers/app/workbench-intl-provider";
 import { LanguageSelector } from "@workspace/ui/components/language-selector";
 
 export function LocaleSwitcher() {
-  const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
+  const { locale, setLocale } = useWorkbenchLocale();
   const t = useTranslations("header");
 
   const handleSelect = (nextLocale: string) => {
-    router.replace(pathname, { locale: nextLocale });
+    if (locales.includes(nextLocale as Locale)) {
+      setLocale(nextLocale as Locale);
+    }
   };
 
   const items = [
