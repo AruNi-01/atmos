@@ -3,7 +3,8 @@ import { routing } from "@atmos/i18n/routing";
 import { Locale } from "@atmos/i18n/config";
 
 export default getRequestConfig(async ({ requestLocale }) => {
-  // This typically corresponds to the `[locale]` segment
+  // The workbench uses runtime locale switching. Server-side locale requests
+  // fall back to the default locale unless a localized surface provides one.
   let locale = await requestLocale;
 
   // Ensure that a valid locale is used

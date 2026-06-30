@@ -11,7 +11,7 @@ apps/web/
 ├── public/                     # Static assets
 ├── src/
 │   ├── app/                    # Next.js App Router
-│   │   ├── [locale]/           # Internationalized routes
+│   │   ├── (app)/              # Workbench app shell routes
 │   │   └── globals.css         # Global styles
 │   ├── api/                    # 🌟 API Communication Layer
 │   ├── app-shell/              # Global chrome, layout, sidebars, overlays
@@ -19,7 +19,6 @@ apps/web/
 │   ├── i18n/                   # I18n configuration
 │   ├── providers/              # App-wide React providers
 │   └── shared/                 # Cross-feature components/hooks/lib/types
-├── middleware.ts               # next-intl middleware
 ├── next.config.ts              # Next.js configuration
 ├── components.json             # shadcn configuration
 ├── package.json                # Dependencies

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { ErrorDisplay } from '@/shared/components/error-display';
 
-export default function LocaleError({
+export default function AppError({
   error,
   reset,
 }: {
@@ -11,7 +11,7 @@ export default function LocaleError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('[LocaleError]', error);
+    console.error('[AppError]', error);
   }, [error]);
 
   return (

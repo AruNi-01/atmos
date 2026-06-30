@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents" | "automations";
 
@@ -31,7 +31,7 @@ const EMPTY: Omit<ContextParams, "currentView"> = {
  * Reads context from URL search params (for dynamic data) and pathname
  * (for view identification).
  *
- * Route structure (inside `[locale]/(app)/`):
+ * Route structure (inside `(app)/`):
  *   /                        → welcome
  *   /workspace?id=...        → workspace
  *   /project?id=...          → project
@@ -43,16 +43,11 @@ const EMPTY: Omit<ContextParams, "currentView"> = {
  *   /automations             → automations management
  */
 export function useContextParams(): ContextParams {
-  const params = useParams();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Strip locale prefix to get the clean path
-  const locale = (params?.locale as string) || "";
-  const path = locale ? pathname.replace(`/${locale}`, "") || "/" : pathname;
-
   // First segment determines the view
-  const segments = path.split("/").filter(Boolean);
+  const segments = pathname.split("/").filter(Boolean);
   const firstSegment = segments[0] || "";
 
   if (firstSegment === "workspace") {

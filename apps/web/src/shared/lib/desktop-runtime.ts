@@ -41,6 +41,10 @@ export function isTauriRuntime(): boolean {
 }
 
 export function isHostedAtmosOrigin(): boolean {
+  if (isTauriRuntime()) {
+    return false;
+  }
+
   return (
     typeof window !== 'undefined' &&
     (window.location.hostname === HOSTED_ATMOS_APP_HOST || forceHostedOnboarding)

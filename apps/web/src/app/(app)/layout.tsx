@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { setRequestLocale } from "next-intl/server";
 import Header from "@/app-shell/Header";
 import LeftSidebar from "@/app-shell/LeftSidebar";
 import CenterStage from "@/app-shell/CenterStage";
@@ -19,13 +18,9 @@ import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoo
 
 type Props = {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 };
 
-export default async function AppLayout({ children, params }: Props) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-
+export default function AppLayout({ children }: Props) {
   return (
     <div className="flex flex-col h-dvh">
       <Suspense
@@ -51,30 +46,30 @@ export default async function AppLayout({ children, params }: Props) {
       >
         <SidebarLayoutProvider>
           <DiffWorkerPoolProvider>
-          <ConnectionBootstrapper />
-          <HostedBootstrapBoundary>
-            <Header />
+            <ConnectionBootstrapper />
+            <HostedBootstrapBoundary>
+              <Header />
 
-            <PanelLayout
-              leftSidebar={<LeftSidebar />}
-              centerStage={<CenterStage />}
-              rightSidebar={<RightSidebar />}
-            />
+              <PanelLayout
+                leftSidebar={<LeftSidebar />}
+                centerStage={<CenterStage />}
+                rightSidebar={<RightSidebar />}
+              />
 
-            <Footer />
+              <Footer />
 
-            <NewWorkspaceWelcomeOverlay />
+              <NewWorkspaceWelcomeOverlay />
 
-            <GlobalSearch />
+              <GlobalSearch />
 
-            <ModalAgentChatPanel />
+              <ModalAgentChatPanel />
 
-            <DocumentTitle />
+              <DocumentTitle />
 
-            <WorkspaceCreationOverlay />
+              <WorkspaceCreationOverlay />
 
-            <CanvasOverlay />
-          </HostedBootstrapBoundary>
+              <CanvasOverlay />
+            </HostedBootstrapBoundary>
           </DiffWorkerPoolProvider>
         </SidebarLayoutProvider>
       </Suspense>

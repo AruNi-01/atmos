@@ -2,20 +2,23 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
-import { routing } from "@atmos/i18n/routing";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { defaultLocale } from "@atmos/i18n/config";
 import { ThemeProvider } from "@/providers/app/theme-provider";
 import { ThemeReadyBridge } from "@/providers/app/theme-ready-bridge";
 import { WebSocketProvider } from "@/providers/app/websocket-provider";
 import { SplashPrefetchBootstrap } from "@/app-shell/bootstrap/SplashPrefetchBootstrap";
 import { TmuxCheckProvider } from "@/providers/app/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-bridge";
+import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
-import { ToastProvider, AgentToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
-import "../globals.css";
+import {
+  AgentToastProvider,
+  AnchoredToastProvider,
+  ToastProvider,
+  TooltipProvider,
+} from "@workspace/ui";
+import "./globals.css";
 
 const THEME_INIT_SCRIPT = `
 (() => {
@@ -47,31 +50,9 @@ export const metadata: Metadata = {
   description: "An open-source platform designed for developers to organize their agentic life and build in a unified workspace",
 };
 
-type Props = {
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
-};
-
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
-}
-
-export default async function LocaleLayout({ children, params }: Props) {
-  const { locale } = await params;
-
-  // Ensure that the incoming `locale` is valid
-  if (!routing.locales.includes(locale as typeof routing.locales[number])) {
-    notFound();
-  }
-
-  // Enable static rendering
-  setRequestLocale(locale);
-
-  // Providing all messages to the client
-  const messages = await getMessages();
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={defaultLocale} suppressHydrationWarning>
       <head>
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
@@ -90,7 +71,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           >
             <ThemeReadyBridge />
             <DesktopExternalUrlBridge />
-            <NextIntlClientProvider messages={messages}>
+            <WorkbenchIntlProvider initialLocale={defaultLocale}>
               <UpdateNotification />
               <WebSocketProvider>
                 <SplashPrefetchBootstrap />
@@ -106,10 +87,11 @@ export default async function LocaleLayout({ children, params }: Props) {
                   </ToastProvider>
                 </TmuxCheckProvider>
               </WebSocketProvider>
-            </NextIntlClientProvider>
+            </WorkbenchIntlProvider>
           </ThemeProvider>
         </NuqsAdapter>
       </body>
     </html>
   );
 }
+

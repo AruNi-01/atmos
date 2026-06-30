@@ -1,8 +1,8 @@
- "use client";
+"use client";
 
 import { useTranslations } from "next-intl";
 
-export default function LocaleLoading() {
+export default function AppLoading() {
   const t = useTranslations("app.loading");
   const label = t("label");
 
