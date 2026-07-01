@@ -102,6 +102,14 @@ const BASE_TABS: Array<{
 
 const FILES_TAB = { value: "files" as RightSidebarTab, labelKey: "common.files", Icon: FolderTree };
 
+function normalizePathForContainment(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    return normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
 interface ChangesScopeState {
   key: string;
   scope: ChangesDiffScope;
@@ -150,6 +158,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const t = useTranslations("AppShell.chrome");
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
+  const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
   const contextId = workspaceId || projectIdFromUrl;
   const filePath = (contextId && getActiveFilePath(contextId)) || "";
@@ -178,6 +187,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     () => currentProject?.workspaces.find((w) => w.id === workspaceId),
     [currentProject, workspaceId],
   );
+  const currentEffectivePath =
+    currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
   const runProjectId = projectIdFromUrl ?? currentProject?.id ?? null;
   const setupProgress = useProjectStore((s) => s.setupProgress);
   const isSettingUp = isWorkspaceSetupBlocking(
@@ -256,6 +267,34 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     currentProjectPath &&
     (workspaceId || projectIdFromUrl)
   );
+
+  useEffect(() => {
+    if (!showFilesTab || !fileTreeRevealTarget || !currentEffectivePath) return;
+    if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== contextId) {
+      return;
+    }
+
+    const normalizedCurrentPath = normalizePathForContainment(currentEffectivePath);
+    const normalizedRevealPath = normalizePathForContainment(fileTreeRevealTarget.path);
+    if (
+      normalizedRevealPath !== normalizedCurrentPath &&
+      !normalizedRevealPath.startsWith(`${normalizedCurrentPath}/`)
+    ) {
+      return;
+    }
+
+    if (activeTab !== "files") {
+      void setSidebarParams({ rsTab: "files" });
+    }
+  }, [
+    activeTab,
+    contextId,
+    currentEffectivePath,
+    fileTreeRevealTarget,
+    setSidebarParams,
+    showFilesTab,
+  ]);
+
   const changesScopeKey = `${currentProjectPath ?? ""}:${currentBranch ?? ""}`;
   const [changesScopeState, setChangesScopeState] = useState<ChangesScopeState>(
     () => defaultChangesScopeState(changesScopeKey),
@@ -436,7 +475,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 activeTab !== "files" && "hidden",
               )}
             >
-              <FileTreePanel projectName={currentProject?.name} />
+              <FileTreePanel
+                projectName={currentProject?.name}
+                revealEnabled={activeTab === "files"}
+              />
             </div>
           )}
 
