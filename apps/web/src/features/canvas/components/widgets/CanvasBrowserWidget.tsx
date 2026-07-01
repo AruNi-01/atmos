@@ -53,7 +53,8 @@ export function CanvasBrowserWidget({
     [editor, shape.id],
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    canvasViewportControllerRef.current?.syncViewport();
     const frameId = window.requestAnimationFrame(() => {
       canvasViewportControllerRef.current?.syncViewport();
     });

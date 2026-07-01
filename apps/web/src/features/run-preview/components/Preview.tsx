@@ -190,6 +190,10 @@ export const Preview: React.FC<PreviewProps> = ({
   const forceDesktopNavigationRef = useRef(false);
   const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
+  const canvasViewportSyncInFlightRef = useRef(false);
+  const canvasViewportSyncQueuedRef = useRef(false);
+  const canvasViewportSyncRafRef = useRef<number | null>(null);
+  const canvasViewportSyncRequesterRef = useRef<(() => void) | null>(null);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
   const extensionConnectingRef = useRef(false);
@@ -851,39 +855,72 @@ export const Preview: React.FC<PreviewProps> = ({
     desktopPreviewVisibleRef.current = false;
   }, []);
 
-  const syncCanvasViewport = useCallback(() => {
-    void (async () => {
-      if (
-        preferredTransportMode !== 'desktop-native' ||
-        !desktopCommittedUrlRef.current ||
-        shouldSuspendDesktopPreview
-      ) {
-        await hideDesktopPreview();
-        return;
-      }
+  const runCanvasViewportSync = useCallback(async () => {
+    if (
+      preferredTransportMode !== 'desktop-native' ||
+      !desktopCommittedUrlRef.current ||
+      shouldSuspendDesktopPreview
+    ) {
+      await hideDesktopPreview();
+      return;
+    }
 
-      const surface = desktopViewportRef.current;
-      if (!surface) {
-        await hideDesktopPreview();
-        return;
-      }
+    const surface = desktopViewportRef.current;
+    if (!surface) {
+      await hideDesktopPreview();
+      return;
+    }
 
-      const rect = surface.getBoundingClientRect();
-      const visibleWidth = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
-      const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-      if (
-        rect.width < 16 ||
-        rect.height < 16 ||
-        visibleWidth < 8 ||
-        visibleHeight < 8
-      ) {
-        await hideDesktopPreview();
-        return;
-      }
+    const rect = surface.getBoundingClientRect();
+    const visibleWidth = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+    if (
+      rect.width < 16 ||
+      rect.height < 16 ||
+      visibleWidth < 8 ||
+      visibleHeight < 8
+    ) {
+      await hideDesktopPreview();
+      return;
+    }
 
-      await showDesktopPreview();
-    })().catch(() => undefined);
+    await showDesktopPreview();
   }, [hideDesktopPreview, preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
+
+  const syncCanvasViewport = useCallback(() => {
+    if (canvasViewportSyncInFlightRef.current) {
+      canvasViewportSyncQueuedRef.current = true;
+      return;
+    }
+
+    canvasViewportSyncInFlightRef.current = true;
+    void (async () => {
+      try {
+        await runCanvasViewportSync();
+      } finally {
+        canvasViewportSyncInFlightRef.current = false;
+        if (!canvasViewportSyncQueuedRef.current) return;
+
+        canvasViewportSyncQueuedRef.current = false;
+        if (canvasViewportSyncRafRef.current != null) {
+          window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
+        }
+        canvasViewportSyncRafRef.current = window.requestAnimationFrame(() => {
+          canvasViewportSyncRafRef.current = null;
+          canvasViewportSyncRequesterRef.current?.();
+        });
+      }
+    })().catch(() => undefined);
+  }, [runCanvasViewportSync]);
+  canvasViewportSyncRequesterRef.current = syncCanvasViewport;
+
+  useEffect(() => {
+    return () => {
+      if (canvasViewportSyncRafRef.current != null) {
+        window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!canvasViewportControllerRef) return;
