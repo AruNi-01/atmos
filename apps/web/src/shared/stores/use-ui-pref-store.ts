@@ -11,7 +11,7 @@ export type UiPrefSlice =
   | 'editor'
   | 'centerStage'
   | 'agentFix'
-  | 'runPreview'
+  | 'run'
   | 'previewBrowser'
   | 'canvas'
   | 'sidebar'

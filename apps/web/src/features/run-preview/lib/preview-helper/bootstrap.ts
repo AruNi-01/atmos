@@ -3,7 +3,9 @@ import { createPreviewHelperBridge } from './bridge';
 import { buildElementSelector, getPreviewElementRect, inspectPreviewElement } from './dom-inspector';
 import {
   PREVIEW_PICKER_HOVER_COLOR,
+  PREVIEW_PICKER_HOVER_BORDER_COLOR,
   PREVIEW_PICKER_LOCKED_COLOR,
+  PREVIEW_PICKER_LOCKED_BORDER_COLOR,
   createPreviewOverlay,
   createPreviewPickerCursor,
 } from './overlay';
@@ -113,8 +115,14 @@ export function installPreviewHelper(
   const elementCtor = doc.defaultView?.Element ?? Element;
   const overlay = createPreviewOverlay(doc);
   const state = createPreviewSelectionState();
-  const hoverCursor = createPreviewPickerCursor(PREVIEW_PICKER_HOVER_COLOR);
-  const lockedCursor = createPreviewPickerCursor(PREVIEW_PICKER_LOCKED_COLOR);
+  const hoverCursor = createPreviewPickerCursor(
+    PREVIEW_PICKER_HOVER_COLOR,
+    PREVIEW_PICKER_HOVER_BORDER_COLOR,
+  );
+  const lockedCursor = createPreviewPickerCursor(
+    PREVIEW_PICKER_LOCKED_COLOR,
+    PREVIEW_PICKER_LOCKED_BORDER_COLOR,
+  );
   let parentOrigin = '*';
   try {
     parentOrigin = win.parent.location.origin;

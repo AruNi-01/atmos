@@ -25,6 +25,7 @@ import { CanvasFilesWidget } from "@/features/canvas/components/widgets/CanvasFi
 import { CanvasChangesWidget } from "@/features/canvas/components/widgets/CanvasChangesWidget";
 import { CanvasReviewWidget } from "@/features/canvas/components/widgets/CanvasReviewWidget";
 import { CanvasCenterWidget } from "@/features/canvas/components/widgets/CanvasCenterWidget";
+import { CanvasBrowserWidget } from "@/features/canvas/components/widgets/CanvasBrowserWidget";
 import { CanvasAgentStatusWidget } from "@/features/canvas/components/widgets/CanvasAgentStatusWidget";
 import { CanvasAIQuotaUsageWidget } from "@/features/canvas/components/widgets/CanvasAIQuotaUsageWidget";
 import { CanvasAgentChatWidget } from "@/features/canvas/components/widgets/CanvasAgentChatWidget";
@@ -202,6 +203,8 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
         return <CanvasReviewWidget key={refreshNonce} shape={shape} />;
       case "center":
         return <CanvasCenterWidget shape={shape} />;
+      case "browser":
+        return <CanvasBrowserWidget shape={shape} />;
       case "agent-status":
         return <CanvasAgentStatusWidget key={refreshNonce} shape={shape} />;
       case "ai-quota-usage":

@@ -1,19 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PreviewTransportMode } from "../lib/preview-bridge/types";
 
 type ResolvedTransportMode = PreviewTransportMode | "unavailable";
 
 interface UsePreviewToolbarLayoutArgs {
-  isMaximized: boolean;
   isToolbarHidden: boolean;
   resolvedTransportMode: ResolvedTransportMode;
   setToolbarHiddenParam: (nextIsToolbarHidden: boolean) => void;
 }
 
 export function usePreviewToolbarLayout({
-  isMaximized,
   isToolbarHidden,
   resolvedTransportMode,
   setToolbarHiddenParam,
@@ -51,7 +49,7 @@ export function usePreviewToolbarLayout({
     if (!toolbarRow) return;
 
     const syncToolbarWidth = () => {
-      setToolbarWidth(toolbarRow.getBoundingClientRect().width);
+      setToolbarWidth(toolbarRow.offsetWidth || toolbarRow.getBoundingClientRect().width);
     };
 
     syncToolbarWidth();
@@ -68,13 +66,6 @@ export function usePreviewToolbarLayout({
     };
   }, []);
 
-  useLayoutEffect(() => {
-    const toolbarRow = toolbarRowRef.current;
-    if (!toolbarRow) return;
-
-    setToolbarWidth(toolbarRow.getBoundingClientRect().width);
-  }, [isMaximized]);
-
   const effectiveIsToolbarHidden = isToolbarHidden;
   const usesToolbarHoverOverlay =
     effectiveIsToolbarHidden && resolvedTransportMode !== "desktop-native";
@@ -87,13 +78,13 @@ export function usePreviewToolbarLayout({
     : resolvedTransportMode === "desktop-native"
       ? "Hide Toolbar"
       : "Auto-hide Toolbar";
-  const shouldHideToolbarStatus = toolbarWidth > 0 && toolbarWidth < 1024;
+  const shouldHideToolbarStatus = toolbarWidth > 0 && toolbarWidth < 820;
   const shouldHideToolbarViewControls = toolbarWidth > 0 && toolbarWidth < 900;
   const shouldHideToolbarNavigation = toolbarWidth > 0 && toolbarWidth < 700;
   const shouldHideToolbarExternalActions = toolbarWidth > 0 && toolbarWidth < 620;
   const shouldHideToolbarUtilityActions =
     resolvedTransportMode === "desktop-native" ? false : toolbarWidth > 0 && toolbarWidth < 540;
-  const shouldUseCompactToolbar = toolbarWidth > 0 && toolbarWidth < 760;
+  const shouldUseCompactToolbar = toolbarWidth > 0 && toolbarWidth < 640;
   const shouldShowToolbarToggle =
     resolvedTransportMode === "desktop-native" ||
     (!shouldHideToolbarUtilityActions && !shouldUseCompactToolbar);

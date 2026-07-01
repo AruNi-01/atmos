@@ -269,7 +269,7 @@ export function writeCenterStageTabGroupOrder(
   );
 }
 
-// --- Run preview tabs ---
+// --- Run tabs ---
 
 export interface RunTerminalTab {
   id: string;
@@ -278,13 +278,13 @@ export interface RunTerminalTab {
 
 const DEFAULT_RUN_TABS: RunTerminalTab[] = [{ id: '1', name: 'Run' }];
 
-export function useRunPreviewTabs(contextId: string): [RunTerminalTab[], (tabs: RunTerminalTab[]) => void] {
+export function useRunTabs(contextId: string): [RunTerminalTab[], (tabs: RunTerminalTab[]) => void] {
   const instanceId = useActiveInstanceId();
   const readSlice = useUiPrefStore(s => s.readSlice);
   const patchSlice = useUiPrefStore(s => s.patchSlice);
 
   const all = useMemo(
-    () => readSlice(instanceId, 'runPreview', { byContext: {} as Record<string, RunTerminalTab[]> }),
+    () => readSlice(instanceId, 'run', { byContext: {} as Record<string, RunTerminalTab[]> }),
     [instanceId, readSlice],
   );
 
@@ -294,7 +294,7 @@ export function useRunPreviewTabs(contextId: string): [RunTerminalTab[], (tabs: 
     (next: RunTerminalTab[]) => {
       patchSlice(
         instanceId,
-        'runPreview',
+        'run',
         prev => ({
           byContext: {
             ...(prev as { byContext: Record<string, RunTerminalTab[]> }).byContext,

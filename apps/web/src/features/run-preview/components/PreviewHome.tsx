@@ -18,7 +18,7 @@ export function PreviewHome({
   shouldStackPreviewHomeCards,
   onOpenUrl,
 }: PreviewHomeProps) {
-  const t = useTranslations("runPreview.preview.home");
+  const t = useTranslations("browser.preview.home");
 
   return (
     <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">

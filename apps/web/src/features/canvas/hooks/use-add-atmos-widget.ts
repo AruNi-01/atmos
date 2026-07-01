@@ -16,6 +16,13 @@ import { reparentCanvasShapeToFrame } from "@/features/canvas/lib/canvas-widget-
 import { CANVAS_WIDGET_REGISTRY, type AddableCanvasWidgetType } from "@/features/canvas/lib/canvas-widget-registry";
 import { createCanvasCenterOverviewTab } from "@/features/canvas/lib/canvas-center-tabs";
 
+function createBrowserId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `browser-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 function createSourceForWidgetType(
   widgetType: AddableCanvasWidgetType,
   context: CanvasContextRef,
@@ -54,6 +61,12 @@ function createSourceForWidgetType(
         activeTabId: overviewTab.id,
       };
     }
+    case "browser":
+      return {
+        type: "browser",
+        context,
+        browserId: createBrowserId(),
+      };
     case "agent-status":
       return {
         type: "agent-status",

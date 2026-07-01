@@ -168,7 +168,7 @@ export function usePreviewLifecycleEffects({
     const timeoutId = window.setTimeout(() => {
       setPreviewLoadError((previous) => previous ?? createPreviewLoadError(
         requestedIframeUrl,
-        "Preview failed to load",
+        "Browser failed to load",
         "The new page never finished loading.",
         [
           "The URL may be invalid, the server may be down, or the browser may have rejected the navigation before committing a new document.",
@@ -192,22 +192,35 @@ export function usePreviewLifecycleEffects({
 
   useEffect(() => {
     if (!iframeSrc) {
-      setTransportState({
-        mode: "unavailable",
-        connected: false,
-        message: "",
-        capabilities: [],
-      });
-      teardownTransport();
+      setTransportState((previous) =>
+        previous.mode === "unavailable" &&
+        !previous.connected &&
+        previous.message === "" &&
+        previous.capabilities.length === 0
+          ? previous
+          : {
+              mode: "unavailable",
+              connected: false,
+              message: "",
+              capabilities: [],
+            },
+      );
+      if (transportControllerRef.current) {
+        teardownTransport();
+      }
       return;
     }
 
     if (preferredTransportMode === "desktop-native") {
-      setTransportState((previous) => ({
-        ...previous,
-        mode: "desktop-native",
-        message: previous.message,
-      }));
+      setTransportState((previous) =>
+        previous.mode === "desktop-native"
+          ? previous
+          : {
+              ...previous,
+              mode: "desktop-native",
+              message: previous.message,
+            },
+      );
       if (isActive) {
         void syncDesktopPreview();
       } else {
@@ -220,25 +233,43 @@ export function usePreviewLifecycleEffects({
       teardownTransport(false);
     }
 
-    setTransportState((previous) => ({
-      mode: preferredTransportMode,
-      connected:
+    setTransportState((previous) => {
+      const nextConnected =
         preferredTransportMode === "extension" && previous.mode === "extension"
           ? previous.connected
-          : false,
-      message:
+          : false;
+      const nextMessage =
         preferredTransportMode === "extension"
           ? previous.mode === "extension" && previous.connected
             ? ""
             : PREVIEW_EXTENSION_REQUIRED_MESSAGE
           : preferredTransportMode === "same-origin"
             ? ""
-            : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
-      capabilities:
+            : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE;
+      const nextCapabilities =
         preferredTransportMode === "extension" && previous.mode === "extension"
           ? previous.capabilities
-          : [],
-    }));
+          : [];
+      const capabilitiesUnchanged =
+        previous.capabilities === nextCapabilities ||
+        (previous.capabilities.length === 0 && nextCapabilities.length === 0);
+
+      if (
+        previous.mode === preferredTransportMode &&
+        previous.connected === nextConnected &&
+        previous.message === nextMessage &&
+        capabilitiesUnchanged
+      ) {
+        return previous;
+      }
+
+      return {
+        mode: preferredTransportMode,
+        connected: nextConnected,
+        message: nextMessage,
+        capabilities: nextCapabilities,
+      };
+    });
   }, [
     hideDesktopPreview,
     iframeKey,
@@ -286,11 +317,30 @@ export function usePreviewLifecycleEffects({
 
   useEffect(() => {
     if (transportControllerRef.current?.mode === "desktop-native") return;
-    teardownTransport(false);
-    if (preferredTransportMode !== "extension") {
+
+    if (!isElementPickerEnabled && transportControllerRef.current) {
+      void Promise.resolve(transportControllerRef.current.exitPickMode());
+    }
+
+    if (preferredTransportMode !== "unavailable") {
+      return;
+    }
+
+    if (transportControllerRef.current) {
+      teardownTransport(false);
+    }
+    if (isElementPickerEnabled) {
       setIsElementPickerEnabled(false);
     }
-  }, [iframeKey, iframeSrc, preferredTransportMode, setIsElementPickerEnabled, teardownTransport, transportControllerRef]);
+  }, [
+    iframeKey,
+    iframeSrc,
+    isElementPickerEnabled,
+    preferredTransportMode,
+    setIsElementPickerEnabled,
+    teardownTransport,
+    transportControllerRef,
+  ]);
 
   useEffect(() => {
     if (preferredTransportMode !== "desktop-native") return;

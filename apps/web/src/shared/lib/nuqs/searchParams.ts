@@ -191,7 +191,8 @@ export type RightSidebarTab =
   | "pr"
   | "actions"
   | "review"
-  | "run-preview";
+  | "browser"
+  | "run";
 
 export const rightSidebarParams = {
   rsTab: parseAsStringEnum<RightSidebarTab>([
@@ -200,7 +201,8 @@ export const rightSidebarParams = {
     "pr",
     "actions",
     "review",
-    "run-preview",
+    "browser",
+    "run",
   ]).withDefault("changes"),
 };
 

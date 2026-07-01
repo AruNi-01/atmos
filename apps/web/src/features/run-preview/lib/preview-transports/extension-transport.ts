@@ -86,7 +86,7 @@ export function connectExtensionPreviewTransport(
       cleanupHandshakeTimers();
       if (ready || destroyed) return;
       options.onError?.(
-        'Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop preview.',
+        'Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser.',
       );
     }, HANDSHAKE_TIMEOUT_MS);
   };

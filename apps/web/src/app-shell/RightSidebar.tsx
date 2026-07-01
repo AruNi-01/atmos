@@ -20,6 +20,7 @@ import {
 } from "@workspace/ui";
 import {
   Play,
+  Globe,
   GitPullRequest,
   GitPullRequestCreate,
   GitPullRequestClosed,
@@ -68,10 +69,17 @@ const AgentChatPanel = dynamic(
   () => import("@/features/agent/components/AgentChatPanel").then((m) => m.AgentChatPanel),
   { ssr: false },
 );
-const RunPreviewPanel = dynamic(
+const BrowserPanel = dynamic(
   () =>
-    import("@/features/run-preview/components/RunPreviewPanel").then(
-      (m) => m.RunPreviewPanel,
+    import("@/features/run-preview/components/BrowserPanel").then(
+      (m) => m.BrowserPanel,
+    ),
+  { ssr: false },
+);
+const RunScript = dynamic(
+  () =>
+    import("@/features/run-preview/components/RunScript").then(
+      (m) => m.RunScript,
     ),
   { ssr: false },
 );
@@ -86,7 +94,8 @@ const BASE_TABS: Array<{
 }> = [
   { value: "changes", labelKey: "rightSidebar.topTabs.changes", Icon: GitBranch },
   { value: "review", labelKey: "rightSidebar.topTabs.review", Icon: FileDiff },
-  { value: "run-preview", labelKey: "rightSidebar.topTabs.runPreview", Icon: Play },
+  { value: "browser", labelKey: "rightSidebar.topTabs.browser", Icon: Globe },
+  { value: "run", labelKey: "rightSidebar.topTabs.run", Icon: Play },
   { value: "pr", labelKey: "rightSidebar.topTabs.pullRequests", Icon: GitPullRequest },
   { value: "actions", labelKey: "rightSidebar.topTabs.actions", Icon: Workflow },
 ];
@@ -152,7 +161,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const showFilesTab = projectFilesSide === "right";
   const topTabs = useMemo(() => {
     if (!showFilesTab) return BASE_TABS;
-    const idx = BASE_TABS.findIndex((t) => t.value === "run-preview");
+    const idx = BASE_TABS.findIndex((t) => t.value === "run");
     return [...BASE_TABS.slice(0, idx + 1), FILES_TAB, ...BASE_TABS.slice(idx + 1)];
   }, [showFilesTab]);
 
@@ -169,7 +178,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     () => currentProject?.workspaces.find((w) => w.id === workspaceId),
     [currentProject, workspaceId],
   );
-  const runPreviewProjectId = projectIdFromUrl ?? currentProject?.id ?? null;
+  const runProjectId = projectIdFromUrl ?? currentProject?.id ?? null;
   const setupProgress = useProjectStore((s) => s.setupProgress);
   const isSettingUp = isWorkspaceSetupBlocking(
     workspaceId ? setupProgress[workspaceId] : null,
@@ -777,17 +786,31 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           </div>
 
-          {/* Run/Preview tab content */}
+          {/* Browser tab content */}
           <div
             className={cn(
               "flex-1 min-h-0",
-              activeTab !== "run-preview" && "hidden",
+              activeTab !== "browser" && "hidden",
             )}
           >
-            <RunPreviewPanel
+            <BrowserPanel
               workspaceId={workspaceId ?? null}
-              projectId={runPreviewProjectId ?? undefined}
-              isActive={activeTab === "run-preview"}
+              projectId={runProjectId ?? undefined}
+              isActive={activeTab === "browser"}
+            />
+          </div>
+
+          {/* Run tab content */}
+          <div
+            className={cn(
+              "flex-1 min-h-0",
+              activeTab !== "run" && "hidden",
+            )}
+          >
+            <RunScript
+              workspaceId={workspaceId ?? null}
+              projectId={runProjectId ?? undefined}
+              isActive={activeTab === "run"}
               projectName={currentProject?.name}
               workspaceName={currentWorkspace?.name}
             />

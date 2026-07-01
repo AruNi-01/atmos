@@ -44,7 +44,7 @@ export async function invokeDesktopPreviewBridge<T = unknown>(
   payload?: Record<string, unknown>,
 ): Promise<T> {
   if (!isTauriRuntime()) {
-    throw new Error('Desktop preview bridge is only available in the Tauri runtime.');
+    throw new Error('Desktop Browser bridge is only available in the Tauri runtime.');
   }
 
   const invoke = await getInvoke();

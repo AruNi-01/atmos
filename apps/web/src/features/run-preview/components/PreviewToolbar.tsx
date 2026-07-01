@@ -377,11 +377,12 @@ export function PreviewToolbar({
                         void handleToggleElementPicker();
                       }}
                       disabled={!activeUrl || preferredTransportMode === "unavailable"}
+                      aria-pressed={isElementPickerEnabled}
                       className={cn(
-                        "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
+                        "flex h-6 cursor-pointer items-center justify-center rounded-sm px-2 leading-none transition-colors",
                         activeUrl && preferredTransportMode !== "unavailable"
                           ? isElementPickerEnabled
-                            ? "text-blue-400 hover:bg-blue-400/10 hover:text-blue-300"
+                            ? "bg-blue-500 text-white shadow-sm hover:bg-blue-500/90 hover:text-white"
                             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                           : "cursor-not-allowed text-muted-foreground/30",
                       )}

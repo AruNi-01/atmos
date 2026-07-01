@@ -67,8 +67,16 @@ interface PreviewProps {
   isStandaloneBrowserWindow?: boolean;
   isPreviewStandaloneOpen?: boolean;
   isMaximizedLayoutManaged?: boolean;
+  allowMaximize?: boolean;
+  disableNativePreviewOcclusion?: boolean;
+  canvasViewportControllerRef?: React.MutableRefObject<PreviewCanvasViewportController | null>;
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
+}
+
+export interface PreviewCanvasViewportController {
+  syncViewport: () => void;
+  hide: () => void;
 }
 
 interface PreviewTransportState {
@@ -100,7 +108,7 @@ function previewT(key: string, fallback: string, values?: PreviewTranslationValu
     cachedPreviewTranslator = createTranslator({
       locale,
       messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'runPreview.preview',
+      namespace: 'browser.preview',
     });
   }
 
@@ -129,6 +137,9 @@ export const Preview: React.FC<PreviewProps> = ({
   isStandaloneBrowserWindow = false,
   isPreviewStandaloneOpen = false,
   isMaximizedLayoutManaged = false,
+  allowMaximize = true,
+  disableNativePreviewOcclusion = false,
+  canvasViewportControllerRef,
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
 }) => {
@@ -161,7 +172,8 @@ export const Preview: React.FC<PreviewProps> = ({
   }, setPreviewToolbarParams] = useQueryStates(previewToolbarParams);
   const viewMode: ViewMode = viewModeParam === "mobile" ? "mobile" : "desktop";
   const isToolbarHidden = isToolbarHiddenParam;
-  const isElementPickerEnabled = isElementPickerEnabledParam;
+  const [localIsElementPickerEnabled, setLocalIsElementPickerEnabled] = useState(isElementPickerEnabledParam);
+  const isElementPickerEnabled = localIsElementPickerEnabled;
   const isElementPickerEnabledRef = useRef(isElementPickerEnabled);
   isElementPickerEnabledRef.current = isElementPickerEnabled;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -219,8 +231,15 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [setPreviewToolbarParams]);
 
   const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
+    isElementPickerEnabledRef.current = nextIsElementPickerEnabled;
+    setLocalIsElementPickerEnabled(nextIsElementPickerEnabled);
     void setPreviewToolbarParams({ pvPick: nextIsElementPickerEnabled });
   }, [setPreviewToolbarParams]);
+
+  useEffect(() => {
+    setLocalIsElementPickerEnabled(isElementPickerEnabledParam);
+    isElementPickerEnabledRef.current = isElementPickerEnabledParam;
+  }, [isElementPickerEnabledParam]);
 
   useEffect(() => {
     return () => {
@@ -290,6 +309,7 @@ export const Preview: React.FC<PreviewProps> = ({
       preferredTransportMode === 'desktop-native' &&
       isActive &&
       !isStandaloneBrowserWindow &&
+      !disableNativePreviewOcclusion &&
       !suppressNativePreviewOcclusion,
     surfaceRef: desktopViewportRef,
     ignoredRootRef: previewRootRef,
@@ -298,7 +318,7 @@ export const Preview: React.FC<PreviewProps> = ({
       preferredTransportMode === 'desktop-native' && (
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
         isPreviewLoading ||
-        (!suppressNativePreviewOcclusion && isDesktopNativePreviewOccluded) ||
+        (!disableNativePreviewOcclusion && !suppressNativePreviewOcclusion && isDesktopNativePreviewOccluded) ||
         favoritesListOpen || favoritePopoverOpen ||
         headerHasOpenOverlay || isGlobalSearchOpen ||
         isRightCollapsed
@@ -746,10 +766,14 @@ export const Preview: React.FC<PreviewProps> = ({
       } else if (isPreviewLoadingRef.current) {
         setIsPreviewLoading(false);
       }
-      setTransportState((previous) => ({
-        ...previous,
-        mode: 'desktop-native',
-      }));
+      setTransportState((previous) =>
+        previous.mode === 'desktop-native'
+          ? previous
+          : {
+              ...previous,
+              mode: 'desktop-native',
+            },
+      );
       return;
     }
 
@@ -792,7 +816,7 @@ export const Preview: React.FC<PreviewProps> = ({
         connected: false,
         message: previewT(
           'desktopTransport.openFailedMessage',
-          'Failed to open preview window: {errorMessage}',
+          'Failed to open Browser window: {errorMessage}',
           { errorMessage: error instanceof Error ? error.message : String(error) },
         ),
         capabilities: [],
@@ -827,6 +851,59 @@ export const Preview: React.FC<PreviewProps> = ({
     desktopPreviewVisibleRef.current = false;
   }, []);
 
+  const syncCanvasViewport = useCallback(() => {
+    void (async () => {
+      if (
+        preferredTransportMode !== 'desktop-native' ||
+        !desktopCommittedUrlRef.current ||
+        shouldSuspendDesktopPreview
+      ) {
+        await hideDesktopPreview();
+        return;
+      }
+
+      const surface = desktopViewportRef.current;
+      if (!surface) {
+        await hideDesktopPreview();
+        return;
+      }
+
+      const rect = surface.getBoundingClientRect();
+      const visibleWidth = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+      const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+      if (
+        rect.width < 16 ||
+        rect.height < 16 ||
+        visibleWidth < 8 ||
+        visibleHeight < 8
+      ) {
+        await hideDesktopPreview();
+        return;
+      }
+
+      await showDesktopPreview();
+    })().catch(() => undefined);
+  }, [hideDesktopPreview, preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
+
+  useEffect(() => {
+    if (!canvasViewportControllerRef) return;
+
+    const controller: PreviewCanvasViewportController = {
+      syncViewport: syncCanvasViewport,
+      hide: () => {
+        void hideDesktopPreview();
+      },
+    };
+    canvasViewportControllerRef.current = controller;
+    syncCanvasViewport();
+
+    return () => {
+      if (canvasViewportControllerRef.current === controller) {
+        canvasViewportControllerRef.current = null;
+      }
+    };
+  }, [canvasViewportControllerRef, hideDesktopPreview, syncCanvasViewport]);
+
   const handleOpenDeveloperTools = useCallback(async () => {
     if (preferredTransportMode !== 'desktop-native') return;
 
@@ -842,7 +919,7 @@ export const Preview: React.FC<PreviewProps> = ({
       }
       const controller = transportControllerRef.current;
       if (controller?.mode !== 'desktop-native' || !controller.openDevTools) {
-        throw new Error('Desktop preview is not ready for developer tools.');
+        throw new Error('Desktop Browser is not ready for developer tools.');
       }
       await controller.openDevTools();
     } catch (error) {
@@ -921,8 +998,11 @@ export const Preview: React.FC<PreviewProps> = ({
   const handleToggleElementPicker = useCallback(async () => {
     if (!normalizedActiveUrlRef.current) return;
 
-    if (isElementPickerEnabled) {
+    if (isElementPickerEnabledRef.current) {
+      isElementPickerEnabledRef.current = false;
       setIsElementPickerEnabled(false);
+      const viewport = desktopViewportRef.current;
+      if (viewport) viewport.style.cursor = '';
       await Promise.resolve(transportControllerRef.current?.exitPickMode());
       dismissSelectionPopover(false);
       return;
@@ -933,12 +1013,14 @@ export const Preview: React.FC<PreviewProps> = ({
         await syncDesktopPreview();
       }
       await Promise.resolve(transportControllerRef.current?.enterPickMode());
+      isElementPickerEnabledRef.current = true;
       setIsElementPickerEnabled(true);
       return;
     }
 
     if (transportControllerRef.current && transportState.connected) {
       await Promise.resolve(transportControllerRef.current.enterPickMode());
+      isElementPickerEnabledRef.current = true;
       setIsElementPickerEnabled(true);
       return;
     }
@@ -956,9 +1038,18 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
 
+    isElementPickerEnabledRef.current = true;
     setIsElementPickerEnabled(true);
     void checkExtensionUpdate();
-  }, [checkExtensionUpdate, connectIframeTransport, dismissSelectionPopover, isElementPickerEnabled, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, transportState.connected]);
+  }, [
+    checkExtensionUpdate,
+    connectIframeTransport,
+    dismissSelectionPopover,
+    preferredTransportMode,
+    setIsElementPickerEnabled,
+    syncDesktopPreview,
+    transportState.connected,
+  ]);
 
   const resolvedTransportMode =
     transportState.mode === 'unavailable' && normalizedActiveUrl
@@ -981,7 +1072,6 @@ export const Preview: React.FC<PreviewProps> = ({
     usesDesktopToolbarExpand,
     usesToolbarHoverOverlay,
   } = usePreviewToolbarLayout({
-    isMaximized,
     isToolbarHidden,
     resolvedTransportMode,
     setToolbarHiddenParam: (nextIsToolbarHidden) => {
@@ -1059,12 +1149,12 @@ export const Preview: React.FC<PreviewProps> = ({
     : preferredTransportMode === 'unavailable'
       ? previewT(
           'elementPicker.tooltip.unavailable',
-          'Element selection is only available for same-origin pages, local development URLs, or the desktop preview.',
+          'Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.',
         )
     : preferredTransportMode === 'desktop-native'
       ? previewT(
           'elementPicker.tooltip.desktopNative',
-          '{action} element selection. Source component detection runs through the desktop native preview and supports React, Vue, Angular, and Svelte.',
+          '{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.',
           { action: elementPickerAction },
         )
       : preferredTransportMode === 'extension'
@@ -1217,7 +1307,10 @@ export const Preview: React.FC<PreviewProps> = ({
               toolbarToggleTitle,
               onOpenInWindow: canOpenPreviewBrowserWindow ? handleOpenPreviewBrowserWindow : undefined,
               onReturnToEmbedded: isStandaloneBrowserWindow ? handleCloseStandalonePreviewWindow : undefined,
-              onToggleMaximized: isStandaloneBrowserWindow ? undefined : handleToggleMaximized,
+              onToggleMaximized:
+                allowMaximize && !isStandaloneBrowserWindow
+                  ? handleToggleMaximized
+                  : undefined,
               onToggleToolbarHidden: handleToggleToolbarHidden,
             }}
           />

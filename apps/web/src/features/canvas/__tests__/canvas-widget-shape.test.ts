@@ -16,6 +16,10 @@ import {
   removeCanvasCenterTab,
   upsertCanvasCenterTab,
 } from "../lib/canvas-center-tabs";
+import {
+  ADDABLE_CANVAS_WIDGET_TYPES,
+  CANVAS_WIDGET_REGISTRY,
+} from "../lib/canvas-widget-registry";
 
 const context: CanvasContextRef = {
   contextScope: "workspace",
@@ -100,6 +104,25 @@ describe("canvas-widget shape helpers", () => {
     expect(props.w).toBeGreaterThan(300);
     expect(props.h).toBeGreaterThan(300);
     expect(props.pinKey).toBe("changes:workspace:workspace-1:all");
+  });
+
+  it("allows browser widgets without concrete context", () => {
+    const globalContext = createGlobalCanvasContextRef();
+    const props = createCanvasWidgetShapeProps({
+      widgetType: "browser",
+      source: {
+        type: "browser",
+        context: globalContext,
+        browserId: "browser-1",
+      },
+    });
+
+    expect(CANVAS_WIDGET_REGISTRY.browser.requiresContext).toBe(false);
+    expect(ADDABLE_CANVAS_WIDGET_TYPES).toContain("browser");
+    expect(props.title).toBe("Browser");
+    expect(props.w).toBe(920);
+    expect(props.h).toBe(640);
+    expect(props.pinKey).toBe("browser:browser-1:global");
   });
 
   it("uses Main Operating Area as the center widget title", () => {

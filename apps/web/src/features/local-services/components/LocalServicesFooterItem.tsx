@@ -59,7 +59,7 @@ export function LocalServicesFooterItem() {
     const openUrl = localServiceOpenUrl(service);
     if (!openUrl) return;
     const params = new URLSearchParams();
-    params.set("rsTab", "run-preview");
+    params.set("rsTab", "browser");
     params.set("pvUrl", openUrl);
     if (service.owner.workspace_id) {
       params.set("id", service.owner.workspace_id);

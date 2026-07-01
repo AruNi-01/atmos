@@ -1008,7 +1008,8 @@
         "topTabs": {
           "changes": "变更",
           "review": "评审",
-          "runPreview": "运行预览",
+          "browser": "浏览器",
+          "run": "运行",
           "pullRequests": "拉取请求",
           "actions": "操作"
         },
@@ -2365,6 +2366,7 @@
     "widgetRegistry": {
       "groups": {
         "workspace": "工作区",
+        "browser": "浏览器",
         "codeReview": "代码与评审",
         "agents": "Agents",
         "usage": "用量"
@@ -2390,6 +2392,10 @@
           "label": "主操作区",
           "description": "展示工作区的总览、文件、diff 和评审标签。"
         },
+        "browser": {
+          "label": "浏览器",
+          "description": "在画布上直接打开本地服务和网页。"
+        },
         "agentStatus": {
           "label": "Agent 状态板",
           "description": "监控运行中、空闲和等待权限的 Agent 会话。"
@@ -2411,6 +2417,7 @@
         "changes": "变更",
         "review": "评审",
         "center": "主操作区",
+        "browser": "浏览器",
         "agentStatus": "Agent 状态板",
         "aiQuotaUsage": "AI 配额用量",
         "agentChat": "Agent ACP Chat"
@@ -4926,7 +4933,7 @@
     "fixToolbar": {
       "copyAction": {
         "ariaLabel": "复制 Agent Fix 提示词",
-        "label": "复制提示词",
+        "label": "提示词",
         "title": "复制提示词"
       },
       "primaryAction": {
@@ -7093,7 +7100,7 @@
         "back": "返回",
         "forward": "前进",
         "refresh": "刷新",
-        "home": "返回 Preview 首页"
+        "home": "返回浏览器首页"
       },
       "url": {
         "enter": "输入 URL..."
@@ -7101,30 +7108,30 @@
       "actions": {
         "openInBrowser": "在浏览器中打开",
         "openDeveloperTools": "打开开发者工具",
-        "openPreviewBrowserWindow": "在新窗口中打开预览浏览器",
-        "failedToOpenPreviewBrowserWindow": "无法打开预览浏览器窗口",
-        "returnToEmbeddedPreview": "回到嵌入预览"
+        "openPreviewBrowserWindow": "在新窗口中打开浏览器",
+        "failedToOpenPreviewBrowserWindow": "无法打开浏览器窗口",
+        "returnToEmbeddedPreview": "回到嵌入浏览器"
       },
       "annotations": {
         "copy": "复制",
-        "copyAriaOne": "复制 {count} 条预览标注",
-        "copyAriaOther": "复制 {count} 条预览标注",
-        "copyTooltipOne": "复制 {count} 条待处理的预览标注。",
-        "copyTooltipOther": "复制 {count} 条待处理的预览标注。"
+        "copyAriaOne": "复制 {count} 条浏览器标注",
+        "copyAriaOther": "复制 {count} 条浏览器标注",
+        "copyTooltipOne": "复制 {count} 条待处理的浏览器标注。",
+        "copyTooltipOther": "复制 {count} 条待处理的浏览器标注。"
       },
       "browserTabs": {
-        "preview": "预览",
+        "preview": "浏览器",
         "newTab": "新标签页",
         "closeTab": "关闭标签页",
         "closeTabAria": "关闭 {label}",
         "maximize": "最大化",
-        "maximizePreview": "最大化预览",
+        "maximizePreview": "最大化浏览器",
         "minimize": "还原",
-        "minimizePreview": "还原预览"
+        "minimizePreview": "还原浏览器"
       },
       "standalone": {
-        "embeddedTitle": "预览已在单独窗口中打开",
-        "embeddedDescription": "嵌入预览已暂停，避免和单独窗口同时操作同一个预览。",
+        "embeddedTitle": "浏览器已在单独窗口中打开",
+        "embeddedDescription": "嵌入浏览器已暂停，避免和单独窗口同时操作同一个浏览器。",
         "returnHere": "回到当前界面"
       },
       "favorite": {
@@ -7153,13 +7160,13 @@
           "reloadPrefix": "打开",
           "reloadMiddle": "并点击扩展卡片上的",
           "reloadSuffix": "按钮。",
-          "reloadPage": "在 Atmos Preview 中重新加载目标页面。"
+          "reloadPage": "在 Atmos 浏览器中重新加载目标页面。"
         }
       },
       "extensionInstall": {
-        "trigger": "安装预览扩展",
-        "description": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面预览。",
-        "downloadedDescription": "扩展包已下载完成。拒绝 iframe 嵌入的页面仍然需要桌面预览。",
+        "trigger": "安装浏览器扩展",
+        "description": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面浏览器。",
+        "downloadedDescription": "扩展包已下载完成。拒绝 iframe 嵌入的页面仍然需要桌面浏览器。",
         "close": "关闭",
         "recheck": "重新检查",
         "rechecking": "重新检查中…",
@@ -7189,63 +7196,13 @@
       "rename": "重命名",
       "delete": "删除"
     },
-    "runScript": {
-      "tabs": {
-        "run": "运行",
-        "terminal": "终端-{index}"
-      },
-      "toasts": {
-        "terminalBusy": {
-          "title": "终端正忙",
-          "description": "脚本正在运行。再次点击“{runAction}”可强制重启。"
-        },
-        "noRunScript": {
-          "title": "未配置运行脚本",
-          "description": "请先在设置中配置运行脚本。"
-        },
-        "terminalNotReady": {
-          "title": "终端尚未就绪",
-          "description": "请等待终端初始化完成。"
-        },
-        "error": {
-          "title": "错误",
-          "runScriptLoadDescription": "加载执行脚本失败。"
-        },
-        "terminalLocked": {
-          "title": "终端已锁定",
-          "description": "请先解锁终端后再交互。"
-        }
-      },
-      "emptyState": {
-        "noActiveProject": "当前没有活动项目或工作区"
-      },
-      "tooltips": {
-        "lockTerminal": "锁定终端（禁用输入）",
-        "unlockTerminal": "解锁终端（启用输入）",
-        "stopScript": "停止脚本（发送 Ctrl+C）- 适用于停止标准进程",
-        "runConfiguredScript": "运行已配置脚本（{shortcut}）",
-        "hardStop": "终止终端会话（强制停止）- 会销毁后台进程并重置会话"
-      },
-      "actions": {
-        "newTerminal": "新建终端",
-        "stop": "停止",
-        "run": "运行",
-        "configureScripts": "配置脚本"
-      },
-      "loading": {
-        "workspace": "正在加载工作区..."
-      },
-      "workspace": {
-        "main": "主终端"
-      }
-    },
     "utils": {
       "selection": {
-        "unavailable": "元素选择仅适用于同源页面或本地预览页面。",
-        "extensionRequired": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面预览。"
+        "unavailable": "元素选择仅适用于同源页面或本地浏览器页面。",
+        "extensionRequired": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面浏览器。"
       },
       "error": {
-        "title": "预览加载失败",
+        "title": "浏览器加载失败",
         "browserLoadFailure": "目标页面报告了浏览器级别的加载失败。",
         "unknownNetwork": "未知网络错误",
         "localHttpsHint": "目标本地服务可能在 HTTPS URL 上实际提供的是 HTTP，或返回了无效的 TLS 响应。",
@@ -7258,14 +7215,14 @@
         "openInBrowser": "在浏览器中打开"
       },
       "loading": {
-        "label": "正在加载预览..."
+        "label": "正在加载浏览器..."
       },
       "home": {
-        "title": "预览",
+        "title": "浏览器",
         "description": "打开本地应用或网站，检查元素，并把干净的页面上下文发送给 AI。",
         "cards": {
           "previewPages": {
-            "title": "预览页面",
+            "title": "浏览页面",
             "description": "加载 localhost 应用、内部工具或任何你想检查的 URL。"
           },
           "selectElements": {
@@ -7274,7 +7231,7 @@
           },
           "workAcrossModes": {
             "title": "跨模式工作",
-            "description": "同源页面可直接使用。跨端口页面使用扩展或桌面预览。"
+            "description": "同源页面可直接使用。跨端口页面使用扩展或桌面浏览器。"
           }
         },
         "notes": {
@@ -7284,7 +7241,7 @@
           },
           "crossPort": {
             "title": "跨端口",
-            "description": "如果页面在另一个端口上，请安装 Atmos Inspector 扩展或使用桌面预览。"
+            "description": "如果页面在另一个端口上，请安装 Atmos Inspector 扩展或使用桌面浏览器。"
           }
         }
       }
@@ -7292,8 +7249,8 @@
     "selection": {
       "aiContext": {
         "annotationTitle": "标注 {index}",
-        "title": "预览元素标注",
-        "description": "将这些{count, plural, one {# 个已选预览元素} other {# 个已选预览元素}}作为上下文使用。"
+        "title": "浏览器元素标注",
+        "description": "将这些{count, plural, one {# 个已选浏览器元素} other {# 个已选浏览器元素}}作为上下文使用。"
       },
       "toast": {
         "copiedTitle": "已复制",
@@ -7303,12 +7260,62 @@
         "annotationAddedTitle": "标注已添加",
         "annotationReadyDescription": "{count, plural, one {# 条标注可复制} other {# 条标注可复制}}",
         "annotationUpdatedTitle": "标注已更新",
-        "annotationUpdatedDescription": "预览标注备注已更新",
+        "annotationUpdatedDescription": "浏览器标注备注已更新",
         "annotationDeletedTitle": "标注已删除",
-        "annotationDeletedDescription": "预览标注已移除",
+        "annotationDeletedDescription": "浏览器标注已移除",
         "annotationsCopiedDescription": "{count, plural, one {# 条标注已为 AI 复制} other {# 条标注已为 AI 复制}}",
         "annotationsCopyFailedDescription": "无法将标注复制到剪贴板"
       }
+    }
+  },
+  "run": {
+    "tabs": {
+      "run": "运行",
+      "terminal": "终端-{index}"
+    },
+    "toasts": {
+      "terminalBusy": {
+        "title": "终端正忙",
+        "description": "脚本正在运行。再次点击“{runAction}”可强制重启。"
+      },
+      "noRunScript": {
+        "title": "未配置运行脚本",
+        "description": "请先在设置中配置运行脚本。"
+      },
+      "terminalNotReady": {
+        "title": "终端尚未就绪",
+        "description": "请等待终端初始化完成。"
+      },
+      "error": {
+        "title": "错误",
+        "runScriptLoadDescription": "加载执行脚本失败。"
+      },
+      "terminalLocked": {
+        "title": "终端已锁定",
+        "description": "请先解锁终端后再交互。"
+      }
+    },
+    "emptyState": {
+      "noActiveProject": "当前没有活动项目或工作区"
+    },
+    "tooltips": {
+      "lockTerminal": "锁定终端（禁用输入）",
+      "unlockTerminal": "解锁终端（启用输入）",
+      "stopScript": "停止脚本（发送 Ctrl+C）- 适用于停止标准进程",
+      "runConfiguredScript": "运行已配置脚本（{shortcut}）",
+      "hardStop": "终止终端会话（强制停止）- 会销毁后台进程并重置会话"
+    },
+    "actions": {
+      "newTerminal": "新建终端",
+      "stop": "停止",
+      "run": "运行",
+      "configureScripts": "配置脚本"
+    },
+    "loading": {
+      "workspace": "正在加载工作区..."
+    },
+    "workspace": {
+      "main": "主终端"
     }
   },
   "chatSessions": {
@@ -7519,24 +7526,24 @@
       "label": "加载中…"
     }
   },
-  "runPreview": {
+  "browser": {
     "preview": {
       "desktopTransport": {
-        "openFailedMessage": "打开预览窗口失败：{errorMessage}"
+        "openFailedMessage": "打开浏览器窗口失败：{errorMessage}"
       },
       "desktopPreview": {
-        "detachFailedTitle": "分离预览失败",
-        "restoreFailedTitle": "恢复预览失败"
+        "detachFailedTitle": "分离浏览器失败",
+        "restoreFailedTitle": "恢复浏览器失败"
       },
       "developerTools": {
         "openFailedTitle": "打开开发者工具失败"
       },
       "desktopNative": {
-        "occludedTitle": "悬浮弹窗与预览页面有重叠，暂时隐藏预览",
-        "occludedDescription": "重叠弹窗关闭后，恢复预览界面"
+        "occludedTitle": "悬浮弹窗与浏览器页面有重叠，暂时隐藏浏览器",
+        "occludedDescription": "重叠弹窗关闭后，恢复浏览器界面"
       },
       "home": {
-        "title": "预览",
+        "title": "浏览器",
         "description": "打开当前项目或工作区的本地服务，或在上方输入 URL。"
       },
       "extension": {
@@ -7555,8 +7562,8 @@
         },
         "tooltip": {
           "enterUrlFirst": "请先输入 URL。",
-          "unavailable": "元素选择仅适用于同源页面、本地开发 URL 或桌面预览。",
-          "desktopNative": "{action}元素选择。源码组件检测通过桌面原生预览运行，并支持 React、Vue、Angular 和 Svelte。",
+          "unavailable": "元素选择仅适用于同源页面、本地开发 URL 或桌面浏览器。",
+          "desktopNative": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
           "extension": "{action}元素选择。跨端口页面使用 Atmos Inspector 扩展。源码组件检测支持 React、Vue、Angular 和 Svelte。",
           "default": "{action}元素选择。源码组件检测支持 React、Vue、Angular 和 Svelte。"
         }

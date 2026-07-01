@@ -93,6 +93,12 @@ export function usePreviewIframeLoad({
 
     if (preferredTransportMode === "same-origin") {
       syncSameOriginPreviewAccess();
+      if (isActive && isElementPickerEnabled) {
+        void connectIframeTransport({
+          enterPickMode: true,
+          awaitHandshake: false,
+        });
+      }
       try {
         const iframeWin = iframeRef.current?.contentWindow;
         if (iframeWin) {

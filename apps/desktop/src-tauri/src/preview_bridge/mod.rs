@@ -410,7 +410,7 @@ fn emit_error_page_probe(webview: &Webview, session_id: &str, page_url: &str, br
       sessionId: {session_id:?},
       pageUrl: {page_url:?},
       bridgeToken: {bridge_token:?},
-      error: ['Preview failed to load.', ...details].join('\n'),
+      error: ['Browser failed to load.', ...details].join('\n'),
     }},
   }}).catch(() => {{}});
 }})();
@@ -622,7 +622,7 @@ fn open_preview_detached_window(
         &label,
         WebviewUrl::External(url.parse::<Url>().map_err(|error| error.to_string())?),
     )
-    .title("Atmos Preview")
+    .title("Atmos Browser")
     .inner_size(1100.0, 760.0)
     .min_inner_size(480.0, 360.0)
     .resizable(true)

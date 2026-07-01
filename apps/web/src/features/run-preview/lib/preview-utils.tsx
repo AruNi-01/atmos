@@ -19,8 +19,8 @@ export interface PreviewLoadError {
 }
 
 const PREVIEW_UTILS_NAMESPACE = "preview.utils";
-const LEGACY_PREVIEW_LOAD_ERROR_TITLE = "Preview failed to load";
-const LEGACY_PREVIEW_LOAD_ERROR_LINE = "Preview failed to load.";
+const LEGACY_PREVIEW_LOAD_ERROR_TITLE = "Browser failed to load";
+const LEGACY_PREVIEW_LOAD_ERROR_LINE = "Browser failed to load.";
 
 let cachedPreviewUtilsLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

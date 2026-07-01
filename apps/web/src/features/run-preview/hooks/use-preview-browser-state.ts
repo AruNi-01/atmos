@@ -151,22 +151,28 @@ function getTabNavigationUrl(tab: PreviewBrowserTab | undefined): string {
 interface UsePreviewBrowserStateOptions {
   workspaceId: string | null;
   projectId?: string;
+  browserContextId?: string;
+  syncUrlQueryParam?: boolean;
 }
 
 export function usePreviewBrowserState({
   workspaceId,
   projectId,
+  browserContextId: browserContextIdOverride,
+  syncUrlQueryParam = true,
 }: UsePreviewBrowserStateOptions) {
   const instanceId = useConnectionStore((state) => state.activeInstanceId);
-  const [committedPreviewUrl, setCommittedPreviewUrl] = useQueryState(
+  const [queryPreviewUrl, setCommittedPreviewUrl] = useQueryState(
     "pvUrl",
     previewUrlParams.pvUrl,
   );
-  const browserContextId = workspaceId || projectId || "default";
+  const committedPreviewUrl = syncUrlQueryParam ? queryPreviewUrl : "";
+  const browserContextId = browserContextIdOverride || workspaceId || projectId || "default";
   const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(
     () => normalizeBrowserContext(undefined, committedPreviewUrl),
   );
   const browserStateRef = useRef(browserState);
+  const ignoredCommittedPreviewUrlRef = useRef<string | null>(null);
   const [loadedBrowserContext, setLoadedBrowserContext] = useState<{
     instanceId: string;
     contextId: string;
@@ -238,12 +244,25 @@ export function usePreviewBrowserState({
   }, [browserContextId, browserState, instanceId, loadedBrowserContext, persistBrowserState]);
 
   useEffect(() => {
+    if (!syncUrlQueryParam) return;
+
     const activeNavigationUrl = getTabNavigationUrl(activeBrowserTab);
     if (activeNavigationUrl === committedPreviewUrl) return;
+    ignoredCommittedPreviewUrlRef.current = committedPreviewUrl;
     void setCommittedPreviewUrl(activeNavigationUrl);
-  }, [activeBrowserTab, committedPreviewUrl, setCommittedPreviewUrl]);
+  }, [activeBrowserTab, committedPreviewUrl, setCommittedPreviewUrl, syncUrlQueryParam]);
 
   useEffect(() => {
+    if (!syncUrlQueryParam) return;
+
+    if (
+      ignoredCommittedPreviewUrlRef.current !== null &&
+      ignoredCommittedPreviewUrlRef.current === committedPreviewUrl
+    ) {
+      ignoredCommittedPreviewUrlRef.current = null;
+      return;
+    }
+
     const nextUrl = canonicalizeUrl(committedPreviewUrl) || committedPreviewUrl.trim();
     if (!nextUrl) return;
 
@@ -270,7 +289,7 @@ export function usePreviewBrowserState({
         ),
       };
     });
-  }, [committedPreviewUrl]);
+  }, [committedPreviewUrl, syncUrlQueryParam]);
 
   const updateBrowserTab = useCallback(
     (tabId: string, updater: (tab: PreviewBrowserTab) => PreviewBrowserTab) => {

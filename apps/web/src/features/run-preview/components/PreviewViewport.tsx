@@ -93,7 +93,7 @@ export function PreviewViewport({
   transportMessage,
   viewMode,
 }: PreviewViewportProps) {
-  const desktopNativeT = useTranslations("runPreview.preview.desktopNative");
+  const desktopNativeT = useTranslations("browser.preview.desktopNative");
   const displayActiveUrl = useMemo(() => {
     if (!activeUrl) return "";
     try {

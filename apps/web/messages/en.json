@@ -1008,7 +1008,8 @@
         "topTabs": {
           "changes": "Changes",
           "review": "Review",
-          "runPreview": "Run Preview",
+          "browser": "Browser",
+          "run": "Run",
           "pullRequests": "Pull Requests",
           "actions": "Actions"
         },
@@ -2365,6 +2366,7 @@
     "widgetRegistry": {
       "groups": {
         "workspace": "Workspace",
+        "browser": "Browser",
         "codeReview": "Code & Review",
         "agents": "Agents",
         "usage": "Usage"
@@ -2390,6 +2392,10 @@
           "label": "Main Operating Area",
           "description": "Overview, files, diffs, and review tabs for a workspace."
         },
+        "browser": {
+          "label": "Browser",
+          "description": "Open local services and web pages directly on the canvas."
+        },
         "agentStatus": {
           "label": "Agent Status Board",
           "description": "Monitor running, idle, and permission-waiting agent sessions."
@@ -2411,6 +2417,7 @@
         "changes": "Changes",
         "review": "Review",
         "center": "Main Operating Area",
+        "browser": "Browser",
         "agentStatus": "Agent Status Board",
         "aiQuotaUsage": "AI Quota Usage",
         "agentChat": "Agent ACP Chat"
@@ -4926,7 +4933,7 @@
     "fixToolbar": {
       "copyAction": {
         "ariaLabel": "Copy Agent Fix prompt",
-        "label": "Copy Prompt",
+        "label": "Prompt",
         "title": "Copy Prompt"
       },
       "primaryAction": {
@@ -7093,7 +7100,7 @@
         "back": "Back",
         "forward": "Forward",
         "refresh": "Refresh",
-        "home": "Back to Preview home"
+        "home": "Back to Browser home"
       },
       "url": {
         "enter": "Enter URL..."
@@ -7101,31 +7108,31 @@
       "actions": {
         "openInBrowser": "Open in browser",
         "openDeveloperTools": "Open developer tools",
-        "openPreviewBrowserWindow": "Open preview browser in new window",
-        "failedToOpenPreviewBrowserWindow": "Failed to open preview browser window",
-        "returnToEmbeddedPreview": "Return to embedded preview"
+        "openPreviewBrowserWindow": "Open Browser in new window",
+        "failedToOpenPreviewBrowserWindow": "Failed to open Browser window",
+        "returnToEmbeddedPreview": "Return to embedded Browser"
       },
       "annotations": {
         "copy": "Copy",
-        "copyAriaOne": "Copy {count} preview annotation",
-        "copyAriaOther": "Copy {count} preview annotations",
-        "copyTooltipOne": "Copy {count} queued preview annotation.",
-        "copyTooltipOther": "Copy {count} queued preview annotations."
+        "copyAriaOne": "Copy {count} browser annotation",
+        "copyAriaOther": "Copy {count} browser annotations",
+        "copyTooltipOne": "Copy {count} queued browser annotation.",
+        "copyTooltipOther": "Copy {count} queued browser annotations."
       },
       "browserTabs": {
-        "preview": "Preview",
+        "preview": "Browser",
         "newTab": "New tab",
         "closeTab": "Close tab",
         "closeTabAria": "Close {label}",
         "maximize": "Maximize",
-        "maximizePreview": "Maximize preview",
+        "maximizePreview": "Maximize Browser",
         "minimize": "Minimize",
-        "minimizePreview": "Minimize preview"
+        "minimizePreview": "Minimize Browser"
       },
       "standalone": {
-        "embeddedTitle": "Preview is open in a separate window",
-        "embeddedDescription": "The embedded preview is paused so the standalone preview stays the only active surface.",
-        "returnHere": "Return preview here"
+        "embeddedTitle": "Browser is open in a separate window",
+        "embeddedDescription": "The embedded Browser is paused so the standalone Browser stays the only active surface.",
+        "returnHere": "Return Browser here"
       },
       "favorite": {
         "add": "Add favorite",
@@ -7153,13 +7160,13 @@
           "reloadPrefix": "Open",
           "reloadMiddle": "and click the",
           "reloadSuffix": "button on the extension card.",
-          "reloadPage": "Reload the target page in Atmos Preview."
+          "reloadPage": "Reload the target page in Atmos Browser."
         }
       },
       "extensionInstall": {
-        "trigger": "Install preview extension",
-        "description": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop preview.",
-        "downloadedDescription": "The extension package has been downloaded. Pages that reject iframe embedding still need the desktop preview.",
+        "trigger": "Install browser extension",
+        "description": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser.",
+        "downloadedDescription": "The extension package has been downloaded. Pages that reject iframe embedding still need the desktop Browser.",
         "close": "Close",
         "recheck": "Recheck",
         "rechecking": "Rechecking…",
@@ -7189,63 +7196,13 @@
       "rename": "Rename",
       "delete": "Delete"
     },
-    "runScript": {
-      "tabs": {
-        "run": "Run",
-        "terminal": "Terminal-{index}"
-      },
-      "toasts": {
-        "terminalBusy": {
-          "title": "Terminal is busy",
-          "description": "Script is running. Click '{runAction}' again to force restart."
-        },
-        "noRunScript": {
-          "title": "No Run Script Configured",
-          "description": "Please configure a run script in the settings."
-        },
-        "terminalNotReady": {
-          "title": "Terminal not ready",
-          "description": "Please wait for the terminal to initialize."
-        },
-        "error": {
-          "title": "Error",
-          "runScriptLoadDescription": "Failed to load execution script."
-        },
-        "terminalLocked": {
-          "title": "Terminal is Locked",
-          "description": "Unlock the terminal to interact with it."
-        }
-      },
-      "emptyState": {
-        "noActiveProject": "No active project or workspace"
-      },
-      "tooltips": {
-        "lockTerminal": "Lock Terminal (Disable input)",
-        "unlockTerminal": "Unlock Terminal (Enable input)",
-        "stopScript": "Stop Script (Sends Ctrl+C) - Useful for stopping standard processes",
-        "runConfiguredScript": "Run configured script ({shortcut})",
-        "hardStop": "Kill Terminal Session (Force Stop) - Destroys background processes and resets session"
-      },
-      "actions": {
-        "newTerminal": "New Terminal",
-        "stop": "Stop",
-        "run": "Run",
-        "configureScripts": "Configure Scripts"
-      },
-      "loading": {
-        "workspace": "Loading Workspace..."
-      },
-      "workspace": {
-        "main": "Main"
-      }
-    },
     "utils": {
       "selection": {
-        "unavailable": "Element selection is only available for same-origin or local preview pages.",
-        "extensionRequired": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop preview."
+        "unavailable": "Element selection is only available for same-origin or local browser pages.",
+        "extensionRequired": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser."
       },
       "error": {
-        "title": "Preview failed to load",
+        "title": "Browser failed to load",
         "browserLoadFailure": "The target page reported a browser-level load failure.",
         "unknownNetwork": "Unknown network error",
         "localHttpsHint": "The target local server may be speaking HTTP on an HTTPS URL or returning an invalid TLS response.",
@@ -7258,14 +7215,14 @@
         "openInBrowser": "Open in browser"
       },
       "loading": {
-        "label": "Loading preview..."
+        "label": "Loading Browser..."
       },
       "home": {
-        "title": "Preview",
+        "title": "Browser",
         "description": "Open a local app or website, inspect elements, and send clean page context to AI.",
         "cards": {
           "previewPages": {
-            "title": "Preview pages",
+            "title": "Browse pages",
             "description": "Load localhost apps, internal tools, or any URL you want to inspect."
           },
           "selectElements": {
@@ -7274,7 +7231,7 @@
           },
           "workAcrossModes": {
             "title": "Work across modes",
-            "description": "Same-origin works directly. Cross-port pages use the extension or desktop preview."
+            "description": "Same-origin works directly. Cross-port pages use the extension or desktop Browser."
           }
         },
         "notes": {
@@ -7284,7 +7241,7 @@
           },
           "crossPort": {
             "title": "Cross-port",
-            "description": "If a page is on another port, install the Atmos Inspector extension or use the desktop preview."
+            "description": "If a page is on another port, install the Atmos Inspector extension or use the desktop Browser."
           }
         }
       }
@@ -7292,8 +7249,8 @@
     "selection": {
       "aiContext": {
         "annotationTitle": "Annotation {index}",
-        "title": "Preview Element Annotations",
-        "description": "Use these {count, plural, one {# selected preview element} other {# selected preview elements}} as context."
+        "title": "Browser Element Annotations",
+        "description": "Use these {count, plural, one {# selected browser element} other {# selected browser elements}} as context."
       },
       "toast": {
         "copiedTitle": "Copied",
@@ -7303,12 +7260,62 @@
         "annotationAddedTitle": "Annotation added",
         "annotationReadyDescription": "{count, plural, one {# annotation ready to copy} other {# annotations ready to copy}}",
         "annotationUpdatedTitle": "Annotation updated",
-        "annotationUpdatedDescription": "Preview annotation note updated",
+        "annotationUpdatedDescription": "Browser annotation note updated",
         "annotationDeletedTitle": "Annotation deleted",
-        "annotationDeletedDescription": "Preview annotation removed",
+        "annotationDeletedDescription": "Browser annotation removed",
         "annotationsCopiedDescription": "{count, plural, one {# annotation copied for AI} other {# annotations copied for AI}}",
         "annotationsCopyFailedDescription": "Could not copy annotations to clipboard"
       }
+    }
+  },
+  "run": {
+    "tabs": {
+      "run": "Run",
+      "terminal": "Terminal-{index}"
+    },
+    "toasts": {
+      "terminalBusy": {
+        "title": "Terminal is busy",
+        "description": "Script is running. Click '{runAction}' again to force restart."
+      },
+      "noRunScript": {
+        "title": "No Run Script Configured",
+        "description": "Please configure a run script in the settings."
+      },
+      "terminalNotReady": {
+        "title": "Terminal not ready",
+        "description": "Please wait for the terminal to initialize."
+      },
+      "error": {
+        "title": "Error",
+        "runScriptLoadDescription": "Failed to load execution script."
+      },
+      "terminalLocked": {
+        "title": "Terminal is Locked",
+        "description": "Unlock the terminal to interact with it."
+      }
+    },
+    "emptyState": {
+      "noActiveProject": "No active project or workspace"
+    },
+    "tooltips": {
+      "lockTerminal": "Lock Terminal (Disable input)",
+      "unlockTerminal": "Unlock Terminal (Enable input)",
+      "stopScript": "Stop Script (Sends Ctrl+C) - Useful for stopping standard processes",
+      "runConfiguredScript": "Run configured script ({shortcut})",
+      "hardStop": "Kill Terminal Session (Force Stop) - Destroys background processes and resets session"
+    },
+    "actions": {
+      "newTerminal": "New Terminal",
+      "stop": "Stop",
+      "run": "Run",
+      "configureScripts": "Configure Scripts"
+    },
+    "loading": {
+      "workspace": "Loading Workspace..."
+    },
+    "workspace": {
+      "main": "Main"
     }
   },
   "chatSessions": {
@@ -7519,24 +7526,24 @@
       "label": "Loading…"
     }
   },
-  "runPreview": {
+  "browser": {
     "preview": {
       "desktopTransport": {
-        "openFailedMessage": "Failed to open preview window: {errorMessage}"
+        "openFailedMessage": "Failed to open Browser window: {errorMessage}"
       },
       "desktopPreview": {
-        "detachFailedTitle": "Failed to detach preview",
-        "restoreFailedTitle": "Failed to restore preview"
+        "detachFailedTitle": "Failed to detach Browser",
+        "restoreFailedTitle": "Failed to restore Browser"
       },
       "developerTools": {
         "openFailedTitle": "Failed to open developer tools"
       },
       "desktopNative": {
-        "occludedTitle": "A floating panel overlaps the preview page, so preview is hidden temporarily",
-        "occludedDescription": "Preview will return after the overlapping panel closes."
+        "occludedTitle": "A floating panel overlaps the browser page, so Browser is hidden temporarily",
+        "occludedDescription": "Browser will return after the overlapping panel closes."
       },
       "home": {
-        "title": "Preview",
+        "title": "Browser",
         "description": "Open a local service for this Project or Workspace, or enter a URL above."
       },
       "extension": {
@@ -7555,8 +7562,8 @@
         },
         "tooltip": {
           "enterUrlFirst": "Enter a URL first.",
-          "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop preview.",
-          "desktopNative": "{action} element selection. Source component detection runs through the desktop native preview and supports React, Vue, Angular, and Svelte.",
+          "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
+          "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
           "extension": "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
           "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte."
         }

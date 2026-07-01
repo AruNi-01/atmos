@@ -191,7 +191,7 @@ pub fn open_preview_browser_window(
         PREVIEW_BROWSER_WINDOW_LABEL,
         WebviewUrl::External(url),
     )
-    .title("Atmos Preview")
+    .title("Atmos Browser")
     .inner_size(1280.0, 860.0)
     .min_inner_size(760.0, 520.0)
     .resizable(true)
