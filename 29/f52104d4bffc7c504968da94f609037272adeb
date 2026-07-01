@@ -1,0 +1,21 @@
+apps/web/src/shared/lib/desktop-runtime.ts
+  s_aa5b20d6a93c34::t_a6834db2ef1104 134,146
+apps/web/src/shared/lib/create-app-page.ts
+  s_aa5b20d6a93c34::t_c9e635634141a1 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "29f52104d4bffc7c504968da94f609037272adeb",
+  "prompts": {},
+  "sessions": {
+    "s_aa5b20d6a93c34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1bbc-f341-71d1-8b2e-a74dd86b4085",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
