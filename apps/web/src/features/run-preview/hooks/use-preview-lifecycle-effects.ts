@@ -13,6 +13,7 @@ import { getPreviewViewportBounds } from "../lib/preview-transports/desktop-tran
 import {
   PREVIEW_EXTENSION_REQUIRED_MESSAGE,
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
+  canonicalizeUrl,
   createPreviewLoadError,
   type PreviewLoadError,
 } from "../lib/preview-utils";
@@ -99,13 +100,34 @@ export function usePreviewLifecycleEffects({
   const handledNavigationRequestRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!requestedIframeUrl || !isActive) return;
+    if (!requestedIframeUrl) return;
 
     const requestKey = `${navigationToken}:${requestedIframeUrl}`;
+    const currentIframeUrl = canonicalizeUrl(iframeSrc) || iframeSrc.trim();
+    const nextIframeUrl = canonicalizeUrl(requestedIframeUrl) || requestedIframeUrl.trim();
+    const canReuseLoadedIframe =
+      preferredTransportMode !== "desktop-native" &&
+      navigationToken === 0 &&
+      currentIframeUrl &&
+      nextIframeUrl &&
+      currentIframeUrl === nextIframeUrl;
+
+    if (!isActive) {
+      if (canReuseLoadedIframe) {
+        handledNavigationRequestRef.current = requestKey;
+      }
+      return;
+    }
+
     if (handledNavigationRequestRef.current === requestKey) return;
     handledNavigationRequestRef.current = requestKey;
 
     setPreviewLoadError(null);
+
+    if (canReuseLoadedIframe) {
+      return;
+    }
+
     setIsPreviewLoading(true);
 
     if (preferredTransportMode === "desktop-native") {
@@ -120,6 +142,7 @@ export function usePreviewLifecycleEffects({
   }, [
     _setIframeKey,
     desktopCommittedUrlRef,
+    iframeSrc,
     isActive,
     navigationToken,
     preferredTransportMode,
@@ -281,9 +304,13 @@ export function usePreviewLifecycleEffects({
     let unlistenResized: (() => void) | undefined;
 
     const syncBounds = async () => {
-      if (disposed || transportControllerRef.current?.mode !== "desktop-native" || !desktopViewportRef.current) return;
-      const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
-      await transportControllerRef.current.updateViewport?.(viewport);
+      const controller = transportControllerRef.current;
+      const currentSurface = desktopViewportRef.current;
+      if (disposed || controller?.mode !== "desktop-native" || !currentSurface) return;
+      const viewport = await getPreviewViewportBounds(currentSurface);
+      if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
+      await controller.updateViewport?.(viewport);
+      if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
       desktopPreviewViewportRef.current = JSON.stringify(viewport);
     };
 
@@ -337,8 +364,14 @@ export function usePreviewLifecycleEffects({
           !desktopViewportRef.current
         ) return;
 
-        const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
-        await transportControllerRef.current.updateViewport?.(viewport);
+        const controller = transportControllerRef.current;
+        const currentSurface = desktopViewportRef.current;
+        if (controller?.mode !== "desktop-native" || !currentSurface) return;
+
+        const viewport = await getPreviewViewportBounds(currentSurface);
+        if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
+        await controller.updateViewport?.(viewport);
+        if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
         desktopPreviewViewportRef.current = JSON.stringify(viewport);
       });
     });

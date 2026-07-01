@@ -2,7 +2,7 @@
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
-  var EXTENSION_VERSION = '0.1.7';
+  var EXTENSION_VERSION = '0.1.8';
   var PICKER_HOVER_COLOR = '#2563eb';
   var PICKER_LOCKED_COLOR = '#f97316';
   var Z_ANNOTATION_BOX = '2147483643';
@@ -683,7 +683,7 @@
       marker.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.28)';
       marker.style.pointerEvents = 'auto';
       marker.style.cursor = 'default';
-      marker.style.zIndex = Z_TOP_OVERLAY;
+      marker.style.zIndex = Z_ANNOTATION_MARKER;
       marker.style.transition = 'width 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease';
       doc.documentElement.appendChild(marker);
 
@@ -980,8 +980,14 @@
         });
         annotations.length = 0;
         currentEditingAnnotation = null;
+        currentMeta = null;
+        currentRect = null;
+        detailsCard.style.display = 'none';
         noteInput.value = '';
         updateFooterMode('select');
+      },
+      syncAnnotations() {
+        syncAnnotationOverlays();
       },
       onCancel(handler) {
         cancelHandler = handler;
@@ -1556,11 +1562,12 @@
 
     function shouldOpenAnchorInNewTab(anchor, event) {
       var target = (anchor.getAttribute('target') || '').trim().toLowerCase();
+      var opensSeparateContext = !!target && target !== '_self' && target !== '_parent' && target !== '_top';
       return event.button === 1 ||
         event.metaKey ||
         event.ctrlKey ||
         event.shiftKey ||
-        Boolean(target && target !== '_self');
+        opensSeparateContext;
     }
 
     function emitOpenTab(targetUrl) {
@@ -1796,6 +1803,8 @@
         subtree: true,
         childList: true,
         characterData: true,
+        attributes: true,
+        attributeFilter: ['href', 'rel'],
       });
     }
 
@@ -1834,6 +1843,10 @@
       clearSelection: clearSelection,
       clearAnnotations: function () {
         overlay.clearAnnotations();
+      },
+      syncOverlays: function () {
+        syncLockedOverlay();
+        overlay.syncAnnotations();
       },
       exitPickMode: function () {
         state.enabled = false;

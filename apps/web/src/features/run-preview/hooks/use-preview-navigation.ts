@@ -199,6 +199,12 @@ export function usePreviewNavigation({
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
         void Promise.resolve(controller.navigate(targetUrl)).then(() => {
+          if (
+            transportControllerRef.current !== controller ||
+            desktopCommittedUrlRef.current !== targetCanonicalUrl
+          ) {
+            return;
+          }
           desktopPreviewUrlRef.current = targetCanonicalUrl;
         });
         return true;

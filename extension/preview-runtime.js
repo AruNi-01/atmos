@@ -11,7 +11,7 @@
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
-  var EXTENSION_VERSION = '0.1.7';
+  var EXTENSION_VERSION = '0.1.8';
   var PICKER_HOVER_COLOR = '#2563eb';
   var PICKER_LOCKED_COLOR = '#f97316';
 
@@ -1162,11 +1162,12 @@
 
     function shouldOpenAnchorInNewTab(anchor, event) {
       var target = (anchor.getAttribute('target') || '').trim().toLowerCase();
+      var opensSeparateContext = !!target && target !== '_self' && target !== '_parent' && target !== '_top';
       return event.button === 1 ||
         event.metaKey ||
         event.ctrlKey ||
         event.shiftKey ||
-        Boolean(target && target !== '_self');
+        opensSeparateContext;
     }
 
     function emitOpenTab(targetUrl) {
@@ -1379,6 +1380,7 @@
         lastKnownFaviconUrl = nextFaviconUrl;
         emit({
           type: 'atmos-preview:title-changed',
+          pageUrl: win.location.href,
           pageTitle: nextTitle,
           faviconUrl: nextFaviconUrl,
         });
@@ -1387,6 +1389,8 @@
         subtree: true,
         childList: true,
         characterData: true,
+        attributes: true,
+        attributeFilter: ['href', 'rel'],
       });
     }
 

@@ -94,12 +94,14 @@ function resolvePreviewOpenTabUrl(win: Window, value: string | undefined | null)
 
 function shouldOpenAnchorInNewTab(anchor: HTMLAnchorElement, event: MouseEvent): boolean {
   const target = anchor.getAttribute('target')?.trim().toLowerCase();
+  const opensSeparateContext =
+    Boolean(target) && target !== '_self' && target !== '_parent' && target !== '_top';
   return (
     event.button === 1 ||
     event.metaKey ||
     event.ctrlKey ||
     event.shiftKey ||
-    Boolean(target && target !== '_self')
+    opensSeparateContext
   );
 }
 

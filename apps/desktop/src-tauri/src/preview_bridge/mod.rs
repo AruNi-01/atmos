@@ -61,6 +61,9 @@ fn desktop_bridge_script(bridge_token: &str) -> String {
     clearAnnotations() {{
       controller.clearAnnotations?.();
     }},
+    syncOverlays() {{
+      controller.syncOverlays?.();
+    }},
     destroy() {{
       controller.destroy();
     }},
@@ -854,6 +857,27 @@ pub fn update_preview_bounds(
         .get_webview(&label)
         .ok_or_else(|| "preview inspector window not open".to_string())?;
     apply_bounds(&preview, bounds)?;
+    let _ = preview.eval(
+        r#"
+(() => {
+  const syncPreviewOverlays = () => {
+    try {
+      window.dispatchEvent(new Event('resize'));
+      window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.syncOverlays?.();
+    } catch (_) {}
+  };
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => {
+      syncPreviewOverlays();
+      window.requestAnimationFrame(syncPreviewOverlays);
+    });
+  } else {
+    syncPreviewOverlays();
+  }
+  window.setTimeout(syncPreviewOverlays, 120);
+})();
+"#,
+    );
     update_existing_bridge_state(app, session_id, |state| {
         state.bounds = Some(bounds);
     })

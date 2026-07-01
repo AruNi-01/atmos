@@ -36,6 +36,19 @@ function cloneSelectionInfo(info: SelectionInfo): SelectionInfo {
   };
 }
 
+function rectsEqual(
+  left: SelectionInfo["previewRect"],
+  right: SelectionInfo["previewRect"],
+): boolean {
+  if (!left || !right) return left === right;
+  return (
+    Math.abs(left.x - right.x) < 0.5 &&
+    Math.abs(left.y - right.y) < 0.5 &&
+    Math.abs(left.width - right.width) < 0.5 &&
+    Math.abs(left.height - right.height) < 0.5
+  );
+}
+
 type PreviewSelectionTranslator = (
   key: string,
   values?: Record<string, string | number>,
@@ -107,6 +120,104 @@ export function usePreviewSelection({
     }
   }, [isElementPickerEnabledRef, transportControllerRef]);
 
+  const syncSelectionAnnotationRects = useCallback(() => {
+    const iframe = iframeRef.current;
+    let frameDocument: Document | null = null;
+    try {
+      frameDocument = iframe?.contentDocument ?? null;
+    } catch {
+      return;
+    }
+    if (!iframe || !frameDocument || selectionAnnotationsRef.current.length === 0) return;
+
+    setSelectionAnnotations((previous) => {
+      let didChange = false;
+      const nextAnnotations = previous.map((annotation) => {
+        const selector = annotation.info.selector;
+        if (!selector) return annotation;
+
+        let element: Element | null = null;
+        try {
+          element = frameDocument.querySelector(selector);
+        } catch {
+          return annotation;
+        }
+        if (!element) return annotation;
+
+        const rect = element.getBoundingClientRect();
+        const nextRect = {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        };
+        if (rectsEqual(annotation.info.previewRect, nextRect)) {
+          return annotation;
+        }
+
+        didChange = true;
+        return {
+          ...annotation,
+          info: {
+            ...annotation.info,
+            previewRect: nextRect,
+          },
+        };
+      });
+
+      if (!didChange) return previous;
+      selectionAnnotationsRef.current = nextAnnotations;
+      return nextAnnotations;
+    });
+  }, [iframeRef]);
+
+  useEffect(() => {
+    let disposed = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let frameWindow: Window | null = null;
+
+    const sync = () => {
+      if (disposed) return;
+      syncSelectionAnnotationRects();
+    };
+
+    const syncAfterLayout = () => {
+      if (typeof window === "undefined") return;
+      window.requestAnimationFrame(() => {
+        sync();
+        window.requestAnimationFrame(sync);
+      });
+    };
+
+    window.addEventListener("resize", syncAfterLayout);
+    if (typeof ResizeObserver !== "undefined" && iframeRef.current) {
+      resizeObserver = new ResizeObserver(syncAfterLayout);
+      resizeObserver.observe(iframeRef.current);
+    }
+
+    try {
+      frameWindow = iframeRef.current?.contentWindow ?? null;
+      frameWindow?.addEventListener("resize", syncAfterLayout);
+      frameWindow?.addEventListener("scroll", sync, true);
+    } catch {
+      frameWindow = null;
+    }
+
+    syncAfterLayout();
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("resize", syncAfterLayout);
+      resizeObserver?.disconnect();
+      try {
+        frameWindow?.removeEventListener("resize", syncAfterLayout);
+        frameWindow?.removeEventListener("scroll", sync, true);
+      } catch {
+        // Ignore cross-origin frame access changes during navigation.
+      }
+    };
+  }, [iframeRef, syncSelectionAnnotationRects]);
+
   const getPopoverPositionFromRect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
     const targetBounds =
       transportControllerRef.current?.mode === 'desktop-native'
@@ -177,11 +288,6 @@ export function usePreviewSelection({
 
     try {
       await navigator.clipboard.writeText(formatPreviewSelectionForAI(info, userNote));
-      toastManager.add({
-        title: t("toast.copiedTitle"),
-        description: t("toast.selectionCopiedDescription"),
-        type: 'success',
-      });
       dismissSelectionPopover();
     } catch {
       toastManager.add({
@@ -196,7 +302,6 @@ export function usePreviewSelection({
     const info = explicitInfo ?? selectionInfoRef.current;
     if (!info) return;
 
-    let nextCount = selectionAnnotationsRef.current.length + 1;
     const note = userNote?.trim() || undefined;
     setSelectionAnnotations((previous) => {
       const nextAnnotations = [
@@ -207,18 +312,12 @@ export function usePreviewSelection({
           note,
         },
       ];
-      nextCount = nextAnnotations.length;
       selectionAnnotationsRef.current = nextAnnotations;
       return nextAnnotations;
     });
 
-    toastManager.add({
-      title: t("toast.annotationAddedTitle"),
-      description: t("toast.annotationReadyDescription", { count: nextCount }),
-      type: 'success',
-    });
     dismissSelectionPopover();
-  }, [dismissSelectionPopover, t]);
+  }, [dismissSelectionPopover]);
 
   const handleUpdateSelectionAnnotation = useCallback((annotationId?: string, userNote?: string) => {
     if (!annotationId) return;
@@ -230,19 +329,14 @@ export function usePreviewSelection({
               ...annotation,
               note,
             }
-          : annotation,
+            : annotation,
       ),
     );
-    toastManager.add({
-      title: t("toast.annotationUpdatedTitle"),
-      description: t("toast.annotationUpdatedDescription"),
-      type: 'success',
-    });
     setSelectionPopoverVisible(false);
     setSelectionPopoverExpanded(false);
     setSelectionInfo(null);
     setEditingAnnotationId(null);
-  }, [t]);
+  }, []);
 
   const handleDeleteSelectionAnnotation = useCallback((annotationId?: string) => {
     if (!annotationId) return;
@@ -253,12 +347,7 @@ export function usePreviewSelection({
       setSelectionInfo(null);
       setEditingAnnotationId(null);
     }
-    toastManager.add({
-      title: t("toast.annotationDeletedTitle"),
-      description: t("toast.annotationDeletedDescription"),
-      type: 'success',
-    });
-  }, [t]);
+  }, []);
 
   const handleEditSelectionAnnotation = useCallback((annotation: PreviewSelectionAnnotation) => {
     const rect = annotation.info.previewRect ?? { x: 0, y: 0, width: 0, height: 0 };
@@ -271,19 +360,14 @@ export function usePreviewSelection({
 
   const handleCopySelectionAnnotations = useCallback(async () => {
     const annotations = selectionAnnotationsRef.current;
+    const controller = transportControllerRef.current;
     if (annotations.length === 0) return;
 
     try {
       await navigator.clipboard.writeText(formatPreviewAnnotationsForAI(annotations, t));
+      selectionAnnotationsRef.current = [];
       setSelectionAnnotations([]);
-      toastManager.add({
-        title: t("toast.copiedTitle"),
-        description: t("toast.annotationsCopiedDescription", {
-          count: annotations.length,
-        }),
-        type: 'success',
-      });
-      await Promise.resolve(transportControllerRef.current?.clearAnnotations?.()).catch(() => undefined);
+      await Promise.resolve(controller?.clearAnnotations?.()).catch(() => undefined);
       dismissSelectionPopover();
     } catch {
       toastManager.add({
