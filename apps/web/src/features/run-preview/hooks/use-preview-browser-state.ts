@@ -407,12 +407,22 @@ export function usePreviewBrowserState({
 
     const now = Date.now();
     const nextTab = createBrowserTab(normalizedUrl, now + 1);
-    setBrowserState((current) => ({
-      ...pruneLeastRecentlyAccessed({
-        tabs: [...touchTab(current.tabs, current.activeTabId, now), nextTab],
-        activeTabId: nextTab.id,
-      }),
-    }));
+    setBrowserState((current) => {
+      const touchedTabs = touchTab(current.tabs, current.activeTabId, now);
+      const activeIndex = touchedTabs.findIndex((tab) => tab.id === current.activeTabId);
+      const insertIndex = activeIndex >= 0 ? activeIndex + 1 : touchedTabs.length;
+
+      return {
+        ...pruneLeastRecentlyAccessed({
+          tabs: [
+            ...touchedTabs.slice(0, insertIndex),
+            nextTab,
+            ...touchedTabs.slice(insertIndex),
+          ],
+          activeTabId: nextTab.id,
+        }),
+      };
+    });
   }, []);
 
   const handleSelectBrowserTab = useCallback((tabId: string) => {

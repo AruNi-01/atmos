@@ -2593,14 +2593,14 @@
     "components": {
       "helpers": {
         "placeholderTemplates": {
-          "makeInside": "Make something inside {project} with {agent}",
-          "giveDirection": "Give {agent} a clear direction for {project}",
-          "startSomething": "Start something new in {project} with {agent}",
-          "shape": "Shape {project} with {agent}",
-          "buildNextIdea": "Build the next idea for {project} with {agent}",
-          "turnSparkReal": "Turn a spark into something real in {project} with {agent}",
-          "bringToLife": "Bring something to life in {project} with {agent}",
-          "beginBuild": "Begin a build in {project} with {agent}"
+          "makeInside": "What should {agent} make inside {project}?",
+          "giveDirection": "Give {agent} a direction for {project}.",
+          "startSomething": "Start something new in {project} with {agent}.",
+          "shape": "What do you want {agent} to shape in {project}?",
+          "buildNextIdea": "Let {agent} build the next idea in {project}.",
+          "turnSparkReal": "Turn a spark into something real in {project} with {agent}.",
+          "bringToLife": "What should {agent} bring to life in {project}?",
+          "beginBuild": "Begin with {agent}. Build in {project}."
         },
         "placeholderDefaults": {
           "project": "Specified Project",
@@ -2613,15 +2613,15 @@
         "autoExtract": {
           "importFirst": "Import a GitHub {kind} first.",
           "checkingRouting": "Checking LLM routing...",
-          "usesProvider": "Uses {provider} to auto-extract {kind}.",
+          "usesProvider": "Uses {provider} to extract an initial task checklist from the {kind} description.",
           "configureRouting": "Configure LLM Providers > Routing > Workspace issue TODO extraction first."
         },
         "summary": {
-          "displayNameTitle": "Display name: {name}",
+          "displayNameTitle": "Workspace display name: {name}",
           "baseBranchTitle": "Base branch: {branch}",
-          "workspaceBranchTitle": "Workspace branch: {branch}",
-          "githubIssueTitle": "GitHub issue #{number}",
-          "githubPrTitle": "GitHub PR #{number} · {branch}",
+          "workspaceBranchTitle": "Current workspace branch: {branch}",
+          "githubIssueTitle": "GitHub issue: #{number}",
+          "githubPrTitle": "GitHub PR: #{number} ({branch})",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "Auto-extract TODOs with LLM: on"
         },
@@ -2802,10 +2802,10 @@
       },
       "shell": {
         "close": "Close",
-        "placeholderHint": "Describe what you want to build.",
-        "loadingProjects": "Loading projects...",
+        "placeholderHint": "(@ mention , / command, or paste directly)",
+        "loadingProjects": "Loading your projects and workspaces...",
         "addProjectNotice": "Add a project before creating a workspace from the welcome composer.",
-        "addProject": "Add project"
+        "addProject": "Add Project"
       },
       "slashPopover": {
         "skills": "Skills",
@@ -7530,6 +7530,10 @@
       "desktopNative": {
         "occludedTitle": "A floating panel overlaps the preview page, so preview is hidden temporarily",
         "occludedDescription": "Preview will return after the overlapping panel closes."
+      },
+      "home": {
+        "title": "Preview",
+        "description": "Open a local service for this Project or Workspace, or enter a URL above."
       },
       "extension": {
         "notDetectedTitle": "Extension not detected"

@@ -161,11 +161,12 @@ export function PreviewViewport({
           <div
             ref={desktopViewportRef}
             className={cn(
-              "flex h-full w-full flex-col items-center justify-center gap-3 border border-dashed border-border/60 px-6 text-center select-none",
+              "relative flex h-full w-full flex-col items-center justify-center gap-3 border border-dashed border-border/60 px-6 text-center select-none",
               isDesktopNativePreviewOccluded ? "bg-background/90" : "bg-muted/10",
               viewMode === "mobile" ? "w-[375px]" : "w-full",
             )}
           >
+            {isPreviewLoading ? renderPreviewLoadingOverlay(viewMode) : null}
             {isDesktopNativePreviewOccluded ? (
               <>
                 <div className="text-sm font-medium text-foreground">

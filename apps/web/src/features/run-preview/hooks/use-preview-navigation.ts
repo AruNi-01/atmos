@@ -15,6 +15,7 @@ import {
 interface UsePreviewNavigationParams {
   activeUrl: string;
   desktopCommittedUrlRef: MutableRefObject<string>;
+  forceDesktopNavigationRef: MutableRefObject<boolean>;
   desktopPreviewUrlRef: MutableRefObject<string | null>;
   iframeRef: RefObject<HTMLIFrameElement | null>;
   iframeUrlWatcherCleanupRef: MutableRefObject<(() => void) | null>;
@@ -25,6 +26,7 @@ interface UsePreviewNavigationParams {
   setDesktopCommittedUrl: (url: string) => void;
   setIframeSrc: (url: string) => void;
   setIsElementPickerEnabled: (enabled: boolean) => void;
+  setIsPreviewLoading: (isLoading: boolean) => void;
   setIsUrlInputFocused: (focused: boolean) => void;
   setNavigationToken: Dispatch<SetStateAction<number>>;
   setPreviewLoadError: (error: PreviewLoadError | null) => void;
@@ -39,6 +41,7 @@ interface UsePreviewNavigationParams {
 export function usePreviewNavigation({
   activeUrl,
   desktopCommittedUrlRef,
+  forceDesktopNavigationRef,
   desktopPreviewUrlRef,
   iframeRef,
   iframeUrlWatcherCleanupRef,
@@ -49,6 +52,7 @@ export function usePreviewNavigation({
   setDesktopCommittedUrl,
   setIframeSrc,
   setIsElementPickerEnabled,
+  setIsPreviewLoading,
   setIsUrlInputFocused,
   setNavigationToken,
   setPreviewLoadError,
@@ -154,9 +158,13 @@ export function usePreviewNavigation({
   }, [activeUrl]);
 
   const handleRefresh = useCallback(() => {
-    if (!url) return;
+    if (!url.trim()) return;
+    setIsPreviewLoading(true);
+    if (preferredTransportMode === 'desktop-native') {
+      forceDesktopNavigationRef.current = true;
+    }
     navigateToUrl(url);
-  }, [navigateToUrl, url]);
+  }, [forceDesktopNavigationRef, navigateToUrl, preferredTransportMode, setIsPreviewLoading, url]);
 
   const handleGoHome = useCallback(() => {
     setUrl('');
@@ -195,6 +203,7 @@ export function usePreviewNavigation({
         desktopCommittedUrlRef.current = targetCanonicalUrl;
         setDesktopCommittedUrl(targetCanonicalUrl);
         setPreviewLoadError(null);
+        setIsPreviewLoading(true);
         setCurrentPageTitle('');
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
@@ -218,6 +227,7 @@ export function usePreviewNavigation({
         iframeUrlWatcherCleanupRef.current = null;
         skipExternalHistorySyncRef.current = true;
         setPreviewLoadError(null);
+        setIsPreviewLoading(true);
         setCurrentPageTitle('');
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
@@ -236,6 +246,7 @@ export function usePreviewNavigation({
       setActiveUrl,
       setCurrentPageTitle,
       setDesktopCommittedUrl,
+      setIsPreviewLoading,
       setPreviewLoadError,
       setUrl,
       transportControllerRef,

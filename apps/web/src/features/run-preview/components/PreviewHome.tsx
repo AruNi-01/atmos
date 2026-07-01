@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 
 import { LocalServicesPreviewPanel } from "@/features/local-services/components/LocalServicesPreviewPanel";
@@ -17,6 +18,8 @@ export function PreviewHome({
   shouldStackPreviewHomeCards,
   onOpenUrl,
 }: PreviewHomeProps) {
+  const t = useTranslations("runPreview.preview.home");
+
   return (
     <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">
       <div className="w-full max-w-4xl">
@@ -27,7 +30,7 @@ export function PreviewHome({
               shouldStackPreviewHomeCards ? "text-2xl" : "text-3xl sm:text-4xl",
             )}
           >
-            Preview
+            {t("title")}
           </div>
           <p
             className={cn(
@@ -35,7 +38,7 @@ export function PreviewHome({
               shouldStackPreviewHomeCards ? "text-sm" : "text-base",
             )}
           >
-            Open a local service for this Project or Workspace, or enter a URL above.
+            {t("description")}
           </p>
         </div>
 

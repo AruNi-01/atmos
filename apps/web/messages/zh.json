@@ -2593,14 +2593,14 @@
     "components": {
       "helpers": {
         "placeholderTemplates": {
-          "makeInside": "用 {agent} 在 {project} 里做点东西",
-          "giveDirection": "为 {project} 给 {agent} 一个明确方向",
-          "startSomething": "用 {agent} 在 {project} 开始一项新工作",
-          "shape": "用 {agent} 打磨 {project}",
-          "buildNextIdea": "用 {agent} 为 {project} 构建下一个想法",
-          "turnSparkReal": "用 {agent} 把 {project} 里的灵感变成现实",
-          "bringToLife": "用 {agent} 让 {project} 里的东西活起来",
-          "beginBuild": "用 {agent} 在 {project} 开始构建"
+          "makeInside": "你希望 {agent} 在 {project} 里做什么？",
+          "giveDirection": "给 {agent} 一个关于 {project} 的方向。",
+          "startSomething": "用 {agent} 在 {project} 开始做点新东西。",
+          "shape": "你想让 {agent} 在 {project} 里打磨什么？",
+          "buildNextIdea": "让 {agent} 在 {project} 构建下一个想法。",
+          "turnSparkReal": "用 {agent} 把 {project} 里的灵感变成现实。",
+          "bringToLife": "你希望 {agent} 在 {project} 里让什么活起来？",
+          "beginBuild": "从 {agent} 开始。在 {project} 构建。"
         },
         "placeholderDefaults": {
           "project": "指定项目",
@@ -2613,30 +2613,30 @@
         "autoExtract": {
           "importFirst": "请先导入一个 GitHub {kind}。",
           "checkingRouting": "正在检查 LLM 路由...",
-          "usesProvider": "使用 {provider} 自动提取 {kind}。",
+          "usesProvider": "使用 {provider} 从 {kind} 描述中提取初始任务清单。",
           "configureRouting": "请先到 LLM Providers > Routing > Workspace issue TODO extraction 里完成配置。"
         },
         "summary": {
-          "displayNameTitle": "显示名称：{name}",
+          "displayNameTitle": "工作区显示名称：{name}",
           "baseBranchTitle": "基准分支：{branch}",
-          "workspaceBranchTitle": "工作区分支：{branch}",
-          "githubIssueTitle": "GitHub Issue #{number}",
-          "githubPrTitle": "GitHub PR #{number} · {branch}",
+          "workspaceBranchTitle": "当前工作区分支：{branch}",
+          "githubIssueTitle": "GitHub Issue：#{number}",
+          "githubPrTitle": "GitHub PR：#{number}（{branch}）",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "启用 LLM 自动提取 TODO：开"
         },
         "headline": {
           "comeAlive": {
-            "prefix": "你希望什么在这里开始成形"
+            "prefix": "你希望什么在"
           },
-          "questionMark": "？",
+          "questionMark": "里活起来？",
           "spinUpNext": {
-            "prefix": "你接下来想让什么",
-            "suffix": "启动起来？"
+            "prefix": "你想让",
+            "suffix": "接下来启动什么？"
           },
           "startBuildingWithYou": {
-            "prefix": "你希望什么",
-            "suffix": "和你一起开始构建？"
+            "prefix": "你希望",
+            "suffix": "和你一起开始构建什么？"
           },
           "deservesWorkspace": {
             "prefix": "什么想法值得拥有一个",
@@ -2802,8 +2802,8 @@
       },
       "shell": {
         "close": "关闭",
-        "placeholderHint": "描述一下你想构建什么。",
-        "loadingProjects": "正在加载项目...",
+        "placeholderHint": "（@ 提及、/ 命令，或直接粘贴）",
+        "loadingProjects": "正在加载你的项目和工作区...",
         "addProjectNotice": "先添加项目，再从欢迎页输入框创建工作区。",
         "addProject": "添加项目"
       },
@@ -7530,6 +7530,10 @@
       "desktopNative": {
         "occludedTitle": "悬浮弹窗与预览页面有重叠，暂时隐藏预览",
         "occludedDescription": "重叠弹窗关闭后，恢复预览界面"
+      },
+      "home": {
+        "title": "预览",
+        "description": "打开当前项目或工作区的本地服务，或在上方输入 URL。"
       },
       "extension": {
         "notDetectedTitle": "未检测到扩展"

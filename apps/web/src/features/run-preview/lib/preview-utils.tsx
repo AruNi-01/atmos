@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, Monitor, SquareMousePointer } from "lucide-react";
+import { AlertTriangle, ExternalLink, LoaderCircle, Monitor, SquareMousePointer } from "lucide-react";
 import { createTranslator, useTranslations } from "next-intl";
 import { Button, TextShimmer, cn } from "@workspace/ui";
 import enMessages from "../../../../messages/en.json";
@@ -347,36 +347,19 @@ const PreviewLoadingOverlayContent = ({ viewMode }: { viewMode: PreviewViewMode 
   const t = useTranslations(PREVIEW_UTILS_NAMESPACE);
 
   return (
-  <div
-    className={cn(
-      "absolute inset-0 z-20 flex items-center justify-center bg-background",
-      viewMode === "mobile" && "mx-auto w-[375px]",
-    )}
-  >
-    <div className="flex h-full w-full flex-col justify-center px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="flex items-center gap-3">
-          <div className="size-9 rounded-xl bg-muted" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-28 rounded bg-muted" />
-            <div className="h-2.5 w-40 max-w-full rounded bg-muted/80 sm:w-56" />
-          </div>
-        </div>
-        <div className="mt-6 space-y-4">
-          <div className="h-[28vh] min-h-32 rounded-2xl bg-muted/50" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="h-16 rounded-xl bg-muted/60" />
-            <div className="h-16 rounded-xl bg-muted/40" />
-          </div>
-        </div>
-        <div className="mt-4">
-          <TextShimmer as="p" duration={1.8} className="text-sm font-medium sm:text-base">
-            {t("loading.label")}
-          </TextShimmer>
-        </div>
+    <div
+      className={cn(
+        "absolute inset-0 z-20 flex items-center justify-center bg-background",
+        viewMode === "mobile" && "mx-auto w-[375px]",
+      )}
+    >
+      <div className="inline-flex items-center gap-2">
+        <LoaderCircle className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+        <TextShimmer as="p" duration={1.8} className="text-sm font-medium sm:text-base">
+          {t("loading.label")}
+        </TextShimmer>
       </div>
     </div>
-  </div>
   );
 };
 

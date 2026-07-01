@@ -41,5 +41,6 @@ pub struct AppState {
     pub preview_bridge: Mutex<DesktopPreviewBridgeRegistry>,
     pub window_state_path: PathBuf,
     pub startup_failed: AtomicBool,
+    pub main_hidden_by_close: AtomicBool,
     pub tunnel_connector_manager: TunnelConnectorManager,
 }

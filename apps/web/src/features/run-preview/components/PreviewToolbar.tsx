@@ -11,7 +11,7 @@ import {
   MessageCirclePlus,
   Monitor,
   Puzzle,
-  RotateCw,
+  RotateCcw,
   SquareMousePointer,
   Smartphone,
   Star,
@@ -53,6 +53,7 @@ interface PreviewToolbarProps {
   isDownloadingExtension: boolean;
   isElementPickerEnabled: boolean;
   isElementPickerTooltipOpen: boolean;
+  isPreviewLoading: boolean;
   isRecheckingExtension: boolean;
   isUrlInputFocused: boolean;
   needsDesktopPreviewSafeInset: boolean;
@@ -115,6 +116,7 @@ export function PreviewToolbar({
   isDownloadingExtension,
   isElementPickerEnabled,
   isElementPickerTooltipOpen,
+  isPreviewLoading,
   isRecheckingExtension,
   isUrlInputFocused,
   needsDesktopPreviewSafeInset,
@@ -254,7 +256,7 @@ export function PreviewToolbar({
             className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title={t("navigation.refresh")}
           >
-            <RotateCw className="size-3.5" />
+            <RotateCcw className={cn("size-3.5", isPreviewLoading && "animate-spin")} />
           </button>
         </div>
 

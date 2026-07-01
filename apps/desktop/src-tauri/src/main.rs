@@ -60,6 +60,7 @@ fn main() {
                 preview_bridge: Mutex::new(Default::default()),
                 window_state_path,
                 startup_failed: AtomicBool::new(false),
+                main_hidden_by_close: AtomicBool::new(false),
                 tunnel_connector_manager: tunnel_connector::manager::TunnelConnectorManager::new(
                     tunnel_connector_state_path,
                 ),
@@ -103,6 +104,8 @@ fn main() {
                                 let _ = main.navigate(url);
                                 let _ = main.show();
                                 let _ = main.set_focus();
+                                let state = app_handle.state::<AppState>();
+                                state.main_hidden_by_close.store(false, Ordering::SeqCst);
                             }
                             Err(err) => {
                                 let log_path = logging::app_log_path(&app_handle, "desktop.log");
@@ -234,6 +237,11 @@ fn main() {
                     }
                     preview_bridge::hide_all_preview_windows(&window.app_handle());
                     api.prevent_close();
+                    state.main_hidden_by_close.store(true, Ordering::SeqCst);
+                    log_desktop_event(
+                        &window.app_handle(),
+                        "main close requested: hiding main window",
+                    );
                     if window.is_fullscreen().unwrap_or(false) {
                         let handle = window.clone();
                         let _ = window.set_fullscreen(false);
@@ -349,22 +357,89 @@ fn main() {
                 }
             }
         }
-        // macOS: clicking the dock icon when the window is hidden should re-show it.
+        // macOS: clicking the dock icon should restore the main window when it
+        // was hidden by the red close button.
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen {
             has_visible_windows,
             ..
         } => {
-            if !has_visible_windows {
-                if let Some(w) = app_handle.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-                let _ = preview_bridge::show_active_preview_window(&app_handle);
+            log_desktop_event(
+                &app_handle,
+                &format!("run event reopen: has_visible_windows={has_visible_windows}"),
+            );
+            restore_main_window_after_activation(&app_handle, "reopen");
+            let retry_handle = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                sleep(Duration::from_millis(150)).await;
+                restore_main_window_after_activation(&retry_handle, "reopen-retry");
+            });
+            let _ = preview_bridge::show_active_preview_window(&app_handle);
+        }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Resumed => {
+            if app_handle
+                .state::<AppState>()
+                .main_hidden_by_close
+                .load(Ordering::SeqCst)
+            {
+                log_desktop_event(
+                    &app_handle,
+                    "run event resumed: restoring hidden main window",
+                );
+                restore_main_window_after_activation(&app_handle, "resumed");
             }
         }
         _ => {}
     });
+}
+
+#[cfg(target_os = "macos")]
+fn restore_main_window_after_activation(app_handle: &tauri::AppHandle, source: &str) {
+    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
+    let Some(window) = app_handle.get_webview_window("main") else {
+        log_desktop_event(
+            app_handle,
+            &format!("{source}: main window unavailable during restore"),
+        );
+        return;
+    };
+
+    let was_visible = window.is_visible().unwrap_or(false);
+    let was_minimized = window.is_minimized().unwrap_or(false);
+    log_desktop_event(
+        app_handle,
+        &format!("{source}: restore main window visible={was_visible} minimized={was_minimized}"),
+    );
+
+    if !was_visible {
+        if let Err(error) = window.show() {
+            log_desktop_event(app_handle, &format!("{source}: main show failed: {error}"));
+        }
+    }
+    if was_minimized {
+        if let Err(error) = window.unminimize() {
+            log_desktop_event(
+                app_handle,
+                &format!("{source}: main unminimize failed: {error}"),
+            );
+        }
+    }
+    if let Err(error) = window.set_focus() {
+        log_desktop_event(app_handle, &format!("{source}: main focus failed: {error}"));
+    }
+
+    if window.is_visible().unwrap_or(false) {
+        app_handle
+            .state::<AppState>()
+            .main_hidden_by_close
+            .store(false, Ordering::SeqCst);
+    }
+}
+
+fn log_desktop_event(app_handle: &tauri::AppHandle, message: &str) {
+    let log_path = logging::app_log_path(app_handle, "desktop.log");
+    logging::append_log(&log_path, message);
 }
 
 fn restore_main_window_state<R: tauri::Runtime>(

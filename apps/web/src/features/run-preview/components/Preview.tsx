@@ -141,7 +141,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const [desktopCommittedUrl, setDesktopCommittedUrl] = useState(activeUrl);
   const desktopCommittedUrlRef = useRef(activeUrl);
   const [isElementPickerTooltipOpen, setIsElementPickerTooltipOpen] = useState(false);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoadingState] = useState(false);
   const [previewLoadError, setPreviewLoadError] = useState<PreviewLoadError | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
   const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
@@ -171,6 +171,8 @@ export const Preview: React.FC<PreviewProps> = ({
   const desktopPreviewUrlRef = useRef<string | null>(null);
   const desktopPreviewViewportRef = useRef<string | null>(null);
   const desktopPreviewVisibleRef = useRef(false);
+  const isPreviewLoadingRef = useRef(false);
+  const forceDesktopNavigationRef = useRef(false);
   const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
@@ -201,6 +203,11 @@ export const Preview: React.FC<PreviewProps> = ({
 
   const setPreviewActiveUrl = useCallback((nextUrl: string) => {
     setActiveUrlRef.current(nextUrl);
+  }, []);
+
+  const setIsPreviewLoading = useCallback((nextIsPreviewLoading: boolean) => {
+    isPreviewLoadingRef.current = nextIsPreviewLoading;
+    setIsPreviewLoadingState(nextIsPreviewLoading);
   }, []);
 
   const setViewMode = useCallback((nextViewMode: ViewMode) => {
@@ -274,6 +281,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const shouldSuspendDesktopPreview =
       preferredTransportMode === 'desktop-native' && (
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
+        isPreviewLoading ||
         isDesktopNativePreviewOccluded ||
         favoritesListOpen || favoritePopoverOpen ||
         headerHasOpenOverlay || isGlobalSearchOpen ||
@@ -334,7 +342,7 @@ export const Preview: React.FC<PreviewProps> = ({
     }
 
     setIsPreviewLoading(true);
-  }, [iframeSrc, iframeKey, preferredTransportMode]);
+  }, [iframeSrc, iframeKey, preferredTransportMode, setIsPreviewLoading]);
 
   const teardownTransport = useCallback((clearSelection = true) => {
     const activeController = transportControllerRef.current;
@@ -378,6 +386,7 @@ export const Preview: React.FC<PreviewProps> = ({
   } = usePreviewNavigation({
     activeUrl,
     desktopCommittedUrlRef,
+    forceDesktopNavigationRef,
     desktopPreviewUrlRef,
     iframeRef,
     iframeUrlWatcherCleanupRef,
@@ -388,6 +397,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setDesktopCommittedUrl,
     setIframeSrc,
     setIsElementPickerEnabled,
+    setIsPreviewLoading,
     setIsUrlInputFocused,
     setNavigationToken,
     setPreviewLoadError,
@@ -589,6 +599,7 @@ export const Preview: React.FC<PreviewProps> = ({
     pushHistoryEntry,
     setPreviewActiveUrl,
     setNormalizedCurrentPageTitle,
+    setIsPreviewLoading,
     setPreviewUrl,
     skipExternalHistorySyncRef,
   ]);
@@ -701,15 +712,23 @@ export const Preview: React.FC<PreviewProps> = ({
     const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
     const viewportKey = JSON.stringify(viewport);
     if (transportControllerRef.current?.mode === 'desktop-native' && transportSessionIdRef.current) {
-      if (desktopPreviewUrlRef.current !== committedUrl) {
-        await transportControllerRef.current.navigate?.(committedUrl);
+      const activeController = transportControllerRef.current;
+      const shouldNavigate = forceDesktopNavigationRef.current || desktopPreviewUrlRef.current !== committedUrl;
+      if (shouldNavigate) {
+        forceDesktopNavigationRef.current = false;
+        await activeController.navigate?.(committedUrl);
         desktopPreviewUrlRef.current = committedUrl;
       }
       setPreviewLoadError(null);
-      setIsPreviewLoading(false);
       if (desktopPreviewViewportRef.current !== viewportKey) {
-        await transportControllerRef.current.updateViewport?.(viewport);
+        await activeController.updateViewport?.(viewport);
         desktopPreviewViewportRef.current = viewportKey;
+      }
+      if (isPreviewLoadingRef.current && shouldNavigate) {
+        await activeController.hide?.();
+        desktopPreviewVisibleRef.current = false;
+      } else if (isPreviewLoadingRef.current) {
+        setIsPreviewLoading(false);
       }
       setTransportState((previous) => ({
         ...previous,
@@ -731,11 +750,15 @@ export const Preview: React.FC<PreviewProps> = ({
         viewport,
         ...createTransportHandlers('desktop-native'),
       });
+      forceDesktopNavigationRef.current = false;
       desktopPreviewUrlRef.current = committedUrl;
       desktopPreviewViewportRef.current = viewportKey;
       desktopPreviewVisibleRef.current = true;
       setPreviewLoadError(null);
-      setIsPreviewLoading(false);
+      if (isPreviewLoadingRef.current) {
+        await transportControllerRef.current.hide?.();
+        desktopPreviewVisibleRef.current = false;
+      }
       setTransportState({
         mode: 'desktop-native',
         connected: true,
@@ -761,7 +784,7 @@ export const Preview: React.FC<PreviewProps> = ({
     } finally {
       desktopConnectingRef.current = false;
     }
-  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, teardownTransport]);
+  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, setIsPreviewLoading, teardownTransport]);
 
   const showDesktopPreview = useCallback(async () => {
     if (preferredTransportMode !== 'desktop-native' || !desktopCommittedUrlRef.current || !desktopViewportRef.current) return;
@@ -1024,6 +1047,7 @@ export const Preview: React.FC<PreviewProps> = ({
     isDownloadingExtension,
     isElementPickerEnabled,
     isElementPickerTooltipOpen,
+    isPreviewLoading,
     isRecheckingExtension,
     isUrlInputFocused,
     needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !browserTabBarProps,

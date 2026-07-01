@@ -20,6 +20,11 @@ const OVERLAY_CANDIDATE_SELECTOR = [
   "[aria-modal=\"true\"]",
 ].join(", ");
 
+const TOOLTIP_CANDIDATE_SELECTOR = [
+  "[data-slot=\"tooltip-content\"]",
+  "[role=\"tooltip\"]",
+].join(", ");
+
 const RESTORE_DELAY_MS = 140;
 const MIN_RECT_SIZE = 2;
 
@@ -37,10 +42,16 @@ function rectsIntersect(a: DOMRect, b: DOMRect): boolean {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
+function isTooltipCandidate(element: Element): boolean {
+  if (element.matches(TOOLTIP_CANDIDATE_SELECTOR)) return true;
+  return Boolean(element.querySelector(TOOLTIP_CANDIDATE_SELECTOR));
+}
+
 function isVisibleOverlayCandidate(element: Element, ignoredRoot: HTMLElement | null): boolean {
   if (!(element instanceof HTMLElement || element instanceof SVGElement)) return false;
   if (ignoredRoot?.contains(element)) return false;
   if (element.closest("[data-atmos-ignore-native-surface-occlusion]")) return false;
+  if (isTooltipCandidate(element)) return false;
   if (element.getAttribute("data-state") === "closed") return false;
   if (element.getAttribute("aria-hidden") === "true") return false;
 
@@ -55,6 +66,11 @@ function getVisibleOverlayCandidates(ignoredRoot: HTMLElement | null): Element[]
   return Array.from(document.querySelectorAll(OVERLAY_CANDIDATE_SELECTOR))
     .filter((element) => isVisibleOverlayCandidate(element, ignoredRoot));
 }
+
+type OcclusionSnapshot = {
+  candidates: Element[];
+  isOccluded: boolean;
+};
 
 export function useNativePreviewOcclusion({
   enabled,
@@ -85,6 +101,20 @@ export function useNativePreviewOcclusion({
       setIsOccluded(nextOccluded);
     };
 
+    const readOcclusionSnapshot = (): OcclusionSnapshot => {
+      const surface = surfaceRef.current;
+      const surfaceRect = surface?.getBoundingClientRect();
+      if (!surface || !surfaceRect || !hasVisibleRect(surfaceRect)) {
+        return { candidates: [], isOccluded: false };
+      }
+
+      const candidates = getVisibleOverlayCandidates(ignoredRootRef?.current ?? null);
+      return {
+        candidates,
+        isOccluded: candidates.some((candidate) => rectsIntersect(surfaceRect, candidate.getBoundingClientRect())),
+      };
+    };
+
     const applyOcclusion = (nextOccluded: boolean, settleImmediately = false) => {
       if (nextOccluded) {
         window.clearTimeout(restoreTimeoutId);
@@ -103,6 +133,9 @@ export function useNativePreviewOcclusion({
       restoreTimeoutId = window.setTimeout(() => {
         restoreTimeoutId = 0;
         if (disposed || !currentOccluded) return;
+        const snapshot = readOcclusionSnapshot();
+        syncCandidateResizeObservers(snapshot.candidates);
+        if (snapshot.isOccluded) return;
         commitOcclusion(false);
       }, RESTORE_DELAY_MS);
     };
@@ -129,22 +162,11 @@ export function useNativePreviewOcclusion({
       rafId = 0;
       if (disposed) return;
 
-      const surface = surfaceRef.current;
-      const surfaceRect = surface?.getBoundingClientRect();
       const settleImmediately = isFirstCheck;
       isFirstCheck = false;
-      if (!surface || !surfaceRect || !hasVisibleRect(surfaceRect)) {
-        syncCandidateResizeObservers([]);
-        applyOcclusion(false, settleImmediately);
-        return;
-      }
-
-      const candidates = getVisibleOverlayCandidates(ignoredRootRef?.current ?? null);
-      syncCandidateResizeObservers(candidates);
-      applyOcclusion(
-        candidates.some((candidate) => rectsIntersect(surfaceRect, candidate.getBoundingClientRect())),
-        settleImmediately,
-      );
+      const snapshot = readOcclusionSnapshot();
+      syncCandidateResizeObservers(snapshot.candidates);
+      applyOcclusion(snapshot.isOccluded, settleImmediately);
     };
 
     function scheduleCheck() {
