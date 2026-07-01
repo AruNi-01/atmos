@@ -1,0 +1,47 @@
+apps/web/src/features/run-preview/lib/preview-helper/bootstrap.ts
+  s_aa5b20d6a93c34::t_0cec5fb23d075b 97-98,104
+packages/shared/preview/preview-runtime.js
+  s_aa5b20d6a93c34::t_47517183900874 989-991,1847-1850
+  s_aa5b20d6a93c34::t_b95431f99535e1 1565,1570
+  s_aa5b20d6a93c34::t_f4cb236d01d1bd 686,983-985
+  s_aa5b20d6a93c34::t_bc375318a4a0cf 5
+  s_aa5b20d6a93c34::t_aa7034d7e1b744 1806-1807
+apps/web/src/features/run-preview/hooks/use-preview-selection.ts
+  s_aa5b20d6a93c34::t_170f2ed8b43ce3 193-194
+  s_aa5b20d6a93c34::t_08f344a7bc3ff6 320,332,339,350
+  s_aa5b20d6a93c34::t_9363dcbdb072db 363,368,370
+  s_aa5b20d6a93c34::t_25d188905e7940 39-51,123-124,131-192,195-219
+  s_aa5b20d6a93c34::t_2807ba65d34721 125-130
+  s_aa5b20d6a93c34::t_242fc8047fdae7 220
+extension/manifest.json
+  s_aa5b20d6a93c34::t_2ee44bb03f88f7 5
+apps/web/src/features/run-preview/hooks/use-preview-lifecycle-effects.ts
+  s_aa5b20d6a93c34::t_7e085f27318b9b 313,374
+  s_aa5b20d6a93c34::t_449a45a3b1169c 307-312,367-373
+  s_aa5b20d6a93c34::t_3698b48abfdd26 16,103,106-121,126-130,145
+extension/preview-runtime.js
+  s_aa5b20d6a93c34::t_df052da06068de 14
+  s_aa5b20d6a93c34::t_21e157b72af1b4 1383,1392-1393
+  s_aa5b20d6a93c34::t_2d6a9cfdf9ffeb 1165,1170
+apps/desktop/src-tauri/src/preview_bridge/mod.rs
+  s_aa5b20d6a93c34::t_52f38fd452c5a2 64-66
+  s_aa5b20d6a93c34::t_f647668cc802eb 860-880
+apps/web/src/features/run-preview/hooks/use-preview-navigation.ts
+  s_aa5b20d6a93c34::t_4d23b23e871b4a 202-207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "c924c178b2786494ff1f7be1bef02948c1a253a8",
+  "prompts": {},
+  "sessions": {
+    "s_aa5b20d6a93c34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1bbc-f341-71d1-8b2e-a74dd86b4085",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
