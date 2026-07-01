@@ -1,0 +1,52 @@
+apps/web/messages/zh.json
+  s_aa5b20d6a93c34::t_4f36988da553fd 7114-7123
+apps/web/messages/en.json
+  s_aa5b20d6a93c34::t_4708d882164147 7114-7123
+apps/web/src/features/run-preview/components/PreviewBrowserTabBar.tsx
+  s_aa5b20d6a93c34::t_bbf32296e696b9 4,19,71-73,89,158,177-178,227-228
+  s_aa5b20d6a93c34::t_ea42d3b4786709 157
+  s_aa5b20d6a93c34::t_7e085f27318b9b 65-69,78,109-112
+  s_d40bb1754f73e2::t_91f25e677a89f5 11-12,197,208
+apps/web/src/features/run-preview/components/PreviewBrowserStandalonePage.tsx
+  s_aa5b20d6a93c34::t_ea4da8beee5b64 81
+  s_aa5b20d6a93c34::t_87483c561e3537 3,7-14,33,38-46,48-59,61-66,97
+  s_aa5b20d6a93c34::t_2343eaeaa028ca 47,60
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_aa5b20d6a93c34::t_4383ed53a0dbc3 65,67-68,127,129-130,920-921,925,927-928,932-933
+apps/web/src/features/run-preview/hooks/use-preview-browser-state.ts
+  s_aa5b20d6a93c34::t_b57ec1af7ed97c 6,26
+  s_aa5b20d6a93c34::t_16f7d775c30046 358,360-364,370-371
+  s_aa5b20d6a93c34::t_9328987e90cb04 7,27-32,189-192,194-195,197-215,217,237-238,461-462
+  s_aa5b20d6a93c34::t_ed2a8ae85af474 1,169,174,187-188,193,196
+apps/web/src/features/run-preview/components/RunPreviewPanel.tsx
+  s_aa5b20d6a93c34::t_0145d087d8a2cb 6,88,124-126,227-229,237-239,243-253
+  s_aa5b20d6a93c34::t_c20c45c9208643 71-73,79
+  s_aa5b20d6a93c34::t_cb1760da91be75 3,7,16-22,25,44,50-54,63,65,70,75-78,80,85-87,89-104,121-123,127-131,156-157,222-226,230-236,240-242,254-271
+  s_aa5b20d6a93c34::t_be35b3bd02e857 74,81-84
+  s_aa5b20d6a93c34::t_6210e6470d5bad 137,140
+  s_aa5b20d6a93c34::t_ac78830f106b32 272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "048f4e72436467ce8d7f7a63b0e15f1c0ccf4aef",
+  "prompts": {},
+  "sessions": {
+    "s_aa5b20d6a93c34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1bbc-f341-71d1-8b2e-a74dd86b4085",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d40bb1754f73e2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1c18-5621-7b43-b4fa-6db1082965ac",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
