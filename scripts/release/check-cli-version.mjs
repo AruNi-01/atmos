@@ -4,20 +4,26 @@ import { resolve } from "node:path";
 import { ensureCalendarVersion } from "./lib/calendar-version.mjs";
 
 const rootDir = resolve(import.meta.dirname, "../..");
-const localRuntimeVersionJson = resolve(rootDir, "resources/local-runtime/version.json");
+const cliCargoToml = resolve(rootDir, "apps/cli/Cargo.toml");
 
 function fail(message) {
   console.error(message);
   process.exit(1);
 }
 
-function readLocalRuntimeVersion() {
-  const content = JSON.parse(readFileSync(localRuntimeVersionJson, "utf8"));
-  const version = content?.version;
-  if (!version) {
-    fail(`Unable to resolve version from ${localRuntimeVersionJson}`);
+function readCliVersion() {
+  const content = readFileSync(cliCargoToml, "utf8");
+  const packageSectionMatch = content.match(/\[package\]([\s\S]*?)(?:\n\[|$)/);
+  if (!packageSectionMatch) {
+    fail(`Unable to resolve [package] section from ${cliCargoToml}`);
   }
-  return String(version);
+
+  const versionMatch = packageSectionMatch[1].match(/^\s*version\s*=\s*"([^"]+)"\s*$/m);
+  if (!versionMatch) {
+    fail(`Unable to resolve version from ${cliCargoToml}`);
+  }
+
+  return versionMatch[1];
 }
 
 function getReleaseTagFromArgs(argv) {
@@ -35,21 +41,21 @@ function getReleaseTagFromArgs(argv) {
       return arg.slice("--release-tag=".length);
     }
   }
+
   return "";
 }
 
-const runtimeVersion = readLocalRuntimeVersion();
+const cliVersion = ensureCalendarVersion(readCliVersion(), "CLI version");
 const releaseTag = getReleaseTagFromArgs(process.argv.slice(2));
-const calendarVersion = ensureCalendarVersion(runtimeVersion, "local runtime version");
 
-console.log(`resources/local-runtime/version.json: ${calendarVersion}`);
+console.log(`apps/cli/Cargo.toml: ${cliVersion}`);
 
 if (releaseTag) {
-  const expectedTag = `local-web-runtime-${calendarVersion}`;
+  const expectedTag = `cli-${cliVersion}`;
   console.log(`release tag: ${releaseTag}`);
   if (releaseTag !== expectedTag) {
     fail(`Release tag mismatch: expected ${expectedTag}, got ${releaseTag}`);
   }
 }
 
-console.log("Local runtime release version is valid.");
+console.log("CLI release version is valid.");

@@ -4,6 +4,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { ensureCalendarVersion } from "../../../../scripts/release/lib/calendar-version.mjs";
+
 const repoRoot = resolve(import.meta.dirname, "../../../..");
 
 const DEFAULTS = {
@@ -25,10 +27,10 @@ Usage:
   node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version> [options]
 
 Examples:
-  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.2.1
-  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.5.0-rc.1 --prerelease
-  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.2.1 --dry-run
-  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.2.1 --no-commit --no-push-commit
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 2026.7.2
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 2026.7.2-rc.1 --prerelease
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 2026.7.2 --dry-run
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 2026.7.2 --no-commit --no-push-commit
 
 Options:
   --prerelease           Mark release intent as prerelease
@@ -43,7 +45,7 @@ Options:
   --help, -h             Show this help
 
 This script is Atmos-specific and assumes:
-- desktop tag format: desktop-v<version>
+- desktop tag format: desktop-<version>
 - version files:
   - apps/desktop/src-tauri/Cargo.toml
   - apps/desktop/src-tauri/tauri.conf.json
@@ -141,20 +143,11 @@ function parseArgs(argv) {
 
 function ensureValidVersion(version) {
   const normalized = String(version || "").trim();
-  const VERSION_RE =
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-
-  if (!VERSION_RE.test(normalized)) {
-    fail(
-      `Invalid version "${normalized}". Expected something like 0.2.1 or 0.5.0-rc.1`,
-    );
-  }
-
-  return normalized;
+  return ensureCalendarVersion(normalized, "desktop version");
 }
 
 function buildDesktopTag(version) {
-  return `desktop-v${version}`;
+  return `desktop-${version}`;
 }
 
 function buildReleaseNotesPath(version) {
@@ -424,7 +417,7 @@ function maybeCommitVersionBump(version, dryRun) {
 }
 
 function printMonitorGuidance(tag) {
-  const version = tag.replace(/^desktop-v/, "");
+  const version = tag.replace(/^desktop-/, "");
 
   console.log("");
   console.log("Next checks:");

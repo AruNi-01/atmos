@@ -29,8 +29,8 @@ The page currently renders:
 
 - Only stable releases belong in this file. Skip any tag whose version contains a SemVer pre-release suffix (`-rc.N`, `-beta.N`, `-alpha.N`, etc.). See the `Prerelease Filter` section in `SKILL.md` for the full rule.
 - Keep entries sorted newest first.
-- Keep `id` stable and tag-like when possible, for example `desktop-v0.2.6`.
-- Keep `version` short and user-facing, for example `0.2.6`.
+- Keep `id` stable and tag-like when possible, for example `desktop-2026.7.2`.
+- Keep `version` short and user-facing, for example `2026.7.2`.
 - Keep `releaseUrl` as the GitHub release tag URL.
 - Do not place GitHub release links inside `description` if the UI already renders a release button beside the title.
 - Keep markdown valid inside descriptions and bullet items because the page renders them with `react-markdown`.

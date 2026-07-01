@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     tags:
-      - "local-model-runtime-v*"
+      - "local-model-runtime-*"
   workflow_dispatch:
     inputs:
       llama_cpp_ref:
@@ -19,7 +19,7 @@ on:
         default: true
         type: boolean
       release_tag:
-        description: "Release tag"
+        description: "Release tag, for example local-model-runtime-2026.7.2"
         required: false
       prerelease:
         description: "Mark as prerelease"
@@ -39,18 +39,36 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - id: resolve
+        shell: bash
         run: |
+          set -euo pipefail
+          validate_tag() {
+            local tag="$1"
+            if [[ ! "$tag" =~ ^local-model-runtime-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+              echo "release_tag must match local-model-runtime-<YYYY.M.D>. Got: $tag" >&2
+              exit 1
+            fi
+          }
+
           if [ "${{ github.event_name }}" = "push" ]; then
+            validate_tag "${GITHUB_REF_NAME}"
             echo "create_release=true" >> $GITHUB_OUTPUT
             echo "release_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-            echo "release_version=${GITHUB_REF_NAME#local-model-runtime-v}" >> $GITHUB_OUTPUT
+            echo "release_version=${GITHUB_REF_NAME#local-model-runtime-}" >> $GITHUB_OUTPUT
             echo "llama_cpp_ref=b9041" >> $GITHUB_OUTPUT
             echo "prerelease=false" >> $GITHUB_OUTPUT
           else
             echo "create_release=${{ github.event.inputs.create_release }}" >> $GITHUB_OUTPUT
             release_tag="${{ github.event.inputs.release_tag }}"
+            if [ "${{ github.event.inputs.create_release }}" = "true" ] && [ -z "$release_tag" ]; then
+              echo "release_tag is required when create_release=true" >&2
+              exit 1
+            fi
+            if [ -n "$release_tag" ]; then
+              validate_tag "$release_tag"
+            fi
             echo "release_tag=${release_tag}" >> $GITHUB_OUTPUT
-            echo "release_version=${release_tag#local-model-runtime-v}" >> $GITHUB_OUTPUT
+            echo "release_version=${release_tag#local-model-runtime-}" >> $GITHUB_OUTPUT
             echo "llama_cpp_ref=${{ github.event.inputs.llama_cpp_ref }}" >> $GITHUB_OUTPUT
             echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_OUTPUT
           fi

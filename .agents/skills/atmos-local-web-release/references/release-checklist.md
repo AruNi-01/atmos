@@ -27,7 +27,7 @@ If any layer disagrees, the release is not complete.
 
 ## Repository Conventions
 
-- Tag format: `local-web-runtime-v<version>`
+- Tag format: `local-web-runtime-<version>`
 - Version file: `resources/local-runtime/version.json`
 - Release workflow: `.github/workflows/release-local-runtime.yml`
 - Runtime build script: `scripts/local-runtime/build-runtime.mjs`
@@ -47,7 +47,7 @@ If any layer disagrees, the release is not complete.
 ### Version planning
 - [ ] Target version is correct
 - [ ] Version format is valid
-- [ ] Intended tag is clear, for example `local-web-runtime-v0.1.0`
+- [ ] Intended tag is clear, for example `local-web-runtime-2026.7.2`
 - [ ] `resources/local-runtime/version.json` version matches target version
 
 ### Access and secrets
@@ -65,12 +65,12 @@ Before tagging, confirm:
 - [ ] Release tag matches the same version
 
 Typical commands:
-- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
+- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-<version>`
 - `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run`
 
-Example for `0.1.0`:
-- version file = `0.1.0`
-- tag = `local-web-runtime-v0.1.0`
+Example for `2026.7.2`:
+- version file = `2026.7.2`
+- tag = `local-web-runtime-2026.7.2`
 
 ---
 
@@ -83,8 +83,8 @@ Example for `0.1.0`:
 - [ ] Diff reviewed
 
 ### Git actions
-- [ ] `local-web-runtime-v<version>` tag created
-- [ ] `local-web-runtime-v<version>` tag pushed
+- [ ] `local-web-runtime-<version>` tag created
+- [ ] `local-web-runtime-<version>` tag pushed
 
 ### Automation
 - [ ] `release-local-runtime.yml` started
@@ -101,7 +101,7 @@ Example for `0.1.0`:
 
 ## Minimum Artifact Checks
 
-For version `0.1.0`, expect:
+For version `2026.7.2`, expect:
 
 - `atmos-local-runtime-aarch64-apple-darwin.tar.gz`
 - `atmos-local-runtime-x86_64-apple-darwin.tar.gz`
@@ -109,7 +109,7 @@ For version `0.1.0`, expect:
 
 Verify:
 - [ ] all expected archives exist
-- [ ] archives are attached to `local-web-runtime-v<version>`
+- [ ] archives are attached to `local-web-runtime-<version>`
 - [ ] archive set matches supported targets
 
 If tag and runtime assets disagree, stop and treat the release as invalid.
@@ -191,14 +191,14 @@ Action:
 ## Quick Command Reminders
 
 Validation:
-- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
+- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-<version>`
 - `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run`
 
 Release helper:
 - `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>`
 
 Monitoring:
-- `gh release view local-web-runtime-v<version>`
+- `gh release view local-web-runtime-<version>`
 - `gh run list --workflow release-local-runtime.yml --limit 10`
 - `gh run view --web`
 

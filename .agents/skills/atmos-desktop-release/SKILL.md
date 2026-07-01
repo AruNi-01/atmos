@@ -1,13 +1,13 @@
 ---
 name: atmos-desktop-release
-description: Run the Atmos desktop release workflow for this repository. Use this whenever you need to cut an Atmos desktop release, bump the desktop version, create the required `desktop-v<version>` tag, push the release-prep commit, and verify the GitHub Actions + Homebrew tap flow. Prefer this over a generic GitHub release process for Atmos desktop releases.
+description: Run the Atmos desktop release workflow for this repository. Use this whenever you need to cut an Atmos desktop release, bump the desktop version, create the required `desktop-<version>` tag, push the release-prep commit, and verify the GitHub Actions + Homebrew tap flow. Prefer this over a generic GitHub release process for Atmos desktop releases.
 user-invokable: true
 args:
   - name: version
-    description: Desktop version to release, for example `0.2.1` or `0.5.0-rc.1`
+    description: Desktop version to release, for example `2026.7.2` or `2026.7.2-rc.1`
     required: true
   - name: prerelease
-    description: Set to true for prereleases such as `0.5.0-rc.1`
+    description: Set to true for prereleases such as `2026.7.2-rc.1`
     required: false
   - name: dry_run
     description: Preview the full release plan without changing files, committing, tagging, or pushing
@@ -25,7 +25,7 @@ This skill handles the Atmos desktop release sequence:
 1. validate repository state
 2. bump desktop version files together
 3. validate version consistency
-4. create and push the `desktop-v<version>` tag
+4. create and push the `desktop-<version>` tag
 5. collect release context from GitHub using `gh`
 6. generate the final release body with the model using that context
 7. write the generated markdown to `releasenotes/<release title>.md`
@@ -43,7 +43,7 @@ Use that script for execution. Keep this file focused on orchestration and decis
 
 Atmos desktop releases follow these rules:
 
-- desktop tag format is `desktop-v<version>`
+- desktop tag format is `desktop-<version>`
 - desktop versions must stay aligned across:
   - `apps/desktop/src-tauri/Cargo.toml`
   - `apps/desktop/src-tauri/tauri.conf.json`
@@ -144,7 +144,7 @@ Do not load it for:
 
 ## Same-base-version continuity
 
-Every release-notes file under `releasenotes/` must be **self-sufficient** — it is published verbatim as the GitHub Release body and is the only document users see for that release. When a release shares its base version (`X.Y.Z`) with earlier pre-releases or RCs, the new file must carry forward their content instead of starting from the commit range alone.
+Every release-notes file under `releasenotes/` must be **self-sufficient** — it is published verbatim as the GitHub Release body and is the only document users see for that release. When a release shares its base version (`YYYY.M.D`) with earlier pre-releases or RCs, the new file must carry forward their content instead of starting from the commit range alone.
 
 Why this rule exists:
 
@@ -153,17 +153,17 @@ Why this rule exists:
 
 Apply the rule in these cases:
 
-- **Pre-release follows a pre-release of the same base** (e.g. `1.1.0-rc.2` after `1.1.0-rc.1`):
+- **Pre-release follows a pre-release of the same base** (e.g. `2026.7.2-rc.2` after `2026.7.2-rc.1`):
   1. Read the previous pre-release file, `releasenotes/Atmos Desktop <base>-<prevTag>.md`.
   2. Carry its body forward into the new file unchanged.
   3. Insert a short `Changes Since <prevTag>` block at the top (above the existing content) that summarizes what changed since the previous pre-release. Keep the RC framing (for example the `Release candidate` callout) intact.
   4. Only the `Changes Since ...` block needs to be generated from the commit-range context; the rest is inherited.
 
-- **Stable follows one or more pre-releases of the same base** (e.g. `1.1.0` after `1.1.0-rc.1`, `1.1.0-rc.2`):
+- **Stable follows one or more pre-releases of the same base** (e.g. `2026.7.2` after `2026.7.2-rc.1`, `2026.7.2-rc.2`):
   1. Start from the most recent pre-release file as the foundation.
   2. Remove the `Release candidate` framing, any `Changes Since RC*` preambles, and language that implies the release is still in progress.
-  3. Polish the surviving content into stable-release prose and merge in anything new from the final `rc.N..X.Y.Z` range.
-  4. The stable release notes must cover the full feature set introduced in the `X.Y.Z` line, not only the post-RC delta.
+  3. Polish the surviving content into stable-release prose and merge in anything new from the final `rc.N..YYYY.M.D` range.
+  4. The stable release notes must cover the full feature set introduced in the `YYYY.M.D` line, not only the post-RC delta.
 
 - **Stable follows a stable (no pre-releases)** — normal flow: generate from the commit-range context alone. No continuity work required.
 
@@ -178,11 +178,12 @@ Read the newest matching file (by filename sort) as the inheritance source. If n
 ## Inputs
 
 ### `version`
-Required. A semver-like desktop version such as:
+Required. A calendar desktop version such as:
 
-- `0.2.1`
-- `1.0.0`
-- `0.5.0-rc.1`
+- `2026.7.2`
+- `2026.7.2-rc.1`
+
+Use no leading zeroes in month or day so the version stays SemVer-compatible for Cargo, npm, and Tauri.
 
 ### `prerelease`
 Optional. Treat the release as a prerelease when relevant.
@@ -214,7 +215,7 @@ If `HOMEBREW_TAP_PAT` is missing, the desktop release may still publish but the 
 When asked to perform an Atmos desktop release:
 
 1. normalize the requested inputs
-2. construct the desktop tag as `desktop-v<version>`
+2. construct the desktop tag as `desktop-<version>`
 3. run the bundled release script
 4. wait for the GitHub Release to exist for that tag
 5. collect release context with `gh`
@@ -227,7 +228,7 @@ When asked to perform an Atmos desktop release:
 Recommended command sequence for the note-generation portion:
 
 ```bash
-node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --output /tmp/atmos-desktop-release-context.json
+node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-<version> --output /tmp/atmos-desktop-release-context.json
 node ./scripts/release/desktop-release-notes.mjs --version <version> --print abs-path
 # write the model-generated markdown into the resolved path
 ```
@@ -342,7 +343,7 @@ If release artifacts and tag version disagree, treat it as a release integrity p
 After a non-dry-run release, verify:
 
 - the desktop release workflow ran
-- the GitHub Release exists for `desktop-v<version>`
+- the GitHub Release exists for `desktop-<version>`
 - the tagged commit contains `releasenotes/Atmos Desktop <version>.md`
 - the published GitHub Release body matches the custom grouped sections:
   - `New Features`
@@ -379,7 +380,7 @@ brew upgrade --cask atmos
 
 ## Never do these things
 
-- never use a plain `v<version>` tag for Atmos desktop
+- never add `v` to Atmos desktop tags; use `desktop-<version>`
 - never skip desktop version consistency checks
 - never create the desktop tag before versions are aligned
 - never assume a successful GitHub Release means Homebrew is already updated
@@ -405,7 +406,7 @@ node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <v
 
 ### Collect release-note context
 ```bash
-node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --to-ref HEAD --output /tmp/atmos-desktop-release-context.json
+node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-<version> --to-ref HEAD --output /tmp/atmos-desktop-release-context.json
 ```
 
 ### Resolve release-note path

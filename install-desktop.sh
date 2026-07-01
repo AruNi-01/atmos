@@ -415,7 +415,7 @@ resolve_release_tag() {
 
   local releases_json
   if ! releases_json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100")"; then
-    echo "Failed to query GitHub releases. Try again, or pass --version desktop-v0.2.1." >&2
+    echo "Failed to query GitHub releases. Try again, or pass --version desktop-2026.7.2." >&2
     return 1
   fi
 
@@ -442,7 +442,7 @@ resolve_release_tag() {
     }
 
     function maybe_select() {
-      if (selected == "" && tag ~ /^desktop-v/ && draft == "false" && prerelease == "false") {
+      if (selected == "" && tag ~ /^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$/ && draft == "false" && prerelease == "false") {
         selected = tag
       }
     }

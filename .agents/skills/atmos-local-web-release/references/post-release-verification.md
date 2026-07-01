@@ -16,7 +16,7 @@ Do not load this by default during normal release execution.
 
 A local runtime release is fully verified only when these agree:
 
-1. `local-web-runtime-v<version>` tag
+1. `local-web-runtime-<version>` tag
 2. GitHub Release
 3. runtime archive set
 4. public R2 URLs
@@ -31,7 +31,7 @@ If one layer disagrees, the release is not fully verified.
 Use this reference when the user asks to:
 
 - verify a release
-- check whether `local-web-runtime-vX.Y.Z` is good
+- check whether `local-web-runtime-YYYY.M.D` is good
 - confirm runtime archives
 - confirm R2 sync
 - confirm `install-local-web-runtime.sh`
@@ -71,11 +71,11 @@ Check:
 
 ### 1. Confirm target
 Identify:
-- version, for example `0.1.0`
-- tag, for example `local-web-runtime-v0.1.0`
+- version, for example `2026.7.2`
+- tag, for example `local-web-runtime-2026.7.2`
 
 Rule:
-- tag must be `local-web-runtime-v<version>`
+- tag must be `local-web-runtime-<version>`
 
 If the target is ambiguous, clarify first.
 
@@ -96,7 +96,7 @@ Fail:
 - wrong prerelease or stable status
 
 ### 3. Verify runtime archives
-For version `0.1.0`, expect:
+For version `2026.7.2`, expect:
 
 - `atmos-local-runtime-aarch64-apple-darwin.tar.gz`
 - `atmos-local-runtime-x86_64-apple-darwin.tar.gz`

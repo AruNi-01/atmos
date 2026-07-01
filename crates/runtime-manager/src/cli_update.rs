@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
 use tracing::{info, warn};
 
@@ -15,8 +15,7 @@ const CLI_RELEASES_API_URL: &str = "https://api.github.com/repos/AruNi-01/atmos/
 const CLI_TAGS_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/tags.atom";
 const CLI_UPDATE_MANIFEST_ENV: &str = "ATMOS_CLI_UPDATE_MANIFEST_URL";
 const ATMOS_DOWNLOAD_BASE_URL: &str = "https://install.atmos.land";
-const CLI_RELEASE_TAG_PREFIX: &str = "cli-v";
-const ALT_CLI_RELEASE_TAG_PREFIX: &str = "atmos-cli-v";
+const CLI_RELEASE_TAG_PREFIX: &str = "cli-";
 const GITHUB_RELEASES_BASE_URL: &str = "https://github.com/AruNi-01/atmos/releases";
 
 #[derive(Debug, Deserialize)]
@@ -345,7 +344,7 @@ async fn fetch_latest_cli_release_from_tags_feed() -> Result<LatestCliRelease, S
         .await
         .map_err(|error| error.to_string())?;
     let tag = find_latest_cli_tag_in_atom(&feed)
-        .ok_or_else(|| "No cli-v tag was found in Atmos tags feed".to_string())?;
+        .ok_or_else(|| "No cli- tag was found in Atmos tags feed".to_string())?;
     Ok(LatestCliRelease {
         version: release_version(&tag),
         url: format!("{}/tag/{}", GITHUB_RELEASES_BASE_URL, tag),
@@ -603,14 +602,13 @@ fn extract_between(value: &str, start: &str, end: &str) -> Option<String> {
 
 fn release_version(tag: &str) -> String {
     tag.strip_prefix(CLI_RELEASE_TAG_PREFIX)
-        .or_else(|| tag.strip_prefix(ALT_CLI_RELEASE_TAG_PREFIX))
-        .or_else(|| tag.strip_prefix('v'))
         .unwrap_or(tag)
         .to_string()
 }
 
 fn is_cli_release_tag(tag: &str) -> bool {
-    tag.starts_with(CLI_RELEASE_TAG_PREFIX) || tag.starts_with(ALT_CLI_RELEASE_TAG_PREFIX)
+    tag.strip_prefix(CLI_RELEASE_TAG_PREFIX)
+        .map_or(false, is_calendar_release_version)
 }
 
 fn is_stable_cli_release_tag(tag: &str) -> bool {
@@ -619,6 +617,26 @@ fn is_stable_cli_release_tag(tag: &str) -> bool {
     }
     let version = release_version(tag);
     !version.contains('-')
+}
+
+fn is_calendar_release_version(version: &str) -> bool {
+    let (date_part, _) = version.split_once('-').unwrap_or((version, ""));
+    let mut parts = date_part.split('.');
+    let Some(year) = parts.next().and_then(|part| part.parse::<i32>().ok()) else {
+        return false;
+    };
+    let Some(month) = parts.next().and_then(|part| part.parse::<u32>().ok()) else {
+        return false;
+    };
+    let Some(day) = parts.next().and_then(|part| part.parse::<u32>().ok()) else {
+        return false;
+    };
+
+    if parts.next().is_some() || !(2000..=2255).contains(&year) {
+        return false;
+    }
+
+    NaiveDate::from_ymd_opt(year, month, day).is_some()
 }
 
 pub fn version_gt(candidate: &str, current: &str) -> bool {
@@ -774,7 +792,7 @@ mod tests {
         };
 
         assert!(
-            manifest_asset_url_with_base(&asset, "cli-v0.2.2", "https://install.atmos.land")
+            manifest_asset_url_with_base(&asset, "cli-2026.7.2", "https://install.atmos.land")
                 .is_err()
         );
     }
@@ -784,11 +802,11 @@ mod tests {
         let asset = CliUpdateManifestAsset {
             name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
             target: Some("x86_64-unknown-linux-gnu".to_string()),
-            url: Some("cli/cli-v0.2.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+            url: Some("cli/cli-2026.7.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
         };
 
         assert!(
-            manifest_asset_url_with_base(&asset, "cli-v0.2.2", "http://install.atmos.land")
+            manifest_asset_url_with_base(&asset, "cli-2026.7.2", "http://install.atmos.land")
                 .is_err()
         );
     }
@@ -798,14 +816,23 @@ mod tests {
         let asset = CliUpdateManifestAsset {
             name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
             target: Some("x86_64-unknown-linux-gnu".to_string()),
-            url: Some("cli/cli-v0.2.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+            url: Some("cli/cli-2026.7.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
         };
 
         assert_eq!(
-            manifest_asset_url_with_base(&asset, "cli-v0.2.2", "https://install.atmos.land")
+            manifest_asset_url_with_base(&asset, "cli-2026.7.2", "https://install.atmos.land")
                 .unwrap(),
-            "https://install.atmos.land/cli/cli-v0.2.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz"
+            "https://install.atmos.land/cli/cli-2026.7.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz"
         );
+    }
+
+    #[test]
+    fn cli_release_tags_require_calendar_versions_without_v() {
+        assert!(is_cli_release_tag("cli-2026.7.2"));
+        assert!(is_cli_release_tag("cli-2026.7.2-rc.1"));
+        assert!(!is_cli_release_tag("cli-v2026.7.2"));
+        assert!(!is_cli_release_tag("cli-0.2.3"));
+        assert!(!is_cli_release_tag("atmos-cli-2026.7.2"));
     }
 
     #[test]

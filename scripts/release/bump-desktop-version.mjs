@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { ensureCalendarVersion } from "./lib/calendar-version.mjs";
 import { computeMsiWixVersion } from "./lib/msi-version.mjs";
 
 const DESKTOP_PACKAGE_JSON = "apps/desktop/package.json";
@@ -14,8 +15,8 @@ function printUsage() {
   node scripts/release/bump-desktop-version.mjs <version> [--dry-run]
 
 Examples:
-  node scripts/release/bump-desktop-version.mjs 0.2.1
-  node scripts/release/bump-desktop-version.mjs 1.0.0-rc.1 --dry-run
+  node scripts/release/bump-desktop-version.mjs 2026.7.2
+  node scripts/release/bump-desktop-version.mjs 2026.7.2-rc.1 --dry-run
 `);
 }
 
@@ -46,20 +47,10 @@ function ensureValidVersion(version) {
   const normalized = String(version || "").trim();
 
   if (!normalized) {
-    throw new Error("Missing version. Example: 0.2.1");
+    throw new Error("Missing version. Example: 2026.7.2");
   }
 
-  // Semver-ish with optional prerelease/build metadata.
-  const VERSION_RE =
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-
-  if (!VERSION_RE.test(normalized)) {
-    throw new Error(
-      `Invalid version "${normalized}". Expected something like 0.2.1 or 1.0.0-rc.1`,
-    );
-  }
-
-  return normalized;
+  return ensureCalendarVersion(normalized, "desktop version");
 }
 
 function updateJsonVersion(jsonText, fileLabel, nextVersion) {

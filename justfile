@@ -238,23 +238,23 @@ check-desktop-version:
 
 # 同步更新 Desktop 版本
 # 用法:
-#   just bump-desktop-version 0.2.1
-#   just bump-desktop-version 0.2.1 --dry-run
+#   just bump-desktop-version 2026.7.2
+#   just bump-desktop-version 2026.7.2 --dry-run
 bump-desktop-version version *args:
     node ./scripts/release/bump-desktop-version.mjs "{{version}}" {{args}}
 
 # Atmos Desktop 发布辅助
 # 用法:
-#   just release-desktop 0.2.1
-#   just release-desktop 0.2.1 --dry-run
-#   just release-desktop 0.5.0-rc.1 --prerelease
+#   just release-desktop 2026.7.2
+#   just release-desktop 2026.7.2 --dry-run
+#   just release-desktop 2026.7.2-rc.1 --prerelease
 release-desktop version *args:
     node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" {{args}}
 
 # Atmos Desktop 发布预演
 # 用法:
-#   just release-desktop-dry-run 0.2.1
-#   just release-desktop-dry-run 0.2.1 --allow-dirty
+#   just release-desktop-dry-run 2026.7.2
+#   just release-desktop-dry-run 2026.7.2 --allow-dirty
 release-desktop-dry-run version *args:
     node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" --dry-run {{args}}
 

@@ -3,8 +3,10 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { ensureCalendarVersion, extractCalendarVersionFromTag } from "./lib/calendar-version.mjs";
+
 const repoRoot = resolve(import.meta.dirname, "../..");
-const DESKTOP_TAG_PREFIX = "desktop-v";
+const DESKTOP_TAG_PREFIX = "desktop-";
 
 function fail(message) {
   console.error(message);
@@ -24,11 +26,7 @@ function buildNotesAbsolutePath(version) {
 }
 
 function extractVersionFromTag(tag) {
-  const match = String(tag || "").trim().match(/^desktop-v(.+)$/);
-  if (!match) {
-    fail(`Invalid desktop tag "${tag}". Expected format ${DESKTOP_TAG_PREFIX}<version>.`);
-  }
-  return match[1];
+  return extractCalendarVersionFromTag(tag, DESKTOP_TAG_PREFIX);
 }
 
 function parseArgs(argv) {
@@ -73,8 +71,8 @@ function parseArgs(argv) {
       console.log(`Resolve Atmos desktop release-notes file
 
 Usage:
-  node ./scripts/release/desktop-release-notes.mjs --version 0.2.6
-  node ./scripts/release/desktop-release-notes.mjs --release-tag desktop-v0.2.6 --verify
+  node ./scripts/release/desktop-release-notes.mjs --version 2026.7.2
+  node ./scripts/release/desktop-release-notes.mjs --release-tag desktop-2026.7.2 --verify
 
 Options:
   --version <version>       Desktop version
@@ -94,6 +92,8 @@ Options:
     }
     args.version = extractVersionFromTag(args.releaseTag);
   }
+
+  args.version = ensureCalendarVersion(args.version, "desktop version");
 
   return args;
 }

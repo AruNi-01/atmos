@@ -4,8 +4,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
+import { extractCalendarVersionFromTag } from "./lib/calendar-version.mjs";
+
 const repoRoot = resolve(import.meta.dirname, "../..");
-const DESKTOP_TAG_PREFIX = "desktop-v";
+const DESKTOP_TAG_PREFIX = "desktop-";
 
 function fail(message) {
   console.error(`❌ ${message}`);
@@ -77,8 +79,8 @@ function parseArgs(argv) {
       console.log(`Collect Atmos desktop release context
 
 Usage:
-  node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v0.2.6
-  node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v0.2.6 --to-ref HEAD --output /tmp/release-context.json
+  node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-2026.7.2
+  node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-2026.7.2 --to-ref HEAD --output /tmp/release-context.json
 
 Options:
   --current-tag <tag>   Current desktop release tag, defaults to RELEASE_TAG
@@ -96,9 +98,13 @@ Options:
     fail("Missing current desktop tag. Pass --current-tag or set RELEASE_TAG.");
   }
 
-  if (!args.currentTag.startsWith(DESKTOP_TAG_PREFIX)) {
+  try {
+    extractCalendarVersionFromTag(args.currentTag, DESKTOP_TAG_PREFIX);
+  } catch (error) {
     fail(
-      `Invalid current tag "${args.currentTag}". Expected format ${DESKTOP_TAG_PREFIX}<version>.`,
+      error instanceof Error
+        ? error.message
+        : `Invalid current tag "${args.currentTag}". Expected format ${DESKTOP_TAG_PREFIX}<version>.`,
     );
   }
 
@@ -111,11 +117,19 @@ function getDesktopTags() {
     "for-each-ref",
     "--sort=-creatordate",
     "--format=%(refname:strip=2)",
-    "refs/tags/desktop-v*",
+    "refs/tags/desktop-*",
   ])
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter((tag) => {
+      if (!tag) return false;
+      try {
+        extractCalendarVersionFromTag(tag, DESKTOP_TAG_PREFIX);
+        return true;
+      } catch {
+        return false;
+      }
+    });
 }
 
 function resolvePreviousTag(currentTag, explicitPreviousTag) {

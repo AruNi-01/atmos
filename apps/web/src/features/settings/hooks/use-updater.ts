@@ -29,6 +29,7 @@ type GitHubRelease = {
 };
 
 const RELEASES_BASE_URL = 'https://github.com/AruNi-01/atmos/releases';
+const DESKTOP_RELEASE_TAG_RE = /^desktop-\d{4}\.\d{1,2}\.\d{1,2}(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$/;
 
 let pendingUpdate: Update | null = null;
 let isInstallingUpdate = false;
@@ -51,11 +52,9 @@ export function getUpdateReleaseNotesUrl(updateInfo?: UpdateInfo | null): string
     return RELEASES_BASE_URL;
   }
 
-  const normalizedVersion = updateInfo.version.startsWith('desktop-v')
+  const normalizedVersion = updateInfo.version.startsWith('desktop-')
     ? updateInfo.version
-    : updateInfo.version.startsWith('v')
-      ? `desktop-${updateInfo.version}`
-      : `desktop-v${updateInfo.version}`;
+    : `desktop-${updateInfo.version}`;
 
   return `${RELEASES_BASE_URL}/tag/${normalizedVersion}`;
 }
@@ -77,13 +76,12 @@ async function getVersionInfo(): Promise<{ version: string; version_type: string
 /**
  * Parse a version string into components.
  * Examples:
- * - "1.1.0" -> { major: 1, minor: 1, patch: 0, prereleaseType: null, prereleaseNumber: null }
- * - "1.1.0-rc.5" -> { major: 1, minor: 1, patch: 0, prereleaseType: "rc", prereleaseNumber: 5 }
- * - "1.1.1-beta.1" -> { major: 1, minor: 1, patch: 1, prereleaseType: "beta", prereleaseNumber: 1 }
+ * - "2026.7.2" -> { major: 2026, minor: 7, patch: 2, prereleaseType: null, prereleaseNumber: null }
+ * - "2026.7.2-rc.5" -> { major: 2026, minor: 7, patch: 2, prereleaseType: "rc", prereleaseNumber: 5 }
+ * - "2026.7.3-beta.1" -> { major: 2026, minor: 7, patch: 3, prereleaseType: "beta", prereleaseNumber: 1 }
  */
 export function parseVersion(version: string) {
-  // Remove 'desktop-v' prefix if present
-  const cleanVersion = version.replace(/^desktop-v/, '');
+  const cleanVersion = version.replace(/^desktop-/, '');
   
   // Split by '-' to separate main version from prerelease
   const [mainVersion, prereleasePart] = cleanVersion.split('-');
@@ -198,6 +196,10 @@ async function getLatestReleaseForVersionType(
 
     // Filter releases based on version type
     const filteredReleases = releases.filter((release) => {
+      if (!DESKTOP_RELEASE_TAG_RE.test(release.tag_name)) {
+        return false;
+      }
+
       if (versionType === 'stable') {
         return !release.prerelease;
       } else if (versionType === 'rc') {
@@ -271,8 +273,7 @@ export async function checkForUpdate(
       return null;
     }
 
-    // Extract version number from tag (remove 'desktop-v' prefix)
-    const latestVersion = latestTag.replace('desktop-v', '');
+    const latestVersion = latestTag.replace(/^desktop-/, '');
     
     // For prerelease versions, we can't use the Tauri updater directly
     // because it only supports the latest.json endpoint.

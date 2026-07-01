@@ -41,11 +41,12 @@ Atmos 采用 **三条独立发布线 + 一个 canonical CLI 安装路径 + R2 �
 
 | 发布线 | Tag | 版本源 | 主要 workflow | 产物 | 是否包含 CLI |
 | --- | --- | --- | --- | --- | --- |
-| CLI | `cli-v<version>` | `apps/cli/Cargo.toml` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | 是,这是唯一 CLI 发布线 |
-| Local Runtime | `local-web-runtime-v<version>` | `resources/local-runtime/version.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | 否 |
-| Desktop | `desktop-v<version>` | `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/tauri.conf.json` | `.github/workflows/release-desktop.yml` | Tauri installers, updater metadata | 否 |
+| CLI | `cli-<version>` | `apps/cli/Cargo.toml` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | 是,这是唯一 CLI 发布线 |
+| Local Runtime | `local-web-runtime-<version>` | `resources/local-runtime/version.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | 否 |
+| Local Model Runtime | `local-model-runtime-<version>` | release tag | `.github/workflows/release-local-model-runtime.yml` | `atmos-llama-server-<target>` archives, `manifest.json` | 否 |
+| Desktop | `desktop-<version>` | `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/tauri.conf.json` | `.github/workflows/release-desktop.yml` | Tauri installers, updater metadata | 否 |
 
-稳定 tag-push release 必须来自已进入 `origin/main` 的 commit。分支验证和真实资产测试使用 workflow dispatch + prerelease tag,例如 `cli-v0.2.0-rc.1`。
+稳定 tag-push release 必须来自已进入 `origin/main` 的 commit。分支验证和真实资产测试使用 workflow dispatch + prerelease tag,例如 `cli-2026.7.2-rc.1`。
 
 ## 下载源与路径 (Download Sources)
 
@@ -221,7 +222,7 @@ R2 流量主要来自:
 
 ### 正面影响
 
-- CLI-only 改动只需要发布 `cli-v*`。
+- CLI-only 改动只需要发布 `cli-*`。
 - Local Runtime 和 Desktop 的包体不再重复携带 CLI。
 - `atmos update` 默认不再依赖 GitHub API。
 - 用户排障时只需要检查 `which atmos` 是否指向 `~/.atmos/bin/atmos`。

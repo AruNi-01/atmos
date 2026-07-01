@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { ensureCalendarVersion, extractCalendarVersionFromTag } from "./lib/calendar-version.mjs";
 import { computeMsiWixVersion } from "./lib/msi-version.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
@@ -80,14 +81,7 @@ function verifyWindowsWixVersion(content, label, tauriVersion) {
 }
 
 function extractReleaseVersionFromTag(tag) {
-  const match = String(tag).trim().match(/^desktop-v(.+)$/);
-  if (!match) {
-    throw new Error(
-      `Invalid release tag "${tag}". Expected format: desktop-v<version>`,
-    );
-  }
-
-  return match[1];
+  return extractCalendarVersionFromTag(tag, "desktop-");
 }
 
 function getReleaseTagFromArgs(argv) {
@@ -145,6 +139,10 @@ function main() {
     ["tauri.conf.json", tauriVersion],
     ["package.json", packageVersion],
   ];
+
+  for (const [label, version] of versions) {
+    ensureCalendarVersion(version, label);
+  }
 
   if (releaseTag) {
     const releaseVersion = extractReleaseVersionFromTag(releaseTag);

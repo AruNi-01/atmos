@@ -51,8 +51,8 @@ describe("parseVersion", () => {
     });
   });
 
-  it("removes desktop-v prefix", () => {
-    const result = parseVersion("desktop-v1.1.0-rc.5");
+  it("removes desktop- prefix", () => {
+    const result = parseVersion("desktop-1.1.0-rc.5");
     expect(result).toEqual({
       major: 1,
       minor: 1,
@@ -164,9 +164,9 @@ describe("compareVersions", () => {
       expect(compareVersions("1.1.0", "1.1.1")).toBe(-1);
     });
 
-    it("desktop-v prefix doesn't affect comparison", () => {
-      expect(compareVersions("desktop-v1.1.1-rc.1", "1.1.0-rc.5")).toBe(1);
-      expect(compareVersions("1.1.0-rc.5", "desktop-v1.1.1-rc.1")).toBe(-1);
+    it("desktop- prefix doesn't affect comparison", () => {
+      expect(compareVersions("desktop-1.1.1-rc.1", "1.1.0-rc.5")).toBe(1);
+      expect(compareVersions("1.1.0-rc.5", "desktop-1.1.1-rc.1")).toBe(-1);
     });
   });
 
@@ -184,7 +184,7 @@ describe("compareVersions", () => {
 
     it("handles equal prerelease versions", () => {
       expect(compareVersions("1.1.0-rc.5", "1.1.0-rc.5")).toBe(0);
-      expect(compareVersions("desktop-v1.1.0-rc.5", "1.1.0-rc.5")).toBe(0);
+      expect(compareVersions("desktop-1.1.0-rc.5", "1.1.0-rc.5")).toBe(0);
     });
   });
 });

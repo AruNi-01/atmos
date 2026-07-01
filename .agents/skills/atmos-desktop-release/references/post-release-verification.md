@@ -16,7 +16,7 @@ Do not load this by default during normal release execution.
 
 A release is fully verified only when these agree:
 
-1. `desktop-v<version>` tag
+1. `desktop-<version>` tag
 2. GitHub Release
 3. DMG filenames and versions
 4. Homebrew tap metadata
@@ -31,7 +31,7 @@ If one layer disagrees, the release is not fully verified.
 Use this reference when the user asks to:
 
 - verify a release
-- check whether `desktop-vX.Y.Z` is good
+- check whether `desktop-YYYY.M.D` is good
 - confirm DMG assets
 - confirm tap sync
 - confirm Homebrew install or upgrade behavior
@@ -73,11 +73,11 @@ Check:
 
 ### 1. Confirm target
 Identify:
-- version, for example `0.2.1`
-- tag, for example `desktop-v0.2.1`
+- version, for example `2026.7.2`
+- tag, for example `desktop-2026.7.2`
 
 Rule:
-- tag must be `desktop-v<version>`
+- tag must be `desktop-<version>`
 
 If the target is ambiguous, clarify first.
 
@@ -98,10 +98,10 @@ Fail:
 - wrong prerelease/stable status
 
 ### 3. Verify macOS artifacts
-For version `0.2.1`, expect:
+For version `2026.7.2`, expect:
 
-- `Atmos_0.2.1_aarch64.dmg`
-- `Atmos_0.2.1_x64.dmg`
+- `Atmos_2026.7.2_aarch64.dmg`
+- `Atmos_2026.7.2_x64.dmg`
 
 Check:
 - both DMGs exist
@@ -138,7 +138,7 @@ Target file:
 
 Check:
 - cask was updated
-- cask points at intended `desktop-v<version>`
+- cask points at intended `desktop-<version>`
 - cask asset version matches intended DMG version
 - checksums were updated
 

@@ -14,7 +14,7 @@ Atmos currently has three primary distribution surfaces:
 
 For the Homebrew-first desktop installation flow, the source of truth is:
 
-- a desktop Git tag: `desktop-v<version>`
+- a desktop Git tag: `desktop-<version>`
 - matching desktop version files in the repo
 - GitHub Release assets generated from that exact version
 - a synchronized cask in the shared tap repository
@@ -80,14 +80,14 @@ brew install --cask atmos
 A valid desktop release should produce assets with names like:
 
 ```text
-Atmos_0.2.1_aarch64.dmg
-Atmos_0.2.1_x64.dmg
+Atmos_2026.7.2_aarch64.dmg
+Atmos_2026.7.2_x64.dmg
 ```
 
 The release tag should match the desktop version:
 
 ```text
-desktop-v0.2.1
+desktop-2026.7.2
 ```
 
 The important rule is that the tag version and packaged app version must stay aligned.
@@ -107,13 +107,13 @@ The desktop version is intentionally kept synchronized across these files:
 Use the repository script or `just` command to bump the desktop version in one place:
 
 ```bash
-just bump-desktop-version 0.2.1
+just bump-desktop-version 2026.7.2
 ```
 
 You can preview the change without writing files:
 
 ```bash
-just bump-desktop-version 0.2.1 --dry-run
+just bump-desktop-version 2026.7.2 --dry-run
 ```
 
 ### Version consistency check
@@ -126,8 +126,8 @@ just check-desktop-version
 
 The release workflow also validates the release tag against these files, so a mismatch such as:
 
-- `desktop-v0.2.1`
-- packaged app version `0.2.0`
+- `desktop-2026.7.2`
+- packaged app version `2026.7.1`
 
 will fail before packaging continues.
 
@@ -152,7 +152,7 @@ It supports:
    - validates desktop code still builds without producing release bundles
 
 2. **Tag push**
-   - triggered by tags matching `desktop-v*`
+   - triggered by tags matching `desktop-*`
    - treats the pushed tag as the release tag
    - checks out the exact tagged commit
 
@@ -192,7 +192,7 @@ This workflow updates the shared Homebrew tap after a desktop release is publish
 
 1. **Release published**
    - runs automatically for release events
-   - only proceeds for tags starting with `desktop-v`
+   - only proceeds for tags starting with `desktop-`
 
 2. **Manual dispatch**
    - requires a `release_tag`
@@ -293,19 +293,19 @@ Use this checklist when cutting a new desktop release.
 Example:
 
 ```text
-0.2.1
+2026.7.2
 ```
 
 ### 2. Bump desktop version files
 
 ```bash
-just bump-desktop-version 0.2.1
+just bump-desktop-version 2026.7.2
 ```
 
 Optional preview:
 
 ```bash
-just bump-desktop-version 0.2.1 --dry-run
+just bump-desktop-version 2026.7.2 --dry-run
 ```
 
 ### 3. Verify version consistency
@@ -321,8 +321,8 @@ Use your normal Git workflow to commit the version change.
 ### 5. Create and push the desktop tag
 
 ```bash
-git tag desktop-v0.2.1
-git push origin desktop-v0.2.1
+git tag desktop-2026.7.2
+git push origin desktop-2026.7.2
 ```
 
 ### 6. Let `release-desktop.yml` build and publish assets
@@ -330,8 +330,8 @@ git push origin desktop-v0.2.1
 Expected macOS outputs:
 
 ```text
-Atmos_0.2.1_aarch64.dmg
-Atmos_0.2.1_x64.dmg
+Atmos_2026.7.2_aarch64.dmg
+Atmos_2026.7.2_x64.dmg
 ```
 
 ### 7. Let `sync-homebrew-tap.yml` update the shared tap
@@ -363,7 +363,7 @@ If the desktop release succeeded but the tap sync did not:
 3. provide the existing tag, for example:
 
 ```text
-desktop-v0.2.1
+desktop-2026.7.2
 ```
 
 Because the cask is generated from release metadata, rerunning the workflow should reconstruct the expected cask file as long as the release assets are valid.
@@ -376,8 +376,8 @@ Because the cask is generated from release metadata, rerunning the workflow shou
 
 Example:
 
-- tag: `desktop-v0.2.1`
-- `Cargo.toml`: `0.2.0`
+- tag: `desktop-2026.7.2`
+- `Cargo.toml`: `2026.7.1`
 
 Result:
 
@@ -387,8 +387,8 @@ Result:
 
 Example:
 
-- release tag says `0.2.1`
-- generated DMG still uses `0.2.0`
+- release tag says `2026.7.2`
+- generated DMG still uses `2026.7.1`
 
 Result:
 
@@ -420,7 +420,7 @@ The release workflow reduces this risk by resolving and checking out the explici
 For desktop releases, follow these rules consistently:
 
 1. Treat the desktop version as a synchronized value across Cargo, Tauri config, and package metadata
-2. Never create a `desktop-v*` release tag without first bumping and verifying the desktop version
+2. Never create a `desktop-*` release tag without first bumping and verifying the desktop version
 3. Let the GitHub Release be the source of packaged artifact truth
 4. Let the shared Homebrew tap mirror the published release, not an independently edited cask
 5. Prefer rerunning workflows over hand-editing the tap when recovering from release issues
@@ -444,7 +444,7 @@ The current desktop deployment model is:
 
 - **version bump first**
 - **validate versions**
-- **tag with `desktop-v<version>`**
+- **tag with `desktop-<version>`**
 - **build release artifacts from that exact ref**
 - **sync the shared Homebrew tap from published release metadata**
 

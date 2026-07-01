@@ -11,7 +11,7 @@ pub use types::{BinaryEntry, ModelEntry, ModelManifest};
 
 /// Default URL of the official Atmos model manifest from GitHub Releases.
 pub const DEFAULT_MANIFEST_URL: &str =
-    "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/manifest.json";
+    "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-2026.7.2/manifest.json";
 
 /// Environment variable to override the manifest URL.
 pub const MANIFEST_URL_ENV: &str = "ATMOS_LOCAL_MODEL_MANIFEST_URL";

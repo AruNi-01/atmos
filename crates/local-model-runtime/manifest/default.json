@@ -35,7 +35,7 @@
   "binaries": [
     {
       "platform": "macos-arm64",
-      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-aarch64-apple-darwin.tar.gz",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-2026.7.2/atmos-llama-server-aarch64-apple-darwin.tar.gz",
       "sha256": "PLACEHOLDER_SHA256",
       "size_bytes": 12345678,
       "is_zip": true,
@@ -43,7 +43,7 @@
     },
     {
       "platform": "macos-x86_64",
-      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-x86_64-apple-darwin.tar.gz",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-2026.7.2/atmos-llama-server-x86_64-apple-darwin.tar.gz",
       "sha256": "PLACEHOLDER_SHA256",
       "size_bytes": 12345678,
       "is_zip": true,
@@ -51,7 +51,7 @@
     },
     {
       "platform": "linux-x86_64",
-      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-x86_64-unknown-linux-gnu.tar.gz",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-2026.7.2/atmos-llama-server-x86_64-unknown-linux-gnu.tar.gz",
       "sha256": "PLACEHOLDER_SHA256",
       "size_bytes": 12345678,
       "is_zip": true,
@@ -59,7 +59,7 @@
     },
     {
       "platform": "linux-arm64",
-      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-aarch64-unknown-linux-gnu.tar.gz",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-2026.7.2/atmos-llama-server-aarch64-unknown-linux-gnu.tar.gz",
       "sha256": "PLACEHOLDER_SHA256",
       "size_bytes": 12345678,
       "is_zip": true,
@@ -67,7 +67,7 @@
     },
     {
       "platform": "windows-x86_64",
-      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-x86_64-pc-windows-msvc.zip",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-2026.7.2/atmos-llama-server-x86_64-pc-windows-msvc.zip",
       "sha256": "PLACEHOLDER_SHA256",
       "size_bytes": 12345678,
       "is_zip": true,

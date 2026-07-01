@@ -1,13 +1,13 @@
 ---
 name: atmos-cli-release
-description: Run the standalone Atmos CLI release workflow for this repository. Use this whenever you need to cut an Atmos CLI release, verify `apps/cli/Cargo.toml`, create or dispatch the required `cli-v<version>` GitHub Release, and publish CLI archives. Prefer this over local runtime or generic GitHub release flows for CLI releases.
+description: Run the standalone Atmos CLI release workflow for this repository. Use this whenever you need to cut an Atmos CLI release, verify `apps/cli/Cargo.toml`, create or dispatch the required `cli-<version>` GitHub Release, and publish CLI archives. Prefer this over local runtime or generic GitHub release flows for CLI releases.
 user-invokable: true
 args:
   - name: version
-    description: CLI version to release, for example `0.1.0` or `0.2.0-rc.1`
+    description: CLI version to release, for example `2026.7.2` or `2026.7.2-rc.1`
     required: true
   - name: prerelease
-    description: Set to true for prereleases such as `0.2.0-rc.1`
+    description: Set to true for prereleases such as `2026.7.2-rc.1`
     required: false
   - name: dry_run
     description: Preview the full release plan without changing files, creating tags, or publishing anything
@@ -25,7 +25,7 @@ This skill handles the Atmos CLI release sequence:
 1. validate repository state
 2. validate the CLI version in `apps/cli/Cargo.toml`
 3. optionally build the CLI locally for a spot check
-4. publish a stable `cli-v<version>` release from `main`, or a prerelease test release from an explicit ref
+4. publish a stable `cli-<version>` release from `main`, or a prerelease test release from an explicit ref
 5. rely on GitHub Actions to build and upload CLI archives
 6. verify the published GitHub Release assets
 7. verify `atmos update` and Settings > About can discover the stable release
@@ -42,14 +42,14 @@ This skill does not own the local runtime release flow, Desktop release packagin
 
 Atmos CLI releases follow these rules:
 
-- CLI tag format is `cli-v<version>`
+- CLI tag format is `cli-<version>`
 - CLI package version is sourced from:
   - `apps/cli/Cargo.toml`
 - CLI release workflow:
   - `.github/workflows/release-cli.yml`
 - stable tag push releases must point at a commit already contained in `origin/main`
 - prerelease test releases should use `workflow_dispatch` with `prerelease=true`
-- stable version checks filter out prerelease tags such as `cli-v0.2.0-rc.1`
+- stable version checks filter out prerelease tags such as `cli-2026.7.2-rc.1`
 - release assets must be named:
   - `atmos-cli-aarch64-apple-darwin.tar.gz`
   - `atmos-cli-x86_64-apple-darwin.tar.gz`
@@ -92,11 +92,12 @@ This workflow is responsible for:
 
 ### `version`
 
-Required. A semver-like CLI version such as:
+Required. A calendar CLI version such as:
 
-- `0.1.0`
-- `1.0.0`
-- `0.2.0-rc.1`
+- `2026.7.2`
+- `2026.7.2-rc.1`
+
+Use no leading zeroes in month or day so the version stays SemVer-compatible for Cargo.
 
 ### `prerelease`
 
@@ -123,12 +124,12 @@ The CLI release does not require npm, desktop-signing, or Homebrew tap secrets.
 When asked to perform a stable Atmos CLI release:
 
 1. normalize the requested inputs
-2. construct the CLI tag as `cli-v<version>`
+2. construct the CLI tag as `cli-<version>`
 3. validate `apps/cli/Cargo.toml` matches the requested version
 4. optionally build the local CLI for confidence checking
 5. confirm the target commit is on `origin/main`
 6. if `dry_run=true`, stop after validation and report exact release commands
-7. create and push the `cli-v<version>` tag
+7. create and push the `cli-<version>` tag
 8. monitor `.github/workflows/release-cli.yml`
 9. verify the GitHub Release contains the expected CLI archives
 
@@ -204,19 +205,19 @@ If the GitHub Release assets and tag version disagree, treat it as a release int
 After a non-dry-run release, verify:
 
 - the CLI release workflow ran
-- the GitHub Release exists for `cli-v<version>`
+- the GitHub Release exists for `cli-<version>`
 - the expected CLI archives are present for the supported targets
 - stable CLI checks discover the new version only when it is not a prerelease
 
 Minimum verification command:
 
 ```bash
-gh release view cli-v<version>
+gh release view cli-<version>
 ```
 
 ## Never do these things
 
-- never use a plain `v<version>` tag for Atmos CLI
+- never add `v` to Atmos CLI tags; use `cli-<version>`
 - never publish a stable CLI release from a branch-only commit
 - never skip the CLI version check
 - never manually upload ad-hoc CLI archives to work around a broken workflow

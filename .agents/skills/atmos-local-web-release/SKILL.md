@@ -1,13 +1,13 @@
 ---
 name: atmos-local-web-release
-description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local web runtime release, verify the local runtime version, create the required `local-web-runtime-v<version>` tag, and publish the runtime archives. Prefer this over a generic GitHub release process for Atmos local web runtime releases.
+description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local web runtime release, verify the local runtime version, create the required `local-web-runtime-<version>` tag, and publish the runtime archives. Prefer this over a generic GitHub release process for Atmos local web runtime releases.
 user-invokable: true
 args:
   - name: version
-    description: Local runtime version to release, for example `0.1.0` or `0.2.0-rc.1`
+    description: Local runtime version to release, for example `2026.7.2` or `2026.7.2-rc.1`
     required: true
   - name: prerelease
-    description: Set to true for prereleases such as `0.2.0-rc.1`
+    description: Set to true for prereleases such as `2026.7.2-rc.1`
     required: false
   - name: dry_run
     description: Preview the full release plan without changing files, creating tags, or publishing anything
@@ -25,7 +25,7 @@ This skill handles the Atmos local runtime release sequence:
 1. validate repository state
 2. validate the local runtime version and tag alignment
 3. optionally build the local runtime archive locally for a spot check
-4. create and push the `local-web-runtime-v<version>` tag
+4. create and push the `local-web-runtime-<version>` tag
 5. rely on GitHub Actions to build and upload runtime archives
 6. verify the published GitHub Release assets
 7. verify the shell installer resolves the published release when requested
@@ -40,9 +40,9 @@ This skill does not own the standalone CLI release flow, desktop release flow, T
 
 Atmos local runtime releases follow these rules:
 
-- local runtime tag format is `local-web-runtime-v<version>`
+- local runtime tag format is `local-web-runtime-<version>`
 - local runtime release version is sourced from `resources/local-runtime/version.json`
-- standalone CLI releases use `cli-v<version>` and are handled by the `atmos-cli-release` skill
+- standalone CLI releases use `cli-<version>` and are handled by the `atmos-cli-release` skill
 - local runtime release workflow is `.github/workflows/release-local-runtime.yml`
 - installer entrypoint is `install-local-web-runtime.sh`
 - runtime build script is `scripts/local-runtime/build-runtime.mjs`
@@ -140,11 +140,11 @@ The local runtime release does not require npm, desktop-signing, or Homebrew tap
 When asked to perform an Atmos local runtime release:
 
 1. normalize the requested inputs
-2. construct the local runtime tag as `local-web-runtime-v<version>`
+2. construct the local runtime tag as `local-web-runtime-<version>`
 3. run the local version validation script
 4. optionally build one local runtime archive for confidence checking
 5. if `dry_run=true`, stop after validation and report the exact release commands
-6. create and push the `local-web-runtime-v<version>` tag
+6. create and push the `local-web-runtime-<version>` tag
 7. monitor `.github/workflows/release-local-runtime.yml`
 8. verify the GitHub Release contains the expected runtime archives
 9. verify the shell installer resolves the published release when requested
@@ -205,17 +205,17 @@ If the GitHub Release assets and tag version disagree, treat it as a release int
 After a non-dry-run release, verify:
 
 - the local runtime release workflow ran
-- the GitHub Release exists for `local-web-runtime-v<version>`
+- the GitHub Release exists for `local-web-runtime-<version>`
 - the expected runtime archives are present:
   - `atmos-local-runtime-aarch64-apple-darwin.tar.gz`
   - `atmos-local-runtime-x86_64-apple-darwin.tar.gz`
   - `atmos-local-runtime-x86_64-unknown-linux-gnu.tar.gz`
-- `install-local-web-runtime.sh` resolves the correct `local-web-runtime-v<version>` release when installer validation is requested
+- `install-local-web-runtime.sh` resolves the correct `local-web-runtime-<version>` release when installer validation is requested
 
 Minimum verification command:
 
 ```bash
-gh release view local-web-runtime-v<version>
+gh release view local-web-runtime-<version>
 ```
 
 Installer verification command:
@@ -226,7 +226,7 @@ bash ./install-local-web-runtime.sh --version <version> --no-start
 
 ## Never Do These Things
 
-- never use a plain `v<version>` tag for Atmos local runtime
+- never add `v` to Atmos local runtime tags; use `local-web-runtime-<version>`
 - never skip the local runtime version consistency check
 - never create the local runtime tag before the version file matches the tag
 - never manually upload ad-hoc runtime archives to work around a broken workflow
@@ -246,7 +246,7 @@ node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mj
 
 ### Validate Versions Directly
 ```bash
-node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>
+node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-<version>
 ```
 
 ### Build Local Runtime Archive Directly

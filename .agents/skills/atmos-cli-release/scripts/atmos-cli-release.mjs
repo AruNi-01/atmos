@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { ensureCalendarVersion } from "../../../../scripts/release/lib/calendar-version.mjs";
+
 const repoRoot = resolve(import.meta.dirname, "../../../..");
 const cliCargoToml = resolve(repoRoot, "apps/cli/Cargo.toml");
 
@@ -25,9 +27,9 @@ Usage:
   node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs <version> [options]
 
 Examples:
-  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.1.0
-  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.2.0-rc.1 --prerelease
-  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.1.0 --dry-run
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 2026.7.2
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 2026.7.2-rc.1 --prerelease
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 2026.7.2 --dry-run
 
 Options:
   --prerelease           Dispatch a prerelease test release workflow
@@ -41,7 +43,7 @@ Options:
   --help, -h             Show this help
 
 This script is Atmos-specific and assumes:
-- CLI tag format: cli-v<version>
+- CLI tag format: cli-<version>
 - version file: apps/cli/Cargo.toml
 - release workflow: .github/workflows/release-cli.yml
 `);
@@ -129,20 +131,11 @@ function parseArgs(argv) {
 
 function ensureValidVersion(version) {
   const normalized = String(version || "").trim();
-  const VERSION_RE =
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-
-  if (!VERSION_RE.test(normalized)) {
-    fail(
-      `Invalid version "${normalized}". Expected something like 0.1.0 or 0.2.0-rc.1`,
-    );
-  }
-
-  return normalized;
+  return ensureCalendarVersion(normalized, "CLI version");
 }
 
 function buildCliTag(version) {
-  return `cli-v${version}`;
+  return `cli-${version}`;
 }
 
 function readCliVersion() {

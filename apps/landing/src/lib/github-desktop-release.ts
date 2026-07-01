@@ -1,6 +1,7 @@
 export const GITHUB_REPO_PATH = "/AruNi-01/atmos";
 export const GITHUB_RELEASES_URL = `https://github.com${GITHUB_REPO_PATH}/releases`;
-export const DESKTOP_RELEASE_TAG_PREFIX = "desktop-v";
+export const DESKTOP_RELEASE_TAG_PREFIX = "desktop-";
+const DESKTOP_RELEASE_TAG_RE = /^desktop-\d{4}\.\d{1,2}\.\d{1,2}(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$/;
 
 const GITHUB_RELEASES_API_URL = `https://api.github.com/repos${GITHUB_REPO_PATH}/releases?per_page=100`;
 
@@ -31,7 +32,7 @@ const createGithubHeaders = (): HeadersInit => {
 };
 
 const isPublishedDesktopRelease = (release: GitHubRelease): boolean =>
-  release.tag_name.startsWith(DESKTOP_RELEASE_TAG_PREFIX) && !release.draft && !release.prerelease && Boolean(release.published_at);
+  DESKTOP_RELEASE_TAG_RE.test(release.tag_name) && !release.draft && !release.prerelease && Boolean(release.published_at);
 
 export async function fetchLatestDesktopRelease(): Promise<GitHubRelease | null> {
   const res = await fetch(GITHUB_RELEASES_API_URL, {

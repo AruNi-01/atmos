@@ -32,18 +32,18 @@ Atmos desktop releases follow this model:
 
 1. update the desktop version in repository files
 2. validate all desktop version sources are in sync
-3. create a desktop release tag in the format `desktop-v<version>`
+3. create a desktop release tag in the format `desktop-<version>`
 4. let CI build artifacts from that exact ref
 5. publish GitHub Release assets
 6. sync the shared Homebrew tap from the published release
 
 Example:
 
-- desktop version: `0.2.1`
-- release tag: `desktop-v0.2.1`
+- desktop version: `2026.7.2`
+- release tag: `desktop-2026.7.2`
 - expected macOS artifacts:
-  - `Atmos_0.2.1_aarch64.dmg`
-  - `Atmos_0.2.1_x64.dmg`
+  - `Atmos_2026.7.2_aarch64.dmg`
+  - `Atmos_2026.7.2_x64.dmg`
 
 ---
 
@@ -57,7 +57,7 @@ The desktop version must stay synchronized across:
 
 The release tag must also match that same version:
 
-- `desktop-v<version>`
+- `desktop-<version>`
 
 If any of these differ, the release should be treated as invalid and blocked before packaging.
 
@@ -131,7 +131,7 @@ Recommended quick checks:
 Pick the next version, for example:
 
 ```text
-0.2.1
+2026.7.2
 ```
 
 Use the same version in:
@@ -148,7 +148,7 @@ Use the same version in:
 Run a dry-run first:
 
 ```bash
-just bump-desktop-version 0.2.1 --dry-run
+just bump-desktop-version 2026.7.2 --dry-run
 ```
 
 This should report the desktop files that will be updated.
@@ -162,7 +162,7 @@ If the output is not what you expect, stop here and inspect the current version 
 Run:
 
 ```bash
-just bump-desktop-version 0.2.1
+just bump-desktop-version 2026.7.2
 ```
 
 This should update:
@@ -215,7 +215,7 @@ Commit the version bump and any intended release-related changes using your norm
 Example commit message:
 
 ```text
-chore(desktop): release 0.2.1
+chore(desktop): release 2026.7.2
 ```
 
 ---
@@ -233,19 +233,19 @@ This ensures the release tag points at a commit already available on the remote.
 Create the tag:
 
 ```bash
-git tag desktop-v0.2.1
+git tag desktop-2026.7.2
 ```
 
 Push the tag:
 
 ```bash
-git push origin desktop-v0.2.1
+git push origin desktop-2026.7.2
 ```
 
 Important:
 
-- do not use a plain `v0.2.1` tag for desktop release flow
-- do not create a `desktop-v*` tag before version files are updated and committed
+- do not use a plain `v2026.7.2` tag for desktop release flow
+- do not create a `desktop-*` tag before version files are updated and committed
 
 ---
 
@@ -273,8 +273,8 @@ Key outputs to watch for:
 Expected macOS artifact names:
 
 ```text
-Atmos_0.2.1_aarch64.dmg
-Atmos_0.2.1_x64.dmg
+Atmos_2026.7.2_aarch64.dmg
+Atmos_2026.7.2_x64.dmg
 ```
 
 If the DMG names do not match the intended version, treat the release as broken.
@@ -283,7 +283,7 @@ If the DMG names do not match the intended version, treat the release as broken.
 
 ### 10. Confirm GitHub Release contents
 
-After the workflow finishes, verify the release page for `desktop-v0.2.1`.
+After the workflow finishes, verify the release page for `desktop-2026.7.2`.
 
 Check that:
 
@@ -295,8 +295,8 @@ Check that:
 
 For Homebrew sync, the two most important files are:
 
-- `Atmos_0.2.1_aarch64.dmg`
-- `Atmos_0.2.1_x64.dmg`
+- `Atmos_2026.7.2_aarch64.dmg`
+- `Atmos_2026.7.2_x64.dmg`
 
 ---
 
@@ -379,13 +379,13 @@ If `create_release=true`, the `release_tag` must still match the desktop version
 
 Example:
 
-- ref contains desktop version `0.2.1`
-- release tag must be `desktop-v0.2.1`
+- ref contains desktop version `2026.7.2`
+- release tag must be `desktop-2026.7.2`
 
 Not:
 
-- ref contains `0.2.1`
-- release tag is `desktop-v0.2.2`
+- ref contains `2026.7.2`
+- release tag is `desktop-2026.7.2`
 
 That should fail validation.
 
@@ -400,14 +400,14 @@ For prereleases such as release candidates:
 
 Example:
 
-- desktop version: `0.5.0-rc.1`
-- release tag: `desktop-v0.5.0-rc.1`
+- desktop version: `2026.7.2-rc.1`
+- release tag: `desktop-2026.7.2-rc.1`
 
 Process is the same:
 
 1. bump version
 2. validate sync
-3. create matching `desktop-v*` tag
+3. create matching `desktop-*` tag
 4. let release workflow run
 5. verify assets
 6. verify tap behavior if prereleases are intended to sync there
@@ -497,7 +497,7 @@ Recovery:
 2. verify it can push to `AruNi-01/homebrew-tap`
 3. rerun the tap sync workflow manually
 4. provide the existing release tag, for example:
-   - `desktop-v0.2.1`
+   - `desktop-2026.7.2`
 5. confirm the updated cask lands in the tap repo
 
 Do not create a new desktop release solely to repair a tap sync failure if the original release assets are already correct.
@@ -565,7 +565,7 @@ Use this as a concise release sign-off list.
 
 ### Tag and workflow
 
-- [ ] `desktop-v<version>` tag created
+- [ ] `desktop-<version>` tag created
 - [ ] tag pushed to remote
 - [ ] desktop release workflow started
 - [ ] desktop release workflow passed
@@ -592,7 +592,7 @@ Use this as a concise release sign-off list.
 
 Follow these rules consistently:
 
-1. Never create a `desktop-v*` tag before desktop versions are synchronized.
+1. Never create a `desktop-*` tag before desktop versions are synchronized.
 2. Never treat the tag as the only source of truth.
 3. Never hand-edit the tap to point at a release whose assets are inconsistent.
 4. Prefer rerunning automation over making ad hoc release metadata changes.
@@ -605,13 +605,13 @@ Follow these rules consistently:
 ### Dry-run version bump
 
 ```bash
-just bump-desktop-version 0.2.1 --dry-run
+just bump-desktop-version 2026.7.2 --dry-run
 ```
 
 ### Apply version bump
 
 ```bash
-just bump-desktop-version 0.2.1
+just bump-desktop-version 2026.7.2
 ```
 
 ### Check desktop version sync
@@ -623,8 +623,8 @@ just check-desktop-version
 ### Create release tag
 
 ```bash
-git tag desktop-v0.2.1
-git push origin desktop-v0.2.1
+git tag desktop-2026.7.2
+git push origin desktop-2026.7.2
 ```
 
 ### Homebrew install
@@ -643,15 +643,15 @@ brew upgrade --cask atmos
 
 ## Example End-to-End Release
 
-Example for `0.2.1`:
+Example for `2026.7.2`:
 
 1. run:
    ```bash
-   just bump-desktop-version 0.2.1 --dry-run
+   just bump-desktop-version 2026.7.2 --dry-run
    ```
 2. apply:
    ```bash
-   just bump-desktop-version 0.2.1
+   just bump-desktop-version 2026.7.2
    ```
 3. validate:
    ```bash
@@ -660,13 +660,13 @@ Example for `0.2.1`:
 4. commit and push the version bump
 5. tag:
    ```bash
-   git tag desktop-v0.2.1
-   git push origin desktop-v0.2.1
+   git tag desktop-2026.7.2
+   git push origin desktop-2026.7.2
    ```
 6. wait for desktop release workflow to finish
 7. verify release assets:
-   - `Atmos_0.2.1_aarch64.dmg`
-   - `Atmos_0.2.1_x64.dmg`
+   - `Atmos_2026.7.2_aarch64.dmg`
+   - `Atmos_2026.7.2_x64.dmg`
 8. wait for tap sync workflow to finish
 9. verify:
    ```bash
@@ -694,7 +694,7 @@ The correct Atmos desktop release flow is:
 
 - bump version
 - verify sync
-- tag with `desktop-v<version>`
+- tag with `desktop-<version>`
 - build from that exact versioned ref
 - publish release assets
 - sync the shared Homebrew tap

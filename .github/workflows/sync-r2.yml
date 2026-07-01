@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to sync (e.g., desktop-v1.0.0)'
+        description: 'Release tag to sync (e.g., desktop-2026.7.2)'
         required: true
 
 env:
@@ -56,8 +56,8 @@ jobs:
 
   sync-cli:
     if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'cli-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'cli-v'))
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'cli-')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'cli-'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -92,17 +92,17 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import re
           from pathlib import Path
 
           tag = os.environ["TAG"]
           repo = os.environ["REPO"]
           base_url = os.environ["PUBLIC_DOWNLOAD_BASE_URL"].rstrip("/")
-          if tag.startswith("cli-v"):
-              version = tag[len("cli-v"):]
-          elif tag.startswith("atmos-cli-v"):
-              version = tag[len("atmos-cli-v"):]
-          else:
+          if not tag.startswith("cli-"):
               raise SystemExit(f"Unexpected CLI release tag: {tag}")
+          version = tag[len("cli-"):]
+          if not re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", version):
+              raise SystemExit(f"Unexpected CLI release version: {version}")
 
           assets = []
           for path in sorted(Path("/tmp/assets").glob("atmos-cli-*.tar.gz")):
@@ -174,11 +174,11 @@ jobs:
           import sys
 
           def stable_cli_version(tag):
-              for prefix in ("cli-v", "atmos-cli-v"):
-                  if tag.startswith(prefix):
-                      version = tag[len(prefix):]
-                      if re.fullmatch(r"\d+\.\d+\.\d+", version):
-                          return tuple(map(int, version.split(".")))
+              prefix = "cli-"
+              if tag.startswith(prefix):
+                  version = tag[len(prefix):]
+                  if re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", version):
+                      return tuple(map(int, version.split(".")))
               return None
 
           candidates = []
@@ -210,8 +210,8 @@ jobs:
 
   sync-desktop:
     if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'desktop-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'desktop-v'))
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'desktop-')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'desktop-'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -230,6 +230,10 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+            echo "Unexpected desktop release tag: $TAG" >&2
+            exit 1
+          fi
           echo "Downloading assets for tag: $TAG"
           gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
           echo "Downloaded files:"
@@ -269,7 +273,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest desktop release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('desktop-v')), ''))")
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c 'import json,re,sys; prefix="desktop-"; candidates=[(tuple(map(int, tag[len(prefix):].split("."))), tag) for release in json.load(sys.stdin) for tag in [str(release.get("tag_name") or "")] if not release.get("draft") and not release.get("prerelease") and tag.startswith(prefix) and re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", tag[len(prefix):])]; print(max(candidates)[1] if candidates else "")')
 
           echo "Latest stable desktop release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
@@ -290,8 +294,8 @@ jobs:
 
   sync-local-web-runtime:
     if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-web-runtime-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-web-runtime-v'))
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-web-runtime-')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-web-runtime-'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -310,6 +314,10 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [[ ! "$TAG" =~ ^local-web-runtime-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+            echo "Unexpected local runtime release tag: $TAG" >&2
+            exit 1
+          fi
           echo "Downloading assets for tag: $TAG"
           gh release download "$TAG" --dir /tmp/assets --pattern "*.tar.gz"
           echo "Downloaded files:"
@@ -349,7 +357,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest local web runtime release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c 'import json,re,sys; prefix="local-web-runtime-v"; candidates=[(tuple(map(int, tag[len(prefix):].split("."))), tag) for release in json.load(sys.stdin) for tag in [str(release.get("tag_name") or "")] if not release.get("draft") and not release.get("prerelease") and tag.startswith(prefix) and re.fullmatch(r"\d+\.\d+\.\d+", tag[len(prefix):])]; print(max(candidates)[1] if candidates else "")')
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c 'import json,re,sys; prefix="local-web-runtime-"; candidates=[(tuple(map(int, tag[len(prefix):].split("."))), tag) for release in json.load(sys.stdin) for tag in [str(release.get("tag_name") or "")] if not release.get("draft") and not release.get("prerelease") and tag.startswith(prefix) and re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", tag[len(prefix):])]; print(max(candidates)[1] if candidates else "")')
 
           echo "Latest stable local web runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"

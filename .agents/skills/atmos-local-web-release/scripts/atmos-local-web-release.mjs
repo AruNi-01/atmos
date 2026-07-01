@@ -3,6 +3,8 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { ensureCalendarVersion } from "../../../../scripts/release/lib/calendar-version.mjs";
+
 const repoRoot = resolve(import.meta.dirname, "../../../..");
 
 const DEFAULTS = {
@@ -22,9 +24,9 @@ Usage:
   node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> [options]
 
 Examples:
-  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0
-  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.2.0-rc.1 --prerelease
-  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0 --dry-run
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 2026.7.2
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 2026.7.2-rc.1 --prerelease
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 2026.7.2 --dry-run
 
 Options:
   --prerelease           Mark release intent as prerelease
@@ -37,7 +39,7 @@ Options:
   --help, -h             Show this help
 
 This script is Atmos-specific and assumes:
-- local runtime tag format: local-web-runtime-v<version>
+- local runtime tag format: local-web-runtime-<version>
 - version files:
   - resources/local-runtime/version.json
 - release workflow: .github/workflows/release-local-runtime.yml
@@ -120,20 +122,11 @@ function parseArgs(argv) {
 
 function ensureValidVersion(version) {
   const normalized = String(version || "").trim();
-  const VERSION_RE =
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-
-  if (!VERSION_RE.test(normalized)) {
-    fail(
-      `Invalid version "${normalized}". Expected something like 0.1.0 or 0.2.0-rc.1`,
-    );
-  }
-
-  return normalized;
+  return ensureCalendarVersion(normalized, "local runtime version");
 }
 
 function buildLocalTag(version) {
-  return `local-web-runtime-v${version}`;
+  return `local-web-runtime-${version}`;
 }
 
 function sh(command, args = [], options = {}) {

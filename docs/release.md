@@ -6,19 +6,20 @@
 
 ## Release Model
 
-Atmos has three independent release lines:
+Atmos has four independent release lines:
 
 | Release line | Tag | GitHub Actions | Artifacts | Purpose |
 | --- | --- | --- | --- | --- |
-| CLI | `cli-v<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the relay for agents and scripts |
-| Local Runtime | `local-web-runtime-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | Local Web runtime package containing API, static Web assets, and system skills |
-| Desktop | `desktop-v<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
+| CLI | `cli-<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the relay for agents and scripts |
+| Local Runtime | `local-web-runtime-<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | Local Web runtime package containing API, static Web assets, and system skills |
+| Local Model Runtime | `local-model-runtime-<version>` | `.github/workflows/release-local-model-runtime.yml` | `atmos-llama-server-<target>` archives and `manifest.json` | Local model server binaries and model manifest |
+| Desktop | `desktop-<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
 
 Core principles:
 
 - CLI is the single standalone command installed at `~/.atmos/bin/atmos`.
 - Local Runtime and Desktop do not bundle the CLI; installers and the API install or keep the standalone CLI from the CLI release channel.
-- The three release lines do not need to share the same version number.
+- Release lines can be cut independently, but coordinated public releases should use the same calendar version.
 - Stable tag-based releases must come from a commit already contained in `origin/main`.
 - Use workflow dispatch plus prerelease for real release-path testing from non-main branches.
 
@@ -31,9 +32,9 @@ Core principles:
 Stable releases use stable tags:
 
 ```bash
-cli-v0.1.0
-local-web-runtime-v0.1.0
-desktop-v1.0.0
+cli-2026.7.2
+local-web-runtime-2026.7.2
+desktop-2026.7.2
 ```
 
 After a tag is pushed, the workflow checks whether the tag commit is already contained in `origin/main`:
@@ -49,21 +50,21 @@ If the commit is not on `main`, the workflow fails before creating a GitHub Rele
 Use prerelease tags when testing the real release path:
 
 ```bash
-cli-v0.2.0-rc.1
-local-web-runtime-v0.2.0-rc.1
-desktop-v1.1.0-rc.1
+cli-2026.7.2-rc.1
+local-web-runtime-2026.7.2-rc.1
+desktop-2026.7.2-rc.1
 ```
 
 Do not push prerelease tags directly from a branch just to test. Prefer GitHub Actions `workflow_dispatch`:
 
 - `ref`: branch name or commit SHA
 - `create_release`: `true`
-- `release_tag`: the matching `*-v<version>-rc.N` tag
+- `release_tag`: the matching `*-<version>-rc.N` tag
 - `prerelease`: `true`
 
 This creates a real GitHub Release marked as Pre-release.
 
-Stable version checks filter out prereleases. `atmos update` and the Settings > About CLI check do not treat `cli-v0.2.0-rc.1` as an available stable update.
+Stable version checks filter out prereleases. `atmos update` and the Settings > About CLI check do not treat `cli-2026.7.2-rc.1` as an available stable update.
 
 ---
 
@@ -114,18 +115,18 @@ https://install.atmos.land/cli/latest.json
 Use the CLI release helper:
 
 ```bash
-node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.1.0 --dry-run
-node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.1.0
+node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 2026.7.2 --dry-run
+node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 2026.7.2
 ```
 
 The helper:
 
 1. verifies git and GitHub authentication
 2. verifies working tree cleanliness
-3. verifies `apps/cli/Cargo.toml` version matches `0.1.0`
+3. verifies `apps/cli/Cargo.toml` version matches `2026.7.2`
 4. builds the local CLI as a preflight check
 5. verifies the current commit is in `origin/main`
-6. creates `cli-v0.1.0`
+6. creates `cli-2026.7.2`
 7. pushes the tag
 8. lets GitHub Actions publish release assets
 
@@ -135,8 +136,8 @@ Manual equivalent:
 cargo build --release --bin atmos
 git fetch origin main
 git merge-base --is-ancestor HEAD origin/main
-git tag cli-v0.1.0
-git push origin cli-v0.1.0
+git tag cli-2026.7.2
+git push origin cli-2026.7.2
 ```
 
 ### CLI Prerelease Test
@@ -144,13 +145,13 @@ git push origin cli-v0.1.0
 Use prerelease workflow dispatch:
 
 ```bash
-node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.2.0-rc.1 --prerelease --ref <branch-or-sha>
+node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 2026.7.2-rc.1 --prerelease --ref <branch-or-sha>
 ```
 
 The helper dispatches `release-cli.yml` with:
 
 - `create_release=true`
-- `release_tag=cli-v0.2.0-rc.1`
+- `release_tag=cli-2026.7.2-rc.1`
 - `prerelease=true`
 - `ref=<branch-or-sha>`
 
@@ -158,13 +159,13 @@ The helper dispatches `release-cli.yml` with:
 
 ```bash
 gh run list --workflow release-cli.yml --limit 5
-gh release view cli-v0.1.0
+gh release view cli-2026.7.2
 ```
 
 Check assets:
 
 ```bash
-gh release view cli-v0.1.0 --json assets --jq '.assets[].name'
+gh release view cli-2026.7.2 --json assets --jq '.assets[].name'
 ```
 
 Check discovery:
@@ -221,7 +222,7 @@ atmos-runtime/
 {
   "schema_version": 1,
   "product": "atmos-local-runtime",
-  "runtime_version": "0.1.0",
+  "runtime_version": "2026.7.2",
   "target_triple": "aarch64-apple-darwin"
 }
 ```
@@ -233,17 +234,17 @@ atmos-runtime/
 Use the local runtime release helper:
 
 ```bash
-node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0 --dry-run
-node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 2026.7.2 --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 2026.7.2
 ```
 
 The helper:
 
 1. verifies git and GitHub authentication
 2. verifies working tree cleanliness
-3. verifies `resources/local-runtime/version.json` version matches `local-web-runtime-v0.1.0`
+3. verifies `resources/local-runtime/version.json` version matches `local-web-runtime-2026.7.2`
 4. builds one local runtime archive as a preflight check
-5. creates `local-web-runtime-v0.1.0`
+5. creates `local-web-runtime-2026.7.2`
 6. pushes the tag
 7. lets GitHub Actions publish runtime assets
 
@@ -255,7 +256,7 @@ Use workflow dispatch on `.github/workflows/release-local-runtime.yml`:
 
 - `ref`: branch or commit SHA
 - `create_release`: `true`
-- `release_tag`: `local-web-runtime-v0.2.0-rc.1`
+- `release_tag`: `local-web-runtime-2026.7.2-rc.1`
 - `prerelease`: `true`
 
 Use `create_release=false` for build-only validation without creating a GitHub Release.
@@ -264,19 +265,19 @@ Use `create_release=false` for build-only validation without creating a GitHub R
 
 ```bash
 gh run list --workflow release-local-runtime.yml --limit 5
-gh release view local-web-runtime-v0.1.0
+gh release view local-web-runtime-2026.7.2
 ```
 
 Check assets:
 
 ```bash
-gh release view local-web-runtime-v0.1.0 --json assets --jq '.assets[].name'
+gh release view local-web-runtime-2026.7.2 --json assets --jq '.assets[].name'
 ```
 
 Optionally verify the installer path:
 
 ```bash
-bash ./install-local-web-runtime.sh --version local-web-runtime-v0.1.0 --no-start
+bash ./install-local-web-runtime.sh --version local-web-runtime-2026.7.2 --no-start
 ```
 
 ---
@@ -318,8 +319,8 @@ Desktop bundles:
 Use the desktop release skill/helper:
 
 ```bash
-just release-desktop 1.0.1 --dry-run
-just release-desktop 1.0.1
+just release-desktop 2026.7.2 --dry-run
+just release-desktop 2026.7.2
 ```
 
 The desktop helper handles version bumping and release preparation. The workflow enforces that stable tag-push releases come from `origin/main`.
@@ -327,7 +328,7 @@ The desktop helper handles version bumping and release preparation. The workflow
 Manual tag shape:
 
 ```bash
-desktop-v1.0.1
+desktop-2026.7.2
 ```
 
 ### Desktop Prerelease Test
@@ -336,7 +337,7 @@ Use workflow dispatch on `.github/workflows/release-desktop.yml`:
 
 - `ref`: branch or commit SHA
 - `create_release`: `true`
-- `release_tag`: `desktop-v1.1.0-rc.1`
+- `release_tag`: `desktop-2026.7.2-rc.1`
 - `prerelease`: `true`
 - `platform`: choose `all` or one platform for focused testing
 
@@ -346,7 +347,7 @@ Use `create_release=false` for build-only validation without creating a GitHub R
 
 ```bash
 gh run list --workflow release-desktop.yml --limit 5
-gh release view desktop-v1.0.1
+gh release view desktop-2026.7.2
 ```
 
 For stable desktop releases, also verify Homebrew tap sync when relevant:
@@ -374,23 +375,23 @@ GitHub Releases API and Atom feeds are fallback paths only.
 They accept:
 
 ```text
-cli-v0.1.0
-atmos-cli-v0.1.0
+cli-2026.7.2
+atmos-cli-2026.7.2
 ```
 
 They ignore:
 
 ```text
-cli-v0.1.0-rc.1
-cli-v0.1.0-beta.1
-cli-v0.1.0-alpha.1
+cli-2026.7.2-rc.1
+cli-2026.7.2-beta.1
+cli-2026.7.2-alpha.1
 ```
 
 The R2 manifest is only refreshed for the latest stable CLI release. GitHub fallback paths filter out draft and prerelease releases, and the tags feed rejects versions containing `-`, so prerelease tags are not treated as stable updates.
 
 ### Local Runtime Installer Checks
 
-`install-local-web-runtime.sh` downloads the requested `local-web-runtime-v*` release from `install.atmos.land` first and falls back to GitHub Release assets when needed.
+`install-local-web-runtime.sh` downloads the requested `local-web-runtime-*` release from `install.atmos.land` first and falls back to GitHub Release assets when needed.
 
 ### Desktop Updater Checks
 
@@ -497,7 +498,7 @@ That is expected. It is visible on the Releases page, but marked as Pre-release.
 ```bash
 node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs <version> --dry-run
 node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs <version>
-gh release view cli-v<version>
+gh release view cli-<version>
 ```
 
 ### Local Runtime
@@ -505,7 +506,7 @@ gh release view cli-v<version>
 ```bash
 node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
 node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>
-gh release view local-web-runtime-v<version>
+gh release view local-web-runtime-<version>
 ```
 
 ### Desktop
@@ -513,5 +514,5 @@ gh release view local-web-runtime-v<version>
 ```bash
 just release-desktop <version> --dry-run
 just release-desktop <version>
-gh release view desktop-v<version>
+gh release view desktop-<version>
 ```

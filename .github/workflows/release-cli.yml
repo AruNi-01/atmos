@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     tags:
-      - "cli-v*"
+      - "cli-*"
   workflow_dispatch:
     inputs:
       ref:
@@ -30,7 +30,7 @@ on:
         default: true
         type: boolean
       release_tag:
-        description: "Release tag when create_release=true (example: cli-v0.2.0)"
+        description: "Release tag when create_release=true (example: cli-2026.7.2)"
         required: false
       prerelease:
         description: "Mark release as prerelease"
@@ -122,14 +122,14 @@ jobs:
           EVENT="${{ github.event_name }}"
           if [ "$EVENT" = "push" ]; then
             RELEASE_TAG="${GITHUB_REF_NAME}"
-            if [[ ! "$RELEASE_TAG" =~ ^cli-v.+$ ]]; then
+            if [[ ! "$RELEASE_TAG" =~ ^cli-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
               echo "Unexpected release tag: $RELEASE_TAG" >&2
               exit 1
             fi
             require_tag_commit_on_main
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-            echo "release_version=${RELEASE_TAG#cli-v}" >> "$GITHUB_OUTPUT"
+            echo "release_version=${RELEASE_TAG#cli-}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
             echo "build_matrix=$(matrix_for_platform all)" >> "$GITHUB_OUTPUT"
@@ -152,13 +152,13 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^cli-v.+$ ]]; then
-            echo "release_tag must match cli-v<version>" >&2
+          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^cli-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "release_tag must match cli-<YYYY.M.D>" >&2
             exit 1
           fi
 
           if [ -n "$RELEASE_TAG" ]; then
-            RELEASE_VERSION="${RELEASE_TAG#cli-v}"
+            RELEASE_VERSION="${RELEASE_TAG#cli-}"
           else
             RELEASE_VERSION=""
           fi
@@ -188,25 +188,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          PACKAGE_VERSION="$(
-            python3 - <<'PY'
-          import tomllib
-          from pathlib import Path
-          with Path("apps/cli/Cargo.toml").open("rb") as f:
-              print(tomllib.load(f)["package"]["version"])
-          PY
-          )"
-
           if [ "$CREATE_RELEASE" = "true" ]; then
             if [ -z "$RELEASE_TAG" ] || [ -z "$RELEASE_VERSION" ]; then
               echo "release_tag is required when create_release=true" >&2
               exit 1
             fi
-            if [ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]; then
-              echo "CLI version mismatch: apps/cli/Cargo.toml has ${PACKAGE_VERSION}, release tag is ${RELEASE_TAG}" >&2
-              exit 1
-            fi
           fi
+          node ./scripts/release/check-cli-version.mjs
 
   create-release:
     name: Create draft release

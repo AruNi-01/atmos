@@ -26,7 +26,7 @@ If any layer disagrees, the release is not complete.
 
 ## Repository conventions
 
-- Tag format: `desktop-v<version>`
+- Tag format: `desktop-<version>`
 - Version files:
   - `apps/desktop/src-tauri/Cargo.toml`
   - `apps/desktop/src-tauri/tauri.conf.json`
@@ -51,7 +51,7 @@ If any layer disagrees, the release is not complete.
 ### Version planning
 - [ ] Target version is correct
 - [ ] Version format is valid
-- [ ] Intended tag is clear, for example `desktop-v0.2.1`
+- [ ] Intended tag is clear, for example `desktop-2026.7.2`
 
 ### Secrets and access
 - [ ] Push permission is available
@@ -73,11 +73,11 @@ Before tagging, confirm all of the following:
 Typical commands:
 - `just bump-desktop-version <version>`
 - `just check-desktop-version`
-- `node ./scripts/release/check-desktop-version.mjs --release-tag desktop-v<version>`
+- `node ./scripts/release/check-desktop-version.mjs --release-tag desktop-<version>`
 
-Example for `0.2.1`:
-- files = `0.2.1`
-- tag = `desktop-v0.2.1`
+Example for `2026.7.2`:
+- files = `2026.7.2`
+- tag = `desktop-2026.7.2`
 
 ---
 
@@ -92,8 +92,8 @@ Example for `0.2.1`:
 ### Git actions
 - [ ] Release-prep commit created
 - [ ] Release-prep commit pushed
-- [ ] `desktop-v<version>` tag created
-- [ ] `desktop-v<version>` tag pushed
+- [ ] `desktop-<version>` tag created
+- [ ] `desktop-<version>` tag pushed
 
 ### Automation
 - [ ] `release-desktop.yml` started
@@ -112,10 +112,10 @@ Example for `0.2.1`:
 
 ## Minimum artifact checks
 
-For version `0.2.1`, expect:
+For version `2026.7.2`, expect:
 
-- `Atmos_0.2.1_aarch64.dmg`
-- `Atmos_0.2.1_x64.dmg`
+- `Atmos_2026.7.2_aarch64.dmg`
+- `Atmos_2026.7.2_x64.dmg`
 
 Verify:
 - [ ] both DMGs exist
@@ -132,7 +132,7 @@ If tag and DMG version disagree, stop and treat the release as invalid.
 Verify:
 - [ ] tap sync workflow succeeded
 - [ ] `Casks/atmos.rb` was updated
-- [ ] cask points at the intended `desktop-v<version>` release
+- [ ] cask points at the intended `desktop-<version>` release
 - [ ] cask asset version matches the intended DMG version
 
 If release assets and cask metadata disagree, Homebrew distribution is not valid.
@@ -222,14 +222,14 @@ Only consider destructive rollback if:
 Release prep:
 - `just bump-desktop-version <version>`
 - `just check-desktop-version`
-- `node ./scripts/release/check-desktop-version.mjs --release-tag desktop-v<version>`
+- `node ./scripts/release/check-desktop-version.mjs --release-tag desktop-<version>`
 
 Release helper:
 - `just release-desktop <version>`
 - `just release-desktop-dry-run <version>`
 
 Monitoring:
-- `gh release view desktop-v<version>`
+- `gh release view desktop-<version>`
 - `gh run list --limit 10`
 - `gh run view --web`
 
@@ -244,7 +244,7 @@ Homebrew:
 For Atmos desktop, release correctness means:
 
 - version files match
-- `desktop-v<version>` tag matches
+- `desktop-<version>` tag matches
 - DMG artifact version matches
 - Homebrew cask metadata matches
 

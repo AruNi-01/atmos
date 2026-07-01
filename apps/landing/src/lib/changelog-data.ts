@@ -34,6 +34,57 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.7.2",
+    title: {
+      zh: "日期版本发布 · 预览窗口 · 工作台稳定性",
+      en: "Calendar Releases, Preview Windows & Workbench Stability",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.7.2 将发布版本切换为日期命名，并带来桌面预览、独立窗口、Agent Chat handoff 和运行时 locale 的稳定性改进。",
+      en: "Atmos Desktop 2026.7.2 switches releases to calendar naming and includes stability improvements for desktop preview, standalone windows, Agent Chat handoff, and runtime locale handling.",
+    },
+    date: "2026-07-02",
+    version: "2026.7.2",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-2026.7.2",
+    tags: [
+      { zh: "日期版本", en: "Calendar Versioning" },
+      { zh: "预览", en: "Preview" },
+      { zh: "工作台", en: "Workbench" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**日期发布版本** — Desktop、CLI、Local Web Runtime 和 Local Model Runtime 发布线统一使用 `2026.7.2` 这样的日期版本，GitHub Release tag 不再带额外的 `v`。",
+          "**桌面预览工具** — 新增桌面预览 DevTools，并改善独立浏览器标签页的状态保留。",
+          "**独立 Agent Chat handoff** — Agent Chat 独立窗口现在更可靠地保留会话状态。",
+        ],
+        improvements: [
+          "**运行时 locale** — 工作台 locale 改为跟随运行时配置，减少 Desktop 与 Web 入口之间的不一致。",
+          "**预览体验** — 降低 Canvas browser viewport 延迟，并打磨预览全屏交互。",
+        ],
+        fixes: [
+          "**预览稳定性** — 修复原生预览在 overlay 和 loading 状态下的遮挡与同步问题。",
+          "**桌面窗口稳定性** — 修复 standalone preview window、共享 app helper 和 GitHub setup return URL 的稳定性问题。",
+        ],
+      },
+      en: {
+        features: [
+          "**Calendar release versions** — Desktop, CLI, Local Web Runtime, and Local Model Runtime now share date versions such as `2026.7.2`, and GitHub Release tags no longer include an extra `v`.",
+          "**Desktop preview tools** — Added desktop preview DevTools and improved state preservation for standalone browser tabs.",
+          "**Standalone Agent Chat handoff** — Agent Chat standalone windows now preserve session state more reliably.",
+        ],
+        improvements: [
+          "**Runtime locale** — The workbench now follows runtime locale configuration, reducing inconsistencies between Desktop and Web entry points.",
+          "**Preview experience** — Reduced Canvas browser viewport lag and refined preview fullscreen interactions.",
+        ],
+        fixes: [
+          "**Preview stability** — Fixed native preview occlusion and sync issues while overlays and loading states are active.",
+          "**Desktop window reliability** — Fixed stability issues around standalone preview windows, shared app helpers, and GitHub setup return URLs.",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-v2.0.0",
     title: {
       zh: "Kanban 工作区 · Code Review · 远程连接 · 自动化 · 独立 CLI",

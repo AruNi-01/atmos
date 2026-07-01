@@ -15,20 +15,20 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Desktop release tag to sync (example: desktop-v0.2.0)"
+        description: "Desktop release tag to sync (example: desktop-2026.7.2)"
         required: false
 
 jobs:
   sync-homebrew-tap:
     name: Update shared homebrew-tap
     # Allow stable desktop releases and explicit manual dispatch.
-    # Prerelease detection (e.g. desktop-v1.1.0-rc.1, -beta.x, -alpha.x) for
+    # Prerelease detection (e.g. desktop-2026.7.2-rc.1, -beta.x, -alpha.x) for
     # the workflow_run path is enforced inside the "Resolve release tag" step
-    # because GitHub Actions expressions cannot match SemVer prerelease shape.
+    # because GitHub Actions expressions cannot match the calendar prerelease shape.
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-v') && github.event.release.prerelease == false) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'desktop-v'))
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-') && github.event.release.prerelease == false) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'desktop-'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -50,7 +50,7 @@ jobs:
             fi
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
             TAG="${{ github.event.workflow_run.head_branch }}"
-            if [[ ! "$TAG" =~ ^desktop-v.+$ ]]; then
+            if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
               echo "workflow_run event but branch is not a desktop tag: $TAG"
               exit 1
             fi
@@ -58,18 +58,18 @@ jobs:
             TAG="${{ github.event.release.tag_name }}"
           fi
 
-          if [[ ! "$TAG" =~ ^desktop-v.+$ ]]; then
-            echo "Only desktop-v* tags are supported. Got: $TAG"
+          if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Only desktop-<YYYY.M.D> tags are supported. Got: $TAG"
             exit 1
           fi
 
-          VERSION="${TAG#desktop-v}"
+          VERSION="${TAG#desktop-}"
 
-          # Skip SemVer prereleases on the workflow_run path so they do not
+          # Skip calendar prereleases on the workflow_run path so they do not
           # overwrite the stable cask. workflow_dispatch is always allowed
           # because the operator opts in explicitly. The release-event path
           # is already filtered by github.event.release.prerelease at job level.
-          if [ "${{ github.event_name }}" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+- ]]; then
+          if [ "${{ github.event_name }}" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
             echo "Detected prerelease tag $TAG; skipping Homebrew tap sync."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0

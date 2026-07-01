@@ -3,6 +3,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
+import { extractCalendarVersionFromTag } from "../release/lib/calendar-version.mjs";
+
 const DEFAULT_OWNER = "AruNi-01";
 const DEFAULT_REPO = "atmos";
 const DEFAULT_HOMEPAGE = "https://atmos.land";
@@ -13,7 +15,7 @@ function printUsage() {
   node scripts/homebrew/generate-cask.mjs [options]
 
 Options:
-  --tag <tag>           Release tag, e.g. desktop-v0.2.0
+  --tag <tag>           Release tag, e.g. desktop-2026.7.2
   --owner <owner>       GitHub owner (default: ${DEFAULT_OWNER})
   --repo <repo>         GitHub repo (default: ${DEFAULT_REPO})
   --token <token>       Cask token (default: atmos)
@@ -25,8 +27,8 @@ Options:
   --help                Show this message
 
 Examples:
-  node scripts/homebrew/generate-cask.mjs --tag desktop-v0.2.0
-  GITHUB_TOKEN=xxx node scripts/homebrew/generate-cask.mjs --tag desktop-v0.2.0 --output Casks/atmos.rb
+  node scripts/homebrew/generate-cask.mjs --tag desktop-2026.7.2
+  GITHUB_TOKEN=xxx node scripts/homebrew/generate-cask.mjs --tag desktop-2026.7.2 --output Casks/atmos.rb
 `);
 }
 
@@ -121,11 +123,7 @@ function normalizeSha256(digest) {
 }
 
 function extractVersionFromTag(tag) {
-  const match = String(tag).match(/^desktop-v(.+)$/);
-  if (!match) {
-    throw new Error(`Release tag "${tag}" does not match expected format "desktop-v<version>"`);
-  }
-  return match[1];
+  return extractCalendarVersionFromTag(tag, "desktop-");
 }
 
 function inferDmgArch(assetName) {
@@ -192,7 +190,7 @@ function buildCaskContent({
   sha256 arm:   "${armSha}",
          intel: "${intelSha}"
 
-  url "https://github.com/${escapeRubyString(owner)}/${escapeRubyString(repo)}/releases/download/desktop-v#{version.csv.first}/Atmos_#{version.csv.second}_#{arch}.dmg",
+  url "https://github.com/${escapeRubyString(owner)}/${escapeRubyString(repo)}/releases/download/desktop-#{version.csv.first}/Atmos_#{version.csv.second}_#{arch}.dmg",
       verified: "github.com/${escapeRubyString(owner)}/${escapeRubyString(repo)}/"
   name "${escapeRubyString(name)}"
   desc "${escapeRubyString(desc)}"
@@ -201,7 +199,7 @@ function buildCaskContent({
   livecheck do
     url :url
     strategy :github_latest do |json, _regex|
-      match = json["tag_name"]&.match(/^desktop-v(\\d+(?:\\.\\d+)+(?:[-.a-zA-Z0-9]+)?)$/)
+      match = json["tag_name"]&.match(/^desktop-(\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:[-.a-zA-Z0-9]+)?)$/)
       next if match.blank?
 
       version = match[1]

@@ -4,7 +4,7 @@ description: Refresh the Atmos landing-page changelog from the GitHub Releases p
 user-invokable: true
 args:
   - name: version
-    description: Optional release version to generate, for example `0.2.6` or `desktop-v0.2.6`. If omitted, generate only versions that are missing from `apps/landing/src/lib/changelog-data.ts`.
+    description: Optional release version to generate, for example `2026.7.2` or `desktop-2026.7.2`. If omitted, generate only versions that are missing from `apps/landing/src/lib/changelog-data.ts`.
     required: false
 ---
 
@@ -21,7 +21,7 @@ Treat the GitHub Releases page as the source of truth, and treat `apps/landing/s
 Optional.
 
 - If provided, refresh only that release.
-- Accept either a short version such as `0.2.6` or a full tag such as `desktop-v0.2.6`.
+- Accept either a short version such as `2026.7.2` or a full tag such as `desktop-2026.7.2`.
 - Normalize short versions to the matching GitHub release tag before fetching.
 
 If omitted:
@@ -37,8 +37,8 @@ The landing `/changelog` page is user-facing and only tracks stable releases. Pr
 
 A release is a pre-release when its version contains a SemVer pre-release suffix, i.e. any `-` segment after `X.Y.Z`. Examples:
 
-- pre-release: `1.1.0-rc.1`, `1.1.0-rc.2`, `0.5.0-beta.3`, `2.0.0-alpha`
-- stable: `1.0.0`, `1.1.0`, `2.0.0`
+- pre-release: `2026.7.2-rc.1`, `2026.7.2-rc.2`, `2026.7.2-beta.3`, `2026.7.2-alpha`
+- stable: `2026.7.2`, `2026.7.3`, `2026.8.1`
 
 Apply the filter as follows:
 
@@ -77,7 +77,7 @@ Apply the filter as follows:
 - Use ISO dates in `YYYY-MM-DD` format.
 - Store the release tag URL in `releaseUrl` when the output type supports it.
 - Keep the release link out of the markdown description and section bullet content when the UI already renders a dedicated GitHub button.
-- Keep `version` user-facing. Convert tags such as `desktop-v0.2.6` to `0.2.6` unless the file already uses a different convention.
+- Keep `version` user-facing. Convert tags such as `desktop-2026.7.2` to `2026.7.2` unless the file already uses a different convention.
 
 ## Mapping Heuristics
 

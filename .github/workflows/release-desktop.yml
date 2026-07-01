@@ -23,7 +23,7 @@ on:
       - ".github/workflows/release-desktop.yml"
   push:
     tags:
-      - "desktop-v*"
+      - "desktop-*"
   workflow_dispatch:
     inputs:
       ref:
@@ -47,7 +47,7 @@ on:
         default: true
         type: boolean
       release_tag:
-        description: "Release tag when create_release=true (example: desktop-v0.5.0-rc.1)"
+        description: "Release tag when create_release=true (example: desktop-2026.7.2-rc.1)"
         required: false
       prerelease:
         description: "Mark release as prerelease"
@@ -187,10 +187,13 @@ jobs:
 
           if [ "$EVENT" = "push" ]; then
             require_tag_commit_on_main
-            # Detect SemVer prerelease tags such as desktop-v1.1.0-rc.1,
-            # desktop-v0.5.0-beta.2 or desktop-v2.0.0-alpha. Stable tags
-            # (e.g. desktop-v1.1.0) have no `-` segment after the version.
-            if [[ "${GITHUB_REF_NAME}" =~ ^desktop-v[0-9]+\.[0-9]+\.[0-9]+- ]]; then
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+              echo "❌ Unexpected release tag: ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+            # Detect calendar prerelease tags such as desktop-2026.7.2-rc.1.
+            # Stable tags (e.g. desktop-2026.7.2) have no `-` segment after the date.
+            if [[ "${GITHUB_REF_NAME}" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
               IS_PRERELEASE="true"
             else
               IS_PRERELEASE="false"
@@ -219,6 +222,11 @@ jobs:
             exit 1
           fi
 
+          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "❌ release_tag must match desktop-<YYYY.M.D>"
+            exit 1
+          fi
+
           validate_checkout_ref "$CHECKOUT_REF"
 
           echo "create_release=$CREATE_RELEASE" >> "$GITHUB_OUTPUT"
@@ -237,7 +245,7 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.resolve.outputs.release_tag }}"
           PRERELEASE="${{ steps.resolve.outputs.prerelease }}"
-          VERSION="${TAG#desktop-v}"
+          VERSION="${TAG#desktop-}"
 
           if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             echo "✅ Release already exists for ${TAG}"
