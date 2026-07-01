@@ -30,6 +30,7 @@ import { usePreviewFavorites } from "../hooks/use-preview-favorites";
 import { usePreviewIframeLoad } from "../hooks/use-preview-iframe-load";
 import { usePreviewLifecycleEffects } from "../hooks/use-preview-lifecycle-effects";
 import { usePreviewNavigation } from "../hooks/use-preview-navigation";
+import { useNativePreviewOcclusion } from "../hooks/use-native-preview-occlusion";
 import { usePreviewSelection } from "../hooks/use-preview-selection";
 import { usePreviewToolbarLayout } from "../hooks/use-preview-toolbar-layout";
 import { usePreviewWindowState } from "../hooks/use-preview-window-state";
@@ -265,9 +266,15 @@ export const Preview: React.FC<PreviewProps> = ({
       return isTauriRuntime() ? 'desktop-native' : 'unavailable';
     }
   }, [normalizedActiveUrl]);
+  const isDesktopNativePreviewOccluded = useNativePreviewOcclusion({
+    enabled: preferredTransportMode === 'desktop-native' && isActive && !isStandaloneBrowserWindow,
+    surfaceRef: desktopViewportRef,
+    ignoredRootRef: previewRootRef,
+  });
   const shouldSuspendDesktopPreview =
       preferredTransportMode === 'desktop-native' && (
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
+        isDesktopNativePreviewOccluded ||
         favoritesListOpen || favoritePopoverOpen ||
         headerHasOpenOverlay || isGlobalSearchOpen ||
         isRightCollapsed
@@ -1074,6 +1081,7 @@ export const Preview: React.FC<PreviewProps> = ({
     iframeKey,
     iframeRef,
     iframeSrc,
+    isDesktopNativePreviewOccluded,
     isPreviewLoading,
     onCloseFavoritesList: () => setFavoritesListOpen(false),
     onDismissElementPickerTooltip: () => setIsElementPickerTooltipOpen(false),

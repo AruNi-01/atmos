@@ -488,10 +488,13 @@ export function AgentChatPanel({
 
   if (!session.isPanelOpen || (variant === "modal" && !layoutLoaded)) return null;
 
+  const shouldMarkAsNativeSurfaceOverlay = variant === "modal" || isFullscreen;
+
   if (isEmbeddedPausedForStandalone) {
     return (
       <div
         ref={panelRef}
+        data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
         className={cn(
           "relative flex items-center justify-center overflow-hidden bg-background p-6 text-center",
           variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
@@ -536,6 +539,7 @@ export function AgentChatPanel({
   return (
     <div
       ref={panelRef}
+      data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
       className={cn(
         "relative flex overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",

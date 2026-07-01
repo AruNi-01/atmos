@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import type React from "react";
+import { useTranslations } from "next-intl";
 import { MessageCirclePlus, Pencil, Trash2 } from "lucide-react";
 
 import { cn } from "@workspace/ui";
@@ -26,6 +28,7 @@ type PreviewViewportProps = {
   iframeKey: number;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   iframeSrc: string;
+  isDesktopNativePreviewOccluded: boolean;
   isPreviewLoading: boolean;
   onCloseFavoritesList: () => void;
   onAddSelectionAnnotation: (selectionInfo: SelectionInfo, note?: string) => void;
@@ -63,6 +66,7 @@ export function PreviewViewport({
   iframeKey,
   iframeRef,
   iframeSrc,
+  isDesktopNativePreviewOccluded,
   isPreviewLoading,
   onCloseFavoritesList,
   onAddSelectionAnnotation,
@@ -89,6 +93,17 @@ export function PreviewViewport({
   transportMessage,
   viewMode,
 }: PreviewViewportProps) {
+  const desktopNativeT = useTranslations("runPreview.preview.desktopNative");
+  const displayActiveUrl = useMemo(() => {
+    if (!activeUrl) return "";
+    try {
+      const parsed = new URL(activeUrl);
+      const path = parsed.pathname === "/" ? "" : parsed.pathname;
+      return `${parsed.host}${path}`;
+    } catch {
+      return activeUrl;
+    }
+  }, [activeUrl]);
   const annotationOverlays = resolvedTransportMode === "desktop-native"
     ? []
     : selectionAnnotations.flatMap((annotation) => {
@@ -146,14 +161,26 @@ export function PreviewViewport({
           <div
             ref={desktopViewportRef}
             className={cn(
-              "flex h-full w-full flex-col items-center justify-center gap-3 border border-dashed border-border/60 bg-muted/10 px-6 text-center select-none",
+              "flex h-full w-full flex-col items-center justify-center gap-3 border border-dashed border-border/60 px-6 text-center select-none",
+              isDesktopNativePreviewOccluded ? "bg-background/90" : "bg-muted/10",
               viewMode === "mobile" ? "w-[375px]" : "w-full",
             )}
           >
-            <div className="text-sm font-medium text-foreground">Desktop native preview active</div>
-            <div className="max-w-xl text-xs leading-relaxed text-muted-foreground">
-              The page is rendered in a Tauri-managed preview window so cross-port and iframe-blocked pages can still use element selection and source-component detection.
-            </div>
+            {isDesktopNativePreviewOccluded ? (
+              <>
+                <div className="text-sm font-medium text-foreground">
+                  {desktopNativeT("occludedTitle")}
+                </div>
+                <div className="max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  {desktopNativeT("occludedDescription")}
+                </div>
+              </>
+            ) : null}
+            {isDesktopNativePreviewOccluded && displayActiveUrl ? (
+              <div className="max-w-xl truncate text-[11px] leading-relaxed text-muted-foreground/80">
+                {displayActiveUrl}
+              </div>
+            ) : null}
             {transportMessage ? (
               <div className="max-w-xl text-[11px] leading-relaxed text-muted-foreground">
                 {transportMessage}

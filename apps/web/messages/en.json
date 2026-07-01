@@ -7527,6 +7527,10 @@
         "detachFailedTitle": "Failed to detach preview",
         "restoreFailedTitle": "Failed to restore preview"
       },
+      "desktopNative": {
+        "occludedTitle": "A floating panel overlaps the preview page, so preview is hidden temporarily",
+        "occludedDescription": "Preview will return after the overlapping panel closes."
+      },
       "extension": {
         "notDetectedTitle": "Extension not detected"
       },

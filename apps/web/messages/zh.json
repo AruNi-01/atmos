@@ -7527,6 +7527,10 @@
         "detachFailedTitle": "分离预览失败",
         "restoreFailedTitle": "恢复预览失败"
       },
+      "desktopNative": {
+        "occludedTitle": "悬浮弹窗与预览页面有重叠，暂时隐藏预览",
+        "occludedDescription": "重叠弹窗关闭后，恢复预览界面"
+      },
       "extension": {
         "notDetectedTitle": "未检测到扩展"
       },
