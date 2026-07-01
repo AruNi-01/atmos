@@ -1,0 +1,77 @@
+apps/desktop/src-tauri/src/main.rs
+  s_446cabb4e9dc97::t_ebdb3e441b1518 288-289
+  s_446cabb4e9dc97::t_ef5e1efe9114a1 17,277-278
+  s_446cabb4e9dc97::t_a6aec5e6d1e23b 518
+  s_446cabb4e9dc97::t_5e8d7a334a824c 517,519-532
+  s_446cabb4e9dc97::t_ad83a1d5d66aa6 279
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  s_446cabb4e9dc97::t_7a41383967ab7c 162
+apps/web/src/features/agent/hooks/use-agent-chat-session-types.ts
+  s_446cabb4e9dc97::t_77be965c9a0f9d 132-133
+apps/web/src/features/agent/hooks/use-agent-chat-message-handler.ts
+  s_d40bb1754f73e2::t_5520b9cd26aa7f 29,48,210-217,320-329,341-343,366-375,388,439-443
+  s_aa5b20d6a93c34::t_4eb35ac5f900d9 444-447
+apps/web/src/features/agent/components/AgentChatHeader.tsx
+  s_d40bb1754f73e2::t_6e2cd7db20bd9b 26,372-390,422
+apps/web/src/shared/lib/standalone-window-handoff.ts
+  s_446cabb4e9dc97::t_c59bf2d82ab9dc 14-18,38-43,108-109,144-171,173,176
+apps/web/src/features/agent/hooks/use-agent-chat-session.ts
+  s_446cabb4e9dc97::t_71f2d215c5407a 682,684-716,722-726,728-733
+  s_d40bb1754f73e2::t_80a37b6e2d3f92 1169-1170
+  s_446cabb4e9dc97::t_d7969844bbd4ab 333,335-340,386-387,389,393,397,401-405,408
+  s_d40bb1754f73e2::t_2ca4bbdd19896d 509-513
+  s_d40bb1754f73e2::t_edcb010e3369db 418,447-453
+  s_d40bb1754f73e2::t_fb99cf357407c2 44-50,137-138,172-185,206
+  s_446cabb4e9dc97::t_85400c0c95deff 155-158
+  s_446cabb4e9dc97::t_f2690f69680c7a 78,139,165
+  s_d40bb1754f73e2::t_8de6a3a23ef432 295-332,334,341-382,384-385,388,390-392,395-396,398-400,406-407,409-415,508
+  s_d40bb1754f73e2::t_585c863cb57fb9 550,742,790,850,916,924,941
+  s_446cabb4e9dc97::t_f66c202576ce15 877-913
+  s_d40bb1754f73e2::t_0b04f3d05ae39a 454
+apps/web/src/features/agent/lib/desktop-agent-chat-window.ts
+  s_446cabb4e9dc97::t_2087ebae205537 18,65,88
+apps/web/src/features/agent/lib/agent-chat-session-handoff.ts
+  s_446cabb4e9dc97::t_66ad76ede37d70 216-218
+  s_446cabb4e9dc97::t_1563320f0aa547 6,30-31,33,36-37,54-67,128,130-134,138-148,151,153-174,176,180-184,186,190,193-194,196-207,212-215,219,240-242,249-251,263-278
+  s_d40bb1754f73e2::t_787f91a58ef298 1-5,7-29,32,34-35,38-53,68-127,129,135-137,149-150,152,175,177-179,185,187-189,191-192,195,208-211,220-239,243-248,252-262,279
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_446cabb4e9dc97::t_0a64d14fe3bc06 363-366,370,383,399,406,423,428-429
+  s_d40bb1754f73e2::t_30081cd566e48e 349-350,369,371-372,382,384,387,414,426,432
+apps/desktop/src-tauri/src/commands.rs
+  s_446cabb4e9dc97::t_d8ad7e07add560 110-163
+  s_446cabb4e9dc97::t_3228ff8fd975f3 462,485-487,524-574
+  s_446cabb4e9dc97::t_eea2aea3a6742b 7-9,17,60,71
+  s_aa5b20d6a93c34::t_39e25499217678 575
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "0c45aed49b4481ad4048ce08d4f7b9aabe51a3c7",
+  "prompts": {},
+  "sessions": {
+    "s_446cabb4e9dc97": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1c22-8239-72b2-b689-706b5a275860",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_aa5b20d6a93c34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1bbc-f341-71d1-8b2e-a74dd86b4085",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d40bb1754f73e2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1c18-5621-7b43-b4fa-6db1082965ac",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
