@@ -1,0 +1,24 @@
+apps/web/src/features/agent/components/TerminalBlock.tsx
+  s_1815bfbbacc563::t_893013350f0658 16,24,56-72,80,88
+apps/web/src/features/agent/components/ToolOrSkillBlock.tsx
+  s_1815bfbbacc563::t_f9ad939a0b24e0 225-230,304-307
+  s_1815bfbbacc563::t_56f3fc109c8b1e 160,201-211,236,239,242,244,301-303,308-318,320
+  s_1815bfbbacc563::t_be36529097afd5 3,6,8,10,31-151,171,173-179,181-185,212-222
+  s_1815bfbbacc563::t_4b0000216635a3 223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "5ef2b26c0fb5ad1ad2b9b773044353b1e040f654",
+  "prompts": {},
+  "sessions": {
+    "s_1815bfbbacc563": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1c1c-8601-7a81-b525-5b1ee011ca0c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
