@@ -1,0 +1,22 @@
+apps/web/src/features/canvas/components/widgets/CanvasBrowserWidget.tsx
+  s_2c3099048d861c::t_56bfc70a97073b 56-57
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_2c3099048d861c::t_9b221458520e8c 858-889,891-894,896-911,913-915,917-920,922-923
+  s_2c3099048d861c::t_2e556a17360cf6 193-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "2f0c6f5b0f7c8784a3d71371a68cedfc03afbdfc",
+  "prompts": {},
+  "sessions": {
+    "s_2c3099048d861c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1d84-2c8b-7cc2-9bf8-623b37129e09",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
