@@ -1,0 +1,60 @@
+apps/web/src/features/run-preview/hooks/use-native-preview-occlusion.ts
+  s_bafeb3cb3ddd56::t_c4028e5d65b087 52,57
+apps/web/src/features/run-preview/lib/preview-bridge/types.ts
+  s_ec44eaa33b45a3::t_3d24980b0126a5 79
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_ec44eaa33b45a3::t_0a3edf111ffcdf 51-52,862
+  s_ec44eaa33b45a3::t_8a1a52de72830f 830-832,839-841,846,848,850-855,857,863-864,1131
+  s_ec44eaa33b45a3::t_baf49864b33fc6 833-838,842-845,847,849,856,858-861
+  s_ec44eaa33b45a3::t_22a38e70a613d0 3,150,179,225-232,289-293,301
+apps/desktop/src-tauri/src/main.rs
+  s_ec44eaa33b45a3::t_5a2a46b200ea07 309
+apps/desktop/src-tauri/Cargo.toml
+  s_ec44eaa33b45a3::t_dcbf1df98bf57b 18
+apps/web/src/features/run-preview/components/PreviewToolbar.tsx
+  s_ec44eaa33b45a3::t_b0c4a016db4f9f 8
+  s_ec44eaa33b45a3::t_c0c27fddb66516 87,151,354,366-367
+  s_ec44eaa33b45a3::t_07d394e781f554 355-365
+apps/web/src/features/run-preview/lib/preview-transports/desktop-transport.ts
+  s_ec44eaa33b45a3::t_9f5f2f026dd714 126-131
+apps/web/messages/en.json
+  s_ec44eaa33b45a3::t_b6783381bdd687 7103,7531-7532
+  s_ec44eaa33b45a3::t_8c6de83b51b8a1 7533
+apps/web/messages/zh.json
+  s_ec44eaa33b45a3::t_7dd91541683d90 7103,7531-7532
+  s_bafeb3cb3ddd56::t_1e62e7eb8dd0b1 7533
+apps/desktop/src-tauri/permissions/desktop-app-commands.toml
+  s_ec44eaa33b45a3::t_7d5c22d1510309 33
+apps/desktop/src-tauri/gen/schemas/acl-manifests.json
+  s_ec44eaa33b45a3::t_80fbcd1ffc5f12 1
+apps/desktop/src-tauri/src/commands.rs
+  s_ec44eaa33b45a3::t_a37c67efacaab5 341-347
+  s_ec44eaa33b45a3::t_e4bca588c3536d 340
+apps/desktop/src-tauri/src/preview_bridge/mod.rs
+  s_ec44eaa33b45a3::t_6a542afedd00b7 594,630
+  s_ec44eaa33b45a3::t_d4b4b3b10394d5 935-949
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "875f77ec3a0a2095d3421164d3e5bddafa30d41f",
+  "prompts": {},
+  "sessions": {
+    "s_bafeb3cb3ddd56": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1caa-1e71-7ce0-9977-07dbc67baff5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ec44eaa33b45a3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1cbf-b7b0-7d51-99f4-eb5c5a298742",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
