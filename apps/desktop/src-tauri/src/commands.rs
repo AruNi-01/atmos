@@ -4,6 +4,9 @@ use crate::state::AppState;
 use crate::updater;
 use runtime_manager::{clear_client_session, local_computer_display_name_opt};
 use serde_json::json;
+use std::fs;
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(target_os = "macos")]
@@ -11,6 +14,7 @@ use tauri::{LogicalPosition, Position, TitleBarStyle};
 
 const AGENT_CHAT_WINDOW_LABEL: &str = "agent-chat";
 const PREVIEW_BROWSER_WINDOW_LABEL: &str = "preview-browser";
+const AGENT_CHAT_HANDOFF_MAX_AGE: Duration = Duration::from_secs(12 * 60 * 60);
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
@@ -53,6 +57,7 @@ pub fn open_agent_chat_window(
     session_cwd: Option<String>,
     workspace_id: Option<String>,
     project_id: Option<String>,
+    handoff_token: Option<String>,
 ) -> Result<(), String> {
     let api_port = current_api_port(&state)?;
     let url = agent_chat_window_url(
@@ -63,6 +68,7 @@ pub fn open_agent_chat_window(
         session_cwd.as_deref(),
         workspace_id.as_deref(),
         project_id.as_deref(),
+        handoff_token.as_deref(),
     )?;
 
     if let Some(existing) = app.get_webview_window(AGENT_CHAT_WINDOW_LABEL) {
@@ -99,6 +105,60 @@ pub fn open_agent_chat_window(
     let _ = window.show();
     let _ = window.set_focus();
     Ok(())
+}
+
+#[tauri::command]
+pub fn write_agent_chat_handoff(
+    app: tauri::AppHandle,
+    token: Option<String>,
+    snapshot: serde_json::Value,
+) -> Result<String, String> {
+    let dir = agent_chat_handoff_dir(&app);
+    fs::create_dir_all(&dir)
+        .map_err(|error| format!("failed to create Agent Chat handoff directory: {error}"))?;
+    cleanup_agent_chat_handoff_dir(&dir);
+
+    let token = match token {
+        Some(value) if is_valid_handoff_token(&value) => value,
+        Some(_) => return Err("invalid Agent Chat handoff token".to_string()),
+        None => uuid::Uuid::new_v4().to_string(),
+    };
+    let path = agent_chat_handoff_path(&dir, &token)?;
+    let tmp_path = path.with_extension("json.tmp");
+    let bytes = serde_json::to_vec(&snapshot)
+        .map_err(|error| format!("failed to serialize Agent Chat handoff: {error}"))?;
+
+    fs::write(&tmp_path, bytes)
+        .map_err(|error| format!("failed to write Agent Chat handoff: {error}"))?;
+    fs::rename(&tmp_path, &path).map_err(|error| {
+        let _ = fs::remove_file(&tmp_path);
+        format!("failed to publish Agent Chat handoff: {error}")
+    })?;
+
+    Ok(token)
+}
+
+#[tauri::command]
+pub fn read_agent_chat_handoff(
+    app: tauri::AppHandle,
+    token: String,
+) -> Result<Option<serde_json::Value>, String> {
+    if !is_valid_handoff_token(&token) {
+        return Err("invalid Agent Chat handoff token".to_string());
+    }
+
+    let dir = agent_chat_handoff_dir(&app);
+    let path = agent_chat_handoff_path(&dir, &token)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = fs::read(&path)
+        .map_err(|error| format!("failed to read Agent Chat handoff: {error}"))?;
+    let _ = fs::remove_file(&path);
+    let snapshot = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("failed to parse Agent Chat handoff: {error}"))?;
+    Ok(Some(snapshot))
 }
 
 #[tauri::command]
@@ -399,6 +459,7 @@ fn agent_chat_window_url(
     session_cwd: Option<&str>,
     workspace_id: Option<&str>,
     project_id: Option<&str>,
+    handoff_token: Option<&str>,
 ) -> Result<tauri::Url, String> {
     let mut url = format!("http://127.0.0.1:{api_port}/agent-chat/")
         .parse::<tauri::Url>()
@@ -420,6 +481,9 @@ fn agent_chat_window_url(
         }
         if let Some(value) = trim_query_value(project_id) {
             query.append_pair("projectId", value);
+        }
+        if let Some(value) = trim_query_value(handoff_token) {
+            query.append_pair("handoffToken", value);
         }
     }
 
@@ -455,6 +519,58 @@ fn preview_browser_window_url(
 
 fn trim_query_value(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn agent_chat_handoff_dir(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("atmos"))
+        .join("handoff")
+        .join("agent-chat")
+}
+
+fn agent_chat_handoff_path(dir: &std::path::Path, token: &str) -> Result<PathBuf, String> {
+    if !is_valid_handoff_token(token) {
+        return Err("invalid Agent Chat handoff token".to_string());
+    }
+    Ok(dir.join(format!("{token}.json")))
+}
+
+fn is_valid_handoff_token(token: &str) -> bool {
+    let len = token.len();
+    (8..=128).contains(&len)
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
+fn cleanup_agent_chat_handoff_dir(dir: &std::path::Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let now = SystemTime::now();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
+            continue;
+        };
+
+        if now
+            .duration_since(modified)
+            .map(|age| age > AGENT_CHAT_HANDOFF_MAX_AGE)
+            .unwrap_or(false)
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {

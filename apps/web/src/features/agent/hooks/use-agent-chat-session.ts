@@ -41,6 +41,13 @@ import {
   type UseAgentChatSessionOptions,
   type UseAgentChatSessionReturn,
 } from "./use-agent-chat-session-types";
+import {
+  getAgentChatSessionHandoffIdentity,
+  readAgentChatSessionHandoff,
+  subscribeAgentChatSessionHandoff,
+  writeAgentChatSessionHandoff,
+  type AgentChatSessionHandoffSnapshot,
+} from "../lib/agent-chat-session-handoff";
 import { useAgentChatMessageHandler } from "./use-agent-chat-message-handler";
 import { useAcpSessionList } from "./use-acp-session-list";
 import { useAgentChatHistoryHandlers } from "./use-agent-chat-history-handlers";
@@ -68,6 +75,7 @@ export function useAgentChatSession({
   const [targetAgentId] = useQueryState("agent", agentChatParams.agent);
   const [targetSessionId] = useQueryState("session", agentChatParams.session);
   const [targetSessionCwd] = useQueryState("sessionCwd", agentChatParams.sessionCwd);
+  const [targetHandoffToken] = useQueryState("handoffToken", agentChatParams.handoffToken);
   const {
     agentChatPromptQueues,
     enqueueAgentChatPrompt,
@@ -126,6 +134,9 @@ export function useAgentChatSession({
   const stoppedRef = useRef(false);
   const forcedDisconnectDoneRef = useRef(false);
   const connectedContextKeyRef = useRef<string | null>(null);
+  const skipRestoreReplayRef = useRef(false);
+  const lastAppliedHandoffIdentityRef = useRef<string | null>(null);
+  const handoffTokenRef = useRef<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Fetch projects when panel opens
@@ -141,18 +152,37 @@ export function useAgentChatSession({
     [projects, effectiveContextId],
   );
 
+  useEffect(() => {
+    handoffTokenRef.current = targetHandoffToken || handoffTokenRef.current;
+  }, [targetHandoffToken]);
+
   const clearDeepLinkSessionParams = useCallback(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.delete("agent");
     url.searchParams.delete("session");
     url.searchParams.delete("sessionCwd");
+    url.searchParams.delete("handoffToken");
     window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }, []);
 
   const canUseCurrentMode = true;
   const sessionWorkspaceId = workspaceId;
   const sessionProjectId = projectId;
+  const skipNextAutoConnectRef = useRef(false);
+  const contextKey = React.useMemo(
+    () => getSessionContextKey(sessionWorkspaceId, sessionProjectId, chatMode),
+    [sessionWorkspaceId, sessionProjectId, chatMode]
+  );
+  const queueKey = React.useMemo(
+    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode),
+    [sessionWorkspaceId, sessionProjectId, chatMode]
+  );
+  const queuedPrompts = useMemo(
+    () => agentChatPromptQueues[queueKey] ?? [],
+    [agentChatPromptQueues, queueKey]
+  );
+  const queuedPromptHead = queuedPrompts[0] ?? null;
   const {
     sessions: historySessions,
     setSessions: setHistorySessions,
@@ -173,6 +203,7 @@ export function useAgentChatSession({
     isResumingHistory,
     pendingPermission,
     sessionTitle,
+    skipRestoreReplayRef,
     setCurrentPlan,
     setEntries,
     setHistorySessions,
@@ -261,26 +292,130 @@ export function useAgentChatSession({
     setDefaultRegistryId,
   });
 
-  // ---------------------------------------------------------------------------
-  // Context key / queue
-  // ---------------------------------------------------------------------------
-  const skipNextAutoConnectRef = useRef(false);
-  const contextKey = React.useMemo(
-    () => getSessionContextKey(sessionWorkspaceId, sessionProjectId, chatMode),
-    [sessionWorkspaceId, sessionProjectId, chatMode]
+  const buildHandoffSnapshot = useCallback((): AgentChatSessionHandoffSnapshot | null => {
+    if (!contextKey || (!sessionId && !acpSessionId && entries.length === 0)) return null;
+    return {
+      version: 1,
+      contextKey,
+      registryId,
+      runtimeSessionId: sessionId,
+      acpSessionId,
+      sessionCwd: sessionCwd ?? localPath,
+      sessionTitle,
+      sessionTitleSource,
+      entries,
+      currentPlan,
+      pendingPermission,
+      waitingForResponse,
+      isResumedSession,
+      isAutoGeneratingTitle,
+      shouldScrambleAutoTitle,
+      updatedAt: Date.now(),
+    };
+  }, [
+    acpSessionId,
+    contextKey,
+    currentPlan,
+    entries,
+    isAutoGeneratingTitle,
+    isResumedSession,
+    localPath,
+    pendingPermission,
+    registryId,
+    sessionCwd,
+    sessionId,
+    sessionTitle,
+    sessionTitleSource,
+    shouldScrambleAutoTitle,
+    waitingForResponse,
+  ]);
+
+  const persistHandoffSnapshot = useCallback(async () => {
+    const snapshot = buildHandoffSnapshot();
+    if (!snapshot) return null;
+    const token = await writeAgentChatSessionHandoff(snapshot, handoffTokenRef.current);
+    if (token) {
+      handoffTokenRef.current = token;
+    }
+    return token;
+  }, [buildHandoffSnapshot]);
+
+  const applyHandoffSnapshot = useCallback(
+    (
+      snapshot: AgentChatSessionHandoffSnapshot | null,
+      expectedAcpSessionId?: string | null,
+    ) => {
+      if (!snapshot) return false;
+      if (snapshot.contextKey !== contextKey) return false;
+      if (expectedAcpSessionId && snapshot.acpSessionId !== expectedAcpSessionId) {
+        return false;
+      }
+
+      const identity = getAgentChatSessionHandoffIdentity(snapshot);
+      if (lastAppliedHandoffIdentityRef.current === identity) return false;
+      lastAppliedHandoffIdentityRef.current = identity;
+      skipRestoreReplayRef.current = Boolean(snapshot.acpSessionId);
+
+      if (snapshot.registryId) {
+        setRegistryId(snapshot.registryId);
+      }
+      if (snapshot.runtimeSessionId) {
+        const nextMap = {
+          ...activeSessionByContextRef.current,
+          [contextKey]: snapshot.runtimeSessionId,
+        };
+        activeSessionByContextRef.current = nextMap;
+        setActiveSessionByContext(nextMap);
+      }
+      setEntries(snapshot.entries);
+      setCurrentPlan(snapshot.currentPlan);
+      setPendingPermission(snapshot.pendingPermission);
+      setSessionTitle(snapshot.sessionTitle);
+      setSessionTitleSource(snapshot.sessionTitleSource);
+      setIsAutoGeneratingTitle(snapshot.isAutoGeneratingTitle);
+      setShouldScrambleAutoTitle(snapshot.shouldScrambleAutoTitle);
+      setIsResumedSession(snapshot.isResumedSession);
+      setWaitingForResponse(snapshot.waitingForResponse);
+      stoppedRef.current = false;
+      return true;
+    },
+    [contextKey],
   );
-  const queueKey = React.useMemo(
-    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode),
-    [sessionWorkspaceId, sessionProjectId, chatMode]
+
+  const restoreHandoffSnapshot = useCallback(
+    async (expectedAcpSessionId?: string | null) => {
+      const token = handoffTokenRef.current || targetHandoffToken || null;
+      return applyHandoffSnapshot(
+        await readAgentChatSessionHandoff(contextKey, expectedAcpSessionId, token),
+        expectedAcpSessionId,
+      );
+    },
+    [applyHandoffSnapshot, contextKey, targetHandoffToken],
   );
-  const queuedPrompts = useMemo(
-    () => agentChatPromptQueues[queueKey] ?? [],
-    [agentChatPromptQueues, queueKey]
-  );
-  const queuedPromptHead = queuedPrompts[0] ?? null;
+
+  useEffect(() => {
+    if (!isPanelOpen || !active || variant !== "standalone") return;
+    const snapshot = buildHandoffSnapshot();
+    if (!snapshot) return;
+    const timeout = window.setTimeout(() => {
+      void writeAgentChatSessionHandoff(snapshot, handoffTokenRef.current).then((token) => {
+        if (token) {
+          handoffTokenRef.current = token;
+        }
+      });
+    }, 150);
+    return () => window.clearTimeout(timeout);
+  }, [active, buildHandoffSnapshot, isPanelOpen, variant]);
+
+  useEffect(() => {
+    if (!isPanelOpen) return;
+    return subscribeAgentChatSessionHandoff(contextKey, (snapshot) => {
+      applyHandoffSnapshot(snapshot);
+    });
+  }, [applyHandoffSnapshot, contextKey, isPanelOpen]);
 
   const {
-    handleSelectHistorySession,
+    handleSelectHistorySession: handleSelectHistorySessionBase,
   } = useAgentChatHistoryHandlers({
     autoResumeTriedRef,
     autoStartHandledRef,
@@ -308,6 +443,14 @@ export function useAgentChatSession({
     stoppedRef,
     workspaceId: sessionWorkspaceId,
   });
+
+  const handleSelectHistorySession = useCallback(
+    async (session: Parameters<typeof handleSelectHistorySessionBase>[0]) => {
+      skipRestoreReplayRef.current = false;
+      await handleSelectHistorySessionBase(session);
+    },
+    [handleSelectHistorySessionBase],
+  );
 
   // ---------------------------------------------------------------------------
   // Context switching effects
@@ -363,6 +506,12 @@ export function useAgentChatSession({
   }, [contextKey, sessionTitleSource]);
 
   useEffect(() => {
+    if (!isResumingHistory) {
+      skipRestoreReplayRef.current = false;
+    }
+  }, [isResumingHistory]);
+
+  useEffect(() => {
     if (!isConnected || !sessionId) {
       connectedContextKeyRef.current = null;
       return;
@@ -398,6 +547,7 @@ export function useAgentChatSession({
     const nextRegistryId = targetRegistryId || defaultRegistryId || registryId;
     if (!nextRegistryId) return;
     skipNextAutoConnectRef.current = true;
+    skipRestoreReplayRef.current = false;
     disconnectStashed(contextKey);
     disconnect();
     clearAgentLastSession(contextKey);
@@ -529,44 +679,58 @@ export function useAgentChatSession({
     if (handledDeepLinkRef.current === targetKey) return;
 
     handledDeepLinkRef.current = targetKey;
-    skipNextAutoConnectRef.current = true;
-    disconnect();
-    setEntries([]);
-    setCurrentPlan(null);
-    setPendingPermission(null);
-    setWaitingForResponse(false);
-    stoppedRef.current = false;
-    setRegistryId(targetAgentId);
-    setSessionTitle(null);
-    setSessionTitleSource(null);
-    setIsAutoGeneratingTitle(false);
-    setShouldScrambleAutoTitle(false);
-    setIsResumedSession(true);
-    setIsResumingHistory(true);
-    autoResumeTriedRef.current = null;
-    restoreAttemptedRef.current = true;
-    autoStartHandledRef.current = true;
+    let cancelled = false;
 
-    void resumeSession({
-      registryId: targetAgentId,
-      acpSessionId: targetSessionId,
-      cwd: targetSessionCwd || null,
-      workspaceId: sessionWorkspaceId,
-      projectId: sessionProjectId,
-    })
-      .then((success) => {
+    void (async () => {
+      skipNextAutoConnectRef.current = true;
+      disconnect();
+      const restoredFromHandoff = await restoreHandoffSnapshot(targetSessionId);
+      if (cancelled) return;
+      if (!restoredFromHandoff) {
+        skipRestoreReplayRef.current = false;
+        setEntries([]);
+        setCurrentPlan(null);
+        setPendingPermission(null);
+        setWaitingForResponse(false);
+        setSessionTitle(null);
+        setSessionTitleSource(null);
+        setIsAutoGeneratingTitle(false);
+        setShouldScrambleAutoTitle(false);
+      }
+      stoppedRef.current = false;
+      setRegistryId(targetAgentId);
+      setIsResumedSession(true);
+      setIsResumingHistory(true);
+      autoResumeTriedRef.current = null;
+      restoreAttemptedRef.current = true;
+      autoStartHandledRef.current = true;
+
+      try {
+        const success = await resumeSession({
+          registryId: targetAgentId,
+          acpSessionId: targetSessionId,
+          cwd: targetSessionCwd || null,
+          workspaceId: sessionWorkspaceId,
+          projectId: sessionProjectId,
+        });
+        if (cancelled) return;
         if (success) {
           clearDeepLinkSessionParams();
         } else {
           setIsResumingHistory(false);
         }
-      })
-      .catch(() => {
-        setIsResumingHistory(false);
-      })
-      .finally(() => {
+      } catch {
+        if (!cancelled) {
+          setIsResumingHistory(false);
+        }
+      } finally {
         skipNextAutoConnectRef.current = false;
-      });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     disconnect,
     clearDeepLinkSessionParams,
@@ -575,6 +739,7 @@ export function useAgentChatSession({
     isPanelOpen,
     isResumingHistory,
     resumeSession,
+    restoreHandoffSnapshot,
     sessionProjectId,
     sessionWorkspaceId,
     setEntries,
@@ -622,6 +787,7 @@ export function useAgentChatSession({
 
     dispatchingQueuedPromptIdRef.current = queuedPromptHead.id;
     forcedDisconnectDoneRef.current = true;
+    skipRestoreReplayRef.current = false;
     disconnect();
     setEntries([]);
     setCurrentPlan(null);
@@ -681,6 +847,7 @@ export function useAgentChatSession({
       if (forcedRegistryId) {
         autoStartHandledRef.current = true;
         autoResumeTriedRef.current = null;
+        skipRestoreReplayRef.current = false;
         setIsResumedSession(false);
         setEntries([]);
         setCurrentPlan(null);
@@ -707,39 +874,46 @@ export function useAgentChatSession({
         autoStartHandledRef.current = true;
         autoResumeTriedRef.current = null;
         if (lastSessionAgentInstalled && lastSession?.acpSessionId) {
-          setIsResumedSession(true);
-          setIsResumingHistory(true);
-          setEntries([]);
-          setCurrentPlan(null);
-          setPendingPermission(null);
-          setSessionTitle(null);
-          setSessionTitleSource(null);
-          setIsAutoGeneratingTitle(false);
-          setShouldScrambleAutoTitle(false);
-          setWaitingForResponse(false);
-          stoppedRef.current = false;
-          if (registryId !== lastSession.registryId) {
-            setRegistryId(lastSession.registryId);
-          }
-          const handleResumeFailure = () => {
-            clearAgentLastSession(contextKey);
-            setIsResumingHistory(false);
-            setIsResumedSession(false);
-            void startSession({ registryId: lastSession.registryId });
-          };
-          void resumeSession({
-            registryId: lastSession.registryId,
-            acpSessionId: lastSession.acpSessionId,
-            cwd: lastSession.cwd,
-            workspaceId: lastSession.workspaceId ?? sessionWorkspaceId,
-            projectId: lastSession.projectId ?? sessionProjectId,
-            authMethodId: selectedAuthMethodId || null,
-          }).then((success) => {
-            if (success) return;
-            handleResumeFailure();
-          }).catch(handleResumeFailure);
+          void (async () => {
+            const restoredFromHandoff = await restoreHandoffSnapshot(lastSession.acpSessionId);
+            setIsResumedSession(true);
+            setIsResumingHistory(true);
+            if (!restoredFromHandoff) {
+              skipRestoreReplayRef.current = false;
+              setEntries([]);
+              setCurrentPlan(null);
+              setPendingPermission(null);
+              setSessionTitle(null);
+              setSessionTitleSource(null);
+              setIsAutoGeneratingTitle(false);
+              setShouldScrambleAutoTitle(false);
+              setWaitingForResponse(false);
+            }
+            stoppedRef.current = false;
+            if (registryId !== lastSession.registryId) {
+              setRegistryId(lastSession.registryId);
+            }
+            const handleResumeFailure = () => {
+              clearAgentLastSession(contextKey);
+              setIsResumingHistory(false);
+              setIsResumedSession(false);
+              void startSession({ registryId: lastSession.registryId });
+            };
+            void resumeSession({
+              registryId: lastSession.registryId,
+              acpSessionId: lastSession.acpSessionId,
+              cwd: lastSession.cwd,
+              workspaceId: lastSession.workspaceId ?? sessionWorkspaceId,
+              projectId: lastSession.projectId ?? sessionProjectId,
+              authMethodId: selectedAuthMethodId || null,
+            }).then((success) => {
+              if (success) return;
+              handleResumeFailure();
+            }).catch(handleResumeFailure);
+          })();
           return;
         }
+        skipRestoreReplayRef.current = false;
         setIsResumedSession(false);
         startSession();
         return;
@@ -747,6 +921,7 @@ export function useAgentChatSession({
       if (!autoStartHandledRef.current) {
         autoStartHandledRef.current = true;
         autoResumeTriedRef.current = null;
+        skipRestoreReplayRef.current = false;
         setIsResumedSession(false);
         startSession();
       }
@@ -763,6 +938,7 @@ export function useAgentChatSession({
     isConnected,
     isConnecting,
     resumeSession,
+    restoreHandoffSnapshot,
     selectedAuthMethodId,
     startSession,
     sessionWorkspaceId,
@@ -990,6 +1166,8 @@ export function useAgentChatSession({
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
     handleExportConversation,
+    persistHandoffSnapshot,
+    restoreHandoffSnapshot,
 
     sendCancel,
     disconnect,

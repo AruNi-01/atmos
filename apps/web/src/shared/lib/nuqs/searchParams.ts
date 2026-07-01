@@ -159,6 +159,7 @@ export const agentChatParams = {
   agent: parseAsString.withDefault(""),
   session: parseAsString.withDefault(""),
   sessionCwd: parseAsString.withDefault(""),
+  handoffToken: parseAsString.withDefault(""),
 };
 
 // ---------------------------------------------------------------------------

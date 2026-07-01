@@ -129,6 +129,8 @@ export interface UseAgentChatSessionReturn {
   handleOpenNewSessionAgentsMenu: () => void;
   handleScheduleCloseNewSessionAgentsMenu: () => void;
   handleExportConversation: () => void;
+  persistHandoffSnapshot: () => Promise<string | null>;
+  restoreHandoffSnapshot: (expectedAcpSessionId?: string | null) => Promise<boolean>;
   sendCancel: () => void;
   disconnect: () => void;
 }

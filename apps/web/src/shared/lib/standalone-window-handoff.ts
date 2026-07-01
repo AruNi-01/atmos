@@ -11,6 +11,11 @@ export interface StandaloneSurfaceEvent {
   at: number;
 }
 
+interface NativeStandaloneSurfaceClosedPayload {
+  surface?: "preview" | "agent-chat";
+  label?: string;
+}
+
 const CHANNEL_NAME = "atmos:standalone-window";
 const STORAGE_PREFIX = "atmos:standalone-window:";
 const SOURCE_ID =
@@ -28,6 +33,12 @@ function canUseWindow(): boolean {
 
 function createEvent(key: string, action: StandaloneSurfaceAction): StandaloneSurfaceEvent {
   return { key, action, sourceId: SOURCE_ID, at: Date.now() };
+}
+
+function surfaceFromKey(key: string): "preview" | "agent-chat" | null {
+  if (key.startsWith("preview:")) return "preview";
+  if (key.startsWith("agent-chat:")) return "agent-chat";
+  return null;
 }
 
 function publishEvent(event: StandaloneSurfaceEvent): void {
@@ -94,6 +105,8 @@ export function subscribeStandaloneSurface(
   if (!canUseWindow()) return () => {};
 
   const seenEvents = new Set<string>();
+  let disposed = false;
+  let tauriUnlisten: (() => void) | null = null;
   const handleEvent = (event: StandaloneSurfaceEvent) => {
     if (event.key !== key || event.sourceId === SOURCE_ID) return;
     const eventId = `${event.sourceId}:${event.at}:${event.action}`;
@@ -128,9 +141,39 @@ export function subscribeStandaloneSurface(
     });
   }
 
+  if (isTauriRuntime()) {
+    const expectedSurface = surfaceFromKey(key);
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen<NativeStandaloneSurfaceClosedPayload>(
+          "atmos://standalone-surface-closed",
+          (event) => {
+            if (disposed || !expectedSurface || event.payload?.surface !== expectedSurface) {
+              return;
+            }
+            const closeEvent = createEvent(key, "close");
+            window.localStorage.removeItem(storageKey(key));
+            handler(false, closeEvent);
+          },
+        ),
+      )
+      .then((unlisten) => {
+        if (disposed) {
+          unlisten();
+          return;
+        }
+        tauriUnlisten = unlisten;
+      })
+      .catch(() => {
+        // Tauri events are a desktop-only lifecycle fallback.
+      });
+  }
+
   return () => {
+    disposed = true;
     window.removeEventListener("storage", handleStorage);
     channel?.close();
+    tauriUnlisten?.();
   };
 }
 

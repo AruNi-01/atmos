@@ -14,7 +14,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::menu::{IconMenuItem, MenuBuilder, NativeIcon, SubmenuBuilder};
 use tauri::utils::config::Color;
-use tauri::{Manager, PhysicalPosition, PhysicalSize, Position, Size};
+use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 use tokio::time::sleep;
 
 use state::{AppState, PersistedWindowState};
@@ -274,6 +274,9 @@ fn main() {
                     _ => {}
                 }
             }
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                emit_standalone_surface_closed(window);
+            }
             let _ = window; // suppress unused warning on non-macOS
         })
         .invoke_handler(tauri::generate_handler![
@@ -282,6 +285,8 @@ fn main() {
             commands::clear_client_session_cmd,
             commands::get_version_info,
             commands::open_agent_chat_window,
+            commands::write_agent_chat_handoff,
+            commands::read_agent_chat_handoff,
             commands::open_preview_browser_window,
             commands::write_log,
             commands::open_in_external_editor,
@@ -508,4 +513,20 @@ document.close();
         let _ = main.show();
         let _ = main.set_focus();
     }
+}
+
+fn emit_standalone_surface_closed(window: &tauri::Window) {
+    let surface = match window.label() {
+        "agent-chat" => "agent-chat",
+        "preview-browser" => "preview",
+        _ => return,
+    };
+
+    let _ = window.app_handle().emit(
+        "atmos://standalone-surface-closed",
+        serde_json::json!({
+            "surface": surface,
+            "label": window.label(),
+        }),
+    );
 }

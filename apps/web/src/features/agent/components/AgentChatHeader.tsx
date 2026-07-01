@@ -23,7 +23,7 @@ import {
   TextScramble,
   cn,
 } from "@workspace/ui";
-import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, Plus, UndoDot, X } from "lucide-react";
+import { Bot, Download, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, PictureInPicture, PictureInPicture2, Plus, X } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentCapabilities,
@@ -369,6 +369,25 @@ export function AgentChatHeader({
             handleSelectHistorySession={handleSelectHistorySession}
             isConnecting={isConnecting}
           />
+          {variant === "modal" && handleOpenStandaloneWindow ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenStandaloneWindow()}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={t("header.actions.openInWindow")}
+                  >
+                    <PictureInPicture2 className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t("header.actions.openInWindow")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
           {variant !== "standalone" && handleToggleFullscreen ? (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -400,7 +419,7 @@ export function AgentChatHeader({
                     className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label={t("header.actions.returnToEmbedded")}
                   >
-                    <UndoDot className="size-4" />
+                    <PictureInPicture className="size-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
@@ -435,15 +454,6 @@ export function AgentChatHeader({
                 <Download className="size-4" />
                 <span>{t("header.actions.exportConversation")}</span>
               </DropdownMenuItem>
-              {variant === "modal" && handleOpenStandaloneWindow ? (
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onSelect={() => void handleOpenStandaloneWindow()}
-                >
-                  <ExternalLink className="size-4" />
-                  <span>{t("header.actions.openInWindow")}</span>
-                </DropdownMenuItem>
-              ) : null}
               {canLogout ? (
                 <DropdownMenuItem
                   className="cursor-pointer"

@@ -346,6 +346,8 @@ export function AgentChatPanel({
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
     handleExportConversation,
+    persistHandoffSnapshot,
+    restoreHandoffSnapshot,
     sendCancel,
   } = session;
   const standaloneSurfaceKey = useMemo(
@@ -358,10 +360,16 @@ export function AgentChatPanel({
       markStandaloneSurfaceOpen(standaloneSurfaceKey);
       const unsubscribe = subscribeStandaloneSurface(standaloneSurfaceKey, (_isOpen, event) => {
         if (event?.action === "restore" || event?.action === "close") {
-          void closeCurrentStandaloneWindow();
+          void (async () => {
+            await persistHandoffSnapshot();
+            await closeCurrentStandaloneWindow();
+          })();
         }
       });
-      const handleBeforeUnload = () => closeStandaloneSurface(standaloneSurfaceKey);
+      const handleBeforeUnload = () => {
+        void persistHandoffSnapshot();
+        closeStandaloneSurface(standaloneSurfaceKey);
+      };
       window.addEventListener("beforeunload", handleBeforeUnload);
       return () => {
         window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -371,9 +379,12 @@ export function AgentChatPanel({
 
     setIsStandaloneChatOpen(readStandaloneSurfaceOpen(standaloneSurfaceKey));
     return subscribeStandaloneSurface(standaloneSurfaceKey, (isOpen) => {
+      if (!isOpen) {
+        void restoreHandoffSnapshot();
+      }
       setIsStandaloneChatOpen(isOpen);
     });
-  }, [standaloneSurfaceKey, variant]);
+  }, [persistHandoffSnapshot, restoreHandoffSnapshot, standaloneSurfaceKey, variant]);
 
   const handleToggleFullscreen = useCallback(() => {
     setFullscreenRequested((current) => !current);
@@ -385,12 +396,14 @@ export function AgentChatPanel({
   }, [handleClose]);
 
   const handleOpenStandaloneWindow = useCallback(async () => {
+    const handoffToken = await persistHandoffSnapshot();
     await openAgentChatWindow({
       agent: registryId || defaultRegistryId || null,
       session: acpSessionId,
       sessionCwd: sessionCwd ?? localPath,
       workspaceId: sessionWorkspaceId,
       projectId: sessionProjectId,
+      handoffToken,
     });
     markStandaloneSurfaceOpen(standaloneSurfaceKey);
     setIsStandaloneChatOpen(true);
@@ -398,6 +411,7 @@ export function AgentChatPanel({
     acpSessionId,
     defaultRegistryId,
     localPath,
+    persistHandoffSnapshot,
     registryId,
     sessionCwd,
     sessionProjectId,
@@ -406,14 +420,16 @@ export function AgentChatPanel({
   ]);
 
   const handleReturnChatToEmbedded = useCallback(() => {
+    void restoreHandoffSnapshot();
     restoreStandaloneSurface(standaloneSurfaceKey);
     setIsStandaloneChatOpen(false);
-  }, [standaloneSurfaceKey]);
+  }, [restoreHandoffSnapshot, standaloneSurfaceKey]);
 
-  const handleCloseStandaloneChatWindow = useCallback(() => {
+  const handleCloseStandaloneChatWindow = useCallback(async () => {
+    await persistHandoffSnapshot();
     restoreStandaloneSurface(standaloneSurfaceKey);
     void closeCurrentStandaloneWindow();
-  }, [standaloneSurfaceKey]);
+  }, [persistHandoffSnapshot, standaloneSurfaceKey]);
 
   const historySidebarExpandLabel = t("history.expand");
   const historySidebarHideLabel = t("history.hide");

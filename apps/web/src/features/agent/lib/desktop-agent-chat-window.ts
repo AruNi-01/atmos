@@ -15,6 +15,7 @@ export interface OpenAgentChatWindowOptions {
   sessionCwd?: string | null;
   workspaceId?: string | null;
   projectId?: string | null;
+  handoffToken?: string | null;
 }
 
 let cachedAgentWindowLocale: 'en' | 'zh' | null = null;
@@ -61,6 +62,7 @@ export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = 
         sessionCwd: options.sessionCwd || null,
         workspaceId: options.workspaceId || null,
         projectId: options.projectId || null,
+        handoffToken: options.handoffToken || null,
       });
     } catch (error) {
       toastManager.add({
@@ -83,6 +85,7 @@ function buildBrowserAgentChatUrl(options: OpenAgentChatWindowOptions): string {
   if (options.sessionCwd) params.set("sessionCwd", options.sessionCwd);
   if (options.workspaceId) params.set("workspaceId", options.workspaceId);
   if (options.projectId) params.set("projectId", options.projectId);
+  if (options.handoffToken) params.set("handoffToken", options.handoffToken);
   const query = params.toString();
   return `/agent-chat/${query ? `?${query}` : ""}`;
 }
