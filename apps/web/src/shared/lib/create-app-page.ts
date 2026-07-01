@@ -8,6 +8,7 @@ export function createAppPage({ title }: AppPageOptions) {
   function Page() {
     return null;
   }
+  Page.displayName = `${title.replace(/\s+/g, "")}Page`;
 
   return { metadata, Page };
 }

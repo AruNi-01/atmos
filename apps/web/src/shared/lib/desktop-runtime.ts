@@ -131,7 +131,7 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
           errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
           console.warn('[desktop-runtime] invoke get_api_config failed:', e);
           if (isDesktopBuild) {
-            cachedConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+            cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
             console.warn(
               `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
             );
@@ -143,7 +143,7 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
     }
     errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
     if (isDesktopBuild) {
-      cachedConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+      cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
       console.warn(
         `[desktop-runtime] Tauri invoke bridge unavailable; falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
       );
