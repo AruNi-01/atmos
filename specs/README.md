@@ -107,6 +107,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-026** | Agent Fix Launcher | `specs/APP/APP-026_agent-fix-launcher/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-027** | Canvas Workspace Surfaces | `specs/APP/APP-027_canvas-workspace-surfaces/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-028** | Runtime Workbench i18n | `specs/APP/APP-028_runtime-workbench-i18n/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-029** | Native Preview Occlusion | `specs/APP/APP-029_native-preview-occlusion/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
