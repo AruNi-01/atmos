@@ -2,7 +2,6 @@
 
 import {
   useRouter as useNextRouter,
-  useParams,
   usePathname,
 } from "next/navigation";
 import { useCallback, useMemo } from "react";
@@ -17,19 +16,10 @@ function currentBrowserLocation(fallbackPathname: string): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
-/**
- * Locale-aware router that auto-prefixes navigation paths with the current
- * locale segment (e.g. `/en/`). Required for static-export builds
- * where no middleware runs to handle locale resolution.
- *
- * Safe to use in web (SSR) mode too — the prefix is idempotent.
- */
 export function useAppRouter() {
   const router = useNextRouter();
-  const params = useParams();
   const pathname = usePathname();
   const interceptor = useAppNavigationInterceptor();
-  const locale = (params?.locale as string) || "en";
 
   const normalizePath = useCallback(
     (path: string) => {
@@ -37,14 +27,8 @@ export function useAppRouter() {
       const [rawPathname, rawQuery = ""] = pathAndQuery.split("?", 2);
 
       let nextPathname = rawPathname;
-
-      if (
-        nextPathname.startsWith(`/${locale}/`) ||
-        nextPathname === `/${locale}`
-      ) {
-        // Already locale-prefixed.
-      } else {
-        nextPathname = `/${locale}${nextPathname.startsWith("/") ? nextPathname : `/${nextPathname}`}`;
+      if (!nextPathname.startsWith("/")) {
+        nextPathname = `/${nextPathname}`;
       }
 
       const isStaticExportBuild =
@@ -54,8 +38,7 @@ export function useAppRouter() {
 
       if (
         isStaticExportBuild &&
-        nextPathname !== `/${locale}` &&
-        nextPathname !== `/${locale}/` &&
+        nextPathname !== "/" &&
         !nextPathname.endsWith("/")
       ) {
         nextPathname = `${nextPathname}/`;
@@ -65,7 +48,7 @@ export function useAppRouter() {
       const nextHash = hash ? `#${hash}` : "";
       return `${nextPathname}${query}${nextHash}`;
     },
-    [locale],
+    [],
   );
 
   const push = useCallback(

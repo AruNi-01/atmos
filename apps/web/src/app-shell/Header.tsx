@@ -33,9 +33,9 @@ import { SkillsModal } from '@/features/skills';
 import { useAgentChatLayoutStore } from '@/features/agent/store/agent-chat-layout-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
+import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
@@ -65,6 +65,7 @@ const Header: React.FC = () => {
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
   const [, setAgentChatOpen] = useAgentChatUrl();
+  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
 
   const projects = useProjectStore(s => s.projects);
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
@@ -397,7 +398,7 @@ const Header: React.FC = () => {
       description: t("toast.webNotReadyDescription"),
       type: 'error',
     });
-  }, [openInBrowser]);
+  }, [openInBrowser, t]);
 
   const isAnyHeaderOverlayOpen =
     isActionMenuOpen || desktopWebPopoverOpen || isUsagePopoverOpen ||
@@ -412,37 +413,17 @@ const Header: React.FC = () => {
     : theme === "dark"
       ? t("theme.dark")
       : t("theme.system");
-  const handleHeaderMouseDown = useCallback(async (event: React.MouseEvent<HTMLElement>) => {
-    if (!isTauriRuntime()) return;
-    if (event.button !== 0) return;
-
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-
-    const interactiveAncestor = target.closest(
-      '.desktop-no-drag, button, a, input, textarea, select, summary, [role="button"], [contenteditable="true"]'
-    );
-    if (interactiveAncestor) return;
-
-    try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      await getCurrentWindow().startDragging();
-    } catch {
-      // Ignore drag failures; native drag-region remains as fallback.
-    }
-  }, []);
-
   return (
     <TooltipProvider>
       <header
-        onMouseDown={handleHeaderMouseDown}
+        onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
           "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
-          isTauriRuntime() && "desktop-drag-region",
-          isTauriRuntime() && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
+          isDesktopDragEnabled && "desktop-drag-region",
+          isDesktopDragEnabled && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
         )}
       >
-        {isTauriRuntime() ? (
+        {isDesktopDragEnabled ? (
           <div
             className="pointer-events-none absolute inset-0 z-0 desktop-drag-region"
             data-tauri-drag-region="true"

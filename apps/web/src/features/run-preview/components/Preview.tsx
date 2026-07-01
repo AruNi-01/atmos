@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createTranslator, useTranslations } from 'next-intl';
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
@@ -20,7 +20,6 @@ import type {
 import { connectSameOriginPreviewTransport } from "../lib/preview-transports/same-origin-transport";
 import { connectExtensionPreviewTransport } from "../lib/preview-transports/extension-transport";
 import { connectDesktopPreviewTransport, getPreviewViewportBounds } from "../lib/preview-transports/desktop-transport";
-import { openPreviewBrowserWindow } from "../lib/desktop-preview-browser-window";
 import { PreviewContent } from "./PreviewContent";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewViewport } from "./PreviewViewport";
@@ -31,6 +30,7 @@ import { usePreviewFavorites } from "../hooks/use-preview-favorites";
 import { usePreviewIframeLoad } from "../hooks/use-preview-iframe-load";
 import { usePreviewLifecycleEffects } from "../hooks/use-preview-lifecycle-effects";
 import { usePreviewNavigation } from "../hooks/use-preview-navigation";
+import { useNativePreviewOcclusion } from "../hooks/use-native-preview-occlusion";
 import { usePreviewSelection } from "../hooks/use-preview-selection";
 import { usePreviewToolbarLayout } from "../hooks/use-preview-toolbar-layout";
 import { usePreviewWindowState } from "../hooks/use-preview-window-state";
@@ -38,6 +38,7 @@ import {
   PREVIEW_EXTENSION_REQUIRED_MESSAGE,
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
   canonicalizeUrl,
+  createPreviewNetworkError,
   isLocalPreviewTarget,
   normalizePreviewPageTitle,
   parseTransportLoadError,
@@ -46,6 +47,8 @@ import {
 } from "../lib/preview-utils";
 
 type ViewMode = PreviewViewMode;
+
+const DEVTOOLS_OCCLUSION_SUPPRESSION_MS = 4000;
 
 interface PreviewProps {
   url: string;
@@ -57,10 +60,23 @@ interface PreviewProps {
   workspaceId?: string | null;
   projectId?: string;
   setIsMaximized?: React.Dispatch<React.SetStateAction<boolean>>;
-  onPageTitleChange?: (title: string) => void;
+  onPageTitleChange?: (title: string, pageUrl?: string) => void;
   onPageIconChange?: (faviconUrl: string) => void;
+  onOpenPageInNewTab?: (url: string) => void;
   browserTabBarProps?: Omit<PreviewBrowserTabBarProps, "chromeControls">;
   isStandaloneBrowserWindow?: boolean;
+  isPreviewStandaloneOpen?: boolean;
+  isMaximizedLayoutManaged?: boolean;
+  allowMaximize?: boolean;
+  disableNativePreviewOcclusion?: boolean;
+  canvasViewportControllerRef?: React.MutableRefObject<PreviewCanvasViewportController | null>;
+  onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
+  onCloseStandalonePreviewWindow?: () => void;
+}
+
+export interface PreviewCanvasViewportController {
+  syncViewport: () => void;
+  hide: () => void;
 }
 
 interface PreviewTransportState {
@@ -92,7 +108,7 @@ function previewT(key: string, fallback: string, values?: PreviewTranslationValu
     cachedPreviewTranslator = createTranslator({
       locale,
       messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'runPreview.preview',
+      namespace: 'browser.preview',
     });
   }
 
@@ -116,8 +132,16 @@ export const Preview: React.FC<PreviewProps> = ({
   setIsMaximized: controlledSetIsMaximized,
   onPageTitleChange,
   onPageIconChange,
+  onOpenPageInNewTab,
   browserTabBarProps,
   isStandaloneBrowserWindow = false,
+  isPreviewStandaloneOpen = false,
+  isMaximizedLayoutManaged = false,
+  allowMaximize = true,
+  disableNativePreviewOcclusion = false,
+  canvasViewportControllerRef,
+  onOpenPreviewBrowserWindow,
+  onCloseStandalonePreviewWindow,
 }) => {
   const previewToolbarT = useTranslations("preview.toolbar");
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
@@ -130,11 +154,11 @@ export const Preview: React.FC<PreviewProps> = ({
   const [desktopCommittedUrl, setDesktopCommittedUrl] = useState(activeUrl);
   const desktopCommittedUrlRef = useRef(activeUrl);
   const [isElementPickerTooltipOpen, setIsElementPickerTooltipOpen] = useState(false);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoadingState] = useState(false);
   const [previewLoadError, setPreviewLoadError] = useState<PreviewLoadError | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
   const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
-  const [isDesktopPreviewDetached, setIsDesktopPreviewDetached] = useState(false);
+  const [suppressNativePreviewOcclusion, setSuppressNativePreviewOcclusion] = useState(false);
   const [transportState, setTransportState] = useState<PreviewTransportState>({
     mode: 'unavailable',
     connected: false,
@@ -148,7 +172,8 @@ export const Preview: React.FC<PreviewProps> = ({
   }, setPreviewToolbarParams] = useQueryStates(previewToolbarParams);
   const viewMode: ViewMode = viewModeParam === "mobile" ? "mobile" : "desktop";
   const isToolbarHidden = isToolbarHiddenParam;
-  const isElementPickerEnabled = isElementPickerEnabledParam;
+  const [localIsElementPickerEnabled, setLocalIsElementPickerEnabled] = useState(isElementPickerEnabledParam);
+  const isElementPickerEnabled = localIsElementPickerEnabled;
   const isElementPickerEnabledRef = useRef(isElementPickerEnabled);
   isElementPickerEnabledRef.current = isElementPickerEnabled;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -160,13 +185,23 @@ export const Preview: React.FC<PreviewProps> = ({
   const transportSessionIdRef = useRef<string | null>(null);
   const desktopPreviewUrlRef = useRef<string | null>(null);
   const desktopPreviewViewportRef = useRef<string | null>(null);
+  const desktopPreviewVisibleRef = useRef(false);
+  const isPreviewLoadingRef = useRef(false);
+  const forceDesktopNavigationRef = useRef(false);
+  const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
-  const isDesktopPreviewDetachedRef = useRef(false);
+  const canvasViewportSyncInFlightRef = useRef(false);
+  const canvasViewportSyncQueuedRef = useRef(false);
+  const canvasViewportSyncRafRef = useRef<number | null>(null);
+  const canvasViewportSyncRequesterRef = useRef<(() => void) | null>(null);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
   const extensionConnectingRef = useRef(false);
+  const setUrlRef = useRef(setUrl);
+  const setActiveUrlRef = useRef(setActiveUrl);
   const onPageTitleChangeRef = useRef(onPageTitleChange);
   const onPageIconChangeRef = useRef(onPageIconChange);
+  const onOpenPageInNewTabRef = useRef(onOpenPageInNewTab);
   const {
     isMaximized,
     needsDesktopPreviewSafeInset,
@@ -176,27 +211,56 @@ export const Preview: React.FC<PreviewProps> = ({
     reserveDesktopWindowControlsInset: isStandaloneBrowserWindow,
     setIsMaximized: controlledSetIsMaximized,
   });
-  isDesktopPreviewDetachedRef.current = isDesktopPreviewDetached;
+  setUrlRef.current = setUrl;
+  setActiveUrlRef.current = setActiveUrl;
   onPageTitleChangeRef.current = onPageTitleChange;
   onPageIconChangeRef.current = onPageIconChange;
+  onOpenPageInNewTabRef.current = onOpenPageInNewTab;
 
-  React.useEffect(() => {
-    onPageTitleChangeRef.current?.(currentPageTitle);
-  }, [currentPageTitle]);
+  const setPreviewUrl = useCallback((nextUrl: string) => {
+    setUrlRef.current(nextUrl);
+  }, []);
+
+  const setPreviewActiveUrl = useCallback((nextUrl: string) => {
+    setActiveUrlRef.current(nextUrl);
+  }, []);
+
+  const setIsPreviewLoading = useCallback((nextIsPreviewLoading: boolean) => {
+    isPreviewLoadingRef.current = nextIsPreviewLoading;
+    setIsPreviewLoadingState(nextIsPreviewLoading);
+  }, []);
 
   const setViewMode = useCallback((nextViewMode: ViewMode) => {
     void setPreviewToolbarParams({ pvView: nextViewMode });
   }, [setPreviewToolbarParams]);
 
   const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
+    isElementPickerEnabledRef.current = nextIsElementPickerEnabled;
+    setLocalIsElementPickerEnabled(nextIsElementPickerEnabled);
     void setPreviewToolbarParams({ pvPick: nextIsElementPickerEnabled });
   }, [setPreviewToolbarParams]);
+
+  useEffect(() => {
+    setLocalIsElementPickerEnabled(isElementPickerEnabledParam);
+    isElementPickerEnabledRef.current = isElementPickerEnabledParam;
+  }, [isElementPickerEnabledParam]);
+
+  useEffect(() => {
+    return () => {
+      if (devToolsOcclusionTimerRef.current != null) {
+        window.clearTimeout(devToolsOcclusionTimerRef.current);
+      }
+    };
+  }, []);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
   const normalizedActiveUrlRef = useRef(normalizedActiveUrl);
   normalizedActiveUrlRef.current = normalizedActiveUrl;
   const setNormalizedCurrentPageTitle = useCallback((pageTitle: string, pageUrl?: string) => {
-    setCurrentPageTitle(normalizePreviewPageTitle(pageTitle, pageUrl ?? normalizedActiveUrlRef.current));
+    const normalizedPageUrl = pageUrl ?? normalizedActiveUrlRef.current;
+    const normalizedTitle = normalizePreviewPageTitle(pageTitle, normalizedPageUrl);
+    setCurrentPageTitle(normalizedTitle);
+    onPageTitleChangeRef.current?.(normalizedTitle, normalizedPageUrl);
   }, []);
   const normalizedDraftUrl = useMemo(() => canonicalizeUrl(url ?? ""), [url]);
   const displayUrlParts = useMemo(() => splitDisplayUrl(url ?? ""), [url]);
@@ -244,19 +308,25 @@ export const Preview: React.FC<PreviewProps> = ({
       return isTauriRuntime() ? 'desktop-native' : 'unavailable';
     }
   }, [normalizedActiveUrl]);
+  const isDesktopNativePreviewOccluded = useNativePreviewOcclusion({
+    enabled:
+      preferredTransportMode === 'desktop-native' &&
+      isActive &&
+      !isStandaloneBrowserWindow &&
+      !disableNativePreviewOcclusion &&
+      !suppressNativePreviewOcclusion,
+    surfaceRef: desktopViewportRef,
+    ignoredRootRef: previewRootRef,
+  });
   const shouldSuspendDesktopPreview =
-      preferredTransportMode === 'desktop-native' && !isDesktopPreviewDetached && (
+      preferredTransportMode === 'desktop-native' && (
+        (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
+        isPreviewLoading ||
+        (!disableNativePreviewOcclusion && !suppressNativePreviewOcclusion && isDesktopNativePreviewOccluded) ||
         favoritesListOpen || favoritePopoverOpen ||
         headerHasOpenOverlay || isGlobalSearchOpen ||
         isRightCollapsed
       );
-
-  React.useEffect(() => {
-    if (activeUrl && preferredTransportMode === 'desktop-native') return;
-    if (!isDesktopPreviewDetachedRef.current) return;
-    isDesktopPreviewDetachedRef.current = false;
-    setIsDesktopPreviewDetached(false);
-  }, [activeUrl, preferredTransportMode]);
   const {
     checkExtensionUpdate,
     extensionDownloadStarted,
@@ -312,7 +382,7 @@ export const Preview: React.FC<PreviewProps> = ({
     }
 
     setIsPreviewLoading(true);
-  }, [iframeSrc, iframeKey, preferredTransportMode]);
+  }, [iframeSrc, iframeKey, preferredTransportMode, setIsPreviewLoading]);
 
   const teardownTransport = useCallback((clearSelection = true) => {
     const activeController = transportControllerRef.current;
@@ -320,6 +390,7 @@ export const Preview: React.FC<PreviewProps> = ({
     transportSessionIdRef.current = null;
     desktopPreviewUrlRef.current = null;
     desktopPreviewViewportRef.current = null;
+    desktopPreviewVisibleRef.current = false;
     extensionConnectingRef.current = false;
     if (activeController) {
       void (async () => {
@@ -355,20 +426,23 @@ export const Preview: React.FC<PreviewProps> = ({
   } = usePreviewNavigation({
     activeUrl,
     desktopCommittedUrlRef,
+    forceDesktopNavigationRef,
+    desktopPreviewUrlRef,
     iframeRef,
     iframeUrlWatcherCleanupRef,
     normalizedActiveUrlRef,
     preferredTransportMode,
-    setActiveUrl,
+    setActiveUrl: setPreviewActiveUrl,
     setCurrentPageTitle,
     setDesktopCommittedUrl,
     setIframeSrc,
     setIsElementPickerEnabled,
+    setIsPreviewLoading,
     setIsUrlInputFocused,
     setNavigationToken,
     setPreviewLoadError,
     setRequestedIframeUrl,
-    setUrl,
+    setUrl: setPreviewUrl,
     teardownTransport,
     transportControllerRef,
     url,
@@ -443,15 +517,14 @@ export const Preview: React.FC<PreviewProps> = ({
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
       }
+      setPreviewLoadError(null);
+      setIsPreviewLoading(false);
       setTransportState({
         mode,
         connected: true,
         message: "",
         capabilities,
       });
-      if (mode === 'desktop-native') {
-        setIsPreviewLoading(false);
-      }
       extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl, pageUrl);
     },
     onSelected: (payload: PreviewHelperPayload) => {
@@ -492,6 +565,7 @@ export const Preview: React.FC<PreviewProps> = ({
           setDesktopCommittedUrl("");
           setPreviewLoadError(loadError);
           setIsPreviewLoading(false);
+          desktopPreviewVisibleRef.current = false;
           void Promise.resolve(transportControllerRef.current?.hide?.());
         }
       }
@@ -515,14 +589,16 @@ export const Preview: React.FC<PreviewProps> = ({
           urlInputRef.current?.blur();
         }
       }
-      setUrl(nextUrl);
-      setActiveUrl(nextUrl);
+      setPreviewUrl(nextUrl);
+      setPreviewActiveUrl(nextUrl);
       if (pageTitle !== undefined) {
         setNormalizedCurrentPageTitle(pageTitle, nextUrl);
       }
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
       }
+      setPreviewLoadError(null);
+      setIsPreviewLoading(false);
       if (skipExternalHistorySyncRef.current) {
         skipExternalHistorySyncRef.current = false;
       } else {
@@ -536,6 +612,12 @@ export const Preview: React.FC<PreviewProps> = ({
         onPageIconChangeRef.current?.(faviconUrl);
       }
       extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl, pageUrl);
+    },
+    onOpenTab: (targetUrl: string, sourceUrl?: string) => {
+      const normalizedTargetUrl = canonicalizeUrl(targetUrl) || targetUrl.trim();
+      if (!normalizedTargetUrl) return;
+      onOpenPageInNewTabRef.current?.(normalizedTargetUrl);
+      extraHandlers?.onOpenTab?.(normalizedTargetUrl, sourceUrl);
     },
     onCursorChange: (cursor: string) => {
       const viewport = desktopViewportRef.current;
@@ -555,9 +637,10 @@ export const Preview: React.FC<PreviewProps> = ({
     handleSelectedPayload,
     handleUpdateSelectionAnnotation,
     pushHistoryEntry,
-    setActiveUrl,
+    setPreviewActiveUrl,
     setNormalizedCurrentPageTitle,
-    setUrl,
+    setIsPreviewLoading,
+    setPreviewUrl,
     skipExternalHistorySyncRef,
   ]);
 
@@ -669,18 +752,32 @@ export const Preview: React.FC<PreviewProps> = ({
     const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
     const viewportKey = JSON.stringify(viewport);
     if (transportControllerRef.current?.mode === 'desktop-native' && transportSessionIdRef.current) {
-      if (desktopPreviewUrlRef.current !== committedUrl) {
-        await transportControllerRef.current.navigate?.(committedUrl);
+      const activeController = transportControllerRef.current;
+      const shouldNavigate = forceDesktopNavigationRef.current || desktopPreviewUrlRef.current !== committedUrl;
+      if (shouldNavigate) {
+        forceDesktopNavigationRef.current = false;
+        await activeController.navigate?.(committedUrl);
         desktopPreviewUrlRef.current = committedUrl;
       }
-      if (!isDesktopPreviewDetachedRef.current && desktopPreviewViewportRef.current !== viewportKey) {
-        await transportControllerRef.current.updateViewport?.(viewport);
+      setPreviewLoadError(null);
+      if (desktopPreviewViewportRef.current !== viewportKey) {
+        await activeController.updateViewport?.(viewport);
         desktopPreviewViewportRef.current = viewportKey;
       }
-      setTransportState((previous) => ({
-        ...previous,
-        mode: 'desktop-native',
-      }));
+      if (isPreviewLoadingRef.current && shouldNavigate) {
+        await activeController.hide?.();
+        desktopPreviewVisibleRef.current = false;
+      } else if (isPreviewLoadingRef.current) {
+        setIsPreviewLoading(false);
+      }
+      setTransportState((previous) =>
+        previous.mode === 'desktop-native'
+          ? previous
+          : {
+              ...previous,
+              mode: 'desktop-native',
+            },
+      );
       return;
     }
 
@@ -697,8 +794,15 @@ export const Preview: React.FC<PreviewProps> = ({
         viewport,
         ...createTransportHandlers('desktop-native'),
       });
+      forceDesktopNavigationRef.current = false;
       desktopPreviewUrlRef.current = committedUrl;
       desktopPreviewViewportRef.current = viewportKey;
+      desktopPreviewVisibleRef.current = true;
+      setPreviewLoadError(null);
+      if (isPreviewLoadingRef.current) {
+        await transportControllerRef.current.hide?.();
+        desktopPreviewVisibleRef.current = false;
+      }
       setTransportState({
         mode: 'desktop-native',
         connected: true,
@@ -707,12 +811,16 @@ export const Preview: React.FC<PreviewProps> = ({
       });
     } catch (error) {
       console.error('[preview] desktop transport connect failed:', error);
+      desktopCommittedUrlRef.current = "";
+      setDesktopCommittedUrl("");
+      setPreviewLoadError(createPreviewNetworkError(committedUrl, error));
+      setIsPreviewLoading(false);
       setTransportState({
         mode: 'desktop-native',
         connected: false,
         message: previewT(
           'desktopTransport.openFailedMessage',
-          'Failed to open preview window: {errorMessage}',
+          'Failed to open Browser window: {errorMessage}',
           { errorMessage: error instanceof Error ? error.message : String(error) },
         ),
         capabilities: [],
@@ -720,7 +828,7 @@ export const Preview: React.FC<PreviewProps> = ({
     } finally {
       desktopConnectingRef.current = false;
     }
-  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, teardownTransport]);
+  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, setIsPreviewLoading, teardownTransport]);
 
   const showDesktopPreview = useCallback(async () => {
     if (preferredTransportMode !== 'desktop-native' || !desktopCommittedUrlRef.current || !desktopViewportRef.current) return;
@@ -728,17 +836,145 @@ export const Preview: React.FC<PreviewProps> = ({
       await syncDesktopPreview();
       return;
     }
-    await transportControllerRef.current.show?.();
-    if (!isDesktopPreviewDetachedRef.current) {
-      await transportControllerRef.current.updateViewport?.(await getPreviewViewportBounds(desktopViewportRef.current));
+    if (!desktopPreviewVisibleRef.current) {
+      await transportControllerRef.current.show?.();
+      desktopPreviewVisibleRef.current = true;
+    }
+    const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
+    const viewportKey = JSON.stringify(viewport);
+    if (desktopPreviewViewportRef.current !== viewportKey) {
+      await transportControllerRef.current.updateViewport?.(viewport);
+      desktopPreviewViewportRef.current = viewportKey;
     }
   }, [preferredTransportMode, syncDesktopPreview]);
 
   const hideDesktopPreview = useCallback(async () => {
-    if (isDesktopPreviewDetachedRef.current) return;
     if (transportControllerRef.current?.mode !== 'desktop-native') return;
+    if (!desktopPreviewVisibleRef.current) return;
     await transportControllerRef.current.hide?.();
+    desktopPreviewVisibleRef.current = false;
   }, []);
+
+  const runCanvasViewportSync = useCallback(async () => {
+    if (
+      preferredTransportMode !== 'desktop-native' ||
+      !desktopCommittedUrlRef.current ||
+      shouldSuspendDesktopPreview
+    ) {
+      await hideDesktopPreview();
+      return;
+    }
+
+    const surface = desktopViewportRef.current;
+    if (!surface) {
+      await hideDesktopPreview();
+      return;
+    }
+
+    const rect = surface.getBoundingClientRect();
+    const visibleWidth = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+    if (
+      rect.width < 16 ||
+      rect.height < 16 ||
+      visibleWidth < 8 ||
+      visibleHeight < 8
+    ) {
+      await hideDesktopPreview();
+      return;
+    }
+
+    await showDesktopPreview();
+  }, [hideDesktopPreview, preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
+
+  const syncCanvasViewport = useCallback(() => {
+    if (canvasViewportSyncInFlightRef.current) {
+      canvasViewportSyncQueuedRef.current = true;
+      return;
+    }
+
+    canvasViewportSyncInFlightRef.current = true;
+    void (async () => {
+      try {
+        await runCanvasViewportSync();
+      } finally {
+        canvasViewportSyncInFlightRef.current = false;
+        if (!canvasViewportSyncQueuedRef.current) return;
+
+        canvasViewportSyncQueuedRef.current = false;
+        if (canvasViewportSyncRafRef.current != null) {
+          window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
+        }
+        canvasViewportSyncRafRef.current = window.requestAnimationFrame(() => {
+          canvasViewportSyncRafRef.current = null;
+          canvasViewportSyncRequesterRef.current?.();
+        });
+      }
+    })().catch(() => undefined);
+  }, [runCanvasViewportSync]);
+  canvasViewportSyncRequesterRef.current = syncCanvasViewport;
+
+  useEffect(() => {
+    return () => {
+      if (canvasViewportSyncRafRef.current != null) {
+        window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canvasViewportControllerRef) return;
+
+    const controller: PreviewCanvasViewportController = {
+      syncViewport: syncCanvasViewport,
+      hide: () => {
+        void hideDesktopPreview();
+      },
+    };
+    canvasViewportControllerRef.current = controller;
+    syncCanvasViewport();
+
+    return () => {
+      if (canvasViewportControllerRef.current === controller) {
+        canvasViewportControllerRef.current = null;
+      }
+    };
+  }, [canvasViewportControllerRef, hideDesktopPreview, syncCanvasViewport]);
+
+  const handleOpenDeveloperTools = useCallback(async () => {
+    if (preferredTransportMode !== 'desktop-native') return;
+
+    if (devToolsOcclusionTimerRef.current != null) {
+      window.clearTimeout(devToolsOcclusionTimerRef.current);
+      devToolsOcclusionTimerRef.current = null;
+    }
+    setSuppressNativePreviewOcclusion(true);
+
+    try {
+      if (transportControllerRef.current?.mode !== 'desktop-native') {
+        await syncDesktopPreview();
+      }
+      const controller = transportControllerRef.current;
+      if (controller?.mode !== 'desktop-native' || !controller.openDevTools) {
+        throw new Error('Desktop Browser is not ready for developer tools.');
+      }
+      await controller.openDevTools();
+    } catch (error) {
+      setSuppressNativePreviewOcclusion(false);
+      console.error('[preview] failed to open developer tools:', error);
+      toastManager.add({
+        title: previewT('developerTools.openFailedTitle', 'Failed to open developer tools'),
+        description: error instanceof Error ? error.message : String(error),
+        type: 'error',
+      });
+      return;
+    }
+
+    devToolsOcclusionTimerRef.current = window.setTimeout(() => {
+      devToolsOcclusionTimerRef.current = null;
+      setSuppressNativePreviewOcclusion(false);
+    }, DEVTOOLS_OCCLUSION_SUPPRESSION_MS);
+  }, [preferredTransportMode, syncDesktopPreview]);
 
   const handleIframeLoad = usePreviewIframeLoad({
     connectIframeTransport,
@@ -751,11 +987,11 @@ export const Preview: React.FC<PreviewProps> = ({
     normalizedActiveUrlRef,
     preferredTransportMode,
     pushHistoryEntry,
-    setActiveUrl,
+    setActiveUrl: setPreviewActiveUrl,
     setCurrentPageTitle: setNormalizedCurrentPageTitle,
     setIsPreviewLoading,
     setPreviewLoadError,
-    setUrl,
+    setUrl: setPreviewUrl,
     skipExternalHistorySyncRef,
     syncSameOriginPreviewAccess,
     transportControllerRef,
@@ -764,6 +1000,7 @@ export const Preview: React.FC<PreviewProps> = ({
   usePreviewLifecycleEffects({
     connectIframeTransport,
     desktopCommittedUrl,
+    desktopPreviewViewportRef,
     desktopCommittedUrlRef,
     desktopViewportRef,
     extensionConnectingRef,
@@ -792,13 +1029,17 @@ export const Preview: React.FC<PreviewProps> = ({
     teardownTransport,
     transportConnected: transportState.connected,
     transportControllerRef,
+    viewMode,
   });
 
   const handleToggleElementPicker = useCallback(async () => {
     if (!normalizedActiveUrlRef.current) return;
 
-    if (isElementPickerEnabled) {
+    if (isElementPickerEnabledRef.current) {
+      isElementPickerEnabledRef.current = false;
       setIsElementPickerEnabled(false);
+      const viewport = desktopViewportRef.current;
+      if (viewport) viewport.style.cursor = '';
       await Promise.resolve(transportControllerRef.current?.exitPickMode());
       dismissSelectionPopover(false);
       return;
@@ -809,12 +1050,14 @@ export const Preview: React.FC<PreviewProps> = ({
         await syncDesktopPreview();
       }
       await Promise.resolve(transportControllerRef.current?.enterPickMode());
+      isElementPickerEnabledRef.current = true;
       setIsElementPickerEnabled(true);
       return;
     }
 
     if (transportControllerRef.current && transportState.connected) {
       await Promise.resolve(transportControllerRef.current.enterPickMode());
+      isElementPickerEnabledRef.current = true;
       setIsElementPickerEnabled(true);
       return;
     }
@@ -832,37 +1075,18 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
 
+    isElementPickerEnabledRef.current = true;
     setIsElementPickerEnabled(true);
     void checkExtensionUpdate();
-  }, [checkExtensionUpdate, connectIframeTransport, dismissSelectionPopover, isElementPickerEnabled, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, transportState.connected]);
-
-  const handleToggleDesktopPreviewDetached = useCallback(async () => {
-    if (preferredTransportMode !== 'desktop-native' || !normalizedActiveUrlRef.current || !desktopViewportRef.current) return;
-
-    if (transportControllerRef.current?.mode !== 'desktop-native') {
-      await syncDesktopPreview();
-    }
-
-    const controller = transportControllerRef.current;
-    if (controller?.mode !== 'desktop-native' || !controller.setDetached) return;
-
-    const nextDetached = !isDesktopPreviewDetachedRef.current;
-    const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
-    try {
-      await controller.setDetached(nextDetached, normalizedActiveUrlRef.current, viewport);
-      isDesktopPreviewDetachedRef.current = nextDetached;
-      setIsDesktopPreviewDetached(nextDetached);
-      desktopPreviewViewportRef.current = nextDetached ? "detached" : JSON.stringify(viewport);
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: nextDetached
-          ? previewT('desktopPreview.detachFailedTitle', 'Failed to detach preview')
-          : previewT('desktopPreview.restoreFailedTitle', 'Failed to restore preview'),
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, [preferredTransportMode, syncDesktopPreview]);
+  }, [
+    checkExtensionUpdate,
+    connectIframeTransport,
+    dismissSelectionPopover,
+    preferredTransportMode,
+    setIsElementPickerEnabled,
+    syncDesktopPreview,
+    transportState.connected,
+  ]);
 
   const resolvedTransportMode =
     transportState.mode === 'unavailable' && normalizedActiveUrl
@@ -885,7 +1109,6 @@ export const Preview: React.FC<PreviewProps> = ({
     usesDesktopToolbarExpand,
     usesToolbarHoverOverlay,
   } = usePreviewToolbarLayout({
-    isMaximized,
     isToolbarHidden,
     resolvedTransportMode,
     setToolbarHiddenParam: (nextIsToolbarHidden) => {
@@ -902,17 +1125,20 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [setIsMaximized]);
 
   const canOpenPreviewBrowserWindow = useMemo(
-    () => isTauriRuntime() && !isStandaloneBrowserWindow,
-    [isStandaloneBrowserWindow],
+    () => isTauriRuntime() && !isStandaloneBrowserWindow && Boolean(onOpenPreviewBrowserWindow),
+    [isStandaloneBrowserWindow, onOpenPreviewBrowserWindow],
   );
 
   const handleOpenPreviewBrowserWindow = useCallback(async () => {
-    await openPreviewBrowserWindow({
-      url: normalizedActiveUrl || activeUrl,
-      workspaceId,
-      projectId,
-    });
-  }, [activeUrl, normalizedActiveUrl, projectId, workspaceId]);
+    if (!onOpenPreviewBrowserWindow) return;
+    teardownTransport(false);
+    await onOpenPreviewBrowserWindow(normalizedActiveUrl || activeUrl);
+  }, [activeUrl, normalizedActiveUrl, onOpenPreviewBrowserWindow, teardownTransport]);
+
+  const handleCloseStandalonePreviewWindow = useCallback(() => {
+    teardownTransport(false);
+    onCloseStandalonePreviewWindow?.();
+  }, [onCloseStandalonePreviewWindow, teardownTransport]);
 
   const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
 
@@ -960,12 +1186,12 @@ export const Preview: React.FC<PreviewProps> = ({
     : preferredTransportMode === 'unavailable'
       ? previewT(
           'elementPicker.tooltip.unavailable',
-          'Element selection is only available for same-origin pages, local development URLs, or the desktop preview.',
+          'Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.',
         )
     : preferredTransportMode === 'desktop-native'
       ? previewT(
           'elementPicker.tooltip.desktopNative',
-          '{action} element selection. Source component detection runs through the desktop native preview and supports React, Vue, Angular, and Svelte.',
+          '{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.',
           { action: elementPickerAction },
         )
       : preferredTransportMode === 'extension'
@@ -997,9 +1223,9 @@ export const Preview: React.FC<PreviewProps> = ({
     favoriteNameDraft,
     favoritePopoverOpen,
     isDownloadingExtension,
-    isDesktopPreviewDetached,
     isElementPickerEnabled,
     isElementPickerTooltipOpen,
+    isPreviewLoading,
     isRecheckingExtension,
     isUrlInputFocused,
     needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !browserTabBarProps,
@@ -1029,9 +1255,9 @@ export const Preview: React.FC<PreviewProps> = ({
     handleGoForward,
     handleGoHome,
     handleCopySelectionAnnotations,
+    handleOpenDeveloperTools,
     handleRefresh,
     handleRecheckExtension,
-    handleToggleDesktopPreviewDetached,
     handleToggleElementPicker,
     handleUrlInputBlur,
     setDesktopToolbarHovered,
@@ -1040,7 +1266,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setFavoriteNameDraft,
     setFavoritePopoverOpen,
     setIsElementPickerTooltipOpen,
-    setUrl,
+    setUrl: setPreviewUrl,
     setViewMode,
   };
 
@@ -1058,6 +1284,7 @@ export const Preview: React.FC<PreviewProps> = ({
     iframeKey,
     iframeRef,
     iframeSrc,
+    isDesktopNativePreviewOccluded,
     isPreviewLoading,
     onCloseFavoritesList: () => setFavoritesListOpen(false),
     onDismissElementPickerTooltip: () => setIsElementPickerTooltipOpen(false),
@@ -1111,11 +1338,16 @@ export const Preview: React.FC<PreviewProps> = ({
               ),
               isMaximized,
               isToolbarHidden: effectiveIsToolbarHidden,
-              needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !effectiveIsToolbarHidden,
+              needsDesktopPreviewSafeInset,
               openInWindowTitle: previewToolbarT("actions.openPreviewBrowserWindow"),
+              returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
               toolbarToggleTitle,
               onOpenInWindow: canOpenPreviewBrowserWindow ? handleOpenPreviewBrowserWindow : undefined,
-              onToggleMaximized: handleToggleMaximized,
+              onReturnToEmbedded: isStandaloneBrowserWindow ? handleCloseStandalonePreviewWindow : undefined,
+              onToggleMaximized:
+                allowMaximize && !isStandaloneBrowserWindow
+                  ? handleToggleMaximized
+                  : undefined,
               onToggleToolbarHidden: handleToggleToolbarHidden,
             }}
           />
@@ -1123,7 +1355,7 @@ export const Preview: React.FC<PreviewProps> = ({
       }
       isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
       isMaximized={isMaximized}
-      needsChromeSafeInset={isChromeManagedByTabBar && needsDesktopPreviewSafeInset}
+      isMaximizedLayoutManaged={isMaximizedLayoutManaged}
       previewRootRef={previewRootRef}
       toolbarProps={toolbarProps}
       toolbarHoverSuppressed={toolbarHoverSuppressed}

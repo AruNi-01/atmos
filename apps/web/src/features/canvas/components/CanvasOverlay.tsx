@@ -1,12 +1,30 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import { ChevronDown } from "lucide-react";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
-import { CanvasView } from "./CanvasView";
+
+const CanvasView = dynamic(() => import("./CanvasView").then((mod) => mod.CanvasView), {
+  ssr: false,
+  loading: () => <CanvasOverlayLoading />,
+});
+
+function CanvasOverlayLoading() {
+  const t = useTranslations("app.loading");
+
+  return (
+    <div className="flex h-full min-h-dvh items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/25 border-t-foreground" />
+        <p className="text-sm text-muted-foreground">{t("label")}</p>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Full-screen immersive Canvas overlay.
@@ -90,7 +108,7 @@ export function CanvasOverlay() {
     return null;
   }
 
-  const isOpen = animState === "visible";
+  const isOpen = canvas && animState !== "closing";
   const isClosing = animState === "closing";
 
   return (

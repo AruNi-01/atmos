@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import type {
   PreviewBridgeController,
   PreviewTransportMode,
@@ -16,6 +15,8 @@ import {
 interface UsePreviewNavigationParams {
   activeUrl: string;
   desktopCommittedUrlRef: MutableRefObject<string>;
+  forceDesktopNavigationRef: MutableRefObject<boolean>;
+  desktopPreviewUrlRef: MutableRefObject<string | null>;
   iframeRef: RefObject<HTMLIFrameElement | null>;
   iframeUrlWatcherCleanupRef: MutableRefObject<(() => void) | null>;
   normalizedActiveUrlRef: MutableRefObject<string>;
@@ -25,6 +26,7 @@ interface UsePreviewNavigationParams {
   setDesktopCommittedUrl: (url: string) => void;
   setIframeSrc: (url: string) => void;
   setIsElementPickerEnabled: (enabled: boolean) => void;
+  setIsPreviewLoading: (isLoading: boolean) => void;
   setIsUrlInputFocused: (focused: boolean) => void;
   setNavigationToken: Dispatch<SetStateAction<number>>;
   setPreviewLoadError: (error: PreviewLoadError | null) => void;
@@ -39,6 +41,8 @@ interface UsePreviewNavigationParams {
 export function usePreviewNavigation({
   activeUrl,
   desktopCommittedUrlRef,
+  forceDesktopNavigationRef,
+  desktopPreviewUrlRef,
   iframeRef,
   iframeUrlWatcherCleanupRef,
   normalizedActiveUrlRef,
@@ -48,6 +52,7 @@ export function usePreviewNavigation({
   setDesktopCommittedUrl,
   setIframeSrc,
   setIsElementPickerEnabled,
+  setIsPreviewLoading,
   setIsUrlInputFocused,
   setNavigationToken,
   setPreviewLoadError,
@@ -104,21 +109,15 @@ export function usePreviewNavigation({
       setActiveUrl(finalUrl);
       setRequestedIframeUrl(finalUrl);
       setNavigationToken((prev) => prev + 1);
-      if (isTauriRuntime()) {
-        desktopCommittedUrlRef.current = '';
-        setDesktopCommittedUrl('');
-      }
 
       if (!pushHistory) return;
       pushHistoryEntry(finalUrl);
     },
     [
-      desktopCommittedUrlRef,
       normalizedActiveUrlRef,
       pushHistoryEntry,
       setActiveUrl,
       setCurrentPageTitle,
-      setDesktopCommittedUrl,
       setIsUrlInputFocused,
       setNavigationToken,
       setPreviewLoadError,
@@ -159,9 +158,13 @@ export function usePreviewNavigation({
   }, [activeUrl]);
 
   const handleRefresh = useCallback(() => {
-    if (!url) return;
+    if (!url.trim()) return;
+    setIsPreviewLoading(true);
+    if (preferredTransportMode === 'desktop-native') {
+      forceDesktopNavigationRef.current = true;
+    }
     navigateToUrl(url);
-  }, [navigateToUrl, url]);
+  }, [forceDesktopNavigationRef, navigateToUrl, preferredTransportMode, setIsPreviewLoading, url]);
 
   const handleGoHome = useCallback(() => {
     setUrl('');
@@ -171,11 +174,13 @@ export function usePreviewNavigation({
     setPreviewLoadError(null);
     setRequestedIframeUrl('');
     desktopCommittedUrlRef.current = '';
+    desktopPreviewUrlRef.current = null;
     setDesktopCommittedUrl('');
     setIframeSrc('');
     teardownTransport();
   }, [
     desktopCommittedUrlRef,
+    desktopPreviewUrlRef,
     setActiveUrl,
     setCurrentPageTitle,
     setDesktopCommittedUrl,
@@ -193,12 +198,24 @@ export function usePreviewNavigation({
         const controller = transportControllerRef.current;
         if (controller?.mode !== 'desktop-native' || !controller.navigate) return false;
 
+        const targetCanonicalUrl = canonicalizeUrl(targetUrl) || targetUrl;
         skipExternalHistorySyncRef.current = true;
+        desktopCommittedUrlRef.current = targetCanonicalUrl;
+        setDesktopCommittedUrl(targetCanonicalUrl);
         setPreviewLoadError(null);
+        setIsPreviewLoading(true);
         setCurrentPageTitle('');
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
-        void controller.navigate(targetUrl);
+        void Promise.resolve(controller.navigate(targetUrl)).then(() => {
+          if (
+            transportControllerRef.current !== controller ||
+            desktopCommittedUrlRef.current !== targetCanonicalUrl
+          ) {
+            return;
+          }
+          desktopPreviewUrlRef.current = targetCanonicalUrl;
+        });
         return true;
       }
 
@@ -210,6 +227,7 @@ export function usePreviewNavigation({
         iframeUrlWatcherCleanupRef.current = null;
         skipExternalHistorySyncRef.current = true;
         setPreviewLoadError(null);
+        setIsPreviewLoading(true);
         setCurrentPageTitle('');
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
@@ -220,11 +238,15 @@ export function usePreviewNavigation({
       }
     },
     [
+      desktopCommittedUrlRef,
+      desktopPreviewUrlRef,
       iframeRef,
       iframeUrlWatcherCleanupRef,
       preferredTransportMode,
       setActiveUrl,
       setCurrentPageTitle,
+      setDesktopCommittedUrl,
+      setIsPreviewLoading,
       setPreviewLoadError,
       setUrl,
       transportControllerRef,

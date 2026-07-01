@@ -32,7 +32,7 @@ export function HostedLandingLoading() {
   return (
     <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-background">
       <div
-        className="pointer-events-none absolute inset-0 animate-in fade-in duration-700"
+        className="pointer-events-none absolute inset-0 animate-in fade-in duration-700 motion-reduce:animate-none"
         aria-hidden
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_0%,color-mix(in_oklab,var(--foreground)_7%,transparent),transparent_65%)]" />
@@ -40,11 +40,8 @@ export function HostedLandingLoading() {
         <div className="absolute inset-0 opacity-[0.22] [background-image:radial-gradient(circle_at_center,color-mix(in_oklab,var(--foreground)_7%,transparent)_1px,transparent_1px)] [background-size:22px_22px]" />
       </div>
 
-      <motion.div
-        className="relative z-10 flex w-full max-w-2xl flex-col items-center px-6 py-12 text-center sm:px-10"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: "easeOut" }}
+      <div
+        className="relative z-10 flex w-full max-w-2xl animate-in flex-col items-center px-6 py-12 text-center fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none sm:px-10"
       >
         <AtmosWordmark
           layout="compact"
@@ -54,10 +51,13 @@ export function HostedLandingLoading() {
           sloganClassName="hidden"
         />
 
-        <HostedSloganShimmer className="pt-4 text-base font-normal text-muted-foreground/90 sm:pt-5 sm:text-lg" />
+        <HostedSloganShimmer
+          duration={1.1}
+          className="pt-4 text-base font-normal sm:pt-5 sm:text-lg"
+        />
 
         <LoadingProgress />
-      </motion.div>
+      </div>
     </div>
   );
 }

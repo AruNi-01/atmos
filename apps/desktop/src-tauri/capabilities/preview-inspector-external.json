@@ -1,0 +1,23 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "preview-inspector-external",
+  "description": "Allows the desktop preview inspector webview to report token-authenticated preview runtime events from HTTP(S) pages.",
+  "windows": [
+    "main",
+    "preview-browser",
+    "preview-inspector-*"
+  ],
+  "webviews": [
+    "preview-inspector",
+    "preview-inspector-*"
+  ],
+  "remote": {
+    "urls": [
+      "http://*",
+      "https://*"
+    ]
+  },
+  "permissions": [
+    "preview-inspector-events"
+  ]
+}

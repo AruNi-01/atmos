@@ -17,6 +17,7 @@ import { AgentIcon } from "./AgentIcon";
 
 interface AgentChatHistorySidebarProps {
   className?: string;
+  reserveTrafficLightsInset?: boolean;
   historySessions: AgentChatSessionItem[];
   historyHasMore: boolean;
   historyLoading: boolean;
@@ -195,6 +196,7 @@ function groupHistorySessions(
 
 export function AgentChatHistorySidebar({
   className,
+  reserveTrafficLightsInset = false,
   historySessions,
   historyHasMore,
   historyLoading,
@@ -285,7 +287,7 @@ export function AgentChatHistorySidebar({
 
   return (
     <aside className={cn("h-full min-h-0 w-full shrink-0 flex-col bg-transparent text-foreground backdrop-blur-md", className)}>
-      <div className="shrink-0 px-3 py-3">
+      <div className={cn("shrink-0 px-3 pb-3", reserveTrafficLightsInset ? "pt-14" : "pt-3")}>
         <div className="flex min-w-0 items-center gap-1.5">
           <div
             ref={newSessionControlRef}

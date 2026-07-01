@@ -22,10 +22,10 @@ import {
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
 import {
+  CenterStageOpenFileTab,
   CenterStageOverviewTab,
   CenterStageScrollableTabs,
   CenterStageStickyTabActions,
-  CenterStageSurfaceContentTab,
   CenterStageTabGroupItemContent,
   CenterStageTabList,
   type CenterStageSurfaceTabVariant,
@@ -35,7 +35,12 @@ import {
   type FileTabContextMenuState,
 } from "@/app-shell/center-stage-file-menu";
 import { FileViewer } from "@/features/editor/components/FileViewer";
-import { useEditorStore, type OpenFile } from "@/features/editor/store/use-editor-store";
+import {
+  EDITOR_DIFF_PREFIX,
+  EDITOR_REVIEW_GROUP_PREFIX,
+  useEditorStore,
+  type OpenFile,
+} from "@/features/editor/store/use-editor-store";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { ChangesCodeView } from "@/features/diff/components/ChangesCodeView";
 import { DiffViewer } from "@/features/diff/components/DiffViewer";
@@ -220,6 +225,24 @@ function CanvasCenterWidgetBody({
     [closeFileTabsSafely],
   );
 
+  const pinCanvasPreviewFileTab = React.useCallback(
+    (tab: CanvasCenterTab) => {
+      if (tab.kind !== "file" || tab.mode === "edit") {
+        return;
+      }
+      updateCenterSource({
+        ...source,
+        tabs: tabs.map((candidate) =>
+          candidate.id === tab.id && candidate.kind === "file"
+            ? { ...candidate, mode: "edit" }
+            : candidate,
+        ),
+        activeTabId,
+      });
+    },
+    [activeTabId, source, tabs, updateCenterSource],
+  );
+
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
     const fileTabs = tabs
@@ -304,30 +327,34 @@ function CanvasCenterWidgetBody({
             {tabs
               .filter(isClosableCanvasCenterTab)
               .map((tab) => (
-                <CanvasCenterSurfaceTab
+                <CenterStageOpenFileTab
                   key={tab.id}
-                  tab={tab}
+                  tabValue={tab.id}
+                  file={createCanvasCenterTabOpenFile(tab, workspaceOpenFiles)}
+                  displayPath={getCanvasCenterTabSubtitle(tab)}
+                  variant={getCanvasCenterSurfaceTabVariant(tab)}
+                  sessionDisplay={null}
+                  closeLabel={t("centerWidget.closeTab", { title: tab.title })}
                   onClose={() => closeTab(tab)}
-                  onContextMenu={
-                    tab.kind === "file"
-                      ? (event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          editor.markEventAsHandled(event);
-                          handleTabChange(tab.id);
-                          const point = clientPointToLocalElementPoint(
-                            rootRef.current,
-                            event.clientX,
-                            event.clientY,
-                          );
-                          setTabContextMenu({
-                            x: point.x,
-                            y: point.y,
-                            filePath: tab.path,
-                          });
-                        }
-                      : undefined
-                  }
+                  onPreviewPin={() => pinCanvasPreviewFileTab(tab)}
+                  onContextMenuRequest={(event) => {
+                    if (tab.kind !== "file") {
+                      return;
+                    }
+                    event.stopPropagation();
+                    editor.markEventAsHandled(event);
+                    handleTabChange(tab.id);
+                    const point = clientPointToLocalElementPoint(
+                      rootRef.current,
+                      event.clientX,
+                      event.clientY,
+                    );
+                    setTabContextMenu({
+                      x: point.x,
+                      y: point.y,
+                      filePath: tab.path,
+                    });
+                  }}
                 />
               ))}
           </CenterStageScrollableTabs>
@@ -366,30 +393,6 @@ function CanvasCenterWidgetBody({
   );
 }
 
-function CanvasCenterSurfaceTab({
-  onContextMenu,
-  onClose,
-  tab,
-}: {
-  onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  onClose: () => void;
-  tab: ClosableCanvasCenterTab;
-}) {
-  const t = useTranslations("Canvas.chrome");
-  return (
-    <CenterStageSurfaceContentTab
-      value={tab.id}
-      name={tab.title}
-      path={getCanvasCenterTabSubtitle(tab)}
-      tooltip={getCanvasCenterTabSubtitle(tab)}
-      variant={getCanvasCenterSurfaceTabVariant(tab)}
-      closeLabel={t("centerWidget.closeTab", { title: tab.title })}
-      onClose={onClose}
-      onContextMenu={onContextMenu}
-    />
-  );
-}
-
 function getCanvasCenterSurfaceTabVariant(
   tab: ClosableCanvasCenterTab,
 ): CenterStageSurfaceTabVariant {
@@ -406,6 +409,47 @@ function getCanvasCenterSurfaceTabVariant(
   }
 }
 
+function getCanvasCenterOpenFilePath(tab: ClosableCanvasCenterTab): string {
+  switch (tab.kind) {
+    case "file":
+      return tab.path;
+    case "changes-group":
+      return tab.groupPath;
+    case "changes-file":
+      return `${EDITOR_DIFF_PREFIX}${tab.filePath}`;
+    case "review-file":
+      return tab.originalPath;
+    case "review-group":
+      return tab.groupPath || `${EDITOR_REVIEW_GROUP_PREFIX}${tab.revisionGuid ?? ""}`;
+  }
+}
+
+function createCanvasCenterTabOpenFile(
+  tab: ClosableCanvasCenterTab,
+  workspaceOpenFiles: OpenFile[],
+): OpenFile {
+  if (tab.kind === "file") {
+    const existing = workspaceOpenFiles.find((file) => file.path === tab.path);
+    if (existing) {
+      return { ...existing, isPreview: tab.mode === "preview" };
+    }
+  }
+
+  return {
+    path: getCanvasCenterOpenFilePath(tab),
+    name: tab.title,
+    content: "",
+    originalContent: "",
+    language: "",
+    isSymlink: false,
+    isDirty: false,
+    isLoading: false,
+    isPreview: tab.kind === "file" && tab.mode === "preview",
+    lastOpenedAt: 0,
+    lastFocusedAt: 0,
+  };
+}
+
 function createCanvasCenterTabGroupItem(tab: ClosableCanvasCenterTab): TabGroupItem {
   return {
     id: tab.id,
@@ -418,19 +462,7 @@ function createCanvasCenterTabGroupItem(tab: ClosableCanvasCenterTab): TabGroupI
 function createCanvasCenterMenuOpenFile(
   tab: Extract<CanvasCenterTab, { kind: "file" }>,
 ): OpenFile {
-  return {
-    path: tab.path,
-    name: tab.title,
-    content: "",
-    originalContent: "",
-    language: "",
-    isSymlink: false,
-    isDirty: false,
-    isLoading: false,
-    isPreview: tab.mode === "preview",
-    lastOpenedAt: 0,
-    lastFocusedAt: 0,
-  };
+  return createCanvasCenterTabOpenFile(tab, []);
 }
 
 function getCanvasCenterTabGroupKind(tab: ClosableCanvasCenterTab): TabGroupItem["kind"] {

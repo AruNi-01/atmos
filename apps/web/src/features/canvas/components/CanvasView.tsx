@@ -125,7 +125,34 @@ import {
 } from "./CanvasToolbarChrome";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
+const CANVAS_READY_MIN_LOADING_MS = 180;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
+
+function nowMs() {
+  return typeof performance === "undefined" ? Date.now() : performance.now();
+}
+
+function CanvasLoadingScreen({
+  overlay = false,
+}: {
+  overlay?: boolean;
+}) {
+  const loadingT = useTranslations("app.loading");
+
+  return (
+    <div
+      className={cn(
+        "desktop-loading-clean flex h-full items-center justify-center bg-background",
+        overlay && "absolute inset-0 z-[1500]",
+      )}
+    >
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">{loadingT("label")}</p>
+      </div>
+    </div>
+  );
+}
 
 function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoardDocument {
   return {
@@ -173,6 +200,11 @@ export const CanvasView: React.FC = () => {
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const editorRef = React.useRef<Editor | null>(null);
   const [editorReady, setEditorReady] = React.useState(false);
+  const [readyCanvasRenderKey, setReadyCanvasRenderKey] = React.useState<string | null>(null);
+  const canvasLoadingStartedAtRef = React.useRef(nowMs());
+  const previousCanvasRenderKeyRef = React.useRef<string | null>(null);
+  const canvasRevealRafIdsRef = React.useRef<number[]>([]);
+  const canvasRevealTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // APP-015: Canvas terminal-agent bridge. The hook returns a stable state
   // object whose internal bus/presence references survive every CanvasView
   // re-render, so it is safe to call before `editorReady` and pass the
@@ -268,6 +300,38 @@ export const CanvasView: React.FC = () => {
     [AgentOnCanvasSlot, ShapeCopySlot, SharePanelSlot, isStylePanelEnabled],
   );
 
+  const cancelPendingCanvasReveal = React.useCallback(() => {
+    for (const rafId of canvasRevealRafIdsRef.current) {
+      cancelAnimationFrame(rafId);
+    }
+    canvasRevealRafIdsRef.current = [];
+
+    if (canvasRevealTimeoutRef.current) {
+      clearTimeout(canvasRevealTimeoutRef.current);
+      canvasRevealTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleCanvasRevealAfterPaint = React.useCallback((renderKey: string) => {
+    cancelPendingCanvasReveal();
+
+    const rafId = requestAnimationFrame(() => {
+      const nestedRafId = requestAnimationFrame(() => {
+        canvasRevealRafIdsRef.current = [];
+        const elapsed = nowMs() - canvasLoadingStartedAtRef.current;
+        const remaining = Math.max(0, CANVAS_READY_MIN_LOADING_MS - elapsed);
+
+        canvasRevealTimeoutRef.current = setTimeout(() => {
+          canvasRevealTimeoutRef.current = null;
+          setReadyCanvasRenderKey(renderKey);
+        }, remaining);
+      });
+      canvasRevealRafIdsRef.current = [nestedRafId];
+    });
+
+    canvasRevealRafIdsRef.current = [rafId];
+  }, [cancelPendingCanvasReveal]);
+
   const initialSnapshot = React.useMemo(() => {
     if (!connectionBootstrapReady || !document?.tldrawDocument) {
       return null;
@@ -277,6 +341,23 @@ export const CanvasView: React.FC = () => {
       resolveCanvasSessionForLoad(readCanvasSession(board?.guid)),
     );
   }, [board?.guid, connectionBootstrapReady, document?.tldrawDocument]);
+
+  const canvasRenderKey = React.useMemo(() => {
+    if (!connectionBootstrapReady || !document) {
+      return null;
+    }
+
+    return [
+      board?.guid ?? "default",
+      board?.updated_at ?? "unsaved",
+      tldrawRemountKey,
+    ].join(":");
+  }, [board?.guid, board?.updated_at, connectionBootstrapReady, document, tldrawRemountKey]);
+
+  if (previousCanvasRenderKeyRef.current !== canvasRenderKey) {
+    previousCanvasRenderKeyRef.current = canvasRenderKey;
+    canvasLoadingStartedAtRef.current = nowMs();
+  }
 
   React.useEffect(() => {
     if (isHostedAtmosOrigin()) {
@@ -643,7 +724,7 @@ export const CanvasView: React.FC = () => {
       setIsManualSaving(false);
       documentSaveInFlightRef.current = false;
     }
-  }, []);
+  }, [t]);
 
   // Keyboard shortcut for manual save (Cmd+S / Ctrl+S)
   useHotkeys('cmd+s, ctrl+s', (e) => {
@@ -664,6 +745,18 @@ export const CanvasView: React.FC = () => {
     initialViewportFitDoneRef.current = false;
     setEditorReady(false);
   }, [tldrawRemountKey]);
+
+  React.useEffect(() => {
+    if (!isLoading && connectionBootstrapReady) {
+      return;
+    }
+
+    cancelPendingCanvasReveal();
+    canvasLoadingStartedAtRef.current = nowMs();
+    setReadyCanvasRenderKey(null);
+  }, [cancelPendingCanvasReveal, connectionBootstrapReady, isLoading]);
+
+  React.useEffect(() => cancelPendingCanvasReveal, [cancelPendingCanvasReveal]);
 
   const scheduleSessionSave = React.useCallback(
     (nextSession: CanvasTldrawSession) => {
@@ -992,11 +1085,7 @@ export const CanvasView: React.FC = () => {
   }, [setActiveShapeId, t]);
 
   if (isLoading || !connectionBootstrapReady) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <CanvasLoadingScreen />;
   }
 
   if (error || !document) {
@@ -1200,9 +1289,10 @@ export const CanvasView: React.FC = () => {
   );
 
   sharePanelRef.current = sharePanelContent;
+  const showCanvasLoading = readyCanvasRenderKey !== canvasRenderKey;
 
   return (
-    <div className="tldraw-wrapper relative h-full w-full overflow-hidden bg-background">
+    <div className="tldraw-wrapper relative isolate h-full w-full overflow-hidden bg-background">
       <style jsx global>{`
         .tldraw-wrapper .tl-container {
           --tl-layer-menu-click-capture: 1190;
@@ -1213,55 +1303,68 @@ export const CanvasView: React.FC = () => {
           --tl-layer-following-indicator: 1450;
         }
       `}</style>
-      <CanvasAgentContext.Provider value={configuredAgents}>
-        <CanvasAgentCrashProvider value={canvasCrashRecovery}>
-          <CanvasTerminalRefProvider>
-          <CanvasTopChromePaddingContext.Provider value={needsTrafficLightsPadding ? 32 : 0}>
-          <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
-            <CanvasAgentCrashBoundary className="h-full w-full">
-              <Tldraw
-                key={`${board?.guid || "canvas"}:${tldrawRemountKey}`}
-                licenseKey={TLDRAW_LICENSE_KEY}
-                snapshot={initialSnapshot ?? undefined}
-                shapeUtils={shapeUtils}
-                components={tldrawComponents}
-                onMount={(nextEditor) => {
-                  editorRef.current = nextEditor;
-                  setEditorReady(true);
-                  setAgentBridgeEditor(nextEditor);
+      <div
+        className={cn(
+          "h-full w-full transition-opacity duration-150",
+          showCanvasLoading ? "pointer-events-none opacity-0" : "opacity-100",
+        )}
+        aria-hidden={showCanvasLoading}
+      >
+        <CanvasAgentContext.Provider value={configuredAgents}>
+          <CanvasAgentCrashProvider value={canvasCrashRecovery}>
+            <CanvasTerminalRefProvider>
+            <CanvasTopChromePaddingContext.Provider value={needsTrafficLightsPadding ? 32 : 0}>
+            <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
+              <CanvasAgentCrashBoundary className="h-full w-full">
+                <Tldraw
+                  key={`${board?.guid || "canvas"}:${tldrawRemountKey}`}
+                  licenseKey={TLDRAW_LICENSE_KEY}
+                  snapshot={initialSnapshot ?? undefined}
+                  shapeUtils={shapeUtils}
+                  components={tldrawComponents}
+                  onMount={(nextEditor) => {
+                    editorRef.current = nextEditor;
+                    setEditorReady(true);
+                    setAgentBridgeEditor(nextEditor);
+                    const nextCanvasRenderKey = canvasRenderKey;
+                    if (!nextCanvasRenderKey) {
+                      return;
+                    }
 
-                  // IndexedDB session can override snapshot; re-apply unless user saved grid off.
-                  if (readCanvasSession(board?.guid)?.isGridMode !== false) {
-                    nextEditor.updateInstanceState({ isGridMode: true });
-                  }
+                    // IndexedDB session can override snapshot; re-apply unless user saved grid off.
+                    if (readCanvasSession(board?.guid)?.isGridMode !== false) {
+                      nextEditor.updateInstanceState({ isGridMode: true });
+                    }
 
-                  const pageId = nextEditor.getCurrentPageId();
-                  const session = readCanvasSession(board?.guid);
-                  if (!hasTrustedSessionViewport(session, pageId)) {
-                    requestAnimationFrame(() => {
-                      if (initialViewportFitDoneRef.current) {
-                        return;
-                      }
-                      if (fitCanvasEditorToPageContent(nextEditor)) {
-                        initialViewportFitDoneRef.current = true;
-                      }
-                    });
-                  } else {
-                    initialViewportFitDoneRef.current = true;
-                  }
-                }}
-              >
-                <CanvasThemeBridge />
-                <CanvasAgentOverlay bridge={canvasAgentBridge} />
-                <CanvasFocusPulse />
-              </Tldraw>
-            </CanvasAgentCrashBoundary>
-          </CanvasTopLeftToolbarContext.Provider>
-          </CanvasTopChromePaddingContext.Provider>
-          <CanvasAgentIsland bridge={canvasAgentBridge} />
-          </CanvasTerminalRefProvider>
-        </CanvasAgentCrashProvider>
-      </CanvasAgentContext.Provider>
+                    const pageId = nextEditor.getCurrentPageId();
+                    const session = readCanvasSession(board?.guid);
+                    if (!hasTrustedSessionViewport(session, pageId)) {
+                      const viewportFitRafId = requestAnimationFrame(() => {
+                        if (!initialViewportFitDoneRef.current && fitCanvasEditorToPageContent(nextEditor)) {
+                          initialViewportFitDoneRef.current = true;
+                        }
+                        scheduleCanvasRevealAfterPaint(nextCanvasRenderKey);
+                      });
+                      canvasRevealRafIdsRef.current.push(viewportFitRafId);
+                    } else {
+                      initialViewportFitDoneRef.current = true;
+                      scheduleCanvasRevealAfterPaint(nextCanvasRenderKey);
+                    }
+                  }}
+                >
+                  <CanvasThemeBridge />
+                  <CanvasAgentOverlay bridge={canvasAgentBridge} />
+                  <CanvasFocusPulse />
+                </Tldraw>
+              </CanvasAgentCrashBoundary>
+            </CanvasTopLeftToolbarContext.Provider>
+            </CanvasTopChromePaddingContext.Provider>
+            <CanvasAgentIsland bridge={canvasAgentBridge} />
+            </CanvasTerminalRefProvider>
+          </CanvasAgentCrashProvider>
+        </CanvasAgentContext.Provider>
+      </div>
+      {showCanvasLoading ? <CanvasLoadingScreen overlay /> : null}
       <CanvasUnsupportedInteractionDialog />
     </div>
   );

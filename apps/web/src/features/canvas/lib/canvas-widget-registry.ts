@@ -5,6 +5,7 @@ import {
   FolderGit2,
   Gauge,
   GitPullRequest,
+  Globe,
   ListChecks,
   PanelTop,
   type LucideIcon,
@@ -19,7 +20,7 @@ import { CANVAS_WIDGET_DEFAULT_SIZES } from "./canvas-widget-shape";
 
 export type AddableCanvasWidgetType = CanvasWidgetType;
 
-export type CanvasWidgetGroupId = "workspace" | "code-review" | "agents" | "usage";
+export type CanvasWidgetGroupId = "workspace" | "browser" | "code-review" | "agents" | "usage";
 
 export type CanvasWidgetGroup = {
   id: CanvasWidgetGroupId;
@@ -56,6 +57,7 @@ function canvasWidgetRegistryT(key: string): string {
 
 export const CANVAS_WIDGET_GROUPS: CanvasWidgetGroup[] = [
   { id: "workspace", label: canvasWidgetRegistryT("groups.workspace") },
+  { id: "browser", label: canvasWidgetRegistryT("groups.browser") },
   { id: "code-review", label: canvasWidgetRegistryT("groups.codeReview") },
   { id: "agents", label: canvasWidgetRegistryT("groups.agents") },
   { id: "usage", label: canvasWidgetRegistryT("groups.usage") },
@@ -112,6 +114,16 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
     addable: true,
     requiresContext: true,
   },
+  browser: {
+    type: "browser",
+    group: "browser",
+    label: canvasWidgetRegistryT("items.browser.label"),
+    description: canvasWidgetRegistryT("items.browser.description"),
+    icon: Globe,
+    defaultSize: CANVAS_WIDGET_DEFAULT_SIZES.browser,
+    addable: true,
+    requiresContext: false,
+  },
   "agent-status": {
     type: "agent-status",
     group: "agents",
@@ -146,6 +158,7 @@ export const CANVAS_WIDGET_REGISTRY: Record<CanvasWidgetType, CanvasWidgetRegist
 
 export const ADDABLE_CANVAS_WIDGET_TYPES: AddableCanvasWidgetType[] = [
   "center",
+  "browser",
   "workspace-context",
   "files",
   "changes",

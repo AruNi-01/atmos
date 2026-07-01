@@ -26,6 +26,7 @@ interface UseAgentChatMessageHandlerParams {
   isResumingHistory: boolean;
   pendingPermission: PendingPermission | null;
   sessionTitle: string | null;
+  skipRestoreReplayRef?: MutableRefObject<boolean>;
   setCurrentPlan: Dispatch<SetStateAction<AgentPlan | null>>;
   setEntries: Dispatch<SetStateAction<ThreadEntry[]>>;
   setHistorySessions: Dispatch<SetStateAction<AgentChatSessionItem[]>>;
@@ -44,6 +45,7 @@ export function useAgentChatMessageHandler({
   isResumingHistory,
   pendingPermission,
   sessionTitle,
+  skipRestoreReplayRef,
   setCurrentPlan,
   setEntries,
   setHistorySessions,
@@ -205,6 +207,14 @@ export function useAgentChatMessageHandler({
   }, [cancelRestoreReplayFrame]);
 
   const handleMessage = useCallback((msg: AgentServerMessage) => {
+    if (
+      isResumingHistoryRef.current &&
+      skipRestoreReplayRef?.current &&
+      isRestoreReplayContentMessage(msg)
+    ) {
+      return;
+    }
+
     if (isResumingHistoryRef.current && isRestoreReplayMessage(msg)) {
       if (stoppedRef.current) return;
       restoreReplayQueueRef.current.push(msg);
@@ -307,6 +317,16 @@ export function useAgentChatMessageHandler({
         setIsAutoGeneratingTitle(false);
         break;
       case "session_ready":
+        if (skipRestoreReplayRef?.current) {
+          skipRestoreReplayRef.current = false;
+          restoreReplayQueueRef.current = [];
+          restoreReplayFinishedRef.current = false;
+          cancelRestoreReplayFrame();
+          stoppedRef.current = false;
+          setWaitingForResponse(false);
+          setIsResumingHistory(false);
+          break;
+        }
         if (isResumingHistoryRef.current || restoreReplayQueueRef.current.length > 0) {
           restoreReplayFinishedRef.current = true;
           scheduleRestoreReplayFlush();
@@ -318,6 +338,9 @@ export function useAgentChatMessageHandler({
       case "capabilities_update":
         break;
       case "session_closed":
+        if (skipRestoreReplayRef) {
+          skipRestoreReplayRef.current = false;
+        }
         restoreReplayQueueRef.current = [];
         restoreReplayFinishedRef.current = false;
         cancelRestoreReplayFrame();
@@ -340,6 +363,16 @@ export function useAgentChatMessageHandler({
         setWaitingForResponse(false);
         break;
       case "load_completed":
+        if (skipRestoreReplayRef?.current) {
+          skipRestoreReplayRef.current = false;
+          restoreReplayQueueRef.current = [];
+          restoreReplayFinishedRef.current = false;
+          cancelRestoreReplayFrame();
+          stoppedRef.current = false;
+          setWaitingForResponse(false);
+          setIsResumingHistory(false);
+          break;
+        }
         if (isResumingHistoryRef.current || restoreReplayQueueRef.current.length > 0) {
           restoreReplayFinishedRef.current = true;
           scheduleRestoreReplayFlush();
@@ -352,6 +385,7 @@ export function useAgentChatMessageHandler({
     scheduleRestoreReplayFlush,
     scheduleStreamFlush,
     sessionTitle,
+    skipRestoreReplayRef,
     setCurrentPlan,
     setEntries,
     setHistorySessions,
@@ -398,6 +432,15 @@ function isRestoreReplayMessage(msg: AgentServerMessage): msg is RestoreReplayMe
     msg.type === "tool_call" ||
     msg.type === "plan_update" ||
     msg.type === "error" ||
+    msg.type === "turn_end"
+  );
+}
+
+function isRestoreReplayContentMessage(msg: AgentServerMessage): msg is RestoreReplayMessage {
+  return (
+    msg.type === "stream" ||
+    msg.type === "tool_call" ||
+    msg.type === "plan_update" ||
     msg.type === "turn_end"
   );
 }

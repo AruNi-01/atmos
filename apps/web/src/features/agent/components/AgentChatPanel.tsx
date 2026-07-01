@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import "streamdown/styles.css";
 import {
@@ -14,7 +14,7 @@ import {
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { ChevronDown, Loader2, MessageSquare } from "lucide-react";
+import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
@@ -36,6 +36,15 @@ import {
 import { AgentChatEntryView } from "./AgentChatEntryView";
 import { openAgentChatWindow } from "../lib/desktop-agent-chat-window";
 import { useAgentChatHistorySidebarLayout } from "../hooks/use-agent-chat-history-sidebar-layout";
+import {
+  closeCurrentStandaloneWindow,
+  closeStandaloneSurface,
+  isStandaloneSurfaceOpen as readStandaloneSurfaceOpen,
+  makeStandaloneSurfaceKey,
+  markStandaloneSurfaceOpen,
+  restoreStandaloneSurface,
+  subscribeStandaloneSurface,
+} from "@/shared/lib/standalone-window-handoff";
 
 // ---------------------------------------------------------------------------
 // Main Panel
@@ -65,9 +74,12 @@ export function AgentChatPanel({
   const t = useTranslations("Agent.components.chatPanel");
   const canFullscreen = variant !== "standalone" && (allowFullscreen ?? true);
   const [fullscreenRequested, setFullscreenRequested] = useState(false);
+  const [isStandaloneChatOpen, setIsStandaloneChatOpen] = useState(false);
   const isFullscreen = canFullscreen && fullscreenRequested;
+  const isEmbeddedPausedForStandalone = variant !== "standalone" && isStandaloneChatOpen;
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
-  const reserveStandaloneTrafficLights = variant === "standalone" && needsTrafficLightsPadding;
+  const reserveDesktopTrafficLights =
+    needsTrafficLightsPadding && (variant === "standalone" || isFullscreen);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
@@ -76,7 +88,7 @@ export function AgentChatPanel({
     variant,
     mode,
     publishStatus,
-    active,
+    active: active && !isEmbeddedPausedForStandalone,
     historyListActive: showsWideHistoryLayout,
     contextOverride,
     transformPrompt,
@@ -334,8 +346,45 @@ export function AgentChatPanel({
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
     handleExportConversation,
+    persistHandoffSnapshot,
+    restoreHandoffSnapshot,
     sendCancel,
   } = session;
+  const standaloneSurfaceKey = useMemo(
+    () => makeStandaloneSurfaceKey("agent-chat", sessionWorkspaceId, sessionProjectId),
+    [sessionProjectId, sessionWorkspaceId],
+  );
+
+  useEffect(() => {
+    if (variant === "standalone") {
+      markStandaloneSurfaceOpen(standaloneSurfaceKey);
+      const unsubscribe = subscribeStandaloneSurface(standaloneSurfaceKey, (_isOpen, event) => {
+        if (event?.action === "restore" || event?.action === "close") {
+          void (async () => {
+            await persistHandoffSnapshot();
+            await closeCurrentStandaloneWindow();
+          })();
+        }
+      });
+      const handleBeforeUnload = () => {
+        void persistHandoffSnapshot();
+        closeStandaloneSurface(standaloneSurfaceKey);
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        unsubscribe();
+      };
+    }
+
+    setIsStandaloneChatOpen(readStandaloneSurfaceOpen(standaloneSurfaceKey));
+    return subscribeStandaloneSurface(standaloneSurfaceKey, (isOpen) => {
+      if (!isOpen) {
+        void restoreHandoffSnapshot();
+      }
+      setIsStandaloneChatOpen(isOpen);
+    });
+  }, [persistHandoffSnapshot, restoreHandoffSnapshot, standaloneSurfaceKey, variant]);
 
   const handleToggleFullscreen = useCallback(() => {
     setFullscreenRequested((current) => !current);
@@ -347,27 +396,40 @@ export function AgentChatPanel({
   }, [handleClose]);
 
   const handleOpenStandaloneWindow = useCallback(async () => {
+    const handoffToken = await persistHandoffSnapshot();
     await openAgentChatWindow({
       agent: registryId || defaultRegistryId || null,
       session: acpSessionId,
       sessionCwd: sessionCwd ?? localPath,
       workspaceId: sessionWorkspaceId,
       projectId: sessionProjectId,
+      handoffToken,
     });
-    if (variant === "modal") {
-      handleClosePanel();
-    }
+    markStandaloneSurfaceOpen(standaloneSurfaceKey);
+    setIsStandaloneChatOpen(true);
   }, [
     acpSessionId,
     defaultRegistryId,
-    handleClosePanel,
     localPath,
+    persistHandoffSnapshot,
     registryId,
     sessionCwd,
     sessionProjectId,
     sessionWorkspaceId,
-    variant,
+    standaloneSurfaceKey,
   ]);
+
+  const handleReturnChatToEmbedded = useCallback(() => {
+    void restoreHandoffSnapshot();
+    restoreStandaloneSurface(standaloneSurfaceKey);
+    setIsStandaloneChatOpen(false);
+  }, [restoreHandoffSnapshot, standaloneSurfaceKey]);
+
+  const handleCloseStandaloneChatWindow = useCallback(async () => {
+    await persistHandoffSnapshot();
+    restoreStandaloneSurface(standaloneSurfaceKey);
+    void closeCurrentStandaloneWindow();
+  }, [persistHandoffSnapshot, standaloneSurfaceKey]);
 
   const historySidebarExpandLabel = t("history.expand");
   const historySidebarHideLabel = t("history.hide");
@@ -389,7 +451,9 @@ export function AgentChatPanel({
       onToggle={() => setHistorySidebarCollapsed((current) => !current)}
     />
   );
-  const showTrafficLightsHistoryToggle = showsWideHistoryLayout && reserveStandaloneTrafficLights;
+  const showTrafficLightsHistoryToggle = showsWideHistoryLayout && reserveDesktopTrafficLights;
+  const insetHeaderForTrafficLights =
+    reserveDesktopTrafficLights && (!showsWideHistoryLayout || historySidebarCollapsed);
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
     : "w-full";
@@ -424,14 +488,62 @@ export function AgentChatPanel({
 
   if (!session.isPanelOpen || (variant === "modal" && !layoutLoaded)) return null;
 
+  const shouldMarkAsNativeSurfaceOverlay = variant === "modal" || isFullscreen;
+
+  if (isEmbeddedPausedForStandalone) {
+    return (
+      <div
+        ref={panelRef}
+        data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
+        className={cn(
+          "relative flex items-center justify-center overflow-hidden bg-background p-6 text-center",
+          variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
+          variant === "sidebar" && !isFullscreen && "h-full min-h-0",
+          isFullscreen && "fixed inset-0 z-50 h-dvh w-full",
+        )}
+        style={variant === "modal" && pos && !isFullscreen
+          ? { left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }
+          : undefined}
+      >
+        <div className="max-w-sm">
+          <div className="text-sm font-medium text-foreground">
+            {t("header.standaloneWindow.embeddedTitle")}
+          </div>
+          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {t("header.standaloneWindow.embeddedDescription")}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+              onClick={handleReturnChatToEmbedded}
+            >
+              {t("header.standaloneWindow.returnHere")}
+            </button>
+            {variant === "modal" && (
+              <button
+                type="button"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+                onClick={session.handleClose}
+              >
+                <X className="size-3.5" aria-hidden="true" />
+                {t("header.standaloneWindow.closeModal")}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={panelRef}
+      data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
       className={cn(
         "relative flex overflow-hidden bg-background",
         showsWideHistoryLayout && "bg-muted/20",
         !showsWideHistoryLayout && "flex-col",
-        reserveStandaloneTrafficLights && "pt-8",
         variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
         variant === "sidebar" && !isFullscreen && "h-full min-h-0",
         variant === "standalone" && "h-dvh min-h-0 w-full",
@@ -455,7 +567,7 @@ export function AgentChatPanel({
       )}
 
       {showTrafficLightsHistoryToggle ? (
-        <div className="absolute left-[86px] top-1 z-50 flex h-7 items-center">
+        <div className="absolute left-[86px] top-3 z-50 flex h-7 items-center">
           {trafficLightsHistorySidebarToggle}
         </div>
       ) : null}
@@ -465,6 +577,7 @@ export function AgentChatPanel({
           frameRef={historySidebarFrameRef}
           collapsed={historySidebarCollapsed}
           expandLabel={historySidebarExpandLabel}
+          showCollapsedExpandButton={false}
           width={historySidebarWidth}
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
@@ -472,6 +585,7 @@ export function AgentChatPanel({
         >
           <AgentChatHistorySidebar
             className="flex"
+            reserveTrafficLightsInset={showTrafficLightsHistoryToggle}
             historySessions={historySessions}
             historyHasMore={historyHasMore}
             historyLoading={historyLoading}
@@ -505,6 +619,7 @@ export function AgentChatPanel({
           variant={variant}
           handleDragStart={variant === "modal" && !isFullscreen ? handleDragStart : undefined}
           handleOpenStandaloneWindow={variant === "modal" ? handleOpenStandaloneWindow : undefined}
+          handleReturnToEmbeddedWindow={variant === "standalone" ? handleCloseStandaloneChatWindow : undefined}
           handleToggleFullscreen={canFullscreen ? handleToggleFullscreen : undefined}
           isFullscreen={isFullscreen}
           headerHovered={headerHovered}
@@ -536,6 +651,7 @@ export function AgentChatPanel({
           historyCursor={historyCursor}
           historyResumeUnsupportedReason={historyResumeUnsupportedReason}
           historyUnsupportedReason={historyUnsupportedReason}
+          trafficLightsContentInset={insetHeaderForTrafficLights}
           loadHistorySessions={loadHistorySessions}
           handleSelectHistorySession={handleSelectHistorySession}
           historyTriggerClassName={showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined}

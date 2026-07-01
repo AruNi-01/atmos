@@ -4,7 +4,6 @@
   "description": "Default capability set for Atmos desktop",
   "windows": [
     "main",
-    "splashscreen",
     "agent-chat",
     "preview-browser",
     "appshot-permissions",

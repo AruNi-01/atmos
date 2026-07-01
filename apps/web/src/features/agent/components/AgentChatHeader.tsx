@@ -23,7 +23,7 @@ import {
   TextScramble,
   cn,
 } from "@workspace/ui";
-import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, Plus, X } from "lucide-react";
+import { Bot, Download, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, PictureInPicture, PictureInPicture2, Plus, X } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentCapabilities,
@@ -31,6 +31,7 @@ import type {
   AgentImplementationInfo,
 } from "@/api/rest-api";
 import type { ConversationMessage } from "@workspace/ui";
+import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { AgentIcon } from "./AgentIcon";
 import { AgentChatHistoryPopover } from "./AgentChatHistoryPopover";
 
@@ -38,6 +39,7 @@ interface AgentChatHeaderProps {
   variant: "modal" | "sidebar" | "standalone";
   handleDragStart?: (e: React.MouseEvent) => void;
   handleOpenStandaloneWindow?: () => Promise<void>;
+  handleReturnToEmbeddedWindow?: () => void;
   handleToggleFullscreen?: () => void;
   isFullscreen?: boolean;
 
@@ -85,6 +87,7 @@ interface AgentChatHeaderProps {
   historyCursor: string | null;
   historyResumeUnsupportedReason: string | null;
   historyUnsupportedReason: string | null;
+  trafficLightsContentInset?: boolean;
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
   historyTriggerClassName?: string;
@@ -107,6 +110,7 @@ export function AgentChatHeader({
   variant,
   handleDragStart,
   handleOpenStandaloneWindow,
+  handleReturnToEmbeddedWindow,
   handleToggleFullscreen,
   isFullscreen = false,
   headerHovered,
@@ -137,6 +141,7 @@ export function AgentChatHeader({
   historyCursor,
   historyResumeUnsupportedReason,
   historyUnsupportedReason,
+  trafficLightsContentInset = false,
   loadHistorySessions,
   handleSelectHistorySession,
   historyTriggerClassName,
@@ -165,14 +170,25 @@ export function AgentChatHeader({
   const displayedCwdLabel = sessionCwd
     ? t("header.cwd.current")
     : t("header.cwd.context");
+  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+  const useNativeWindowDrag = variant === "standalone" && isDesktopDragEnabled;
 
   return (
     <div
+      onMouseDown={
+        useNativeWindowDrag
+          ? handleDesktopWindowMouseDown
+          : variant === "modal" && handleDragStart
+            ? handleDragStart
+            : undefined
+      }
+      data-tauri-drag-region={useNativeWindowDrag ? "true" : undefined}
       className={cn(
-        "flex shrink-0 flex-col gap-1 px-4 py-3",
+        "flex shrink-0 flex-col gap-1 py-3 pr-4",
+        trafficLightsContentInset ? "pl-[124px]" : "pl-4",
+        useNativeWindowDrag && "desktop-drag-region select-none",
         variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"
       )}
-      onMouseDown={variant === "modal" && handleDragStart ? handleDragStart : undefined}
       onMouseEnter={() => setHeaderHovered(true)}
       onMouseLeave={() => setHeaderHovered(false)}
     >
@@ -353,6 +369,25 @@ export function AgentChatHeader({
             handleSelectHistorySession={handleSelectHistorySession}
             isConnecting={isConnecting}
           />
+          {variant === "modal" && handleOpenStandaloneWindow ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenStandaloneWindow()}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={t("header.actions.openInWindow")}
+                  >
+                    <PictureInPicture2 className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t("header.actions.openInWindow")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
           {variant !== "standalone" && handleToggleFullscreen ? (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -370,6 +405,25 @@ export function AgentChatHeader({
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   {isFullscreen ? t("header.fullscreen.exitTooltip") : t("header.fullscreen.openTooltip")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          {variant === "standalone" && handleReturnToEmbeddedWindow ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleReturnToEmbeddedWindow}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={t("header.actions.returnToEmbedded")}
+                  >
+                    <PictureInPicture className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {t("header.actions.returnToEmbedded")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -400,15 +454,6 @@ export function AgentChatHeader({
                 <Download className="size-4" />
                 <span>{t("header.actions.exportConversation")}</span>
               </DropdownMenuItem>
-              {variant === "modal" && handleOpenStandaloneWindow ? (
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onSelect={() => void handleOpenStandaloneWindow()}
-                >
-                  <ExternalLink className="size-4" />
-                  <span>{t("header.actions.openInWindow")}</span>
-                </DropdownMenuItem>
-              ) : null}
               {canLogout ? (
                 <DropdownMenuItem
                   className="cursor-pointer"

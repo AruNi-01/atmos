@@ -1,0 +1,24 @@
+'use client';
+
+import { useEffect } from 'react';
+import { ErrorDisplay } from '@/shared/components/error-display';
+
+export default function AppError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error('[AppError]', error);
+  }, [error]);
+
+  return (
+    <ErrorDisplay
+      message={error.message}
+      onRetry={reset}
+      className="min-h-dvh"
+    />
+  );
+}

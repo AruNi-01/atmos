@@ -1,7 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { HostedLandingLoading } from "@/app-shell/HostedLandingLoading";
+import { useDesktopStartupPrefetchLoading } from "@/app-shell/bootstrap/DesktopStartupPrefetchBootstrap";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
@@ -15,6 +16,7 @@ type HostedBootstrapPhase = "loading" | "onboarding" | "ready";
 const subscribeMounted = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
+const DESKTOP_LOADING_EXIT_MS = 280;
 
 function resolveHostedBootstrapPhase(
   mounted: boolean,
@@ -36,6 +38,46 @@ function resolveHostedBootstrapPhase(
   return "ready";
 }
 
+function DesktopStartupTransition({
+  children,
+  loading,
+}: HostedBootstrapBoundaryProps & { loading: boolean }) {
+  const [renderLoading, setRenderLoading] = useState(loading);
+
+  useEffect(() => {
+    if (loading || !renderLoading) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setRenderLoading(false);
+    }, DESKTOP_LOADING_EXIT_MS);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [loading, renderLoading]);
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200">
+        {children}
+      </div>
+
+      {renderLoading ? (
+        <div
+          className={`absolute inset-0 z-[100] flex bg-background transition-opacity duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+            loading ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          aria-hidden={!loading}
+        >
+          <HostedLandingLoading />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function HostedBootstrapBoundary({
   children,
 }: HostedBootstrapBoundaryProps) {
@@ -45,22 +87,30 @@ export function HostedBootstrapBoundary({
     getServerMountedSnapshot,
   );
   const bootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
+  const hosted = mounted ? isHostedAtmosOrigin() : false;
+  const desktopStartupLoading = useDesktopStartupPrefetchLoading(
+    mounted && !hosted,
+  );
 
   if (!mounted) {
     return <div className="flex min-h-0 flex-1 bg-background" />;
   }
 
-  const hosted = isHostedAtmosOrigin();
   const phase = resolveHostedBootstrapPhase(mounted, hosted, bootstrapState);
+
+  if (!hosted) {
+    return (
+      <DesktopStartupTransition loading={desktopStartupLoading}>
+        {children}
+      </DesktopStartupTransition>
+    );
+  }
 
   // Plain div + CSS enter fade only — do not wrap TextShimmer in motion/AnimatePresence
   // (see Footer ticker comment: nested motion interrupts backgroundPosition shimmer).
   if (phase === "loading") {
     return (
-      <div
-        key="hosted-shell-loading"
-        className="flex min-h-0 flex-1 animate-in bg-background fade-in duration-200"
-      >
+      <div key="hosted-shell-loading" className="flex min-h-0 flex-1 animate-in bg-background fade-in duration-200">
         <HostedLandingLoading />
       </div>
     );
@@ -78,10 +128,7 @@ export function HostedBootstrapBoundary({
   }
 
   return (
-    <div
-      key="app-shell"
-      className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200"
-    >
+    <div key="hosted-shell-ready" className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200">
       {children}
     </div>
   );

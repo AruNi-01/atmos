@@ -17,9 +17,30 @@ let hostedRuntimeOverride: ApiConfig | null = null;
 export const HOSTED_ATMOS_APP_HOST = 'app.atmos.land';
 const forceHostedOnboarding =
   process.env.NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING === '1';
+const isDesktopBuild =
+  process.env.NEXT_PUBLIC_BUILD_TARGET === 'desktop' ||
+  process.env.BUILD_TARGET === 'desktop';
 
 const loopbackApiPort = (): number =>
   parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
+
+function currentOriginApiConfig(token?: string): ApiConfig | null {
+  if (typeof window === 'undefined') return null;
+  const protocol = window.location.protocol.replace(':', '') || 'http';
+  const defaultPort = protocol === 'https' ? '443' : '80';
+  const port = parseInt(window.location.port || defaultPort, 10);
+  if (!Number.isFinite(port)) return null;
+  return {
+    host: window.location.hostname || '127.0.0.1',
+    port,
+    protocol,
+    token,
+  };
+}
+
+function desktopBuildFallbackApiConfig(token?: string): ApiConfig {
+  return currentOriginApiConfig(token) ?? loopbackApiConfig(token);
+}
 
 export function loopbackApiConfig(token?: string, host = '127.0.0.1'): ApiConfig {
   return {
@@ -41,6 +62,10 @@ export function isTauriRuntime(): boolean {
 }
 
 export function isHostedAtmosOrigin(): boolean {
+  if (isTauriRuntime()) {
+    return false;
+  }
+
   return (
     typeof window !== 'undefined' &&
     (window.location.hostname === HOSTED_ATMOS_APP_HOST || forceHostedOnboarding)
@@ -105,11 +130,25 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
           }
           errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
           console.warn('[desktop-runtime] invoke get_api_config failed:', e);
+          if (isDesktopBuild) {
+            cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+            console.warn(
+              `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
+            );
+            return cachedConfig;
+          }
           throw e;
         }
       }
     }
     errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
+    if (isDesktopBuild) {
+      cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+      console.warn(
+        `[desktop-runtime] Tauri invoke bridge unavailable; falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
+      );
+      return cachedConfig;
+    }
     throw new Error('Tauri runtime detected but invoke bridge is unavailable');
   }
 
@@ -117,6 +156,12 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
   if (isHostedAtmosOrigin()) {
     cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     debugLog(`getRuntimeApiConfig: hosted loopback ${cachedConfig.host}:${cachedConfig.port}`);
+    return cachedConfig;
+  }
+
+  if (isDesktopBuild) {
+    cachedConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    debugLog(`getRuntimeApiConfig: desktop loopback ${cachedConfig.host}:${cachedConfig.port}`);
     return cachedConfig;
   }
 
@@ -156,6 +201,11 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
 
   if (isHostedAtmosOrigin()) {
     cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    return cachedHttpConfig;
+  }
+
+  if (isDesktopBuild) {
+    cachedHttpConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     return cachedHttpConfig;
   }
 

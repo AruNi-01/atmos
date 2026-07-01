@@ -60,6 +60,10 @@ export async function connectDesktopPreviewTransport(
       if (payload.sessionId !== options.sessionId || typeof payload.pageTitle !== 'string') return;
       options.onTitleChanged?.(payload.pageTitle, payload.faviconUrl, payload.pageUrl);
     }),
+    listenDesktopPreviewBridge('desktop-preview:open-tab', (payload) => {
+      if (payload.sessionId !== options.sessionId || typeof payload.targetUrl !== 'string') return;
+      options.onOpenTab?.(payload.targetUrl, payload.pageUrl);
+    }),
     listenDesktopPreviewBridge('desktop-preview:cursor-changed', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
       options.onCursorChange?.((payload as { cursor?: string }).cursor || 'default');
@@ -99,9 +103,16 @@ export async function connectDesktopPreviewTransport(
         sessionId: options.sessionId,
       });
     },
+    async clearAnnotations() {
+      if (destroyed) return;
+      await invokeDesktopPreviewBridge('preview_bridge_clear_annotations', {
+        sessionId: options.sessionId,
+      });
+    },
     async updateViewport(viewport) {
       if (destroyed) return;
       await invokeDesktopPreviewBridge('preview_bridge_update_bounds', {
+        sessionId: options.sessionId,
         bounds: viewport,
       });
     },
@@ -112,28 +123,31 @@ export async function connectDesktopPreviewTransport(
         url,
       });
     },
-    async setDetached(detached, url, viewport) {
+    async openDevTools() {
       if (destroyed) return;
-      await invokeDesktopPreviewBridge('preview_bridge_set_detached', {
+      await invokeDesktopPreviewBridge('preview_bridge_open_devtools', {
         sessionId: options.sessionId,
-        url,
-        bounds: viewport,
-        detached,
       });
     },
     async show() {
       if (destroyed) return;
-      await invokeDesktopPreviewBridge('preview_bridge_show');
+      await invokeDesktopPreviewBridge('preview_bridge_show', {
+        sessionId: options.sessionId,
+      });
     },
     async hide() {
       if (destroyed) return;
-      await invokeDesktopPreviewBridge('preview_bridge_hide');
+      await invokeDesktopPreviewBridge('preview_bridge_hide', {
+        sessionId: options.sessionId,
+      });
     },
     async destroy() {
       if (destroyed) return;
       destroyed = true;
       unlisteners.forEach((unlisten) => unlisten());
-      await invokeDesktopPreviewBridge('preview_bridge_close');
+      await invokeDesktopPreviewBridge('preview_bridge_close', {
+        sessionId: options.sessionId,
+      });
     },
   };
 }

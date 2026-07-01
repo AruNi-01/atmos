@@ -77,6 +77,12 @@ export type PreviewHelperMessage =
       faviconUrl?: string;
     }
   | {
+      type: 'atmos-preview:open-tab';
+      sessionId: string;
+      pageUrl: string;
+      targetUrl: string;
+    }
+  | {
       type: 'atmos-preview:toolbar-action';
       sessionId: string;
       pageUrl: string;

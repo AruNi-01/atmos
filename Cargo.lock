@@ -549,6 +549,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "tunnel-connector",
+ "uuid",
 ]
 
 [[package]]

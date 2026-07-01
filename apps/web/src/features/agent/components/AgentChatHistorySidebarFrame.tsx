@@ -47,6 +47,7 @@ export function AgentChatHistorySidebarFrame({
   frameRef,
   collapsed,
   expandLabel,
+  showCollapsedExpandButton = true,
   width,
   isResizing,
   onResizeStart,
@@ -56,6 +57,7 @@ export function AgentChatHistorySidebarFrame({
   frameRef: React.RefObject<HTMLDivElement | null>;
   collapsed: boolean;
   expandLabel: string;
+  showCollapsedExpandButton?: boolean;
   width: number;
   isResizing: boolean;
   onResizeStart: (event: React.MouseEvent) => void;
@@ -79,6 +81,7 @@ export function AgentChatHistorySidebarFrame({
         {collapsed ? (
           <AgentChatHistoryPeekShell
             expandLabel={expandLabel}
+            showExpandButton={showCollapsedExpandButton}
             width={width}
             onExpand={onCollapsedExpand}
           >
@@ -109,11 +112,13 @@ export function AgentChatHistorySidebarFrame({
 
 function AgentChatHistoryPeekShell({
   expandLabel,
+  showExpandButton,
   width,
   onExpand,
   children,
 }: {
   expandLabel: string;
+  showExpandButton: boolean;
   width: number;
   onExpand: () => void;
   children: React.ReactNode;
@@ -135,17 +140,19 @@ function AgentChatHistoryPeekShell({
       onFocusCapture={showPeek}
       onBlurCapture={handleFocusLeave}
     >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
-        aria-label={expandLabel}
-        title={expandLabel}
-        onClick={onExpand}
-      >
-        <PanelLeftOpen className="size-4" />
-      </Button>
+      {showExpandButton ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
+          aria-label={expandLabel}
+          title={expandLabel}
+          onClick={onExpand}
+        >
+          <PanelLeftOpen className="size-4" />
+        </Button>
+      ) : null}
       <div
         ref={triggerRef}
         aria-hidden="true"

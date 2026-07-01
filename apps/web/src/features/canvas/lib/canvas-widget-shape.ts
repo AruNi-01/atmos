@@ -14,7 +14,10 @@ import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 import type { CanvasCenterTab } from "./canvas-center-tabs";
-import { createCanvasCardIndicatorPath } from "./canvas-shape-indicator";
+import {
+  CANVAS_CARD_CORNER_RADIUS,
+  createCanvasCardIndicatorPath,
+} from "./canvas-shape-indicator";
 
 export const CANVAS_WIDGET_SHAPE_TYPE = "canvas-widget" as const;
 
@@ -24,6 +27,7 @@ export type CanvasWidgetType =
   | "changes"
   | "review"
   | "center"
+  | "browser"
   | "agent-status"
   | "ai-quota-usage"
   | "agent-chat";
@@ -69,6 +73,11 @@ export type CanvasWidgetSourceRef =
       activeTabId: string | null;
     }
   | {
+      type: "browser";
+      context: CanvasContextRef;
+      browserId: string;
+    }
+  | {
       type: "agent-status";
       context: CanvasContextRef;
     }
@@ -107,6 +116,7 @@ export const CANVAS_WIDGET_DEFAULT_SIZES: Record<CanvasWidgetType, { w: number; 
   changes: { w: 390, h: 500 },
   review: { w: 410, h: 520 },
   center: { w: 860, h: 600 },
+  browser: { w: 920, h: 640 },
   "agent-status": { w: 420, h: 520 },
   "ai-quota-usage": { w: 560, h: 640 },
   "agent-chat": { w: 520, h: 680 },
@@ -169,13 +179,25 @@ export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetSh
     return null;
   }
 
-  override hideSelectionBoundsFg(_shape: CanvasWidgetShape) {
+  override hideSelectionBoundsFg() {
     return true;
   }
 
   getIndicatorPath(shape: CanvasWidgetShape) {
-    return createCanvasCardIndicatorPath(shape.props.w, shape.props.h);
+    return createCanvasCardIndicatorPath(
+      shape.props.w,
+      shape.props.h,
+      getCanvasWidgetIndicatorCornerRadius(shape),
+    );
   }
+}
+
+export function getCanvasWidgetIndicatorCornerRadius(
+  shape: Pick<CanvasWidgetShape, "props">,
+) {
+  return shape.props.widgetType === "browser" || shape.props.source.type === "browser"
+    ? 0
+    : CANVAS_CARD_CORNER_RADIUS;
 }
 
 function createEmptyCanvasContextRef(): CanvasContextRef {
@@ -285,6 +307,8 @@ export function buildCanvasWidgetPinKey(source: CanvasWidgetSourceRef, frameId?:
       return `review:${context.contextScope}:${contextId}:${source.sessionGuid ?? "current"}:${source.revisionGuid ?? "current"}`;
     case "center":
       return `center:${context.contextScope}:${contextId}:${frameId ?? "unframed"}`;
+    case "browser":
+      return `browser:${source.browserId || context.contextScope}:${contextId || "global"}`;
     case "agent-status":
       if (isGlobalCanvasContext(context)) {
         return "agent-status:global";
@@ -315,6 +339,8 @@ export function createCanvasWidgetTitle(source: CanvasWidgetSourceRef): string {
       return canvasWidgetShapeT("titles.review");
     case "center":
       return canvasWidgetShapeT("titles.center");
+    case "browser":
+      return canvasWidgetShapeT("titles.browser");
     case "agent-status":
       return canvasWidgetShapeT("titles.agentStatus");
     case "ai-quota-usage":
@@ -360,6 +386,7 @@ function isCanvasWidgetType(value: unknown): value is CanvasWidgetType {
     value === "changes" ||
     value === "review" ||
     value === "center" ||
+    value === "browser" ||
     value === "agent-status" ||
     value === "ai-quota-usage" ||
     value === "agent-chat"

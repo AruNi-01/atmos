@@ -3,8 +3,6 @@
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
-import { usePathname, useRouter } from "@atmos/i18n/navigation";
 import {
   Badge,
   Bot,
@@ -75,6 +73,7 @@ import { UsagePopover } from "./UsagePopover";
 import { TunnelItem } from "./header-parts";
 import { HeaderWorkspaceSummaryButton } from "./header-workspace-widgets";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
+import { useWorkbenchLocale } from "@/providers/app/workbench-intl-provider";
 
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
 
@@ -592,15 +591,15 @@ export function HeaderActionControls({
   const t = useTranslations("header");
   const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
   const loadLayoutSettings = useLayoutSettingsStore((state) => state.loadSettings);
-  const locale = useLocale();
-  const pathname = usePathname();
-  const router = useRouter();
+  const { locale, setLocale } = useWorkbenchLocale();
   const currentLocaleLabel = locale === "zh" ? t("localeChinese") : t("localeEnglish");
 
   const handleLocaleSelect = React.useCallback((nextLocale: string) => {
-    router.replace(pathname, { locale: nextLocale });
+    if (nextLocale === "en" || nextLocale === "zh") {
+      setLocale(nextLocale);
+    }
     setIsActionMenuOpen(false);
-  }, [pathname, router, setIsActionMenuOpen]);
+  }, [setIsActionMenuOpen, setLocale]);
 
   React.useEffect(() => {
     void loadLayoutSettings();

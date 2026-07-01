@@ -14,7 +14,10 @@ use crate::middleware::{require_local_token, require_loopback_or_token};
 use ai_usage::UsageService;
 use app_state::{AppServices, AppState};
 use axum::{
-    http::{header::HeaderName, HeaderValue, StatusCode},
+    http::{
+        header::{CACHE_CONTROL, EXPIRES, PRAGMA},
+        HeaderName, HeaderValue, Response as HttpResponse, StatusCode,
+    },
     middleware::{from_fn, map_response},
     response::Response,
     routing::get,
@@ -32,6 +35,7 @@ use infra::{DbConnection, Migrator};
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
 use token_usage::TokenUsageService;
+use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, warn};
@@ -249,6 +253,17 @@ async fn add_private_network_header(mut response: Response) -> Response {
         HeaderName::from_static("access-control-allow-private-network"),
         HeaderValue::from_static("true"),
     );
+    response
+}
+
+fn add_static_no_store_headers<B>(mut response: HttpResponse<B>) -> HttpResponse<B> {
+    let headers = response.headers_mut();
+    headers.insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("no-store, max-age=0, must-revalidate"),
+    );
+    headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
+    headers.insert(EXPIRES, HeaderValue::from_static("0"));
     response
 }
 
@@ -497,7 +512,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let serve_dir = ServeDir::new(&static_path)
                 .append_index_html_on_directories(true)
                 .fallback(ServeFile::new(fallback_file));
-            app = app.fallback_service(serve_dir);
+            let serve_static = ServiceBuilder::new()
+                .map_response(add_static_no_store_headers)
+                .service(serve_dir);
+            app = app.fallback_service(serve_static);
         }
     }
 

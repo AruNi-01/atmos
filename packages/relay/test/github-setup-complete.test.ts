@@ -33,7 +33,7 @@ describe("GitHub setup completion redirect", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(
-      "https://app.atmos.land/en/github/setup/complete?github_setup=connected&installation_id=142082310",
+      "https://app.atmos.land/github/setup/complete?github_setup=connected&installation_id=142082310",
     );
   });
 });

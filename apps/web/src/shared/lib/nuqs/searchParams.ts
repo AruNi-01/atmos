@@ -159,6 +159,7 @@ export const agentChatParams = {
   agent: parseAsString.withDefault(""),
   session: parseAsString.withDefault(""),
   sessionCwd: parseAsString.withDefault(""),
+  handoffToken: parseAsString.withDefault(""),
 };
 
 // ---------------------------------------------------------------------------
@@ -190,7 +191,8 @@ export type RightSidebarTab =
   | "pr"
   | "actions"
   | "review"
-  | "run-preview";
+  | "browser"
+  | "run";
 
 export const rightSidebarParams = {
   rsTab: parseAsStringEnum<RightSidebarTab>([
@@ -199,7 +201,8 @@ export const rightSidebarParams = {
     "pr",
     "actions",
     "review",
-    "run-preview",
+    "browser",
+    "run",
   ]).withDefault("changes"),
 };
 

@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-app-commands",
+  "description": "Allows first-party Atmos desktop webviews to call native desktop app commands.",
+  "windows": [
+    "main",
+    "agent-chat",
+    "preview-browser",
+    "appshot-permissions"
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "http://localhost:*",
+      "https://127.0.0.1:*",
+      "https://localhost:*",
+      "https://relay.atmos.land",
+      "https://*.atmos.land",
+      "wss://relay.atmos.land",
+      "wss://*.atmos.land"
+    ]
+  },
+  "permissions": [
+    "desktop-app-commands"
+  ]
+}

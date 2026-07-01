@@ -1,24 +1,29 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
-  ExternalLink,
   Globe,
   Maximize,
   Minimize,
   PanelTopClose,
   PanelTopOpen,
+  PictureInPicture,
+  PictureInPicture2,
   Plus,
   X,
 } from "lucide-react";
 
+import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { cn } from "@/shared/lib/utils";
+import { canonicalizeUrl } from "../lib/preview-utils";
 
 export interface PreviewBrowserTab {
   id: string;
   url: string;
   activeUrl: string;
   title?: string;
+  titleUrl?: string;
   faviconUrl?: string;
   lastAccessedAt?: number;
 }
@@ -29,9 +34,11 @@ export interface PreviewBrowserChromeControls {
   isToolbarHidden: boolean;
   needsDesktopPreviewSafeInset: boolean;
   openInWindowTitle?: string;
+  returnToEmbeddedTitle?: string;
   toolbarToggleTitle: string;
   onOpenInWindow?: () => void;
-  onToggleMaximized: () => void;
+  onReturnToEmbedded?: () => void;
+  onToggleMaximized?: () => void;
   onToggleToolbarHidden: () => void;
 }
 
@@ -55,14 +62,20 @@ function getUrlLabel(value: string): string {
   }
 }
 
-function getTabLabel(tab: PreviewBrowserTab, index: number): string {
+function getTabLabel(
+  tab: PreviewBrowserTab,
+  index: number,
+  fallbackLabels: { preview: string; newTab: string },
+): string {
   const title = tab.title?.trim();
-  if (title) return title;
+  const titleUrl = canonicalizeUrl(tab.titleUrl || "");
+  const currentUrl = canonicalizeUrl(tab.activeUrl || tab.url);
+  if (title && titleUrl && titleUrl === currentUrl) return title;
 
   const urlLabel = getUrlLabel(tab.activeUrl || tab.url);
   if (urlLabel) return urlLabel;
 
-  return index === 0 ? "Preview" : "New tab";
+  return index === 0 ? fallbackLabels.preview : fallbackLabels.newTab;
 }
 
 export function PreviewBrowserTabBar({
@@ -73,29 +86,37 @@ export function PreviewBrowserTabBar({
   onCloseTab,
   onSelectTab,
 }: PreviewBrowserTabBarProps) {
+  const t = useTranslations("preview.toolbar.browserTabs");
+  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+
   return (
     <div
+      onMouseDown={handleDesktopWindowMouseDown}
+      data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
       className={cn(
-        "flex shrink-0 items-center gap-1 overflow-hidden bg-muted/20 px-2",
-        chromeControls?.needsDesktopPreviewSafeInset ? "h-[68px] pt-8" : "h-9",
+        "flex h-9 shrink-0 items-center gap-1 overflow-hidden bg-muted/10 px-2 select-none",
+        isDesktopDragEnabled && "desktop-drag-region",
       )}
     >
       <div
         className={cn(
           "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
-          chromeControls?.needsDesktopPreviewSafeInset && "pl-[76px]",
+          chromeControls?.needsDesktopPreviewSafeInset && "pl-[84px]",
         )}
       >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
-          const label = getTabLabel(tab, index);
+          const label = getTabLabel(tab, index, {
+            preview: t("preview"),
+            newTab: t("newTab"),
+          });
           const canClose = tabs.length > 1;
 
           return (
             <div
               key={tab.id}
               className={cn(
-                "group/tab flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center overflow-hidden rounded-md border text-xs transition-colors",
+                "desktop-no-drag group/tab flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center overflow-hidden rounded-md border text-xs transition-colors",
                 isActive
                   ? "border-border bg-background text-foreground shadow-sm"
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground",
@@ -133,8 +154,8 @@ export function PreviewBrowserTabBar({
               {canClose ? (
                 <button
                   type="button"
-                  aria-label={`Close ${label}`}
-                  title="Close tab"
+                  aria-label={t("closeTabAria", { label })}
+                  title={t("closeTab")}
                   className={cn(
                     "mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground",
                     isActive ? "opacity-100" : "opacity-0 group-hover/tab:opacity-100",
@@ -153,9 +174,9 @@ export function PreviewBrowserTabBar({
 
         <button
           type="button"
-          aria-label="New browser tab"
-          title="New browser tab"
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          aria-label={t("newTab")}
+          title={t("newTab")}
+          className="desktop-no-drag flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
           onClick={onAddTab}
         >
           <Plus className="size-3.5" />
@@ -163,7 +184,7 @@ export function PreviewBrowserTabBar({
       </div>
 
       {chromeControls ? (
-        <div className="flex shrink-0 items-center gap-1 border-l border-border/70 pl-1">
+        <div className="desktop-no-drag flex shrink-0 items-center gap-1 border-l border-border/70 pl-1">
           {chromeControls.favoritesList}
           {chromeControls.onOpenInWindow ? (
             <button
@@ -173,7 +194,18 @@ export function PreviewBrowserTabBar({
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               onClick={chromeControls.onOpenInWindow}
             >
-              <ExternalLink className="size-3.5" />
+              <PictureInPicture2 className="size-3.5" />
+            </button>
+          ) : null}
+          {chromeControls.onReturnToEmbedded ? (
+            <button
+              type="button"
+              aria-label={chromeControls.returnToEmbeddedTitle}
+              title={chromeControls.returnToEmbeddedTitle}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              onClick={chromeControls.onReturnToEmbedded}
+            >
+              <PictureInPicture className="size-3.5" />
             </button>
           ) : null}
           <button
@@ -189,19 +221,21 @@ export function PreviewBrowserTabBar({
               <PanelTopClose className="size-3.5" />
             )}
           </button>
-          <button
-            type="button"
-            aria-label={chromeControls.isMaximized ? "Minimize preview" : "Maximize preview"}
-            title={chromeControls.isMaximized ? "Minimize" : "Maximize"}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-            onClick={chromeControls.onToggleMaximized}
-          >
-            {chromeControls.isMaximized ? (
-              <Minimize className="size-3.5" />
-            ) : (
-              <Maximize className="size-3.5" />
-            )}
-          </button>
+          {chromeControls.onToggleMaximized ? (
+            <button
+              type="button"
+              aria-label={chromeControls.isMaximized ? t("minimizePreview") : t("maximizePreview")}
+              title={chromeControls.isMaximized ? t("minimize") : t("maximize")}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              onClick={chromeControls.onToggleMaximized}
+            >
+              {chromeControls.isMaximized ? (
+                <Minimize className="size-3.5" />
+              ) : (
+                <Maximize className="size-3.5" />
+              )}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

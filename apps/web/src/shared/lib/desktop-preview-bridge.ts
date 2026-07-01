@@ -8,6 +8,7 @@ interface PreviewBridgeEventPayload {
   pageUrl: string;
   pageTitle?: string;
   faviconUrl?: string;
+  targetUrl?: string;
   action?: 'copy' | 'add' | 'update' | 'delete';
   annotationId?: string;
   note?: string;
@@ -43,7 +44,7 @@ export async function invokeDesktopPreviewBridge<T = unknown>(
   payload?: Record<string, unknown>,
 ): Promise<T> {
   if (!isTauriRuntime()) {
-    throw new Error('Desktop preview bridge is only available in the Tauri runtime.');
+    throw new Error('Desktop Browser bridge is only available in the Tauri runtime.');
   }
 
   const invoke = await getInvoke();
@@ -64,10 +65,20 @@ export async function listenDesktopPreviewBridge(
 
 export async function getPreviewViewportBounds(element: HTMLElement): Promise<PreviewTransportViewport> {
   const rect = element.getBoundingClientRect();
+  const rawScale =
+    element.offsetWidth > 0
+      ? rect.width / element.offsetWidth
+      : element.offsetHeight > 0
+        ? rect.height / element.offsetHeight
+        : 1;
+  const zoom = Number.isFinite(rawScale)
+    ? Math.min(10, Math.max(0.2, rawScale))
+    : 1;
   return {
     x: Math.round(rect.left),
     y: Math.round(rect.top),
     width: Math.round(rect.width),
     height: Math.round(rect.height),
+    zoom: Math.round(zoom * 1000) / 1000,
   };
 }

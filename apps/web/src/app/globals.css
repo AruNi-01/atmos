@@ -95,6 +95,25 @@ html:not([data-theme-ready="true"]) body {
   app-region: drag;
 }
 
+.desktop-drag-region button,
+.desktop-drag-region button *,
+.desktop-drag-region a,
+.desktop-drag-region a *,
+.desktop-drag-region input,
+.desktop-drag-region textarea,
+.desktop-drag-region select,
+.desktop-drag-region summary,
+.desktop-drag-region summary *,
+.desktop-drag-region [role="button"],
+.desktop-drag-region [role="button"] *,
+.desktop-drag-region [contenteditable="true"],
+.desktop-drag-region [contenteditable="true"] *,
+.desktop-drag-region .desktop-no-drag,
+.desktop-drag-region .desktop-no-drag * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .desktop-no-drag,
 .desktop-no-drag * {
   -webkit-app-region: no-drag;

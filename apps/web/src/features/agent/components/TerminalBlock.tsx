@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import {
   AcpTerminal,
   AcpTerminalHeader,
-  AcpTerminalTitle,
   AcpTerminalStatus,
   AcpTerminalActions,
   AcpTerminalCopyButton,
@@ -14,15 +13,15 @@ import {
 import type { ToolCallBlock } from "@/features/agent/lib/agent/thread";
 import { toolStatusToState, getTerminalCommandString } from "../lib/chat-helpers";
 import { CommandCopyButton } from "./CopyButtons";
+import { ChevronRight, TerminalIcon } from "lucide-react";
 
 export function TerminalBlock({
-  tool,
-  description,
   status,
   raw_input,
   raw_output,
 }: ToolCallBlock) {
   const t = useTranslations("Agent.components");
+  const [isOpen, setIsOpen] = React.useState(false);
   const state = toolStatusToState(status);
   const isRunning = state === "input-available";
   const isError = state === "output-error";
@@ -54,7 +53,23 @@ export function TerminalBlock({
       className={isError ? "border-red-500/50 w-full" : "w-full"}
     >
       <AcpTerminalHeader>
-        <AcpTerminalTitle>{t("terminalBlock.title")}</AcpTerminalTitle>
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((value) => !value)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-zinc-400 transition-colors hover:text-zinc-100"
+        >
+          <ChevronRight
+            className={`size-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
+          />
+          <TerminalIcon className="size-4 shrink-0" />
+          <span className="shrink-0">{t("terminalBlock.title")}</span>
+          {!isOpen && commandStr ? (
+            <span className="min-w-0 truncate font-mono text-zinc-300">
+              <span className="text-green-400">$</span> {commandStr}
+            </span>
+          ) : null}
+        </button>
         <div className="flex items-center gap-1">
           <AcpTerminalStatus />
           <AcpTerminalActions>
@@ -62,7 +77,7 @@ export function TerminalBlock({
           </AcpTerminalActions>
         </div>
       </AcpTerminalHeader>
-      {commandStr && (
+      {isOpen && commandStr && (
         <div className="flex items-center border-b border-zinc-800">
           <div className="flex-1 min-w-0 overflow-x-auto px-4 py-2 font-mono text-sm text-zinc-300">
             <span className="whitespace-nowrap"><span className="text-green-400">$</span> {commandStr}</span>
@@ -70,7 +85,7 @@ export function TerminalBlock({
           <CommandCopyButton text={commandStr} />
         </div>
       )}
-      <AcpTerminalContent className="max-h-60" />
+      {isOpen ? <AcpTerminalContent className="max-h-60" /> : null}
     </AcpTerminal>
   );
 }

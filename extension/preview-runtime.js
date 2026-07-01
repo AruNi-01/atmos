@@ -11,20 +11,25 @@
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
-  var EXTENSION_VERSION = '0.1.5';
-  var PICKER_HOVER_COLOR = '#2563eb';
-  var PICKER_LOCKED_COLOR = '#f97316';
+  var EXTENSION_VERSION = '0.1.12';
+  var PICKER_HOVER_COLOR = '#4ade80';
+  var PICKER_HOVER_BORDER_COLOR = '#15803d';
+  var PICKER_LOCKED_COLOR = '#fde047';
+  var PICKER_LOCKED_BORDER_COLOR = '#ca8a04';
 
-  function createPreviewPickerCursor(color) {
+  function createPreviewPickerCursor(fillColor, borderColor) {
+    var cursorPath =
+      'M17.4 10.6C16.1 9.8 14.6 10.9 15 12.4L25.3 49.1C25.8 50.8 28 51 28.7 49.4L34.8 36.2L48.8 33.1C50.5 32.7 50.9 30.5 49.4 29.6L17.4 10.6Z';
     var svg = [
-      '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="27" viewBox="0 0 50 54" fill="none">',
-      '<g filter="url(#atmos_picker_cursor_shadow)">',
-      '<path d="M42.6817 41.1495L27.5103 6.79925C26.7269 5.02557 24.2082 5.02558 23.3927 6.79925L7.59814 41.1495C6.75833 42.9759 8.52712 44.8902 10.4125 44.1954L24.3757 39.0496C24.8829 38.8627 25.4385 38.8627 25.9422 39.0496L39.8121 44.1954C41.6849 44.8902 43.4884 42.9759 42.6817 41.1495Z" fill="' + color + '"/>',
+      '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 64 64" fill="none" shape-rendering="geometricPrecision">',
+      '<defs><filter id="atmos_picker_cursor_shadow" x="-8" y="-8" width="80" height="80" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="2" stdDeviation="1.25" flood-color="#0f172a" flood-opacity="0.24"/></filter></defs>',
+      '<g filter="url(#atmos_picker_cursor_shadow)" stroke-linejoin="round">',
+      '<path d="' + cursorPath + '" fill="' + fillColor + '" stroke="' + borderColor + '" stroke-width="5.5"/>',
+      '<path d="' + cursorPath + '" fill="none" stroke="#fff" stroke-opacity="0.26" stroke-width="1.4"/>',
       '</g>',
-      '<defs><filter id="atmos_picker_cursor_shadow" x="0.602397" y="0.952444" width="49.0584" height="52.428" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset dy="2.25825"/><feGaussianBlur stdDeviation="2.25825"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.08 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/><feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/></filter></defs>',
       '</svg>',
     ].join('');
-    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 13 14, auto';
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 7 5, auto';
   }
 
   function truncateText(value, limit) {
@@ -1092,8 +1097,8 @@
     var overlay = createPreviewOverlay(win, doc, {
       showSelectionToolbar: !!config.showSelectionToolbar,
     });
-    var hoverCursor = createPreviewPickerCursor(PICKER_HOVER_COLOR);
-    var lockedCursor = createPreviewPickerCursor(PICKER_LOCKED_COLOR);
+    var hoverCursor = createPreviewPickerCursor(PICKER_HOVER_COLOR, PICKER_HOVER_BORDER_COLOR);
+    var lockedCursor = createPreviewPickerCursor(PICKER_LOCKED_COLOR, PICKER_LOCKED_BORDER_COLOR);
     var lastPickerCursor = '';
     var state = {
       enabled: false,
@@ -1125,6 +1130,59 @@
       return (doc.title || '').trim();
     }
 
+    function getPageFaviconUrl() {
+      var selectors = [
+        'link[rel~="icon"][href]',
+        'link[rel="shortcut icon"][href]',
+        'link[rel="apple-touch-icon"][href]',
+        'link[rel="apple-touch-icon-precomposed"][href]',
+      ];
+      for (var i = 0; i < selectors.length; i += 1) {
+        var node = doc.querySelector(selectors[i]);
+        var href = node && node.href;
+        if (!href) continue;
+        try {
+          return new URL(href, win.location.href).href;
+        } catch (_) {
+          return href;
+        }
+      }
+      try {
+        return new URL('/favicon.ico', win.location.origin).href;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function resolveOpenTabUrl(value) {
+      var rawValue = (value == null ? '' : String(value)).trim();
+      if (!rawValue) return '';
+      try {
+        var parsedUrl = new URL(rawValue, win.location.href);
+        return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:' ? parsedUrl.href : '';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function shouldOpenAnchorInNewTab(anchor, event) {
+      var target = (anchor.getAttribute('target') || '').trim().toLowerCase();
+      var opensSeparateContext = !!target && target !== '_self' && target !== '_parent' && target !== '_top';
+      return event.button === 1 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        opensSeparateContext;
+    }
+
+    function emitOpenTab(targetUrl) {
+      emit({
+        type: 'atmos-preview:open-tab',
+        pageUrl: win.location.href,
+        targetUrl: targetUrl,
+      });
+    }
+
     function isIgnoredElement(element) {
       if (!element || !element.closest) return true;
       if (element.closest('[data-atmos-preview-overlay="true"]')) return true;
@@ -1141,6 +1199,7 @@
         capabilities: getCapabilities(win),
         extensionVersion: EXTENSION_VERSION,
         pageTitle: getPageTitle(),
+        faviconUrl: getPageFaviconUrl(),
       });
     }
 
@@ -1231,6 +1290,20 @@
       clearSelection(true);
     }
 
+    function handleOpenTabClick(event) {
+      if (!state.sessionId || state.enabled || event.defaultPrevented) return;
+      if (event.button !== 0 && event.button !== 1) return;
+      var target = event.target;
+      if (!(target instanceof Element) || !target.closest) return;
+      var anchor = target.closest('a[href]');
+      if (!anchor || !shouldOpenAnchorInNewTab(anchor, event)) return;
+      var targetUrl = resolveOpenTabUrl(anchor.href);
+      if (!targetUrl) return;
+      event.preventDefault();
+      event.stopPropagation();
+      emitOpenTab(targetUrl);
+    }
+
     function syncLockedOverlay() {
       if (!state.locked) return;
       if (!doc.contains(state.locked)) {
@@ -1246,6 +1319,8 @@
     doc.addEventListener('mousedown', blockPagePointerEvent, true);
     doc.addEventListener('mouseup', blockPagePointerEvent, true);
     doc.addEventListener('click', handleClick, true);
+    doc.addEventListener('click', handleOpenTabClick, true);
+    doc.addEventListener('auxclick', handleOpenTabClick, true);
     doc.addEventListener('dblclick', blockPagePointerEvent, true);
     doc.addEventListener('contextmenu', blockPagePointerEvent, true);
     win.addEventListener('keydown', handleKeyDown, true);
@@ -1274,8 +1349,10 @@
 
     var lastKnownPath = win.location.pathname + win.location.hash;
     var lastKnownTitle = getPageTitle();
+    var lastKnownFaviconUrl = getPageFaviconUrl();
     var originalPushState = win.history.pushState.bind(win.history);
     var originalReplaceState = win.history.replaceState.bind(win.history);
+    var originalOpen = win.open.bind(win);
     var titleObserverTarget = doc.head || doc.documentElement;
     var titleObserver = null;
 
@@ -1285,11 +1362,14 @@
         lastKnownPath = currentPath;
         var currentUrl = win.location.href;
         var currentTitle = getPageTitle();
+        var currentFaviconUrl = getPageFaviconUrl();
         lastKnownTitle = currentTitle;
+        lastKnownFaviconUrl = currentFaviconUrl;
         emit({
           type: 'atmos-preview:navigation-changed',
           pageUrl: currentUrl,
           pageTitle: currentTitle,
+          faviconUrl: currentFaviconUrl,
         });
       }
     }
@@ -1299,17 +1379,23 @@
     if (titleObserverTarget && typeof win.MutationObserver === 'function') {
       titleObserver = new win.MutationObserver(function () {
         var nextTitle = getPageTitle();
-        if (nextTitle === lastKnownTitle) return;
+        var nextFaviconUrl = getPageFaviconUrl();
+        if (nextTitle === lastKnownTitle && nextFaviconUrl === lastKnownFaviconUrl) return;
         lastKnownTitle = nextTitle;
+        lastKnownFaviconUrl = nextFaviconUrl;
         emit({
           type: 'atmos-preview:title-changed',
+          pageUrl: win.location.href,
           pageTitle: nextTitle,
+          faviconUrl: nextFaviconUrl,
         });
       });
       titleObserver.observe(titleObserverTarget, {
         subtree: true,
         childList: true,
         characterData: true,
+        attributes: true,
+        attributeFilter: ['href', 'rel'],
       });
     }
 
@@ -1320,6 +1406,15 @@
     win.history.replaceState = function () {
       originalReplaceState.apply(win.history, arguments);
       checkUrlChange();
+    };
+    win.open = function (url, target, features) {
+      var targetName = (target || '').trim().toLowerCase();
+      var targetUrl = resolveOpenTabUrl(url);
+      if (state.sessionId && targetUrl && targetName !== '_self' && targetName !== '_parent' && targetName !== '_top') {
+        emitOpenTab(targetUrl);
+        return null;
+      }
+      return originalOpen(url, target, features);
     };
 
     return {
@@ -1333,6 +1428,7 @@
           capabilities: getCapabilities(win),
           extensionVersion: EXTENSION_VERSION,
           pageTitle: getPageTitle(),
+          faviconUrl: getPageFaviconUrl(),
         });
       },
       clearSelection: clearSelection,
@@ -1353,6 +1449,8 @@
         doc.removeEventListener('mousedown', blockPagePointerEvent, true);
         doc.removeEventListener('mouseup', blockPagePointerEvent, true);
         doc.removeEventListener('click', handleClick, true);
+        doc.removeEventListener('click', handleOpenTabClick, true);
+        doc.removeEventListener('auxclick', handleOpenTabClick, true);
         doc.removeEventListener('dblclick', blockPagePointerEvent, true);
         doc.removeEventListener('contextmenu', blockPagePointerEvent, true);
         win.removeEventListener('keydown', handleKeyDown, true);
@@ -1364,6 +1462,7 @@
         }
         win.history.pushState = originalPushState;
         win.history.replaceState = originalReplaceState;
+        win.open = originalOpen;
         overlay.destroy();
       },
     };

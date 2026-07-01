@@ -1,11 +1,12 @@
-use crate::locale::sanitize_locale;
 use crate::logging::{self, LogLevel};
 use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
 use crate::updater;
 use runtime_manager::{clear_client_session, local_computer_display_name_opt};
 use serde_json::json;
-use std::time::Duration;
+use std::fs;
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(target_os = "macos")]
@@ -13,6 +14,7 @@ use tauri::{LogicalPosition, Position, TitleBarStyle};
 
 const AGENT_CHAT_WINDOW_LABEL: &str = "agent-chat";
 const PREVIEW_BROWSER_WINDOW_LABEL: &str = "preview-browser";
+const AGENT_CHAT_HANDOFF_MAX_AGE: Duration = Duration::from_secs(12 * 60 * 60);
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
@@ -55,6 +57,7 @@ pub fn open_agent_chat_window(
     session_cwd: Option<String>,
     workspace_id: Option<String>,
     project_id: Option<String>,
+    handoff_token: Option<String>,
 ) -> Result<(), String> {
     let api_port = current_api_port(&state)?;
     let url = agent_chat_window_url(
@@ -65,6 +68,7 @@ pub fn open_agent_chat_window(
         session_cwd.as_deref(),
         workspace_id.as_deref(),
         project_id.as_deref(),
+        handoff_token.as_deref(),
     )?;
 
     if let Some(existing) = app.get_webview_window(AGENT_CHAT_WINDOW_LABEL) {
@@ -104,6 +108,60 @@ pub fn open_agent_chat_window(
 }
 
 #[tauri::command]
+pub fn write_agent_chat_handoff(
+    app: tauri::AppHandle,
+    token: Option<String>,
+    snapshot: serde_json::Value,
+) -> Result<String, String> {
+    let dir = agent_chat_handoff_dir(&app);
+    fs::create_dir_all(&dir)
+        .map_err(|error| format!("failed to create Agent Chat handoff directory: {error}"))?;
+    cleanup_agent_chat_handoff_dir(&dir);
+
+    let token = match token {
+        Some(value) if is_valid_handoff_token(&value) => value,
+        Some(_) => return Err("invalid Agent Chat handoff token".to_string()),
+        None => uuid::Uuid::new_v4().to_string(),
+    };
+    let path = agent_chat_handoff_path(&dir, &token)?;
+    let tmp_path = path.with_extension("json.tmp");
+    let bytes = serde_json::to_vec(&snapshot)
+        .map_err(|error| format!("failed to serialize Agent Chat handoff: {error}"))?;
+
+    fs::write(&tmp_path, bytes)
+        .map_err(|error| format!("failed to write Agent Chat handoff: {error}"))?;
+    fs::rename(&tmp_path, &path).map_err(|error| {
+        let _ = fs::remove_file(&tmp_path);
+        format!("failed to publish Agent Chat handoff: {error}")
+    })?;
+
+    Ok(token)
+}
+
+#[tauri::command]
+pub fn read_agent_chat_handoff(
+    app: tauri::AppHandle,
+    token: String,
+) -> Result<Option<serde_json::Value>, String> {
+    if !is_valid_handoff_token(&token) {
+        return Err("invalid Agent Chat handoff token".to_string());
+    }
+
+    let dir = agent_chat_handoff_dir(&app);
+    let path = agent_chat_handoff_path(&dir, &token)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = fs::read(&path)
+        .map_err(|error| format!("failed to read Agent Chat handoff: {error}"))?;
+    let _ = fs::remove_file(&path);
+    let snapshot = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("failed to parse Agent Chat handoff: {error}"))?;
+    Ok(Some(snapshot))
+}
+
+#[tauri::command]
 pub fn open_preview_browser_window(
     app: tauri::AppHandle,
     state: tauri::State<AppState>,
@@ -133,7 +191,7 @@ pub fn open_preview_browser_window(
         PREVIEW_BROWSER_WINDOW_LABEL,
         WebviewUrl::External(url),
     )
-    .title("Atmos Preview")
+    .title("Atmos Browser")
     .inner_size(1280.0, 860.0)
     .min_inner_size(760.0, 520.0)
     .resizable(true)
@@ -144,7 +202,7 @@ pub fn open_preview_browser_window(
         builder = builder
             .hidden_title(true)
             .title_bar_style(TitleBarStyle::Overlay)
-            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 18.0)));
+            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 16.0)));
     }
 
     let window = builder
@@ -214,70 +272,92 @@ pub async fn send_notification(
 #[tauri::command]
 pub fn preview_bridge_open(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
     url: String,
     bounds: PreviewBridgeBounds,
 ) -> Result<(), String> {
-    preview_bridge::open_preview_window(&app, &session_id, &url, bounds)
+    preview_bridge::open_preview_window(&app, window.label(), &session_id, &url, bounds)
 }
 
 #[tauri::command]
 pub fn preview_bridge_update_bounds(
     app: tauri::AppHandle,
+    session_id: String,
     bounds: PreviewBridgeBounds,
 ) -> Result<(), String> {
-    preview_bridge::update_preview_bounds(&app, bounds)
+    preview_bridge::update_preview_bounds(&app, &session_id, bounds)
 }
 
 #[tauri::command]
 pub fn preview_bridge_set_detached(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
     url: String,
     bounds: PreviewBridgeBounds,
     detached: bool,
 ) -> Result<(), String> {
-    preview_bridge::set_preview_detached(&app, &session_id, &url, bounds, detached)
+    preview_bridge::set_preview_detached(&app, window.label(), &session_id, &url, bounds, detached)
 }
 
 #[tauri::command]
 pub fn preview_bridge_navigate(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
     url: String,
 ) -> Result<(), String> {
-    preview_bridge::navigate_preview_window(&app, &session_id, &url)
+    preview_bridge::navigate_preview_window(&app, window.label(), &session_id, &url)
 }
 
 #[tauri::command]
 pub fn preview_bridge_enter_pick_mode(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
 ) -> Result<(), String> {
-    preview_bridge::enter_pick_mode(&app, &session_id)
+    preview_bridge::enter_pick_mode(&app, window.label(), &session_id)
 }
 
 #[tauri::command]
 pub fn preview_bridge_clear_selection(
     app: tauri::AppHandle,
+    window: tauri::Window,
     session_id: String,
 ) -> Result<(), String> {
-    preview_bridge::clear_selection(&app, &session_id)
+    preview_bridge::clear_selection(&app, window.label(), &session_id)
 }
 
 #[tauri::command]
-pub fn preview_bridge_close(app: tauri::AppHandle) -> Result<(), String> {
-    preview_bridge::close_preview_window(&app)
+pub fn preview_bridge_clear_annotations(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    preview_bridge::clear_annotations(&app, &session_id)
 }
 
 #[tauri::command]
-pub fn preview_bridge_show(app: tauri::AppHandle) -> Result<(), String> {
-    preview_bridge::show_preview_window(&app)
+pub fn preview_bridge_open_devtools(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    preview_bridge::open_preview_devtools(&app, &session_id)
 }
 
 #[tauri::command]
-pub fn preview_bridge_hide(app: tauri::AppHandle) -> Result<(), String> {
-    preview_bridge::hide_preview_window(&app);
+pub fn preview_bridge_close(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    preview_bridge::close_preview_window(&app, &session_id)
+}
+
+#[tauri::command]
+pub fn preview_bridge_show(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    preview_bridge::show_preview_window(&app, &session_id)
+}
+
+#[tauri::command]
+pub fn preview_bridge_hide(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    preview_bridge::hide_preview_window(&app, &session_id);
     Ok(())
 }
 
@@ -295,20 +375,6 @@ pub async fn preview_bridge_probe_url(url: String) -> Result<(), String> {
     if !matches!(parsed.scheme(), "http" | "https") {
         return Ok(());
     }
-
-    let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(4))
-        .timeout(Duration::from_secs(6))
-        .redirect(reqwest::redirect::Policy::limited(10))
-        .build()
-        .map_err(|error| format!("Failed to initialize preview probe: {}", error))?;
-
-    client
-        .get(parsed)
-        .send()
-        .await
-        .map_err(|error| format!("Failed to load preview URL: {}", error))?;
-
     Ok(())
 }
 
@@ -394,17 +460,16 @@ pub fn appshot_show_permissions_window(
 }
 
 fn agent_chat_window_url(
-    locale: Option<&str>,
+    _locale: Option<&str>,
     api_port: u16,
     agent: Option<&str>,
     session: Option<&str>,
     session_cwd: Option<&str>,
     workspace_id: Option<&str>,
     project_id: Option<&str>,
+    handoff_token: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let locale = sanitize_locale(locale)
-        .ok_or_else(|| "failed to open Agent Chat window: missing active locale".to_string())?;
-    let mut url = format!("http://127.0.0.1:{api_port}/{locale}/agent-chat/")
+    let mut url = format!("http://127.0.0.1:{api_port}/agent-chat/")
         .parse::<tauri::Url>()
         .map_err(|error| format!("invalid Agent Chat window URL: {error}"))?;
 
@@ -425,22 +490,22 @@ fn agent_chat_window_url(
         if let Some(value) = trim_query_value(project_id) {
             query.append_pair("projectId", value);
         }
+        if let Some(value) = trim_query_value(handoff_token) {
+            query.append_pair("handoffToken", value);
+        }
     }
 
     Ok(url)
 }
 
 fn preview_browser_window_url(
-    locale: Option<&str>,
+    _locale: Option<&str>,
     api_port: u16,
     preview_url: Option<&str>,
     workspace_id: Option<&str>,
     project_id: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let locale = sanitize_locale(locale).ok_or_else(|| {
-        "failed to open Preview browser window: missing active locale".to_string()
-    })?;
-    let mut url = format!("http://127.0.0.1:{api_port}/{locale}/preview/")
+    let mut url = format!("http://127.0.0.1:{api_port}/preview/")
         .parse::<tauri::Url>()
         .map_err(|error| format!("invalid Preview browser window URL: {error}"))?;
 
@@ -462,6 +527,58 @@ fn preview_browser_window_url(
 
 fn trim_query_value(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn agent_chat_handoff_dir(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("atmos"))
+        .join("handoff")
+        .join("agent-chat")
+}
+
+fn agent_chat_handoff_path(dir: &std::path::Path, token: &str) -> Result<PathBuf, String> {
+    if !is_valid_handoff_token(token) {
+        return Err("invalid Agent Chat handoff token".to_string());
+    }
+    Ok(dir.join(format!("{token}.json")))
+}
+
+fn is_valid_handoff_token(token: &str) -> bool {
+    let len = token.len();
+    (8..=128).contains(&len)
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
+fn cleanup_agent_chat_handoff_dir(dir: &std::path::Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let now = SystemTime::now();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
+            continue;
+        };
+
+        if now
+            .duration_since(modified)
+            .map(|age| age > AGENT_CHAT_HANDOFF_MAX_AGE)
+            .unwrap_or(false)
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {

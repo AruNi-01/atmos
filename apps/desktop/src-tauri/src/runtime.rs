@@ -57,6 +57,7 @@ pub async fn ensure_desktop_runtime(
         force_restart: false,
         extra_env,
         daemon: false,
+        health_attempts: Some(80),
     })
     .await
     .map_err(|e| desktop_failure(&log_path, e))?;

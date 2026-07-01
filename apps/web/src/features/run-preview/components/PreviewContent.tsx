@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@workspace/ui";
@@ -11,7 +11,7 @@ type PreviewContentProps = {
   browserTabBar?: React.ReactNode;
   isChromeHidden?: boolean;
   isMaximized: boolean;
-  needsChromeSafeInset?: boolean;
+  isMaximizedLayoutManaged?: boolean;
   previewRootRef: React.RefObject<HTMLDivElement | null>;
   toolbarProps: React.ComponentProps<typeof PreviewToolbar>;
   toolbarHoverSuppressed?: boolean;
@@ -22,13 +22,13 @@ export function PreviewContent({
   browserTabBar,
   isChromeHidden = false,
   isMaximized,
-  needsChromeSafeInset = false,
+  isMaximizedLayoutManaged = false,
   previewRootRef,
   toolbarProps,
   toolbarHoverSuppressed = false,
   viewportProps,
 }: PreviewContentProps) {
-  const [isChromeHovered, setIsChromeHovered] = useState(false);
+  const shouldPortalMaximizedLayout = isMaximized && !isMaximizedLayoutManaged;
   const chrome = (
     <>
       {browserTabBar}
@@ -41,33 +41,18 @@ export function PreviewContent({
       ref={previewRootRef}
       className={cn(
         "flex flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out",
-        isMaximized
+        shouldPortalMaximizedLayout
           ? "fixed inset-0 z-[1000] h-screen w-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
           : "h-full w-full",
       )}
     >
       {isChromeHidden ? (
-        <div
-          className={cn(
-            "relative z-20 h-3 shrink-0 overflow-visible",
-            needsChromeSafeInset && "pt-8",
-            toolbarHoverSuppressed && "pointer-events-none",
-          )}
-          onMouseEnter={() => setIsChromeHovered(true)}
-          onMouseLeave={() => setIsChromeHovered(false)}
-          onPointerEnter={() => setIsChromeHovered(true)}
-          onPointerLeave={() => setIsChromeHovered(false)}
+        <HiddenPreviewChrome
+          key={toolbarHoverSuppressed ? "suppressed" : "ready"}
+          toolbarHoverSuppressed={toolbarHoverSuppressed}
         >
-          <div
-            className={cn(
-              "absolute inset-x-0 top-0 z-20 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
-              isChromeHovered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0",
-              needsChromeSafeInset && "top-8",
-            )}
-          >
-            {chrome}
-          </div>
-        </div>
+          {chrome}
+        </HiddenPreviewChrome>
       ) : (
         chrome
       )}
@@ -75,9 +60,35 @@ export function PreviewContent({
     </div>
   );
 
-  if (isMaximized && typeof document !== "undefined") {
+  if (shouldPortalMaximizedLayout && typeof document !== "undefined") {
     return createPortal(content, document.body);
   }
 
   return content;
+}
+
+function HiddenPreviewChrome({
+  children,
+  toolbarHoverSuppressed,
+}: {
+  children: React.ReactNode;
+  toolbarHoverSuppressed: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "group/preview-chrome relative z-30 h-4 shrink-0 overflow-visible",
+        toolbarHoverSuppressed && "pointer-events-none",
+      )}
+    >
+      <div
+        className={cn(
+          "absolute inset-x-0 top-0 z-30 min-h-4 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 opacity-0 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
+          "-translate-y-[calc(100%-1rem)] group-hover/preview-chrome:translate-y-0 group-hover/preview-chrome:opacity-100",
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
 }

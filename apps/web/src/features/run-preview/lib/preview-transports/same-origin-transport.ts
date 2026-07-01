@@ -14,6 +14,7 @@ export function connectSameOriginPreviewTransport(
     onError: handlers.onError,
     onNavigationChanged: handlers.onNavigationChanged,
     onTitleChanged: handlers.onTitleChanged,
+    onOpenTab: handlers.onOpenTab,
   });
 
   return {
@@ -32,4 +33,3 @@ export function connectSameOriginPreviewTransport(
     },
   };
 }
-

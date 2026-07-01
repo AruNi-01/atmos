@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { TabsList, TabsTab, cn } from "@workspace/ui";
-import { Folder, FolderKanban, FolderPlus, Plus, SquareKanban } from "lucide-react";
+import { Folder, FolderKanban, FolderPlus, SquareKanban } from "lucide-react";
 import type { LeftSidebarTab } from "@/shared/lib/nuqs/searchParams";
 import type { Project, WorkspaceLabel } from "@/shared/types/domain";
 import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
@@ -16,18 +16,12 @@ import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 type WorkspaceKanbanViewProps = React.ComponentProps<typeof WorkspaceKanbanView>;
 
 export function LeftSidebarTabsHeader({
-  activeTab,
   filesOnRight,
-  isAddProjectReady,
   layoutLoaded,
-  onAddProject,
   onTabChange,
 }: {
-  activeTab: LeftSidebarTab;
   filesOnRight: boolean;
-  isAddProjectReady: boolean;
   layoutLoaded: boolean;
-  onAddProject: () => void;
   onTabChange: (value: string) => void;
 }) {
   const t = useTranslations("AppShell.chrome");
@@ -39,51 +33,9 @@ export function LeftSidebarTabsHeader({
           value="projects"
           className="flex-1 h-full! text-[12px] p-0 overflow-hidden relative rounded-none border-0!"
         >
-          <div
-            className="w-full h-full flex items-center justify-center group cursor-pointer"
-            onClick={(event) => {
-              if (activeTab !== "projects" || !isAddProjectReady) return;
-              event.stopPropagation();
-              onAddProject();
-            }}
-          >
-            <div className="flex items-center justify-center gap-0.5">
-              <div className="relative size-3.5 shrink-0">
-                <FolderKanban
-                  className={cn(
-                    "absolute inset-0 size-3.5 transition-transform duration-300",
-                    activeTab === "projects" && isAddProjectReady && "group-hover:-translate-y-8",
-                  )}
-                />
-                <Plus
-                  className={cn(
-                    "absolute inset-0 size-3.5 -translate-x-8 opacity-0 transition-all duration-300",
-                    activeTab === "projects" && isAddProjectReady && "group-hover:translate-x-0 group-hover:opacity-100",
-                  )}
-                />
-              </div>
-
-              <div className="relative flex items-center whitespace-nowrap">
-                <span
-                  className={cn(
-                    "inline-block transition-all duration-300 ease-out",
-                    activeTab === "projects" && isAddProjectReady && "group-hover:translate-y-1 group-hover:opacity-0",
-                  )}
-                >
-                  {t("leftSidebarTabsHeader.projects")}
-                </span>
-                <span
-                  className={cn(
-                    "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap opacity-0 transition-all duration-300 ease-out",
-                    activeTab === "projects" &&
-                      isAddProjectReady &&
-                      "group-hover:translate-y-0 group-hover:opacity-100",
-                  )}
-                >
-                  {t("leftSidebarTabsHeader.addProject")}
-                </span>
-              </div>
-            </div>
+          <div className="flex h-full w-full cursor-pointer items-center justify-center gap-0.5">
+            <FolderKanban className="size-3.5 shrink-0" />
+            <span className="whitespace-nowrap">{t("leftSidebarTabsHeader.projects")}</span>
           </div>
         </TabsTab>
         <TabsTab

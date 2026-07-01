@@ -5,14 +5,14 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   ArrowRight,
+  Code,
   Copy,
   ExternalLink,
   Home,
   MessageCirclePlus,
   Monitor,
-  PictureInPicture2,
   Puzzle,
-  RotateCw,
+  RotateCcw,
   SquareMousePointer,
   Smartphone,
   Star,
@@ -52,9 +52,9 @@ interface PreviewToolbarProps {
   favoriteNameDraft: string;
   favoritePopoverOpen: boolean;
   isDownloadingExtension: boolean;
-  isDesktopPreviewDetached: boolean;
   isElementPickerEnabled: boolean;
   isElementPickerTooltipOpen: boolean;
+  isPreviewLoading: boolean;
   isRecheckingExtension: boolean;
   isUrlInputFocused: boolean;
   needsDesktopPreviewSafeInset: boolean;
@@ -84,9 +84,9 @@ interface PreviewToolbarProps {
   handleGoForward: () => void;
   handleGoHome: () => void;
   handleCopySelectionAnnotations: () => Promise<void>;
+  handleOpenDeveloperTools: () => Promise<void>;
   handleRefresh: () => void;
   handleRecheckExtension: () => Promise<void>;
-  handleToggleDesktopPreviewDetached: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
   handleUrlInputBlur: () => void;
   setDesktopToolbarHovered: React.Dispatch<React.SetStateAction<boolean>>;
@@ -116,9 +116,9 @@ export function PreviewToolbar({
   favoriteNameDraft,
   favoritePopoverOpen,
   isDownloadingExtension,
-  isDesktopPreviewDetached,
   isElementPickerEnabled,
   isElementPickerTooltipOpen,
+  isPreviewLoading,
   isRecheckingExtension,
   isUrlInputFocused,
   needsDesktopPreviewSafeInset,
@@ -148,9 +148,9 @@ export function PreviewToolbar({
   handleGoForward,
   handleGoHome,
   handleCopySelectionAnnotations,
+  handleOpenDeveloperTools,
   handleRefresh,
   handleRecheckExtension,
-  handleToggleDesktopPreviewDetached,
   handleToggleElementPicker,
   handleUrlInputBlur,
   setDesktopToolbarHovered,
@@ -163,6 +163,7 @@ export function PreviewToolbar({
   setViewMode,
 }: PreviewToolbarProps) {
   const t = useTranslations("preview.toolbar");
+  const showsDeveloperToolsButton = preferredTransportMode === "desktop-native";
   return (
     <div
       className={cn(
@@ -179,7 +180,8 @@ export function PreviewToolbar({
       <div
         ref={toolbarRowRef}
         className={cn(
-          "flex h-10 items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
+          "flex items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
+          usesToolbarHoverOverlay || usesDesktopToolbarExpand ? "h-10" : "h-9",
           usesToolbarHoverOverlay &&
             "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-b-md border-b border-border/60 bg-background/92 opacity-0 shadow-lg backdrop-blur-md group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
           usesToolbarHoverOverlay && needsDesktopPreviewSafeInset && "top-8",
@@ -258,7 +260,7 @@ export function PreviewToolbar({
             className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title={t("navigation.refresh")}
           >
-            <RotateCw className="size-3.5" />
+            <RotateCcw className={cn("size-3.5", isPreviewLoading && "animate-spin")} />
           </button>
         </div>
 
@@ -350,6 +352,20 @@ export function PreviewToolbar({
             )}
           >
             <TooltipProvider delayDuration={150}>
+              {showsDeveloperToolsButton ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleOpenDeveloperTools();
+                  }}
+                  className="flex h-6 cursor-pointer items-center justify-center rounded-l-sm rounded-r-none px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                  title={t("actions.openDeveloperTools")}
+                  aria-label={t("actions.openDeveloperTools")}
+                >
+                  <Code className="size-3.5" />
+                </button>
+              ) : null}
+
               <Tooltip
                 open={isElementPickerTooltipOpen}
                 onOpenChange={setIsElementPickerTooltipOpen}
@@ -362,11 +378,13 @@ export function PreviewToolbar({
                         void handleToggleElementPicker();
                       }}
                       disabled={!activeUrl || preferredTransportMode === "unavailable"}
+                      aria-pressed={isElementPickerEnabled}
                       className={cn(
                         "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
+                        showsDeveloperToolsButton ? "rounded-l-none rounded-r-sm" : "rounded-sm",
                         activeUrl && preferredTransportMode !== "unavailable"
                           ? isElementPickerEnabled
-                            ? "text-blue-400 hover:bg-blue-400/10 hover:text-blue-300"
+                            ? "bg-blue-500 text-white shadow-sm hover:bg-blue-500/90 hover:text-white"
                             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                           : "cursor-not-allowed text-muted-foreground/30",
                       )}
@@ -416,43 +434,6 @@ export function PreviewToolbar({
                         : "annotations.copyTooltipOther",
                       { count: selectionAnnotationCount },
                     )}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-
-            {preferredTransportMode === "desktop-native" ? (
-              <TooltipProvider delayDuration={150}>
-                <Tooltip disableHoverableContent>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex">
-                      <button
-                        onClick={() => {
-                          void handleToggleDesktopPreviewDetached();
-                        }}
-                        disabled={!activeUrl}
-                        className={cn(
-                          "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
-                          activeUrl
-                            ? isDesktopPreviewDetached
-                              ? "text-blue-400 hover:bg-blue-400/10 hover:text-blue-300"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                            : "cursor-not-allowed text-muted-foreground/30",
-                        )}
-                        aria-label={
-                          isDesktopPreviewDetached
-                            ? t("desktop.restoreToSidebar")
-                            : t("desktop.detachWindow")
-                        }
-                      >
-                        <PictureInPicture2 className="size-3.5" />
-                      </button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
-                    {isDesktopPreviewDetached
-                      ? t("desktop.restoreTooltip")
-                      : t("desktop.detachTooltip")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

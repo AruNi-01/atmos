@@ -11,6 +11,7 @@ export interface PreviewTransportViewport {
   y: number;
   width: number;
   height: number;
+  zoom?: number;
 }
 
 export interface PreviewBridgeHostInitMessage {
@@ -64,6 +65,7 @@ export interface PreviewBridgeEventHandlers {
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
   onTitleChanged?: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => void;
+  onOpenTab?: (targetUrl: string, sourceUrl?: string) => void;
   onCursorChange?: (cursor: string) => void;
 }
 
@@ -72,9 +74,10 @@ export interface PreviewBridgeController {
   enterPickMode: () => Promise<void> | void;
   exitPickMode: () => Promise<void> | void;
   clearSelection: (notifyHost?: boolean) => Promise<void> | void;
+  clearAnnotations?: () => Promise<void> | void;
   updateViewport?: (viewport: PreviewTransportViewport) => Promise<void> | void;
   navigate?: (url: string) => Promise<void> | void;
-  setDetached?: (detached: boolean, url: string, viewport: PreviewTransportViewport) => Promise<void> | void;
+  openDevTools?: () => Promise<void> | void;
   show?: () => Promise<void> | void;
   hide?: () => Promise<void> | void;
   destroy: () => Promise<void> | void;

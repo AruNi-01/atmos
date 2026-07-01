@@ -9,21 +9,24 @@ interface OverlayController {
   destroy: () => void;
 }
 
-export const PREVIEW_PICKER_HOVER_COLOR = '#2563eb';
-export const PREVIEW_PICKER_LOCKED_COLOR = '#f97316';
+export const PREVIEW_PICKER_HOVER_COLOR = '#4ade80';
+export const PREVIEW_PICKER_HOVER_BORDER_COLOR = '#15803d';
+export const PREVIEW_PICKER_LOCKED_COLOR = '#fde047';
+export const PREVIEW_PICKER_LOCKED_BORDER_COLOR = '#ca8a04';
 
-export function createPreviewPickerCursor(color: string): string {
+export function createPreviewPickerCursor(fillColor: string, borderColor: string): string {
+  const cursorPath =
+    'M17.4 10.6C16.1 9.8 14.6 10.9 15 12.4L25.3 49.1C25.8 50.8 28 51 28.7 49.4L34.8 36.2L48.8 33.1C50.5 32.7 50.9 30.5 49.4 29.6L17.4 10.6Z';
   const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="-5 -8 74 74" fill="none">',
-    '<g transform="translate(7 1) rotate(-45 25 27)">',
-    '<g filter="url(#atmos_picker_cursor_shadow)">',
-    `<path d="M42.6817 41.1495L27.5103 6.79925C26.7269 5.02557 24.2082 5.02558 23.3927 6.79925L7.59814 41.1495C6.75833 42.9759 8.52712 44.8902 10.4125 44.1954L24.3757 39.0496C24.8829 38.8627 25.4385 38.8627 25.9422 39.0496L39.8121 44.1954C41.6849 44.8902 43.4884 42.9759 42.6817 41.1495Z" fill="${color}"/>`,
+    '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 64 64" fill="none" shape-rendering="geometricPrecision">',
+    '<defs><filter id="atmos_picker_cursor_shadow" x="-8" y="-8" width="80" height="80" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="2" stdDeviation="1.25" flood-color="#0f172a" flood-opacity="0.24"/></filter></defs>',
+    '<g filter="url(#atmos_picker_cursor_shadow)" stroke-linejoin="round">',
+    `<path d="${cursorPath}" fill="${fillColor}" stroke="${borderColor}" stroke-width="5.5"/>`,
+    `<path d="${cursorPath}" fill="none" stroke="#fff" stroke-opacity="0.26" stroke-width="1.4"/>`,
     '</g>',
-    '</g>',
-    '<defs><filter id="atmos_picker_cursor_shadow" x="0.602397" y="0.952444" width="49.0584" height="52.428" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset dy="2.25825"/><feGaussianBlur stdDeviation="2.25825"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.08 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/><feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/></filter></defs>',
     '</svg>',
   ].join('');
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 11 11, auto`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 7 5, auto`;
 }
 
 function createOverlayBox(doc: Document, color: string): HTMLDivElement {
@@ -109,7 +112,16 @@ export function createPreviewOverlay(doc: Document): OverlayController {
       }
       [data-atmos-preview-overlay="true"],
       [data-atmos-preview-overlay="true"] * {
-        cursor: revert !important;
+        cursor: default !important;
+      }
+      [data-atmos-preview-overlay="true"] button,
+      [data-atmos-preview-overlay="true"] button * {
+        cursor: pointer !important;
+      }
+      [data-atmos-preview-overlay="true"] input,
+      [data-atmos-preview-overlay="true"] textarea,
+      [data-atmos-preview-overlay="true"] [contenteditable="true"] {
+        cursor: text !important;
       }
     `;
   }

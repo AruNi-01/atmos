@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import { invokeDesktopPreviewBridge } from "@/shared/lib/desktop-preview-bridge";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type {
   PreviewBridgeController,
   PreviewTransportMode,
@@ -13,8 +13,8 @@ import { getPreviewViewportBounds } from "../lib/preview-transports/desktop-tran
 import {
   PREVIEW_EXTENSION_REQUIRED_MESSAGE,
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
+  canonicalizeUrl,
   createPreviewLoadError,
-  createPreviewNetworkError,
   type PreviewLoadError,
 } from "../lib/preview-utils";
 
@@ -31,6 +31,7 @@ type UsePreviewLifecycleEffectsParams = {
     awaitHandshake?: boolean;
   }) => Promise<boolean>;
   desktopCommittedUrl: string;
+  desktopPreviewViewportRef: MutableRefObject<string | null>;
   desktopCommittedUrlRef: MutableRefObject<string>;
   desktopViewportRef: RefObject<HTMLDivElement | null>;
   extensionConnectingRef: MutableRefObject<boolean>;
@@ -59,11 +60,13 @@ type UsePreviewLifecycleEffectsParams = {
   teardownTransport: (clearSelection?: boolean) => void;
   transportConnected: boolean;
   transportControllerRef: MutableRefObject<PreviewBridgeController | null>;
+  viewMode: PreviewViewMode;
 };
 
 export function usePreviewLifecycleEffects({
   connectIframeTransport,
   desktopCommittedUrl,
+  desktopPreviewViewportRef,
   desktopCommittedUrlRef,
   desktopViewportRef,
   extensionConnectingRef,
@@ -92,54 +95,46 @@ export function usePreviewLifecycleEffects({
   teardownTransport,
   transportConnected,
   transportControllerRef,
+  viewMode,
 }: UsePreviewLifecycleEffectsParams) {
   const handledNavigationRequestRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!requestedIframeUrl || !isActive) return;
+    if (!requestedIframeUrl) return;
 
     const requestKey = `${navigationToken}:${requestedIframeUrl}`;
+    const currentIframeUrl = canonicalizeUrl(iframeSrc) || iframeSrc.trim();
+    const nextIframeUrl = canonicalizeUrl(requestedIframeUrl) || requestedIframeUrl.trim();
+    const canReuseLoadedIframe =
+      preferredTransportMode !== "desktop-native" &&
+      navigationToken === 0 &&
+      currentIframeUrl &&
+      nextIframeUrl &&
+      currentIframeUrl === nextIframeUrl;
+
+    if (!isActive) {
+      if (canReuseLoadedIframe) {
+        handledNavigationRequestRef.current = requestKey;
+      }
+      return;
+    }
+
     if (handledNavigationRequestRef.current === requestKey) return;
     handledNavigationRequestRef.current = requestKey;
 
     setPreviewLoadError(null);
+
+    if (canReuseLoadedIframe) {
+      return;
+    }
+
     setIsPreviewLoading(true);
 
     if (preferredTransportMode === "desktop-native") {
-      void hideDesktopPreview();
-
-      let disposed = false;
-      let requestSettled = false;
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => {
-        controller.abort();
-      }, 4500);
-
-      void invokeDesktopPreviewBridge("preview_bridge_probe_url", {
-        url: requestedIframeUrl,
-      }).then(() => {
-        requestSettled = true;
-        if (disposed) return;
-        desktopCommittedUrlRef.current = requestedIframeUrl;
-        setDesktopCommittedUrl(requestedIframeUrl);
-      }).catch((error) => {
-        requestSettled = true;
-        if (disposed) return;
-        desktopCommittedUrlRef.current = "";
-        setDesktopCommittedUrl("");
-        void hideDesktopPreview();
-        setPreviewLoadError(createPreviewNetworkError(requestedIframeUrl, error));
-        setIsPreviewLoading(false);
-      });
-
-      return () => {
-        disposed = true;
-        window.clearTimeout(timeoutId);
-        controller.abort();
-        if (!requestSettled && handledNavigationRequestRef.current === requestKey) {
-          handledNavigationRequestRef.current = null;
-        }
-      };
+      desktopCommittedUrlRef.current = requestedIframeUrl;
+      setDesktopCommittedUrl(requestedIframeUrl);
+      void syncDesktopPreview();
+      return;
     }
 
     setIframeSrc(requestedIframeUrl);
@@ -147,7 +142,7 @@ export function usePreviewLifecycleEffects({
   }, [
     _setIframeKey,
     desktopCommittedUrlRef,
-    hideDesktopPreview,
+    iframeSrc,
     isActive,
     navigationToken,
     preferredTransportMode,
@@ -156,12 +151,14 @@ export function usePreviewLifecycleEffects({
     setIframeSrc,
     setIsPreviewLoading,
     setPreviewLoadError,
+    syncDesktopPreview,
   ]);
 
   useEffect(() => {
     if (
       !requestedIframeUrl ||
       !isActive ||
+      preferredTransportMode === "desktop-native" ||
       !isPreviewLoading ||
       previewLoadError
     ) {
@@ -171,7 +168,7 @@ export function usePreviewLifecycleEffects({
     const timeoutId = window.setTimeout(() => {
       setPreviewLoadError((previous) => previous ?? createPreviewLoadError(
         requestedIframeUrl,
-        "Preview failed to load",
+        "Browser failed to load",
         "The new page never finished loading.",
         [
           "The URL may be invalid, the server may be down, or the browser may have rejected the navigation before committing a new document.",
@@ -183,26 +180,47 @@ export function usePreviewLifecycleEffects({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [isActive, isPreviewLoading, previewLoadError, requestedIframeUrl, setIsPreviewLoading, setPreviewLoadError]);
+  }, [
+    isActive,
+    isPreviewLoading,
+    preferredTransportMode,
+    previewLoadError,
+    requestedIframeUrl,
+    setIsPreviewLoading,
+    setPreviewLoadError,
+  ]);
 
   useEffect(() => {
     if (!iframeSrc) {
-      setTransportState({
-        mode: "unavailable",
-        connected: false,
-        message: "",
-        capabilities: [],
-      });
-      teardownTransport();
+      setTransportState((previous) =>
+        previous.mode === "unavailable" &&
+        !previous.connected &&
+        previous.message === "" &&
+        previous.capabilities.length === 0
+          ? previous
+          : {
+              mode: "unavailable",
+              connected: false,
+              message: "",
+              capabilities: [],
+            },
+      );
+      if (transportControllerRef.current) {
+        teardownTransport();
+      }
       return;
     }
 
     if (preferredTransportMode === "desktop-native") {
-      setTransportState((previous) => ({
-        ...previous,
-        mode: "desktop-native",
-        message: previous.message,
-      }));
+      setTransportState((previous) =>
+        previous.mode === "desktop-native"
+          ? previous
+          : {
+              ...previous,
+              mode: "desktop-native",
+              message: previous.message,
+            },
+      );
       if (isActive) {
         void syncDesktopPreview();
       } else {
@@ -215,25 +233,43 @@ export function usePreviewLifecycleEffects({
       teardownTransport(false);
     }
 
-    setTransportState((previous) => ({
-      mode: preferredTransportMode,
-      connected:
+    setTransportState((previous) => {
+      const nextConnected =
         preferredTransportMode === "extension" && previous.mode === "extension"
           ? previous.connected
-          : false,
-      message:
+          : false;
+      const nextMessage =
         preferredTransportMode === "extension"
           ? previous.mode === "extension" && previous.connected
             ? ""
             : PREVIEW_EXTENSION_REQUIRED_MESSAGE
           : preferredTransportMode === "same-origin"
             ? ""
-            : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
-      capabilities:
+            : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE;
+      const nextCapabilities =
         preferredTransportMode === "extension" && previous.mode === "extension"
           ? previous.capabilities
-          : [],
-    }));
+          : [];
+      const capabilitiesUnchanged =
+        previous.capabilities === nextCapabilities ||
+        (previous.capabilities.length === 0 && nextCapabilities.length === 0);
+
+      if (
+        previous.mode === preferredTransportMode &&
+        previous.connected === nextConnected &&
+        previous.message === nextMessage &&
+        capabilitiesUnchanged
+      ) {
+        return previous;
+      }
+
+      return {
+        mode: preferredTransportMode,
+        connected: nextConnected,
+        message: nextMessage,
+        capabilities: nextCapabilities,
+      };
+    });
   }, [
     hideDesktopPreview,
     iframeKey,
@@ -281,11 +317,30 @@ export function usePreviewLifecycleEffects({
 
   useEffect(() => {
     if (transportControllerRef.current?.mode === "desktop-native") return;
-    teardownTransport(false);
-    if (preferredTransportMode !== "extension") {
+
+    if (!isElementPickerEnabled && transportControllerRef.current) {
+      void Promise.resolve(transportControllerRef.current.exitPickMode());
+    }
+
+    if (preferredTransportMode !== "unavailable") {
+      return;
+    }
+
+    if (transportControllerRef.current) {
+      teardownTransport(false);
+    }
+    if (isElementPickerEnabled) {
       setIsElementPickerEnabled(false);
     }
-  }, [iframeKey, iframeSrc, preferredTransportMode, setIsElementPickerEnabled, teardownTransport, transportControllerRef]);
+  }, [
+    iframeKey,
+    iframeSrc,
+    isElementPickerEnabled,
+    preferredTransportMode,
+    setIsElementPickerEnabled,
+    teardownTransport,
+    transportControllerRef,
+  ]);
 
   useEffect(() => {
     if (preferredTransportMode !== "desktop-native") return;
@@ -299,8 +354,14 @@ export function usePreviewLifecycleEffects({
     let unlistenResized: (() => void) | undefined;
 
     const syncBounds = async () => {
-      if (disposed || transportControllerRef.current?.mode !== "desktop-native" || !desktopViewportRef.current) return;
-      await transportControllerRef.current.updateViewport?.(await getPreviewViewportBounds(desktopViewportRef.current));
+      const controller = transportControllerRef.current;
+      const currentSurface = desktopViewportRef.current;
+      if (disposed || controller?.mode !== "desktop-native" || !currentSurface) return;
+      const viewport = await getPreviewViewportBounds(currentSurface);
+      if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
+      await controller.updateViewport?.(viewport);
+      if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
+      desktopPreviewViewportRef.current = JSON.stringify(viewport);
     };
 
     resizeObserver = new ResizeObserver(() => {
@@ -331,7 +392,55 @@ export function usePreviewLifecycleEffects({
       unlistenMoved?.();
       unlistenResized?.();
     };
-  }, [desktopViewportRef, preferredTransportMode, transportControllerRef]);
+  }, [desktopPreviewViewportRef, desktopViewportRef, preferredTransportMode, transportControllerRef]);
+
+  useEffect(() => {
+    if (
+      preferredTransportMode !== "desktop-native" ||
+      !isActive ||
+      !desktopCommittedUrl ||
+      shouldSuspendDesktopPreview
+    ) return;
+
+    let firstRafId = 0;
+    let secondRafId = 0;
+    let disposed = false;
+
+    firstRafId = window.requestAnimationFrame(() => {
+      secondRafId = window.requestAnimationFrame(async () => {
+        if (
+          disposed ||
+          transportControllerRef.current?.mode !== "desktop-native" ||
+          !desktopViewportRef.current
+        ) return;
+
+        const controller = transportControllerRef.current;
+        const currentSurface = desktopViewportRef.current;
+        if (controller?.mode !== "desktop-native" || !currentSurface) return;
+
+        const viewport = await getPreviewViewportBounds(currentSurface);
+        if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
+        await controller.updateViewport?.(viewport);
+        if (disposed || transportControllerRef.current !== controller || desktopViewportRef.current !== currentSurface) return;
+        desktopPreviewViewportRef.current = JSON.stringify(viewport);
+      });
+    });
+
+    return () => {
+      disposed = true;
+      if (firstRafId) window.cancelAnimationFrame(firstRafId);
+      if (secondRafId) window.cancelAnimationFrame(secondRafId);
+    };
+  }, [
+    desktopCommittedUrl,
+    desktopPreviewViewportRef,
+    desktopViewportRef,
+    isActive,
+    preferredTransportMode,
+    shouldSuspendDesktopPreview,
+    transportControllerRef,
+    viewMode,
+  ]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;

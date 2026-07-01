@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useQueryState } from "nuqs";
 
 import { useConnectionStore } from "@/features/connection/store/connection-store";
+import type { ConnectionInstanceId } from "@/features/connection/lib/connection-instance";
+import { instKey, readJson } from "@/shared/lib/browser-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { previewUrlParams } from "@/shared/lib/nuqs/searchParams";
 
 import type { PreviewBrowserTab } from "../components/PreviewBrowserTabBar";
@@ -22,6 +23,13 @@ interface PreviewBrowserPrefs {
 const DEFAULT_PREVIEW_BROWSER_PREFS: PreviewBrowserPrefs = { byContext: {} };
 const MAX_PREVIEW_BROWSER_TABS = 10;
 
+function readPreviewBrowserPrefs(instanceId: ConnectionInstanceId): PreviewBrowserPrefs {
+  return readJson(
+    instKey(instanceId, "previewBrowser"),
+    DEFAULT_PREVIEW_BROWSER_PREFS,
+  );
+}
+
 function createBrowserTab(
   url = "",
   lastAccessedAt = Date.now(),
@@ -37,6 +45,7 @@ function createBrowserTab(
     url: normalizedUrl,
     activeUrl: normalizedUrl,
     title: "",
+    titleUrl: "",
     faviconUrl: "",
     lastAccessedAt,
   };
@@ -112,6 +121,7 @@ function normalizeBrowserContext(
             url: tab.url,
             activeUrl: tab.activeUrl,
             title: typeof tab.title === "string" ? tab.title : "",
+            titleUrl: typeof tab.titleUrl === "string" ? tab.titleUrl : "",
             faviconUrl: typeof tab.faviconUrl === "string" ? tab.faviconUrl : "",
             lastAccessedAt: getFiniteAccessedAt(
               tab.lastAccessedAt,
@@ -141,25 +151,33 @@ function getTabNavigationUrl(tab: PreviewBrowserTab | undefined): string {
 interface UsePreviewBrowserStateOptions {
   workspaceId: string | null;
   projectId?: string;
+  browserContextId?: string;
+  syncUrlQueryParam?: boolean;
 }
 
 export function usePreviewBrowserState({
   workspaceId,
   projectId,
+  browserContextId: browserContextIdOverride,
+  syncUrlQueryParam = true,
 }: UsePreviewBrowserStateOptions) {
   const instanceId = useConnectionStore((state) => state.activeInstanceId);
-  const [committedPreviewUrl, setCommittedPreviewUrl] = useQueryState(
+  const [queryPreviewUrl, setCommittedPreviewUrl] = useQueryState(
     "pvUrl",
     previewUrlParams.pvUrl,
   );
-  const browserContextId = workspaceId || projectId || "default";
+  const committedPreviewUrl = syncUrlQueryParam ? queryPreviewUrl : "";
+  const browserContextId = browserContextIdOverride || workspaceId || projectId || "default";
   const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(
     () => normalizeBrowserContext(undefined, committedPreviewUrl),
   );
+  const browserStateRef = useRef(browserState);
+  const ignoredCommittedPreviewUrlRef = useRef<string | null>(null);
   const [loadedBrowserContext, setLoadedBrowserContext] = useState<{
     instanceId: string;
     contextId: string;
   } | null>(null);
+  browserStateRef.current = browserState;
 
   const activeBrowserTab = useMemo(
     () =>
@@ -167,24 +185,42 @@ export function usePreviewBrowserState({
       browserState.tabs[0],
     [browserState.activeTabId, browserState.tabs],
   );
-  const shouldKeepInactivePreviewsMounted = useMemo(
-    () => !isTauriRuntime(),
-    [],
-  );
   const previewTabsToRender = useMemo(
-    () =>
-      shouldKeepInactivePreviewsMounted
-        ? browserState.tabs
-        : activeBrowserTab
-          ? [activeBrowserTab]
-          : [],
-    [activeBrowserTab, browserState.tabs, shouldKeepInactivePreviewsMounted],
+    () => browserState.tabs,
+    [browserState.tabs],
   );
 
+  const persistBrowserState = useCallback((nextBrowserState?: PreviewBrowserContextPrefs) => {
+    const stateToPersist = nextBrowserState ?? browserStateRef.current;
+    const all = readPreviewBrowserPrefs(instanceId);
+    useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
+      byContext: {
+        ...all.byContext,
+        [browserContextId]: stateToPersist,
+      },
+    });
+  }, [browserContextId, instanceId]);
+
+  const reloadBrowserStateFromPrefs = useCallback(() => {
+    const all = readPreviewBrowserPrefs(instanceId);
+    const nextBrowserState = normalizeBrowserContext(
+      all.byContext[browserContextId],
+      committedPreviewUrl,
+    );
+
+    useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
+      byContext: {
+        ...all.byContext,
+        [browserContextId]: nextBrowserState,
+      },
+    });
+    setBrowserState(nextBrowserState);
+    setLoadedBrowserContext({ instanceId, contextId: browserContextId });
+    return nextBrowserState;
+  }, [browserContextId, committedPreviewUrl, instanceId]);
+
   useEffect(() => {
-    const all = useUiPrefStore
-      .getState()
-      .readSlice(instanceId, "previewBrowser", DEFAULT_PREVIEW_BROWSER_PREFS);
+    const all = readPreviewBrowserPrefs(instanceId);
     setBrowserState(
       normalizeBrowserContext(
         all.byContext[browserContextId],
@@ -204,26 +240,29 @@ export function usePreviewBrowserState({
       return;
     }
 
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      "previewBrowser",
-      (previous) => ({
-        byContext: {
-          ...(previous as PreviewBrowserPrefs).byContext,
-          [browserContextId]: browserState,
-        },
-      }),
-      DEFAULT_PREVIEW_BROWSER_PREFS,
-    );
-  }, [browserContextId, browserState, instanceId, loadedBrowserContext]);
+    persistBrowserState(browserState);
+  }, [browserContextId, browserState, instanceId, loadedBrowserContext, persistBrowserState]);
 
   useEffect(() => {
+    if (!syncUrlQueryParam) return;
+
     const activeNavigationUrl = getTabNavigationUrl(activeBrowserTab);
     if (activeNavigationUrl === committedPreviewUrl) return;
+    ignoredCommittedPreviewUrlRef.current = committedPreviewUrl;
     void setCommittedPreviewUrl(activeNavigationUrl);
-  }, [activeBrowserTab, committedPreviewUrl, setCommittedPreviewUrl]);
+  }, [activeBrowserTab, committedPreviewUrl, setCommittedPreviewUrl, syncUrlQueryParam]);
 
   useEffect(() => {
+    if (!syncUrlQueryParam) return;
+
+    if (
+      ignoredCommittedPreviewUrlRef.current !== null &&
+      ignoredCommittedPreviewUrlRef.current === committedPreviewUrl
+    ) {
+      ignoredCommittedPreviewUrlRef.current = null;
+      return;
+    }
+
     const nextUrl = canonicalizeUrl(committedPreviewUrl) || committedPreviewUrl.trim();
     if (!nextUrl) return;
 
@@ -242,6 +281,7 @@ export function usePreviewBrowserState({
                 url: nextUrl,
                 activeUrl: nextUrl,
                 title: "",
+                titleUrl: "",
                 faviconUrl: "",
                 lastAccessedAt: Date.now(),
               }
@@ -249,7 +289,7 @@ export function usePreviewBrowserState({
         ),
       };
     });
-  }, [committedPreviewUrl]);
+  }, [committedPreviewUrl, syncUrlQueryParam]);
 
   const updateBrowserTab = useCallback(
     (tabId: string, updater: (tab: PreviewBrowserTab) => PreviewBrowserTab) => {
@@ -298,13 +338,18 @@ export function usePreviewBrowserState({
         const nextCanonicalUrl = canonicalizeUrl(nextUrl);
         const shouldClearTitle =
           previousUrl && nextCanonicalUrl && previousUrl !== nextCanonicalUrl;
-        const nextTitle = shouldClearTitle ? "" : tab.title;
-        const nextFaviconUrl = shouldClearTitle ? "" : tab.faviconUrl;
+        const titleUrl = canonicalizeUrl(tab.titleUrl || "");
+        const shouldKeepIncomingTitle =
+          shouldClearTitle && titleUrl && titleUrl === nextCanonicalUrl;
+        const nextTitle = shouldClearTitle && !shouldKeepIncomingTitle ? "" : tab.title;
+        const nextTitleUrl = shouldClearTitle && !shouldKeepIncomingTitle ? "" : tab.titleUrl;
+        const nextFaviconUrl = shouldClearTitle && !shouldKeepIncomingTitle ? "" : tab.faviconUrl;
 
         if (
           tab.url === nextUrl &&
           tab.activeUrl === nextUrl &&
           tab.title === nextTitle &&
+          tab.titleUrl === nextTitleUrl &&
           tab.faviconUrl === nextFaviconUrl
         ) {
           return tab;
@@ -315,6 +360,7 @@ export function usePreviewBrowserState({
           url: nextUrl,
           activeUrl: nextUrl,
           title: nextTitle,
+          titleUrl: nextTitleUrl,
           faviconUrl: nextFaviconUrl,
           lastAccessedAt: now,
         };
@@ -324,18 +370,24 @@ export function usePreviewBrowserState({
   );
 
   const handlePreviewTitleChange = useCallback(
-    (tabId: string, title: string) => {
+    (tabId: string, title: string, pageUrl?: string) => {
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return;
+      const titleUrl = pageUrl ? canonicalizeUrl(pageUrl) : "";
+      if (!titleUrl) return;
 
-      updateBrowserTab(tabId, (tab) =>
-        tab.title === trimmedTitle
+      updateBrowserTab(tabId, (tab) => {
+        const currentUrl = canonicalizeUrl(getTabNavigationUrl(tab));
+        if (!currentUrl || titleUrl !== currentUrl) return tab;
+
+        return tab.title === trimmedTitle && tab.titleUrl === titleUrl
           ? tab
           : {
               ...tab,
               title: trimmedTitle,
-            },
-      );
+              titleUrl,
+            };
+      });
     },
     [updateBrowserTab],
   );
@@ -366,6 +418,30 @@ export function usePreviewBrowserState({
         activeTabId: nextTab.id,
       }),
     }));
+  }, []);
+
+  const handleOpenBrowserTab = useCallback((nextUrl: string) => {
+    const normalizedUrl = canonicalizeUrl(nextUrl) || nextUrl.trim();
+    if (!normalizedUrl) return;
+
+    const now = Date.now();
+    const nextTab = createBrowserTab(normalizedUrl, now + 1);
+    setBrowserState((current) => {
+      const touchedTabs = touchTab(current.tabs, current.activeTabId, now);
+      const activeIndex = touchedTabs.findIndex((tab) => tab.id === current.activeTabId);
+      const insertIndex = activeIndex >= 0 ? activeIndex + 1 : touchedTabs.length;
+
+      return {
+        ...pruneLeastRecentlyAccessed({
+          tabs: [
+            ...touchedTabs.slice(0, insertIndex),
+            nextTab,
+            ...touchedTabs.slice(insertIndex),
+          ],
+          activeTabId: nextTab.id,
+        }),
+      };
+    });
   }, []);
 
   const handleSelectBrowserTab = useCallback((tabId: string) => {
@@ -408,8 +484,11 @@ export function usePreviewBrowserState({
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    handleOpenBrowserTab,
     handlePreviewTitleChange,
     handlePreviewIconChange,
+    persistBrowserState,
+    reloadBrowserStateFromPrefs,
     handleSelectBrowserTab,
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,

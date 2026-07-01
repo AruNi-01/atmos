@@ -92,7 +92,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
   };
 
   return {
-    projectFilesSide: 'left',
+    projectFilesSide: 'right',
     workspaceSidebarTwoColumn: false,
     workspaceSidebarTwoColumnShowPinned: false,
     workspaceSidebarSecondColumnKanban: false,
@@ -120,7 +120,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
         const footer = readFooterLayout(layout);
         const header = readHeaderLayout(layout);
         set({
-          projectFilesSide: side === 'right' ? 'right' : 'left',
+          projectFilesSide: side === 'left' ? 'left' : 'right',
           workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
           workspaceSidebarTwoColumnShowPinned: layout?.workspace_sidebar_two_column_show_pinned === true,
           workspaceSidebarSecondColumnKanban: layout?.workspace_sidebar_second_column_kanban === true,

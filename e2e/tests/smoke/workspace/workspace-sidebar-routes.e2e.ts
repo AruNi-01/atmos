@@ -46,19 +46,27 @@ test.describe("smoke workspace", () => {
 
     await gotoContextRoute(
       page,
-      withSearchParams(contextUrl, { rsTab: "run-preview", pvView: "desktop" }),
+      withSearchParams(contextUrl, { rsTab: "browser", pvView: "desktop" }),
     );
+    await expect
+      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
+      .toBe("browser");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("pvView") ?? "desktop")
       .toBe("desktop");
 
     await gotoContextRoute(
       page,
-      withSearchParams(contextUrl, { rsTab: "run-preview", pvView: "mobile" }),
+      withSearchParams(contextUrl, { rsTab: "browser", pvView: "mobile" }),
     );
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("pvView"))
       .toBe("mobile");
+
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "run" }));
+    await expect
+      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
+      .toBe("run");
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "pr" }));
     await expect

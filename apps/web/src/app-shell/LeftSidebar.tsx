@@ -550,22 +550,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         router.push(`/project?id=${id}`);
     }, [router]);
 
-    const [isAddProjectReady, setIsAddProjectReady] = useState(false);
-
-    useEffect(() => {
-        let timer: ReturnType<typeof setTimeout>;
-        if (activeTab === 'projects') {
-            timer = setTimeout(() => {
-                setIsAddProjectReady(true);
-            }, 1000);
-        } else {
-            timer = setTimeout(() => {
-                setIsAddProjectReady(false);
-            }, 0);
-        }
-        return () => clearTimeout(timer);
-    }, [activeTab]);
-
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
         void projectId;
         router.push(`/workspace?id=${workspaceId}`);
@@ -824,11 +808,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         onValueChange={handleTabChange}
                     >
                         <LeftSidebarTabsHeader
-                            activeTab={activeTab}
                             filesOnRight={filesOnRight}
-                            isAddProjectReady={isAddProjectReady}
                             layoutLoaded={layoutLoaded}
-                            onAddProject={handleAddProject}
                             onTabChange={handleTabChange}
                         />
 

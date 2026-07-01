@@ -1,5 +1,3 @@
-import { setRequestLocale } from "next-intl/server";
-
 type AppPageOptions = {
   title: string;
 };
@@ -7,11 +5,10 @@ type AppPageOptions = {
 export function createAppPage({ title }: AppPageOptions) {
   const metadata = { title: `${title} – ATMOS` };
 
-  async function Page({ params }: { params: Promise<{ locale: string }> }) {
-    const { locale } = await params;
-    setRequestLocale(locale);
+  function Page() {
     return null;
   }
+  Page.displayName = `${title.replace(/\s+/g, "")}Page`;
 
   return { metadata, Page };
 }

@@ -3,7 +3,9 @@ import { createPreviewHelperBridge } from './bridge';
 import { buildElementSelector, getPreviewElementRect, inspectPreviewElement } from './dom-inspector';
 import {
   PREVIEW_PICKER_HOVER_COLOR,
+  PREVIEW_PICKER_HOVER_BORDER_COLOR,
   PREVIEW_PICKER_LOCKED_COLOR,
+  PREVIEW_PICKER_LOCKED_BORDER_COLOR,
   createPreviewOverlay,
   createPreviewPickerCursor,
 } from './overlay';
@@ -24,6 +26,7 @@ interface InstallPreviewHelperOptions {
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
   onTitleChanged?: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => void;
+  onOpenTab?: (targetUrl: string, sourceUrl?: string) => void;
 }
 
 export interface PreviewHelperController {
@@ -77,6 +80,33 @@ function getPageFaviconUrl(win: Window): string {
   }
 }
 
+function resolvePreviewOpenTabUrl(win: Window, value: string | undefined | null): string | null {
+  const rawValue = value?.trim();
+  if (!rawValue) return null;
+
+  try {
+    const parsedUrl = new URL(rawValue, win.location.href);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+      ? parsedUrl.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function shouldOpenAnchorInNewTab(anchor: HTMLAnchorElement, event: MouseEvent): boolean {
+  const target = anchor.getAttribute('target')?.trim().toLowerCase();
+  const opensSeparateContext =
+    Boolean(target) && target !== '_self' && target !== '_parent' && target !== '_top';
+  return (
+    event.button === 1 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    opensSeparateContext
+  );
+}
+
 export function installPreviewHelper(
   win: Window,
   options: InstallPreviewHelperOptions,
@@ -85,8 +115,14 @@ export function installPreviewHelper(
   const elementCtor = doc.defaultView?.Element ?? Element;
   const overlay = createPreviewOverlay(doc);
   const state = createPreviewSelectionState();
-  const hoverCursor = createPreviewPickerCursor(PREVIEW_PICKER_HOVER_COLOR);
-  const lockedCursor = createPreviewPickerCursor(PREVIEW_PICKER_LOCKED_COLOR);
+  const hoverCursor = createPreviewPickerCursor(
+    PREVIEW_PICKER_HOVER_COLOR,
+    PREVIEW_PICKER_HOVER_BORDER_COLOR,
+  );
+  const lockedCursor = createPreviewPickerCursor(
+    PREVIEW_PICKER_LOCKED_COLOR,
+    PREVIEW_PICKER_LOCKED_BORDER_COLOR,
+  );
   let parentOrigin = '*';
   try {
     parentOrigin = win.parent.location.origin;
@@ -203,6 +239,30 @@ export function installPreviewHelper(
     options.onTitleChanged?.(pageTitle, faviconUrl, win.location.href);
     bridge.titleChanged(pageTitle, faviconUrl);
   };
+  const emitOpenTab = (targetUrl: string) => {
+    options.onOpenTab?.(targetUrl, win.location.href);
+    bridge.openTab(targetUrl);
+  };
+
+  const handleOpenTabClick = (event: MouseEvent) => {
+    if (state.enabled || event.defaultPrevented) return;
+    if (event.button !== 0 && event.button !== 1) return;
+
+    const target = event.target;
+    if (!isInspectableElement(target, elementCtor)) return;
+
+    const anchor = target.closest('a[href]');
+    if (!anchor || anchor.tagName.toLowerCase() !== 'a') return;
+    const link = anchor as HTMLAnchorElement;
+    if (!shouldOpenAnchorInNewTab(link, event)) return;
+
+    const targetUrl = resolvePreviewOpenTabUrl(win, link.href);
+    if (!targetUrl) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    emitOpenTab(targetUrl);
+  };
 
   const checkUrlChange = () => {
     const currentPath = win.location.pathname + win.location.hash;
@@ -219,6 +279,8 @@ export function installPreviewHelper(
   };
 
   const handlePopState = () => checkUrlChange();
+  doc.addEventListener('click', handleOpenTabClick, true);
+  doc.addEventListener('auxclick', handleOpenTabClick, true);
   win.addEventListener('popstate', handlePopState);
   const titleObserverTarget = doc.head ?? doc.documentElement;
   const titleObserver =
@@ -245,6 +307,20 @@ export function installPreviewHelper(
   win.history.replaceState = function (...args: Parameters<typeof originalReplaceState>) {
     originalReplaceState(...args);
     checkUrlChange();
+  };
+  const originalOpen = win.open.bind(win);
+  win.open = function (
+    url?: string | URL,
+    target?: string,
+    features?: string,
+  ): WindowProxy | null {
+    const targetName = target?.trim().toLowerCase() ?? '';
+    const targetUrl = resolvePreviewOpenTabUrl(win, url == null ? null : String(url));
+    if (targetUrl && targetName !== '_self' && targetName !== '_parent' && targetName !== '_top') {
+      emitOpenTab(targetUrl);
+      return null;
+    }
+    return originalOpen(url, target, features);
   };
 
   const capabilities: PreviewHelperCapability[] = [
@@ -281,11 +357,14 @@ export function installPreviewHelper(
       doc.removeEventListener('click', handleClick, true);
       doc.removeEventListener('dblclick', blockPagePointerEvent, true);
       doc.removeEventListener('contextmenu', blockPagePointerEvent, true);
+      doc.removeEventListener('click', handleOpenTabClick, true);
+      doc.removeEventListener('auxclick', handleOpenTabClick, true);
       win.removeEventListener('keydown', handleKeyDown, true);
       win.removeEventListener('popstate', handlePopState);
       titleObserver?.disconnect();
       win.history.pushState = originalPushState;
       win.history.replaceState = originalReplaceState;
+      win.open = originalOpen;
       overlay.destroy();
     },
   };

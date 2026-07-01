@@ -58,7 +58,7 @@ function normalizeStoredTabs(value: unknown, runLabel: string): RunTerminalTab[]
 function loadStoredTabs(contextId: string, runLabel: string): RunTerminalTab[] {
   if (typeof window === "undefined") return createDefaultRunTabs(runLabel);
   const instanceId = getActiveInstanceId();
-  const all = useUiPrefStore.getState().readSlice(instanceId, 'runPreview', {
+  const all = useUiPrefStore.getState().readSlice(instanceId, 'run', {
     byContext: {} as Record<string, RunTerminalTab[]>,
   });
   return normalizeStoredTabs(all.byContext[contextId], runLabel);
@@ -70,7 +70,7 @@ function saveStoredTabs(contextId: string, tabs: RunTerminalTab[], runLabel: str
   const normalized = normalizeStoredTabs(tabs, runLabel);
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'runPreview',
+    'run',
     prev => ({
       byContext: {
         ...(prev as { byContext: Record<string, RunTerminalTab[]> }).byContext,
@@ -90,7 +90,7 @@ interface RunScriptProps {
 }
 
 export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, isActive, projectName, workspaceName }) => {
-  const t = useTranslations("preview.runScript");
+  const t = useTranslations("run");
   const runTabLabel = t("tabs.run");
   const defaultRunTabs = React.useMemo(() => createDefaultRunTabs(runTabLabel), [runTabLabel]);
   const terminalTabName = React.useCallback((index: number) => t("tabs.terminal", { index }), [t]);
