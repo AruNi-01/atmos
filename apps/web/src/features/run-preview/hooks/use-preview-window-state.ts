@@ -60,17 +60,6 @@ export function usePreviewWindowState(options: PreviewWindowStateOptions = {}) {
     isMacDesktop &&
     !isDesktopWindowFullscreen;
 
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isMaximized) {
-        setIsMaximized(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isMaximized, setIsMaximized]);
-
   return {
     isMaximized,
     needsDesktopPreviewSafeInset,

@@ -108,7 +108,7 @@ export function CanvasOverlay() {
     return null;
   }
 
-  const isOpen = animState === "visible";
+  const isOpen = canvas && animState !== "closing";
   const isClosing = animState === "closing";
 
   return (

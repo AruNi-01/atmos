@@ -15,13 +15,19 @@ use uuid::Uuid;
 pub const PREVIEW_INSPECTOR_LABEL: &str = "preview-inspector";
 const PREVIEW_INSPECTOR_LABEL_PREFIX: &str = "preview-inspector-";
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+fn default_preview_zoom() -> f64 {
+    1.0
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewBridgeBounds {
     pub x: i32,
     pub y: i32,
     pub width: u32,
     pub height: u32,
+    #[serde(default = "default_preview_zoom")]
+    pub zoom: f64,
 }
 
 fn runtime_script() -> &'static str {
@@ -419,6 +425,14 @@ fn emit_error_page_probe(webview: &Webview, session_id: &str, page_url: &str, br
     let _ = webview.eval(script);
 }
 
+fn normalized_preview_zoom(zoom: f64) -> f64 {
+    if zoom.is_finite() {
+        zoom.clamp(0.2, 10.0)
+    } else {
+        1.0
+    }
+}
+
 fn apply_bounds(webview: &Webview, bounds: PreviewBridgeBounds) -> Result<(), String> {
     webview
         .set_position(Position::Logical(LogicalPosition::new(
@@ -431,6 +445,9 @@ fn apply_bounds(webview: &Webview, bounds: PreviewBridgeBounds) -> Result<(), St
             bounds.width as f64,
             bounds.height as f64,
         )))
+        .map_err(|error| error.to_string())?;
+    webview
+        .set_zoom(normalized_preview_zoom(bounds.zoom))
         .map_err(|error| error.to_string())?;
     Ok(())
 }
@@ -601,6 +618,9 @@ fn open_preview_child(
         )
         .map_err(|error| error.to_string())?;
 
+    preview
+        .set_zoom(normalized_preview_zoom(bounds.zoom))
+        .map_err(|error| error.to_string())?;
     preview.show().map_err(|error| error.to_string())?;
     hide_other_preview_surfaces(app, session_id);
     Ok(())
@@ -657,8 +677,8 @@ pub fn open_preview_window(
     log_preview(
         app,
         format!(
-            "open session={} url={} bounds=({}, {}, {}x{})",
-            session_id, url, bounds.x, bounds.y, bounds.width, bounds.height
+            "open session={} url={} bounds=({}, {}, {}x{} @ {:.3})",
+            session_id, url, bounds.x, bounds.y, bounds.width, bounds.height, bounds.zoom
         ),
     );
     close_legacy_preview_surface(app)?;
@@ -850,8 +870,8 @@ pub fn update_preview_bounds(
     log_preview(
         app,
         format!(
-            "update-bounds session={} ({}, {}, {}x{})",
-            session_id, bounds.x, bounds.y, bounds.width, bounds.height
+            "update-bounds session={} ({}, {}, {}x{} @ {:.3})",
+            session_id, bounds.x, bounds.y, bounds.width, bounds.height, bounds.zoom
         ),
     );
     let label = preview_surface_label(session_id);

@@ -19,6 +19,7 @@ import {
   drawSelection,
   dropCursor,
   EditorView,
+  ViewPlugin,
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
@@ -82,6 +83,7 @@ function createEditorTheme(isDark: boolean): Extension {
         fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
         lineHeight: '1.6',
         overflow: 'auto',
+        position: 'relative',
         scrollbarWidth: 'thin',
         scrollbarColor: isDark ? 'rgba(161, 161, 170, 0.28) transparent' : 'rgba(113, 113, 122, 0.24) transparent',
       },
@@ -457,6 +459,11 @@ function createEditorTheme(isDark: boolean): Extension {
         maxWidth: '50px !important',
         height: '100% !important',
         fontSize: '2px',
+        position: 'absolute !important',
+        top: '0',
+        right: '0',
+        bottom: 'auto',
+        left: 'auto !important',
         backgroundColor: isDark ? '#09090b' : '#ffffff',
         borderLeft: "1px solid " + (isDark ? "#27272a" : "#e4e4e7"),
       },
@@ -508,15 +515,63 @@ function createEditorTheme(isDark: boolean): Extension {
 }
 
 function createMinimapExtension(): Extension {
-  return showMinimap.compute(['doc'], () => ({
-    create: () => {
-      const dom = document.createElement('div');
-      dom.className = 'cm-minimap';
-      return { dom };
+  return [
+    showMinimap.compute(['doc'], () => ({
+      create: () => {
+        const dom = document.createElement('div');
+        dom.className = 'cm-minimap';
+        return { dom };
+      },
+      displayText: 'blocks',
+      showOverlay: 'always',
+    })),
+    stabilizeMinimapGutter(),
+  ];
+}
+
+function stabilizeMinimapGutter(): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      private frameId: number | null = null;
+
+      constructor(private readonly view: EditorView) {
+        this.scheduleSync();
+      }
+
+      update(update: { geometryChanged: boolean; viewportChanged: boolean }) {
+        if (update.geometryChanged || update.viewportChanged) {
+          this.scheduleSync();
+        }
+      }
+
+      scheduleSync() {
+        if (this.frameId !== null) {
+          cancelAnimationFrame(this.frameId);
+        }
+        this.frameId = requestAnimationFrame(() => {
+          this.frameId = null;
+          const gutter = this.view.dom.querySelector<HTMLElement>('.cm-minimap-gutter');
+          if (!gutter) return;
+
+          const { scrollLeft, scrollTop } = this.view.scrollDOM;
+          gutter.style.transform = `translate(${scrollLeft}px, ${scrollTop}px)`;
+        });
+      }
+
+      destroy() {
+        if (this.frameId !== null) {
+          cancelAnimationFrame(this.frameId);
+        }
+      }
     },
-    displayText: 'blocks',
-    showOverlay: 'always',
-  }));
+    {
+      eventHandlers: {
+        scroll() {
+          this.scheduleSync();
+        },
+      },
+    },
+  );
 }
 
 export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({

@@ -163,6 +163,7 @@ export function PreviewToolbar({
   setViewMode,
 }: PreviewToolbarProps) {
   const t = useTranslations("preview.toolbar");
+  const showsDeveloperToolsButton = preferredTransportMode === "desktop-native";
   return (
     <div
       className={cn(
@@ -351,13 +352,13 @@ export function PreviewToolbar({
             )}
           >
             <TooltipProvider delayDuration={150}>
-              {preferredTransportMode === "desktop-native" ? (
+              {showsDeveloperToolsButton ? (
                 <button
                   type="button"
                   onClick={() => {
                     void handleOpenDeveloperTools();
                   }}
-                  className="flex h-6 cursor-pointer items-center justify-center px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                  className="flex h-6 cursor-pointer items-center justify-center rounded-l-sm rounded-r-none px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   title={t("actions.openDeveloperTools")}
                   aria-label={t("actions.openDeveloperTools")}
                 >
@@ -379,7 +380,8 @@ export function PreviewToolbar({
                       disabled={!activeUrl || preferredTransportMode === "unavailable"}
                       aria-pressed={isElementPickerEnabled}
                       className={cn(
-                        "flex h-6 cursor-pointer items-center justify-center rounded-sm px-2 leading-none transition-colors",
+                        "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
+                        showsDeveloperToolsButton ? "rounded-l-none rounded-r-sm" : "rounded-sm",
                         activeUrl && preferredTransportMode !== "unavailable"
                           ? isElementPickerEnabled
                             ? "bg-blue-500 text-white shadow-sm hover:bg-blue-500/90 hover:text-white"

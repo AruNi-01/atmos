@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Minimize } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/shared/lib/utils";
 import {
@@ -126,68 +127,88 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     setIsPreviewStandaloneOpen(false);
   }, [reloadBrowserStateFromPrefs, standaloneSurfaceKey]);
 
-  return (
-    <div className={cn("relative h-full min-h-0 w-full overflow-hidden bg-background", className)}>
-      {effectiveIsPreviewStandaloneOpen ? (
-        <PreviewStandalonePaused
-          description={previewToolbarT("standalone.embeddedDescription")}
-          isMaximized={isPreviewMaximized}
-          minimizeLabel={previewToolbarT("browserTabs.minimizePreview")}
-          onMinimize={() => setIsPreviewMaximized(false)}
-          onReturn={handleReturnPreviewToEmbedded}
-          returnLabel={previewToolbarT("standalone.returnHere")}
-          title={previewToolbarT("standalone.embeddedTitle")}
-        />
-      ) : tabsToRender.map((tab) => {
-        const isActiveTab = tab.id === browserState.activeTabId;
+  const browserContent = effectiveIsPreviewStandaloneOpen ? (
+    <PreviewStandalonePaused
+      description={previewToolbarT("standalone.embeddedDescription")}
+      isMaximized={isPreviewMaximized}
+      minimizeLabel={previewToolbarT("browserTabs.minimizePreview")}
+      onMinimize={() => setIsPreviewMaximized(false)}
+      onReturn={handleReturnPreviewToEmbedded}
+      returnLabel={previewToolbarT("standalone.returnHere")}
+      title={previewToolbarT("standalone.embeddedTitle")}
+    />
+  ) : tabsToRender.map((tab) => {
+    const isActiveTab = tab.id === browserState.activeTabId;
 
-        return (
-          <div
-            key={tab.id}
-            aria-hidden={!isActiveTab}
-            className={cn(
-              "absolute inset-0 min-h-0",
-              isActiveTab ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
-            )}
-          >
-            <Preview
-              url={tab.url}
-              setUrl={(nextUrl) => setBrowserTabPreviewUrl(tab.id, nextUrl)}
-              activeUrl={tab.activeUrl}
-              setActiveUrl={(nextUrl) =>
-                setBrowserTabActivePreviewUrl(tab.id, nextUrl)
-              }
-              isActive={isActive && isActiveTab}
-              isMaximized={isPreviewMaximized}
-              isMaximizedLayoutManaged
-              setIsMaximized={setIsPreviewMaximized}
-              workspaceId={workspaceId}
-              projectId={projectId}
-              allowMaximize={allowMaximize}
-              isPreviewStandaloneOpen={effectiveIsPreviewStandaloneOpen}
-              disableNativePreviewOcclusion={disableNativePreviewOcclusion}
-              canvasViewportControllerRef={canvasViewportControllerRef}
-              onOpenPreviewBrowserWindow={
-                allowStandaloneWindow ? handleOpenPreviewBrowserWindow : undefined
-              }
-              onPageTitleChange={(title, pageUrl) =>
-                handlePreviewTitleChange(tab.id, title, pageUrl)
-              }
-              onPageIconChange={(faviconUrl) =>
-                handlePreviewIconChange(tab.id, faviconUrl)
-              }
-              onOpenPageInNewTab={handleOpenBrowserTab}
-              browserTabBarProps={{
-                tabs: browserState.tabs,
-                activeTabId: browserState.activeTabId,
-                onAddTab: handleAddBrowserTab,
-                onCloseTab: handleCloseBrowserTab,
-                onSelectTab: handleSelectBrowserTab,
-              }}
-            />
-          </div>
-        );
-      })}
+    return (
+      <div
+        key={tab.id}
+        aria-hidden={!isActiveTab}
+        className={cn(
+          "absolute inset-0 min-h-0",
+          isActiveTab ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
+        )}
+      >
+        <Preview
+          url={tab.url}
+          setUrl={(nextUrl) => setBrowserTabPreviewUrl(tab.id, nextUrl)}
+          activeUrl={tab.activeUrl}
+          setActiveUrl={(nextUrl) =>
+            setBrowserTabActivePreviewUrl(tab.id, nextUrl)
+          }
+          isActive={isActive && isActiveTab}
+          isMaximized={isPreviewMaximized}
+          isMaximizedLayoutManaged
+          setIsMaximized={setIsPreviewMaximized}
+          workspaceId={workspaceId}
+          projectId={projectId}
+          allowMaximize={allowMaximize}
+          isPreviewStandaloneOpen={effectiveIsPreviewStandaloneOpen}
+          disableNativePreviewOcclusion={disableNativePreviewOcclusion}
+          canvasViewportControllerRef={canvasViewportControllerRef}
+          onOpenPreviewBrowserWindow={
+            allowStandaloneWindow ? handleOpenPreviewBrowserWindow : undefined
+          }
+          onPageTitleChange={(title, pageUrl) =>
+            handlePreviewTitleChange(tab.id, title, pageUrl)
+          }
+          onPageIconChange={(faviconUrl) =>
+            handlePreviewIconChange(tab.id, faviconUrl)
+          }
+          onOpenPageInNewTab={handleOpenBrowserTab}
+          browserTabBarProps={{
+            tabs: browserState.tabs,
+            activeTabId: browserState.activeTabId,
+            onAddTab: handleAddBrowserTab,
+            onCloseTab: handleCloseBrowserTab,
+            onSelectTab: handleSelectBrowserTab,
+          }}
+        />
+      </div>
+    );
+  });
+
+  const panelShellClassName = cn(
+    "relative h-full min-h-0 w-full overflow-hidden bg-background",
+    className,
+  );
+
+  if (isPreviewMaximized && typeof document !== "undefined") {
+    return (
+      <div className={panelShellClassName}>
+        {createPortal(
+          <div className="fixed inset-0 z-[1000] h-screen w-screen overflow-hidden bg-background animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+            {browserContent}
+          </div>,
+          document.body,
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={panelShellClassName}>
+      {browserContent}
     </div>
   );
 };

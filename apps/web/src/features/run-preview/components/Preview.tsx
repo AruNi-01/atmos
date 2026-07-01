@@ -1338,7 +1338,7 @@ export const Preview: React.FC<PreviewProps> = ({
               ),
               isMaximized,
               isToolbarHidden: effectiveIsToolbarHidden,
-              needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !effectiveIsToolbarHidden,
+              needsDesktopPreviewSafeInset,
               openInWindowTitle: previewToolbarT("actions.openPreviewBrowserWindow"),
               returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
               toolbarToggleTitle,
@@ -1354,7 +1354,8 @@ export const Preview: React.FC<PreviewProps> = ({
         ) : null
       }
       isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
-      isMaximized={isMaximized && !isMaximizedLayoutManaged}
+      isMaximized={isMaximized}
+      isMaximizedLayoutManaged={isMaximizedLayoutManaged}
       previewRootRef={previewRootRef}
       toolbarProps={toolbarProps}
       toolbarHoverSuppressed={toolbarHoverSuppressed}

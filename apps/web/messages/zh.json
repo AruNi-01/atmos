@@ -984,8 +984,7 @@
         "noWorkspaces": "暂无工作区"
       },
       "leftSidebarTabsHeader": {
-        "projects": "项目",
-        "addProject": "添加项目"
+        "projects": "项目"
       },
       "leftSidebarFooter": {
         "addProject": "添加项目",

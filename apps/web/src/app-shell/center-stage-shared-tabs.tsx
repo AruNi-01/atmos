@@ -96,7 +96,7 @@ export function CenterStageStickyTabActions({
   return (
     <div
       className={cn(
-        "sticky right-0 z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm",
+        "z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm",
         className,
       )}
     >

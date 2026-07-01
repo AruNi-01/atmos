@@ -14,7 +14,10 @@ import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 import type { CanvasCenterTab } from "./canvas-center-tabs";
-import { createCanvasCardIndicatorPath } from "./canvas-shape-indicator";
+import {
+  CANVAS_CARD_CORNER_RADIUS,
+  createCanvasCardIndicatorPath,
+} from "./canvas-shape-indicator";
 
 export const CANVAS_WIDGET_SHAPE_TYPE = "canvas-widget" as const;
 
@@ -176,13 +179,25 @@ export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetSh
     return null;
   }
 
-  override hideSelectionBoundsFg(_shape: CanvasWidgetShape) {
+  override hideSelectionBoundsFg() {
     return true;
   }
 
   getIndicatorPath(shape: CanvasWidgetShape) {
-    return createCanvasCardIndicatorPath(shape.props.w, shape.props.h);
+    return createCanvasCardIndicatorPath(
+      shape.props.w,
+      shape.props.h,
+      getCanvasWidgetIndicatorCornerRadius(shape),
+    );
   }
+}
+
+export function getCanvasWidgetIndicatorCornerRadius(
+  shape: Pick<CanvasWidgetShape, "props">,
+) {
+  return shape.props.widgetType === "browser" || shape.props.source.type === "browser"
+    ? 0
+    : CANVAS_CARD_CORNER_RADIUS;
 }
 
 function createEmptyCanvasContextRef(): CanvasContextRef {

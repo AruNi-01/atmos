@@ -5,10 +5,12 @@ import {
   buildCanvasWidgetPinKey,
   createGlobalCanvasContextRef,
   createCanvasWidgetShapeProps,
+  getCanvasWidgetIndicatorCornerRadius,
   getCanvasContextLabel,
   isGlobalCanvasContext,
   type CanvasContextRef,
 } from "../lib/canvas-widget-shape";
+import { CANVAS_CARD_CORNER_RADIUS } from "../lib/canvas-shape-indicator";
 import {
   createCanvasCenterTab,
   createCanvasCenterOverviewTab,
@@ -123,6 +125,31 @@ describe("canvas-widget shape helpers", () => {
     expect(props.w).toBe(920);
     expect(props.h).toBe(640);
     expect(props.pinKey).toBe("browser:browser-1:global");
+  });
+
+  it("uses straight selected indicator corners for browser widgets", () => {
+    const globalContext = createGlobalCanvasContextRef();
+    const browserProps = createCanvasWidgetShapeProps({
+      widgetType: "browser",
+      source: {
+        type: "browser",
+        context: globalContext,
+        browserId: "browser-1",
+      },
+    });
+    const filesProps = createCanvasWidgetShapeProps({
+      widgetType: "files",
+      source: {
+        type: "files",
+        context,
+        rootPath: "/repo/worktree",
+      },
+    });
+
+    expect(getCanvasWidgetIndicatorCornerRadius({ props: browserProps })).toBe(0);
+    expect(getCanvasWidgetIndicatorCornerRadius({ props: filesProps })).toBe(
+      CANVAS_CARD_CORNER_RADIUS,
+    );
   });
 
   it("uses Main Operating Area as the center widget title", () => {

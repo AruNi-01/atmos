@@ -984,8 +984,7 @@
         "noWorkspaces": "No workspaces"
       },
       "leftSidebarTabsHeader": {
-        "projects": "Projects",
-        "addProject": "Add project"
+        "projects": "Projects"
       },
       "leftSidebarFooter": {
         "addProject": "Add Project",

@@ -11,6 +11,7 @@ export interface PreviewTransportViewport {
   y: number;
   width: number;
   height: number;
+  zoom?: number;
 }
 
 export interface PreviewBridgeHostInitMessage {
