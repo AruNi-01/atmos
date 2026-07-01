@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   ArrowRight,
+  Code,
   Copy,
   ExternalLink,
   Home,
@@ -83,6 +84,7 @@ interface PreviewToolbarProps {
   handleGoForward: () => void;
   handleGoHome: () => void;
   handleCopySelectionAnnotations: () => Promise<void>;
+  handleOpenDeveloperTools: () => Promise<void>;
   handleRefresh: () => void;
   handleRecheckExtension: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
@@ -146,6 +148,7 @@ export function PreviewToolbar({
   handleGoForward,
   handleGoHome,
   handleCopySelectionAnnotations,
+  handleOpenDeveloperTools,
   handleRefresh,
   handleRecheckExtension,
   handleToggleElementPicker,
@@ -348,6 +351,20 @@ export function PreviewToolbar({
             )}
           >
             <TooltipProvider delayDuration={150}>
+              {preferredTransportMode === "desktop-native" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleOpenDeveloperTools();
+                  }}
+                  className="flex h-6 cursor-pointer items-center justify-center px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                  title={t("actions.openDeveloperTools")}
+                  aria-label={t("actions.openDeveloperTools")}
+                >
+                  <Code className="size-3.5" />
+                </button>
+              ) : null}
+
               <Tooltip
                 open={isElementPickerTooltipOpen}
                 onOpenChange={setIsElementPickerTooltipOpen}

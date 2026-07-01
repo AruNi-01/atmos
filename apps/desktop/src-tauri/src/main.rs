@@ -306,6 +306,7 @@ fn main() {
             commands::preview_bridge_enter_pick_mode,
             commands::preview_bridge_clear_selection,
             commands::preview_bridge_clear_annotations,
+            commands::preview_bridge_open_devtools,
             commands::preview_bridge_close,
             commands::preview_bridge_show,
             commands::preview_bridge_hide,

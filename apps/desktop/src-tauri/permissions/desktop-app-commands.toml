@@ -30,6 +30,7 @@ commands.allow = [
   "preview_bridge_hide",
   "preview_bridge_navigate",
   "preview_bridge_open",
+  "preview_bridge_open_devtools",
   "preview_bridge_probe_url",
   "preview_bridge_set_detached",
   "preview_bridge_show",

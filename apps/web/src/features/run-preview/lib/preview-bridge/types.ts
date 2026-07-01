@@ -76,6 +76,7 @@ export interface PreviewBridgeController {
   clearAnnotations?: () => Promise<void> | void;
   updateViewport?: (viewport: PreviewTransportViewport) => Promise<void> | void;
   navigate?: (url: string) => Promise<void> | void;
+  openDevTools?: () => Promise<void> | void;
   show?: () => Promise<void> | void;
   hide?: () => Promise<void> | void;
   destroy: () => Promise<void> | void;

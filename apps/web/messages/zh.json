@@ -7100,6 +7100,7 @@
       },
       "actions": {
         "openInBrowser": "在浏览器中打开",
+        "openDeveloperTools": "打开开发者工具",
         "openPreviewBrowserWindow": "在新窗口中打开预览浏览器",
         "failedToOpenPreviewBrowserWindow": "无法打开预览浏览器窗口",
         "returnToEmbeddedPreview": "回到嵌入预览"
@@ -7526,6 +7527,9 @@
       "desktopPreview": {
         "detachFailedTitle": "分离预览失败",
         "restoreFailedTitle": "恢复预览失败"
+      },
+      "developerTools": {
+        "openFailedTitle": "打开开发者工具失败"
       },
       "desktopNative": {
         "occludedTitle": "悬浮弹窗与预览页面有重叠，暂时隐藏预览",

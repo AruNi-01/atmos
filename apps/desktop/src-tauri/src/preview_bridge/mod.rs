@@ -591,6 +591,7 @@ fn open_preview_child(
                 &label,
                 WebviewUrl::External(url.parse::<Url>().map_err(|error| error.to_string())?),
             )
+            .devtools(true)
             .initialization_script(desktop_bridge_script(bridge_token))
             .on_page_load(move |webview, payload| {
                 handle_page_load(&app_handle, &webview, &page_load_session_id, payload);
@@ -626,6 +627,7 @@ fn open_preview_detached_window(
     .min_inner_size(480.0, 360.0)
     .resizable(true)
     .decorations(true)
+    .devtools(true)
     .initialization_script(desktop_bridge_script(bridge_token))
     .on_page_load(move |webview, payload| {
         handle_page_load(
@@ -928,6 +930,21 @@ pub fn clear_annotations(app: &AppHandle, session_id: &str) -> Result<(), String
 })();
 "#,
     )
+}
+
+pub fn open_preview_devtools(app: &AppHandle, session_id: &str) -> Result<(), String> {
+    let label = preview_surface_label(session_id);
+    if let Some(preview_window) = app.get_webview_window(&label) {
+        preview_window.open_devtools();
+        return Ok(());
+    }
+
+    if let Some(preview) = app.get_webview(&label) {
+        preview.open_devtools();
+        return Ok(());
+    }
+
+    Err("preview inspector window not open".to_string())
 }
 
 pub fn close_preview_window(app: &AppHandle, session_id: &str) -> Result<(), String> {

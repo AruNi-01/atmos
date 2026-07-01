@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createTranslator, useTranslations } from 'next-intl';
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
@@ -47,6 +47,8 @@ import {
 } from "../lib/preview-utils";
 
 type ViewMode = PreviewViewMode;
+
+const DEVTOOLS_OCCLUSION_SUPPRESSION_MS = 4000;
 
 interface PreviewProps {
   url: string;
@@ -145,6 +147,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const [previewLoadError, setPreviewLoadError] = useState<PreviewLoadError | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
   const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
+  const [suppressNativePreviewOcclusion, setSuppressNativePreviewOcclusion] = useState(false);
   const [transportState, setTransportState] = useState<PreviewTransportState>({
     mode: 'unavailable',
     connected: false,
@@ -173,6 +176,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const desktopPreviewVisibleRef = useRef(false);
   const isPreviewLoadingRef = useRef(false);
   const forceDesktopNavigationRef = useRef(false);
+  const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
@@ -217,6 +221,14 @@ export const Preview: React.FC<PreviewProps> = ({
   const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
     void setPreviewToolbarParams({ pvPick: nextIsElementPickerEnabled });
   }, [setPreviewToolbarParams]);
+
+  useEffect(() => {
+    return () => {
+      if (devToolsOcclusionTimerRef.current != null) {
+        window.clearTimeout(devToolsOcclusionTimerRef.current);
+      }
+    };
+  }, []);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
   const normalizedActiveUrlRef = useRef(normalizedActiveUrl);
@@ -274,7 +286,11 @@ export const Preview: React.FC<PreviewProps> = ({
     }
   }, [normalizedActiveUrl]);
   const isDesktopNativePreviewOccluded = useNativePreviewOcclusion({
-    enabled: preferredTransportMode === 'desktop-native' && isActive && !isStandaloneBrowserWindow,
+    enabled:
+      preferredTransportMode === 'desktop-native' &&
+      isActive &&
+      !isStandaloneBrowserWindow &&
+      !suppressNativePreviewOcclusion,
     surfaceRef: desktopViewportRef,
     ignoredRootRef: previewRootRef,
   });
@@ -282,7 +298,7 @@ export const Preview: React.FC<PreviewProps> = ({
       preferredTransportMode === 'desktop-native' && (
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
         isPreviewLoading ||
-        isDesktopNativePreviewOccluded ||
+        (!suppressNativePreviewOcclusion && isDesktopNativePreviewOccluded) ||
         favoritesListOpen || favoritePopoverOpen ||
         headerHasOpenOverlay || isGlobalSearchOpen ||
         isRightCollapsed
@@ -811,6 +827,41 @@ export const Preview: React.FC<PreviewProps> = ({
     desktopPreviewVisibleRef.current = false;
   }, []);
 
+  const handleOpenDeveloperTools = useCallback(async () => {
+    if (preferredTransportMode !== 'desktop-native') return;
+
+    if (devToolsOcclusionTimerRef.current != null) {
+      window.clearTimeout(devToolsOcclusionTimerRef.current);
+      devToolsOcclusionTimerRef.current = null;
+    }
+    setSuppressNativePreviewOcclusion(true);
+
+    try {
+      if (transportControllerRef.current?.mode !== 'desktop-native') {
+        await syncDesktopPreview();
+      }
+      const controller = transportControllerRef.current;
+      if (controller?.mode !== 'desktop-native' || !controller.openDevTools) {
+        throw new Error('Desktop preview is not ready for developer tools.');
+      }
+      await controller.openDevTools();
+    } catch (error) {
+      setSuppressNativePreviewOcclusion(false);
+      console.error('[preview] failed to open developer tools:', error);
+      toastManager.add({
+        title: previewT('developerTools.openFailedTitle', 'Failed to open developer tools'),
+        description: error instanceof Error ? error.message : String(error),
+        type: 'error',
+      });
+      return;
+    }
+
+    devToolsOcclusionTimerRef.current = window.setTimeout(() => {
+      devToolsOcclusionTimerRef.current = null;
+      setSuppressNativePreviewOcclusion(false);
+    }, DEVTOOLS_OCCLUSION_SUPPRESSION_MS);
+  }, [preferredTransportMode, syncDesktopPreview]);
+
   const handleIframeLoad = usePreviewIframeLoad({
     connectIframeTransport,
     iframeLoadResolveRef,
@@ -1077,6 +1128,7 @@ export const Preview: React.FC<PreviewProps> = ({
     handleGoForward,
     handleGoHome,
     handleCopySelectionAnnotations,
+    handleOpenDeveloperTools,
     handleRefresh,
     handleRecheckExtension,
     handleToggleElementPicker,

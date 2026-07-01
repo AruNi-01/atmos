@@ -49,11 +49,12 @@ function isTooltipCandidate(element: Element): boolean {
 
 function isVisibleOverlayCandidate(element: Element, ignoredRoot: HTMLElement | null): boolean {
   if (!(element instanceof HTMLElement || element instanceof SVGElement)) return false;
+  const isNativeSurfaceOverlay = element.hasAttribute("data-atmos-native-surface-overlay");
   if (ignoredRoot?.contains(element)) return false;
   if (element.closest("[data-atmos-ignore-native-surface-occlusion]")) return false;
   if (isTooltipCandidate(element)) return false;
   if (element.getAttribute("data-state") === "closed") return false;
-  if (element.getAttribute("aria-hidden") === "true") return false;
+  if (!isNativeSurfaceOverlay && element.getAttribute("aria-hidden") === "true") return false;
 
   const style = window.getComputedStyle(element);
   if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;

@@ -123,6 +123,12 @@ export async function connectDesktopPreviewTransport(
         url,
       });
     },
+    async openDevTools() {
+      if (destroyed) return;
+      await invokeDesktopPreviewBridge('preview_bridge_open_devtools', {
+        sessionId: options.sessionId,
+      });
+    },
     async show() {
       if (destroyed) return;
       await invokeDesktopPreviewBridge('preview_bridge_show', {

@@ -338,6 +338,14 @@ pub fn preview_bridge_clear_annotations(
 }
 
 #[tauri::command]
+pub fn preview_bridge_open_devtools(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    preview_bridge::open_preview_devtools(&app, &session_id)
+}
+
+#[tauri::command]
 pub fn preview_bridge_close(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
     preview_bridge::close_preview_window(&app, &session_id)
 }
