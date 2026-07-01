@@ -1,0 +1,84 @@
+apps/web/src/features/run-preview/hooks/use-native-preview-occlusion.ts
+  s_bafeb3cb3ddd56::t_2b9236692f6547 70-74,104-117,136-138,167-169
+  s_bafeb3cb3ddd56::t_f6e09f9e8667c8 23-27,45-49,54
+apps/web/messages/en.json
+  s_c24bfad3ee2495::t_7883a4a1fe612e 2805
+  s_c24bfad3ee2495::t_e791f60449ddb4 2598,2601
+  s_c24bfad3ee2495::t_6f3fdb6c6a1c48 2596-2597,2599-2600,2602-2603,2616,2620,2622-2624,2806,2808
+  s_aa5b20d6a93c34::t_ebc289c11bbc88 7534-7537
+apps/web/src/features/run-preview/components/PreviewViewport.tsx
+  s_aa5b20d6a93c34::t_959320b2c2c74e 164,169
+apps/web/src/features/run-preview/hooks/use-preview-navigation.ts
+  s_aa5b20d6a93c34::t_5887fa4b8554ca 29,55,206,230,249
+  s_aa5b20d6a93c34::t_8e8a8b1b3e4f56 161
+  s_aa5b20d6a93c34::t_f6fc2a7ad6b14f 18,44,162-165,167
+apps/web/src/features/run-preview/components/PreviewHome.tsx
+  s_aa5b20d6a93c34::t_ebc289c11bbc88 3,21-22,33,41
+apps/desktop/src-tauri/src/main.rs
+  s_443a815eae5df2::t_3a85f868ba1291 360-361,377,397,400,405-407,427,430
+  s_443a815eae5df2::t_7498893cd65966 386-389,412
+  s_443a815eae5df2::t_8525e1e52ec882 63,107-108,240-244,367-376,378-385,390,398-399,401-404,408-411,413-426,428-429,431-443
+  s_443a815eae5df2::t_f422d856c8b45e 444
+apps/web/src/features/run-preview/lib/preview-utils.tsx
+  s_aa5b20d6a93c34::t_865f0e1d23a83c 1
+  s_aa5b20d6a93c34::t_9e0103ef519d8c 350-360
+apps/web/src/features/run-preview/hooks/use-preview-browser-state.ts
+  s_aa5b20d6a93c34::t_9419c81a0736f8 410-425
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_aa5b20d6a93c34::t_7206e66db3e683 175,389,716-718,753
+  s_aa5b20d6a93c34::t_5887fa4b8554ca 400
+  s_aa5b20d6a93c34::t_5d6aac37dc3d33 345,602,787
+  s_aa5b20d6a93c34::t_959320b2c2c74e 144,174,208-212,284,715,719,724,727-732,758-761
+  s_aa5b20d6a93c34::t_07bb02ff7bb5ef 1050
+apps/web/messages/zh.json
+  s_c24bfad3ee2495::t_6f3fdb6c6a1c48 2596-2600,2602-2603,2620,2622-2624,2630,2632,2634-2635,2639
+  s_c24bfad3ee2495::t_e3424638a4dc8a 2806
+  s_c24bfad3ee2495::t_7883a4a1fe612e 2805
+  s_aa5b20d6a93c34::t_ebc289c11bbc88 7534-7537
+  s_c24bfad3ee2495::t_e791f60449ddb4 2601,2616,2638
+apps/web/src/features/run-preview/components/PreviewToolbar.tsx
+  s_aa5b20d6a93c34::t_5205178fbece12 56,119
+  s_aa5b20d6a93c34::t_3501552156479a 14,259
+apps/desktop/src-tauri/src/state.rs
+  s_443a815eae5df2::t_e965a3d0381dbc 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "de55d511e15f0ca9ffb9f9d872ef7153c5fe433f",
+  "prompts": {},
+  "sessions": {
+    "s_443a815eae5df2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1c9d-eaf5-7971-a025-bcb9f1daf5cb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_aa5b20d6a93c34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1bbc-f341-71d1-8b2e-a74dd86b4085",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_bafeb3cb3ddd56": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1caa-1e71-7ce0-9977-07dbc67baff5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c24bfad3ee2495": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1c87-f94e-7650-92f3-dd0e61b89d91",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
