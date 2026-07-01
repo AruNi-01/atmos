@@ -1,0 +1,27 @@
+specs/APP/APP-029_native-preview-occlusion/BRAINSTORM.md
+  s_aa5b20d6a93c34::t_9fd0843bfb3e85 1-61
+specs/APP/APP-029_native-preview-occlusion/TEST.md
+  s_aa5b20d6a93c34::t_9fd0843bfb3e85 1-45
+specs/README.md
+  s_aa5b20d6a93c34::t_9fd0843bfb3e85 110
+specs/APP/APP-029_native-preview-occlusion/PRD.md
+  s_aa5b20d6a93c34::t_9fd0843bfb3e85 1-39
+specs/APP/APP-029_native-preview-occlusion/TECH.md
+  s_aa5b20d6a93c34::t_9fd0843bfb3e85 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "641b4d3e12fd136442164e0b622952be4b5068a6",
+  "prompts": {},
+  "sessions": {
+    "s_aa5b20d6a93c34": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f1bbc-f341-71d1-8b2e-a74dd86b4085",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
