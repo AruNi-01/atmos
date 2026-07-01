@@ -1,20 +1,22 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
-  ExternalLink,
   Globe,
   Maximize,
   Minimize,
   PanelTopClose,
   PanelTopOpen,
+  PictureInPicture,
+  PictureInPicture2,
   Plus,
-  UndoDot,
   X,
 } from "lucide-react";
 
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { cn } from "@/shared/lib/utils";
+import { canonicalizeUrl } from "../lib/preview-utils";
 
 export interface PreviewBrowserTab {
   id: string;
@@ -60,14 +62,20 @@ function getUrlLabel(value: string): string {
   }
 }
 
-function getTabLabel(tab: PreviewBrowserTab, index: number): string {
+function getTabLabel(
+  tab: PreviewBrowserTab,
+  index: number,
+  fallbackLabels: { preview: string; newTab: string },
+): string {
   const title = tab.title?.trim();
-  if (title) return title;
+  const titleUrl = canonicalizeUrl(tab.titleUrl || "");
+  const currentUrl = canonicalizeUrl(tab.activeUrl || tab.url);
+  if (title && titleUrl && titleUrl === currentUrl) return title;
 
   const urlLabel = getUrlLabel(tab.activeUrl || tab.url);
   if (urlLabel) return urlLabel;
 
-  return index === 0 ? "Preview" : "New tab";
+  return index === 0 ? fallbackLabels.preview : fallbackLabels.newTab;
 }
 
 export function PreviewBrowserTabBar({
@@ -78,6 +86,7 @@ export function PreviewBrowserTabBar({
   onCloseTab,
   onSelectTab,
 }: PreviewBrowserTabBarProps) {
+  const t = useTranslations("preview.toolbar.browserTabs");
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
 
   return (
@@ -97,7 +106,10 @@ export function PreviewBrowserTabBar({
       >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
-          const label = getTabLabel(tab, index);
+          const label = getTabLabel(tab, index, {
+            preview: t("preview"),
+            newTab: t("newTab"),
+          });
           const canClose = tabs.length > 1;
 
           return (
@@ -142,8 +154,8 @@ export function PreviewBrowserTabBar({
               {canClose ? (
                 <button
                   type="button"
-                  aria-label={`Close ${label}`}
-                  title="Close tab"
+                  aria-label={t("closeTabAria", { label })}
+                  title={t("closeTab")}
                   className={cn(
                     "mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground",
                     isActive ? "opacity-100" : "opacity-0 group-hover/tab:opacity-100",
@@ -162,8 +174,8 @@ export function PreviewBrowserTabBar({
 
         <button
           type="button"
-          aria-label="New browser tab"
-          title="New browser tab"
+          aria-label={t("newTab")}
+          title={t("newTab")}
           className="desktop-no-drag flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
           onClick={onAddTab}
         >
@@ -182,7 +194,7 @@ export function PreviewBrowserTabBar({
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               onClick={chromeControls.onOpenInWindow}
             >
-              <ExternalLink className="size-3.5" />
+              <PictureInPicture2 className="size-3.5" />
             </button>
           ) : null}
           {chromeControls.onReturnToEmbedded ? (
@@ -193,7 +205,7 @@ export function PreviewBrowserTabBar({
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               onClick={chromeControls.onReturnToEmbedded}
             >
-              <UndoDot className="size-3.5" />
+              <PictureInPicture className="size-3.5" />
             </button>
           ) : null}
           <button
@@ -212,8 +224,8 @@ export function PreviewBrowserTabBar({
           {chromeControls.onToggleMaximized ? (
             <button
               type="button"
-              aria-label={chromeControls.isMaximized ? "Minimize preview" : "Maximize preview"}
-              title={chromeControls.isMaximized ? "Minimize" : "Maximize"}
+              aria-label={chromeControls.isMaximized ? t("minimizePreview") : t("maximizePreview")}
+              title={chromeControls.isMaximized ? t("minimize") : t("maximize")}
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               onClick={chromeControls.onToggleMaximized}
             >

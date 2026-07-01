@@ -7111,6 +7111,16 @@
         "copyTooltipOne": "Copy {count} queued preview annotation.",
         "copyTooltipOther": "Copy {count} queued preview annotations."
       },
+      "browserTabs": {
+        "preview": "Preview",
+        "newTab": "New tab",
+        "closeTab": "Close tab",
+        "closeTabAria": "Close {label}",
+        "maximize": "Maximize",
+        "maximizePreview": "Maximize preview",
+        "minimize": "Minimize",
+        "minimizePreview": "Minimize preview"
+      },
       "standalone": {
         "embeddedTitle": "Preview is open in a separate window",
         "embeddedDescription": "The embedded preview is paused so the standalone preview stays the only active surface.",

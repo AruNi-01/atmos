@@ -1,9 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
+import {
+  closeCurrentStandaloneWindow,
+  closeStandaloneSurface,
+  makeStandaloneSurfaceKey,
+  markStandaloneSurfaceOpen,
+  restoreStandaloneSurface,
+  subscribeStandaloneSurface,
+} from "@/shared/lib/standalone-window-handoff";
 import { cn } from "@/shared/lib/utils";
 
 import { usePreviewBrowserState } from "../hooks/use-preview-browser-state";
@@ -22,10 +30,40 @@ export function PreviewBrowserStandalonePage() {
     handlePreviewIconChange,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
+    persistBrowserState,
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
   } = usePreviewBrowserState({ workspaceId, projectId });
+  const standaloneSurfaceKey = useMemo(
+    () => makeStandaloneSurfaceKey("preview", workspaceId, projectId),
+    [projectId, workspaceId],
+  );
+
+  useEffect(() => {
+    markStandaloneSurfaceOpen(standaloneSurfaceKey);
+    const unsubscribe = subscribeStandaloneSurface(standaloneSurfaceKey, (_isOpen, event) => {
+      if (event?.action === "restore" || event?.action === "close") {
+        persistBrowserState();
+        void closeCurrentStandaloneWindow();
+      }
+    });
+    const handleBeforeUnload = () => {
+      persistBrowserState();
+      closeStandaloneSurface(standaloneSurfaceKey);
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      unsubscribe();
+    };
+  }, [persistBrowserState, standaloneSurfaceKey]);
+
+  const handleCloseStandalonePreviewWindow = useCallback(() => {
+    persistBrowserState();
+    restoreStandaloneSurface(standaloneSurfaceKey);
+    void closeCurrentStandaloneWindow();
+  }, [persistBrowserState, standaloneSurfaceKey]);
 
   return (
     <SidebarLayoutProvider>
@@ -40,7 +78,7 @@ export function PreviewBrowserStandalonePage() {
                 aria-hidden={!isActiveTab}
                 className={cn(
                   "absolute inset-0 min-h-0",
-                  isActiveTab ? "z-10" : "pointer-events-none invisible z-0",
+                  isActiveTab ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
                 )}
               >
                 <Preview
@@ -56,6 +94,7 @@ export function PreviewBrowserStandalonePage() {
                   setIsMaximized={setIsPreviewMaximized}
                   workspaceId={workspaceId}
                   projectId={projectId}
+                  onCloseStandalonePreviewWindow={handleCloseStandalonePreviewWindow}
                   onPageTitleChange={(title, pageUrl) =>
                     handlePreviewTitleChange(tab.id, title, pageUrl)
                   }

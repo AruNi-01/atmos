@@ -9,15 +9,6 @@ import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
-import {
-  closeCurrentStandaloneWindow,
-  closeStandaloneSurface,
-  isStandaloneSurfaceOpen as readStandaloneSurfaceOpen,
-  makeStandaloneSurfaceKey,
-  markStandaloneSurfaceOpen,
-  restoreStandaloneSurface,
-  subscribeStandaloneSurface,
-} from "@/shared/lib/standalone-window-handoff";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import type { PreviewHelperCapability, PreviewHelperPayload } from "../lib/preview-helper/types";
@@ -29,7 +20,6 @@ import type {
 import { connectSameOriginPreviewTransport } from "../lib/preview-transports/same-origin-transport";
 import { connectExtensionPreviewTransport } from "../lib/preview-transports/extension-transport";
 import { connectDesktopPreviewTransport, getPreviewViewportBounds } from "../lib/preview-transports/desktop-transport";
-import { openPreviewBrowserWindow } from "../lib/desktop-preview-browser-window";
 import { PreviewContent } from "./PreviewContent";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewViewport } from "./PreviewViewport";
@@ -72,7 +62,10 @@ interface PreviewProps {
   onOpenPageInNewTab?: (url: string) => void;
   browserTabBarProps?: Omit<PreviewBrowserTabBarProps, "chromeControls">;
   isStandaloneBrowserWindow?: boolean;
+  isPreviewStandaloneOpen?: boolean;
   isMaximizedLayoutManaged?: boolean;
+  onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
+  onCloseStandalonePreviewWindow?: () => void;
 }
 
 interface PreviewTransportState {
@@ -131,14 +124,12 @@ export const Preview: React.FC<PreviewProps> = ({
   onOpenPageInNewTab,
   browserTabBarProps,
   isStandaloneBrowserWindow = false,
+  isPreviewStandaloneOpen = false,
   isMaximizedLayoutManaged = false,
+  onOpenPreviewBrowserWindow,
+  onCloseStandalonePreviewWindow,
 }) => {
   const previewToolbarT = useTranslations("preview.toolbar");
-  const standaloneSurfaceKey = useMemo(
-    () => makeStandaloneSurfaceKey("preview", workspaceId, projectId),
-    [projectId, workspaceId],
-  );
-  const [isPreviewStandaloneOpen, setIsPreviewStandaloneOpen] = useState(false);
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
   const { isRightCollapsed } = useSidebarLayout();
@@ -281,27 +272,6 @@ export const Preview: React.FC<PreviewProps> = ({
         headerHasOpenOverlay || isGlobalSearchOpen ||
         isRightCollapsed
       );
-  React.useEffect(() => {
-    if (isStandaloneBrowserWindow) {
-      markStandaloneSurfaceOpen(standaloneSurfaceKey);
-      const unsubscribe = subscribeStandaloneSurface(standaloneSurfaceKey, (_isOpen, event) => {
-        if (event?.action === "restore" || event?.action === "close") {
-          void closeCurrentStandaloneWindow();
-        }
-      });
-      const handleBeforeUnload = () => closeStandaloneSurface(standaloneSurfaceKey);
-      window.addEventListener("beforeunload", handleBeforeUnload);
-      return () => {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        unsubscribe();
-      };
-    }
-
-    setIsPreviewStandaloneOpen(readStandaloneSurfaceOpen(standaloneSurfaceKey));
-    return subscribeStandaloneSurface(standaloneSurfaceKey, (isOpen) => {
-      setIsPreviewStandaloneOpen(isOpen);
-    });
-  }, [isStandaloneBrowserWindow, standaloneSurfaceKey]);
   const {
     checkExtensionUpdate,
     extensionDownloadStarted,
@@ -947,31 +917,20 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [setIsMaximized]);
 
   const canOpenPreviewBrowserWindow = useMemo(
-    () => isTauriRuntime() && !isStandaloneBrowserWindow,
-    [isStandaloneBrowserWindow],
+    () => isTauriRuntime() && !isStandaloneBrowserWindow && Boolean(onOpenPreviewBrowserWindow),
+    [isStandaloneBrowserWindow, onOpenPreviewBrowserWindow],
   );
 
   const handleOpenPreviewBrowserWindow = useCallback(async () => {
+    if (!onOpenPreviewBrowserWindow) return;
     teardownTransport(false);
-    await openPreviewBrowserWindow({
-      url: normalizedActiveUrl || activeUrl,
-      workspaceId,
-      projectId,
-    });
-    markStandaloneSurfaceOpen(standaloneSurfaceKey);
-    setIsPreviewStandaloneOpen(true);
-  }, [activeUrl, normalizedActiveUrl, projectId, standaloneSurfaceKey, teardownTransport, workspaceId]);
-
-  const handleReturnPreviewToEmbedded = useCallback(() => {
-    restoreStandaloneSurface(standaloneSurfaceKey);
-    setIsPreviewStandaloneOpen(false);
-  }, [standaloneSurfaceKey]);
+    await onOpenPreviewBrowserWindow(normalizedActiveUrl || activeUrl);
+  }, [activeUrl, normalizedActiveUrl, onOpenPreviewBrowserWindow, teardownTransport]);
 
   const handleCloseStandalonePreviewWindow = useCallback(() => {
-    restoreStandaloneSurface(standaloneSurfaceKey);
     teardownTransport(false);
-    void closeCurrentStandaloneWindow();
-  }, [standaloneSurfaceKey, teardownTransport]);
+    onCloseStandalonePreviewWindow?.();
+  }, [onCloseStandalonePreviewWindow, teardownTransport]);
 
   const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
 
@@ -1141,28 +1100,6 @@ export const Preview: React.FC<PreviewProps> = ({
     transportMessage: transportState.message,
     viewMode,
   };
-
-  if (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) {
-    return (
-      <div className="flex h-full min-h-0 w-full items-center justify-center border border-dashed border-border/60 bg-muted/10 px-6 text-center">
-        <div className="max-w-sm">
-          <div className="text-sm font-medium text-foreground">
-            {previewToolbarT("standalone.embeddedTitle")}
-          </div>
-          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {previewToolbarT("standalone.embeddedDescription")}
-          </div>
-          <button
-            type="button"
-            className="mt-4 inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
-            onClick={handleReturnPreviewToEmbedded}
-          >
-            {previewToolbarT("standalone.returnHere")}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <PreviewContent

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useQueryState } from "nuqs";
 
 import { useConnectionStore } from "@/features/connection/store/connection-store";
+import type { ConnectionInstanceId } from "@/features/connection/lib/connection-instance";
+import { instKey, readJson } from "@/shared/lib/browser-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 import { previewUrlParams } from "@/shared/lib/nuqs/searchParams";
 
@@ -20,6 +22,13 @@ interface PreviewBrowserPrefs {
 
 const DEFAULT_PREVIEW_BROWSER_PREFS: PreviewBrowserPrefs = { byContext: {} };
 const MAX_PREVIEW_BROWSER_TABS = 10;
+
+function readPreviewBrowserPrefs(instanceId: ConnectionInstanceId): PreviewBrowserPrefs {
+  return readJson(
+    instKey(instanceId, "previewBrowser"),
+    DEFAULT_PREVIEW_BROWSER_PREFS,
+  );
+}
 
 function createBrowserTab(
   url = "",
@@ -157,10 +166,12 @@ export function usePreviewBrowserState({
   const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(
     () => normalizeBrowserContext(undefined, committedPreviewUrl),
   );
+  const browserStateRef = useRef(browserState);
   const [loadedBrowserContext, setLoadedBrowserContext] = useState<{
     instanceId: string;
     contextId: string;
   } | null>(null);
+  browserStateRef.current = browserState;
 
   const activeBrowserTab = useMemo(
     () =>
@@ -173,10 +184,37 @@ export function usePreviewBrowserState({
     [browserState.tabs],
   );
 
+  const persistBrowserState = useCallback((nextBrowserState?: PreviewBrowserContextPrefs) => {
+    const stateToPersist = nextBrowserState ?? browserStateRef.current;
+    const all = readPreviewBrowserPrefs(instanceId);
+    useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
+      byContext: {
+        ...all.byContext,
+        [browserContextId]: stateToPersist,
+      },
+    });
+  }, [browserContextId, instanceId]);
+
+  const reloadBrowserStateFromPrefs = useCallback(() => {
+    const all = readPreviewBrowserPrefs(instanceId);
+    const nextBrowserState = normalizeBrowserContext(
+      all.byContext[browserContextId],
+      committedPreviewUrl,
+    );
+
+    useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
+      byContext: {
+        ...all.byContext,
+        [browserContextId]: nextBrowserState,
+      },
+    });
+    setBrowserState(nextBrowserState);
+    setLoadedBrowserContext({ instanceId, contextId: browserContextId });
+    return nextBrowserState;
+  }, [browserContextId, committedPreviewUrl, instanceId]);
+
   useEffect(() => {
-    const all = useUiPrefStore
-      .getState()
-      .readSlice(instanceId, "previewBrowser", DEFAULT_PREVIEW_BROWSER_PREFS);
+    const all = readPreviewBrowserPrefs(instanceId);
     setBrowserState(
       normalizeBrowserContext(
         all.byContext[browserContextId],
@@ -196,18 +234,8 @@ export function usePreviewBrowserState({
       return;
     }
 
-    useUiPrefStore.getState().patchSlice(
-      instanceId,
-      "previewBrowser",
-      (previous) => ({
-        byContext: {
-          ...(previous as PreviewBrowserPrefs).byContext,
-          [browserContextId]: browserState,
-        },
-      }),
-      DEFAULT_PREVIEW_BROWSER_PREFS,
-    );
-  }, [browserContextId, browserState, instanceId, loadedBrowserContext]);
+    persistBrowserState(browserState);
+  }, [browserContextId, browserState, instanceId, loadedBrowserContext, persistBrowserState]);
 
   useEffect(() => {
     const activeNavigationUrl = getTabNavigationUrl(activeBrowserTab);
@@ -327,16 +355,20 @@ export function usePreviewBrowserState({
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return;
       const titleUrl = pageUrl ? canonicalizeUrl(pageUrl) : "";
+      if (!titleUrl) return;
 
-      updateBrowserTab(tabId, (tab) =>
-        tab.title === trimmedTitle && tab.titleUrl === titleUrl
+      updateBrowserTab(tabId, (tab) => {
+        const currentUrl = canonicalizeUrl(getTabNavigationUrl(tab));
+        if (!currentUrl || titleUrl !== currentUrl) return tab;
+
+        return tab.title === trimmedTitle && tab.titleUrl === titleUrl
           ? tab
           : {
               ...tab,
               title: trimmedTitle,
               titleUrl,
-            },
-      );
+            };
+      });
     },
     [updateBrowserTab],
   );
@@ -426,6 +458,8 @@ export function usePreviewBrowserState({
     handleOpenBrowserTab,
     handlePreviewTitleChange,
     handlePreviewIconChange,
+    persistBrowserState,
+    reloadBrowserStateFromPrefs,
     handleSelectBrowserTab,
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,

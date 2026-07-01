@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppStorage } from "@atmos/shared";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Minimize } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   ImperativePanelHandle,
   Panel,
@@ -12,8 +13,16 @@ import {
 } from "@workspace/ui";
 
 import { cn } from "@/shared/lib/utils";
+import {
+  isStandaloneSurfaceOpen as readStandaloneSurfaceOpen,
+  makeStandaloneSurfaceKey,
+  markStandaloneSurfaceOpen,
+  restoreStandaloneSurface,
+  subscribeStandaloneSurface,
+} from "@/shared/lib/standalone-window-handoff";
 
 import { usePreviewBrowserState } from "../hooks/use-preview-browser-state";
+import { openPreviewBrowserWindow } from "../lib/desktop-preview-browser-window";
 import { Preview } from "./Preview";
 import { RunScript } from "./RunScript";
 
@@ -32,11 +41,17 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
   projectName,
   workspaceName,
 }) => {
+  const previewToolbarT = useTranslations("preview.toolbar");
   const storage = useAppStorage();
   const runScriptPanelRef = useRef<ImperativePanelHandle>(null);
   const [isRunScriptCollapsed, setIsRunScriptCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isPreviewMaximized, setIsPreviewMaximized] = useState(false);
+  const standaloneSurfaceKey = useMemo(
+    () => makeStandaloneSurfaceKey("preview", workspaceId, projectId),
+    [projectId, workspaceId],
+  );
+  const [isPreviewStandaloneOpen, setIsPreviewStandaloneOpen] = useState(false);
   const {
     browserState,
     handleAddBrowserTab,
@@ -45,10 +60,47 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
     handlePreviewIconChange,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
+    persistBrowserState,
     previewTabsToRender,
+    reloadBrowserStateFromPrefs,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
   } = usePreviewBrowserState({ workspaceId, projectId });
+
+  useEffect(() => {
+    const syncTimer = window.setTimeout(() => {
+      setIsPreviewStandaloneOpen(readStandaloneSurfaceOpen(standaloneSurfaceKey));
+    }, 0);
+    const unsubscribe = subscribeStandaloneSurface(standaloneSurfaceKey, (isOpen, event) => {
+      if (event?.action === "restore" || event?.action === "close" || !isOpen) {
+        reloadBrowserStateFromPrefs();
+      }
+      setIsPreviewStandaloneOpen(isOpen);
+      window.clearTimeout(syncTimer);
+    });
+    return () => {
+      window.clearTimeout(syncTimer);
+      unsubscribe();
+    };
+  }, [reloadBrowserStateFromPrefs, standaloneSurfaceKey]);
+
+  const handleOpenPreviewBrowserWindow = useCallback(async (targetUrl: string) => {
+    setIsPreviewMaximized(false);
+    persistBrowserState();
+    await openPreviewBrowserWindow({
+      url: targetUrl,
+      workspaceId,
+      projectId,
+    });
+    markStandaloneSurfaceOpen(standaloneSurfaceKey);
+    setIsPreviewStandaloneOpen(true);
+  }, [persistBrowserState, projectId, standaloneSurfaceKey, workspaceId]);
+
+  const handleReturnPreviewToEmbedded = useCallback(() => {
+    reloadBrowserStateFromPrefs();
+    restoreStandaloneSurface(standaloneSurfaceKey);
+    setIsPreviewStandaloneOpen(false);
+  }, [reloadBrowserStateFromPrefs, standaloneSurfaceKey]);
 
   return (
     <PanelGroup
@@ -66,15 +118,26 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
               "fixed inset-0 z-[1000] h-screen w-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2",
           )}
         >
-          {previewTabsToRender.map((tab) => {
+          {isPreviewStandaloneOpen ? (
+            <PreviewStandalonePaused
+              description={previewToolbarT("standalone.embeddedDescription")}
+              isMaximized={isPreviewMaximized}
+              minimizeLabel={previewToolbarT("browserTabs.minimizePreview")}
+              onMinimize={() => setIsPreviewMaximized(false)}
+              onReturn={handleReturnPreviewToEmbedded}
+              returnLabel={previewToolbarT("standalone.returnHere")}
+              title={previewToolbarT("standalone.embeddedTitle")}
+            />
+          ) : previewTabsToRender.map((tab) => {
             const isActiveTab = tab.id === browserState.activeTabId;
 
             return (
               <div
                 key={tab.id}
+                aria-hidden={!isActiveTab}
                 className={cn(
                   "absolute inset-0 min-h-0",
-                  isActiveTab ? "z-10" : "pointer-events-none invisible z-0",
+                  isActiveTab ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
                 )}
               >
                 <Preview
@@ -90,6 +153,8 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
                   setIsMaximized={setIsPreviewMaximized}
                   workspaceId={workspaceId}
                   projectId={projectId}
+                  isPreviewStandaloneOpen={isPreviewStandaloneOpen}
+                  onOpenPreviewBrowserWindow={handleOpenPreviewBrowserWindow}
                   onPageTitleChange={(title, pageUrl) =>
                     handlePreviewTitleChange(tab.id, title, pageUrl)
                   }
@@ -153,6 +218,57 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
     </PanelGroup>
   );
 };
+
+interface PreviewStandalonePausedProps {
+  title: string;
+  description: string;
+  returnLabel: string;
+  onReturn: () => void;
+  isMaximized: boolean;
+  minimizeLabel: string;
+  onMinimize: () => void;
+}
+
+function PreviewStandalonePaused({
+  title,
+  description,
+  returnLabel,
+  onReturn,
+  isMaximized,
+  minimizeLabel,
+  onMinimize,
+}: PreviewStandalonePausedProps) {
+  return (
+    <div className="absolute inset-0 flex h-full min-h-0 w-full items-center justify-center border border-dashed border-border/60 bg-muted/10 px-6 text-center">
+      {isMaximized ? (
+        <button
+          type="button"
+          aria-label={minimizeLabel}
+          title={minimizeLabel}
+          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+          onClick={onMinimize}
+        >
+          <Minimize className="size-4" />
+        </button>
+      ) : null}
+      <div className="max-w-sm">
+        <div className="text-sm font-medium text-foreground">
+          {title}
+        </div>
+        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </div>
+        <button
+          type="button"
+          className="mt-4 inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+          onClick={onReturn}
+        >
+          {returnLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 interface VerticalResizeHandleProps {
   onCollapse: () => void;

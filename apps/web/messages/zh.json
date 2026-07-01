@@ -7111,6 +7111,16 @@
         "copyTooltipOne": "复制 {count} 条待处理的预览标注。",
         "copyTooltipOther": "复制 {count} 条待处理的预览标注。"
       },
+      "browserTabs": {
+        "preview": "预览",
+        "newTab": "新标签页",
+        "closeTab": "关闭标签页",
+        "closeTabAria": "关闭 {label}",
+        "maximize": "最大化",
+        "maximizePreview": "最大化预览",
+        "minimize": "还原",
+        "minimizePreview": "还原预览"
+      },
       "standalone": {
         "embeddedTitle": "预览已在单独窗口中打开",
         "embeddedDescription": "嵌入预览已暂停，避免和单独窗口同时操作同一个预览。",
