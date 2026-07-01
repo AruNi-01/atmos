@@ -18,6 +18,7 @@ export function PreviewBrowserStandalonePage() {
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    handleOpenBrowserTab,
     handlePreviewIconChange,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
@@ -55,12 +56,13 @@ export function PreviewBrowserStandalonePage() {
                   setIsMaximized={setIsPreviewMaximized}
                   workspaceId={workspaceId}
                   projectId={projectId}
-                  onPageTitleChange={(title) =>
-                    handlePreviewTitleChange(tab.id, title)
+                  onPageTitleChange={(title, pageUrl) =>
+                    handlePreviewTitleChange(tab.id, title, pageUrl)
                   }
                   onPageIconChange={(faviconUrl) =>
                     handlePreviewIconChange(tab.id, faviconUrl)
                   }
+                  onOpenPageInNewTab={handleOpenBrowserTab}
                   browserTabBarProps={{
                     tabs: browserState.tabs,
                     activeTabId: browserState.activeTabId,

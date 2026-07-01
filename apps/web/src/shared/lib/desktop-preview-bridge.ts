@@ -8,6 +8,7 @@ interface PreviewBridgeEventPayload {
   pageUrl: string;
   pageTitle?: string;
   faviconUrl?: string;
+  targetUrl?: string;
   action?: 'copy' | 'add' | 'update' | 'delete';
   annotationId?: string;
   note?: string;

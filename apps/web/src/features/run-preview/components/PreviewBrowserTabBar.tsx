@@ -6,10 +6,10 @@ import {
   Globe,
   Maximize,
   Minimize,
-  PanelLeftOpen,
   PanelTopClose,
   PanelTopOpen,
   Plus,
+  UndoDot,
   X,
 } from "lucide-react";
 
@@ -21,6 +21,7 @@ export interface PreviewBrowserTab {
   url: string;
   activeUrl: string;
   title?: string;
+  titleUrl?: string;
   faviconUrl?: string;
   lastAccessedAt?: number;
 }
@@ -35,7 +36,7 @@ export interface PreviewBrowserChromeControls {
   toolbarToggleTitle: string;
   onOpenInWindow?: () => void;
   onReturnToEmbedded?: () => void;
-  onToggleMaximized: () => void;
+  onToggleMaximized?: () => void;
   onToggleToolbarHidden: () => void;
 }
 
@@ -192,7 +193,7 @@ export function PreviewBrowserTabBar({
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
               onClick={chromeControls.onReturnToEmbedded}
             >
-              <PanelLeftOpen className="size-3.5" />
+              <UndoDot className="size-3.5" />
             </button>
           ) : null}
           <button
@@ -208,19 +209,21 @@ export function PreviewBrowserTabBar({
               <PanelTopClose className="size-3.5" />
             )}
           </button>
-          <button
-            type="button"
-            aria-label={chromeControls.isMaximized ? "Minimize preview" : "Maximize preview"}
-            title={chromeControls.isMaximized ? "Minimize" : "Maximize"}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-            onClick={chromeControls.onToggleMaximized}
-          >
-            {chromeControls.isMaximized ? (
-              <Minimize className="size-3.5" />
-            ) : (
-              <Maximize className="size-3.5" />
-            )}
-          </button>
+          {chromeControls.onToggleMaximized ? (
+            <button
+              type="button"
+              aria-label={chromeControls.isMaximized ? "Minimize preview" : "Maximize preview"}
+              title={chromeControls.isMaximized ? "Minimize" : "Maximize"}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              onClick={chromeControls.onToggleMaximized}
+            >
+              {chromeControls.isMaximized ? (
+                <Minimize className="size-3.5" />
+              ) : (
+                <Maximize className="size-3.5" />
+              )}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

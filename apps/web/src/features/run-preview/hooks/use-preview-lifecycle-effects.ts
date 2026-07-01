@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type {
   PreviewBridgeController,
   PreviewTransportMode,
@@ -29,6 +30,7 @@ type UsePreviewLifecycleEffectsParams = {
     awaitHandshake?: boolean;
   }) => Promise<boolean>;
   desktopCommittedUrl: string;
+  desktopPreviewViewportRef: MutableRefObject<string | null>;
   desktopCommittedUrlRef: MutableRefObject<string>;
   desktopViewportRef: RefObject<HTMLDivElement | null>;
   extensionConnectingRef: MutableRefObject<boolean>;
@@ -57,11 +59,13 @@ type UsePreviewLifecycleEffectsParams = {
   teardownTransport: (clearSelection?: boolean) => void;
   transportConnected: boolean;
   transportControllerRef: MutableRefObject<PreviewBridgeController | null>;
+  viewMode: PreviewViewMode;
 };
 
 export function usePreviewLifecycleEffects({
   connectIframeTransport,
   desktopCommittedUrl,
+  desktopPreviewViewportRef,
   desktopCommittedUrlRef,
   desktopViewportRef,
   extensionConnectingRef,
@@ -90,6 +94,7 @@ export function usePreviewLifecycleEffects({
   teardownTransport,
   transportConnected,
   transportControllerRef,
+  viewMode,
 }: UsePreviewLifecycleEffectsParams) {
   const handledNavigationRequestRef = useRef<string | null>(null);
 
@@ -106,6 +111,7 @@ export function usePreviewLifecycleEffects({
     if (preferredTransportMode === "desktop-native") {
       desktopCommittedUrlRef.current = requestedIframeUrl;
       setDesktopCommittedUrl(requestedIframeUrl);
+      void syncDesktopPreview();
       return;
     }
 
@@ -122,12 +128,14 @@ export function usePreviewLifecycleEffects({
     setIframeSrc,
     setIsPreviewLoading,
     setPreviewLoadError,
+    syncDesktopPreview,
   ]);
 
   useEffect(() => {
     if (
       !requestedIframeUrl ||
       !isActive ||
+      preferredTransportMode === "desktop-native" ||
       !isPreviewLoading ||
       previewLoadError
     ) {
@@ -149,7 +157,15 @@ export function usePreviewLifecycleEffects({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [isActive, isPreviewLoading, previewLoadError, requestedIframeUrl, setIsPreviewLoading, setPreviewLoadError]);
+  }, [
+    isActive,
+    isPreviewLoading,
+    preferredTransportMode,
+    previewLoadError,
+    requestedIframeUrl,
+    setIsPreviewLoading,
+    setPreviewLoadError,
+  ]);
 
   useEffect(() => {
     if (!iframeSrc) {
@@ -266,7 +282,9 @@ export function usePreviewLifecycleEffects({
 
     const syncBounds = async () => {
       if (disposed || transportControllerRef.current?.mode !== "desktop-native" || !desktopViewportRef.current) return;
-      await transportControllerRef.current.updateViewport?.(await getPreviewViewportBounds(desktopViewportRef.current));
+      const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
+      await transportControllerRef.current.updateViewport?.(viewport);
+      desktopPreviewViewportRef.current = JSON.stringify(viewport);
     };
 
     resizeObserver = new ResizeObserver(() => {
@@ -297,7 +315,49 @@ export function usePreviewLifecycleEffects({
       unlistenMoved?.();
       unlistenResized?.();
     };
-  }, [desktopViewportRef, preferredTransportMode, transportControllerRef]);
+  }, [desktopPreviewViewportRef, desktopViewportRef, preferredTransportMode, transportControllerRef]);
+
+  useEffect(() => {
+    if (
+      preferredTransportMode !== "desktop-native" ||
+      !isActive ||
+      !desktopCommittedUrl ||
+      shouldSuspendDesktopPreview
+    ) return;
+
+    let firstRafId = 0;
+    let secondRafId = 0;
+    let disposed = false;
+
+    firstRafId = window.requestAnimationFrame(() => {
+      secondRafId = window.requestAnimationFrame(async () => {
+        if (
+          disposed ||
+          transportControllerRef.current?.mode !== "desktop-native" ||
+          !desktopViewportRef.current
+        ) return;
+
+        const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
+        await transportControllerRef.current.updateViewport?.(viewport);
+        desktopPreviewViewportRef.current = JSON.stringify(viewport);
+      });
+    });
+
+    return () => {
+      disposed = true;
+      if (firstRafId) window.cancelAnimationFrame(firstRafId);
+      if (secondRafId) window.cancelAnimationFrame(secondRafId);
+    };
+  }, [
+    desktopCommittedUrl,
+    desktopPreviewViewportRef,
+    desktopViewportRef,
+    isActive,
+    preferredTransportMode,
+    shouldSuspendDesktopPreview,
+    transportControllerRef,
+    viewMode,
+  ]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;

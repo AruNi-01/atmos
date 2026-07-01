@@ -47,20 +47,13 @@ export function buildWsUrlSync(
     return `ws://localhost:30303${path}`;
   }
 
-  if (isHostedAtmosOrigin()) {
-    const port = process.env.NEXT_PUBLIC_API_PORT || "30303";
-    const url = new URL(path, `ws://127.0.0.1:${port}`);
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        url.searchParams.set(key, value);
-      }
-    }
-    return url.toString();
-  }
-
-  if (isDesktopBuild) {
-    const port = process.env.NEXT_PUBLIC_API_PORT || "30303";
-    const url = new URL(path, `ws://127.0.0.1:${port}`);
+  if (isHostedAtmosOrigin() || isDesktopBuild) {
+    const protocol = isDesktopBuild && window.location.protocol === "https:" ? "wss" : "ws";
+    const host = isDesktopBuild ? window.location.hostname || "127.0.0.1" : "127.0.0.1";
+    const port = isDesktopBuild
+      ? window.location.port || process.env.NEXT_PUBLIC_API_PORT || "30303"
+      : process.env.NEXT_PUBLIC_API_PORT || "30303";
+    const url = new URL(path, `${protocol}://${host}:${port}`);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         url.searchParams.set(key, value);

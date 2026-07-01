@@ -41,6 +41,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    handleOpenBrowserTab,
     handlePreviewIconChange,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
@@ -58,7 +59,13 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
     >
       {/* Top: Preview */}
       <Panel defaultSize={70} className="min-h-0">
-        <div className="relative h-full min-h-0 w-full overflow-hidden">
+        <div
+          className={cn(
+            "relative h-full min-h-0 w-full overflow-hidden bg-background",
+            isPreviewMaximized &&
+              "fixed inset-0 z-[1000] h-screen w-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2",
+          )}
+        >
           {previewTabsToRender.map((tab) => {
             const isActiveTab = tab.id === browserState.activeTabId;
 
@@ -67,7 +74,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
                 key={tab.id}
                 className={cn(
                   "absolute inset-0 min-h-0",
-                  isActiveTab ? "z-10" : "z-0 hidden",
+                  isActiveTab ? "z-10" : "pointer-events-none invisible z-0",
                 )}
               >
                 <Preview
@@ -79,15 +86,17 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
                   }
                   isActive={isActive && isActiveTab}
                   isMaximized={isPreviewMaximized}
+                  isMaximizedLayoutManaged
                   setIsMaximized={setIsPreviewMaximized}
                   workspaceId={workspaceId}
                   projectId={projectId}
-                  onPageTitleChange={(title) =>
-                    handlePreviewTitleChange(tab.id, title)
+                  onPageTitleChange={(title, pageUrl) =>
+                    handlePreviewTitleChange(tab.id, title, pageUrl)
                   }
                   onPageIconChange={(faviconUrl) =>
                     handlePreviewIconChange(tab.id, faviconUrl)
                   }
+                  onOpenPageInNewTab={handleOpenBrowserTab}
                   browserTabBarProps={{
                     tabs: browserState.tabs,
                     activeTabId: browserState.activeTabId,

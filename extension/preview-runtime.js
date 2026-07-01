@@ -11,7 +11,7 @@
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
-  var EXTENSION_VERSION = '0.1.5';
+  var EXTENSION_VERSION = '0.1.7';
   var PICKER_HOVER_COLOR = '#2563eb';
   var PICKER_LOCKED_COLOR = '#f97316';
 
@@ -1125,6 +1125,58 @@
       return (doc.title || '').trim();
     }
 
+    function getPageFaviconUrl() {
+      var selectors = [
+        'link[rel~="icon"][href]',
+        'link[rel="shortcut icon"][href]',
+        'link[rel="apple-touch-icon"][href]',
+        'link[rel="apple-touch-icon-precomposed"][href]',
+      ];
+      for (var i = 0; i < selectors.length; i += 1) {
+        var node = doc.querySelector(selectors[i]);
+        var href = node && node.href;
+        if (!href) continue;
+        try {
+          return new URL(href, win.location.href).href;
+        } catch (_) {
+          return href;
+        }
+      }
+      try {
+        return new URL('/favicon.ico', win.location.origin).href;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function resolveOpenTabUrl(value) {
+      var rawValue = (value == null ? '' : String(value)).trim();
+      if (!rawValue) return '';
+      try {
+        var parsedUrl = new URL(rawValue, win.location.href);
+        return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:' ? parsedUrl.href : '';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function shouldOpenAnchorInNewTab(anchor, event) {
+      var target = (anchor.getAttribute('target') || '').trim().toLowerCase();
+      return event.button === 1 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        Boolean(target && target !== '_self');
+    }
+
+    function emitOpenTab(targetUrl) {
+      emit({
+        type: 'atmos-preview:open-tab',
+        pageUrl: win.location.href,
+        targetUrl: targetUrl,
+      });
+    }
+
     function isIgnoredElement(element) {
       if (!element || !element.closest) return true;
       if (element.closest('[data-atmos-preview-overlay="true"]')) return true;
@@ -1141,6 +1193,7 @@
         capabilities: getCapabilities(win),
         extensionVersion: EXTENSION_VERSION,
         pageTitle: getPageTitle(),
+        faviconUrl: getPageFaviconUrl(),
       });
     }
 
@@ -1231,6 +1284,20 @@
       clearSelection(true);
     }
 
+    function handleOpenTabClick(event) {
+      if (!state.sessionId || state.enabled || event.defaultPrevented) return;
+      if (event.button !== 0 && event.button !== 1) return;
+      var target = event.target;
+      if (!(target instanceof Element) || !target.closest) return;
+      var anchor = target.closest('a[href]');
+      if (!anchor || !shouldOpenAnchorInNewTab(anchor, event)) return;
+      var targetUrl = resolveOpenTabUrl(anchor.href);
+      if (!targetUrl) return;
+      event.preventDefault();
+      event.stopPropagation();
+      emitOpenTab(targetUrl);
+    }
+
     function syncLockedOverlay() {
       if (!state.locked) return;
       if (!doc.contains(state.locked)) {
@@ -1246,6 +1313,8 @@
     doc.addEventListener('mousedown', blockPagePointerEvent, true);
     doc.addEventListener('mouseup', blockPagePointerEvent, true);
     doc.addEventListener('click', handleClick, true);
+    doc.addEventListener('click', handleOpenTabClick, true);
+    doc.addEventListener('auxclick', handleOpenTabClick, true);
     doc.addEventListener('dblclick', blockPagePointerEvent, true);
     doc.addEventListener('contextmenu', blockPagePointerEvent, true);
     win.addEventListener('keydown', handleKeyDown, true);
@@ -1274,8 +1343,10 @@
 
     var lastKnownPath = win.location.pathname + win.location.hash;
     var lastKnownTitle = getPageTitle();
+    var lastKnownFaviconUrl = getPageFaviconUrl();
     var originalPushState = win.history.pushState.bind(win.history);
     var originalReplaceState = win.history.replaceState.bind(win.history);
+    var originalOpen = win.open.bind(win);
     var titleObserverTarget = doc.head || doc.documentElement;
     var titleObserver = null;
 
@@ -1285,11 +1356,14 @@
         lastKnownPath = currentPath;
         var currentUrl = win.location.href;
         var currentTitle = getPageTitle();
+        var currentFaviconUrl = getPageFaviconUrl();
         lastKnownTitle = currentTitle;
+        lastKnownFaviconUrl = currentFaviconUrl;
         emit({
           type: 'atmos-preview:navigation-changed',
           pageUrl: currentUrl,
           pageTitle: currentTitle,
+          faviconUrl: currentFaviconUrl,
         });
       }
     }
@@ -1299,11 +1373,14 @@
     if (titleObserverTarget && typeof win.MutationObserver === 'function') {
       titleObserver = new win.MutationObserver(function () {
         var nextTitle = getPageTitle();
-        if (nextTitle === lastKnownTitle) return;
+        var nextFaviconUrl = getPageFaviconUrl();
+        if (nextTitle === lastKnownTitle && nextFaviconUrl === lastKnownFaviconUrl) return;
         lastKnownTitle = nextTitle;
+        lastKnownFaviconUrl = nextFaviconUrl;
         emit({
           type: 'atmos-preview:title-changed',
           pageTitle: nextTitle,
+          faviconUrl: nextFaviconUrl,
         });
       });
       titleObserver.observe(titleObserverTarget, {
@@ -1321,6 +1398,15 @@
       originalReplaceState.apply(win.history, arguments);
       checkUrlChange();
     };
+    win.open = function (url, target, features) {
+      var targetName = (target || '').trim().toLowerCase();
+      var targetUrl = resolveOpenTabUrl(url);
+      if (state.sessionId && targetUrl && targetName !== '_self' && targetName !== '_parent' && targetName !== '_top') {
+        emitOpenTab(targetUrl);
+        return null;
+      }
+      return originalOpen(url, target, features);
+    };
 
     return {
       announceReady: announceReady,
@@ -1333,6 +1419,7 @@
           capabilities: getCapabilities(win),
           extensionVersion: EXTENSION_VERSION,
           pageTitle: getPageTitle(),
+          faviconUrl: getPageFaviconUrl(),
         });
       },
       clearSelection: clearSelection,
@@ -1353,6 +1440,8 @@
         doc.removeEventListener('mousedown', blockPagePointerEvent, true);
         doc.removeEventListener('mouseup', blockPagePointerEvent, true);
         doc.removeEventListener('click', handleClick, true);
+        doc.removeEventListener('click', handleOpenTabClick, true);
+        doc.removeEventListener('auxclick', handleOpenTabClick, true);
         doc.removeEventListener('dblclick', blockPagePointerEvent, true);
         doc.removeEventListener('contextmenu', blockPagePointerEvent, true);
         win.removeEventListener('keydown', handleKeyDown, true);
@@ -1364,6 +1453,7 @@
         }
         win.history.pushState = originalPushState;
         win.history.replaceState = originalReplaceState;
+        win.open = originalOpen;
         overlay.destroy();
       },
     };

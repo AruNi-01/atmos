@@ -73,10 +73,10 @@ export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = 
     return;
   }
 
-  window.open(buildBrowserAgentChatUrl(locale, options), "_blank", "noopener,noreferrer");
+  window.open(buildBrowserAgentChatUrl(options), "_blank", "noopener,noreferrer");
 }
 
-function buildBrowserAgentChatUrl(locale: string, options: OpenAgentChatWindowOptions): string {
+function buildBrowserAgentChatUrl(options: OpenAgentChatWindowOptions): string {
   const params = new URLSearchParams();
   if (options.agent) params.set("agent", options.agent);
   if (options.session) params.set("session", options.session);
@@ -84,6 +84,5 @@ function buildBrowserAgentChatUrl(locale: string, options: OpenAgentChatWindowOp
   if (options.workspaceId) params.set("workspaceId", options.workspaceId);
   if (options.projectId) params.set("projectId", options.projectId);
   const query = params.toString();
-  void locale;
   return `/agent-chat/${query ? `?${query}` : ""}`;
 }

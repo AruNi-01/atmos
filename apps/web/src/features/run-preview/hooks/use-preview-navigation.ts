@@ -193,13 +193,14 @@ export function usePreviewNavigation({
         const targetCanonicalUrl = canonicalizeUrl(targetUrl) || targetUrl;
         skipExternalHistorySyncRef.current = true;
         desktopCommittedUrlRef.current = targetCanonicalUrl;
-        desktopPreviewUrlRef.current = targetCanonicalUrl;
         setDesktopCommittedUrl(targetCanonicalUrl);
         setPreviewLoadError(null);
         setCurrentPageTitle('');
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
-        void controller.navigate(targetUrl);
+        void Promise.resolve(controller.navigate(targetUrl)).then(() => {
+          desktopPreviewUrlRef.current = targetCanonicalUrl;
+        });
         return true;
       }
 

@@ -24,6 +24,24 @@ const isDesktopBuild =
 const loopbackApiPort = (): number =>
   parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
 
+function currentOriginApiConfig(token?: string): ApiConfig | null {
+  if (typeof window === 'undefined') return null;
+  const protocol = window.location.protocol.replace(':', '') || 'http';
+  const defaultPort = protocol === 'https' ? '443' : '80';
+  const port = parseInt(window.location.port || defaultPort, 10);
+  if (!Number.isFinite(port)) return null;
+  return {
+    host: window.location.hostname || '127.0.0.1',
+    port,
+    protocol,
+    token,
+  };
+}
+
+function desktopBuildFallbackApiConfig(token?: string): ApiConfig {
+  return currentOriginApiConfig(token) ?? loopbackApiConfig(token);
+}
+
 export function loopbackApiConfig(token?: string, host = '127.0.0.1'): ApiConfig {
   return {
     host,
@@ -113,7 +131,7 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
           errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
           console.warn('[desktop-runtime] invoke get_api_config failed:', e);
           if (isDesktopBuild) {
-            cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+            cachedConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
             console.warn(
               `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
             );
@@ -125,7 +143,7 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
     }
     errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
     if (isDesktopBuild) {
-      cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+      cachedConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
       console.warn(
         `[desktop-runtime] Tauri invoke bridge unavailable; falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
       );
@@ -142,7 +160,7 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
   }
 
   if (isDesktopBuild) {
-    cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    cachedConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     debugLog(`getRuntimeApiConfig: desktop loopback ${cachedConfig.host}:${cachedConfig.port}`);
     return cachedConfig;
   }
@@ -187,7 +205,7 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
   }
 
   if (isDesktopBuild) {
-    cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    cachedHttpConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     return cachedHttpConfig;
   }
 

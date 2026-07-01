@@ -64,6 +64,7 @@ export interface PreviewBridgeEventHandlers {
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
   onTitleChanged?: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => void;
+  onOpenTab?: (targetUrl: string, sourceUrl?: string) => void;
   onCursorChange?: (cursor: string) => void;
 }
 

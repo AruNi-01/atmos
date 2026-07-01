@@ -21,6 +21,7 @@ use state::{AppState, PersistedWindowState};
 
 const WINDOW_STATE_FILE: &str = "window-state.json";
 const STARTUP_BACKGROUND_COLOR: Color = Color(6, 7, 11, 255);
+const STARTUP_ERROR_HTML: &str = include_str!("../../../web/public/startup-error.html");
 
 struct StartupFailure {
     root_cause: String,
@@ -354,6 +355,7 @@ fn main() {
                     let _ = w.show();
                     let _ = w.set_focus();
                 }
+                let _ = preview_bridge::show_active_preview_window(&app_handle);
             }
         }
         _ => {}
@@ -478,14 +480,30 @@ fn show_startup_error(app_handle: &tauri::AppHandle, failure: &StartupFailure) {
 
     if let Some(main) = app_handle.get_webview_window("main") {
         let _ = main.set_background_color(Some(STARTUP_BACKGROUND_COLOR));
-        // Always use the bundled startup error asset so dev startup failures do
-        // not depend on the external Next dev server routing this page.
-        let target = format!("tauri://localhost{}", startup_error_page_path(failure))
-            .parse()
-            .ok();
+        let startup_error_path = startup_error_page_path(failure);
+        let html_json = serde_json::to_string(STARTUP_ERROR_HTML).unwrap_or_else(|_| "\"\"".into());
+        let path_json =
+            serde_json::to_string(&startup_error_path).unwrap_or_else(|_| "\"/\"".into());
+        let script = format!(
+            r#"
+window.history.replaceState(null, "", {path_json});
+document.open();
+document.write({html_json});
+document.close();
+"#,
+        );
 
-        if let Some(url) = target {
-            let _ = main.navigate(url);
+        if main.eval(&script).is_err() {
+            // Fallback to the bundled asset URL for normal dist builds. The eval
+            // path above keeps startup errors visible even when dev asset lookup
+            // fails before the local runtime is available.
+            let target = format!("tauri://localhost{startup_error_path}")
+                .parse()
+                .ok();
+
+            if let Some(url) = target {
+                let _ = main.navigate(url);
+            }
         }
         let _ = main.show();
         let _ = main.set_focus();

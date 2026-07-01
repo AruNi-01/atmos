@@ -1857,7 +1857,8 @@
         "standaloneWindow": {
           "embeddedTitle": "Agent chat is open in a separate window",
           "embeddedDescription": "The embedded chat is paused so the standalone chat stays the only active surface.",
-          "returnHere": "Return chat here"
+          "returnHere": "Return chat here",
+          "closeModal": "Close panel"
         },
         "logout": {
           "title": "Log out agent?",
@@ -2101,6 +2102,14 @@
         "history": {
           "expand": "Expand history sidebar",
           "hide": "Hide history sidebar"
+        },
+        "header": {
+          "standaloneWindow": {
+            "embeddedTitle": "Agent chat is open in a separate window",
+            "embeddedDescription": "The embedded chat is paused so the standalone chat stays the only active surface.",
+            "returnHere": "Return chat here",
+            "closeModal": "Close panel"
+          }
         },
         "loading": "Loading...",
         "restoringSession": "Restoring session...",

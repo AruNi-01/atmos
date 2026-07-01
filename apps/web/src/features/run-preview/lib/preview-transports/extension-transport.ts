@@ -150,6 +150,9 @@ export function connectExtensionPreviewTransport(
       case 'atmos-preview:title-changed':
         options.onTitleChanged?.(event.data.pageTitle, event.data.faviconUrl, event.data.pageUrl);
         break;
+      case 'atmos-preview:open-tab':
+        options.onOpenTab?.(event.data.targetUrl, event.data.pageUrl);
+        break;
       case 'atmos-preview:toolbar-action':
         options.onToolbarAction?.(event.data.action, event.data.note, event.data.annotationId);
         break;

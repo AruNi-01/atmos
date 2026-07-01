@@ -67,10 +67,12 @@ interface PreviewProps {
   workspaceId?: string | null;
   projectId?: string;
   setIsMaximized?: React.Dispatch<React.SetStateAction<boolean>>;
-  onPageTitleChange?: (title: string) => void;
+  onPageTitleChange?: (title: string, pageUrl?: string) => void;
   onPageIconChange?: (faviconUrl: string) => void;
+  onOpenPageInNewTab?: (url: string) => void;
   browserTabBarProps?: Omit<PreviewBrowserTabBarProps, "chromeControls">;
   isStandaloneBrowserWindow?: boolean;
+  isMaximizedLayoutManaged?: boolean;
 }
 
 interface PreviewTransportState {
@@ -126,8 +128,10 @@ export const Preview: React.FC<PreviewProps> = ({
   setIsMaximized: controlledSetIsMaximized,
   onPageTitleChange,
   onPageIconChange,
+  onOpenPageInNewTab,
   browserTabBarProps,
   isStandaloneBrowserWindow = false,
+  isMaximizedLayoutManaged = false,
 }) => {
   const previewToolbarT = useTranslations("preview.toolbar");
   const standaloneSurfaceKey = useMemo(
@@ -183,6 +187,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const setActiveUrlRef = useRef(setActiveUrl);
   const onPageTitleChangeRef = useRef(onPageTitleChange);
   const onPageIconChangeRef = useRef(onPageIconChange);
+  const onOpenPageInNewTabRef = useRef(onOpenPageInNewTab);
   const {
     isMaximized,
     needsDesktopPreviewSafeInset,
@@ -196,6 +201,7 @@ export const Preview: React.FC<PreviewProps> = ({
   setActiveUrlRef.current = setActiveUrl;
   onPageTitleChangeRef.current = onPageTitleChange;
   onPageIconChangeRef.current = onPageIconChange;
+  onOpenPageInNewTabRef.current = onOpenPageInNewTab;
 
   const setPreviewUrl = useCallback((nextUrl: string) => {
     setUrlRef.current(nextUrl);
@@ -204,10 +210,6 @@ export const Preview: React.FC<PreviewProps> = ({
   const setPreviewActiveUrl = useCallback((nextUrl: string) => {
     setActiveUrlRef.current(nextUrl);
   }, []);
-
-  React.useEffect(() => {
-    onPageTitleChangeRef.current?.(currentPageTitle);
-  }, [currentPageTitle]);
 
   const setViewMode = useCallback((nextViewMode: ViewMode) => {
     void setPreviewToolbarParams({ pvView: nextViewMode });
@@ -221,7 +223,10 @@ export const Preview: React.FC<PreviewProps> = ({
   const normalizedActiveUrlRef = useRef(normalizedActiveUrl);
   normalizedActiveUrlRef.current = normalizedActiveUrl;
   const setNormalizedCurrentPageTitle = useCallback((pageTitle: string, pageUrl?: string) => {
-    setCurrentPageTitle(normalizePreviewPageTitle(pageTitle, pageUrl ?? normalizedActiveUrlRef.current));
+    const normalizedPageUrl = pageUrl ?? normalizedActiveUrlRef.current;
+    const normalizedTitle = normalizePreviewPageTitle(pageTitle, normalizedPageUrl);
+    setCurrentPageTitle(normalizedTitle);
+    onPageTitleChangeRef.current?.(normalizedTitle, normalizedPageUrl);
   }, []);
   const normalizedDraftUrl = useMemo(() => canonicalizeUrl(url ?? ""), [url]);
   const displayUrlParts = useMemo(() => splitDisplayUrl(url ?? ""), [url]);
@@ -289,7 +294,6 @@ export const Preview: React.FC<PreviewProps> = ({
       return () => {
         window.removeEventListener("beforeunload", handleBeforeUnload);
         unsubscribe();
-        closeStandaloneSurface(standaloneSurfaceKey);
       };
     }
 
@@ -486,15 +490,14 @@ export const Preview: React.FC<PreviewProps> = ({
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
       }
+      setPreviewLoadError(null);
+      setIsPreviewLoading(false);
       setTransportState({
         mode,
         connected: true,
         message: "",
         capabilities,
       });
-      if (mode === 'desktop-native') {
-        setIsPreviewLoading(false);
-      }
       extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl, pageUrl);
     },
     onSelected: (payload: PreviewHelperPayload) => {
@@ -567,6 +570,8 @@ export const Preview: React.FC<PreviewProps> = ({
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
       }
+      setPreviewLoadError(null);
+      setIsPreviewLoading(false);
       if (skipExternalHistorySyncRef.current) {
         skipExternalHistorySyncRef.current = false;
       } else {
@@ -580,6 +585,12 @@ export const Preview: React.FC<PreviewProps> = ({
         onPageIconChangeRef.current?.(faviconUrl);
       }
       extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl, pageUrl);
+    },
+    onOpenTab: (targetUrl: string, sourceUrl?: string) => {
+      const normalizedTargetUrl = canonicalizeUrl(targetUrl) || targetUrl.trim();
+      if (!normalizedTargetUrl) return;
+      onOpenPageInNewTabRef.current?.(normalizedTargetUrl);
+      extraHandlers?.onOpenTab?.(normalizedTargetUrl, sourceUrl);
     },
     onCursorChange: (cursor: string) => {
       const viewport = desktopViewportRef.current;
@@ -717,6 +728,8 @@ export const Preview: React.FC<PreviewProps> = ({
         await transportControllerRef.current.navigate?.(committedUrl);
         desktopPreviewUrlRef.current = committedUrl;
       }
+      setPreviewLoadError(null);
+      setIsPreviewLoading(false);
       if (desktopPreviewViewportRef.current !== viewportKey) {
         await transportControllerRef.current.updateViewport?.(viewport);
         desktopPreviewViewportRef.current = viewportKey;
@@ -744,6 +757,8 @@ export const Preview: React.FC<PreviewProps> = ({
       desktopPreviewUrlRef.current = committedUrl;
       desktopPreviewViewportRef.current = viewportKey;
       desktopPreviewVisibleRef.current = true;
+      setPreviewLoadError(null);
+      setIsPreviewLoading(false);
       setTransportState({
         mode: 'desktop-native',
         connected: true,
@@ -820,6 +835,7 @@ export const Preview: React.FC<PreviewProps> = ({
   usePreviewLifecycleEffects({
     connectIframeTransport,
     desktopCommittedUrl,
+    desktopPreviewViewportRef,
     desktopCommittedUrlRef,
     desktopViewportRef,
     extensionConnectingRef,
@@ -848,6 +864,7 @@ export const Preview: React.FC<PreviewProps> = ({
     teardownTransport,
     transportConnected: transportState.connected,
     transportControllerRef,
+    viewMode,
   });
 
   const handleToggleElementPicker = useCallback(async () => {
@@ -935,6 +952,7 @@ export const Preview: React.FC<PreviewProps> = ({
   );
 
   const handleOpenPreviewBrowserWindow = useCallback(async () => {
+    teardownTransport(false);
     await openPreviewBrowserWindow({
       url: normalizedActiveUrl || activeUrl,
       workspaceId,
@@ -942,7 +960,7 @@ export const Preview: React.FC<PreviewProps> = ({
     });
     markStandaloneSurfaceOpen(standaloneSurfaceKey);
     setIsPreviewStandaloneOpen(true);
-  }, [activeUrl, normalizedActiveUrl, projectId, standaloneSurfaceKey, workspaceId]);
+  }, [activeUrl, normalizedActiveUrl, projectId, standaloneSurfaceKey, teardownTransport, workspaceId]);
 
   const handleReturnPreviewToEmbedded = useCallback(() => {
     restoreStandaloneSurface(standaloneSurfaceKey);
@@ -951,8 +969,9 @@ export const Preview: React.FC<PreviewProps> = ({
 
   const handleCloseStandalonePreviewWindow = useCallback(() => {
     restoreStandaloneSurface(standaloneSurfaceKey);
+    teardownTransport(false);
     void closeCurrentStandaloneWindow();
-  }, [standaloneSurfaceKey]);
+  }, [standaloneSurfaceKey, teardownTransport]);
 
   const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
 
@@ -1177,14 +1196,14 @@ export const Preview: React.FC<PreviewProps> = ({
               toolbarToggleTitle,
               onOpenInWindow: canOpenPreviewBrowserWindow ? handleOpenPreviewBrowserWindow : undefined,
               onReturnToEmbedded: isStandaloneBrowserWindow ? handleCloseStandalonePreviewWindow : undefined,
-              onToggleMaximized: handleToggleMaximized,
+              onToggleMaximized: isStandaloneBrowserWindow ? undefined : handleToggleMaximized,
               onToggleToolbarHidden: handleToggleToolbarHidden,
             }}
           />
         ) : null
       }
       isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
-      isMaximized={isMaximized}
+      isMaximized={isMaximized && !isMaximizedLayoutManaged}
       previewRootRef={previewRootRef}
       toolbarProps={toolbarProps}
       toolbarHoverSuppressed={toolbarHoverSuppressed}

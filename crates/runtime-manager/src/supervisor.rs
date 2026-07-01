@@ -50,6 +50,8 @@ pub struct EnsureOptions {
     pub extra_env: Vec<(String, String)>,
     /// Spawn API detached and return after a short health wait (VPS / headless).
     pub daemon: bool,
+    /// Optional health-check attempts override. Each attempt waits about 500ms.
+    pub health_attempts: Option<usize>,
 }
 
 impl EnsureOptions {
@@ -60,6 +62,7 @@ impl EnsureOptions {
             force_restart: false,
             extra_env: Vec::new(),
             daemon: false,
+            health_attempts: None,
         }
     }
 }
@@ -116,7 +119,9 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
         &log_path,
         &options.extra_env,
     )?;
-    let health_attempts = if options.daemon { 6 } else { 20 };
+    let health_attempts = options
+        .health_attempts
+        .unwrap_or(if options.daemon { 6 } else { 20 });
     if let Err(error) = wait_for_health(
         &options.host,
         options.port,

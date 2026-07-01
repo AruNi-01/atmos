@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop-app-commands",
   "description": "Allows first-party Atmos desktop webviews to call native desktop app commands.",
-  "webviews": [
+  "windows": [
     "main",
     "agent-chat",
     "preview-browser",

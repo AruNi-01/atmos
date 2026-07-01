@@ -15,11 +15,14 @@ handwritten/path reveals, text morphs, counters, and short message-led scenes.
 - Default to transparent background for overlay/title elements; use a slotted
   background for full-frame title cards.
 - Prefer readable hierarchy over novelty.
+- Pick one main type idea first: editorial, utilitarian, kinetic, playful, or
+  premium.
 - Establish type hierarchy, line composition, and final-frame balance before
   adding accents or effects.
 - Choose the type voice deliberately: serif for human/editorial authority,
   grotesque for product/function, monospace for technical labels, expressive
   display type when the word itself is the subject.
+- Use monospaced type only for code, data, terminals, or system-like content.
 - Convert fixed prompt text to vector/shape artwork immediately. In the current
   player, native Lottie text and text slots render reliably only when matching
   font blobs are supplied to Skottie, and the scene loader does not pass font
@@ -104,6 +107,9 @@ handwritten/path reveals, text morphs, counters, and short message-led scenes.
   stagger for simpler captions.
 - Use per-line mask reveals and meaning-based line breaks for statement/title
   work. Avoid random per-letter motion unless the prompt asks for it.
+- Align mixed-size text runs by cap-height centers, and set spacing between
+  stacked text blocks relative to type size. See `player-contract.md` "Vector
+  Text Vertical Placement" for the baseline formula and verification rules.
 - For kinetic typography, define anchor, support, and active text roles before
   keyframing.
 - Avoid applying the same opacity/position/scale entrance to every word. Offset
@@ -144,5 +150,7 @@ handwritten/path reveals, text morphs, counters, and short message-led scenes.
 - Accents support reading rhythm, reveal, emphasis, or semantic motion.
 - Type hierarchy, line breaks, and optical placement pass before effects are
   considered polish.
+- Mixed-size rows are cap-height centered, and stacked text blocks follow a
+  deliberate vertical spacing step.
 - If type is the subject, each major beat is readable as a strong still frame.
 - No text touches unsafe edges or clips during motion.

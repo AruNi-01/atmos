@@ -19,6 +19,7 @@ compact product UI motion.
   after it is confirmation.
 - Believability comes from coherent state, not dense UI detail.
 - Transparent background unless demonstrating a full component card.
+- Keep UI microinteractions to one beat; do not split them into chapters.
 
 ## Presets
 
@@ -50,6 +51,8 @@ compact product UI motion.
   position, fill amount, color, label, and dash style should agree.
 - Expose slots for accent color, label text, and progress value when useful.
 - Avoid large brand-intro motion in functional UI contexts.
+- Do not chapterize compact UI feedback. If the prompt contains several states,
+  make one concise state transition rather than a multi-chapter sequence.
 
 ## Common Failure Modes
 
@@ -66,3 +69,4 @@ compact product UI motion.
 - No element jumps, clips, or overshoots awkwardly.
 - The animation still reads when viewed small.
 - Timing feels responsive at 60 fps.
+- The animation reads as one immediate interaction beat, not a chaptered story.

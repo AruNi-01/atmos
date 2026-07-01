@@ -22,6 +22,7 @@ pub struct DesktopPreviewBridgeState {
     pub session_id: String,
     pub current_url: String,
     pub host_label: String,
+    pub bridge_token: String,
     pub pick_mode: bool,
     pub detached: bool,
     pub visible: bool,

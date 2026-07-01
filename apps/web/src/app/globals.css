@@ -107,6 +107,7 @@ html:not([data-theme-ready="true"]) body {
 .desktop-drag-region [role="button"],
 .desktop-drag-region [role="button"] *,
 .desktop-drag-region [contenteditable="true"],
+.desktop-drag-region [contenteditable="true"] *,
 .desktop-drag-region .desktop-no-drag,
 .desktop-drag-region .desktop-no-drag * {
   -webkit-app-region: no-drag;

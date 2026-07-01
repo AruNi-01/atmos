@@ -55,6 +55,7 @@ async fn ensure(args: EnsureArgs) -> Result<Value, String> {
         force_restart: args.force_restart,
         extra_env: Vec::new(),
         daemon: args.daemon,
+        health_attempts: None,
     })
     .await?
     {

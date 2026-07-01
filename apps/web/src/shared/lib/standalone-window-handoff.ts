@@ -33,16 +33,25 @@ function createEvent(key: string, action: StandaloneSurfaceAction): StandaloneSu
 function publishEvent(event: StandaloneSurfaceEvent): void {
   if (!canUseWindow()) return;
 
-  if (event.action === "open") {
-    window.localStorage.setItem(storageKey(event.key), JSON.stringify(event));
-  } else {
-    window.localStorage.removeItem(storageKey(event.key));
-  }
-
-  if ("BroadcastChannel" in window) {
-    const channel = new BroadcastChannel(CHANNEL_NAME);
+  const BroadcastChannelCtor = (window as Window & {
+    BroadcastChannel?: typeof BroadcastChannel;
+  }).BroadcastChannel;
+  if (BroadcastChannelCtor) {
+    const channel = new BroadcastChannelCtor(CHANNEL_NAME);
     channel.postMessage(event);
     channel.close();
+
+    if (event.action === "open") {
+      window.localStorage.setItem(storageKey(event.key), JSON.stringify(event));
+    } else {
+      window.localStorage.removeItem(storageKey(event.key));
+    }
+    return;
+  }
+
+  window.localStorage.setItem(storageKey(event.key), JSON.stringify(event));
+  if (event.action !== "open") {
+    window.localStorage.removeItem(storageKey(event.key));
   }
 }
 
@@ -56,7 +65,14 @@ export function makeStandaloneSurfaceKey(
 
 export function isStandaloneSurfaceOpen(key: string): boolean {
   if (!canUseWindow()) return false;
-  return window.localStorage.getItem(storageKey(key)) !== null;
+  const value = window.localStorage.getItem(storageKey(key));
+  if (!value) return false;
+  try {
+    const event = JSON.parse(value) as StandaloneSurfaceEvent;
+    return event.action === "open";
+  } catch {
+    return false;
+  }
 }
 
 export function markStandaloneSurfaceOpen(key: string): void {
@@ -77,8 +93,12 @@ export function subscribeStandaloneSurface(
 ): () => void {
   if (!canUseWindow()) return () => {};
 
+  const seenEvents = new Set<string>();
   const handleEvent = (event: StandaloneSurfaceEvent) => {
     if (event.key !== key || event.sourceId === SOURCE_ID) return;
+    const eventId = `${event.sourceId}:${event.at}:${event.action}`;
+    if (seenEvents.has(eventId)) return;
+    seenEvents.add(eventId);
     handler(event.action === "open", event);
   };
 
@@ -91,15 +111,18 @@ export function subscribeStandaloneSurface(
     try {
       handleEvent(JSON.parse(event.newValue) as StandaloneSurfaceEvent);
     } catch {
-      handler(true, null);
+      handler(false, null);
     }
   };
 
   window.addEventListener("storage", handleStorage);
 
   let channel: BroadcastChannel | null = null;
-  if ("BroadcastChannel" in window) {
-    channel = new BroadcastChannel(CHANNEL_NAME);
+  const BroadcastChannelCtor = (window as Window & {
+    BroadcastChannel?: typeof BroadcastChannel;
+  }).BroadcastChannel;
+  if (BroadcastChannelCtor) {
+    channel = new BroadcastChannelCtor(CHANNEL_NAME);
     channel.addEventListener("message", (event) => {
       handleEvent(event.data as StandaloneSurfaceEvent);
     });

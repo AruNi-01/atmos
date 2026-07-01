@@ -47,8 +47,8 @@ export function PreviewContent({
       {isChromeHidden ? (
         <div
           className={cn(
-            "relative z-30 shrink-0 overflow-visible transition-[height] duration-300 ease-in-out",
-            isChromeHovered ? "h-auto" : "h-3",
+            "relative z-30 shrink-0 overflow-visible transition-[max-height] duration-300 ease-in-out",
+            isChromeHovered ? "max-h-40" : "max-h-3",
             toolbarHoverSuppressed && "pointer-events-none",
           )}
           onMouseEnter={() => setIsChromeHovered(true)}
@@ -58,8 +58,8 @@ export function PreviewContent({
         >
           <div
             className={cn(
-              "relative inset-x-0 top-0 z-30 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
-              isChromeHovered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0",
+              "relative inset-x-0 top-0 z-30 min-h-3 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
+              isChromeHovered ? "translate-y-0 opacity-100" : "-translate-y-[calc(100%-0.75rem)] opacity-0",
             )}
           >
             {chrome}

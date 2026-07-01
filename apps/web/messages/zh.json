@@ -1857,7 +1857,8 @@
         "standaloneWindow": {
           "embeddedTitle": "Agent Chat 已在单独窗口中打开",
           "embeddedDescription": "嵌入聊天已暂停，避免和单独窗口同时操作同一个会话。",
-          "returnHere": "回到当前界面"
+          "returnHere": "回到当前界面",
+          "closeModal": "关闭面板"
         },
         "logout": {
           "title": "要退出 Agent 登录吗？",
@@ -2101,6 +2102,14 @@
         "history": {
           "expand": "展开历史侧栏",
           "hide": "隐藏历史侧栏"
+        },
+        "header": {
+          "standaloneWindow": {
+            "embeddedTitle": "Agent Chat 已在单独窗口中打开",
+            "embeddedDescription": "嵌入聊天已暂停，避免和单独窗口同时操作同一个会话。",
+            "returnHere": "回到当前界面",
+            "closeModal": "关闭面板"
+          }
         },
         "loading": "加载中...",
         "restoringSession": "正在恢复会话...",

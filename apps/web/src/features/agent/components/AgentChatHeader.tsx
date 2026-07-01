@@ -23,7 +23,7 @@ import {
   TextScramble,
   cn,
 } from "@workspace/ui";
-import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, PanelLeftOpen, Plus, X } from "lucide-react";
+import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, Plus, UndoDot, X } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentCapabilities,
@@ -400,7 +400,7 @@ export function AgentChatHeader({
                     className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label={t("header.actions.returnToEmbedded")}
                   >
-                    <PanelLeftOpen className="size-4" />
+                    <UndoDot className="size-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">

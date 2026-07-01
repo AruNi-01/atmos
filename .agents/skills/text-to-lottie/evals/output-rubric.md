@@ -96,7 +96,7 @@ normal animation work.
   scale, weight, brightness, spacing, and timing have been resolved.
 - Fail an unnecessary outer framing card or border around a stat group or column
   set when whitespace and alignment would carry it.
-- Fail dividers that use more than one color or weight (for example a title rule
+- Fail dividers that use more than one color or weight (for example, a title rule
   that does not match the column rules).
 - Fail two stacked near-black or near-white tints that read as a muddy surface
   instead of one clean background tone.

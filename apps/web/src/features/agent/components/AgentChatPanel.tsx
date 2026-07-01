@@ -14,7 +14,7 @@ import {
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { ChevronDown, Loader2, MessageSquare } from "lucide-react";
+import { ChevronDown, Loader2, MessageSquare, X } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
@@ -74,7 +74,9 @@ export function AgentChatPanel({
   const t = useTranslations("Agent.components.chatPanel");
   const canFullscreen = variant !== "standalone" && (allowFullscreen ?? true);
   const [fullscreenRequested, setFullscreenRequested] = useState(false);
+  const [isStandaloneChatOpen, setIsStandaloneChatOpen] = useState(false);
   const isFullscreen = canFullscreen && fullscreenRequested;
+  const isEmbeddedPausedForStandalone = variant !== "standalone" && isStandaloneChatOpen;
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const reserveDesktopTrafficLights =
     needsTrafficLightsPadding && (variant === "standalone" || isFullscreen);
@@ -86,7 +88,7 @@ export function AgentChatPanel({
     variant,
     mode,
     publishStatus,
-    active,
+    active: active && !isEmbeddedPausedForStandalone,
     historyListActive: showsWideHistoryLayout,
     contextOverride,
     transformPrompt,
@@ -350,7 +352,6 @@ export function AgentChatPanel({
     () => makeStandaloneSurfaceKey("agent-chat", sessionWorkspaceId, sessionProjectId),
     [sessionProjectId, sessionWorkspaceId],
   );
-  const [isStandaloneChatOpen, setIsStandaloneChatOpen] = useState(false);
 
   useEffect(() => {
     if (variant === "standalone") {
@@ -365,7 +366,6 @@ export function AgentChatPanel({
       return () => {
         window.removeEventListener("beforeunload", handleBeforeUnload);
         unsubscribe();
-        closeStandaloneSurface(standaloneSurfaceKey);
       };
     }
 
@@ -472,7 +472,7 @@ export function AgentChatPanel({
 
   if (!session.isPanelOpen || (variant === "modal" && !layoutLoaded)) return null;
 
-  if (variant !== "standalone" && isStandaloneChatOpen) {
+  if (isEmbeddedPausedForStandalone) {
     return (
       <div
         ref={panelRef}
@@ -493,13 +493,25 @@ export function AgentChatPanel({
           <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {t("header.standaloneWindow.embeddedDescription")}
           </div>
-          <button
-            type="button"
-            className="mt-4 inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
-            onClick={handleReturnChatToEmbedded}
-          >
-            {t("header.standaloneWindow.returnHere")}
-          </button>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+              onClick={handleReturnChatToEmbedded}
+            >
+              {t("header.standaloneWindow.returnHere")}
+            </button>
+            {variant === "modal" && (
+              <button
+                type="button"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+                onClick={session.handleClose}
+              >
+                <X className="size-3.5" aria-hidden="true" />
+                {t("header.standaloneWindow.closeModal")}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

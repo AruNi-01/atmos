@@ -71,5 +71,13 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
         faviconUrl,
       });
     },
+    openTab(targetUrl: string) {
+      post({
+        type: 'atmos-preview:open-tab',
+        sessionId: options.sessionId,
+        pageUrl: win.location.href,
+        targetUrl,
+      });
+    },
   };
 }

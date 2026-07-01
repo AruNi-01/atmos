@@ -110,7 +110,7 @@ export function HostedBootstrapBoundary({
   // (see Footer ticker comment: nested motion interrupts backgroundPosition shimmer).
   if (phase === "loading") {
     return (
-      <div className="flex min-h-0 flex-1 animate-in bg-background fade-in duration-200">
+      <div key="hosted-shell-loading" className="flex min-h-0 flex-1 animate-in bg-background fade-in duration-200">
         <HostedLandingLoading />
       </div>
     );
@@ -119,6 +119,7 @@ export function HostedBootstrapBoundary({
   if (phase === "onboarding") {
     return (
       <div
+        key="hosted-shell-onboarding"
         className="flex min-h-0 flex-1 animate-in bg-background fade-in slide-in-from-bottom-2 duration-200"
       >
         <HostedWelcomeGate />
@@ -127,7 +128,7 @@ export function HostedBootstrapBoundary({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200">
+    <div key="hosted-shell-ready" className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200">
       {children}
     </div>
   );

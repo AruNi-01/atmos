@@ -160,6 +160,7 @@ export function usePreviewSelection({
     };
 
     setEditingAnnotationId(null);
+    selectionInfoRef.current = nextSelectionInfo;
     setSelectionInfo(nextSelectionInfo);
     if (mode === 'desktop-native') {
       setSelectionPopoverVisible(false);
@@ -207,6 +208,7 @@ export function usePreviewSelection({
         },
       ];
       nextCount = nextAnnotations.length;
+      selectionAnnotationsRef.current = nextAnnotations;
       return nextAnnotations;
     });
 
@@ -273,7 +275,6 @@ export function usePreviewSelection({
 
     try {
       await navigator.clipboard.writeText(formatPreviewAnnotationsForAI(annotations, t));
-      await Promise.resolve(transportControllerRef.current?.clearAnnotations?.());
       setSelectionAnnotations([]);
       toastManager.add({
         title: t("toast.copiedTitle"),
@@ -282,6 +283,7 @@ export function usePreviewSelection({
         }),
         type: 'success',
       });
+      await Promise.resolve(transportControllerRef.current?.clearAnnotations?.()).catch(() => undefined);
       dismissSelectionPopover();
     } catch {
       toastManager.add({

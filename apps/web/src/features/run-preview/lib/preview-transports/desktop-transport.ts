@@ -60,6 +60,10 @@ export async function connectDesktopPreviewTransport(
       if (payload.sessionId !== options.sessionId || typeof payload.pageTitle !== 'string') return;
       options.onTitleChanged?.(payload.pageTitle, payload.faviconUrl, payload.pageUrl);
     }),
+    listenDesktopPreviewBridge('desktop-preview:open-tab', (payload) => {
+      if (payload.sessionId !== options.sessionId || typeof payload.targetUrl !== 'string') return;
+      options.onOpenTab?.(payload.targetUrl, payload.pageUrl);
+    }),
     listenDesktopPreviewBridge('desktop-preview:cursor-changed', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
       options.onCursorChange?.((payload as { cursor?: string }).cursor || 'default');

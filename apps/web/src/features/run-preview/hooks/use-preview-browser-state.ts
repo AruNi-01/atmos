@@ -36,6 +36,7 @@ function createBrowserTab(
     url: normalizedUrl,
     activeUrl: normalizedUrl,
     title: "",
+    titleUrl: "",
     faviconUrl: "",
     lastAccessedAt,
   };
@@ -111,6 +112,7 @@ function normalizeBrowserContext(
             url: tab.url,
             activeUrl: tab.activeUrl,
             title: typeof tab.title === "string" ? tab.title : "",
+            titleUrl: typeof tab.titleUrl === "string" ? tab.titleUrl : "",
             faviconUrl: typeof tab.faviconUrl === "string" ? tab.faviconUrl : "",
             lastAccessedAt: getFiniteAccessedAt(
               tab.lastAccessedAt,
@@ -232,6 +234,7 @@ export function usePreviewBrowserState({
                 url: nextUrl,
                 activeUrl: nextUrl,
                 title: "",
+                titleUrl: "",
                 faviconUrl: "",
                 lastAccessedAt: Date.now(),
               }
@@ -288,13 +291,18 @@ export function usePreviewBrowserState({
         const nextCanonicalUrl = canonicalizeUrl(nextUrl);
         const shouldClearTitle =
           previousUrl && nextCanonicalUrl && previousUrl !== nextCanonicalUrl;
-        const nextTitle = shouldClearTitle ? "" : tab.title;
-        const nextFaviconUrl = shouldClearTitle ? "" : tab.faviconUrl;
+        const titleUrl = canonicalizeUrl(tab.titleUrl || "");
+        const shouldKeepIncomingTitle =
+          shouldClearTitle && titleUrl && titleUrl === nextCanonicalUrl;
+        const nextTitle = shouldClearTitle && !shouldKeepIncomingTitle ? "" : tab.title;
+        const nextTitleUrl = shouldClearTitle && !shouldKeepIncomingTitle ? "" : tab.titleUrl;
+        const nextFaviconUrl = shouldClearTitle && !shouldKeepIncomingTitle ? "" : tab.faviconUrl;
 
         if (
           tab.url === nextUrl &&
           tab.activeUrl === nextUrl &&
           tab.title === nextTitle &&
+          tab.titleUrl === nextTitleUrl &&
           tab.faviconUrl === nextFaviconUrl
         ) {
           return tab;
@@ -305,6 +313,7 @@ export function usePreviewBrowserState({
           url: nextUrl,
           activeUrl: nextUrl,
           title: nextTitle,
+          titleUrl: nextTitleUrl,
           faviconUrl: nextFaviconUrl,
           lastAccessedAt: now,
         };
@@ -314,16 +323,18 @@ export function usePreviewBrowserState({
   );
 
   const handlePreviewTitleChange = useCallback(
-    (tabId: string, title: string) => {
+    (tabId: string, title: string, pageUrl?: string) => {
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return;
+      const titleUrl = pageUrl ? canonicalizeUrl(pageUrl) : "";
 
       updateBrowserTab(tabId, (tab) =>
-        tab.title === trimmedTitle
+        tab.title === trimmedTitle && tab.titleUrl === titleUrl
           ? tab
           : {
               ...tab,
               title: trimmedTitle,
+              titleUrl,
             },
       );
     },
@@ -350,6 +361,20 @@ export function usePreviewBrowserState({
   const handleAddBrowserTab = useCallback(() => {
     const now = Date.now();
     const nextTab = createBrowserTab("", now + 1);
+    setBrowserState((current) => ({
+      ...pruneLeastRecentlyAccessed({
+        tabs: [...touchTab(current.tabs, current.activeTabId, now), nextTab],
+        activeTabId: nextTab.id,
+      }),
+    }));
+  }, []);
+
+  const handleOpenBrowserTab = useCallback((nextUrl: string) => {
+    const normalizedUrl = canonicalizeUrl(nextUrl) || nextUrl.trim();
+    if (!normalizedUrl) return;
+
+    const now = Date.now();
+    const nextTab = createBrowserTab(normalizedUrl, now + 1);
     setBrowserState((current) => ({
       ...pruneLeastRecentlyAccessed({
         tabs: [...touchTab(current.tabs, current.activeTabId, now), nextTab],
@@ -398,6 +423,7 @@ export function usePreviewBrowserState({
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    handleOpenBrowserTab,
     handlePreviewTitleChange,
     handlePreviewIconChange,
     handleSelectBrowserTab,

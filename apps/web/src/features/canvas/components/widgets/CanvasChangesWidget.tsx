@@ -277,7 +277,6 @@ function CanvasChangesWidgetBody({
             workspaceId={contextId}
             viewMode={viewMode}
             selectedFilePath={selectedPathForSection(displayedComparedFiles)}
-            readOnly
             onOpenDiffFile={openDiffFile}
           />
         ) : changesScope === "staged" ? (

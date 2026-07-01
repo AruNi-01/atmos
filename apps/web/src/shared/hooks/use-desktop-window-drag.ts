@@ -5,7 +5,7 @@ import { useCallback, useMemo } from "react";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 const DESKTOP_WINDOW_DRAG_INTERACTIVE_SELECTOR =
-  '.desktop-no-drag, button, a, input, textarea, select, summary, [role="button"], [contenteditable="true"]';
+  '.desktop-no-drag, button, a, input, textarea, select, summary, [role="button"], [contenteditable], [contenteditable="true"]';
 
 export function useDesktopWindowDrag() {
   const isDesktopDragEnabled = useMemo(() => isTauriRuntime(), []);

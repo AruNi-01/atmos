@@ -431,7 +431,7 @@ function createCanvasCenterTabOpenFile(
   if (tab.kind === "file") {
     const existing = workspaceOpenFiles.find((file) => file.path === tab.path);
     if (existing) {
-      return existing;
+      return { ...existing, isPreview: tab.mode === "preview" };
     }
   }
 
