@@ -122,7 +122,7 @@
     "label": "Cursor Agent",
     "cmd": "agent",
     "params": "--force --print --trust --output-format stream-json --stream-partial-output",
-    "interactiveParams": "--force",
+    "interactiveParams": "--yolo",
     "promptStrategy": "arg",
     "stdoutParser": "cursor_stream_json",
     "modelSupport": "catalog",

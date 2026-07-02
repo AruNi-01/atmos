@@ -19,6 +19,17 @@ describe("getInteractiveAgentParams", () => {
     expect(getInteractiveAgentParams(agent("hermes"))).toBe("chat --yolo");
   });
 
+  it("uses Cursor yolo alias for interactive terminal commands", () => {
+    expect(getInteractiveAgentParams(agent("cursor"))).toBe("--yolo");
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "cursor",
+        launchCommand: "agent --yolo",
+        prompt: "fix this",
+      }),
+    ).toBe("agent --yolo 'fix this'");
+  });
+
   it("maps saved non-interactive default flags back to interactive params", () => {
     expect(getInteractiveAgentParams(agent("pi"), "-p")).toBe("");
     expect(

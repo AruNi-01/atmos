@@ -1268,6 +1268,9 @@ mod tests {
             && agent.params == "exec --json --dangerously-bypass-approvals-and-sandbox"
             && agent.prompt_strategy == Some(PromptStrategy::Arg)
             && agent.stdout_parser == StdoutParser::CodexJsonl));
+        assert!(agents.iter().any(|agent| agent.id == "cursor"
+            && agent.params.starts_with("--force --print")
+            && agent.interactive_params.as_deref() == Some("--yolo")));
     }
 
     #[test]
