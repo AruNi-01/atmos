@@ -1,0 +1,96 @@
+crates/core-engine/src/agent_hooks/codex.rs
+  s_c3912c73ae158c::t_2ed9baf936e662 4-7,42-43,45-47,181,189,193-201
+  s_c3912c73ae158c::t_bbbfd63dd66d43 161
+crates/core-engine/src/agent_hooks/gemini.rs
+  s_c3912c73ae158c::t_2e76190d27099c 4-7,44-45,47-49,192,200,204-212
+  s_c3912c73ae158c::t_bbbfd63dd66d43 172
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  s_c3912c73ae158c::t_1a77f74fbe789c 70,84,134
+  s_04079a59a01ce3::t_71d62a0fe0c386 67-69,81-83,131-133
+apps/web/src/features/settings/components/AgentHookStatusCard.tsx
+  s_c3912c73ae158c::t_93c8cbe8d2db9c 26-28,225-235
+  s_c3912c73ae158c::t_d11353c4852850 236-237
+crates/core-engine/src/agent_hooks/hermes.rs
+  s_04079a59a01ce3::t_b7143c3f6da232 52
+  s_c3912c73ae158c::t_01494ff8705dc0 162
+  s_04079a59a01ce3::t_f55a35980610ce 50-51
+  s_c3912c73ae158c::t_8f18e5d0833d98 185,187-189,193-197
+  s_c3912c73ae158c::t_eb9136ffb28ef6 6,40,53,58
+crates/core-engine/src/agent_hooks/cursor.rs
+  s_c3912c73ae158c::t_bbbfd63dd66d43 177
+  s_c3912c73ae158c::t_59bbd7a6c29b7e 4-7,33-34,36-38,46-47,49-51,197,205,209-217
+crates/core-engine/src/agent_hooks/claude_code.rs
+  s_c3912c73ae158c::t_814d8b02205a34 4-7,44-45,47-49,200,208,212-220
+  s_c3912c73ae158c::t_bbbfd63dd66d43 181
+apps/api/src/api/hooks/mod.rs
+  s_04079a59a01ce3::t_c875ea0a9ff330 36-40
+  s_c3912c73ae158c::t_b66b7ffec9b842 361-390
+  s_c3912c73ae158c::t_2d065c0dd81c41 41-44
+  s_04079a59a01ce3::t_af48483cdad953 26-35
+  s_04079a59a01ce3::t_f665542865a2c1 391
+crates/core-engine/src/agent_hooks/kiro.rs
+  s_c3912c73ae158c::t_58b6f730b161b2 4-7,42-43,45-47,50-52,55-57,60-62,65-67,187,218,221-222
+  s_c3912c73ae158c::t_bbbfd63dd66d43 192
+crates/core-engine/src/agent_hooks/pi.rs
+  s_c3912c73ae158c::t_bbbfd63dd66d43 142
+  s_04079a59a01ce3::t_f55a35980610ce 41-42
+  s_c3912c73ae158c::t_b6a9edca8ee8e3 3-6,29,44,72-73,136,163,166-167
+  s_04079a59a01ce3::t_b7143c3f6da232 43
+apps/web/src/features/agent/lib/agent-hook-navigation.ts
+  s_04079a59a01ce3::t_18634131d998e2 37-39,72-74
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  s_04079a59a01ce3::t_71d62a0fe0c386 46-48,139-141
+  s_c3912c73ae158c::t_9ca306e7e23288 49,142
+crates/core-engine/src/agent_hooks/ampcode.rs
+  s_04079a59a01ce3::t_f55a35980610ce 49-50
+  s_04079a59a01ce3::t_b7143c3f6da232 51
+  s_c3912c73ae158c::t_e4efd24e96ec34 3-6,37,52,83-84,151,178,181-182
+  s_c3912c73ae158c::t_bbbfd63dd66d43 157
+crates/core-engine/src/agent_hooks/mod.rs
+  s_c3912c73ae158c::t_661e0097700bde 369-370,381-394,405-477
+  s_c3912c73ae158c::t_4d908000795ec1 325,366-368,371-376,379,395-404,478
+  s_c3912c73ae158c::t_b06754f93a903c 20-22,41-44,56-58,68-87,89-95,105-107,114-156,159,162-165
+  s_c3912c73ae158c::t_c7a61a9829932d 15,160-161,166-174
+  s_c3912c73ae158c::t_6267ad68bf8756 377-378,380
+  s_c3912c73ae158c::t_bbbfd63dd66d43 88
+  s_c3912c73ae158c::t_6076f950da2d3c 175,274-277,283-289,292-293,299-300,305-306,308,326,479
+  s_c3912c73ae158c::t_5388bd8e32e051 273,278-282,290-291,294-298,301-304,307,309-312
+  s_c3912c73ae158c::t_1468f787f4bbde 157-158
+  s_04079a59a01ce3::t_b136638d6d9ac2 176,313-324,327
+crates/core-engine/src/agent_hooks/factory_droid.rs
+  s_c3912c73ae158c::t_bbbfd63dd66d43 215
+  s_c3912c73ae158c::t_b4b10442d874d7 4-7,44-45,47-49,78-79,81-83,235,243,247-255
+crates/core-service/src/service/agent_hooks.rs
+  s_c3912c73ae158c::t_c0008d342aebdb 84,104-105,125-126,204,299,318
+  s_04079a59a01ce3::t_9bbf399b7684e1 83,102-103,123-124,203,298,317
+  s_04079a59a01ce3::t_ef2c12df3c3f09 81-82,98-101,119-122,201-202,296-297,315-316
+crates/core-engine/src/agent_hooks/opencode.rs
+  s_04079a59a01ce3::t_f55a35980610ce 40-41
+  s_c3912c73ae158c::t_0b44a45ebeea30 3-6,29,43,110-111,176,202,205-206
+  s_c3912c73ae158c::t_bbbfd63dd66d43 181
+  s_04079a59a01ce3::t_b7143c3f6da232 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "99261962cc355c25bc536733a85a69dbcb3fb615",
+  "prompts": {},
+  "sessions": {
+    "s_04079a59a01ce3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2202-1d6f-7a70-8dc0-fab0f144fb69",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c3912c73ae158c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2276-748f-7941-8319-4d92d6a9337b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
