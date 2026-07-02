@@ -7,7 +7,7 @@ use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(target_os = "macos")]
 use tauri::{LogicalPosition, Position, TitleBarStyle};
@@ -31,7 +31,7 @@ pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value
     let port = current_api_port(&state)?;
 
     Ok(json!({
-        "host": "127.0.0.1",
+        "host": crate::runtime::API_BIND_HOST,
         "port": port,
     }))
 }
@@ -79,7 +79,7 @@ pub fn open_agent_chat_window(
     }
 
     let mut builder =
-        WebviewWindowBuilder::new(&app, AGENT_CHAT_WINDOW_LABEL, WebviewUrl::External(url))
+        WebviewWindowBuilder::new(&app, AGENT_CHAT_WINDOW_LABEL, app_window_webview_url(&url))
             .title("Atmos Chat")
             .inner_size(1180.0, 820.0)
             .min_inner_size(720.0, 520.0)
@@ -153,8 +153,8 @@ pub fn read_agent_chat_handoff(
         return Ok(None);
     }
 
-    let bytes = fs::read(&path)
-        .map_err(|error| format!("failed to read Agent Chat handoff: {error}"))?;
+    let bytes =
+        fs::read(&path).map_err(|error| format!("failed to read Agent Chat handoff: {error}"))?;
     let _ = fs::remove_file(&path);
     let snapshot = serde_json::from_slice(&bytes)
         .map_err(|error| format!("failed to parse Agent Chat handoff: {error}"))?;
@@ -189,7 +189,7 @@ pub fn open_preview_browser_window(
     let mut builder = WebviewWindowBuilder::new(
         &app,
         PREVIEW_BROWSER_WINDOW_LABEL,
-        WebviewUrl::External(url),
+        app_window_webview_url(&url),
     )
     .title("Atmos Browser")
     .inner_size(1280.0, 860.0)
@@ -461,7 +461,7 @@ pub fn appshot_show_permissions_window(
 
 fn agent_chat_window_url(
     _locale: Option<&str>,
-    api_port: u16,
+    _api_port: u16,
     agent: Option<&str>,
     session: Option<&str>,
     session_cwd: Option<&str>,
@@ -469,8 +469,7 @@ fn agent_chat_window_url(
     project_id: Option<&str>,
     handoff_token: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let mut url = format!("http://127.0.0.1:{api_port}/agent-chat/")
-        .parse::<tauri::Url>()
+    let mut url = app_window_url("agent-chat/")
         .map_err(|error| format!("invalid Agent Chat window URL: {error}"))?;
 
     {
@@ -500,13 +499,12 @@ fn agent_chat_window_url(
 
 fn preview_browser_window_url(
     _locale: Option<&str>,
-    api_port: u16,
+    _api_port: u16,
     preview_url: Option<&str>,
     workspace_id: Option<&str>,
     project_id: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let mut url = format!("http://127.0.0.1:{api_port}/preview/")
-        .parse::<tauri::Url>()
+    let mut url = app_window_url("preview/")
         .map_err(|error| format!("invalid Preview browser window URL: {error}"))?;
 
     {
@@ -523,6 +521,26 @@ fn preview_browser_window_url(
     }
 
     Ok(url)
+}
+
+fn app_window_url(path: &str) -> Result<Url, String> {
+    let normalized = path.trim_start_matches('/');
+    format!("tauri://localhost/{normalized}")
+        .parse::<Url>()
+        .map_err(|error| error.to_string())
+}
+
+fn app_window_webview_url(url: &Url) -> WebviewUrl {
+    let mut path = url.path().trim_start_matches('/').to_string();
+    if let Some(query) = url.query() {
+        path.push('?');
+        path.push_str(query);
+    }
+    if let Some(fragment) = url.fragment() {
+        path.push('#');
+        path.push_str(fragment);
+    }
+    WebviewUrl::App(PathBuf::from(path))
 }
 
 fn trim_query_value(value: Option<&str>) -> Option<&str> {

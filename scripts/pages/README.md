@@ -84,7 +84,7 @@ The workflow reads those values from GitHub `secrets` first, then falls back to 
 
 ## Notes
 
-- The deployed frontend is static-only; all runtime API access happens in the browser against the user's local Atmos API or relay endpoints.
+- The deployed frontend is static-only; all runtime API access happens in the browser against the user's local Atmos Server or relay endpoints.
 - `apps/web/wrangler.jsonc` only stores Pages project metadata for static deployment:
 
 ```json

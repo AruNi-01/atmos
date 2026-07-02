@@ -1,11 +1,15 @@
-//! Attach Desktop to the shared local API runtime via `runtime-manager`.
+//! Attach Desktop to the shared local Atmos Server runtime via `runtime-manager`.
 
 use std::path::{Path, PathBuf};
 
 use runtime_manager::supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_PORT};
 use tauri::Manager;
 
-const DEFAULT_HOST: &str = "127.0.0.1";
+pub const API_BIND_HOST: &str = "127.0.0.1";
+
+pub fn api_http_base_url(port: u16) -> String {
+    format!("http://{API_BIND_HOST}:{port}")
+}
 
 pub struct DesktopRuntimeFailure {
     pub root_cause: String,
@@ -15,7 +19,7 @@ pub struct DesktopRuntimeFailure {
 pub async fn ensure_desktop_runtime(
     app_handle: &tauri::AppHandle,
 ) -> Result<u16, DesktopRuntimeFailure> {
-    let log_path = crate::logging::app_log_path(app_handle, "runtime-api.log");
+    let log_path = crate::logging::app_log_path(app_handle, "runtime-server.log");
 
     let resource_dir = app_handle
         .path()
@@ -52,7 +56,7 @@ pub async fn ensure_desktop_runtime(
     }
 
     let outcome = runtime_manager::supervisor::ensure_running(EnsureOptions {
-        host: DEFAULT_HOST.to_string(),
+        host: API_BIND_HOST.to_string(),
         port,
         force_restart: false,
         extra_env,
@@ -69,7 +73,7 @@ pub async fn ensure_desktop_runtime(
     if !status.healthy {
         return Err(desktop_failure(
             &log_path,
-            format!("API at {} is not healthy", status.url),
+            format!("Atmos Server at {} is not healthy", status.url),
         ));
     }
 
@@ -85,7 +89,11 @@ pub async fn ensure_desktop_runtime(
 }
 
 fn resolve_bundled_runtime_dir(resource_dir: &Path) -> Result<PathBuf, String> {
-    let api_name = if cfg!(windows) { "api.exe" } else { "api" };
+    let api_names = if cfg!(windows) {
+        ["Atmos Server.exe", "atmos-api.exe", "api.exe"]
+    } else {
+        ["Atmos Server", "atmos-api", "api"]
+    };
 
     let mut candidates = vec![resource_dir.join("runtime").join("current")];
     #[cfg(debug_assertions)]
@@ -94,13 +102,16 @@ fn resolve_bundled_runtime_dir(resource_dir: &Path) -> Result<PathBuf, String> {
     }
 
     for current in candidates {
-        if current.join("bin").join(api_name).is_file() {
+        if api_names
+            .iter()
+            .any(|api_name| current.join("bin").join(api_name).is_file())
+        {
             return Ok(current);
         }
     }
 
     Err(
-        "bundled runtime layout missing (expected runtime/current/bin/api — run prepare-sidecar)"
+        "bundled runtime layout missing (expected runtime/current/bin/Atmos Server — run prepare-sidecar)"
             .into(),
     )
 }

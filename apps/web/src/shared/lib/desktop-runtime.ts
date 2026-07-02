@@ -27,6 +27,7 @@ const loopbackApiPort = (): number =>
 function currentOriginApiConfig(token?: string): ApiConfig | null {
   if (typeof window === 'undefined') return null;
   const protocol = window.location.protocol.replace(':', '') || 'http';
+  if (protocol !== 'http' && protocol !== 'https') return null;
   const defaultPort = protocol === 'https' ? '443' : '80';
   const port = parseInt(window.location.port || defaultPort, 10);
   if (!Number.isFinite(port)) return null;
@@ -131,7 +132,9 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
           errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
           console.warn('[desktop-runtime] invoke get_api_config failed:', e);
           if (isDesktopBuild) {
-            cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+            cachedConfig = desktopBuildFallbackApiConfig(
+              process.env.NEXT_PUBLIC_API_TOKEN || undefined,
+            );
             console.warn(
               `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
             );
@@ -143,7 +146,9 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
     }
     errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
     if (isDesktopBuild) {
-      cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+      cachedConfig = desktopBuildFallbackApiConfig(
+        process.env.NEXT_PUBLIC_API_TOKEN || undefined,
+      );
       console.warn(
         `[desktop-runtime] Tauri invoke bridge unavailable; falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
       );

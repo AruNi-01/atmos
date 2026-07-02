@@ -81,7 +81,7 @@ fn main() {
                         Some(port)
                     }
                     Err(err) => {
-                        eprintln!("Failed to start local runtime: {}", err.root_cause);
+                        eprintln!("Failed to start Atmos Server: {}", err.root_cause);
                         show_startup_error(
                             &app_handle,
                             &StartupFailure {
@@ -94,31 +94,17 @@ fn main() {
                 };
 
                 // Asynchronously restore any tunnel providers that were running
-                // when the app was last closed, now that the local API is ready.
+                // when the app was last closed, now that Atmos Server is ready.
                 if let Some(p) = port {
                     if let Some(main) = app_handle.get_webview_window("main") {
-                        let app_version = app_handle.package_info().version.to_string();
-                        let url = format!("http://127.0.0.1:{p}?desktop_app_version={app_version}");
-                        match url.parse() {
-                            Ok(url) => {
-                                let _ = main.navigate(url);
-                                let _ = main.show();
-                                let _ = main.set_focus();
-                                let state = app_handle.state::<AppState>();
-                                state.main_hidden_by_close.store(false, Ordering::SeqCst);
-                            }
-                            Err(err) => {
-                                let log_path = logging::app_log_path(&app_handle, "desktop.log");
-                                logging::append_log(
-                                    &log_path,
-                                    &format!("failed to parse desktop runtime URL: {err}"),
-                                );
-                            }
-                        }
+                        let _ = main.show();
+                        let _ = main.set_focus();
+                        let state = app_handle.state::<AppState>();
+                        state.main_hidden_by_close.store(false, Ordering::SeqCst);
                     }
 
                     let recover_handle = app_handle.clone();
-                    let target_base_url = format!("http://127.0.0.1:{p}");
+                    let target_base_url = runtime::api_http_base_url(p);
                     tauri::async_runtime::spawn(async move {
                         tunnel_connector::startup_recover(recover_handle, target_base_url).await;
                     });
@@ -338,7 +324,7 @@ fn main() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| match event {
-        // On quit, also tear down the shared local API daemon. This is an
+        // On quit, also tear down the shared local Atmos Server daemon. This is an
         // explicit product decision: Desktop owns the runtime lifecycle for
         // end users, so closing the app should not leave a background process
         // listening on the loopback port.
@@ -346,14 +332,14 @@ fn main() {
             let _ = preview_bridge::close_all_preview_windows(&app_handle);
             match tauri::async_runtime::block_on(runtime_manager::supervisor::stop_running(false)) {
                 Ok(stopped) => {
-                    let log_path = logging::app_log_path(&app_handle, "runtime-api.log");
+                    let log_path = logging::app_log_path(&app_handle, "runtime-server.log");
                     logging::append_log(
                         &log_path,
                         &format!("runtime stop on exit: stopped={stopped}"),
                     );
                 }
                 Err(err) => {
-                    let log_path = logging::app_log_path(&app_handle, "runtime-api.log");
+                    let log_path = logging::app_log_path(&app_handle, "runtime-server.log");
                     logging::append_log(&log_path, &format!("runtime stop on exit failed: {err}"));
                 }
             }

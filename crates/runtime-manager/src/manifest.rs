@@ -151,7 +151,7 @@ pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
         return Ok(manifest.api.url);
     }
     Err(
-        "No API URL — start the local API (`atmos runtime ensure`), open Web/Desktop, or pass --api-url."
+        "No Atmos Server URL — start Atmos Server (`atmos runtime ensure`), open Web/Desktop, or pass --api-url."
             .into(),
     )
 }

@@ -1,4 +1,4 @@
-//! `atmos runtime` — ensure / stop / status for the local API runtime.
+//! `atmos runtime` — ensure / stop / status for local Atmos Server.
 
 use clap::{Args, Subcommand};
 use runtime_manager::supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT};
@@ -14,11 +14,11 @@ pub async fn execute(command: RuntimeCommand) -> Result<Value, String> {
 
 #[derive(Debug, Subcommand)]
 pub enum RuntimeCommand {
-    /// Start the local API if it is not already running (writes `runtime_manifest.json`).
+    /// Start Atmos Server if it is not already running (writes `runtime_manifest.json`).
     Ensure(EnsureArgs),
-    /// Stop the local API and remove `runtime_manifest.json`.
+    /// Stop Atmos Server and remove `runtime_manifest.json`.
     Stop(StopArgs),
-    /// Show install layout and whether the API is healthy.
+    /// Show install layout and whether Atmos Server is healthy.
     Status,
 }
 
@@ -30,7 +30,7 @@ pub struct EnsureArgs {
     pub host: String,
     #[arg(long, default_value_t = false)]
     pub force_restart: bool,
-    /// Bind API on all interfaces (`0.0.0.0`); manifest still points clients to loopback.
+    /// Bind Atmos Server on all interfaces (`0.0.0.0`); manifest still points clients to loopback.
     #[arg(long, default_value_t = false)]
     pub lan: bool,
     #[arg(long, default_value_t = false)]

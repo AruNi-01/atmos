@@ -7,7 +7,7 @@ This directory contains local scripts for building the Atmos desktop app on deve
 - `build-local-macos.sh`: Main local build entry for macOS.
 - `prepare-sidecar.sh`: Builds `api`, **rebuilds** web static export (`build-web-static.mjs`), and lays out the **unified local runtime** bundle.
 - `build-web-static.mjs`: `next build` with `BUILD_TARGET=desktop` and copy to `binaries/web-out`.
-- `layout-runtime-bundle.sh`: Creates `apps/desktop/src-tauri/binaries/runtime/current/` (`bin/api`, `web/`, `system-skills/`).
+- `layout-runtime-bundle.sh`: Creates `apps/desktop/src-tauri/binaries/runtime/current/` (`bin/Atmos Server`, `web/`, `system-skills/`).
 - `before-build.mjs`: Node-based prebuild script used by Tauri `beforeBuildCommand`.
 
 ## Prerequisites
@@ -115,4 +115,4 @@ Set `ATMOS_DESKTOP_SKIP_WEB_BUILD=1` to reuse an existing `apps/web/out` when on
   Run `bash scripts/desktop/prepare-sidecar.sh` (or `layout-runtime-bundle.sh` after `cargo build --bin api`).
 
 - `bundled runtime layout missing` at Desktop startup  
-  Same as above — `binaries/runtime/current/bin/api` must exist before `tauri dev` / `tauri build`.
+  Same as above — `binaries/runtime/current/bin/Atmos Server` must exist before `tauri dev` / `tauri build`.

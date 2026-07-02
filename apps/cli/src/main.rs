@@ -29,12 +29,12 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Manage code review sessions, comments, and agent runs (via the Atmos API).
+    /// Manage code review sessions, comments, and agent runs (via Atmos Server).
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
     },
-    /// Ensure / stop / status for the local API (`runtime_manifest.json`).
+    /// Ensure / stop / status for the local Atmos Server (`runtime_manifest.json`).
     Runtime {
         #[command(subcommand)]
         command: RuntimeCommand,

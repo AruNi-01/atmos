@@ -199,7 +199,7 @@ const apiSource = join(rootDir, `target/${targetTriple}/release/api${binExt}`);
 const webOut = join(rootDir, "apps/web/out");
 const skillsDir = join(rootDir, "skills");
 
-if (!existsSync(apiSource)) fail(`Missing built API binary: ${apiSource}`);
+if (!existsSync(apiSource)) fail(`Missing built Atmos Server binary: ${apiSource}`);
 if (!existsSync(webOut)) fail(`Missing static web export: ${webOut}`);
 
 ensureRootIndex(webOut);
@@ -207,7 +207,7 @@ rmSync(stageRoot, { recursive: true, force: true });
 mkdirSync(join(runtimeDir, "bin"), { recursive: true });
 mkdirSync(join(runtimeDir, "web"), { recursive: true });
 
-cpSync(apiSource, join(runtimeDir, "bin", `api${binExt}`));
+cpSync(apiSource, join(runtimeDir, "bin", `Atmos Server${binExt}`));
 cpSync(webOut, join(runtimeDir, "web"), { recursive: true });
 
 if (existsSync(skillsDir)) {
@@ -225,7 +225,7 @@ writeFileSync(
       target_triple: targetTriple,
       built_at: new Date().toISOString(),
       layout: {
-        api: `bin/api${binExt}`,
+        api: `bin/Atmos Server${binExt}`,
         web: "web",
         system_skills: "system-skills",
       },

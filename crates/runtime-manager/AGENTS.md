@@ -1,6 +1,6 @@
 # runtime-manager (L1.5 local host) - AGENTS.md
 
-> **🖥 Local host glue**: Manifest discovery, relay identity, and optional API process supervisor. Not the in-process “agent runtime” — that lives in `crates/agent` / `apps/api`.
+> **🖥 Local host glue**: Manifest discovery, relay identity, and optional Atmos Server process supervisor. Not the in-process “agent runtime” — that lives in `crates/agent` / `apps/api`.
 
 ---
 
@@ -47,7 +47,7 @@ crates/runtime-manager/src/
 ### Supervisor
 
 - Resolves install layout: `ATMOS_RUNTIME_DIR` or `~/.atmos/runtime/current` or bundled Desktop `runtime/current`.
-- Spawns `bin/api` with `ATMOS_STATIC_DIR` and optional `extra_env` (e.g. Desktop `ATMOS_DATA_DIR`). User-facing CLI resolution is always `~/.atmos/bin/atmos`.
+- Spawns `bin/Atmos Server` with `ATMOS_STATIC_DIR` and optional `extra_env` (e.g. Desktop `ATMOS_DATA_DIR`). Older bundle names are still accepted as compatibility fallbacks. User-facing CLI resolution is always `~/.atmos/bin/atmos`.
 
 ---
 

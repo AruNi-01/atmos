@@ -153,7 +153,7 @@ async fn download_and_install_cli(asset_url: &str, cli_path: &Path) -> Result<()
     let target = current_target_triple()?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(300))
-        .user_agent("atmos-api")
+        .user_agent("atmos-server")
         .build()
         .map_err(|error| format!("Failed to create HTTP client: {}", error))?;
 
@@ -279,7 +279,7 @@ pub async fn fetch_latest_cli_release() -> Result<LatestCliRelease, String> {
 async fn fetch_latest_cli_release_from_manifest() -> Result<LatestCliRelease, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
-        .user_agent("atmos-api")
+        .user_agent("atmos-server")
         .build()
         .map_err(|error| error.to_string())?;
     let manifest = client
@@ -299,7 +299,7 @@ async fn fetch_latest_cli_release_from_manifest() -> Result<LatestCliRelease, St
 async fn fetch_latest_cli_release_from_api() -> Result<LatestCliRelease, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
-        .user_agent("atmos-api")
+        .user_agent("atmos-server")
         .build()
         .map_err(|error| error.to_string())?;
     let releases = client
@@ -330,7 +330,7 @@ async fn fetch_latest_cli_release_from_api() -> Result<LatestCliRelease, String>
 async fn fetch_latest_cli_release_from_tags_feed() -> Result<LatestCliRelease, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
-        .user_agent("atmos-api")
+        .user_agent("atmos-server")
         .build()
         .map_err(|error| error.to_string())?;
     let feed = client

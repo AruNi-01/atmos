@@ -16,6 +16,26 @@ use crate::manifest::{
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_PORT: u16 = 30303;
 
+fn api_bin_name() -> &'static str {
+    if cfg!(windows) {
+        "Atmos Server.exe"
+    } else {
+        "Atmos Server"
+    }
+}
+
+fn interim_api_bin_name() -> &'static str {
+    if cfg!(windows) {
+        "atmos-api.exe"
+    } else {
+        "atmos-api"
+    }
+}
+
+fn legacy_api_bin_name() -> &'static str {
+    if cfg!(windows) { "api.exe" } else { "api" }
+}
+
 #[derive(Debug, Clone)]
 pub struct RuntimeLayout {
     pub runtime_dir: PathBuf,
@@ -46,9 +66,9 @@ pub struct EnsureOptions {
     pub host: String,
     pub port: u16,
     pub force_restart: bool,
-    /// Extra env vars passed to the API process (e.g. `ATMOS_DATA_DIR` for Desktop).
+    /// Extra env vars passed to the Atmos Server process (e.g. `ATMOS_DATA_DIR` for Desktop).
     pub extra_env: Vec<(String, String)>,
-    /// Spawn API detached and return after a short health wait (VPS / headless).
+    /// Spawn Atmos Server detached and return after a short health wait (VPS / headless).
     pub daemon: bool,
     /// Optional health-check attempts override. Each attempt waits about 500ms.
     pub health_attempts: Option<usize>,
@@ -316,7 +336,7 @@ fn spawn_detached_api(
 
         let output = command.output().map_err(|error| {
             format!(
-                "Failed to spawn API via shell for {}: {}",
+                "Failed to spawn Atmos Server via shell for {}: {}",
                 layout.api_bin_path.display(),
                 error
             )
@@ -324,7 +344,7 @@ fn spawn_detached_api(
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
             return Err(if stderr.is_empty() {
-                "API launcher shell failed".to_string()
+                "Atmos Server launcher shell failed".to_string()
             } else {
                 stderr
             });
@@ -333,7 +353,7 @@ fn spawn_detached_api(
         let pid_text = String::from_utf8_lossy(&output.stdout).trim().to_string();
         pid_text
             .parse::<u32>()
-            .map_err(|error| format!("Failed to parse API pid `{pid_text}`: {error}"))
+            .map_err(|error| format!("Failed to parse Atmos Server pid `{pid_text}`: {error}"))
     }
 
     #[cfg(not(unix))]
@@ -367,7 +387,7 @@ fn spawn_detached_api(
 
         let child = command.spawn().map_err(|error| {
             format!(
-                "Failed to start API {}: {}",
+                "Failed to start Atmos Server {}: {}",
                 layout.api_bin_path.display(),
                 error
             )
@@ -387,7 +407,7 @@ async fn wait_for_health(
             let mut system = System::new_all();
             system.refresh_process(Pid::from_u32(process_id));
             if system.process(Pid::from_u32(process_id)).is_none() {
-                return Err("API process exited before becoming ready".into());
+                return Err("Atmos Server process exited before becoming ready".into());
             }
         }
         if is_runtime_healthy(host, port).await {
@@ -396,7 +416,7 @@ async fn wait_for_health(
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
     Err(format!(
-        "Timed out waiting for API at {}",
+        "Timed out waiting for Atmos Server at {}",
         runtime_url(host, port)
     ))
 }
@@ -514,9 +534,21 @@ pub fn resolve_runtime_layout() -> Result<RuntimeLayout, String> {
         default_runtime_dir()?
     };
 
-    let bin_name = if cfg!(windows) { "api.exe" } else { "api" };
+    let preferred_api_bin_path = runtime_dir.join("bin").join(api_bin_name());
+    let interim_api_bin_path = runtime_dir.join("bin").join(interim_api_bin_name());
+    let legacy_api_bin_path = runtime_dir.join("bin").join(legacy_api_bin_name());
+    let api_bin_path = if preferred_api_bin_path.is_file()
+        || (!interim_api_bin_path.is_file() && !legacy_api_bin_path.is_file())
+    {
+        preferred_api_bin_path
+    } else if interim_api_bin_path.is_file() {
+        interim_api_bin_path
+    } else {
+        legacy_api_bin_path
+    };
+
     Ok(RuntimeLayout {
-        api_bin_path: runtime_dir.join("bin").join(bin_name),
+        api_bin_path,
         web_dir: runtime_dir.join("web"),
         system_skills_dir: runtime_dir.join("system-skills"),
         version_file_path: runtime_dir.join("version.txt"),
@@ -532,7 +564,7 @@ fn runtime_log_path() -> Result<PathBuf, String> {
     Ok(atmos_home_dir()?
         .join("runtime")
         .join("logs")
-        .join("api.log"))
+        .join("server.log"))
 }
 
 fn error_with_recent_log(error: String, log_path: &Path) -> String {
@@ -552,7 +584,7 @@ fn error_with_recent_log(error: String, log_path: &Path) -> String {
         .join("\n");
 
     if !recent.trim().is_empty() {
-        message.push_str("\n\nRecent API log:\n");
+        message.push_str("\n\nRecent Atmos Server log:\n");
         message.push_str(&recent);
     }
 

@@ -218,19 +218,19 @@ async fn register_with_local_api(
     let response = request
         .send()
         .await
-        .map_err(|err| format!("local API register request failed ({url}): {err}"))?;
+        .map_err(|err| format!("Atmos Server register request failed ({url}): {err}"))?;
     let status = response.status();
     let value = response
         .json::<Value>()
         .await
-        .map_err(|err| format!("local API register response parse failed: {err}"))?;
+        .map_err(|err| format!("Atmos Server register response parse failed: {err}"))?;
     if !status.is_success() {
         let detail = value
             .get("error")
             .and_then(|err| err.as_str())
             .map(str::to_string)
             .unwrap_or_else(|| value.to_string());
-        return Err(format!("local API register failed ({status}): {detail}"));
+        return Err(format!("Atmos Server register failed ({status}): {detail}"));
     }
     crate::api_client::unwrap_api_envelope(value)
 }

@@ -142,7 +142,7 @@ fn render_runtime_status(
     );
     push_row(
         &mut rows,
-        "API binary",
+        "Atmos Server binary",
         str_field(status, "api_bin_path").map(compact_path),
     );
     push_row(

@@ -6,14 +6,14 @@
 
 ## Build And Test
 
-- **Dev**: `just dev-desktop` — `prepare-sidecar.sh` (rebuilds web static + API) then `tauri dev --no-dev-server-wait --no-watch` (no `dev-web` required)
+- **Dev**: `just dev-desktop` — `prepare-sidecar.sh` (rebuilds web static + Atmos Server) then `tauri dev --no-dev-server-wait --no-watch` (no `dev-web` required)
 - **Build**: `just build-desktop`
-- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (builds latest `apps/web/out`, API, lays out `binaries/runtime/current`)
+- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (builds latest `apps/web/out`, Atmos Server, lays out `binaries/runtime/current`)
 - **Faster re-run** (Rust-only): `ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop`
 ---
 
 
-## Local API runtime (unified with CLI / local-web)
+## Local Atmos Server Runtime (unified with CLI / local-web)
 
 Desktop **does not** spawn a dedicated Tauri sidecar with a per-launch `ATMOS_LOCAL_TOKEN`.
 
@@ -21,16 +21,16 @@ On startup, `src-tauri/src/runtime.rs` calls `runtime-manager::supervisor::ensur
 
 ```text
 apps/desktop/src-tauri/binaries/runtime/current/
-  bin/api
-  web/              # static export (production navigates to http://127.0.0.1:<port>)
+  bin/Atmos Server
+  web/              # static export loaded by the Tauri app protocol
   system-skills/
 ```
 
-- Discovery: `~/.atmos/runtime_manifest.json` (written by the API; **no auth token** in the manifest).
+- Discovery: `~/.atmos/runtime_manifest.json` (written by Atmos Server; **no auth token** in the manifest).
 - Data dir: `ATMOS_DATA_DIR` → Tauri app data directory.
-- **Quit also stops the API daemon** — `RunEvent::Exit` in `src-tauri/src/main.rs` calls `runtime_manager::supervisor::stop_running(false)`. Desktop owns the runtime lifecycle for end users; closing the app should not leave a loopback API listening in the background. CLI / local-web-runtime can independently re-`ensure` it later.
+- **Quit also stops Atmos Server** — `RunEvent::Exit` in `src-tauri/src/main.rs` calls `runtime_manager::supervisor::stop_running(false)`. Desktop owns the runtime lifecycle for end users; closing the app should not leave a loopback server listening in the background. CLI / local-web-runtime can independently re-`ensure` it later.
 
-`get_api_config` returns `{ host: "127.0.0.1", port }` only. Web reads it via `apps/web/src/lib/desktop-runtime.ts`.
+`get_api_config` returns `{ host: "127.0.0.1", port }` only. The main WebView stays on the Tauri app protocol; Atmos Server access goes through loopback fetch/WebSocket calls. Web reads it via `apps/web/src/shared/lib/desktop-runtime.ts`.
 
 ---
 
@@ -46,7 +46,7 @@ apps/desktop/
 │   └── types/                # TypeScript definitions
 ├── src-tauri/                # Rust-based native layer
 │   ├── src/
-│   │   ├── runtime.rs        # ensure shared local API (runtime-manager)
+│   │   ├── runtime.rs        # ensure shared local Atmos Server (runtime-manager)
 │   │   └── commands.rs       # Hand-written Rust commands (JS ↔ Rust bridge)
 │   ├── tauri.conf.json       # Tauri configuration
 │   └── tauri.debug.conf.json # Debug configuration

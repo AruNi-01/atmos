@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tauri::utils::config::Color;
 use tauri::Url;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -13,7 +15,7 @@ pub fn show_permissions_window(
     api_port: u16,
 ) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(PERMISSIONS_WINDOW_LABEL) {
-        let _ = existing.navigate(appshot_external_url(
+        let _ = existing.navigate(appshot_app_url(
             "appshot-permissions",
             locale.as_deref(),
             api_port,
@@ -59,16 +61,16 @@ pub fn show_permissions_window(
 fn appshot_window_url(
     route: &str,
     locale: Option<&str>,
-    api_port: u16,
+    _api_port: u16,
 ) -> Result<WebviewUrl, String> {
-    Ok(WebviewUrl::External(appshot_external_url(
-        route, locale, api_port,
-    )?))
+    Ok(WebviewUrl::App(PathBuf::from(appshot_window_route(
+        route, locale,
+    )?)))
 }
 
-fn appshot_external_url(route: &str, locale: Option<&str>, api_port: u16) -> Result<Url, String> {
+fn appshot_app_url(route: &str, locale: Option<&str>, _api_port: u16) -> Result<Url, String> {
     let route = appshot_window_route(route, locale)?;
-    let url = format!("http://127.0.0.1:{api_port}/{route}");
+    let url = format!("tauri://localhost/{route}");
     url.parse::<Url>()
         .map_err(|error| format!("invalid Appshots window URL: {error}"))
 }

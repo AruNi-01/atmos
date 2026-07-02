@@ -34,18 +34,18 @@ apps/cli/
 
 | Command | Purpose |
 |---------|---------|
-| `atmos runtime` | Ensure/stop/status local API via `runtime-manager::supervisor` |
-| `atmos computer` | Register on relay (`register_token`) + `ensure` API on this host |
-| `atmos canvas` | Agent canvas control — resolves API URL via `resolve_api_base_url()` |
-| `atmos review` | HTTP client to `/api/review/*` (same API base resolution as canvas) |
+| `atmos runtime` | Ensure/stop/status local Atmos Server via `runtime-manager::supervisor` |
+| `atmos computer` | Register on relay (`register_token`) + ensure Atmos Server on this host |
+| `atmos canvas` | Agent canvas control — resolves Atmos Server URL via `resolve_api_base_url()` |
+| `atmos review` | HTTP client to `/api/review/*` (same Atmos Server base URL resolution as canvas) |
 
-### API URL resolution (`runtime-manager`)
+### Atmos Server URL resolution (`runtime-manager`)
 
 Global on every command: `atmos --api-url … canvas status` (also per-subcommand).
 
 1. `--api-url` / `ATMOS_API_URL` (explicit override)
 2. `~/.atmos/client-session.json` (only when UI is on **relay** — gateway + token)
-3. `~/.atmos/runtime_manifest.json` (normal **local** path — API writes this on start)
+3. `~/.atmos/runtime_manifest.json` (normal **local** path — Atmos Server writes this on start)
 
 Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-session.json` (`gateway_token`).
 
@@ -55,7 +55,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 
 - Subcommands return `serde_json::Value`; `main` prints human-readable output for host operations by default and keeps `--json` for machine-readable output.
 - **Supervisor** spawns installed layout under `~/.atmos/runtime/current` (or dev paths) — same binary Desktop uses when bundled.
-- Do not embed `core-service` / `infra` — all review/canvas state goes through the API.
+- Do not embed `core-service` / `infra` — all review/canvas state goes through Atmos Server.
 
 ---
 
@@ -65,7 +65,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 
 - Duplicate `core-service` business rules in CLI.
 - Assume global default `127.0.0.1` when UI context points at another Computer.
-- Kill a shared API on unrelated command exit.
+- Kill a shared Atmos Server on unrelated command exit.
 
 ### ALWAYS
 

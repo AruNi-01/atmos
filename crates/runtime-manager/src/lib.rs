@@ -1,7 +1,7 @@
 //! Local Atmos runtime: manifest discovery, relay identity, optional process supervisor.
 //!
 //! - **`client`**: `runtime_manifest.json`, `relay_identity.json`, relay registration.
-//! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/api`.
+//! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/Atmos Server`.
 
 mod cli_update;
 mod client_session;
