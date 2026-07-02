@@ -1,0 +1,20 @@
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  s_e2d64a7a050680::t_527d7ad25991eb 894,911,933-938,943,951,972,989,1012,1018
+  s_e2d64a7a050680::t_5c5b237f280b36 930,1009
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "35a21e0cfad5bb98a8b308a6e10eea02c7d9fdf8",
+  "prompts": {},
+  "sessions": {
+    "s_e2d64a7a050680": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f217d-c031-7830-b60e-e5ae01453fb0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
