@@ -229,6 +229,7 @@ export function GlobalSearch() {
 
   // Keyboard shortcut to open search
   useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t('hotkeys.toggleGlobalSearch'),
@@ -245,6 +246,7 @@ export function GlobalSearch() {
     setTimeout(() => inputRef.current?.focus(), 0);
   }, {
     enabled: isGlobalSearchOpen,
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t('hotkeys.switchSearchTabs'),

@@ -170,6 +170,40 @@ describe("PromptComposer Appshot paste handling", () => {
     expect(latestText.trim()).toBe("");
     expect(composerRef.current?.getText().trim()).toBe("");
   });
+
+  it("does not delete an Appshot chip when Backspace is deleting user-entered spaces after it", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    await act(async () => {
+      composerRef.current?.setText(`[#appshot:${timestamp}]   `);
+    });
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) {
+      throw new Error("PromptComposer editor not found");
+    }
+    placeCaretAtEnd(editor);
+
+    let eventWasNotPrevented = false;
+    await act(async () => {
+      const event = new window.KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Backspace",
+      });
+      eventWasNotPrevented = editor.dispatchEvent(event);
+    });
+
+    expect(eventWasNotPrevented).toBe(true);
+    expect(editor.querySelector("[data-kind='appshot']")).not.toBeNull();
+    expect(composerRef.current?.getText()).toBe(`[#appshot:${timestamp}]   `);
+  });
 });
 
 function pasteEvent(text: string): Event {

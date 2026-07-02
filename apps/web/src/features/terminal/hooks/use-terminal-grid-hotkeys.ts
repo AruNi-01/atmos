@@ -29,8 +29,11 @@ export function useTerminalGridHotkeys({
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
       const container = terminalHotkeyScopeRef.current;
       if (!container || container.getClientRects().length === 0) return;
-      const target = event.target;
-      const isTerminalEventTarget = target instanceof Node && container.contains(target);
+      const eventTarget = event.target instanceof Node ? event.target : null;
+      const activeTarget = document.activeElement;
+      const isTerminalEventTarget =
+        (eventTarget !== null && container.contains(eventTarget)) ||
+        (activeTarget !== null && container.contains(activeTarget));
       if (!isTerminalEventTarget || !(event.metaKey || event.ctrlKey) || event.altKey) return;
 
       if (!event.shiftKey && (event.key.toLowerCase() === "d" || event.code === "KeyD")) {

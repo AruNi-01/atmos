@@ -118,6 +118,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const CurrentLabel = currentApp?.label || t('quickOpen.open');
 
   useHotkeys('mod+o', handleMainClick, {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t('quickOpen.hotkeyDescription', { app: CurrentLabel })

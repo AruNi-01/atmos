@@ -54,6 +54,7 @@ interface TerminalAgentInputOverlayProps {
 }
 
 export interface TerminalAgentInputOverlayHandle {
+  focus: () => void;
   toggle: () => void;
 }
 
@@ -100,9 +101,16 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopover(null);
   }, [focusComposerSoon, isSendAnimating, isSendExiting]);
 
+  const focusInput = React.useCallback(() => {
+    if (isSendAnimating || isSendExiting) return;
+    setIsOpen(true);
+    focusComposerSoon();
+  }, [focusComposerSoon, isSendAnimating, isSendExiting]);
+
   React.useImperativeHandle(ref, () => ({
+    focus: focusInput,
     toggle: toggleInput,
-  }), [toggleInput]);
+  }), [focusInput, toggleInput]);
 
   const {
     attachments,

@@ -66,8 +66,8 @@ interface PromptComposerProps extends ComposerCallbacks {
 const CHIP_TOKEN_PATTERN =
   String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
-const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})$`);
-const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})`);
+const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
+const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
 
 /**
  * SVG icons used inside chips live as static assets under
@@ -484,6 +484,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       top: number;
       left: number;
     } | null>(null);
+    const savedCaretOffsetRef = React.useRef<number | null>(null);
 
     const fireChange = React.useCallback(() => {
       if (!editorRef.current) return;
@@ -498,6 +499,28 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       onTextChange?.(text);
     }, [onTextChange]);
 
+    const rememberCaretOffset = React.useCallback(() => {
+      if (!editorRef.current) return;
+      const offset = getCaretTextOffset(editorRef.current);
+      if (offset !== null) {
+        savedCaretOffsetRef.current = offset;
+      }
+    }, []);
+
+    const focusEditor = React.useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const savedOffset = savedCaretOffsetRef.current;
+      editor.focus({ preventScroll: true });
+      if (savedOffset === null) return;
+      window.requestAnimationFrame(() => {
+        const current = editorRef.current;
+        if (!current || document.activeElement !== current) return;
+        const boundedOffset = Math.max(0, Math.min(savedOffset, serialize(current).length));
+        setCaretAtTextOffset(current, boundedOffset);
+      });
+    }, []);
+
     React.useImperativeHandle(ref, () => ({
       getText: () => (editorRef.current ? serialize(editorRef.current) : ""),
       setText: (text: string) => {
@@ -508,6 +531,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       clear: () => {
         if (!editorRef.current) return;
         editorRef.current.innerHTML = "";
+        savedCaretOffsetRef.current = 0;
         fireChange();
       },
       insertMention: (mention) => {
@@ -524,6 +548,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
+        rememberCaretOffset();
       },
       insertFileMention: (relativePath: string) => {
         if (!editorRef.current) return;
@@ -532,6 +557,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
+        rememberCaretOffset();
       },
       applyMentionAtRange: (atOffset, queryLength, mention) => {
         if (!editorRef.current) return;
@@ -554,7 +580,9 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
-        setCaretAtTextOffset(editorRef.current, replaceFrom + insertText.length);
+        const nextCaretOffset = replaceFrom + insertText.length;
+        setCaretAtTextOffset(editorRef.current, nextCaretOffset);
+        savedCaretOffsetRef.current = nextCaretOffset;
       },
       applySlashAtRange: (slashOffset, queryLength, mention) => {
         if (!editorRef.current) return;
@@ -577,7 +605,9 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
-        setCaretAtTextOffset(editorRef.current, replaceFrom + insertText.length);
+        const nextCaretOffset = replaceFrom + insertText.length;
+        setCaretAtTextOffset(editorRef.current, nextCaretOffset);
+        savedCaretOffsetRef.current = nextCaretOffset;
       },
       insertImagePlaceholder: (n) => {
         if (!editorRef.current) return;
@@ -586,6 +616,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
+        rememberCaretOffset();
       },
       removeImagePlaceholder: (n) => {
         if (!editorRef.current) return;
@@ -594,11 +625,15 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         nodes.forEach((node) => node.remove());
         fireChange();
       },
-      focus: () => editorRef.current?.focus(),
+      focus: focusEditor,
       placeCaretAtClientPoint: (clientX, clientY) => {
         if (!editorRef.current) return false;
         editorRef.current.focus();
-        return setCaretAtClientPoint(editorRef.current, clientX, clientY);
+        const placed = setCaretAtClientPoint(editorRef.current, clientX, clientY);
+        if (placed) {
+          rememberCaretOffset();
+        }
+        return placed;
       },
     }));
 
@@ -614,6 +649,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       ) {
         event.preventDefault();
         fireChange();
+        rememberCaretOffset();
         setChipTooltip(null);
         onAtCancel?.();
         onSlashCancel?.();
@@ -668,6 +704,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
 
     const handleInput = () => {
       fireChange();
+      rememberCaretOffset();
       if (!editorRef.current) return;
       // The hovered chip may have been deleted by this input (e.g. Backspace);
       // a removed DOM node never fires mouseout, so the tooltip would stay
@@ -765,6 +802,9 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           suppressContentEditableWarning
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onKeyUp={rememberCaretOffset}
+          onMouseUp={rememberCaretOffset}
+          onBlur={rememberCaretOffset}
           onPaste={handlePaste}
           onMouseOver={handleEditorMouseOver}
           onMouseOut={handleEditorMouseOut}

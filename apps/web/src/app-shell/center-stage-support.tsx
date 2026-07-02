@@ -352,7 +352,7 @@ export function useCenterStageKeyboardShortcuts({
       if (!effectiveContextId) return;
       handleCenterStageTabChange("overview");
     },
-    { enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
     [effectiveContextId, handleCenterStageTabChange],
   );
 
@@ -362,7 +362,7 @@ export function useCenterStageKeyboardShortcuts({
       const target = visibleTerminalTabs[0];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
     [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
@@ -372,7 +372,7 @@ export function useCenterStageKeyboardShortcuts({
       const target = visibleTerminalTabs[1];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
     [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
@@ -382,7 +382,7 @@ export function useCenterStageKeyboardShortcuts({
       const target = visibleTerminalTabs[2];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
     [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
@@ -392,7 +392,7 @@ export function useCenterStageKeyboardShortcuts({
       const target = visibleTerminalTabs[3];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
     [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
@@ -402,7 +402,7 @@ export function useCenterStageKeyboardShortcuts({
       const target = visibleTerminalTabs[4];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: true, preventDefault: true },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
     [handleCenterStageTabChange, visibleTerminalTabs],
   );
 }

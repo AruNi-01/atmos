@@ -423,7 +423,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useHotkeys(
         "mod+n",
         handleToggleNewWorkspace,
-        { enableOnFormTags: true, preventDefault: true },
+        { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
         [handleToggleNewWorkspace],
     );
 
@@ -431,7 +431,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useHotkeys(
         "mod+shift+h",
         handleToggleCanvas,
-        { enableOnFormTags: true, preventDefault: true },
+        { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
         [handleToggleCanvas],
     );
 
@@ -442,7 +442,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         () => {
             void setIsKanbanExpanded(true);
         },
-        { enableOnFormTags: true, preventDefault: true },
+        { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
         [setIsKanbanExpanded],
     );
 

@@ -4,7 +4,14 @@ import { useTranslations } from "next-intl";
 import type { MutableRefObject } from "react";
 
 function isTerminalHotkeyTarget(target: EventTarget | null) {
-  return target instanceof HTMLElement && Boolean(target.closest(".terminal-mosaic-container"));
+  const candidates = [
+    target instanceof Node ? target : null,
+    document.activeElement,
+  ];
+  return candidates.some((node) => {
+    const element = node instanceof Element ? node : node?.parentElement;
+    return Boolean(element?.closest(".terminal-mosaic-container"));
+  });
 }
 
 export function useHeaderHotkeys({
@@ -51,18 +58,21 @@ export function useHeaderHotkeys({
   }, []);
 
   useHotkeys("mod+b", toggleLeftSidebar, {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t("toggleLeftSidebar"),
   });
 
   useHotkeys("mod+r", () => window.location.reload(), {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t("refreshPage"),
   });
 
   useHotkeys("mod+u", () => setIsUsagePopoverOpen((prev) => !prev), {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t("toggleAiUsage"),
@@ -74,6 +84,7 @@ export function useHeaderHotkeys({
     }
     setIsActionMenuOpen((prev) => !prev);
   }, {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t("toggleMenu"),
@@ -84,6 +95,7 @@ export function useHeaderHotkeys({
       toggleRightSidebar();
     }
   }, {
+    enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t("toggleRightSidebar"),

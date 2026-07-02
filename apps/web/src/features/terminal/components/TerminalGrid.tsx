@@ -46,6 +46,11 @@ import "./terminal-grid.css";
 
 export type { TerminalGridHandle, TerminalToolbarActions } from "../lib/terminal-grid-utils";
 
+function isRestorableTerminalFocusElement(element: HTMLElement): boolean {
+  const tagName = element.tagName;
+  return element.isContentEditable || tagName === "TEXTAREA" || tagName === "INPUT";
+}
+
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false, onNewTerminalTab, onTerminalPaneClosed }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
@@ -63,6 +68,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextSplitSubmenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
+  const lastFocusedElementRef = React.useRef<HTMLElement | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
   const isCodeReview = scope === "code-review";
@@ -216,6 +223,41 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }, 0);
   }, [panes]);
 
+  const rememberGridFocus = React.useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement) || !isRestorableTerminalFocusElement(target)) return;
+    lastFocusedElementRef.current = target;
+  }, []);
+
+  const restoreLastFocusedElement = React.useCallback(() => {
+    const container = terminalHotkeyScopeRef.current;
+    const element = lastFocusedElementRef.current;
+    if (!container || !element || !document.contains(element) || !container.contains(element)) {
+      return false;
+    }
+    if (!isRestorableTerminalFocusElement(element)) return false;
+
+    const paneElement = element.closest<HTMLElement>("[data-pane-id]");
+    const paneId = paneElement?.dataset.paneId ?? null;
+    window.setTimeout(() => {
+      const currentContainer = terminalHotkeyScopeRef.current;
+      if (!currentContainer || !document.contains(element) || !currentContainer.contains(element)) {
+        return;
+      }
+
+      if (element.isContentEditable && paneId) {
+        const overlayRef = agentInputOverlayRefsMap.current.get(paneId);
+        if (overlayRef) {
+          overlayRef.focus();
+          return;
+        }
+      }
+
+      element.focus({ preventScroll: true });
+    }, 0);
+
+    return true;
+  }, []);
+
   const getFocusedPaneId = useCallback(() => effectiveActivePaneId, [effectiveActivePaneId]);
 
   const focusPaneByOffset = useCallback((offset: 1 | -1) => {
@@ -344,6 +386,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       terminalRefsMap.current.clear();
     },
     focusActivePane: () => {
+      if (restoreLastFocusedElement()) {
+        return;
+      }
       if (effectiveActivePaneId) {
         focusPane(effectiveActivePaneId);
       }
@@ -356,7 +401,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       focusPane(paneId);
       return true;
     },
-  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, setPaneAgent, terminalTabId]);
+  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgent, terminalTabId]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout
@@ -534,8 +579,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }
     toggleMaximizeForScope(workspaceId, id, terminalTabId);
   }, [workspaceId, toggleMaximizeForScope, isCodeReview, isProjectWiki, terminalTabId]);
-
-  const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
 
   const toggleFocusedAgentInput = useCallback(() => {
     const paneId = getFocusedPaneId();
@@ -787,6 +830,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         data-maximized-id={maximizedId || undefined}
         data-pane-dragging={isPaneDragging ? "true" : undefined}
         onContextMenu={handleContextMenu}
+        onFocusCapture={(event) => rememberGridFocus(event.target)}
       >
         <Mosaic<string>
           renderTile={renderTile}
