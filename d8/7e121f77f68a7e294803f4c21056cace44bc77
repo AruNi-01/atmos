@@ -1,0 +1,194 @@
+apps/web/src/features/terminal/components/terminal-mosaic-workspace-pane-window.tsx
+  s_04079a59a01ce3::t_7516bff5663250 28,177-202,467,477-479,482
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  s_04079a59a01ce3::t_0ea42dc3cd1a89 16,20-21,94,128-153,177,475,483-502
+crates/core-engine/src/tmux/mod.rs
+  s_04079a59a01ce3::t_61f6f22b537e8c 27,290-358
+apps/web/src/api/ws-api.ts
+  s_04079a59a01ce3::t_1beababd6fd94f 234-250,253-264,266-294,296-301
+  s_04079a59a01ce3::t_96c2fbc8bbafe7 251-252,265,295
+crates/infra/src/lib.rs
+  s_04079a59a01ce3::t_b906c13167e15a 5-8
+apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx
+  s_04079a59a01ce3::t_d7f39abdf0a0a3 690,693-696
+  s_04079a59a01ce3::t_ce5b9352e80bf4 472,476,487,489,493,502,504,705-709,720,722-725,727-734,763-767,822-828,830-852,887-889,891
+  s_04079a59a01ce3::t_5fcb33d41cf3e9 904-943,946-1025
+  s_04079a59a01ce3::t_3c83be0cb1630c 214
+  s_04079a59a01ce3::t_60759fd72de8c7 14,741-746
+  s_04079a59a01ce3::t_fd26d08a7e3160 156,1093-1107,1109-1111
+  s_04079a59a01ce3::t_d12e98e4c8b1c0 141,1198-1221
+  s_04079a59a01ce3::t_a3b50e8a80fa1e 1-4,17-20,22-24,26,29-40,43-68,88-101,103,105,110,115-135,137-139,142-155,157-183,185-195,197-213,215-216,218-223,225-239,241-251,263,273-276,278-281,284-287,289-300,302-313,326,339-344,346-352,356,366-381,383-390,392-408,410-416,418,420-425,427-433,437-438,449,468-471,473-475,477-483,485-486,488,490-492,494-500,503,505-506,566,682-683,686-689,691-692,697-699,890,892-893,945,1026-1029,1031-1034,1036-1039,1046-1050,1052,1056,1058-1059,1061-1062,1068-1069,1074-1092,1127-1197,1222
+  s_04079a59a01ce3::t_d3483fdd696912 409,419,426,435-436,439-448,450-462,464-467
+  s_04079a59a01ce3::t_d0fff8390bf8e2 1030,1035,1040-1045,1057,1063,1067,1070-1073
+  s_04079a59a01ce3::t_e0ebc3111a99cc 104,224,252-262,264-272,277,282,301,327-338,345,357-365,391
+  s_04079a59a01ce3::t_cf80c40f99dfe6 102,314-321,323-325
+  s_04079a59a01ce3::t_f81bccddb98a6f 196
+  s_04079a59a01ce3::t_e842b5d826e605 21,41-42,136,140,217,283,288,322,382,1108,1112-1126
+  s_04079a59a01ce3::t_47bf85eb11237d 5-13,15-16,353-355,417,434,463,484,501,509,515-520,522-523,557-558,607-662,710-719,726,735-740,747-762,771,779-820
+  s_04079a59a01ce3::t_8d5c1a1fca37e2 25,106-109,111-114,184,240
+  s_04079a59a01ce3::t_d568a5248c47a8 721,768-770,772-778,821
+  s_04079a59a01ce3::t_fb749cefb1cdd9 69-87,507-508,510-514,521,524,526-556,559-565,567-606,663-681,684-685,700-704,894-903,944
+  s_04079a59a01ce3::t_e1c1ce8470cc9b 1051,1053-1055,1060,1064-1066
+  s_04079a59a01ce3::t_ac62e305bf67be 27-28,525,829,853-886
+apps/web/src/features/terminal/components/terminal-mosaic-scoped-pane-window.tsx
+  s_04079a59a01ce3::t_2ee315978c9804 29,150-171,408,418-420,423
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  s_04079a59a01ce3::t_ea77cbb660054a 50,54,154,158
+apps/web/src/features/settings/components/SettingsModal.tsx
+  s_04079a59a01ce3::t_963ed710ff733b 16,275-279,283,285,888,892
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  s_04079a59a01ce3::t_7533a663fc973e 301-321,344,365-367,428
+apps/api/src/api/ws/router/mod.rs
+  s_04079a59a01ce3::t_3b10b968808cb3 403-422
+apps/api/src/api/ws/terminal_handler.rs
+  s_04079a59a01ce3::t_4917a73647651d 57-64,115-118,156-159,183-186,288-291,330-333
+  s_04079a59a01ce3::t_dd94e0f385ee9e 21-22
+crates/infra/src/db/entities/terminal_side_chat.rs
+  s_04079a59a01ce3::t_e63c1eefff4b89 1-34
+apps/api/src/main.rs
+  s_c3912c73ae158c::t_bbbfd63dd66d43 153-157
+  s_c3912c73ae158c::t_567e14253db721 150
+  s_04079a59a01ce3::t_214260f85d06ad 319
+  s_c3912c73ae158c::t_7bb45ab17be88e 151-152,160-168
+apps/web/src/features/settings/components/TerminalSettingsSection.tsx
+  s_04079a59a01ce3::t_c80ad77fcdcd94 3,11,16-21,34,38,44,48,51-53,75-94,187-216
+  s_04079a59a01ce3::t_d34dc199a9198f 217
+crates/infra/src/db/repo/mod.rs
+  s_04079a59a01ce3::t_e63c1eefff4b89 6,14
+crates/infra/src/db/repo/terminal_side_chat_repo.rs
+  s_04079a59a01ce3::t_dd94e0f385ee9e 15-16,162,182
+  s_04079a59a01ce3::t_e63c1eefff4b89 1-14,17-161,163-181,183-190
+apps/web/src/features/welcome/hooks/use-welcome-slash-navigation.ts
+  s_04079a59a01ce3::t_f0c8a8a69687d4 15-20,24,32,36,44,48,82,99,137-139,151
+crates/core-service/src/lib.rs
+  s_04079a59a01ce3::t_fe216a4d049c84 43-46
+apps/api/src/relay/terminal.rs
+  s_04079a59a01ce3::t_4917a73647651d 7-8,300-303
+apps/web/src/features/terminal/types/index.ts
+  s_04079a59a01ce3::t_8be90aebe6b6fc 39-43
+crates/core-service/src/service/terminal/management.rs
+  s_04079a59a01ce3::t_4397cb89b0f72a 6,68,73-74,76-79
+  s_04079a59a01ce3::t_bb9e90453915a7 4-5,12-22,25-47,52-67,69-72,75,80-112,114-121,123,127-291,462-463,470-483,793-896,901-933,935-963,965-1001,1005-1051,1053-1057
+  s_04079a59a01ce3::t_1500962108c7b5 113,122
+  s_04079a59a01ce3::t_dd94e0f385ee9e 48-51,124-126,464-469,897-900,934,964,1002-1004,1052
+apps/web/src/features/terminal/lib/terminal-ws-url.ts
+  s_04079a59a01ce3::t_e7ff7d9f50c23c 9-12,49-52,72-83
+apps/web/messages/zh.json
+  s_bf5ebe9b3ef047::t_f78adcde45c468 110,112
+  s_04079a59a01ce3::t_74a06ba585208b 3451-3454,3819-3821,4600-4604
+  s_04079a59a01ce3::t_767feb7a21ec77 2818,7396-7407,7413-7414,7416-7418
+  s_b23f74feebe7cc::t_46e65af091f24e 7565-7567,7570-7571,7573-7574,7578
+  s_b23f74feebe7cc::t_374b68eb5944b0 7568-7569,7572,7575-7577
+  s_04079a59a01ce3::t_fb7bfaa0059768 7408-7412,7415
+apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts
+  s_04079a59a01ce3::t_3310cfe7665599 44-69
+crates/core-engine/src/lib.rs
+  s_04079a59a01ce3::t_b906c13167e15a 30
+apps/web/src/features/settings/store/terminal-side-chat-settings-store.ts
+  s_04079a59a01ce3::t_b8cb55ca8fe382 1-134
+crates/core-service/src/service/terminal/types.rs
+  s_04079a59a01ce3::t_0755a22a2ebbc1 1,36-80,82,84-88,101-104,120-123,140-143,221-224,251-307,337
+  s_04079a59a01ce3::t_31d29a6815f929 81,83
+  s_04079a59a01ce3::t_099ba065c40a43 308-336
+crates/infra/src/db/migration/mod.rs
+  s_04079a59a01ce3::t_e63c1eefff4b89 37,74
+crates/core-service/src/service/terminal.rs
+  s_04079a59a01ce3::t_7ea94cf309dcf8 122-125,235
+  s_04079a59a01ce3::t_bad8da1847755c 12-13,28-30,71,102,106-109,112-121,140,145,220-223,228-234,236-242,418-424,429-437,451-469,487-490,584-587,740-743,770-773,904-907
+  s_04079a59a01ce3::t_4397cb89b0f72a 41-58
+crates/core-engine/src/tmux/types.rs
+  s_04079a59a01ce3::t_61f6f22b537e8c 21-30
+packages/shared/src/terminal/title.ts
+  s_04079a59a01ce3::t_3e35bac162061b 208-213,237,239
+apps/web/messages/en.json
+  s_b23f74feebe7cc::t_374b68eb5944b0 7568-7569,7572-7573,7575-7577
+  s_04079a59a01ce3::t_8f4dc1a6b6f586 3451-3454,3819-3821,4600-4604
+  s_b23f74feebe7cc::t_46e65af091f24e 7565-7567,7570-7571,7574,7578
+  s_bf5ebe9b3ef047::t_a0b6851810d9dc 110,112
+  s_04079a59a01ce3::t_7dc8611c48f6e7 7408-7412,7415
+  s_04079a59a01ce3::t_767feb7a21ec77 2818,7396-7407,7413-7414,7416-7418
+apps/web/src/features/settings/components/settings-modal-data.ts
+  s_04079a59a01ce3::t_d829b224dbc1a8 630-632
+apps/api/src/api/ws/message.rs
+  s_04079a59a01ce3::t_598b669a265e2c 352-361
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  s_04079a59a01ce3::t_0563ead23a2569 74,98-123,181
+  s_04079a59a01ce3::t_9954b4b4289a3b 11-12,68,177-180,182,580-581,607-608,634-635
+  s_04079a59a01ce3::t_2186c7ab202e82 183
+  s_04079a59a01ce3::t_dda91c0bb92296 184
+apps/api/src/api/ws/message/terminal.rs
+  s_04079a59a01ce3::t_598b669a265e2c 35-42,50-132
+crates/infra/src/db/mod.rs
+  s_04079a59a01ce3::t_dd94e0f385ee9e 22
+apps/web/src/features/terminal/components/Terminal.tsx
+  s_04079a59a01ce3::t_8be90aebe6b6fc 85-88,173-176
+apps/web/src/features/connection/hooks/use-websocket.ts
+  s_04079a59a01ce3::t_9293fc75650c59 150-154
+apps/api/src/api/ws/router/terminal.rs
+  s_04079a59a01ce3::t_997ded5b5d95c6 133-135
+  s_04079a59a01ce3::t_5a0c237c1e44d2 5-8,108-111,150-153,162-165,175-269,313-329
+  s_04079a59a01ce3::t_dd94e0f385ee9e 166-174
+  s_04079a59a01ce3::t_972a704be1ef78 330-331
+crates/infra/src/db/migration/m20260702_000031_create_terminal_side_chat.rs
+  s_04079a59a01ce3::t_dd94e0f385ee9e 37-61,82-86,88-92
+  s_04079a59a01ce3::t_e63c1eefff4b89 1-36,62-81,87,93-178
+apps/web/src/api/ws/settings-api.ts
+  s_04079a59a01ce3::t_ba0949084117c2 50
+crates/infra/src/db/entities/mod.rs
+  s_04079a59a01ce3::t_e63c1eefff4b89 15
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  s_04079a59a01ce3::t_7da052d9282475 6,8,22,36,57-60,79-82,98,102,104-106,108-111,113,230,234-244,290-298,361-377,414,417-419,493-512,515-524,530,543-553
+  s_04079a59a01ce3::t_e93a258ab08c33 332-347
+  s_04079a59a01ce3::t_bdc154fe04c32c 571-574,576-631
+  s_04079a59a01ce3::t_9c32010e9e897e 575
+  s_04079a59a01ce3::t_90c6f99a0dc4e4 103,112,360
+  s_04079a59a01ce3::t_11c1a823117e2c 107
+  s_04079a59a01ce3::t_a229d7ba28b6c4 348
+crates/core-engine/src/tmux/capture.rs
+  s_04079a59a01ce3::t_61f6f22b537e8c 150-179
+apps/web/src/features/terminal/components/TerminalAgentInputPopovers.tsx
+  s_04079a59a01ce3::t_cdcf19cf743826 12,25,38,53,66,96,103,110
+apps/web/src/features/welcome/components/SlashCommandPopover.tsx
+  s_04079a59a01ce3::t_cb343d02caf2a9 9,35,41,48,58,64,71,79,98-99,105,125-143,145-161,176-177,181,199,203
+  s_04079a59a01ce3::t_6b33a93465dda5 5,144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "d87e121f77f68a7e294803f4c21056cace44bc77",
+  "prompts": {},
+  "sessions": {
+    "s_04079a59a01ce3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2202-1d6f-7a70-8dc0-fab0f144fb69",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b23f74feebe7cc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f22a7-5159-7ba2-82c7-d6a5512c81e6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_bf5ebe9b3ef047": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f22cf-55a3-7051-a4c3-fa502379d455",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c3912c73ae158c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2276-748f-7941-8319-4d92d6a9337b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
