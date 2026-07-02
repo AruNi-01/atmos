@@ -1,0 +1,21 @@
+.agents/skills/atmos-docs-write/evals/evals.json
+  s_3fb1191d66c7a7::t_aad8e8ffa35230 21-26
+.agents/skills/atmos-docs-write/SKILL.md
+  s_3fb1191d66c7a7::t_aad8e8ffa35230 3,7,13,22,65,67-69,77,79-80,82-83,88,90,92-95,120,210-233,253,255,263
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "e01f27663d9fdf27e3d149ca669d84cce51a2167",
+  "prompts": {},
+  "sessions": {
+    "s_3fb1191d66c7a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2157-9c3c-72d1-8f3f-8d5be38a3bb8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
