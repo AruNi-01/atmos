@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ErrorDisplay } from '@/shared/components/error-display';
+import { BreakoutErrorPage } from '@/shared/components/breakout-error-page';
 
 export default function AppError({
   error,
@@ -15,9 +15,9 @@ export default function AppError({
   }, [error]);
 
   return (
-    <ErrorDisplay
-      message={error.message}
-      fallbackMessage="An unexpected error occurred in the application."
+    <BreakoutErrorPage
+      kind="server"
+      errorMessage={error.message}
       onRetry={reset}
       className="flex-1"
     />
