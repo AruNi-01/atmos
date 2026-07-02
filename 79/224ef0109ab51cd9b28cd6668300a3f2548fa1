@@ -1,0 +1,41 @@
+apps/web/src/app-shell/center-stage-support.tsx
+  s_3f63fbb3d70c76::t_0538188f5a40f5 355,365,375,385,395,405
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_3f63fbb3d70c76::t_ee7dec68139eeb 426,434,445
+apps/web/src/features/terminal/hooks/use-terminal-grid-hotkeys.ts
+  s_3f63fbb3d70c76::t_b1e0d3f26fbb15 32-36
+apps/web/src/app-shell/GlobalSearch.tsx
+  s_3f63fbb3d70c76::t_8ce90f73d1de2f 232,249
+apps/web/src/app-shell/use-header-hotkeys.ts
+  s_3f63fbb3d70c76::t_d76880bdcc3eec 61,68,75,87,98
+  s_3f63fbb3d70c76::t_3a5bff200dff90 7-14
+apps/web/src/app-shell/QuickOpen.tsx
+  s_3f63fbb3d70c76::t_0b4825a0129101 121
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  s_3f63fbb3d70c76::t_569779d49376fa 69-70
+  s_3f63fbb3d70c76::t_33c2454a56b14a 487,502-523,534,551,560,583-585,608-610,619,628,632-636,652,707,805-807
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  s_3f63fbb3d70c76::t_8d1b3f2ae5054e 57,104-109,111,113
+apps/web/src/features/welcome/components/__tests__/prompt-composer-appshot-paste.test.tsx
+  s_3f63fbb3d70c76::t_e792f17e550a74 173-192,194,196-199,201-202,204-206
+  s_3f63fbb3d70c76::t_3ec89f6d24a3ae 193,195,200,203
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  s_3f63fbb3d70c76::t_ee0fd7b1d038a0 71
+  s_3f63fbb3d70c76::t_5b35d6445cae0f 49-53,72,226-260,389-391,404,833
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "79224ef0109ab51cd9b28cd6668300a3f2548fa1",
+  "prompts": {},
+  "sessions": {
+    "s_3f63fbb3d70c76": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f21f0-2b51-7e31-a1b7-b4b098477301",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
