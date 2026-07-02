@@ -31,6 +31,10 @@ import { usePreviewIframeLoad } from "../hooks/use-preview-iframe-load";
 import { usePreviewLifecycleEffects } from "../hooks/use-preview-lifecycle-effects";
 import { usePreviewNavigation } from "../hooks/use-preview-navigation";
 import { useNativePreviewOcclusion } from "../hooks/use-native-preview-occlusion";
+import {
+  usePreviewCanvasViewportController,
+  type PreviewCanvasViewportController,
+} from "../hooks/use-preview-canvas-viewport-controller";
 import { usePreviewSelection } from "../hooks/use-preview-selection";
 import { usePreviewToolbarLayout } from "../hooks/use-preview-toolbar-layout";
 import { usePreviewWindowState } from "../hooks/use-preview-window-state";
@@ -74,10 +78,7 @@ interface PreviewProps {
   onCloseStandalonePreviewWindow?: () => void;
 }
 
-export interface PreviewCanvasViewportController {
-  syncViewport: () => void;
-  hide: () => void;
-}
+export type { PreviewCanvasViewportController };
 
 interface PreviewTransportState {
   mode: PreviewTransportMode | 'unavailable';
@@ -190,10 +191,6 @@ export const Preview: React.FC<PreviewProps> = ({
   const forceDesktopNavigationRef = useRef(false);
   const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
-  const canvasViewportSyncInFlightRef = useRef(false);
-  const canvasViewportSyncQueuedRef = useRef(false);
-  const canvasViewportSyncRafRef = useRef<number | null>(null);
-  const canvasViewportSyncRequesterRef = useRef<(() => void) | null>(null);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
   const extensionConnectingRef = useRef(false);
@@ -855,91 +852,15 @@ export const Preview: React.FC<PreviewProps> = ({
     desktopPreviewVisibleRef.current = false;
   }, []);
 
-  const runCanvasViewportSync = useCallback(async () => {
-    if (
-      preferredTransportMode !== 'desktop-native' ||
-      !desktopCommittedUrlRef.current ||
-      shouldSuspendDesktopPreview
-    ) {
-      await hideDesktopPreview();
-      return;
-    }
-
-    const surface = desktopViewportRef.current;
-    if (!surface) {
-      await hideDesktopPreview();
-      return;
-    }
-
-    const rect = surface.getBoundingClientRect();
-    const visibleWidth = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
-    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-    if (
-      rect.width < 16 ||
-      rect.height < 16 ||
-      visibleWidth < 8 ||
-      visibleHeight < 8
-    ) {
-      await hideDesktopPreview();
-      return;
-    }
-
-    await showDesktopPreview();
-  }, [hideDesktopPreview, preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
-
-  const syncCanvasViewport = useCallback(() => {
-    if (canvasViewportSyncInFlightRef.current) {
-      canvasViewportSyncQueuedRef.current = true;
-      return;
-    }
-
-    canvasViewportSyncInFlightRef.current = true;
-    void (async () => {
-      try {
-        await runCanvasViewportSync();
-      } finally {
-        canvasViewportSyncInFlightRef.current = false;
-        if (!canvasViewportSyncQueuedRef.current) return;
-
-        canvasViewportSyncQueuedRef.current = false;
-        if (canvasViewportSyncRafRef.current != null) {
-          window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
-        }
-        canvasViewportSyncRafRef.current = window.requestAnimationFrame(() => {
-          canvasViewportSyncRafRef.current = null;
-          canvasViewportSyncRequesterRef.current?.();
-        });
-      }
-    })().catch(() => undefined);
-  }, [runCanvasViewportSync]);
-  canvasViewportSyncRequesterRef.current = syncCanvasViewport;
-
-  useEffect(() => {
-    return () => {
-      if (canvasViewportSyncRafRef.current != null) {
-        window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!canvasViewportControllerRef) return;
-
-    const controller: PreviewCanvasViewportController = {
-      syncViewport: syncCanvasViewport,
-      hide: () => {
-        void hideDesktopPreview();
-      },
-    };
-    canvasViewportControllerRef.current = controller;
-    syncCanvasViewport();
-
-    return () => {
-      if (canvasViewportControllerRef.current === controller) {
-        canvasViewportControllerRef.current = null;
-      }
-    };
-  }, [canvasViewportControllerRef, hideDesktopPreview, syncCanvasViewport]);
+  usePreviewCanvasViewportController({
+    canvasViewportControllerRef,
+    desktopCommittedUrlRef,
+    desktopViewportRef,
+    hideDesktopPreview,
+    preferredTransportMode,
+    shouldSuspendDesktopPreview,
+    showDesktopPreview,
+  });
 
   const handleOpenDeveloperTools = useCallback(async () => {
     if (preferredTransportMode !== 'desktop-native') return;
