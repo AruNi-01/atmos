@@ -36,18 +36,17 @@ export const changelogData: ChangelogItem[] = [
   {
     id: "desktop-2026.7.2",
     title: {
-      zh: "日期版本 · Canvas 工作台 · 预览窗口 · Agent Chat 稳定性",
-      en: "Calendar Versions, Canvas Workspaces, Preview Windows & Agent Chat Stability",
+      zh: "Canvas 工作台 · 预览窗口 · Agent Chat 稳定性",
+      en: "Canvas Workspaces, Preview Windows & Agent Chat Stability",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.2 汇总了 `desktop-v2.0.0` 之后的桌面主线能力：日期版本发布、Canvas 工作台、桌面预览与独立窗口、Agent Chat 历史、Git/GitHub 流程、本地运行时和发布基础设施都得到更新。",
-      en: "Atmos Desktop 2026.7.2 rolls up the desktop-facing work since `desktop-v2.0.0`: calendar releases, Canvas workspaces, desktop preview and standalone windows, Agent Chat history, Git/GitHub workflows, local runtime distribution, and release infrastructure.",
+      zh: "Atmos Desktop 2026.7.2 汇总了上一条稳定版之后的桌面主线能力：Canvas 工作台、桌面预览与独立窗口、Agent Chat 历史、Git/GitHub 流程、本地运行时和发布基础设施都得到更新。",
+      en: "Atmos Desktop 2026.7.2 rolls up the desktop-facing work since the previous stable release: Canvas workspaces, desktop preview and standalone windows, Agent Chat history, Git/GitHub workflows, local runtime distribution, and release infrastructure.",
     },
     date: "2026-07-02",
     version: "2026.7.2",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-2026.7.2",
     tags: [
-      { zh: "日期版本", en: "Calendar Versioning" },
       { zh: "Canvas", en: "Canvas" },
       { zh: "预览", en: "Preview" },
       { zh: "Agent Chat", en: "Agent Chat" },
@@ -56,7 +55,6 @@ export const changelogData: ChangelogItem[] = [
     content: {
       zh: {
         features: [
-          "**日期发布版本** — Desktop、CLI、Local Web Runtime 和 Local Model Runtime 发布线统一使用 `2026.7.2` 这样的日期版本，GitHub Release tag 不再带额外的 `v`。",
           "**桌面预览与独立窗口** — 新增桌面预览 DevTools、专用预览浏览器窗口、原生预览遮挡处理和独立浏览器标签页状态保留，让预览可以在嵌入视图和独立窗口之间切换。",
           "**Canvas 工作台** — 新增 Canvas workspace surfaces、Canvas widgets、Canvas 内共享 changes UI、更安全的 widget navigation 和更稳定的 widget placement。",
           "**Scoped Changes 与 Git diff** — 新增 scoped changes diff views、branch validation、remote branch qualification、renamed-path diff 处理和 stale commit scope cleanup。",
@@ -85,13 +83,12 @@ export const changelogData: ChangelogItem[] = [
           "**CI/E2E 回归** — 修复 Rust CI、Linux/diagnostics/token-usage clippy、infra migration test、Bun setup、web lint/typecheck、E2E startup/readiness、static export root、API prebuild/startup、missing client session 和 smoke assertions。",
         ],
         others: [
-          "本条目使用 `desktop-v2.0.0..desktop-2026.7.2` 作为完整比较范围，覆盖 134 个非 merge commit。",
+          "本条目覆盖上一条稳定版到 2026.7.2 之间的完整变更范围，共 134 个 non-merge commit。",
           "[完整变更对比](https://github.com/AruNi-01/atmos/compare/desktop-v2.0.0...desktop-2026.7.2)",
         ],
       },
       en: {
         features: [
-          "**Calendar release versions** — Desktop, CLI, Local Web Runtime, and Local Model Runtime now share date versions such as `2026.7.2`, and GitHub Release tags no longer include an extra `v`.",
           "**Desktop preview and standalone windows** — Added desktop preview DevTools, a dedicated preview browser window, native preview occlusion handling, and standalone browser tab state preservation.",
           "**Canvas workspaces** — Added Canvas workspace surfaces, Canvas widgets, shared changes UI inside Canvas, safer widget navigation, and more stable widget placement.",
           "**Scoped Changes and Git diffs** — Added scoped changes diff views, branch validation, remote branch qualification, renamed-path diff handling, and stale commit-scope cleanup.",
@@ -120,24 +117,24 @@ export const changelogData: ChangelogItem[] = [
           "**CI/E2E regressions** — Fixed Rust CI, Linux/diagnostics/token-usage clippy, infra migration tests, Bun setup, web lint/typecheck, E2E startup/readiness, static export roots, API prebuild/startup, missing client sessions, and smoke assertions.",
         ],
         others: [
-          "This entry uses `desktop-v2.0.0..desktop-2026.7.2` as the full comparison range and covers 134 non-merge commits.",
+          "This entry covers the full change range from the previous stable release to 2026.7.2, spanning 134 non-merge commits.",
           "[Full changelog comparison](https://github.com/AruNi-01/atmos/compare/desktop-v2.0.0...desktop-2026.7.2)",
         ],
       },
     },
   },
   {
-    id: "desktop-v2.0.0",
+    id: "desktop-2026.6.23",
     title: {
       zh: "Kanban 工作区 · Code Review · 远程连接 · 自动化 · 独立 CLI",
       en: "Kanban Workspaces, Code Review, Remote Access, Automations & Standalone CLI",
     },
     description: {
-      zh: "Atmos Desktop 2.0.0 把 1.0.0 之后的大版本能力集中成一个稳定版：项目管理升级为可拖拽 Kanban 和 GitHub Issue 导入，Code Review 支持内联评论与 revision 线程，Atmos Computer 与 Hosted Web 带来远程连接，本地模型运行时、Canvas/Appshots、自动化和移动端 MVP 进入主线，同时 CLI 与 Local Web Runtime 解耦为独立安装和更新路径。",
-      en: "Atmos Desktop 2.0.0 stabilizes the major work since 1.0.0: project management now includes drag-and-drop Kanban and GitHub Issue import, Code Review adds inline comments and revision threads, Atmos Computer and Hosted Web bring remote access, local model runtime, Canvas/Appshots, automations, and the mobile MVP move into the main product line, and the CLI plus Local Web Runtime are decoupled into standalone install and update paths.",
+      zh: "Atmos Desktop 2026.6.23 把 2026.4.6 之后的大版本能力集中成一个稳定版：项目管理升级为可拖拽 Kanban 和 GitHub Issue 导入，Code Review 支持内联评论与 revision 线程，Atmos Computer 与 Hosted Web 带来远程连接，本地模型运行时、Canvas/Appshots、自动化和移动端 MVP 进入主线，同时 CLI 与 Local Web Runtime 解耦为独立安装和更新路径。",
+      en: "Atmos Desktop 2026.6.23 stabilizes the major work since 2026.4.6: project management now includes drag-and-drop Kanban and GitHub Issue import, Code Review adds inline comments and revision threads, Atmos Computer and Hosted Web bring remote access, local model runtime, Canvas/Appshots, automations, and the mobile MVP move into the main product line, and the CLI plus Local Web Runtime are decoupled into standalone install and update paths.",
     },
     date: "2026-06-23",
-    version: "2.0.0",
+    version: "2026.6.23",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v2.0.0",
     tags: [
       { zh: "工作区", en: "Workspace" },
@@ -168,7 +165,7 @@ export const changelogData: ChangelogItem[] = [
           "**更新与本地服务探测** — CLI 更新改用 R2 manifest 并选择兼容平台资产；IPv6 本地服务探测 URL 正确加括号；Hosted/local 检测和 retry 布局也更可靠。",
         ],
         others: [
-          "本条目合并了 `desktop-v1.1.0-rc.*` 与 `desktop-v1.2.0-beta.*` 的主要稳定化成果，预发布版本不单独展示。",
+          "本条目合并了前序 RC 与 beta 阶段的主要稳定化成果，预发布版本不单独展示。",
           "[完整变更对比](https://github.com/AruNi-01/atmos/compare/desktop-v1.0.0...desktop-v2.0.0)",
         ],
       },
@@ -194,24 +191,24 @@ export const changelogData: ChangelogItem[] = [
           "**Updates and local service probing** — CLI updates now use the R2 manifest and choose compatible platform assets; IPv6 local-service probe URLs are bracketed correctly; hosted/local detection and retry layout are more reliable.",
         ],
         others: [
-          "This entry rolls up the major stabilization work from `desktop-v1.1.0-rc.*` and `desktop-v1.2.0-beta.*`; prereleases are intentionally not shown as separate landing changelog entries.",
+          "This entry rolls up the major stabilization work from the preceding RC and beta phases; prereleases are intentionally not shown as separate landing changelog entries.",
           "[Full changelog comparison](https://github.com/AruNi-01/atmos/compare/desktop-v1.0.0...desktop-v2.0.0)",
         ],
       },
     },
   },
   {
-    id: "desktop-v1.0.0",
+    id: "desktop-2026.4.6",
     title: {
       zh: "首个正式大版本：隧道连接器 · Agent 实时同步 · 文件树 Git 状态",
       en: "Tunnel Connector, Real-Time Agent Sync & Live Git File Tree",
     },
     description: {
-      zh: "Atmos 1.0.0 是首个正式大版本。本次发布带来了桌面隧道连接器、全 UI 实时 Agent 状态同步、带 Git 状态的实时文件树、顶栏分支同步显示，以及大量稳定性和交互打磨。",
-      en: "Atmos 1.0.0 is our first major release. It brings Tunnel Connector to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements.",
+      zh: "Atmos 2026.4.6 是首个正式大版本。本次发布带来了桌面隧道连接器、全 UI 实时 Agent 状态同步、带 Git 状态的实时文件树、顶栏分支同步显示，以及大量稳定性和交互打磨。",
+      en: "Atmos 2026.4.6 is our first major release. It brings Tunnel Connector to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements.",
     },
     date: "2026-04-06",
-    version: "1.0.0",
+    version: "2026.4.6",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v1.0.0",
     image: "/changelog/v1.0.0_img.png",
     tags: [
@@ -280,17 +277,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.6",
+    id: "desktop-2026.3.26",
     title: {
       zh: "Landing 页面打磨与预览检查器",
       en: "Landing Polish & Preview Inspector",
     },
     description: {
-      zh: "发布 `desktop-v0.2.6`，主要带来 landing 页面细节打磨，以及新的跨域预览元素检查能力。",
-      en: "Release `desktop-v0.2.6` focuses on landing page polish plus a new cross-origin preview element inspector.",
+      zh: "发布 `2026.3.26`，主要带来 landing 页面细节打磨，以及新的跨域预览元素检查能力。",
+      en: "Release `2026.3.26` focuses on landing page polish plus a new cross-origin preview element inspector.",
     },
     date: "2026-03-26",
-    version: "0.2.6",
+    version: "2026.3.26",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.6",
     tags: [
       { zh: "Landing", en: "Landing" },
@@ -318,17 +315,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.5",
+    id: "desktop-2026.3.22",
     title: {
       zh: "更顺滑的工作区删除体验",
       en: "Smoother Workspace Deletion",
     },
     description: {
-      zh: "发布 `desktop-v0.2.5`，把工作区删除改成非阻塞流程，并加入进度 toast。",
-      en: "Release `desktop-v0.2.5` makes workspace deletion non-blocking and adds progress toasts.",
+      zh: "发布 `2026.3.22`，把工作区删除改成非阻塞流程，并加入进度 toast。",
+      en: "Release `2026.3.22` makes workspace deletion non-blocking and adds progress toasts.",
     },
     date: "2026-03-22",
-    version: "0.2.5",
+    version: "2026.3.22",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.5",
     tags: [
       { zh: "工作区", en: "Workspace" },
@@ -354,17 +351,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.4",
+    id: "desktop-2026.3.21",
     title: {
       zh: "预览体验与桌面工作区行为优化",
       en: "Preview UX & Workspace Behavior",
     },
     description: {
-      zh: "发布 `desktop-v0.2.4`，重点改善预览交互体验，以及桌面端工作区相关行为。",
-      en: "Release `desktop-v0.2.4` improves preview UX and desktop workspace behavior.",
+      zh: "发布 `2026.3.21`，重点改善预览交互体验，以及桌面端工作区相关行为。",
+      en: "Release `2026.3.21` improves preview UX and desktop workspace behavior.",
     },
     date: "2026-03-21",
-    version: "0.2.4",
+    version: "2026.3.21",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.4",
     tags: [
       { zh: "预览", en: "Preview" },
@@ -390,17 +387,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.3",
+    id: "desktop-2026.3.20",
     title: {
       zh: "终端链接与更新体验升级",
       en: "Terminal Links & Update Flow",
     },
     description: {
-      zh: "发布 `desktop-v0.2.3`，新增终端链接打开偏好、编辑器跳转和文件树高亮，同时继续打磨更新检查与终端链接体验。",
-      en: "Release `desktop-v0.2.3` adds terminal link preferences, editor jump-to-line, file-tree reveal, and continued polish for update checks and link handling.",
+      zh: "发布 `2026.3.20`，新增终端链接打开偏好、编辑器跳转和文件树高亮，同时继续打磨更新检查与终端链接体验。",
+      en: "Release `2026.3.20` adds terminal link preferences, editor jump-to-line, file-tree reveal, and continued polish for update checks and link handling.",
     },
     date: "2026-03-20",
-    version: "0.2.3",
+    version: "2026.3.20",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.3",
     tags: [
       { zh: "终端", en: "Terminal" },
@@ -446,17 +443,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.2",
+    id: "desktop-2026.3.19",
     title: {
       zh: "终端搜索与设置面板刷新",
       en: "Terminal Search & Settings Refresh",
     },
     description: {
-      zh: "发布 `desktop-v0.2.2`，围绕终端搜索、图片支持、设置面板和启动体验做了一轮集中更新。",
-      en: "Release `desktop-v0.2.2` bundles terminal search, image support, settings refresh, and splashscreen polish.",
+      zh: "发布 `2026.3.19`，围绕终端搜索、图片支持、设置面板和启动体验做了一轮集中更新。",
+      en: "Release `2026.3.19` bundles terminal search, image support, settings refresh, and splashscreen polish.",
     },
     date: "2026-03-19",
-    version: "0.2.2",
+    version: "2026.3.19",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.2",
     tags: [
       { zh: "终端", en: "Terminal" },
@@ -494,17 +491,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.1",
+    id: "desktop-2026.3.18-updates",
     title: {
       zh: "自动更新正式上线",
       en: "Automatic Updates Arrive",
     },
     description: {
-      zh: "发布 `desktop-v0.2.1`，带来应用内更新、设置面板和 Homebrew tap，同时补齐桌面端发布基础设施。",
-      en: "Release `desktop-v0.2.1` introduces in-app updates, a settings modal, Homebrew distribution, and the supporting release infrastructure.",
+      zh: "发布 `2026.3.18`，带来应用内更新、设置面板和 Homebrew tap，同时补齐桌面端发布基础设施。",
+      en: "Release `2026.3.18` introduces in-app updates, a settings modal, Homebrew distribution, and the supporting release infrastructure.",
     },
     date: "2026-03-18",
-    version: "0.2.1",
+    version: "2026.3.18",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.1",
     tags: [
       { zh: "更新", en: "Updates" },
@@ -548,17 +545,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.2.0",
+    id: "desktop-2026.3.18-terminal",
     title: {
       zh: "桌面终端体验大升级",
       en: "Desktop Terminal Overhaul",
     },
     description: {
-      zh: "发布 `desktop-v0.2.0`，重点升级桌面终端滚动与性能体验，同时加入 AI token 成本估算和 Cursor 会话同步。",
-      en: "Release `desktop-v0.2.0` overhauls desktop terminal behavior and adds AI token cost estimates plus Cursor usage sync.",
+      zh: "发布 `2026.3.18`，重点升级桌面终端滚动与性能体验，同时加入 AI token 成本估算和 Cursor 会话同步。",
+      en: "Release `2026.3.18` overhauls desktop terminal behavior and adds AI token cost estimates plus Cursor usage sync.",
     },
     date: "2026-03-18",
-    version: "0.2.0",
+    version: "2026.3.18",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.0",
     tags: [
       { zh: "终端", en: "Terminal" },
@@ -608,17 +605,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.1.5",
+    id: "desktop-2026.3.15",
     title: {
       zh: "GitHub Issue 关联工作流上线",
       en: "GitHub Issue Workflow Lands",
     },
     description: {
-      zh: "预发布 `desktop-v0.1.5`，把 GitHub Issue 关联、LLM 生成 TODO 和更稳的工作区创建流程一起带进了桌面端。",
-      en: "Pre-release `desktop-v0.1.5` brings GitHub Issue linking, LLM-generated TODOs, and a more resilient workspace creation flow to the desktop app.",
+      zh: "早期预览版 `2026.3.15` 把 GitHub Issue 关联、LLM 生成 TODO 和更稳的工作区创建流程一起带进了桌面端。",
+      en: "Early preview `2026.3.15` brings GitHub Issue linking, LLM-generated TODOs, and a more resilient workspace creation flow to the desktop app.",
     },
     date: "2026-03-15",
-    version: "0.1.5",
+    version: "2026.3.15",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.1.5",
     tags: [
       { zh: "GitHub", en: "GitHub" },
@@ -666,17 +663,17 @@ export const changelogData: ChangelogItem[] = [
     },
   },
   {
-    id: "desktop-v0.1.4",
+    id: "desktop-2026.3.13",
     title: {
       zh: "首个桌面版发布",
       en: "First Desktop App Release",
     },
     description: {
-      zh: "这是 `desktop-v0.1.4` 的首个桌面版发布，当时仅提供 macOS ARM 构建。",
-      en: "This was the first desktop app release under `desktop-v0.1.4`, initially shipping only a macOS ARM build.",
+      zh: "这是 `2026.3.13` 的首个桌面版发布，当时仅提供 macOS ARM 构建。",
+      en: "This was the first desktop app release under `2026.3.13`, initially shipping only a macOS ARM build.",
     },
     date: "2026-03-13",
-    version: "0.1.4",
+    version: "2026.3.13",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.1.4",
     tags: [
       { zh: "桌面端", en: "Desktop" },
