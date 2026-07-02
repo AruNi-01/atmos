@@ -1,0 +1,25 @@
+.agents/skills/atmos-docs-write/SKILL.md
+  s_3fb1191d66c7a7::t_4702f43e9386d8 1-238
+.gitignore
+  s_3fb1191d66c7a7::t_52da266612a88b 116-117
+.agents/skills/atmos-docs-write/references/product-doc-principles.md
+  s_3fb1191d66c7a7::t_4702f43e9386d8 1-87
+.agents/skills/atmos-docs-write/evals/evals.json
+  s_3fb1191d66c7a7::t_4702f43e9386d8 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "4da4b4795b6b96409d3646bb177a0c046f3ab1f9",
+  "prompts": {},
+  "sessions": {
+    "s_3fb1191d66c7a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2157-9c3c-72d1-8f3f-8d5be38a3bb8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
