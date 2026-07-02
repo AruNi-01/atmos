@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="{{HTML_LANG}}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{PAGE_TITLE}}</title>
+  <!-- Optional CDN slots. Keep the final artifact as one HTML file; no local assets. -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  {{CDN_HEAD}}
+  <style>
+    /* {{DESIGN_STYLE_CSS}} */
+    /* Must include Markdown rendering baseline from SKILL.md:
+       .markdown pre code { background: transparent; color: inherit; border-radius: 0; padding: 0; font-size: inherit; }
+       .markdown pre { overflow-x: auto; white-space: pre; }
+    */
+  </style>
+</head>
+<body data-view-mode="single-spec" data-style="{{STYLE_NAME}}">
+  <div id="app-shell">
+    <header id="hero" data-sticky-header>
+      <p id="eyebrow">{{SPEC_ID}}</p>
+      <h1>{{SPEC_TITLE}}</h1>
+      <p id="summary">{{SPEC_SUMMARY}}</p>
+      <div id="hero-actions">
+        <button type="button" data-action="open-source">{{UI_OPEN_SOURCE}}</button>
+        <button type="button" data-action="open-review">{{UI_OPEN_REVIEW}}</button>
+        <button type="button" data-action="copy-agent-prompt">{{UI_COPY_AGENT_PROMPT}}</button>
+        <button type="button" data-action="copy-json">{{UI_COPY_JSON}}</button>
+      </div>
+    </header>
+
+    <main id="layout">
+      <section id="attention-panel" aria-label="{{UI_NEEDS_ATTENTION}}">
+        <!-- {{NEEDS_ATTENTION_PANEL}} -->
+      </section>
+
+      <section id="extraction-overview" aria-label="{{UI_STRUCTURED_EXTRACTION}}">
+        <article id="prd-requirements"><!-- {{PRD_MUST_HAVE_TABLE}} --></article>
+        <article id="brainstorm-forks"><!-- {{BRAINSTORM_FORK_STATUS}} --></article>
+        <article id="tech-module-map"><!-- {{TECH_MODULE_MAP}} --></article>
+        <article id="tech-diagrams"><!-- {{TECH_MERMAID_DIAGRAMS}} --></article>
+        <article id="test-coverage-map"><!-- {{TEST_COVERAGE_MATRIX}} --></article>
+      </section>
+
+      <section id="cross-file-checks" aria-label="{{UI_CROSS_FILE_CHECKS}}">
+        <article id="prd-tech-alignment"><!-- {{PRD_TECH_ALIGNMENT}} --></article>
+        <article id="prd-test-alignment"><!-- {{PRD_TEST_ALIGNMENT}} --></article>
+        <article id="tech-test-alignment"><!-- {{TECH_TEST_ALIGNMENT}} --></article>
+      </section>
+    </main>
+
+    <dialog id="source-dialog" aria-labelledby="source-dialog-title">
+      <section id="source-panel" aria-label="{{UI_SOURCE_DOCUMENTS}}">
+        <header id="source-dialog-header">
+          <h2 id="source-dialog-title">{{UI_SOURCE_DOCUMENTS}}</h2>
+          <button type="button" data-action="close-source" aria-label="{{UI_CLOSE}}">{{UI_CLOSE}}</button>
+        </header>
+        <div role="tablist" aria-label="{{UI_SPEC_DOCUMENT_TABS}}">
+          <button type="button" role="tab" data-doc="BRAINSTORM.md">BRAINSTORM.md</button>
+          <button type="button" role="tab" data-doc="PRD.md">PRD.md</button>
+          <button type="button" role="tab" data-doc="TECH.md">TECH.md</button>
+          <button type="button" role="tab" data-doc="TEST.md">TEST.md</button>
+        </div>
+        <div id="document-toolbar">
+          <button type="button" data-action="show-rendered">{{UI_RENDERED}}</button>
+          <button type="button" data-action="show-source">{{UI_RAW_MARKDOWN}}</button>
+          <button type="button" data-action="copy-active-source">{{UI_COPY_MARKDOWN}}</button>
+        </div>
+        <article id="document-viewer"><!-- rendered markdown for active document --></article>
+        <pre id="document-source" hidden><!-- raw markdown for active document --></pre>
+      </section>
+    </dialog>
+
+    <dialog id="review-dialog" aria-labelledby="review-dialog-title">
+      <section id="review-panel" aria-label="{{UI_REVIEW}}">
+        <header id="review-dialog-header">
+          <h2 id="review-dialog-title">{{UI_REVIEW}}</h2>
+          <button type="button" data-action="close-review" aria-label="{{UI_CLOSE}}">{{UI_CLOSE}}</button>
+        </header>
+        <section id="file-decisions">
+          <article data-file-review="BRAINSTORM.md"><!-- {{BRAINSTORM_REVIEW_CONTROLS}} --></article>
+          <article data-file-review="PRD.md"><!-- {{PRD_REVIEW_CONTROLS}} --></article>
+          <article data-file-review="TECH.md"><!-- {{TECH_REVIEW_CONTROLS}} --></article>
+          <article data-file-review="TEST.md"><!-- {{TEST_REVIEW_CONTROLS}} --></article>
+        </section>
+        <label for="global-notes">{{UI_OVERALL_NOTES}}</label>
+        <textarea id="global-notes" data-feedback="global_notes" placeholder="{{UI_OVERALL_NOTES_PLACEHOLDER}}"></textarea>
+      </section>
+    </dialog>
+  </div>
+
+  <script type="application/json" id="spec-view-data">
+    {{SPEC_VIEW_DATA_JSON_SAFE}}
+  </script>
+  <script>
+    /* Inline `assets/interaction-script-template.js` here and adapt only if the DOM ids differ. */
+    {{INTERACTION_SCRIPT}}
+  </script>
+</body>
+</html>
