@@ -1,0 +1,101 @@
+apps/web/src/features/files/components/FileBrowser.tsx
+  s_50b96a87693af5::t_0cb49ad1f2597a 56-60,76-83,98,102,119,144,148,186,191
+apps/web/src/features/diff/components/ReviewCodeView.tsx
+  s_50b96a87693af5::t_b859e3e798d321 294
+  s_50b96a87693af5::t_f5cd779107c016 69,133,143-150,305,356,368
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_50b96a87693af5::t_d91214ec6ab0a7 618
+  s_50b96a87693af5::t_f1e07b5c488d49 57-60,151-157,170,174,180
+apps/web/src/app-shell/UsagePopover.tsx
+  s_50b96a87693af5::t_0140a8eefce153 157,500
+  s_50b96a87693af5::t_c734b621286c12 113,155-156,158,168,173
+  s_50b96a87693af5::t_49769af5b96504 363
+apps/web/src/app-shell/header-action-controls.tsx
+  s_8fb0eed4d5a1e7::t_619948b5988723 420
+  s_8fb0eed4d5a1e7::t_85e014187d0bea 62,64,251
+  s_8fb0eed4d5a1e7::t_c9e6afa98dfb4f 138-139,336-340,481-506
+  s_8fb0eed4d5a1e7::t_447a5e37234f46 289-291,293-311
+  s_8fb0eed4d5a1e7::t_1dff24d5514778 77,292
+  s_8fb0eed4d5a1e7::t_f7175737269e11 421-422,458-459,467-468
+  s_8fb0eed4d5a1e7::t_2d766e6c802f9c 243
+  s_8fb0eed4d5a1e7::t_e39c8acdfcbb02 61,63,65-67
+  s_8fb0eed4d5a1e7::t_b8fd379ed73f0c 341-343
+  s_8fb0eed4d5a1e7::t_bff17a6a0a270e 344-354
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  s_50b96a87693af5::t_f5cd779107c016 72,150-153,373,384
+apps/web/src/app-shell/LlmProvidersModal.tsx
+  s_50b96a87693af5::t_c734b621286c12 88-93,103-111,128-129,147,150,157,411-414,418-424,441,444,451
+apps/web/src/features/connection/lib/atmos-computer-local.ts
+  s_8fb0eed4d5a1e7::t_87fdfb572646d2 6-10,54,107
+apps/web/src/features/diff/components/DiffViewer.tsx
+  s_50b96a87693af5::t_f5cd779107c016 71,153-156,378,386
+  s_50b96a87693af5::t_d91214ec6ab0a7 743
+apps/web/src/features/workspace/components/CreateWorkspaceDialog.tsx
+  s_50b96a87693af5::t_0cb49ad1f2597a 130-133,148-154,365,372,388
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  s_8fb0eed4d5a1e7::t_3bec969cb61361 1200
+  s_8fb0eed4d5a1e7::t_96799180ce90b3 62
+  s_8fb0eed4d5a1e7::t_46f446c1b0274b 719-734,738
+  s_8fb0eed4d5a1e7::t_3c6e8771ad9016 1201-1202,1255,1258-1259,1267-1268
+  s_8fb0eed4d5a1e7::t_4dbb2fd432e70e 1116-1140
+  s_8fb0eed4d5a1e7::t_c90e5e82fa545e 60-61,63,196
+apps/web/src/shared/components/markdown/MarkdownRenderer.tsx
+  s_50b96a87693af5::t_0cb49ad1f2597a 149-153,162-169,189,194,196,199
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_6d7ae235abe1e7::t_bb2cf09a168f1e 1377-1379
+  s_6d7ae235abe1e7::t_3ec7472b7ccf69 858-873,1375
+apps/web/src/features/run-preview/components/PreviewContent.tsx
+  s_6d7ae235abe1e7::t_2da8a9d5bfe201 36-37
+  s_6d7ae235abe1e7::t_afe79161aa1df2 17,30,39
+  s_6d7ae235abe1e7::t_b2d7c53e3b3a8f 38,61,83,88,91-93,98-103,105-115
+  s_6d7ae235abe1e7::t_dd4896f8480721 15,28,60,82,87,94-97,104
+apps/web/src/features/connection/lib/computer-list.ts
+  s_8fb0eed4d5a1e7::t_cda7aa1c6f8014 1-20
+apps/web/src/features/connection/lib/hosted-connection-actions.ts
+  s_8fb0eed4d5a1e7::t_d702b912bf2b95 48-51
+apps/web/messages/zh.json
+  s_8fb0eed4d5a1e7::t_0b3a55ee6520c6 6948-6950
+apps/web/src/app-shell/bootstrap/ConnectionBootstrapper.tsx
+  s_8fb0eed4d5a1e7::t_9878f4ea6929ce 84-92
+apps/web/src/features/settings/components/LocalModelPanel.tsx
+  s_50b96a87693af5::t_c734b621286c12 43,50-53,60,64,194-197,208-214,221,224,231
+apps/web/src/features/connection/lib/computer-list.test.ts
+  s_8fb0eed4d5a1e7::t_6c589c23eb49c9 19,28-29,31
+  s_8fb0eed4d5a1e7::t_1c2a3ac9fabc8d 1-18,20-27,30,32-33
+apps/web/src/features/connection/lib/hydrate-relay-session.ts
+  s_8fb0eed4d5a1e7::t_52cd72ecb205ca 27-30,61-91,146-158
+apps/web/messages/en.json
+  s_8fb0eed4d5a1e7::t_adfff91b5fe012 6948-6950
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "6ec65fa7e18d5691a813fc0ba647d6153381f762",
+  "prompts": {},
+  "sessions": {
+    "s_50b96a87693af5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f20c1-0749-7723-898b-b29375c68100",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6d7ae235abe1e7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f20cc-5a97-7792-9f26-06083746e54c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_8fb0eed4d5a1e7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f20b6-5981-72f2-af3a-9a5d3d307c85",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
