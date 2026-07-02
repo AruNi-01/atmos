@@ -1,0 +1,25 @@
+"releasenotes/Atmos Desktop 2026.7.3-beta.1.md"
+  s_e60c02ec8d5163::t_ca5c2608059a57 1-33
+apps/desktop/package.json
+  s_e60c02ec8d5163::t_3d37741f1e8368 3
+apps/desktop/src-tauri/Cargo.toml
+  s_e60c02ec8d5163::t_1b66e90fcf4959 3
+apps/desktop/src-tauri/tauri.conf.json
+  s_e60c02ec8d5163::t_c6a792082c5a17 4,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "78f8db651e5dd7df748499b4979dac8f865859a3",
+  "prompts": {},
+  "sessions": {
+    "s_e60c02ec8d5163": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f22e4-9505-7040-bb79-1fdfaa65197c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
