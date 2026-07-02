@@ -1,0 +1,70 @@
+apps/web/src/features/run-preview/lib/preview-transports/same-origin-transport.ts
+  s_bb79c932b9828b::t_74e6114cae05f2 13
+apps/web/src/features/run-preview/lib/preview-helper/bootstrap.ts
+  s_bb79c932b9828b::t_22c637d4a224ed 13,25,162,189-190,196-207
+  s_bb79c932b9828b::t_757c6e7684fac2 143-144,180-181,234-235
+  s_bb79c932b9828b::t_cee216c71ac658 176,224
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_bb79c932b9828b::t_055e6e5885fea1 200-205
+  s_bb79c932b9828b::t_08e5a936723ce4 15-18,163-167,546,550-570,588,593,620,1343
+  s_c3912c73ae158c::t_0b07486c15c8de 14
+apps/web/src/features/run-preview/lib/preview-bridge/types.ts
+  s_bb79c932b9828b::t_5fe6425b6dd29a 4,60
+packages/ui/src/components/native/native-follow-cursor.tsx
+  s_bb79c932b9828b::t_a4775c28bcdb35 29-31
+  s_bb79c932b9828b::t_140744c4b13aa6 42-43
+  s_bb79c932b9828b::t_b2806e336ed544 1-28,32-41,44-95
+apps/web/src/features/run-preview/lib/preview-helper/types.ts
+  s_bb79c932b9828b::t_93ae67b6927497 26-34,57-62
+packages/shared/preview/preview-runtime.js
+  s_bb79c932b9828b::t_a41f0045083743 1933,1978
+  s_bb79c932b9828b::t_965377e66d827c 1216-1218,1222,1242
+  s_bb79c932b9828b::t_e5155ac3a8c610 393-398,474,1188-1190,1214
+  s_bb79c932b9828b::t_bb4e3ad7c8fb02 185-186,204-205,207-214,216-392,399-467
+  s_bb79c932b9828b::t_efc34b2c004085 187-189,191-192,194-195,201-203
+  s_bb79c932b9828b::t_43fca7bc186816 1778,1788-1792,1886,1927,1936,1943,1951-1960,1985,2153
+  s_b23f74feebe7cc::t_cb6208adade581 1215
+apps/web/src/features/run-preview/lib/preview-transports/extension-transport.ts
+  s_bb79c932b9828b::t_4d7e9fc2097ba3 141-151
+apps/web/src/features/run-preview/lib/preview-helper/overlay.ts
+  s_bb79c932b9828b::t_919b5d9834a4af 4,33-36,53-82,87-88,92-98,100,103-106,108-362,383-385,414-416,419-420,424-425,429-431,436-439
+packages/ui/src/index.ts
+  s_bb79c932b9828b::t_c8b4456357fec3 81-82
+apps/web/src/features/run-preview/components/PreviewViewport.tsx
+  s_bb79c932b9828b::t_0d694f9e826603 8,31-35,127,164-170,205,215,274-282
+  s_bb79c932b9828b::t_067024b15fa9d2 74
+apps/web/src/features/run-preview/lib/preview-helper/bridge.ts
+  s_bb79c932b9828b::t_ca0e00a22941b9 1-6,31,36-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "5cde9247b302be975860173c24ca1ad5f5cc7a7d",
+  "prompts": {},
+  "sessions": {
+    "s_b23f74feebe7cc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f22a7-5159-7ba2-82c7-d6a5512c81e6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_bb79c932b9828b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2285-bd5d-7ae3-82c8-98cd1ed2c4d8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c3912c73ae158c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2276-748f-7941-8319-4d92d6a9337b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
