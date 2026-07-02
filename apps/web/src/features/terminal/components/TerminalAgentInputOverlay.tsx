@@ -490,7 +490,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           startSendExit={startSendExit}
         />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center">
           <button
             type="button"
             aria-label="Open agent input"

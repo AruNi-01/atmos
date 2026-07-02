@@ -3,15 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
+import { debugLog, errorLog } from "@/shared/lib/desktop-logger";
 import {
   clearRuntimeApiConfigCache,
   getRuntimeApiConfig,
   httpBase,
   isTauriRuntime,
-  type ApiConfig,
 } from "@/shared/lib/desktop-runtime";
 
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
+type DesktopWebCheckResult = {
+  ready: boolean;
+  url: string | null;
+};
 
 const RETRY_DELAY_MS = 500;
 const MAX_ATTEMPTS = 10;
@@ -20,21 +24,27 @@ function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function browserUrlForConfig(cfg: ApiConfig, pathname: string, search: string) {
-  const hash = typeof window === "undefined" ? "" : window.location.hash;
-  return `${httpBase(cfg)}${pathname}${search}${hash}`;
+function normalizeBrowserPath(pathname: string) {
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  if (path === "/" || path.endsWith("/")) {
+    return path;
+  }
+
+  const lastSegment = path.split("/").pop() ?? "";
+  return lastSegment.includes(".") ? path : `${path}/`;
 }
 
-async function checkHealth(cfg: ApiConfig) {
-  const response = await fetch(`${httpBase(cfg)}/healthz`, {
-    cache: "no-store",
-    headers: cfg.token
-      ? {
-          Authorization: `Bearer ${cfg.token}`,
-        }
-      : undefined,
-  });
-  return response.ok;
+function browserUrlForConfig(
+  cfg: Awaited<ReturnType<typeof getRuntimeApiConfig>>,
+  pathname: string,
+  search: string,
+) {
+  const hash = typeof window === "undefined" ? "" : window.location.hash;
+  return `${httpBase(cfg)}${normalizeBrowserPath(pathname)}${search}${hash}`;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function useDesktopWebLauncher(pathname: string, search: string) {
@@ -45,9 +55,21 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
 
-  const resolveBrowserUrl = useCallback(async () => {
-    const cfg = await getRuntimeApiConfig();
-    return browserUrlForConfig(cfg, pathname, search);
+  const checkDesktopWeb = useCallback(async (): Promise<DesktopWebCheckResult> => {
+    try {
+      const cfg = await getRuntimeApiConfig();
+      const url = browserUrlForConfig(cfg, pathname, search);
+      debugLog(`desktop-web: resolved via native config url=${url}`);
+      setBrowserUrl(url);
+      setStatus("ready");
+      return { ready: true, url };
+    } catch (error) {
+      clearRuntimeApiConfigCache();
+      setBrowserUrl(null);
+      setStatus("unavailable");
+      errorLog(`desktop-web: readiness failed err=${errorMessage(error)}`);
+      return { ready: false, url: null };
+    }
   }, [pathname, search]);
 
   const refreshStatus = useCallback(async () => {
@@ -59,26 +81,9 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
 
     setStatus((current) => (current === "ready" ? current : "checking"));
 
-    try {
-      let cfg = await getRuntimeApiConfig();
-      let healthy = await checkHealth(cfg);
-
-      if (!healthy) {
-        clearRuntimeApiConfigCache();
-        cfg = await getRuntimeApiConfig();
-        healthy = await checkHealth(cfg);
-      }
-
-      const url = browserUrlForConfig(cfg, pathname, search);
-      setBrowserUrl(url);
-      setStatus(healthy ? "ready" : "unavailable");
-      return healthy;
-    } catch {
-      clearRuntimeApiConfigCache();
-      setStatus("unavailable");
-      return false;
-    }
-  }, [isDesktopRuntime, pathname, search]);
+    const result = await checkDesktopWeb();
+    return result.ready;
+  }, [checkDesktopWeb, isDesktopRuntime]);
 
   const openInBrowser = useCallback(async () => {
     if (!isDesktopRuntime) {
@@ -88,23 +93,26 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
     setIsLaunching(true);
 
     try {
-      let ready = await refreshStatus();
+      let result = await checkDesktopWeb();
 
-      for (let attempt = 1; !ready && attempt < MAX_ATTEMPTS; attempt += 1) {
+      for (let attempt = 1; !result.ready && attempt < MAX_ATTEMPTS; attempt += 1) {
         await delay(RETRY_DELAY_MS);
-        ready = await refreshStatus();
+        result = await checkDesktopWeb();
       }
 
-      if (!ready) {
+      if (!result.ready || !result.url) {
         return false;
       }
 
-      const url = await resolveBrowserUrl();
-      return openDesktopExternalUrl(url);
+      const opened = await openDesktopExternalUrl(result.url);
+      if (!opened) {
+        errorLog(`desktop-web: opener failed url=${result.url}`);
+      }
+      return opened;
     } finally {
       setIsLaunching(false);
     }
-  }, [isDesktopRuntime, refreshStatus, resolveBrowserUrl]);
+  }, [checkDesktopWeb, isDesktopRuntime]);
 
   useEffect(() => {
     if (!isDesktopRuntime) {

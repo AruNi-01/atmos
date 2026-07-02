@@ -24,7 +24,10 @@ import {
 import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
 import { useTerminalSideChatSettingsStore } from "@/features/settings/store/terminal-side-chat-settings-store";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
-import { TerminalAgentInputOverlay } from "@/features/terminal/components/TerminalAgentInputOverlay";
+import {
+  TerminalAgentInputOverlay,
+  type TerminalAgentInputOverlayHandle,
+} from "@/features/terminal/components/TerminalAgentInputOverlay";
 import { resolveTerminalAgentSubmitMode } from "@/features/terminal/lib/terminal-runtime-utils";
 import type { TerminalPaneAgent } from "@/features/terminal/types";
 
@@ -47,6 +50,7 @@ export interface UseTerminalSideChatsOptions {
   localPath?: string | null;
   projectRootPath?: string | null;
   sourcePaneId: string;
+  sourceSessionId?: string | null;
   sourceSurfaceKind: SourceSurfaceKind;
   sourceSurfaceRef?: unknown;
   sourceTmuxWindowName?: string | null;
@@ -92,6 +96,7 @@ export function useTerminalSideChats({
   localPath,
   projectRootPath,
   sourcePaneId,
+  sourceSessionId,
   sourceSurfaceKind,
   sourceSurfaceRef,
   sourceTmuxWindowName,
@@ -131,8 +136,8 @@ export function useTerminalSideChats({
         const sourceRecords = response.records
           .filter(
             (record) =>
-              record.source_tmux_window_name === sourceTmuxWindowName &&
               record.source_surface_kind === sourceSurfaceKind &&
+              sideChatRecordMatchesSource(record, sourceSurfaceRefJson, sourceTmuxWindowName) &&
               !isSideChatClosing(record.status),
           )
           .map<LocalSideChatRecord>((record) => ({
@@ -150,7 +155,7 @@ export function useTerminalSideChats({
     return () => {
       cancelled = true;
     };
-  }, [sourceSurfaceKind, sourceTmuxWindowName, workspaceId]);
+  }, [sourceSurfaceKind, sourceSurfaceRefJson, sourceTmuxWindowName, workspaceId]);
 
   const persistRecord = React.useCallback(async (record: LocalSideChatRecord) => {
     return terminalSideChatApi.upsert(toSideChatDto(record));
@@ -180,15 +185,17 @@ export function useTerminalSideChats({
           workspace_id: workspaceId,
           project_name: projectName,
           workspace_name: workspaceName,
+          source_session_id: sourceSessionId,
           source_tmux_window_name: sourceTmuxWindowName,
           max_prompt_bytes: sideContextPromptBudgetBytes,
         });
+        const resolvedSourceTmuxWindowName = capture.tmux_window_name || sourceTmuxWindowName;
         const sideChatId = `side-${crypto.randomUUID()}`;
         const sideTmuxWindowName = `side-${sideChatId.slice(5, 13)}`;
         const colorHex = pickUniqueBrightColor(records.map((record) => record.color_hex));
         const sidePrompt = buildSideChatPrompt({
           capture,
-          sourceTmuxWindowName,
+          sourceTmuxWindowName: resolvedSourceTmuxWindowName,
           userPrompt,
         });
         const initialCommand = `${buildInteractiveAgentCommand({
@@ -202,7 +209,7 @@ export function useTerminalSideChats({
           project_name: projectName ?? null,
           workspace_name: workspaceName ?? null,
           source_pane_id: sourcePaneId,
-          source_tmux_window_name: sourceTmuxWindowName,
+          source_tmux_window_name: resolvedSourceTmuxWindowName,
           source_surface_kind: sourceSurfaceKind,
           source_surface_ref_json: sourceSurfaceRefJson,
           side_tmux_window_name: sideTmuxWindowName,
@@ -239,6 +246,7 @@ export function useTerminalSideChats({
       records,
       sideContextPromptBudgetBytes,
       sourcePaneId,
+      sourceSessionId,
       sourceSurfaceKind,
       sourceSurfaceRefJson,
       sourceTmuxWindowName,
@@ -505,6 +513,7 @@ function TerminalSideChatModal({
 }) {
   const t = useTranslations("terminal.sideChat");
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
+  const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
   const resizeAbortControllerRef = React.useRef<AbortController | null>(null);
   const dragAbortControllerRef = React.useRef<AbortController | null>(null);
   const resizeStateRef = React.useRef<{
@@ -664,6 +673,22 @@ function TerminalSideChatModal({
     [layout],
   );
 
+  const handleModalKeyDownCapture = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) return;
+      if (event.key.toLowerCase() !== "g" && event.code !== "KeyG") return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      agentInputOverlayRefs.current.get(activeSideChatId)?.toggle();
+    },
+    [activeSideChatId],
+  );
+
+  const handleModalKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+  }, []);
+
   const modalStyle: React.CSSProperties = layout
     ? {
         left: layout.x,
@@ -681,24 +706,24 @@ function TerminalSideChatModal({
 
   return (
     <div
+      data-side-chat-modal="true"
       ref={overlayRef}
-      className="absolute inset-2 z-[95]"
-      onContextMenu={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-      }}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-      }}
-      onPointerDown={(event) => {
-        event.stopPropagation();
-      }}
+      className="pointer-events-none absolute inset-2 z-[95]"
     >
       <div
-        className="absolute flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)]"
+        className="pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)]"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onMouseDown={(event) => {
+          event.stopPropagation();
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        onKeyDownCapture={handleModalKeyDownCapture}
+        onKeyDown={handleModalKeyDown}
         style={modalStyle}
       >
         <SideChatResizeHandles onResizeStart={handleResizeStart} />
@@ -708,7 +733,7 @@ function TerminalSideChatModal({
           className="min-h-0 flex-1"
         >
           <div
-            className="flex h-10 shrink-0 cursor-grab items-center justify-between gap-3 bg-background px-3 active:cursor-grabbing"
+            className="flex h-11 shrink-0 cursor-grab items-center justify-between gap-3 bg-background px-3 pt-1 active:cursor-grabbing"
             onPointerDown={handleDragStart}
             onClickCapture={(event) => {
               if (!suppressNextHeaderClickRef.current) return;
@@ -870,6 +895,13 @@ function TerminalSideChatModal({
                   }}
                 />
                 <TerminalAgentInputOverlay
+                  ref={(overlayRef) => {
+                    if (overlayRef) {
+                      agentInputOverlayRefs.current.set(record.side_chat_id, overlayRef);
+                    } else {
+                      agentInputOverlayRefs.current.delete(record.side_chat_id);
+                    }
+                  }}
                   getTerminalCursorClientPoint={() =>
                     terminalRefs.current.get(record.side_chat_id)?.getCursorClientPoint() ?? null
                   }
@@ -1043,34 +1075,58 @@ function TerminalSideChatDots({
     availableRecords.find((record) => record.side_chat_id === activeSideChatId) ??
     availableRecords.at(-1) ??
     null;
+  const shouldShowIndicator = isStarting || Boolean(targetRecord && !hasOpenRecord);
+  const sideChatIndicatorClassName =
+    "h-1 w-6 rounded-full bg-cyan-600 shadow-[0_1px_4px_rgba(0,0,0,0.16)] dark:bg-cyan-300";
 
   return (
-    <>
+    <span
+      className={cn(
+        "inline-flex h-5 items-center overflow-hidden transition-all duration-200 ease-out",
+        shouldShowIndicator ? "w-[38px] opacity-100" : "w-0 opacity-0",
+      )}
+    >
       {isStarting ? (
         <span
-          className="inline-flex size-5 items-center justify-center"
+          className="ml-1.5 inline-flex h-5 w-8 items-center justify-center"
           title={t("starting")}
         >
-          <span className="size-1 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] animate-pulse" />
+          <span className={cn(sideChatIndicatorClassName, "animate-pulse")} />
         </span>
       ) : null}
       {targetRecord && !hasOpenRecord ? (
         <button
           type="button"
-          className="group/side-dot inline-flex size-5 items-center justify-center"
+          className="group/side-dot ml-1.5 inline-flex h-5 w-8 items-center justify-center"
           aria-label={t("show")}
           title={t("show")}
           onClick={() => onShow(targetRecord.side_chat_id)}
         >
-          <span className="size-1 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-colors duration-200 group-hover/side-dot:bg-foreground/35" />
+          <span
+            className={cn(
+              sideChatIndicatorClassName,
+              "transition-colors duration-200 group-hover/side-dot:bg-cyan-500 dark:group-hover/side-dot:bg-cyan-200",
+            )}
+          />
         </button>
       ) : null}
-    </>
+    </span>
   );
 }
 
 function sideChatTabLabel(record: LocalSideChatRecord, index: number, fallbackTitle: string): string {
   return record.agent?.label?.trim() || `${fallbackTitle} ${index + 1}`;
+}
+
+function sideChatRecordMatchesSource(
+  record: TerminalSideChatRecord,
+  sourceSurfaceRefJson: string | null,
+  sourceTmuxWindowName?: string | null,
+): boolean {
+  if (sourceSurfaceRefJson && record.source_surface_ref_json) {
+    return record.source_surface_ref_json === sourceSurfaceRefJson;
+  }
+  return record.source_tmux_window_name === sourceTmuxWindowName;
 }
 
 function mergeSideChatRecords(

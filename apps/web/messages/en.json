@@ -1298,6 +1298,85 @@
       },
       "backButton": "Back"
     },
+    "format": {
+      "target": {
+        "standalone": "Standalone",
+        "projectFallback": "Unknown project",
+        "newWorkspace": "New workspace",
+        "newWorkspaceInProject": "New workspace in {projectName}",
+        "workspaceFallback": "Unknown workspace"
+      },
+      "targetKind": {
+        "project": "Project",
+        "workspace": "Workspace",
+        "newWorkspace": "New workspace",
+        "standalone": "Standalone"
+      },
+      "schedule": {
+        "manual": "Manual",
+        "github": "GitHub",
+        "githubWithStatus": "GitHub ({status})",
+        "cron": "Cron: {expr}"
+      },
+      "scheduleKinds": {
+        "daily": "Daily",
+        "hourly": "Hourly",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "cron": "Cron"
+      },
+      "triggerStatus": {
+        "active": "Active",
+        "needsSetup": "Needs setup",
+        "paused": "Paused",
+        "error": "Error"
+      },
+      "artifact": {
+        "final": "Final",
+        "prompt": "Prompt",
+        "runJson": "Run JSON"
+      },
+      "timezoneGroups": {
+        "universal": "Universal",
+        "americas": "Americas",
+        "europe": "Europe",
+        "africa": "Africa",
+        "asia": "Asia",
+        "oceania": "Oceania",
+        "current": "Current"
+      },
+      "timezones": {
+        "losAngeles": "Los Angeles",
+        "denver": "Denver",
+        "chicago": "Chicago",
+        "newYork": "New York",
+        "toronto": "Toronto",
+        "saoPaulo": "São Paulo",
+        "london": "London",
+        "paris": "Paris",
+        "berlin": "Berlin",
+        "madrid": "Madrid",
+        "amsterdam": "Amsterdam",
+        "moscow": "Moscow",
+        "cairo": "Cairo",
+        "johannesburg": "Johannesburg",
+        "dubai": "Dubai",
+        "karachi": "Karachi",
+        "kolkata": "Kolkata",
+        "dhaka": "Dhaka",
+        "bangkok": "Bangkok",
+        "singapore": "Singapore",
+        "shanghai": "Shanghai",
+        "hongKong": "Hong Kong",
+        "taipei": "Taipei",
+        "tokyo": "Tokyo",
+        "seoul": "Seoul",
+        "perth": "Perth",
+        "sydney": "Sydney",
+        "auckland": "Auckland"
+      },
+      "none": "None"
+    },
     "attachmentPreview": {
       "dialogAria": "Attachment preview for {filename}",
       "close": "Close preview"
@@ -3166,6 +3245,17 @@
           "description": "You have unsaved changes. Are you sure you want to close without saving?",
           "keepEditing": "Keep Editing",
           "discardChanges": "Discard Changes"
+        }
+      },
+      "workspaceSetup": {
+        "steps": {
+          "createWorkspace": "Create Workspace",
+          "fillPrSpec": "Fill PR Spec",
+          "fillIssueSpec": "Fill Issue Spec",
+          "writeRequirementSpec": "Write Requirement Spec",
+          "extractTodos": "Extract TODOs",
+          "runSetupScript": "Run Setup Script",
+          "ready": "Ready"
         }
       },
       "archivedModal": {
@@ -6740,6 +6830,49 @@
   },
   "files": {
     "components": {
+      "fileTreeContextMenu": {
+        "actions": {
+          "newFile": "New File",
+          "newFolder": "New Folder",
+          "openInDefaultApp": "Open in default app",
+          "rename": "Rename",
+          "duplicate": "Duplicate",
+          "copyPath": "Copy Path",
+          "copyRelativePath": "Copy Relative Path",
+          "delete": "Delete",
+          "cancel": "Cancel",
+          "create": "Create"
+        },
+        "panels": {
+          "newFile": {
+            "title": "New File",
+            "description": "Create a new file in {name}.",
+            "placeholder": "Enter file name"
+          },
+          "newFolder": {
+            "title": "New Folder",
+            "description": "Create a new folder in {name}.",
+            "placeholder": "Enter folder name"
+          },
+          "rename": {
+            "title": "Rename",
+            "description": "Rename {name}.",
+            "placeholder": "Enter new name"
+          }
+        },
+        "deleteConfirm": {
+          "deleteFolderTitle": "Delete folder",
+          "deleteFileTitle": "Delete file",
+          "deleteFolderDescription": "This will permanently delete folder “{name}” and all of its contents.",
+          "deleteFileDescription": "This will permanently delete file “{name}.”"
+        },
+        "toast": {
+          "openFailedTitle": "Open failed",
+          "openFailedDescription": "Failed to open in default app.",
+          "pathCopied": "Path copied.",
+          "relativePathCopied": "Relative path copied."
+        }
+      },
       "fileBrowser": {
         "title": "Choose Project Folder",
         "select": "Select",

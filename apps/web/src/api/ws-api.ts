@@ -277,6 +277,7 @@ export const terminalSideChatApi = {
     workspace_id: string;
     project_name?: string | null;
     workspace_name?: string | null;
+    source_session_id?: string | null;
     source_tmux_window_name: string;
     max_prompt_bytes?: number;
   }) => wsRequest<TerminalSideContextCaptureResponse>("terminal_side_context_capture", payload),

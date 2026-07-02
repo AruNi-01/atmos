@@ -164,6 +164,11 @@ export function PreviewToolbar({
 }: PreviewToolbarProps) {
   const t = useTranslations("preview.toolbar");
   const showsDeveloperToolsButton = preferredTransportMode === "desktop-native";
+  const showsAnnotationCopyButton = selectionAnnotationCount > 0;
+  const elementPickerRadiusClass = cn(
+    showsDeveloperToolsButton ? "rounded-l-none" : "rounded-l-sm",
+    showsAnnotationCopyButton ? "rounded-r-none" : "rounded-r-sm",
+  );
   return (
     <div
       className={cn(
@@ -381,7 +386,7 @@ export function PreviewToolbar({
                       aria-pressed={isElementPickerEnabled}
                       className={cn(
                         "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
-                        showsDeveloperToolsButton ? "rounded-l-none rounded-r-sm" : "rounded-sm",
+                        elementPickerRadiusClass,
                         activeUrl && preferredTransportMode !== "unavailable"
                           ? isElementPickerEnabled
                             ? "bg-blue-500 text-white shadow-sm hover:bg-blue-500/90 hover:text-white"
@@ -400,7 +405,7 @@ export function PreviewToolbar({
               </Tooltip>
             </TooltipProvider>
 
-            {selectionAnnotationCount > 0 ? (
+            {showsAnnotationCopyButton ? (
               <TooltipProvider delayDuration={150}>
                 <Tooltip disableHoverableContent>
                   <TooltipTrigger asChild>
@@ -409,7 +414,7 @@ export function PreviewToolbar({
                       onClick={() => {
                         void handleCopySelectionAnnotations();
                       }}
-                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden rounded-l-none rounded-r-sm border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                       aria-label={t(
                         selectionAnnotationCount === 1
                           ? "annotations.copyAriaOne"

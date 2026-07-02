@@ -600,9 +600,16 @@ fn cleanup_agent_chat_handoff_dir(dir: &std::path::Path) {
 }
 
 fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {
-    state
+    if let Some(port) = *state
         .api_port
         .lock()
         .map_err(|_| "state lock poisoned".to_string())?
+    {
+        return Ok(port);
+    }
+
+    runtime_manager::read_runtime_manifest()
+        .map_err(|error| format!("API not ready: {error}"))?
+        .map(|manifest| manifest.api.port)
         .ok_or_else(|| "API not ready".to_string())
 }

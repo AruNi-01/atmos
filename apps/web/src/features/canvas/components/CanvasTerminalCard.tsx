@@ -146,6 +146,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     localPath: shape.props.localPath || null,
     projectRootPath: shape.props.localPath || null,
     sourcePaneId,
+    sourceSessionId: sessionId,
     sourceSurfaceKind: "canvas_terminal",
     sourceSurfaceRef: { shapeId: shape.id, contextScope: shape.props.contextScope },
     sourceTmuxWindowName: shape.props.tmuxWindowName,

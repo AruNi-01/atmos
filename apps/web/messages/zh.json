@@ -1298,6 +1298,85 @@
       },
       "backButton": "返回"
     },
+    "format": {
+      "target": {
+        "standalone": "独立",
+        "projectFallback": "未知项目",
+        "newWorkspace": "新工作区",
+        "newWorkspaceInProject": "{projectName}中的新工作区",
+        "workspaceFallback": "未知工作区"
+      },
+      "targetKind": {
+        "project": "项目",
+        "workspace": "工作区",
+        "newWorkspace": "新建工作区",
+        "standalone": "独立"
+      },
+      "schedule": {
+        "manual": "手动",
+        "github": "GitHub",
+        "githubWithStatus": "GitHub（{status}）",
+        "cron": "Cron：{expr}"
+      },
+      "scheduleKinds": {
+        "daily": "每天",
+        "hourly": "每小时",
+        "weekly": "每周",
+        "monthly": "每月",
+        "cron": "Cron"
+      },
+      "triggerStatus": {
+        "active": "已启用",
+        "needsSetup": "待配置",
+        "paused": "已暂停",
+        "error": "错误"
+      },
+      "artifact": {
+        "final": "最终结果",
+        "prompt": "提示词",
+        "runJson": "运行 JSON"
+      },
+      "timezoneGroups": {
+        "universal": "通用",
+        "americas": "美洲",
+        "europe": "欧洲",
+        "africa": "非洲",
+        "asia": "亚洲",
+        "oceania": "大洋洲",
+        "current": "当前"
+      },
+      "timezones": {
+        "losAngeles": "洛杉矶",
+        "denver": "丹佛",
+        "chicago": "芝加哥",
+        "newYork": "纽约",
+        "toronto": "多伦多",
+        "saoPaulo": "圣保罗",
+        "london": "伦敦",
+        "paris": "巴黎",
+        "berlin": "柏林",
+        "madrid": "马德里",
+        "amsterdam": "阿姆斯特丹",
+        "moscow": "莫斯科",
+        "cairo": "开罗",
+        "johannesburg": "约翰内斯堡",
+        "dubai": "迪拜",
+        "karachi": "卡拉奇",
+        "kolkata": "加尔各答",
+        "dhaka": "达卡",
+        "bangkok": "曼谷",
+        "singapore": "新加坡",
+        "shanghai": "上海",
+        "hongKong": "香港",
+        "taipei": "台北",
+        "tokyo": "东京",
+        "seoul": "首尔",
+        "perth": "珀斯",
+        "sydney": "悉尼",
+        "auckland": "奥克兰"
+      },
+      "none": "无"
+    },
     "attachmentPreview": {
       "dialogAria": "{filename} 的附件预览",
       "close": "关闭预览"
@@ -3166,6 +3245,17 @@
           "description": "你有未保存的更改。确定要不保存直接关闭吗？",
           "keepEditing": "继续编辑",
           "discardChanges": "放弃更改"
+        }
+      },
+      "workspaceSetup": {
+        "steps": {
+          "createWorkspace": "创建工作区",
+          "fillPrSpec": "填写 PR 规格",
+          "fillIssueSpec": "填写 Issue 规格",
+          "writeRequirementSpec": "编写需求规格",
+          "extractTodos": "提取 TODOs",
+          "runSetupScript": "运行初始化脚本",
+          "ready": "就绪"
         }
       },
       "archivedModal": {
@@ -6740,6 +6830,49 @@
   },
   "files": {
     "components": {
+      "fileTreeContextMenu": {
+        "actions": {
+          "newFile": "新建文件",
+          "newFolder": "新建文件夹",
+          "openInDefaultApp": "使用默认应用打开",
+          "rename": "重命名",
+          "duplicate": "复制",
+          "copyPath": "复制路径",
+          "copyRelativePath": "复制相对路径",
+          "delete": "删除",
+          "cancel": "取消",
+          "create": "创建"
+        },
+        "panels": {
+          "newFile": {
+            "title": "新建文件",
+            "description": "在 {name} 中创建一个新文件。",
+            "placeholder": "输入文件名"
+          },
+          "newFolder": {
+            "title": "新建文件夹",
+            "description": "在 {name} 中创建一个新文件夹。",
+            "placeholder": "输入文件夹名称"
+          },
+          "rename": {
+            "title": "重命名",
+            "description": "重命名 {name}。",
+            "placeholder": "输入新名称"
+          }
+        },
+        "deleteConfirm": {
+          "deleteFolderTitle": "删除文件夹",
+          "deleteFileTitle": "删除文件",
+          "deleteFolderDescription": "将永久删除文件夹“{name}”及其全部内容。",
+          "deleteFileDescription": "将永久删除文件“{name}”。"
+        },
+        "toast": {
+          "openFailedTitle": "打开失败",
+          "openFailedDescription": "无法使用默认应用打开。",
+          "pathCopied": "路径已复制。",
+          "relativePathCopied": "相对路径已复制。"
+        }
+      },
       "fileBrowser": {
         "title": "选择项目文件夹",
         "select": "选择",

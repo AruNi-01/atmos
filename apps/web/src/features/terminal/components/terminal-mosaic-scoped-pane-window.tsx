@@ -165,6 +165,7 @@ export function TerminalMosaicScopedPaneWindow({
     localPath: workspaceInfo?.localPath ?? null,
     projectRootPath: activeProject?.mainFilePath ?? workspaceInfo?.localPath ?? null,
     sourcePaneId: pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId,
+    sourceSessionId: pane.sessionId,
     sourceSurfaceKind: "terminal_pane",
     sourceSurfaceRef: { paneId: id, scope: isProjectContext ? "project" : "workspace" },
     sourceTmuxWindowName: pane.tmuxWindowName ?? null,

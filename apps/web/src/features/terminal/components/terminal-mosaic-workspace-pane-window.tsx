@@ -192,6 +192,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     localPath: workspaceInfo?.localPath ?? null,
     projectRootPath: activeProject?.mainFilePath ?? workspaceInfo?.localPath ?? null,
     sourcePaneId: pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId,
+    sourceSessionId: pane.sessionId,
     sourceSurfaceKind: "terminal_pane",
     sourceSurfaceRef: {
       paneId: id,

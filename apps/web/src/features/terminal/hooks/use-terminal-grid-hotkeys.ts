@@ -31,10 +31,15 @@ export function useTerminalGridHotkeys({
       if (!container || container.getClientRects().length === 0) return;
       const eventTarget = event.target instanceof Node ? event.target : null;
       const activeTarget = document.activeElement;
+      const isSideChatTarget = (target: Element | null) => {
+        return !!target && !!target.closest("[data-side-chat-modal='true']");
+      };
       const isTerminalEventTarget =
         (eventTarget !== null && container.contains(eventTarget)) ||
         (activeTarget !== null && container.contains(activeTarget));
-      if (!isTerminalEventTarget || !(event.metaKey || event.ctrlKey) || event.altKey) return;
+      if (!isTerminalEventTarget || isSideChatTarget(eventTarget instanceof Element ? eventTarget : null) || isSideChatTarget(activeTarget) || !(event.metaKey || event.ctrlKey) || event.altKey) {
+        return;
+      }
 
       if (!event.shiftKey && (event.key.toLowerCase() === "d" || event.code === "KeyD")) {
         event.preventDefault();
