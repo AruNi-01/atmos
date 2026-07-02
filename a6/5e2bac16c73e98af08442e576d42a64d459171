@@ -1,0 +1,23 @@
+apps/web/src/features/wiki/components/__tests__/agent-select.test.ts
+  s_d761cb0a20b84d::t_752efb3e3f47f8 22-32
+resources/terminal-agents/builtin_agents.json
+  s_d761cb0a20b84d::t_752efb3e3f47f8 125
+crates/core-service/src/service/automation/agents.rs
+  s_d761cb0a20b84d::t_752efb3e3f47f8 1271-1273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "a65e2bac16c73e98af08442e576d42a64d459171",
+  "prompts": {},
+  "sessions": {
+    "s_d761cb0a20b84d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f22bc-83d7-7b80-af6f-74099ed63dfe",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
