@@ -1,0 +1,24 @@
+apps/web/src/shared/hooks/use-desktop-web-launcher.ts
+  s_bf5ebe9b3ef047::t_94d4b1561318cd 6-12,23-39,49-50,63-72,77,81
+  s_bf5ebe9b3ef047::t_30af35a122a897 102,107
+apps/web/src/app-shell/header-action-controls.tsx
+  s_bf5ebe9b3ef047::t_700512f5504212 594-598
+apps/web/src/shared/lib/desktop-runtime.ts
+  s_bf5ebe9b3ef047::t_e17405393082bb 82-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "93ee36ad20014fcded8aeeb062f39a7783faeef6",
+  "prompts": {},
+  "sessions": {
+    "s_bf5ebe9b3ef047": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f22cf-55a3-7051-a4c3-fa502379d455",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
