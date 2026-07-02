@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getRuntimeHttpBase, systemApi } from "@/api/rest-api";
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import {
+  clearRuntimeApiConfigCache,
+  getRuntimeApiConfig,
+  httpBase,
+  isTauriRuntime,
+  type ApiConfig,
+} from "@/shared/lib/desktop-runtime";
 
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
 
@@ -13,6 +18,23 @@ const MAX_ATTEMPTS = 10;
 
 function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function browserUrlForConfig(cfg: ApiConfig, pathname: string, search: string) {
+  const hash = typeof window === "undefined" ? "" : window.location.hash;
+  return `${httpBase(cfg)}${pathname}${search}${hash}`;
+}
+
+async function checkHealth(cfg: ApiConfig) {
+  const response = await fetch(`${httpBase(cfg)}/healthz`, {
+    cache: "no-store",
+    headers: cfg.token
+      ? {
+          Authorization: `Bearer ${cfg.token}`,
+        }
+      : undefined,
+  });
+  return response.ok;
 }
 
 export function useDesktopWebLauncher(pathname: string, search: string) {
@@ -24,9 +46,8 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
   const [isLaunching, setIsLaunching] = useState(false);
 
   const resolveBrowserUrl = useCallback(async () => {
-    const baseUrl = await getRuntimeHttpBase();
-    const hash = typeof window === "undefined" ? "" : window.location.hash;
-    return `${baseUrl}${pathname}${search}${hash}`;
+    const cfg = await getRuntimeApiConfig();
+    return browserUrlForConfig(cfg, pathname, search);
   }, [pathname, search]);
 
   const refreshStatus = useCallback(async () => {
@@ -39,18 +60,25 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
     setStatus((current) => (current === "ready" ? current : "checking"));
 
     try {
-      const [healthy, url] = await Promise.all([
-        systemApi.checkHealth(),
-        resolveBrowserUrl(),
-      ]);
+      let cfg = await getRuntimeApiConfig();
+      let healthy = await checkHealth(cfg);
+
+      if (!healthy) {
+        clearRuntimeApiConfigCache();
+        cfg = await getRuntimeApiConfig();
+        healthy = await checkHealth(cfg);
+      }
+
+      const url = browserUrlForConfig(cfg, pathname, search);
       setBrowserUrl(url);
       setStatus(healthy ? "ready" : "unavailable");
       return healthy;
     } catch {
+      clearRuntimeApiConfigCache();
       setStatus("unavailable");
       return false;
     }
-  }, [isDesktopRuntime, resolveBrowserUrl]);
+  }, [isDesktopRuntime, pathname, search]);
 
   const openInBrowser = useCallback(async () => {
     if (!isDesktopRuntime) {
@@ -71,12 +99,12 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
         return false;
       }
 
-      const url = browserUrl ?? (await resolveBrowserUrl());
+      const url = await resolveBrowserUrl();
       return openDesktopExternalUrl(url);
     } finally {
       setIsLaunching(false);
     }
-  }, [browserUrl, isDesktopRuntime, refreshStatus, resolveBrowserUrl]);
+  }, [isDesktopRuntime, refreshStatus, resolveBrowserUrl]);
 
   useEffect(() => {
     if (!isDesktopRuntime) {

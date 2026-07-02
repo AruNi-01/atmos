@@ -79,6 +79,11 @@ export function setHostedRuntimeApiOverride(cfg: ApiConfig | null): void {
   cachedHttpConfig = cfg;
 }
 
+export function clearRuntimeApiConfigCache(): void {
+  cachedConfig = null;
+  cachedHttpConfig = null;
+}
+
 /** Build an HTTP base URL from the resolved config. */
 export function httpBase(cfg: ApiConfig): string {
   const scheme = cfg.protocol ?? 'http';

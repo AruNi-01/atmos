@@ -591,9 +591,11 @@ function TunnelConnectorPopoverContent({
         >
           {isOpeningDesktopWeb
             ? t("remoteAccess.starting")
-            : desktopWebStatus === "ready"
-              ? t("remoteAccess.openInWeb")
-              : t("remoteAccess.startWeb")}
+            : desktopWebStatus === "checking"
+              ? t("remoteAccess.checkingWeb")
+              : desktopWebStatus === "ready"
+                ? t("remoteAccess.openInWeb")
+                : t("remoteAccess.retryWeb")}
           <ExternalLink className="size-4" />
         </Button>
       </div>
