@@ -146,8 +146,8 @@ export function useWelcomeSlashNavigation<Project>({
         setExpandedSections((prev) => ({ ...prev, [item.section]: true }));
       }
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [activeIndex, onSelectAgent, onSelectCommand, onSelectProject, onSelectSkill, popover, visibleItems]);
 
   return {

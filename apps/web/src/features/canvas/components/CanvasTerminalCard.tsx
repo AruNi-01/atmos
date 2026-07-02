@@ -13,12 +13,18 @@ import { ArrowUpRight, PinOff, Plus, SquareTerminal, X } from "lucide-react";
 import { cn, toastManager } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
-import { TerminalAgentInputOverlay } from "@/features/terminal/components/TerminalAgentInputOverlay";
+import {
+  TerminalAgentInputOverlay,
+  type TerminalAgentInputOverlayHandle,
+} from "@/features/terminal/components/TerminalAgentInputOverlay";
 import { TerminalTitleWithAgent } from "@/features/terminal/components/terminal-title";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
 import { useTerminalSideChats } from "@/features/terminal/hooks/use-terminal-side-chats";
-import { resolveTerminalAgentSubmitMode } from "@/features/terminal/lib/terminal-runtime-utils";
+import {
+  isTerminalAgentInputShortcut,
+  resolveTerminalAgentSubmitMode,
+} from "@/features/terminal/lib/terminal-runtime-utils";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { clearLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
@@ -90,7 +96,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const editor = useEditor();
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
+  const terminalOverlayRef = React.useRef<HTMLDivElement | null>(null);
   const terminalApiRef = React.useRef<TerminalRef | null>(null);
+  const agentInputOverlayRef = React.useRef<TerminalAgentInputOverlayHandle | null>(null);
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
   const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
@@ -102,6 +110,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const maxRenderedTerminals = useCanvasSettingsStore((state) => state.maxRenderedTerminals);
   const configuredAgents = React.useContext(CanvasAgentContext);
   const createRelatedTerminal = useCreateRelatedCanvasTerminal(shape);
+  const markCanvasOverlayInteractionHandled = React.useCallback(
+    (event: Event | React.SyntheticEvent) => {
+      editor.markEventAsHandled(event);
+    },
+    [editor],
+  );
 
   const storeWrite = React.useMemo(
     () =>
@@ -117,6 +131,10 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     pinnedAgent: shape.props.paneAgent,
     storeWrite,
   });
+  const contextLabel = [shape.props.projectName, shape.props.workspaceName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" · ");
 
   const isSelected = useValue(
     "canvas-card-selected",
@@ -151,6 +169,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     sourceSurfaceRef: { shapeId: shape.id, contextScope: shape.props.contextScope },
     sourceTmuxWindowName: shape.props.tmuxWindowName,
     terminalScale: terminalViewport?.scale,
+    onInteraction: markCanvasOverlayInteractionHandled,
   });
 
   React.useEffect(() => {
@@ -279,6 +298,40 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       cancelAnimationFrame(frame);
     };
   }, [focusTerminal, isActive, isRendered]);
+
+  React.useEffect(() => {
+    const handleCanvasTerminalAgentInputShortcut = (event: KeyboardEvent) => {
+      if (!isTerminalAgentInputShortcut(event)) return;
+
+      const overlay = terminalOverlayRef.current;
+      if (!overlay || overlay.getClientRects().length === 0) return;
+
+      const eventTarget = event.target instanceof Node ? event.target : null;
+      const activeTarget = document.activeElement;
+      const isSideChatTarget = (target: Element | null) => {
+        return !!target && !!target.closest("[data-side-chat-modal='true']");
+      };
+      const isCanvasTerminalTarget =
+        (eventTarget !== null && overlay.contains(eventTarget)) ||
+        (activeTarget !== null && overlay.contains(activeTarget));
+      if (
+        !isCanvasTerminalTarget ||
+        isSideChatTarget(eventTarget instanceof Element ? eventTarget : null) ||
+        isSideChatTarget(activeTarget)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      agentInputOverlayRef.current?.toggle();
+    };
+
+    window.addEventListener("keydown", handleCanvasTerminalAgentInputShortcut, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleCanvasTerminalAgentInputShortcut, { capture: true });
+    };
+  }, []);
 
   const stopCanvasInteractionWhileActive = React.useCallback(
     (event: React.SyntheticEvent) => {
@@ -432,6 +485,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     isRendered && portalRoot && terminalViewport
       ? createPortal(
           <div
+            ref={terminalOverlayRef}
             data-canvas-terminal-overlay="true"
             style={{
               left: terminalViewport.left,
@@ -482,10 +536,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               }}
             />
             <TerminalAgentInputOverlay
+              ref={agentInputOverlayRef}
               activeProjectId={shape.props.contextScope === "project" ? shape.props.workspaceId : null}
               getTerminalCursorClientPoint={() => terminalApiRef.current?.getCursorClientPoint() ?? null}
               isTerminalReady={isTerminalReady}
               localPath={shape.props.localPath || null}
+              onInteraction={markCanvasOverlayInteractionHandled}
               onStartSideChat={startSideChat}
               onSendEnter={() => {
                 terminalApiRef.current?.sendEnter();
@@ -527,9 +583,11 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             toolbarAgent={toolbarAgent}
             className="gap-1.5 text-sm font-semibold text-foreground"
           />
-          <span className="text-xs whitespace-nowrap text-muted-foreground">
-            ({shape.props.projectName} · {shape.props.workspaceName})
-          </span>
+          {contextLabel ? (
+            <span className="text-xs whitespace-nowrap text-muted-foreground">
+              ({contextLabel})
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-1">
           <button

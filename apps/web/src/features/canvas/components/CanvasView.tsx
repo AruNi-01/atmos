@@ -35,7 +35,7 @@ import {
   getTerminalWorkspaceScopeKey,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
-import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
@@ -382,20 +382,25 @@ export const CanvasView: React.FC = () => {
       ...visibleBuiltInAgents.map((agent) => {
         const custom = agentCustomSettings[agent.id];
         const cmd = custom?.cmd?.trim() || agent.cmd;
+        const flags = getInteractiveAgentParams(agent, custom?.flags);
         return {
           id: agent.id,
           label: agent.label,
-          command: cmd,
+          command: flags ? `${cmd} ${flags}` : cmd,
           iconType: "built-in",
           pipeCommand: "useEcho" in agent && agent.useEcho ? cmd : undefined,
         } satisfies TerminalPaneAgent;
       }),
-      ...visibleCustomAgents.map((agent) => ({
-        id: agent.id,
-        label: agent.label,
-        command: agent.cmd,
-        iconType: "custom" as const,
-      })),
+      ...visibleCustomAgents.map((agent) => {
+        const cmd = agent.cmd.trim();
+        const flags = agent.flags?.trim() || "";
+        return {
+          id: agent.id,
+          label: agent.label,
+          command: flags ? `${cmd} ${flags}` : cmd,
+          iconType: "custom" as const,
+        };
+      }),
     ],
     [visibleBuiltInAgents, visibleCustomAgents, agentCustomSettings],
   );

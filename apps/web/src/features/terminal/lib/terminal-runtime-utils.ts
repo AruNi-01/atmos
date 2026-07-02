@@ -296,3 +296,19 @@ export function shortenPath(fullPath: string): string {
 export function isFindShortcut(event: { ctrlKey: boolean; metaKey: boolean; key: string; shiftKey?: boolean }): boolean {
   return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !event.shiftKey;
 }
+
+export function isTerminalAgentInputShortcut(event: {
+  altKey?: boolean;
+  code?: string;
+  ctrlKey: boolean;
+  key: string;
+  metaKey: boolean;
+  shiftKey?: boolean;
+}): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    (event.key.toLowerCase() === "g" || event.code === "KeyG")
+  );
+}

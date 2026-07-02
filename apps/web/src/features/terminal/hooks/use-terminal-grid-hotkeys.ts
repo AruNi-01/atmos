@@ -2,6 +2,8 @@
 
 import React from "react";
 
+import { isTerminalAgentInputShortcut } from "../lib/terminal-runtime-utils";
+
 type UseTerminalGridHotkeysOptions = {
   terminalHotkeyScopeRef: React.RefObject<HTMLDivElement | null>;
   focusPaneByOffset: (offset: 1 | -1) => void;
@@ -62,7 +64,7 @@ export function useTerminalGridHotkeys({
         return;
       }
 
-      if (!event.shiftKey && (event.key.toLowerCase() === "g" || event.code === "KeyG")) {
+      if (isTerminalAgentInputShortcut(event)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         toggleFocusedAgentInput();

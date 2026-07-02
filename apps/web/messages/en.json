@@ -7529,6 +7529,8 @@
       "placeholder": "[⌘ + G] Input anything to terminal (@ annotation, / command, or paste img)",
       "sideCommand": {
         "description": "Fork this terminal context into a side chat",
+        "selectAgent": "Select side chat agent",
+        "changeAgent": "Change side chat agent: {label}",
         "chooseAgent": "Choose an agent for this side chat",
         "noAgent": "No runnable agent available.",
         "cancel": "Cancel"

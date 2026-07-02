@@ -17,6 +17,7 @@ type PromptComposerProps = React.ComponentProps<typeof PromptComposer>;
 
 export function TerminalAgentInputShell({
   attachments,
+  beforeSendControl,
   canSubmit,
   composerRef,
   handleAttachmentRemove,
@@ -37,6 +38,7 @@ export function TerminalAgentInputShell({
   startSendExit,
 }: {
   attachments: AttachmentBarProps["attachments"];
+  beforeSendControl?: React.ReactNode;
   canSubmit: boolean;
   composerRef: React.RefObject<ComposerHandle | null>;
   handleAttachmentRemove: AttachmentBarProps["onRemove"];
@@ -100,6 +102,9 @@ export function TerminalAgentInputShell({
                 onSlashCancel={onSlashCancel}
               />
             </div>
+            {beforeSendControl ? (
+              <div className="flex shrink-0 items-center">{beforeSendControl}</div>
+            ) : null}
             <button
               type="button"
               className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"

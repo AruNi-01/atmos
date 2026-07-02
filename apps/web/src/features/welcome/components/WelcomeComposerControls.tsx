@@ -42,20 +42,49 @@ export function WelcomeAgentSelector({
   availableAgents,
   onConnectAgent,
   onSelectAgent,
+  onInteraction,
+  onOpenChange,
   selectedAgentId,
   runConfigByAgentId,
   onRunConfigChange,
+  open,
   purpose,
+  trigger,
+  variant = "floating",
 }: {
   availableAgents: AgentMenuOption[];
   onConnectAgent?: () => void;
+  onInteraction?: (event: React.SyntheticEvent) => void;
+  onOpenChange?: (open: boolean) => void;
   onSelectAgent: (agentId: string) => void;
+  open?: boolean;
   selectedAgentId: string;
   runConfigByAgentId: Record<string, TerminalAgentRunConfigInput | null | undefined>;
   onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
   purpose?: "interactive" | "automation";
+  trigger?: React.ReactNode;
+  variant?: "floating" | "menu";
 }) {
   const t = useTranslations("Welcome.components.composerControls");
+
+  if (variant === "menu") {
+    return (
+      <TerminalAgentSelectorWithRunConfig
+        variant="menu"
+        options={availableAgents}
+        value={selectedAgentId}
+        onValueChange={onSelectAgent}
+        open={open}
+        onOpenChange={onOpenChange}
+        runConfig={selectedAgentId ? runConfigByAgentId[selectedAgentId] ?? null : null}
+        runConfigByAgentId={runConfigByAgentId}
+        onRunConfigChange={onRunConfigChange}
+        onInteraction={onInteraction}
+        purpose={purpose}
+        trigger={trigger}
+      />
+    );
+  }
 
   return (
     <TerminalAgentSelectorWithRunConfig
@@ -67,6 +96,7 @@ export function WelcomeAgentSelector({
       onRunConfigChange={onRunConfigChange}
       onEmptyAction={onConnectAgent}
       emptyActionLabel={t("connectAgents")}
+      onInteraction={onInteraction}
       purpose={purpose}
     />
   );

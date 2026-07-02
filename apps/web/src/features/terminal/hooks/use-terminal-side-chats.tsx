@@ -21,14 +21,20 @@ import {
   type TerminalSideChatStatus,
   type TerminalSideContextCaptureResponse,
 } from "@/api/ws-api";
-import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
+import {
+  buildInteractiveAgentCommand,
+  type TerminalAgentRunConfigInput,
+} from "@/features/agent/lib/terminal-agent-run-config";
 import { useTerminalSideChatSettingsStore } from "@/features/settings/store/terminal-side-chat-settings-store";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
 import {
   TerminalAgentInputOverlay,
   type TerminalAgentInputOverlayHandle,
 } from "@/features/terminal/components/TerminalAgentInputOverlay";
-import { resolveTerminalAgentSubmitMode } from "@/features/terminal/lib/terminal-runtime-utils";
+import {
+  isTerminalAgentInputShortcut,
+  resolveTerminalAgentSubmitMode,
+} from "@/features/terminal/lib/terminal-runtime-utils";
 import type { TerminalPaneAgent } from "@/features/terminal/types";
 
 type SourceSurfaceKind = "terminal_pane" | "canvas_terminal";
@@ -48,6 +54,7 @@ export interface UseTerminalSideChatsOptions {
   projectName?: string | null;
   workspaceName?: string | null;
   localPath?: string | null;
+  onInteraction?: (event: Event | React.SyntheticEvent) => void;
   projectRootPath?: string | null;
   sourcePaneId: string;
   sourceSessionId?: string | null;
@@ -94,6 +101,7 @@ export function useTerminalSideChats({
   projectName,
   workspaceName,
   localPath,
+  onInteraction,
   projectRootPath,
   sourcePaneId,
   sourceSessionId,
@@ -170,7 +178,11 @@ export function useTerminalSideChats({
   }, []);
 
   const startSideChat = React.useCallback(
-    async (userPrompt: string, agent: TerminalPaneAgent) => {
+    async (
+      userPrompt: string,
+      agent: TerminalPaneAgent,
+      runConfig?: TerminalAgentRunConfigInput | null,
+    ) => {
       if (!sourceTmuxWindowName) {
         toastManager.add({
           title: t("errorTitle"),
@@ -200,8 +212,9 @@ export function useTerminalSideChats({
         });
         const initialCommand = `${buildInteractiveAgentCommand({
           agentId: agent.id,
-          launchCommand: agent.pipeCommand ?? agent.command,
+          launchCommand: agent.command,
           prompt: sidePrompt,
+          runConfig,
         })}\r`;
         const record: LocalSideChatRecord = {
           side_chat_id: sideChatId,
@@ -362,6 +375,7 @@ export function useTerminalSideChats({
         void Promise.all(sideChatIds.map((sideChatId) => closeSideChat(sideChatId)));
       }}
       onHide={hideSideChat}
+      onInteraction={onInteraction}
       onSelectSideChat={(sideChatId) => {
         const record = records.find((item) => item.side_chat_id === sideChatId);
         if (!record) return;
@@ -424,6 +438,7 @@ function TerminalSideChatLayer({
   onClose,
   onCloseAll,
   onHide,
+  onInteraction,
   onSelectSideChat,
   onReady,
 }: {
@@ -441,6 +456,7 @@ function TerminalSideChatLayer({
   onClose: (sideChatId: string) => void;
   onCloseAll: (sideChatIds: string[]) => void;
   onHide: () => void;
+  onInteraction?: (event: Event | React.SyntheticEvent) => void;
   onSelectSideChat: (sideChatId: string) => void;
   onReady: (record: LocalSideChatRecord) => void;
 }) {
@@ -470,6 +486,7 @@ function TerminalSideChatLayer({
       onClose={onClose}
       onCloseAll={onCloseAll}
       onHide={onHide}
+      onInteraction={onInteraction}
       onReady={onReady}
       onSelectSideChat={onSelectSideChat}
     />
@@ -491,6 +508,7 @@ function TerminalSideChatModal({
   onClose,
   onCloseAll,
   onHide,
+  onInteraction,
   onReady,
   onSelectSideChat,
 }: {
@@ -508,6 +526,7 @@ function TerminalSideChatModal({
   onClose: (sideChatId: string) => void;
   onCloseAll: (sideChatIds: string[]) => void;
   onHide: () => void;
+  onInteraction?: (event: Event | React.SyntheticEvent) => void;
   onReady: (record: LocalSideChatRecord) => void;
   onSelectSideChat: (sideChatId: string) => void;
 }) {
@@ -532,6 +551,21 @@ function TerminalSideChatModal({
   const [closeAllConfirmOpen, setCloseAllConfirmOpen] = React.useState(false);
   const [layout, setLayout] = React.useState<SideChatModalLayout | null>(null);
   const [readySideChatIds, setReadySideChatIds] = React.useState<Set<string>>(() => new Set());
+
+  const markInteraction = React.useCallback(
+    (event: Event | React.SyntheticEvent) => {
+      onInteraction?.(event);
+    },
+    [onInteraction],
+  );
+
+  const stopModalInteraction = React.useCallback(
+    (event: React.SyntheticEvent) => {
+      markInteraction(event);
+      event.stopPropagation();
+    },
+    [markInteraction],
+  );
 
   React.useLayoutEffect(() => {
     const node = overlayRef.current;
@@ -573,6 +607,7 @@ function TerminalSideChatModal({
       const overlay = overlayRef.current;
       if (!overlay || !layout) return;
 
+      markInteraction(event);
       event.preventDefault();
       event.stopPropagation();
       resizeAbortControllerRef.current?.abort();
@@ -589,7 +624,10 @@ function TerminalSideChatModal({
       document.body.style.cursor = sideChatModalResizeCursor(edge);
       document.body.style.userSelect = "none";
 
-      const finishResize = () => {
+      const finishResize = (finishEvent?: PointerEvent) => {
+        if (finishEvent) {
+          markInteraction(finishEvent);
+        }
         resizeStateRef.current = null;
         resizeAbortControllerRef.current?.abort();
         resizeAbortControllerRef.current = null;
@@ -601,6 +639,7 @@ function TerminalSideChatModal({
         const state = resizeStateRef.current;
         const currentOverlay = overlayRef.current;
         if (!state || !currentOverlay) return;
+        markInteraction(moveEvent);
 
         const dx = moveEvent.clientX - state.startX;
         const dy = moveEvent.clientY - state.startY;
@@ -610,11 +649,11 @@ function TerminalSideChatModal({
 
       resizeAbortControllerRef.current = new AbortController();
       const { signal } = resizeAbortControllerRef.current;
-      document.addEventListener("pointermove", handlePointerMove, { signal });
-      document.addEventListener("pointerup", finishResize, { signal });
-      document.addEventListener("pointercancel", finishResize, { signal });
+      document.addEventListener("pointermove", handlePointerMove, { capture: true, signal });
+      document.addEventListener("pointerup", finishResize, { capture: true, signal });
+      document.addEventListener("pointercancel", finishResize, { capture: true, signal });
     },
-    [layout],
+    [layout, markInteraction],
   );
 
   const handleDragStart = React.useCallback(
@@ -623,6 +662,7 @@ function TerminalSideChatModal({
       if (event.button !== 0 || !overlay || !layout) return;
       if ((event.target as HTMLElement | null)?.closest("[data-side-chat-control='true']")) return;
 
+      markInteraction(event);
       event.stopPropagation();
       dragAbortControllerRef.current?.abort();
       dragStateRef.current = {
@@ -635,7 +675,10 @@ function TerminalSideChatModal({
       const previousCursor = document.body.style.cursor;
       const previousUserSelect = document.body.style.userSelect;
 
-      const finishDrag = () => {
+      const finishDrag = (finishEvent?: PointerEvent) => {
+        if (finishEvent) {
+          markInteraction(finishEvent);
+        }
         dragStateRef.current = null;
         dragAbortControllerRef.current?.abort();
         dragAbortControllerRef.current = null;
@@ -647,6 +690,7 @@ function TerminalSideChatModal({
         const state = dragStateRef.current;
         const currentOverlay = overlayRef.current;
         if (!state || !currentOverlay) return;
+        markInteraction(moveEvent);
 
         const dx = moveEvent.clientX - state.startX;
         const dy = moveEvent.clientY - state.startY;
@@ -666,28 +710,32 @@ function TerminalSideChatModal({
 
       dragAbortControllerRef.current = new AbortController();
       const { signal } = dragAbortControllerRef.current;
-      document.addEventListener("pointermove", handlePointerMove, { signal });
-      document.addEventListener("pointerup", finishDrag, { signal });
-      document.addEventListener("pointercancel", finishDrag, { signal });
+      document.addEventListener("pointermove", handlePointerMove, { capture: true, signal });
+      document.addEventListener("pointerup", finishDrag, { capture: true, signal });
+      document.addEventListener("pointercancel", finishDrag, { capture: true, signal });
     },
-    [layout],
+    [layout, markInteraction],
   );
 
   const handleModalKeyDownCapture = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) return;
-      if (event.key.toLowerCase() !== "g" && event.code !== "KeyG") return;
+      markInteraction(event);
+      if (!isTerminalAgentInputShortcut(event)) return;
 
       event.preventDefault();
       event.stopPropagation();
       agentInputOverlayRefs.current.get(activeSideChatId)?.toggle();
     },
-    [activeSideChatId],
+    [activeSideChatId, markInteraction],
   );
 
-  const handleModalKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    event.stopPropagation();
-  }, []);
+  const handleModalKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      markInteraction(event);
+      event.stopPropagation();
+    },
+    [markInteraction],
+  );
 
   const modalStyle: React.CSSProperties = layout
     ? {
@@ -713,15 +761,13 @@ function TerminalSideChatModal({
       <div
         className="pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)]"
         onContextMenu={(event) => {
+          markInteraction(event);
           event.preventDefault();
           event.stopPropagation();
         }}
-        onMouseDown={(event) => {
-          event.stopPropagation();
-        }}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
+        onMouseDown={stopModalInteraction}
+        onPointerDown={stopModalInteraction}
+        onWheel={stopModalInteraction}
         onKeyDownCapture={handleModalKeyDownCapture}
         onKeyDown={handleModalKeyDown}
         style={modalStyle}
@@ -770,6 +816,7 @@ function TerminalSideChatModal({
                           : "hidden",
                       )}
                       onPointerDown={(event) => {
+                        markInteraction(event);
                         event.stopPropagation();
                       }}
                       onClick={(event) => {
@@ -907,6 +954,7 @@ function TerminalSideChatModal({
                   }
                   isTerminalReady={readySideChatIds.has(record.side_chat_id)}
                   localPath={localPath}
+                  onInteraction={onInteraction}
                   onSendEnter={() => {
                     terminalRefs.current.get(record.side_chat_id)?.sendEnter();
                   }}
@@ -935,42 +983,42 @@ function SideChatResizeHandles({
     <>
       <div
         aria-hidden="true"
-        className="absolute -top-1 left-2 right-2 z-20 h-2 cursor-n-resize touch-none"
+        className="absolute left-3 right-3 top-0 z-50 h-2 cursor-n-resize touch-none"
         onPointerDown={onResizeStart("n")}
       />
       <div
         aria-hidden="true"
-        className="absolute -bottom-1 left-2 right-2 z-20 h-2 cursor-s-resize touch-none"
+        className="absolute bottom-0 left-3 right-3 z-50 h-2 cursor-s-resize touch-none"
         onPointerDown={onResizeStart("s")}
       />
       <div
         aria-hidden="true"
-        className="absolute -left-1 bottom-2 top-2 z-20 w-2 cursor-w-resize touch-none"
+        className="absolute bottom-3 left-0 top-3 z-50 w-2 cursor-w-resize touch-none"
         onPointerDown={onResizeStart("w")}
       />
       <div
         aria-hidden="true"
-        className="absolute -right-1 bottom-2 top-2 z-20 w-2 cursor-e-resize touch-none"
+        className="absolute bottom-3 right-0 top-3 z-50 w-2 cursor-e-resize touch-none"
         onPointerDown={onResizeStart("e")}
       />
       <div
         aria-hidden="true"
-        className="absolute -left-1 -top-1 z-30 size-3 cursor-nw-resize touch-none"
+        className="absolute left-0 top-0 z-[60] size-4 cursor-nw-resize touch-none"
         onPointerDown={onResizeStart("nw")}
       />
       <div
         aria-hidden="true"
-        className="absolute -right-1 -top-1 z-30 size-3 cursor-ne-resize touch-none"
+        className="absolute right-0 top-0 z-[60] size-4 cursor-ne-resize touch-none"
         onPointerDown={onResizeStart("ne")}
       />
       <div
         aria-hidden="true"
-        className="absolute -bottom-1 -left-1 z-30 size-3 cursor-sw-resize touch-none"
+        className="absolute bottom-0 left-0 z-[60] size-4 cursor-sw-resize touch-none"
         onPointerDown={onResizeStart("sw")}
       />
       <div
         aria-hidden="true"
-        className="absolute -bottom-1 -right-1 z-30 size-3 cursor-se-resize touch-none"
+        className="absolute bottom-0 right-0 z-[60] size-4 cursor-se-resize touch-none"
         onPointerDown={onResizeStart("se")}
       />
     </>

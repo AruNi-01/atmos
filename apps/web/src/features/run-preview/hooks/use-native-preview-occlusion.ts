@@ -47,9 +47,14 @@ function isTooltipCandidate(element: Element): boolean {
   return Boolean(element.querySelector(TOOLTIP_CANDIDATE_SELECTOR));
 }
 
-function isVisibleOverlayCandidate(element: Element, ignoredRoot: HTMLElement | null): boolean {
+function isVisibleOverlayCandidate(
+  element: Element,
+  ignoredRoot: HTMLElement | null,
+  surface: HTMLElement,
+): boolean {
   if (!(element instanceof HTMLElement || element instanceof SVGElement)) return false;
   const isNativeSurfaceOverlay = element.hasAttribute("data-atmos-native-surface-overlay");
+  if (element.contains(surface)) return false;
   if (ignoredRoot?.contains(element)) return false;
   if (element.closest("[data-atmos-ignore-native-surface-occlusion]")) return false;
   if (isTooltipCandidate(element)) return false;
@@ -63,9 +68,12 @@ function isVisibleOverlayCandidate(element: Element, ignoredRoot: HTMLElement | 
   return hasVisibleRect(element.getBoundingClientRect());
 }
 
-function getVisibleOverlayCandidates(ignoredRoot: HTMLElement | null): Element[] {
+function getVisibleOverlayCandidates(
+  ignoredRoot: HTMLElement | null,
+  surface: HTMLElement,
+): Element[] {
   return Array.from(document.querySelectorAll(OVERLAY_CANDIDATE_SELECTOR))
-    .filter((element) => isVisibleOverlayCandidate(element, ignoredRoot));
+    .filter((element) => isVisibleOverlayCandidate(element, ignoredRoot, surface));
 }
 
 type OcclusionSnapshot = {
@@ -109,7 +117,7 @@ export function useNativePreviewOcclusion({
         return { candidates: [], isOccluded: false };
       }
 
-      const candidates = getVisibleOverlayCandidates(ignoredRootRef?.current ?? null);
+      const candidates = getVisibleOverlayCandidates(ignoredRootRef?.current ?? null, surface);
       return {
         candidates,
         isOccluded: candidates.some((candidate) => rectsIntersect(surfaceRect, candidate.getBoundingClientRect())),

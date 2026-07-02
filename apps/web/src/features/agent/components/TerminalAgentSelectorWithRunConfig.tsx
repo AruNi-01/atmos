@@ -49,6 +49,7 @@ type SharedProps = {
   options: readonly TerminalAgentSelectorOption[];
   value: string;
   onValueChange: (value: string) => void;
+  onInteraction?: (event: React.SyntheticEvent) => void;
   purpose?: "interactive" | "automation";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -136,7 +137,15 @@ export function TerminalAgentSelectorWithRunConfig(
   );
 
   const options = props.options;
+  const onInteraction = props.onInteraction;
   const selectedOption = options.find((item) => item.id === props.value) ?? null;
+  const handleContentInteraction = React.useCallback(
+    (event: React.SyntheticEvent) => {
+      onInteraction?.(event);
+      event.stopPropagation();
+    },
+    [onInteraction],
+  );
 
   const getRunConfig = React.useCallback(
     (agentId: string) => {
@@ -366,7 +375,15 @@ export function TerminalAgentSelectorWithRunConfig(
           </TooltipTrigger>
           <TooltipContent side="top">{summary}</TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="start" className="p-1.5">
+        <DropdownMenuContent
+          align="start"
+          className="p-1.5"
+          onDoubleClick={handleContentInteraction}
+          onKeyDown={handleContentInteraction}
+          onMouseDown={handleContentInteraction}
+          onPointerDown={handleContentInteraction}
+          onWheel={handleContentInteraction}
+        >
           {overlayContent}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -399,7 +416,15 @@ export function TerminalAgentSelectorWithRunConfig(
               <TooltipContent side="top">{summary}</TooltipContent>
             ) : null}
           </Tooltip>
-          <DropdownMenuContent align="start" className="p-1.5">
+          <DropdownMenuContent
+            align="start"
+            className="p-1.5"
+            onDoubleClick={handleContentInteraction}
+            onKeyDown={handleContentInteraction}
+            onMouseDown={handleContentInteraction}
+            onPointerDown={handleContentInteraction}
+            onWheel={handleContentInteraction}
+          >
             {overlayContent}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -417,7 +442,12 @@ export function TerminalAgentSelectorWithRunConfig(
         align="end"
         className={cn("p-1.5", props.contentClassName)}
         onCloseAutoFocus={props.onCloseAutoFocus}
+        onDoubleClick={handleContentInteraction}
+        onKeyDown={handleContentInteraction}
+        onMouseDown={handleContentInteraction}
         onPointerDownOutside={props.onPointerDownOutside}
+        onPointerDown={handleContentInteraction}
+        onWheel={handleContentInteraction}
       >
         {overlayContent}
       </DropdownMenuContent>

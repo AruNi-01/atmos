@@ -95,7 +95,6 @@ export function CanvasBrowserWidget({
         browserContextId={`canvas-browser:${source.browserId || shape.id}`}
         allowStandaloneWindow={false}
         allowMaximize={false}
-        disableNativePreviewOcclusion
         keepInactiveTabsMounted={false}
         syncUrlQueryParam={false}
         canvasViewportControllerRef={canvasViewportControllerRef}
