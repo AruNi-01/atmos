@@ -1,7 +1,10 @@
 use serde_json::{json, Value};
 use tracing::debug;
 
-use super::{home_dir, AgentHookToolStatus};
+use super::{
+    home_dir, hook_version_assignment, hook_version_header_shell, installed_status_from_versions,
+    parse_hook_version_from_json, AgentHookToolStatus,
+};
 
 fn hooks_json_path() -> Option<std::path::PathBuf> {
     home_dir()
@@ -27,8 +30,12 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
 
 fn build_cmd(port: u16, event_name: &str) -> String {
     let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
     format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version,
+        hook_version_header = hook_version_header,
         event_name = event_name,
         url = url,
     )
@@ -36,8 +43,12 @@ fn build_cmd(port: u16, event_name: &str) -> String {
 
 fn build_stdin_cmd(port: u16, _event_name: &str) -> String {
     let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
     format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version,
+        hook_version_header = hook_version_header,
         url = url,
     )
 }
@@ -163,11 +174,7 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
     }
 
     match write_json(&path, &settings) {
-        Ok(()) => {
-            let mut status = AgentHookToolStatus::success(&path_str);
-            status.installed = false;
-            status
-        }
+        Ok(()) => AgentHookToolStatus::detected_uninstalled(&path_str),
         Err(e) => AgentHookToolStatus::failed(&path_str, e),
     }
 }
@@ -187,12 +194,7 @@ pub(super) fn check() -> AgentHookToolStatus {
     let path_str = path.display().to_string();
 
     if !path.exists() {
-        return AgentHookToolStatus {
-            detected: true,
-            installed: false,
-            config_path: Some(path_str),
-            error: None,
-        };
+        return AgentHookToolStatus::detected_uninstalled(path_str);
     }
 
     let settings: Value = match std::fs::read_to_string(&path) {
@@ -200,19 +202,19 @@ pub(super) fn check() -> AgentHookToolStatus {
         Err(e) => return AgentHookToolStatus::failed(&path_str, e.to_string()),
     };
 
-    let installed = settings
+    let installed_versions = settings
         .get("hooks")
         .and_then(|h| h.get("stop"))
         .and_then(|arr| arr.as_array())
-        .map(|arr| arr.iter().any(is_atmos_hook))
-        .unwrap_or(false);
+        .map(|arr| {
+            arr.iter()
+                .filter(|entry| is_atmos_hook(entry))
+                .map(parse_hook_version_from_json)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
 
-    AgentHookToolStatus {
-        detected: true,
-        installed,
-        config_path: Some(path_str),
-        error: None,
-    }
+    installed_status_from_versions(path_str, installed_versions)
 }
 
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {

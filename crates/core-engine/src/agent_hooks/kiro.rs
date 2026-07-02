@@ -1,7 +1,10 @@
 use serde_json::{json, Value};
 use tracing::debug;
 
-use super::{home_dir, AgentHookToolStatus};
+use super::{
+    home_dir, hook_version_assignment, hook_version_header_shell, installed_status_from_content,
+    AgentHookToolStatus,
+};
 
 const ATMOS_AGENT_NAME: &str = "atmos";
 const ATMOS_MARKER: &str = "ATMOS_MANAGED";
@@ -36,20 +39,32 @@ fn is_atmos_agent(content: &str) -> bool {
 
 fn build_agent_config(port: u16) -> Value {
     let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
     let agent_spawn_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version.as_str(),
+        hook_version_header = hook_version_header.as_str(),
     );
     let prompt_submit_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version.as_str(),
+        hook_version_header = hook_version_header.as_str(),
     );
     let pre_tool_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version.as_str(),
+        hook_version_header = hook_version_header.as_str(),
     );
     let post_tool_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version.as_str(),
+        hook_version_header = hook_version_header.as_str(),
     );
     let stop_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        hook_version = hook_version.as_str(),
+        hook_version_header = hook_version_header.as_str(),
     );
 
     json!({
@@ -169,21 +184,12 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
 
     if let Ok(content) = std::fs::read_to_string(&path) {
         if !is_atmos_agent(&content) {
-            return AgentHookToolStatus {
-                detected: true,
-                installed: false,
-                config_path: Some(path_str),
-                error: None,
-            };
+            return AgentHookToolStatus::detected_uninstalled(path_str);
         }
     }
 
     match std::fs::remove_file(&path) {
-        Ok(()) => {
-            let mut status = AgentHookToolStatus::success(&path_str);
-            status.installed = false;
-            status
-        }
+        Ok(()) => AgentHookToolStatus::detected_uninstalled(&path_str),
         Err(e) => AgentHookToolStatus::failed(&path_str, e.to_string()),
     }
 }
@@ -209,24 +215,11 @@ pub(super) fn check() -> AgentHookToolStatus {
     let path_str = path.display().to_string();
 
     if !path.exists() {
-        return AgentHookToolStatus {
-            detected: true,
-            installed: false,
-            config_path: Some(path_str),
-            error: None,
-        };
+        return AgentHookToolStatus::detected_uninstalled(path_str);
     }
 
-    let installed = std::fs::read_to_string(&path)
-        .map(|content| is_atmos_agent(&content))
-        .unwrap_or(false);
-
-    AgentHookToolStatus {
-        detected: true,
-        installed,
-        config_path: Some(path_str),
-        error: None,
-    }
+    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    installed_status_from_content(path_str, is_atmos_agent(&content), &content)
 }
 
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {

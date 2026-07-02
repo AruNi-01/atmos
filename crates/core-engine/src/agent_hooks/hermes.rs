@@ -3,7 +3,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use tracing::{debug, info};
 
-use super::{home_dir, AgentHookToolStatus};
+use super::{home_dir, installed_status_from_content, AgentHookToolStatus, CURRENT_HOOK_VERSION};
 
 const CONFIG_MARKER_PREFIX: &str = "    # ATMOS_MANAGED hook:";
 const SCRIPT_MARKER: &str = "# Atmos agent hook script";
@@ -37,6 +37,7 @@ fn build_hook_script(port: u16) -> String {
     format!(
         r#"#!/bin/sh
 # Atmos agent hook script
+ATMOS_HOOK_VERSION={hook_version}
 [ "$ATMOS_MANAGED" = "1" ] || exit 0
 
 payload="$(cat)"
@@ -46,10 +47,15 @@ curl -sf -X POST \
   -H 'Content-Type: application/json' \
   -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" \
   -H "X-Atmos-Pane: $ATMOS_PANE_ID" \
+  -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" \
+  -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" \
+  -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" \
+  -H "X-Atmos-Hook-Version: $ATMOS_HOOK_VERSION" \
   -d "$payload" \
   '{url}' >/dev/null 2>&1 || true
 "#,
         url = url,
+        hook_version = CURRENT_HOOK_VERSION,
     )
 }
 
@@ -153,9 +159,7 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
         }
     }
 
-    let mut status = AgentHookToolStatus::success(path_str);
-    status.installed = false;
-    status
+    AgentHookToolStatus::detected_uninstalled(path_str)
 }
 
 pub(super) fn check() -> AgentHookToolStatus {
@@ -178,18 +182,19 @@ pub(super) fn check() -> AgentHookToolStatus {
         .flatten()
         .map(|content| content.contains(CONFIG_MARKER_PREFIX))
         .unwrap_or(false);
-    let script_installed = hook_script_path()
+    let script_content = hook_script_path()
         .filter(|path| path.exists())
-        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|path| std::fs::read_to_string(path).ok());
+    let script_installed = script_content
+        .as_deref()
         .map(|content| content.contains(SCRIPT_MARKER))
         .unwrap_or(false);
 
-    AgentHookToolStatus {
-        detected: true,
-        installed: config_installed && script_installed,
-        config_path: Some(path_str),
-        error: None,
-    }
+    installed_status_from_content(
+        path_str,
+        config_installed && script_installed,
+        script_content.as_deref().unwrap_or_default(),
+    )
 }
 
 fn install_config_entries(current: &str, script_path: &std::path::Path) -> String {

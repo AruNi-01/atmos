@@ -1,6 +1,9 @@
 use tracing::{debug, info};
 
-use super::{home_dir, AgentHookToolStatus};
+use super::{
+    home_dir, hook_version_header_ts, installed_status_from_content, AgentHookToolStatus,
+    CURRENT_HOOK_VERSION,
+};
 
 fn plugin_path() -> Option<std::path::PathBuf> {
     home_dir().ok().map(|h| {
@@ -31,6 +34,7 @@ fn build_plugin_source(port: u16) -> String {
 import type {{ PluginAPI }} from "@ampcode/plugin"
 
 const ATMOS_URL = "http://localhost:{port}/hooks/ampcode"
+const ATMOS_HOOK_VERSION = {hook_version}
 
 export default function (amp: PluginAPI) {{
   if (process.env.ATMOS_MANAGED !== "1") return
@@ -42,6 +46,10 @@ export default function (amp: PluginAPI) {{
         "Content-Type": "application/json",
         "X-Atmos-Context": process.env.ATMOS_CONTEXT_ID ?? "",
         "X-Atmos-Pane": process.env.ATMOS_PANE_ID ?? "",
+        "X-Atmos-Terminal-Kind": process.env.ATMOS_TERMINAL_KIND ?? "",
+        "X-Atmos-Side-Chat-Id": process.env.ATMOS_SIDE_CHAT_ID ?? "",
+        "X-Atmos-Source-Pane": process.env.ATMOS_SOURCE_PANE_ID ?? "",
+        {hook_version_header}
       }},
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(3000),
@@ -72,6 +80,8 @@ export default function (amp: PluginAPI) {{
 }}
 "#,
         port = port,
+        hook_version = CURRENT_HOOK_VERSION,
+        hook_version_header = hook_version_header_ts(),
     )
 }
 
@@ -138,22 +148,13 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
     match std::fs::read_to_string(&plugin_file) {
         Err(e) => return AgentHookToolStatus::failed(&path_str, e.to_string()),
         Ok(content) if !content.contains(PLUGIN_MARKER) => {
-            return AgentHookToolStatus {
-                detected: true,
-                installed: false,
-                config_path: Some(path_str),
-                error: None,
-            };
+            return AgentHookToolStatus::detected_uninstalled(path_str);
         }
         Ok(_) => {}
     }
 
     match std::fs::remove_file(&plugin_file) {
-        Ok(()) => {
-            let mut status = AgentHookToolStatus::success(&path_str);
-            status.installed = false;
-            status
-        }
+        Ok(()) => AgentHookToolStatus::detected_uninstalled(&path_str),
         Err(e) => AgentHookToolStatus::failed(&path_str, e.to_string()),
     }
 }
@@ -174,24 +175,11 @@ pub(super) fn check() -> AgentHookToolStatus {
     let path_str = plugin_file.display().to_string();
 
     if !plugin_file.exists() {
-        return AgentHookToolStatus {
-            detected: true,
-            installed: false,
-            config_path: Some(path_str),
-            error: None,
-        };
+        return AgentHookToolStatus::detected_uninstalled(path_str);
     }
 
-    let installed = std::fs::read_to_string(&plugin_file)
-        .map(|content| content.contains(PLUGIN_MARKER))
-        .unwrap_or(false);
-
-    AgentHookToolStatus {
-        detected: true,
-        installed,
-        config_path: Some(path_str),
-        error: None,
-    }
+    let content = std::fs::read_to_string(&plugin_file).unwrap_or_default();
+    installed_status_from_content(path_str, content.contains(PLUGIN_MARKER), &content)
 }
 
 fn which_exists(cmd: &str) -> bool {

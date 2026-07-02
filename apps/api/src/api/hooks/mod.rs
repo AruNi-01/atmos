@@ -23,6 +23,25 @@ fn extract_atmos_context(headers: &HeaderMap) -> AtmosContext {
             .and_then(|v| v.to_str().ok())
             .filter(|s| !s.is_empty())
             .map(String::from),
+        terminal_kind: headers
+            .get("x-atmos-terminal-kind")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        side_chat_id: headers
+            .get("x-atmos-side-chat-id")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        source_pane_id: headers
+            .get("x-atmos-source-pane")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        hook_version: headers
+            .get("x-atmos-hook-version")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.parse::<u32>().ok()),
     }
 }
 
@@ -337,5 +356,36 @@ async fn refresh_project_paths(State(state): State<AppState>) -> Json<Value> {
             Json(serde_json::json!({ "ok": true, "count": count }))
         }
         Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_hook_version_and_side_chat_headers() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-atmos-hook-version", "2".parse().unwrap());
+        headers.insert("x-atmos-terminal-kind", "side_chat".parse().unwrap());
+        headers.insert("x-atmos-side-chat-id", "side-123".parse().unwrap());
+        headers.insert("x-atmos-source-pane", "pane-123".parse().unwrap());
+
+        let ctx = extract_atmos_context(&headers);
+
+        assert_eq!(ctx.hook_version, Some(2));
+        assert_eq!(ctx.terminal_kind.as_deref(), Some("side_chat"));
+        assert_eq!(ctx.side_chat_id.as_deref(), Some("side-123"));
+        assert_eq!(ctx.source_pane_id.as_deref(), Some("pane-123"));
+    }
+
+    #[test]
+    fn ignores_invalid_hook_version_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-atmos-hook-version", "not-a-version".parse().unwrap());
+
+        let ctx = extract_atmos_context(&headers);
+
+        assert_eq!(ctx.hook_version, None);
     }
 }

@@ -43,6 +43,10 @@ interface AgentHookStateUpdatePayload {
   project_path?: string | null;
   context_id?: string | null;
   pane_id?: string | null;
+  terminal_kind?: string | null;
+  side_chat_id?: string | null;
+  source_pane_id?: string | null;
+  hook_version?: number | null;
 }
 
 interface AutomationNotificationPayload {
@@ -132,6 +136,10 @@ export function useAgentNotifications() {
       project_path: update.project_path,
       context_id: update.context_id,
       pane_id: update.pane_id,
+      terminal_kind: update.terminal_kind,
+      side_chat_id: update.side_chat_id,
+      source_pane_id: update.source_pane_id,
+      hook_version: update.hook_version,
     };
     const { projectName, workspaceName, workspaceDisplayName } =
       resolveAgentHookContextNames(update.context_id, update.project_path, projects);

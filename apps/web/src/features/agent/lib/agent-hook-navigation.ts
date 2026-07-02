@@ -34,7 +34,9 @@ export function navigateToAgentHookSessionPane(
   projects: Project[],
 ) {
   const contextId = session.context_id;
-  const paneId = session.pane_id;
+  const paneId = session.side_chat_id
+    ? session.source_pane_id ?? session.pane_id
+    : session.pane_id;
 
   if (!contextId || !paneId) return;
 
@@ -67,6 +69,9 @@ export function navigateToAgentHookSessionPane(
     params.set("tab", hit.terminalTabId);
   }
   params.set("terminalTmux", tmuxWindowName);
+  if (session.side_chat_id) {
+    params.set("sideChat", session.side_chat_id);
+  }
   router.push(`${basePath}?${params.toString()}`);
 }
 

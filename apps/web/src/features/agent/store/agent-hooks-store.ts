@@ -64,6 +64,10 @@ export interface AgentHookSession {
   /** effectiveContextId: workspace GUID or project GUID */
   context_id?: string | null;
   pane_id?: string | null;
+  terminal_kind?: string | null;
+  side_chat_id?: string | null;
+  source_pane_id?: string | null;
+  hook_version?: number | null;
 }
 
 interface AgentHookStateUpdate {
@@ -74,6 +78,10 @@ interface AgentHookStateUpdate {
   project_path?: string | null;
   context_id?: string | null;
   pane_id?: string | null;
+  terminal_kind?: string | null;
+  side_chat_id?: string | null;
+  source_pane_id?: string | null;
+  hook_version?: number | null;
 }
 
 interface AgentHooksStore {
@@ -120,6 +128,10 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
             project_path: update.project_path,
             context_id: update.context_id,
             pane_id: update.pane_id,
+            terminal_kind: update.terminal_kind,
+            side_chat_id: update.side_chat_id,
+            source_pane_id: update.source_pane_id,
+            hook_version: update.hook_version,
           });
           return { sessions };
         });

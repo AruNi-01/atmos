@@ -78,6 +78,10 @@ impl std::fmt::Display for AgentToolType {
 pub struct AtmosContext {
     pub context_id: Option<String>,
     pub pane_id: Option<String>,
+    pub terminal_kind: Option<String>,
+    pub side_chat_id: Option<String>,
+    pub source_pane_id: Option<String>,
+    pub hook_version: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +95,14 @@ pub struct AgentHookSession {
     pub context_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pane_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub terminal_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub side_chat_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_pane_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hook_version: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +116,14 @@ pub struct AgentHookStateUpdate {
     pub context_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pane_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub terminal_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub side_chat_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_pane_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hook_version: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +198,10 @@ impl AgentHooksService {
         let ctx = AtmosContext {
             context_id: existing.context_id.clone(),
             pane_id: existing.pane_id.clone(),
+            terminal_kind: existing.terminal_kind.clone(),
+            side_chat_id: existing.side_chat_id.clone(),
+            source_pane_id: existing.source_pane_id.clone(),
+            hook_version: existing.hook_version,
         };
 
         self.update_state(
@@ -269,6 +293,10 @@ impl AgentHooksService {
             project_path,
             context_id: ctx.context_id.clone(),
             pane_id: ctx.pane_id.clone(),
+            terminal_kind: ctx.terminal_kind.clone(),
+            side_chat_id: ctx.side_chat_id.clone(),
+            source_pane_id: ctx.source_pane_id.clone(),
+            hook_version: ctx.hook_version,
         };
 
         {
@@ -284,6 +312,10 @@ impl AgentHooksService {
             project_path: session.project_path,
             context_id: ctx.context_id.clone(),
             pane_id: ctx.pane_id.clone(),
+            terminal_kind: ctx.terminal_kind.clone(),
+            side_chat_id: ctx.side_chat_id.clone(),
+            source_pane_id: ctx.source_pane_id.clone(),
+            hook_version: ctx.hook_version,
         };
 
         self.broadcast_state_update(update.clone());
