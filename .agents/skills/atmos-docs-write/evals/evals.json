@@ -1,0 +1,23 @@
+{
+  "skill_name": "atmos-docs-write",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Atmos Desktop 2026.7.2 was just released. Use the release notes in `releasenotes/Atmos Desktop 2026.7.2.md` and update the user docs for any shipped app workflow changes. Keep English and Chinese docs aligned.",
+      "expected_output": "The agent reads docs and release evidence, updates the relevant App feature/workflow/reference MDX files and matching `.zh.mdx` files, updates meta files only if navigation changed, runs docs checks, and reports documented/skipped/gap items.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "帮我把最新 CLI release 后的 docs 更新一下，尤其是 `atmos update` 和新 flag。不要改 landing changelog。",
+      "expected_output": "The agent uses the skill for a release docs refresh, verifies CLI command behavior from source/help where feasible, updates `apps/docs/content/docs/cli/*.mdx` plus Chinese counterparts, avoids landing changelog files, and runs docs validation.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "APP-025 mobile app shipped. Please sync the public docs so users can understand what changed, but do not expose internal architecture details from the spec.",
+      "expected_output": "The agent reads the spec and mobile/app docs guidance, converts shipped user-visible behavior into task-oriented docs, skips internal-only architecture, updates bilingual MDX and navigation as needed, and produces a concise coverage report.",
+      "files": []
+    }
+  ]
+}
