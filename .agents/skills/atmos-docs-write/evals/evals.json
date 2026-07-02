@@ -18,6 +18,12 @@
       "prompt": "APP-025 mobile app shipped. Please sync the public docs so users can understand what changed, but do not expose internal architecture details from the spec.",
       "expected_output": "The agent reads the spec and mobile/app docs guidance, converts shipped user-visible behavior into task-oriented docs, skips internal-only architecture, updates bilingual MDX and navigation as needed, and produces a concise coverage report.",
       "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "使用 atmos-docs-write，新增一篇 workflow docs，介绍如何在 Atmos 里用 Canvas 组织多工作区代码评审；不是 release 更新，只是想补一篇更清楚的用户文档。",
+      "expected_output": "The agent treats this as ordinary docs authoring, reads nearby workflow docs and docs AGENTS guidance, creates or plans a bilingual workflow page under `apps/docs/content/docs/(app)/workflows`, updates both locale meta files if the page is navigable, adds useful related links, and runs docs validation.",
+      "files": []
     }
   ]
 }
