@@ -40,11 +40,16 @@ const LOCAL_MODEL_REFRESH_EVENT = "atmos-local-model-refresh";
 
 export function LocalModelRuntimeControl() {
   const t = useTranslations("Settings.localModel");
+  const inspectRuntimeErrorRef = useRef(t("errors.inspectRuntime"));
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [, setError] = useState<string | null>(null);
   const [confirmDeleteRuntime, setConfirmDeleteRuntime] = useState(false);
+
+  useEffect(() => {
+    inspectRuntimeErrorRef.current = t("errors.inspectRuntime");
+  }, [t]);
 
   const load = useCallback(async () => {
     try {
@@ -52,11 +57,11 @@ export function LocalModelRuntimeControl() {
       setData(res);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("errors.inspectRuntime"));
+      setError(e instanceof Error ? e.message : inspectRuntimeErrorRef.current);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -186,6 +191,10 @@ interface LocalModelPanelProps {
 
 export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
   const t = useTranslations("Settings.localModel");
+  const loadModelsErrorRef = useRef({
+    loadModels: t("errors.loadModels"),
+    remoteCatalogUnavailable: t("errors.remoteCatalogUnavailable"),
+  });
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -196,23 +205,30 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
   const previousStateRef = useRef<LocalModelStatus | null>(null);
   const hasCheckedCompletedRef = useRef(false);
 
+  useEffect(() => {
+    loadModelsErrorRef.current = {
+      loadModels: t("errors.loadModels"),
+      remoteCatalogUnavailable: t("errors.remoteCatalogUnavailable"),
+    };
+  }, [t]);
+
   const load = useCallback(async () => {
     try {
       const res = await localModelApi.list();
       setData(res);
       setError(null);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : t("errors.loadModels");
+      const msg = e instanceof Error ? e.message : loadModelsErrorRef.current.loadModels;
       // If the error mentions manifest fetch failure, show a more helpful message
       if (msg.includes("manifest") || msg.includes("HTTP error")) {
-        setError(t("errors.remoteCatalogUnavailable"));
+        setError(loadModelsErrorRef.current.remoteCatalogUnavailable);
       } else {
         setError(msg);
       }
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   // Initial load
   useEffect(() => {

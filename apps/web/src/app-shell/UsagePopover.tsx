@@ -110,6 +110,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const t = useTranslations("appShell.usagePopover");
   const locale = useLocale();
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
+  const loadOverviewErrorTextRef = useRef(t("errors.loadOverview"));
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
@@ -151,6 +152,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     [overview, selectedProviderId]
   );
 
+  useEffect(() => {
+    loadOverviewErrorTextRef.current = t("errors.loadOverview");
+  }, [t]);
+
   const loadOverview = useCallback(async (refresh = false, providerId?: string | null) => {
     if (!overview || refresh) setIsLoading(!overview);
     setIsRefreshing(refresh && !!overview);
@@ -160,12 +165,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       const next = await usageWsApi.getOverview(refresh, providerId);
       setOverview(next);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("errors.loadOverview"));
+      setError(loadError instanceof Error ? loadError.message : loadOverviewErrorTextRef.current);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [overview, t]);
+  }, [overview]);
 
   const toggleProviderSwitch = useCallback(async (providerId: string, enabled: boolean) => {
     setSwitchingProviderId(providerId);
@@ -355,7 +360,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
         ? current
         : nextState
     );
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -492,7 +497,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     } finally {
       setSwitchingFooterCarouselProviderId(null);
     }
-  }, []);
+  }, [t]);
 
   const PanelShell: React.ElementType = embedded ? "div" : PopoverContent;
   const panelShellProps = embedded

@@ -66,6 +66,7 @@ export function ReviewCodeView({
 }: ReviewCodeViewProps) {
   const t = useTranslations('diff.codeView');
   const reviewT = useTranslations('diff.reviewAnnotations');
+  const loadReviewDiffFallbackRef = useRef(t('errors.loadReviewDiffFallback'));
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
@@ -129,6 +130,7 @@ export function ReviewCodeView({
   const loadedContentsRef = useRef<
     Map<string, { oldContent: string; newContent: string }>
   >(new Map());
+  const collapseModeRef = useRef(collapseMode);
   const fileSnapshotByPathRef = useRef<Map<string, ReviewFileDto>>(new Map());
   const lastHandledNavRef = useRef<string | null>(null);
   const inlineCommentTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -137,6 +139,14 @@ export function ReviewCodeView({
   useEffect(() => {
     void loadDiffSettings();
   }, [loadDiffSettings]);
+
+  useEffect(() => {
+    loadReviewDiffFallbackRef.current = t('errors.loadReviewDiffFallback');
+  }, [t]);
+
+  useEffect(() => {
+    collapseModeRef.current = collapseMode;
+  }, [collapseMode]);
 
   const orderedFiles = useMemo(
     () =>
@@ -281,7 +291,7 @@ export function ReviewCodeView({
                   id: file.snapshot.file_path,
                   type: 'diff' as const,
                   fileDiff,
-                  collapsed: collapseMode === 'collapsed',
+                  collapsed: collapseModeRef.current === 'collapsed',
                 };
               } catch (loadError) {
                 console.error(
@@ -292,7 +302,7 @@ export function ReviewCodeView({
                   loadErrorRef.current =
                   loadError instanceof Error
                       ? loadError
-                      : new Error(t('errors.loadReviewDiffFallback'));
+                      : new Error(loadReviewDiffFallbackRef.current);
                 }
                 return null;
               }
@@ -343,7 +353,7 @@ export function ReviewCodeView({
           setError(
             loadError instanceof Error
               ? loadError.message
-              : t('errors.loadReviewDiffFallback'),
+              : loadReviewDiffFallbackRef.current,
           );
           setInitialItems([]);
           setIsLoading(false);
@@ -355,7 +365,7 @@ export function ReviewCodeView({
     return () => {
       cancelled = true;
     };
-  }, [collapseMode, orderedFiles, reviewCtx.currentRevision, t]);
+  }, [orderedFiles, reviewCtx.currentRevision]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;

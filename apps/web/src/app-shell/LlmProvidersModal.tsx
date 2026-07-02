@@ -85,6 +85,12 @@ export function LlmProviderEditorDialog({
   const [testOutput, setTestOutput] = useState("");
   const providerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const providerTestUnsubscribeRef = useRef<(() => void) | null>(null);
+  const providerLoadTextRef = useRef({
+    providerNotFoundTitle: t("appShell.llmProviders.toasts.providerNotFound.title"),
+    providerNotFoundDescription: t("appShell.llmProviders.toasts.providerNotFound.description"),
+    loadProviderSettingsTitle: t("appShell.llmProviders.toasts.loadProviderSettings.title"),
+    unknownError: t("appShell.llmProviders.common.unknownError"),
+  });
 
   useResetTimer(providerResetTimerRef);
   useEffect(
@@ -93,6 +99,15 @@ export function LlmProviderEditorDialog({
     },
     [],
   );
+
+  useEffect(() => {
+    providerLoadTextRef.current = {
+      providerNotFoundTitle: t("appShell.llmProviders.toasts.providerNotFound.title"),
+      providerNotFoundDescription: t("appShell.llmProviders.toasts.providerNotFound.description"),
+      loadProviderSettingsTitle: t("appShell.llmProviders.toasts.loadProviderSettings.title"),
+      unknownError: t("appShell.llmProviders.common.unknownError"),
+    };
+  }, [t]);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -110,8 +125,8 @@ export function LlmProviderEditorDialog({
         );
         if (!selected) {
           toastManager.add({
-            title: t("appShell.llmProviders.toasts.providerNotFound.title"),
-            description: t("appShell.llmProviders.toasts.providerNotFound.description"),
+            title: providerLoadTextRef.current.providerNotFoundTitle,
+            description: providerLoadTextRef.current.providerNotFoundDescription,
             type: "error",
           });
           onOpenChange(false);
@@ -129,17 +144,17 @@ export function LlmProviderEditorDialog({
       setTestOutput("");
     } catch (error) {
       toastManager.add({
-        title: t("appShell.llmProviders.toasts.loadProviderSettings.title"),
+        title: providerLoadTextRef.current.loadProviderSettingsTitle,
         description: error instanceof Error
           ? error.message
-          : t("appShell.llmProviders.common.unknownError"),
+          : providerLoadTextRef.current.unknownError,
         type: "error",
       });
       onOpenChange(false);
     } finally {
       setLoading(false);
     }
-  }, [onOpenChange, providerId, t]);
+  }, [onOpenChange, providerId]);
 
   useEffect(() => {
     if (!open) return;
@@ -393,8 +408,19 @@ export function LlmRoutingDialog({
     useState<LocalAgentOption[]>(buildLocalAgentOptions);
   const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
   const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const routingLoadTextRef = useRef({
+    loadRoutingSettingsTitle: t("appShell.llmProviders.toasts.loadRoutingSettings.title"),
+    unknownError: t("appShell.llmProviders.common.unknownError"),
+  });
 
   useResetTimer(routingResetTimerRef);
+
+  useEffect(() => {
+    routingLoadTextRef.current = {
+      loadRoutingSettingsTitle: t("appShell.llmProviders.toasts.loadRoutingSettings.title"),
+      unknownError: t("appShell.llmProviders.common.unknownError"),
+    };
+  }, [t]);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -412,17 +438,17 @@ export function LlmRoutingDialog({
       setRoutingSaveState("idle");
     } catch (error) {
       toastManager.add({
-        title: t("appShell.llmProviders.toasts.loadRoutingSettings.title"),
+        title: routingLoadTextRef.current.loadRoutingSettingsTitle,
         description: error instanceof Error
           ? error.message
-          : t("appShell.llmProviders.common.unknownError"),
+          : routingLoadTextRef.current.unknownError,
         type: "error",
       });
       onOpenChange(false);
     } finally {
       setLoading(false);
     }
-  }, [onOpenChange, t]);
+  }, [onOpenChange]);
 
   useEffect(() => {
     if (!open) return;

@@ -45,6 +45,10 @@ export async function activateHostedRemoteConnection(
   session: HostedRemoteSession,
 ): Promise<void> {
   const store = useAtmosComputerStore.getState();
+  if (store.localServerId?.trim() && serverId === store.localServerId.trim()) {
+    await activateCurrentLocalConnection();
+    return;
+  }
   store.setSelectedServerId(serverId);
   store.setRelayWebSocketUrl(session.ws_url);
   store.setRelayGatewayHttpBase(session.gateway_url);

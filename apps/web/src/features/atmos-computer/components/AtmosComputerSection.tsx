@@ -57,6 +57,10 @@ import {
   hydrateComputerClientSettingsFromDisk,
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
+import {
+  activeComputerRows,
+  isCurrentLocalComputer,
+} from '@/features/connection/lib/computer-list';
 import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
@@ -189,7 +193,7 @@ export function AtmosComputerSection() {
 
   const hasBrowserKey = accessToken.trim().length >= 32;
   const hasConfiguredKey = hasBrowserKey || accessTokenConfigured;
-  const activeComputers = computers.filter(c => !c.revoked);
+  const activeComputers = activeComputerRows(computers);
   const connectedServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
 
@@ -712,22 +716,26 @@ export function AtmosComputerSection() {
     }
   }
 
+  async function switchToLocalConnection(busyKey: string) {
+    setBusy(busyKey);
+    try {
+      await activateCurrentLocalConnection();
+      toastManager.add({ title: t("toasts.usingThisComputerLocally"), type: 'success' });
+    } catch (err) {
+      toastManager.add({
+        title: t("toasts.couldNotSwitchToLocalComputer"),
+        description: err instanceof Error ? err.message : t("toasts.tryAgain"),
+        type: 'error',
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function onConnect(serverId: string) {
     const isLocalMachine = serverId === (localStatus?.server_id ?? localServerId);
     if (isLocalMachine) {
-      setBusy(`connect-${serverId}`);
-      try {
-        await activateCurrentLocalConnection();
-        toastManager.add({ title: t("toasts.usingThisComputerLocally"), type: 'success' });
-      } catch (err) {
-        toastManager.add({
-          title: t("toasts.couldNotSwitchToLocalComputer"),
-          description: err instanceof Error ? err.message : t("toasts.tryAgain"),
-          type: 'error',
-        });
-      } finally {
-        setBusy(null);
-      }
+      await switchToLocalConnection(`connect-${serverId}`);
       return;
     }
     if (!hasConfiguredKey) {
@@ -1105,6 +1113,31 @@ export function AtmosComputerSection() {
                 onCheckedChange={checked => void onRemoteToggle(checked)}
               />
             </div>
+            {connectionMode === 'relay' ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.useLocalTitle")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("panels.thisComputer.useLocalDescription")}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="shrink-0"
+                  disabled={busy !== null}
+                  onClick={() => void switchToLocalConnection('local-switch')}
+                >
+                  {busy === 'local-switch' ? (
+                    <LoaderCircle className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Laptop className="mr-2 size-4" />
+                  )}
+                  {t("panels.thisComputer.useLocalButton")}
+                </Button>
+              </div>
+            ) : null}
             {showRelayReconnect ? (
               <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1164,8 +1197,9 @@ export function AtmosComputerSection() {
         ) : (
           <ul className="divide-y divide-border rounded-xl border border-border">
             {activeComputers.map(c => {
-              const isCurrent = c.server_id === currentServerId;
-              const isConnected = connectedServerId === c.server_id;
+              const isCurrent = isCurrentLocalComputer(c, currentServerId);
+              const isUsingLocal = isCurrent && connectionMode === 'local';
+              const isConnected = !isCurrent && connectedServerId === c.server_id;
               const relayReachable = isCurrent
                 ? isCurrentRelayReachable
                 : Boolean(c.online);
@@ -1218,19 +1252,20 @@ export function AtmosComputerSection() {
                     ) : null}
                     <Button
                       size="sm"
-                      variant={isConnected ? 'secondary' : 'default'}
+                      variant={isConnected || isUsingLocal ? 'secondary' : 'default'}
                       disabled={
                         busy !== null ||
-                        (isCurrent && connectionMode === 'local')
+                        isConnected ||
+                        isUsingLocal
                       }
                       onClick={() => void onConnect(c.server_id)}
                     >
                       {busy === `connect-${c.server_id}` ? (
                         <LoaderCircle className="size-4 animate-spin" />
-                      ) : isConnected ? (
-                        t("panels.myComputers.inUse")
                       ) : isCurrent ? (
                         t("panels.myComputers.useLocally")
+                      ) : isConnected ? (
+                        t("panels.myComputers.inUse")
                       ) : (
                         t("panels.myComputers.connect")
                       )}

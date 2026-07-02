@@ -54,6 +54,10 @@ export function useReviewContext({
   initialRevisionGuid = null,
 }: UseReviewContextArgs) {
   const t = useTranslations("codeReview.reviewContext");
+  const loadSessionsErrorTextRef = useRef({
+    title: t("loadSessions.errorTitle"),
+    unknownReviewSession: t("errors.unknownReviewSession"),
+  });
   const [storedReviewAgentId, setStoredReviewAgentId] = useReviewDefaultAgentId();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
@@ -144,6 +148,13 @@ export function useReviewContext({
     [],
   );
 
+  useEffect(() => {
+    loadSessionsErrorTextRef.current = {
+      title: t("loadSessions.errorTitle"),
+      unknownReviewSession: t("errors.unknownReviewSession"),
+    };
+  }, [t]);
+
   const loadSessions = useCallback(async () => {
     if (!target) {
       setSessions([]);
@@ -156,17 +167,17 @@ export function useReviewContext({
     } catch (error) {
       console.error("Failed to load review sessions", error);
       toastManager.add({
-        title: t("loadSessions.errorTitle"),
+        title: loadSessionsErrorTextRef.current.title,
         description:
           error instanceof Error
             ? error.message
-            : t("errors.unknownReviewSession"),
+            : loadSessionsErrorTextRef.current.unknownReviewSession,
         type: "error",
       });
     } finally {
       setIsLoading(false);
     }
-  }, [t, target]);
+  }, [target]);
 
   useEffect(() => {
     void loadSessions();
@@ -604,7 +615,7 @@ export function useReviewContext({
         throw error;
       }
     },
-    [loadSessions, loadComments],
+    [loadSessions, loadComments, t],
   );
 
   const createAgentRun = useCallback(

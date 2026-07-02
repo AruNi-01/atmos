@@ -27,7 +27,6 @@ import {
   Folder,
   FolderGit2,
   Home,
-  LoaderCircle,
   RotateCw,
   Search,
   X,
@@ -54,6 +53,11 @@ export function FileBrowser({
 }: FileBrowserProps) {
   const t = useTranslations('files.components');
   const { isConnected, connectionState } = useWebSocket();
+  const errorTextRef = useRef({
+    failedToLoadDirectory: t('fileBrowser.errors.failedToLoadDirectory'),
+    searchFailed: t('fileBrowser.errors.searchFailed'),
+    failedToInitialize: t('fileBrowser.errors.failedToInitialize'),
+  });
 
   const [currentPath, setCurrentPath] = useState<string>('');
   const [parentPath, setParentPath] = useState<string | null>(null);
@@ -69,6 +73,14 @@ export function FileBrowser({
   const searchDirectoriesRef = useRef<((query: string) => Promise<void>) | null>(null);
   const prevSearchQueryRef = useRef<string>('');
 
+  useEffect(() => {
+    errorTextRef.current = {
+      failedToLoadDirectory: t('fileBrowser.errors.failedToLoadDirectory'),
+      searchFailed: t('fileBrowser.errors.searchFailed'),
+      failedToInitialize: t('fileBrowser.errors.failedToInitialize'),
+    };
+  }, [t]);
+
   // 加载目录内容
   const loadDirectory = useCallback(async (path: string) => {
     setIsLoading(true);
@@ -83,11 +95,11 @@ export function FileBrowser({
       setPathInput(result.path);
       setIsSearchMode(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('fileBrowser.errors.failedToLoadDirectory'));
+      setError(err instanceof Error ? err.message : errorTextRef.current.failedToLoadDirectory);
     } finally {
       setIsLoading(false);
     }
-  }, [dirsOnly, showHidden, t]);
+  }, [dirsOnly, showHidden]);
 
   // 搜索目录（递归）
   const searchDirectories = useCallback(async (query: string) => {
@@ -104,7 +116,7 @@ export function FileBrowser({
           setPathInput(result.path);
           setIsSearchMode(false);
         } catch (err) {
-          setError(err instanceof Error ? err.message : t('fileBrowser.errors.failedToLoadDirectory'));
+          setError(err instanceof Error ? err.message : errorTextRef.current.failedToLoadDirectory);
         } finally {
           setIsLoading(false);
         }
@@ -129,11 +141,11 @@ export function FileBrowser({
       setIsSearchMode(true);
       setPathInput(searchPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('fileBrowser.errors.searchFailed'));
+      setError(err instanceof Error ? err.message : errorTextRef.current.searchFailed);
     } finally {
       setIsLoading(false);
     }
-  }, [currentPath, dirsOnly, showHidden, t]);
+  }, [currentPath, dirsOnly, showHidden]);
 
   // Store the latest searchDirectories implementation in a ref
   useEffect(() => {
@@ -171,12 +183,12 @@ export function FileBrowser({
           const homeDir = await fsApi.getHomeDir();
           await loadDirectory(homeDir);
         } catch (err) {
-          setError(err instanceof Error ? err.message : t('fileBrowser.errors.failedToInitialize'));
+          setError(err instanceof Error ? err.message : errorTextRef.current.failedToInitialize);
         }
       };
       init();
     }
-  }, [open, isConnected, loadDirectory, t]);
+  }, [open, isConnected, loadDirectory]);
 
   // 当 showHidden 改变时重新加载
   useEffect(() => {

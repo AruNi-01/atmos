@@ -68,6 +68,7 @@ export const DiffViewer = ({
   const viewerT = useTranslations('diff.viewer');
   const codeViewT = useTranslations('diff.codeView');
   const reviewT = useTranslations('diff.reviewAnnotations');
+  const loadFallbackMessageRef = useRef(viewerT('errors.loadFallback'));
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
@@ -148,6 +149,10 @@ export const DiffViewer = ({
   useEffect(() => {
     void loadDiffSettings();
   }, [loadDiffSettings]);
+
+  useEffect(() => {
+    loadFallbackMessageRef.current = viewerT('errors.loadFallback');
+  }, [viewerT]);
 
   const diffStats = useMemo(() => {
     const allFiles = compareRef
@@ -370,7 +375,7 @@ export const DiffViewer = ({
         }
       } catch (err) {
         console.error('Failed to load diff:', err);
-        setError(err instanceof Error ? err.message : viewerT('errors.loadFallback'));
+        setError(err instanceof Error ? err.message : loadFallbackMessageRef.current);
         setWorkingDiff(null);
       } finally {
         setIsLoading(false);
@@ -378,7 +383,7 @@ export const DiffViewer = ({
     };
 
     loadDiff();
-  }, [repoPath, filePath, compareBaseRef, compareMode, compareRef, snapshotGuidFromPath, viewerT]);
+  }, [repoPath, filePath, compareBaseRef, compareMode, compareRef, snapshotGuidFromPath]);
 
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({
@@ -735,7 +740,7 @@ export const DiffViewer = ({
         </svg>
       </button>
     );
-  }, [buildSelectionInfo, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file, snapshotGuidFromPath]);
+  }, [buildSelectionInfo, codeViewT, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file, snapshotGuidFromPath]);
 
   const cancelInlineCommentDraft = useCallback(() => {
     setInlineCommentDraft(null);

@@ -69,6 +69,7 @@ export function ChangesCodeView({
   navigationTarget: navigationTargetProp,
 }: ChangesCodeViewProps) {
   const t = useTranslations('diff.codeView');
+  const loadChangesFallbackRef = useRef(t('errors.loadChangesFallback'));
   const { resolvedTheme } = useTheme();
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
@@ -145,6 +146,10 @@ export function ChangesCodeView({
   useEffect(() => {
     void loadDiffSettings();
   }, [loadDiffSettings]);
+
+  useEffect(() => {
+    loadChangesFallbackRef.current = t('errors.loadChangesFallback');
+  }, [t]);
 
   useEffect(() => {
     collapseModeRef.current = collapseMode;
@@ -365,7 +370,7 @@ export function ChangesCodeView({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t('errors.loadChangesFallback'));
+          setError(err instanceof Error ? err.message : loadChangesFallbackRef.current);
           setInitialItems([]);
           setIsLoading(false);
         }
@@ -376,7 +381,7 @@ export function ChangesCodeView({
     return () => {
       cancelled = true;
     };
-  }, [diffRequestOptions, groupFiles, groupKind, repoPath, t]);
+  }, [diffRequestOptions, groupFiles, groupKind, repoPath]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;

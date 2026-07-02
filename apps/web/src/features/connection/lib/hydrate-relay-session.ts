@@ -24,6 +24,10 @@ interface ClientSession {
   gateway_token: string;
 }
 
+interface LocalComputerStatus {
+  server_id?: string | null;
+}
+
 interface ApiEnvelope<T> {
   success?: boolean;
   data?: T;
@@ -52,6 +56,37 @@ function deriveRelayWebSocketUrl(
     client_type: clientType,
   });
   return `${origin}/ws/client?${params.toString()}`;
+}
+
+async function fetchLocalServerId(
+  base: string,
+  headers: Record<string, string>,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${base}/api/system/computer`, { headers });
+    if (!res.ok) {
+      return null;
+    }
+    const envelope = (await res.json().catch(() => null)) as ApiEnvelope<LocalComputerStatus> | null;
+    const serverId = envelope?.data?.server_id?.trim();
+    return serverId || null;
+  } catch {
+    return null;
+  }
+}
+
+async function clearRelayClientSession(
+  base: string,
+  headers: Record<string, string>,
+): Promise<void> {
+  await fetch(`${base}/api/system/client-session`, {
+    method: 'PUT',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ clear: true }),
+  }).catch(() => undefined);
 }
 
 export async function hydrateRelaySessionFromDisk(opts?: {
@@ -108,6 +143,19 @@ export async function hydrateRelaySessionFromDisk(opts?: {
   }
 
   const store = useAtmosComputerStore.getState();
+  const localServerId =
+    store.localServerId?.trim() || (await fetchLocalServerId(base, headers));
+  if (localServerId) {
+    store.setLocalServerId(localServerId);
+  }
+  if (localServerId && session.server_id === localServerId) {
+    store.resetRelaySession();
+    store.setConnectionMode('local');
+    await clearRelayClientSession(base, headers);
+    useConnectionStore.getState().syncActiveInstanceFromComputer();
+    return;
+  }
+
   store.setSelectedServerId(session.server_id);
   store.setRelayWebSocketUrl(wsUrl);
   store.setRelayGatewayHttpBase(session.api_base_url);

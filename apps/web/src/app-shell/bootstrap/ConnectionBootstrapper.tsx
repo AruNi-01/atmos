@@ -81,6 +81,15 @@ export function ConnectionBootstrapper() {
             accessToken.trim().length >= 32 &&
             selectedServerId?.trim()
           ) {
+            if (local?.status.server_id && selectedServerId === local.status.server_id) {
+              try {
+                await activateHostedLocalConnection(local.config);
+                hostedStore.setConnected('local');
+                return;
+              } catch (err) {
+                console.warn('[ConnectionBootstrapper] hosted self-relay fallback failed:', err);
+              }
+            }
             try {
               const session = await createHostedRemoteSession(
                 relayUrl,

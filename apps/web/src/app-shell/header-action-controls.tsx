@@ -59,6 +59,13 @@ import {
   activateHostedRemoteConnection,
 } from "@/features/connection/lib/hosted-connection-actions";
 import {
+  activeComputerRows,
+  isCurrentLocalComputer,
+} from "@/features/connection/lib/computer-list";
+import {
+  loadLocalComputerStatus,
+} from "@/features/connection/lib/atmos-computer-local";
+import {
   createHostedRemoteSession,
   listHostedRemoteComputers,
 } from "@/features/connection/lib/hosted-connection";
@@ -67,7 +74,7 @@ import {
 } from "@/features/connection/lib/sync-computer-client-settings";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isHostedAtmosOrigin, isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { UsagePopover } from "./UsagePopover";
 import { TunnelItem } from "./header-parts";
@@ -127,6 +134,8 @@ type HeaderActionControlsProps = {
 };
 
 type RemoteAccessSettingsSection = "atmos-computer" | "tunnel-connector";
+
+const LOCAL_SWITCH_BUSY_ID = "__local_switch__";
 
 function RemoteAccessPopover({
   activeTunnelConnectors,
@@ -231,6 +240,7 @@ function AtmosComputerPopoverContent({
     relayWebSocketUrl,
     selectedServerId,
     setComputers,
+    setLocalServerId,
   } = useAtmosComputerStore();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -238,7 +248,7 @@ function AtmosComputerPopoverContent({
 
   const hasAccessToken = accessToken.trim().length >= 32;
   const activeComputers = React.useMemo(
-    () => computers.filter((computer) => !computer.revoked),
+    () => activeComputerRows(computers),
     [computers],
   );
   const connectedServerId =
@@ -276,6 +286,29 @@ function AtmosComputerPopoverContent({
     };
   }, [refreshComputers]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (isHostedAtmosOrigin()) {
+        return;
+      }
+      const status = await loadLocalComputerStatus(
+        useAtmosComputerStore.getState().localServerId,
+      ).catch(() => null);
+      if (cancelled) {
+        return;
+      }
+      if (status?.server_id) {
+        setLocalServerId(status.server_id);
+      } else if (status && !status.registered) {
+        setLocalServerId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setLocalServerId]);
+
   async function connectComputer(serverId: string) {
     setBusyId(serverId);
     setError(null);
@@ -286,6 +319,25 @@ function AtmosComputerPopoverContent({
         const session = await createHostedRemoteSession(relayUrl, accessToken, serverId);
         await activateHostedRemoteConnection(serverId, session);
       }
+      toastManager.add({ title: t("remoteAccess.connectedToastTitle"), type: "success" });
+      onConnected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("remoteAccess.connectErrorMessage"));
+      toastManager.add({
+        title: t("remoteAccess.connectErrorTitle"),
+        description: err instanceof Error ? err.message : t("remoteAccess.connectErrorHint"),
+        type: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function useLocalComputer() {
+    setBusyId(LOCAL_SWITCH_BUSY_ID);
+    setError(null);
+    try {
+      await activateCurrentLocalConnection();
       toastManager.add({ title: t("remoteAccess.connectedToastTitle"), type: "success" });
       onConnected();
     } catch (err) {
@@ -365,8 +417,9 @@ function AtmosComputerPopoverContent({
         ) : (
           activeComputers.map((computer) => {
             const name = (computer.display_name ?? t("remoteAccess.computerDefaultName")).slice(0, 64);
-            const isLocal = computer.server_id === localServerId;
-            const isConnected = connectedServerId === computer.server_id || (isLocal && connectionMode === "local");
+            const isLocal = isCurrentLocalComputer(computer, localServerId);
+            const isUsingLocal = isLocal && connectionMode === "local";
+            const isConnected = !isLocal && connectedServerId === computer.server_id;
             const isBusy = busyId === computer.server_id;
             return (
               <div
@@ -402,17 +455,17 @@ function AtmosComputerPopoverContent({
                   </div>
                   <Button
                     size="sm"
-                    variant={isConnected ? "secondary" : "default"}
-                    disabled={busyId !== null || isConnected}
+                    variant={isConnected || isUsingLocal ? "secondary" : "default"}
+                    disabled={busyId !== null || isConnected || isUsingLocal}
                     onClick={() => void connectComputer(computer.server_id)}
                     className="h-7 shrink-0 cursor-pointer px-2 text-xs"
                   >
                     {isBusy ? (
                       <LoaderCircle className="size-3.5 animate-spin" />
-                    ) : isConnected ? (
-                      t("remoteAccess.inUse")
                     ) : isLocal ? (
                       t("remoteAccess.useLocally")
+                    ) : isConnected ? (
+                      t("remoteAccess.inUse")
                     ) : (
                       t("remoteAccess.connect")
                     )}
@@ -425,9 +478,32 @@ function AtmosComputerPopoverContent({
       </div>
 
       {error ? <p className="px-1 text-xs leading-5 text-destructive">{error}</p> : null}
-      <Button variant="outline" size="sm" className="w-full cursor-pointer" onClick={onOpenSettings}>
-        {t("remoteAccess.manageComputers")}
-      </Button>
+      <div className="flex gap-2">
+        {connectionMode === "relay" ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="flex-1 cursor-pointer"
+            disabled={busyId !== null}
+            onClick={() => void useLocalComputer()}
+          >
+            {busyId === LOCAL_SWITCH_BUSY_ID ? (
+              <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <Laptop className="mr-1.5 size-3.5" />
+            )}
+            {t("remoteAccess.useLocally")}
+          </Button>
+        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("cursor-pointer", connectionMode === "relay" ? "flex-1" : "w-full")}
+          onClick={onOpenSettings}
+        >
+          {t("remoteAccess.manageComputers")}
+        </Button>
+      </div>
     </div>
   );
 }

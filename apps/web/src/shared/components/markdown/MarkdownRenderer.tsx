@@ -146,6 +146,11 @@ type MermaidOutputMode = 'svg' | 'ascii';
 
 function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   const t = useTranslations("shared.markdownRenderer");
+  const mermaidErrorTextRef = useRef({
+    renderFailed: t("mermaid.errors.renderFailed"),
+    failed: t("mermaid.errors.failed"),
+    notLoaded: t("mermaid.errors.notLoaded"),
+  });
   const [error, setError] = useState<string | null>(null);
   const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -153,6 +158,14 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   const [asciiText, setAsciiText] = useState<string | null>(null);
   const [asciiError, setAsciiError] = useState<string | null>(null);
   const [asciiLoading, setAsciiLoading] = useState(false);
+
+  useEffect(() => {
+    mermaidErrorTextRef.current = {
+      renderFailed: t("mermaid.errors.renderFailed"),
+      failed: t("mermaid.errors.failed"),
+      notLoaded: t("mermaid.errors.notLoaded"),
+    };
+  }, [t]);
 
   useEffect(() => {
     if (!code?.trim()) return;
@@ -173,17 +186,17 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
           if (cancelled) return;
           setRenderedSvg(svg);
         }).catch((err: Error) => {
-          if (!cancelled) setError(err.message || t("mermaid.errors.renderFailed"));
+          if (!cancelled) setError(err.message || mermaidErrorTextRef.current.renderFailed);
         }).finally(() => {
           document.querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`).forEach(el => el.remove());
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : t("mermaid.errors.failed"));
+        setError(err instanceof Error ? err.message : mermaidErrorTextRef.current.failed);
       }
-    }).catch(() => setError(t("mermaid.errors.notLoaded")));
+    }).catch(() => setError(mermaidErrorTextRef.current.notLoaded));
 
     return () => { cancelled = true; };
-  }, [code, isDark, t]);
+  }, [code, isDark]);
 
   const handleToggleMode = useCallback(() => {
     if (outputMode === 'ascii') {

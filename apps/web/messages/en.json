@@ -6945,6 +6945,9 @@
           "reconnectTitle": "Offline for Atmos Computer connections",
           "reconnectButton": "Reconnect",
           "reconnectHelper": "Other computers cannot connect yet. Tap Reconnect to try again.",
+          "useLocalTitle": "Use this computer locally",
+          "useLocalDescription": "Switch back from the selected remote Computer to the local Desktop runtime.",
+          "useLocalButton": "Use locally",
           "saveKeyPrompt": "Save an access key above to register this computer."
         },
         "myComputers": {

@@ -6945,6 +6945,9 @@
           "reconnectTitle": "当前无法用于 Atmos Computer 连接",
           "reconnectButton": "重新连接",
           "reconnectHelper": "其他 Computers 暂时还无法连接。点击重新连接后再试。",
+          "useLocalTitle": "使用这台 Computer 本地运行",
+          "useLocalDescription": "从当前远程 Computer 切回本机 Desktop runtime。",
+          "useLocalButton": "本地使用",
           "saveKeyPrompt": "请先在上方保存访问密钥，再注册这台 Computer。"
         },
         "myComputers": {

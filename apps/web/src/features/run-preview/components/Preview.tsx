@@ -855,6 +855,22 @@ export const Preview: React.FC<PreviewProps> = ({
     desktopPreviewVisibleRef.current = false;
   }, []);
 
+  const requestNativeSurfaceChromeBoundsSync = useCallback(() => {
+    if (
+      preferredTransportMode !== 'desktop-native' ||
+      shouldSuspendDesktopPreview ||
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        void showDesktopPreview();
+      });
+    });
+  }, [preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
+
   const runCanvasViewportSync = useCallback(async () => {
     if (
       preferredTransportMode !== 'desktop-native' ||
@@ -1356,7 +1372,11 @@ export const Preview: React.FC<PreviewProps> = ({
       isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
       isMaximized={isMaximized}
       isMaximizedLayoutManaged={isMaximizedLayoutManaged}
+      onNativeSurfaceChromeLayoutChange={requestNativeSurfaceChromeBoundsSync}
       previewRootRef={previewRootRef}
+      reserveNativeSurfaceChromeSpace={
+        effectiveIsToolbarHidden && resolvedTransportMode === 'desktop-native'
+      }
       toolbarProps={toolbarProps}
       toolbarHoverSuppressed={toolbarHoverSuppressed}
       viewportProps={viewportProps}

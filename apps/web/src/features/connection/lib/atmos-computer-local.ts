@@ -3,7 +3,11 @@
  */
 
 import { systemApi } from '@/api/rest-api';
-import { getLoopbackHttpBase, isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import {
+  getLoopbackHttpBase,
+  isHostedAtmosOrigin,
+  isTauriRuntime,
+} from '@/shared/lib/desktop-runtime';
 import type { ShellEnvInfo } from '@/api/rest-api';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 
@@ -47,6 +51,7 @@ let localComputerStatusCacheEpoch = 0;
 function getLocalComputerStatusCacheKey(): string {
   const computer = useAtmosComputerStore.getState();
   if (
+    isHostedAtmosOrigin() &&
     computer.connectionMode === 'relay' &&
     computer.relayGatewayHttpBase &&
     computer.relayClientToken
@@ -99,6 +104,7 @@ async function tauriComputerDisplayName(): Promise<string | null> {
 async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const computer = useAtmosComputerStore.getState();
   const usingRelayGateway =
+    isHostedAtmosOrigin() &&
     computer.connectionMode === 'relay' &&
     Boolean(computer.relayGatewayHttpBase && computer.relayClientToken);
   const base = usingRelayGateway

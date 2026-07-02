@@ -127,6 +127,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const generatedBranchRef = useRef<string | null>(null);
   const branchFieldRef = useRef<HTMLDivElement | null>(null);
   const branchInputRef = useRef<HTMLInputElement | null>(null);
+  const repoContextErrorTextRef = useRef({
+    failedToLoadPrs: t('createDialog.pr.errors.failedToLoadPrs'),
+    failedToLoadIssues: t('createDialog.issue.errors.failedToLoadIssues'),
+  });
 
   useEffect(() => {
     setWorkspaceGitignoreDirsMessages({
@@ -139,6 +143,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       failedRemoveDirectory: t('gitignoreStore.failedRemoveDirectory'),
       failedUpdatePath: t('gitignoreStore.failedUpdatePath'),
     });
+  }, [t]);
+
+  useEffect(() => {
+    repoContextErrorTextRef.current = {
+      failedToLoadPrs: t('createDialog.pr.errors.failedToLoadPrs'),
+      failedToLoadIssues: t('createDialog.issue.errors.failedToLoadIssues'),
+    };
   }, [t]);
 
   const selectedProject = useMemo(
@@ -351,14 +362,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               });
             } catch (error) {
               if (!cancelled) {
-                setPrError(error instanceof Error ? error.message : t('createDialog.pr.errors.failedToLoadPrs'));
+                setPrError(error instanceof Error ? error.message : repoContextErrorTextRef.current.failedToLoadPrs);
               }
             }
           }
         }
       } catch (error) {
         if (!cancelled) {
-          setIssueError(error instanceof Error ? error.message : t('createDialog.issue.errors.failedToLoadIssues'));
+          setIssueError(error instanceof Error ? error.message : repoContextErrorTextRef.current.failedToLoadIssues);
         }
       } finally {
         if (!cancelled) {
@@ -374,7 +385,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, preselectedIssue, selectedProjectId, selectedProjectPath, t]);
+  }, [isOpen, preselectedIssue, selectedProjectId, selectedProjectPath]);
 
   useEffect(() => {
     if (!issuePreview) {
