@@ -14,7 +14,8 @@ import {
   FileText,
 } from '@workspace/ui';
 import { SkillInfo } from '@/api/ws-api';
-import { sortAgents } from '../lib/constants';
+import { AgentIcon } from '@/features/agent/components/AgentIcon';
+import { getAgentConfig, getAgentRegistryId, getPrimarySkillAgent, sortAgents } from '../lib/constants';
 import { SkillAgentBadge } from './SkillAgentBadge';
 
 interface SkillCardProps {
@@ -37,6 +38,9 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
 
   const isProjectScoped = skill.scope === 'project' || skill.scope === 'inside_project';
   const isSystemScoped = skill.scope === 'system';
+  const primaryAgent = getPrimarySkillAgent(skill.agents);
+  const primaryAgentConfig = primaryAgent ? getAgentConfig(primaryAgent) : null;
+  const primaryAgentRegistryId = primaryAgent ? getAgentRegistryId(primaryAgent) : null;
   const scopeLabel = isSystemScoped
     ? 'Atmos Built-in'
     : skill.scope === 'inside_project'
@@ -50,7 +54,11 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
     >
       <div className="flex items-start gap-3 flex-1 min-h-0">
         <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-          <Puzzle className="size-4 text-muted-foreground" />
+          {primaryAgentRegistryId && primaryAgentConfig ? (
+            <AgentIcon registryId={primaryAgentRegistryId} name={primaryAgentConfig.name} size={18} />
+          ) : (
+            <Puzzle className="size-4 text-muted-foreground" />
+          )}
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col">

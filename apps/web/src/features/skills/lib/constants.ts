@@ -20,6 +20,7 @@ export const AGENT_CONFIG: Record<string, { name: string }> = {
   gemini: { name: 'Gemini' },
   copilot: { name: 'Copilot' },
   goose: { name: 'Goose' },
+  hermes: { name: 'Hermes Agent' },
   junie: { name: 'Junie' },
   iflow: { name: 'iFlow' },
   kilocode: { name: 'Kilo Code' },
@@ -30,6 +31,7 @@ export const AGENT_CONFIG: Record<string, { name: string }> = {
   vibe: { name: 'Mistral Vibe' },
   mux: { name: 'Mux' },
   opencode: { name: 'OpenCode' },
+  openclaw: { name: 'OpenClaw' },
   openclaude: { name: 'OpenClaude' },
   openhands: { name: 'OpenHands' },
   pi: { name: 'Pi' },
@@ -62,11 +64,14 @@ export const AGENT_REGISTRY_ID_MAP: Record<string, string> = {
   gemini: 'gemini',
   copilot: 'github-copilot',
   goose: 'goose',
+  hermes: 'hermes',
   junie: 'junie',
   kilocode: 'kilocode',
   kimi: 'kimi',
   kiro: 'kiro',
   opencode: 'opencode',
+  openclaw: 'openclaw',
+  pi: 'pi',
   qoder: 'qoder',
   qwen: 'qwen-code',
   roo: 'roo',
@@ -81,6 +86,15 @@ export function getAgentConfig(agent: string) {
 
 export function getAgentRegistryId(agent: string): string | null {
   return AGENT_REGISTRY_ID_MAP[agent] ?? null;
+}
+
+export function getPrimarySkillAgent(agents: string[]): string | null {
+  return sortAgents(agents).find((agent) => (
+    agent !== 'unified' &&
+    agent !== 'in-project' &&
+    agent !== 'atmos' &&
+    getAgentRegistryId(agent) !== null
+  )) ?? null;
 }
 
 /** Sort agents so "unified" always comes first */

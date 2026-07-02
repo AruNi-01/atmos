@@ -6,6 +6,7 @@ import {
   cn,
 } from "@workspace/ui";
 import type { SkillInfo } from "@/api/ws-api";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   CircleCheck,
   CircleMinus,
@@ -15,7 +16,13 @@ import {
   Globe,
   Puzzle,
 } from "lucide-react";
-import { getAgentStatus, sortAgents } from "../lib/constants";
+import {
+  getAgentConfig,
+  getAgentRegistryId,
+  getAgentStatus,
+  getPrimarySkillAgent,
+  sortAgents,
+} from "../lib/constants";
 import { SkillActionsMenu } from "./SkillActionsMenu";
 import { SkillAgentBadge } from "./SkillAgentBadge";
 
@@ -87,6 +94,9 @@ export function InstalledSkillListCard({
   const statusMeta = getStatusMeta(skill.status);
   const StatusIcon = statusMeta.icon;
   const isDisabled = skill.status === "disabled";
+  const primaryAgent = getPrimarySkillAgent(skill.agents);
+  const primaryAgentConfig = primaryAgent ? getAgentConfig(primaryAgent) : null;
+  const primaryAgentRegistryId = primaryAgent ? getAgentRegistryId(primaryAgent) : null;
 
   return (
     <div
@@ -109,7 +119,11 @@ export function InstalledSkillListCard({
                   : "border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5",
               )}
             >
-              <Puzzle className="size-5" />
+              {primaryAgentRegistryId && primaryAgentConfig ? (
+                <AgentIcon registryId={primaryAgentRegistryId} name={primaryAgentConfig.name} size={20} />
+              ) : (
+                <Puzzle className="size-5" />
+              )}
             </div>
             <div className="min-w-0">
               <h3
