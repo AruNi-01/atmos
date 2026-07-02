@@ -891,7 +891,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-5">
-          <Card className="bg-background border border-border min-w-0">
+          <Card className="flex h-[420px] min-w-0 flex-col border border-border bg-background">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
               <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
                 <Pencil className="size-3.5" />
@@ -908,7 +908,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 {isEditingRequirement ? t('actions.save') : t('actions.edit')}
               </Button>
             </CardHeader>
-            <CardContent className="p-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
               {requirementLoading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-4 w-3/4" />
@@ -927,18 +927,20 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   }}
                   autoFocus
                   placeholder={t('requirement.placeholder')}
-                  className="min-h-[300px] resize-y rounded-md border-border bg-muted/30 font-mono text-[13px] leading-relaxed"
+                  className="min-h-0 h-full max-h-full flex-1 resize-none overflow-y-auto !field-sizing-fixed rounded-md border-border bg-muted/30 font-mono text-[13px] leading-relaxed"
                 />
               ) : requirement ? (
-                <div className="relative">
-                  <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
-                    {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
-                  </MarkdownRenderer>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-2 scrollbar-on-hover">
+                    <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
+                      {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
+                    </MarkdownRenderer>
+                  </div>
                   {needsExpansion && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="mt-4 h-8 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm transition-colors cursor-pointer"
+                      className="mt-4 h-8 shrink-0 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm transition-colors cursor-pointer"
                       onClick={() => setRequirementExpanded(!requirementExpanded)}
                     >
                       {requirementExpanded ? t('requirement.showLess') : t('requirement.showMore')}
@@ -946,7 +948,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
                   <Pencil className="size-5 text-muted-foreground/30 mb-2" />
                   <h3 className="text-[13px] text-muted-foreground mb-1">{t('requirement.emptyTitle')}</h3>
                   <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
@@ -967,7 +969,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </CardContent>
           </Card>
 
-          <Card className="bg-background border border-border min-w-0">
+          <Card className="flex h-[420px] min-w-0 flex-col border border-border bg-background">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
               <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
                 <StickyNote className="size-3.5" />
@@ -984,7 +986,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 {isEditingNote ? t('actions.save') : t('actions.edit')}
               </Button>
             </CardHeader>
-            <CardContent className="p-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
               {noteLoading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-4 w-2/3" />
@@ -1004,16 +1006,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   autoFocus
                   placeholder={t('note.placeholder')}
                   disabled={!effectivePath}
-                  className="min-h-[300px] resize-y rounded-md border-border bg-muted/30 text-[13px] leading-relaxed"
+                  className="min-h-0 h-full max-h-full flex-1 resize-none overflow-y-auto !field-sizing-fixed rounded-md border-border bg-muted/30 text-[13px] leading-relaxed"
                 />
               ) : note ? (
-                <div className="relative min-h-[300px]">
+                <div className="min-h-0 flex-1 overflow-y-auto pr-2 scrollbar-on-hover">
                   <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
                     {note}
                   </MarkdownRenderer>
                 </div>
               ) : (
-                <div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
                   <StickyNote className="size-5 text-muted-foreground/30 mb-2" />
                   <h3 className="text-[13px] text-muted-foreground mb-1">{t('note.emptyTitle')}</h3>
                   <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
