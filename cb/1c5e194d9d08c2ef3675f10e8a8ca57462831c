@@ -1,0 +1,21 @@
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_bd1bbf232cc8cd::t_dc5ee74f028aeb 34-37,81,855-863
+apps/web/src/features/run-preview/hooks/use-preview-canvas-viewport-controller.ts
+  s_bd1bbf232cc8cd::t_0ce5cab2cbc183 1-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "cb1c5e194d9d08c2ef3675f10e8a8ca57462831c",
+  "prompts": {},
+  "sessions": {
+    "s_bd1bbf232cc8cd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2021-eea7-7112-a1e2-1adb56c81afb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
