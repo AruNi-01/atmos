@@ -1,0 +1,49 @@
+---
+title: 移动应用
+description: 在 iOS 或 Android 上连接远程 Atmos Computer 使用 Atmos。
+---
+
+Atmos 移动应用是面向远程工作的原生 iOS 和 Android 客户端。手机不会运行 Atmos Server，不会 clone 仓库，也不会在本机执行 Agent。它会通过 Relay 连接到在线的 Atmos Computer，项目、终端、Git 操作和 Agent 都在那台电脑上运行。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
+
+## 移动端适合什么
+
+- 离开桌面后查看工作空间。
+- 打开连接到远程工作空间的单个终端。
+- 查看变更、stage 或 unstage、commit、push。
+- 通过远程电脑上的路径导入项目。
+- 创建带 issue 或 PR 上下文、TODO 提取、优先级、状态和标签的工作空间。
+- 重命名、选择或撤销已注册的电脑。
+
+## 连接流程
+
+1. 打开移动应用，选择 **Connect Atmos**。
+2. 输入或生成 **Access Token**。
+3. 创建一次性注册命令。
+4. 在运行 Atmos Server 和存放仓库的电脑上执行这条命令。
+5. 刷新 **My Computers**，选择在线电脑。
+6. 打开工作空间。
+
+在桌面和 Web 应用中，同一类凭据通常显示为 **Access Key**；在移动端显示为 **Access Token**。
+
+## 工作空间视图
+
+| 视图 | 可以做什么 |
+|------|------------|
+| **Terminal** | 连接已有终端，或创建新的移动端终端 |
+| **Changes** | 刷新 Git 状态、查看 diff、stage、unstage、commit、push |
+| **Overview** | 查看工作空间上下文和状态 |
+
+移动端有意保持比桌面更小的工作空间界面。它不提供桌面的多 pane 终端布局、完整 PR 面板，也没有本地离线队列。
+
+## 设置
+
+移动端设置包含切换 token、轮换 token、重置手机、自定义 Relay URL、自托管 Relay secret、创建注册命令、重命名电脑和撤销电脑。
+
+## 使用建议
+
+- 打开移动端前，先保持至少一台 Atmos Computer 在线。
+- 除非团队运行私有 Relay，否则使用官方 Relay URL。
+- 如果切换了选中的电脑，或保存了 Relay 设置，重新选择电脑后再打开工作空间。
+- 逐步流程见 [移动端远程工作](/zh/workflows/mobile-remote-work)。

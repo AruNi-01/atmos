@@ -3,20 +3,45 @@ title: CLI 概览
 description: atmos 命令行界面。
 ---
 
-`atmos` 命令是一个辅助工具，用于在本地运行 Atmos、连接远程电脑，并让 Agent 操作 Canvas 和 Review 等 Atmos 功能。
+`atmos` 命令用于管理本地 Atmos runtime、注册远程电脑，并让 Agent 以受控方式访问 Canvas 和 Review 等应用界面。
 
-大多数人日常使用桌面应用或浏览器应用。CLI 适合设置机器、检查 Atmos 是否运行、注册 Atmos Computer，或给编码 Agent 一种更新 Canvas 或 Review 的方式。
+大多数人日常使用桌面应用或浏览器应用。CLI 适合设置机器、检查 runtime 健康状态、注册 Atmos Computer、脚本化工作流，或给终端 Agent 一种稳定的方式更新 Atmos 状态。
 
 ## 命令
 
 | 命令 | 用途 |
 |------|------|
-| `atmos runtime` | 启动、停止或检查本地 Atmos runtime |
+| `atmos runtime` | 启动、停止或检查本地 Atmos Server |
 | `atmos computer` | 把这台机器注册为 Atmos Computer，并让它可远程使用 |
 | `atmos canvas` | 让 Agent 读取或更新打开的 Canvas 画布 |
-| `atmos review` | 让 Agent 读取或更新 Review session 和评论 |
+| `atmos review` | 让 Agent 读取或更新 Review session、评论和 review run |
 | `atmos update` | 检查并安装 CLI 更新 |
 
-在终端中运行 `atmos --help`，查看你机器上安装的准确命令列表。
+## 全局参数
 
-脚本或 Agent 需要机器可读输出时，使用 `--json`。
+| 参数 | 用途 |
+|------|------|
+| `--api-url <url>` | 指定目标 Atmos Server |
+| `--api-token <token>` | 鉴权到受保护的本地或远程 API |
+| `--timeout-ms <ms>` | 修改请求超时；默认是 `45000` |
+| `--json` | 为脚本和 Agent 输出机器可读结果 |
+
+## 连接解析顺序
+
+CLI 按以下顺序选择 API URL：
+
+1. `--api-url`
+2. `ATMOS_API_URL`
+3. 活跃的 `~/.atmos/client-session.json`
+4. `~/.atmos/runtime_manifest.json`
+
+CLI 按以下顺序选择 token：
+
+1. `--api-token`
+2. `ATMOS_API_TOKEN`
+3. `ATMOS_LOCAL_TOKEN`
+4. 活跃 client-session 的 gateway token
+
+当 UI 已连接到远程 Atmos Computer 时，`client-session.json` 会让本地 CLI 命令指向同一台远程电脑。没有活跃 session 时，CLI 会回退到本机 runtime manifest。
+
+在终端中运行 `atmos --help`，查看你机器上安装的准确命令列表。

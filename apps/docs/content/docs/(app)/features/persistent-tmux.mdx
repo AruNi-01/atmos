@@ -16,6 +16,12 @@ Persistent terminal sessions keep your command-line work attached to a workspace
 
 Atmos reconnects to the saved terminal session when you reopen a workspace instead of starting from a blank terminal.
 
+The desktop and web workspace can use multiple panes and tabs. **Terminal Manager** helps inspect system PTYs, workspace terminals, and orphaned sessions when you need to recover or clean up shell state.
+
+> The Mobile App is currently in development and temporarily unavailable.
+
+The mobile app uses a smaller terminal surface: one rendered terminal at a time. It can attach to existing sessions or create a new mobile terminal, but it does not queue terminal input while disconnected.
+
 ## Get started
 
 1. Open a workspace.
@@ -28,3 +34,4 @@ Atmos reconnects to the saved terminal session when you reopen a workspace inste
 - Name sessions when you keep more than one terminal open.
 - If output looks stuck, stop the process in that pane and rerun from the same workspace.
 - Pair with [Multi-Workspace Development](/features/multi-workspace) when agents work on parallel branches.
+- Use terminal settings to choose how file links open and which agent is used for default split prompts.

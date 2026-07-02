@@ -1,0 +1,37 @@
+---
+title: Appshots
+description: Capture a focused desktop app window as reusable agent context.
+---
+
+Appshots capture the focused desktop app window and turn it into a reference you can paste into Atmos prompts. They are useful when you want an agent to reason about what is on screen without writing a long visual description.
+
+Appshots are available in the desktop app.
+
+## What an Appshot contains
+
+Depending on permissions and capture mode, an Appshot can include:
+
+- a screenshot of the focused app window,
+- the UI tree or accessibility metadata,
+- window metadata,
+- a local `atmos://appshots/...` reference that prompts can attach.
+
+## Set up permissions
+
+On macOS, Appshots need **Accessibility** and **Screen Recording** permissions. Atmos shows the permission state and links you to the relevant system settings when something is missing.
+
+After changing permissions, restart the desktop app if capture still fails.
+
+## Capture and use an Appshot
+
+1. Open the desktop app.
+2. Focus the app window you want to capture.
+3. Press **Left Shift + Right Shift**.
+4. Copy the Appshot reference or paste it into the prompt composer.
+5. Ask the agent to inspect, summarize, or act on the captured UI context.
+
+## Tips
+
+- Capture only the window that matters for the task.
+- Remove sensitive content from the screen before capturing.
+- Pair Appshots with the [Global Agent Chat Panel](/features/agent-chat-panel) when asking for UI debugging or design feedback.

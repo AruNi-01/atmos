@@ -3,7 +3,9 @@ title: Atmos Computer
 description: 将 Atmos 连接到另一台运行项目的机器。
 ---
 
-**Atmos Computer** 让你的桌面应用或浏览器连接到已注册到 Atmos 的电脑。连接后，项目、终端、Agent 和工作空间都会在所选电脑上运行。
+**Atmos Computer** 让桌面应用、浏览器应用、CLI 和移动应用连接到已注册的机器。连接后，项目、终端、Agent、工作空间、Git 操作、Canvas 和 Review 操作都会在所选电脑上运行。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
 
 当你希望界面留在笔记本上，而实际工作运行在更强的机器、家里的机器或云主机上时，可以使用它。
 
@@ -13,16 +15,20 @@ description: 将 Atmos 连接到另一台运行项目的机器。
 - 当那台电脑的本机 Atmos runtime 在线时，让它保持可用。
 - 让当前应用可以在本机工作和已注册电脑之间切换。
 - 将工作空间、终端、Canvas、Review 和 Agent 操作路由到所选电脑。
+- 让移动端复用同一台远程机器，而不需要在手机上运行 Atmos Server。
 
 ## 典型流程
 
 1. 打开 **Settings** → **Atmos Computer**。
 2. 创建或保存 **Access Key**。
-3. 注册负责运行工作的电脑。
-4. 等它出现在 **My Computers** 中。
-5. 点击 **Connect**。
+3. 生成短期有效的注册命令。
+4. 在负责运行工作的电脑上执行该命令。
+5. 等它出现在 **My Computers** 中。
+6. 点击 **Connect**。
 
 连接后，界面会切换到那台电脑。需要回到眼前这台机器的 runtime 时，使用 **Use locally**。
+
+移动应用会把同一类用户凭据显示为 **Access Token**。桌面和 Web 通常显示为 **Access Key**。
 
 ## This Computer
 
@@ -32,14 +38,29 @@ description: 将 Atmos 连接到另一台运行项目的机器。
 
 已注册的电脑会显示在线状态、最后在线时间和连接操作。离线电脑会保留在列表中，但需要重新上线后才能选择。
 
+在移动端设置中，你也可以重命名或撤销电脑、轮换 token、修改 Relay URL，并在团队自托管 Relay 时设置私有 Relay secret。
+
+## Relay 和私有 Relay
+
+当客户端和已注册电脑不在同一个本机 runtime 上时，Atmos 通过 Relay 建立连接。默认 Relay 是 `https://relay.atmos.land`。私有 Relay 部署可能需要 Relay URL 和 secret key。
+
+注册命令可以包含：
+
+- `--token` 或 `ATMOS_REGISTER_TOKEN`，用于一次性注册 token；
+- `--relay` 或 `ATMOS_RELAY_URL`，用于自定义 Relay；
+- `--relay-secret-key` 或 `ATMOS_RELAY_SECRET_KEY`，用于私有 Relay 鉴权；
+- `--display-name` 或 `ATMOS_COMPUTER_DISPLAY_NAME`，用于电脑名称。
+
 ## 安全注意事项
 
 - 像保护密码一样保护 access key。
 - 注册码是短期且一次性的。
 - 删除不再信任的电脑。
+- 如果怀疑 Access Token 被复制到不安全的地方，请轮换它。
 - Connect session 会过期，需要时重新连接。
 
 ## 相关内容
 
 - [远程构建](/zh/workflows/remote-build) — 在另一台机器上构建的分步流程
 - [跨平台与隧道连接器](/zh/features/cross-platform-tunnel-connector) — 本机客户端和这台电脑的浏览器隧道
+- [移动应用](/zh/features/mobile-app) — 从 iOS 或 Android 使用在线 Atmos Computer

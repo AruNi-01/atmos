@@ -1,5 +1,5 @@
 ---
-title: atmos review
+title: Atmos Review
 description: 从终端参与 Review 工作流。
 ---
 
@@ -7,13 +7,30 @@ description: 从终端参与 Review 工作流。
 
 大多数用户会在应用里 Review 变更。当你在终端中运行编码 Agent，并希望它参与同一个 review session 时，再使用 CLI。
 
-## 它可以帮什么
+## 命令
 
-- 列出和查看 review session。
-- 读取 Review 评论及其周围上下文。
-- 添加或回复评论。
-- 启动、总结或完成一次 Agent Review 运行。
-- 将 Review 工作标记为已解决、失败或完成。
+| 命令 | 用途 |
+|------|------|
+| `session-list` | 按 `--workspace` 或 `--project` 列出 session；需要时加 `--include-archived` |
+| `session-show` | 通过 `--session` 查看一个 session |
+| `comment-list` | 按 `--session` 和可选 `--revision` 列出评论 |
+| `comment-context` | 获取 `--comment` 周围上下文 |
+| `reply-comment` | 回复评论 |
+| `update-comment-status` | 设置评论状态 |
+| `create-comment` | 在文件和 revision 上创建行内评论 |
+| `create-agent-run` | 为 session 和 base revision 启动 review agent run |
+| `summarize-run` | 写入或更新 run summary |
+| `finalize-run` | 用可选 title 和 summary 完成 review run |
+| `set-status` | 把 run 状态设置为 `running`、`succeeded` 或 `failed` |
+
+## 文本输入
+
+需要评论或总结正文的命令支持 inline、file 或 stdin 输入：
+
+| 用途 | 参数 |
+|------|------|
+| 评论或回复正文 | `--body`、`--body-file`、`--body-stdin` |
+| 最终 summary | `--summary`、`--summary-file`、`--summary-stdin` |
 
 ## 典型流程
 
@@ -26,3 +43,4 @@ description: 从终端参与 Review 工作流。
 
 - Review 时保持应用打开，这样你可以直观看到变更。
 - CLI 用于 Agent 协调，不要把它当作自己阅读 diff 的替代品。
+- 当另一个工具要解析输出时，优先使用 `--json`。

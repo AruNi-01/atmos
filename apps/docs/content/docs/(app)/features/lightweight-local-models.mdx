@@ -1,17 +1,27 @@
 ---
-title: Lightweight Local Models
-description: Use small local models for lightweight helper tasks.
+title: AI Providers and Lightweight Local Models
+description: Route helper tasks to cloud providers or small local models.
 ---
 
-Lightweight local models let Atmos handle small helper tasks on your own machine instead of sending every request to a cloud model.
+Atmos can use provider settings and routing rules for small helper tasks such as commit messages and workspace issue extraction. Lightweight local models let those jobs run on your own machine when you do not want every helper request to use a cloud model.
 
 ## Why it matters
 
 - Extract task lists from workspace notes locally.
 - Draft Git commit messages from the diff on device.
 - Keep light inference off subscription quotas.
+- Choose a different provider for lightweight helpers than the one you use for terminal coding agents.
 
-## Good fits
+## What you can configure
+
+| Area | Use it for |
+|------|------------|
+| **Providers** | Add, enable, test, or disable model providers |
+| **Routing** | Choose which provider handles Git commit generation and workspace issue TODO extraction |
+| **Local models** | Download the local runtime, add models, start or stop inference, and delete models |
+| **Custom GGUF** | Add a Hugging Face GGUF URL or local model file |
+
+## Good local fits
 
 - Short text generation and classification.
 - Summaries of small inputs.
@@ -24,12 +34,14 @@ Lightweight local models let Atmos handle small helper tasks on your own machine
 
 ## Get started
 
-1. Open model or local inference settings in Atmos.
-2. Choose a small model and start it when available.
-3. Use local generation for titles, task extraction, or commit message drafts.
-4. Fall back to cloud agents for heavy coding work.
+1. Open **Settings** -> **AI & Provider**.
+2. Add or test the provider you want to use.
+3. Open routing settings and choose providers for commit messages or TODO extraction.
+4. For local inference, download the local runtime and a small model.
+5. Start the local model before using it for helper tasks.
 
 ## Tips
 
 - Prefer quantized small models for speed on laptops.
 - Verify GPU/CPU requirements before enabling on battery power.
+- Keep terminal coding agents on the tools and models you already trust for large work.

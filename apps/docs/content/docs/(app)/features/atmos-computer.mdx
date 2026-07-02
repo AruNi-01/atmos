@@ -3,7 +3,9 @@ title: Atmos Computer
 description: Connect Atmos to another machine where your projects run.
 ---
 
-**Atmos Computer** lets your desktop app or browser connect to computers that are registered with Atmos. After you connect, projects, terminals, agents, and workspaces run on the selected computer.
+**Atmos Computer** lets Desktop, the browser app, CLI, and mobile app connect to a registered machine. After you connect, projects, terminals, agents, workspaces, Git operations, Canvas, and review actions run on the selected computer.
+
+> The Mobile App is currently in development and temporarily unavailable.
 
 Use it when you want to keep the UI on your laptop while the actual work runs on a stronger machine, a home machine, or a cloud box.
 
@@ -13,16 +15,20 @@ Use it when you want to keep the UI on your laptop while the actual work runs on
 - Keeps that computer available while its local Atmos runtime is online.
 - Lets your current app switch between local work and a registered computer.
 - Routes workspace, terminal, Canvas, review, and agent actions to the selected computer.
+- Lets mobile use the same remote machine without running Atmos Server on the phone.
 
 ## Typical Flow
 
 1. Open **Settings** → **Atmos Computer**.
 2. Create or save an **Access Key**.
-3. Register the computer that should run the work.
-4. Wait for it to appear under **My Computers**.
-5. Click **Connect**.
+3. Generate a short-lived register command.
+4. Run that command on the computer that should run the work.
+5. Wait for it to appear under **My Computers**.
+6. Click **Connect**.
 
 Once connected, the UI reloads against that computer. Use **Use locally** when you want to return to the runtime on the machine in front of you.
+
+The mobile app uses the label **Access Token** for the same user credential. Desktop and Web usually call it an **Access Key**.
 
 ## This Computer
 
@@ -32,14 +38,29 @@ The **This Computer** area registers the machine you are currently using. It is 
 
 Registered computers show their online status, last-seen time, and connection actions. Offline computers stay listed but cannot be selected until they reconnect.
 
+From mobile settings, you can also rename or revoke a computer, rotate the token, change Relay URL, and set a private Relay secret when your team self-hosts Relay.
+
+## Relay and private relays
+
+Atmos uses Relay to bridge clients and registered computers when they are not on the same local runtime. The default Relay is `https://relay.atmos.land`. Private Relay deployments may require a Relay URL and secret key.
+
+Register commands can include:
+
+- `--token` or `ATMOS_REGISTER_TOKEN` for the one-time register token,
+- `--relay` or `ATMOS_RELAY_URL` for a custom Relay,
+- `--relay-secret-key` or `ATMOS_RELAY_SECRET_KEY` for private Relay authentication,
+- `--display-name` or `ATMOS_COMPUTER_DISPLAY_NAME` for the computer name.
+
 ## Security Notes
 
 - Guard the access key like a password.
 - Registration codes are short-lived and single-use.
 - Remove computers you no longer trust.
+- Rotate an Access Token if you think it was copied to an unsafe place.
 - Connect sessions expire; reconnect when needed.
 
 ## Related
 
 - [Remote Build](/workflows/remote-build) — step-by-step workflow for building on another machine
 - [Cross-Platform & Tunnel Connector](/features/cross-platform-tunnel-connector) — local clients and browser tunnels for this computer
+- [Mobile App](/features/mobile-app) — use an online Atmos Computer from iOS or Android

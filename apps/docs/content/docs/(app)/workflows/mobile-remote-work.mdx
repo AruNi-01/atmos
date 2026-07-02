@@ -1,0 +1,62 @@
+---
+title: Mobile Remote Work
+description: Connect the mobile app to an online Atmos Computer and work from your phone.
+---
+
+Mobile remote work means the phone is the client and an Atmos Computer does the work. Repositories, terminals, agents, and Git commands stay on the registered computer.
+
+> The Mobile App is currently in development and temporarily unavailable.
+
+## 1. Prepare the computer
+
+On the machine where your repos should live:
+
+1. Install Desktop or the local web runtime.
+2. Make sure Atmos Server can start.
+3. Keep the machine online while you use mobile.
+
+If you are using a private Relay, know the Relay URL and secret key before connecting mobile.
+
+## 2. Connect mobile
+
+1. Open the mobile app.
+2. Choose **Connect Atmos**.
+3. Generate or paste an **Access Token**.
+4. Create a one-time register command.
+5. Run that command on the computer you prepared.
+6. Refresh **My Computers** and select the online computer.
+
+Desktop and Web often call the same credential an **Access Key**. Mobile calls it an **Access Token**.
+
+## 3. Open or create work
+
+From mobile you can:
+
+- open existing workspaces,
+- import a project by browsing or typing a path on the remote computer,
+- create a workspace with title, base branch, optional GitHub issue or PR URL, TODO extraction, priority, status, and labels.
+
+Mobile project import selects a path on the remote computer. It does not clone from the phone.
+
+## 4. Use the workspace
+
+| View | Use it for |
+|------|------------|
+| **Terminal** | Attach to an existing terminal or create a new mobile terminal |
+| **Changes** | Inspect diffs, stage, unstage, commit, and push |
+| **Overview** | Check workspace context and status |
+
+The mobile terminal does not queue input while disconnected. Reconnect to the computer before sending commands.
+
+## Troubleshooting
+
+- If no computer appears, regenerate the register command and run it on the computer, not on the phone.
+- If the computer is offline, check `atmos computer status` and `atmos runtime status` on that machine.
+- If Relay settings changed, select the computer again before opening workspaces.
+- If commit or push fails, open the terminal and inspect Git output on the remote computer.
+
+## Related
+
+- [Mobile App](/features/mobile-app)
+- [Atmos Computer](/features/atmos-computer)
+- [Remote Build](/workflows/remote-build)

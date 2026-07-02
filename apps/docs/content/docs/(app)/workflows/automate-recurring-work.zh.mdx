@@ -1,0 +1,54 @@
+---
+title: 自动化重复工作
+description: 把可重复 prompt 变成手动、定时或 GitHub 触发的自动化。
+---
+
+自动化最适合触发条件清晰、完成标准可重复的工作：检查某件事、总结某类内容、修复窄范围问题，或准备报告。
+
+部分控制可能仍在 **Settings** -> **Experiments** 后面，表示功能处于预览阶段。
+
+## 1. 从手动运行开始
+
+1. 打开 **Automations**。
+2. 创建新的自动化。
+3. 选择运行环境：project、workspace、new workspace 或 standalone。
+4. 写一个范围明确、带期望输出的 prompt。
+5. 用 **Run now** 手动运行。
+6. 检查历史、终端输出、产物和状态。
+
+不要在一次手动运行得到预期结果前就设置计划。
+
+## 2. 选择触发器
+
+| 触发器 | 推荐用法 |
+|--------|----------|
+| **Manual** | 每次运行前需要人工判断的任务 |
+| **Hourly/Daily/Weekly/Monthly** | 周期维护、报告或检查 |
+| **Cron** | 内置计划选项不够精确时使用 |
+| **GitHub** | PR、issue、评论、push、label 或 workflow run 应该触发工作时使用 |
+
+定时自动化会使用触发器中配置的 timezone。
+
+## 3. 过滤 GitHub 触发器
+
+GitHub 触发器可以按 repository、event、action、issue label、GitHub user、comment text、branch、workflow name 和 workflow conclusion 过滤。
+
+请积极使用过滤条件。过宽的 GitHub 触发器可能比预期运行得更频繁。
+
+## 4. 观察并调整
+
+打开运行详情可以查看：
+
+- 状态和时间；
+- 终端输出；
+- 后台进程状态；
+- 产物；
+- standalone 对话或 workspace 上下文。
+
+修改 prompt 或触发器过滤条件时，先暂停自动化。手动测试通过后再重新启用。
+
+## 相关内容
+
+- [自动化](/zh/features/automations) — 功能概览。
+- [Agent 状态通知](/zh/features/agent-status-notifications) — 在运行完成或失败时收到提醒。
+- [Atmos Computer](/zh/features/atmos-computer) — 为定时和 GitHub 触发的工作保持机器在线。

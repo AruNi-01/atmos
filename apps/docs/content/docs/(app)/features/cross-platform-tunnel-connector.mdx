@@ -5,6 +5,8 @@ description: Use Atmos locally, in a browser, or through supported tunnel provid
 
 Atmos runs on the machine where your projects, terminals, agents, and workspaces live. You can use the desktop app on that machine, open the local web UI from a browser, or publish a browser entry through **Tunnel Connector**.
 
+Tunnel Connector is desktop-only. It exposes the current computer's local Atmos runtime through a supported tunnel provider. It is different from [Atmos Computer](/features/atmos-computer), which registers a machine with Relay so other clients can select it as their active computer.
+
 ## Local Clients
 
 Use these when you are working on the same machine that runs Atmos:
@@ -32,17 +34,19 @@ Use it when you want to:
 | Provider | Typical use |
 |----------|-------------|
 | **Tailscale** | Private access across devices in your tailnet |
-| **Cloudflare Tunnel** | Temporary HTTPS links through Cloudflare |
+| **Cloudflare Tunnel** | Temporary public HTTPS links through Cloudflare Quick Tunnel |
 | **ngrok** | Quick public HTTPS links for demos and short-lived sharing |
 
 Each provider runs as its own connector. Atmos manages the local gateway, session token, status, expiry, and share URL from one place.
+
+Tailscale can be private. Cloudflare Quick Tunnel and ngrok links should be treated as temporary public entrypoints unless your provider account adds extra access control.
 
 ## Start A Tunnel
 
 1. Open the **Desktop app**.
 2. Go to **Settings** → **Tunnel Connector**.
 3. Click **Refresh** to detect installed providers.
-4. Follow the provider setup action if a binary or credential is missing.
+4. Follow the provider setup action if a binary, login, service, or credential is missing.
 5. Choose access mode and expiry, then start the tunnel.
 6. Copy the **Public URL** or share URL shown by Atmos.
 

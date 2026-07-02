@@ -1,0 +1,54 @@
+---
+title: Automate Recurring Work
+description: Turn a repeatable prompt into a manual, scheduled, or GitHub-triggered automation.
+---
+
+Automations are best for work that has a clear trigger and a repeatable finish line: check something, summarize something, fix a narrow class of problem, or prepare a report.
+
+Some controls may be behind **Settings** -> **Experiments** while the feature is in preview.
+
+## 1. Start with a manual run
+
+1. Open **Automations**.
+2. Create a new automation.
+3. Choose the environment: project, workspace, new workspace, or standalone.
+4. Write a narrow prompt with the expected output.
+5. Run it manually with **Run now**.
+6. Inspect history, terminal output, artifacts, and status.
+
+Do not schedule a prompt until one manual run produces the result you expect.
+
+## 2. Choose the trigger
+
+| Trigger | Good default |
+|---------|--------------|
+| **Manual** | Keep for jobs that need human judgment before each run |
+| **Hourly/Daily/Weekly/Monthly** | Use for recurring maintenance, reports, or checks |
+| **Cron** | Use when the built-in schedule options are not precise enough |
+| **GitHub** | Use when PRs, issues, comments, pushes, labels, or workflow runs should start work |
+
+Scheduled automations use the timezone configured in the trigger.
+
+## 3. Filter GitHub triggers
+
+GitHub triggers can filter by repository, event, action, issue label, GitHub user, comment text, branch, workflow name, and workflow conclusion.
+
+Use filters aggressively. A broad GitHub trigger can run far more often than expected.
+
+## 4. Watch and adjust
+
+Open run detail to review:
+
+- status and timestamps,
+- terminal output,
+- background process state,
+- artifacts,
+- standalone conversation or workspace context.
+
+Pause the automation while changing prompts or trigger filters. Re-enable it after a clean manual test.
+
+## Related
+
+- [Automations](/features/automations) — feature overview.
+- [Agent Status Notifications](/features/agent-status-notifications) — get notified when runs finish or fail.
+- [Atmos Computer](/features/atmos-computer) — keep a machine online for scheduled and GitHub-triggered work.

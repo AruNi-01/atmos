@@ -6,17 +6,25 @@ icon: Rocket
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Choose the setup that matches where you want your work to run.
+Choose the setup based on where your repositories and agents should run.
 
 ## Desktop app
 
-The desktop app is the best starting point when your projects are on your own computer.
+Use the desktop app when the projects are on the computer in front of you. It starts the local Atmos Server automatically and gives you access to desktop-only features such as Appshots and Tunnel Connector.
 
-- On macOS, install with Homebrew using `brew install --cask AruNi-01/tap/atmos`.
-- You can also use the macOS installer from `https://install.atmos.land/install-desktop.sh`.
-- For Windows and Linux, download the latest build from [GitHub Releases](https://github.com/AruNi-01/atmos/releases).
+```bash
+brew install --cask AruNi-01/tap/atmos
+```
 
-After installing, open Atmos like any other app.
+On macOS you can also use the installer script:
+
+```bash
+curl -fsSL https://install.atmos.land/install-desktop.sh | bash
+```
+
+For Windows and Linux builds, use [GitHub Releases](https://github.com/AruNi-01/atmos/releases).
+
+After installing, open Atmos like any other app. Closing the main window on macOS hides the app; quitting the app stops the local Atmos Server.
 
 ## Browser app
 
@@ -28,24 +36,43 @@ Use the browser app when you want the UI in a tab, or when you plan to connect t
   </Card>
 </Cards>
 
-For local browser use, the local web runtime starts Atmos on your machine and opens a local address in your browser. Install it with the local web runtime installer linked from the release notes.
+For local browser use, install the local web runtime:
+
+```bash
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
+```
+
+The runtime installs under `~/.atmos/runtime/current`, writes `~/.atmos/runtime_manifest.json`, and serves the UI from your own machine.
+
+## Mobile app
+
+> The Mobile App is currently in development and temporarily unavailable.
+
+Use the native iOS or Android app when you want to check work from your phone. The phone does not run Atmos Server or clone projects. It connects through Relay to an online [Atmos Computer](/features/atmos-computer).
+
+If you have the mobile app installed, start with **Connect Atmos**, create or enter an **Access Token**, generate the one-time register command, and run that command on the computer where your repos should live.
 
 ## First workspace
 
-1. Launch Desktop or open Atmos in your browser.
+1. Launch Desktop, open Atmos in your browser, or connect to an Atmos Computer.
 2. Add a project folder when Atmos asks for one.
 3. Create a workspace for the task you want to run in parallel.
 4. Atmos prepares an isolated working folder and branch for that task.
 5. Open the workspace terminal.
-6. Start your code-agent CLI in that terminal.
+6. Start your code-agent CLI in that terminal, or use the global agent chat panel for a focused change.
 7. Review the diff before you commit.
 
 ## First Code Agent Terminal
 
-Atmos is terminal-first: start the code agent you already use inside the workspace terminal. Each workspace keeps its own terminal session, branch, files, and diff, so you can run several agents side by side without mixing their work.
+Atmos is terminal-first: start the code agent you already use inside the workspace terminal. Built-in agent presets include Claude Code, Codex, Gemini, Devin, Amp, Droid, OpenCode, Kimi, Cursor Agent, Kilo Code, Kiro, CommandCode, Pi, OpenClaw, and Hermes Agent.
+
+Each workspace keeps its own terminal session, branch, files, and diff, so you can run several agents side by side without mixing their work. Use **Settings** -> **Code Agent** to enable agents, adjust commands, add custom agents, or save run configurations with model, reasoning, and extra arguments.
 
 For parallel work, create one workspace per task and start one agent in each workspace terminal. Use the sidebar, Kanban, Canvas, and Review views to monitor progress and bring finished changes back into your normal Git flow.
 
-## Contributor Setup
+## Next steps
 
-If you are contributing to Atmos itself, use the repository README for source setup. This docs site focuses on using the product, not developing Atmos.
+- [Project & Workspace Manager](/workflows/project-and-workspace-manager) for projects, workspaces, scripts, and Kanban.
+- [General Build Process](/workflows/general-build-process) for the daily build loop.
+- [Remote Build](/workflows/remote-build) when work should run on another machine.
+- [CLI overview](/cli) when you need setup, status, or agent integration commands.

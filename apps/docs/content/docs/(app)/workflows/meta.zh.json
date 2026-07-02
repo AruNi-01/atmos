@@ -3,8 +3,10 @@
   "pages": [
     "project-and-workspace-manager",
     "general-build-process",
+    "automate-recurring-work",
     "code-review-in-atmos",
     "build-in-canvas",
-    "remote-build"
+    "remote-build",
+    "mobile-remote-work"
   ]
 }

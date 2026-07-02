@@ -1,0 +1,35 @@
+---
+title: Project Wiki
+description: 为项目生成并维护可浏览的 Wiki。
+---
+
+Project Wiki 会从项目生成本地知识库，帮助你浏览架构说明、实现区域和源码引用，而不用每次都从空搜索开始。
+
+这个功能可能需要先在 **Settings** -> **Experiments** 中启用 **Project Wiki (Center Tabs)**。
+
+## 它会生成什么
+
+Atmos 会在项目的 `.atmos/wiki/` 下创建 wiki 文件。生成后的页面会在 Atmos 中显示为目录、文章视图、目录大纲、源码引用和更新控制。
+
+## 生成 Wiki
+
+1. 打开项目或工作空间。
+2. 如果需要，先在 Experiments 中启用 **Project Wiki**。
+3. 打开 Project Wiki 标签页。
+4. 选择 Wiki 语言。
+5. 开始生成，让 Project Wiki Agent 检查仓库。
+6. Review 生成的页面和源码引用。
+
+大型项目可能需要一段时间。生成完成前，保持对应终端或 Agent run 在线。
+
+## 更新或指定内容
+
+项目变化后，用 **Update Wiki** 刷新过期内容。想了解特定子系统、功能或文件路径时，用 **Specify Wiki** 生成指定文章。
+
+如果已有 wiki 和新的生成结果冲突，Atmos 会询问是否替换。
+
+## 使用建议
+
+- 把 Wiki 当作导航辅助，而不是事实源。
+- 大仓库里优先生成范围更窄的指定文章。
+- 从解释转向修改代码时，可以配合 [全局搜索与命令面板](/zh/features/global-search-command-palette) 和 [内置轻量编辑器](/zh/features/built-in-editor)。

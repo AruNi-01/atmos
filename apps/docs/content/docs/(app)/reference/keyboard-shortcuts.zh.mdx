@@ -1,21 +1,57 @@
 ---
 title: 键盘快捷键
-description: 找到在 Atmos 中快速移动的方式。
+description: 导航、终端、工作空间、Appshots 和 Review 的快捷路径。
 ---
 
-键盘快捷键可以让你不用离开键盘就在 Atmos 中移动。具体按键可能会因平台和版本而不同。
+键盘快捷键可以让你不用离开键盘就在 Atmos 中移动。**Settings** -> **Shortcuts** 中的列表是你安装版本的事实源。
 
-## 在哪里查看
+## 全局
 
-打开 Atmos 的 **Settings**，找到快捷键相关区域。那里会列出当前版本可用的快捷键。
+| 操作 | 快捷键 |
+|------|--------|
+| 切换左侧边栏 | `Cmd B` |
+| 切换右侧边栏 | `Cmd Shift B` |
+| 命令面板 | `Cmd K` |
+| 快速打开文件 | `Cmd O` |
+| 后退 / 前进 | `Cmd [` / `Cmd ]` |
+| Action menu | `Cmd Shift M` |
+| Usage popover | `Cmd U` |
 
-## 常用快捷键类型
+## 工作空间
 
-- 打开搜索或命令面板。
-- 创建或切换工作空间。
-- 显示或隐藏常用面板。
-- 在编辑器、终端和 Review 区域之间移动。
+| 操作 | 快捷键 |
+|------|--------|
+| New workspace overlay | `Cmd N` |
+| Canvas overlay | `Cmd Shift H` |
+| Kanban overlay | `Cmd Shift K` |
+| 打开或创建工作空间 | `Cmd Shift Enter` |
+| Overview 标签 | `Cmd 0` |
+| Fixed terminal 标签 | `Cmd 1` |
+| Terminal 标签 1-4 | `Cmd 2` 到 `Cmd 5` |
 
-## 终端焦点
+## 终端
 
-有些快捷键在终端获得焦点时也能工作。如果某个快捷键在终端里没有触发，先点击终端外的区域，再试一次。
+| 操作 | 快捷键 |
+|------|--------|
+| 水平拆分 | `Cmd D` |
+| 垂直拆分 | `Cmd Shift D` |
+| 新标签 | `Cmd T` |
+| 关闭 pane | `Cmd W` |
+| 最大化面板 | `Cmd Shift F` |
+| 固定到 Canvas | `Cmd Shift P` |
+| 查找 | `Cmd F` |
+| 切换 Agent 输入 | `Cmd G` |
+| 上一个 / 下一个标签 | `Cmd [` / `Cmd ]` |
+| 复制选区 | `Cmd C` |
+
+许多工作空间和全局快捷键在终端聚焦时也能工作。如果快捷键被 shell 接收了，先点击终端外的区域，再试一次。
+
+## 编辑器、Review 和捕获
+
+| 操作 | 快捷键 |
+|------|--------|
+| 保存当前文件 | `Cmd S` |
+| 在编辑器中查找 | `Cmd F` |
+| 提交 prompt 或 commit | `Cmd Enter` |
+| 多选 diff 行 | `Shift Click` |
+| 捕获当前桌面应用窗口为 Appshot | `Left Shift + Right Shift` |

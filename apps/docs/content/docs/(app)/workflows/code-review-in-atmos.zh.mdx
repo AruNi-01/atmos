@@ -64,9 +64,11 @@ Session 列表支持 **Active**、**Closed** 和 **Archived** 状态。
 当当前变更看起来没问题：
 
 1. 从 Git 视图或终端提交。
-2. 像平时一样 push 并在 GitHub 上打开 pull request。
+2. 当 GitHub 已连接时，从 Atmos 打开 draft 或 ready pull request；也可以继续使用你正常的 Git 流程 push 并打开 PR。
+3. 使用 **Pull Requests** 和 **Actions** 标签检查 PR 状态和 workflow 结果。
+4. 如果 GitHub Actions job 失败，在 Actions 面板中把聚焦的修复请求交给 Agent。
 
-Review session 是本地质量门禁；它不会替代远程 PR 流程。
+Review session 是远程 Review 前的本地质量门禁。它会补充 PR Review 和 CI，但不会替代它们。
 
 ## Session 管理
 

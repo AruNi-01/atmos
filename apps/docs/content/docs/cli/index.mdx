@@ -1,22 +1,47 @@
 ---
-title: CLI overview
+title: CLI Overview
 description: The atmos command-line interface.
 ---
 
-The `atmos` command is a helper for running Atmos locally, connecting remote computers, and letting agents interact with Atmos features such as Canvas and Review.
+The `atmos` command manages the local Atmos runtime, registers remote computers, and gives agents controlled access to app surfaces such as Canvas and Review.
 
-Most people use the desktop or browser app day to day. Use the CLI when you are setting up a machine, checking whether Atmos is running, registering an Atmos Computer, or giving a coding agent a way to update Canvas or Review.
+Most people use Desktop or the browser app day to day. Use the CLI when you are setting up a machine, checking runtime health, registering an Atmos Computer, scripting a workflow, or giving a terminal agent a stable way to update Atmos state.
 
 ## Commands
 
 | Command | Use it for |
 |---------|------------|
-| `atmos runtime` | Start, stop, or check the local Atmos runtime |
+| `atmos runtime` | Start, stop, or check the local Atmos Server |
 | `atmos computer` | Register this machine as an Atmos Computer and keep it available remotely |
 | `atmos canvas` | Let an agent read or update the open Canvas board |
-| `atmos review` | Let an agent read or update review sessions and comments |
+| `atmos review` | Let an agent read or update review sessions, comments, and review runs |
 | `atmos update` | Check for and install CLI updates |
 
-Run `atmos --help` in your terminal for the exact command list installed on your machine.
+## Global options
 
-Use `--json` when a script or agent needs machine-readable output.
+| Option | Use it for |
+|--------|------------|
+| `--api-url <url>` | Target a specific Atmos Server |
+| `--api-token <token>` | Authenticate to a protected local or remote API |
+| `--timeout-ms <ms>` | Change request timeout; default is `45000` |
+| `--json` | Print machine-readable output for scripts and agents |
+
+## Connection resolution
+
+The CLI chooses an API URL in this order:
+
+1. `--api-url`
+2. `ATMOS_API_URL`
+3. active `~/.atmos/client-session.json`
+4. `~/.atmos/runtime_manifest.json`
+
+It chooses a token in this order:
+
+1. `--api-token`
+2. `ATMOS_API_TOKEN`
+3. `ATMOS_LOCAL_TOKEN`
+4. active client-session gateway token
+
+When the UI is connected to a remote Atmos Computer, `client-session.json` lets local CLI commands target that same remote computer. Without an active session, the CLI falls back to the local runtime manifest.
+
+Run `atmos --help` for the exact command list installed on your machine.

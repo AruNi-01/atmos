@@ -1,29 +1,37 @@
 ---
-title: atmos canvas
+title: Atmos Canvas
 description: Canvas-related CLI operations.
 ---
 
-`atmos canvas` gives coding agents a way to work with the Canvas board you have open in Atmos.
+`atmos canvas` gives coding agents a way to inspect and update the Canvas board you have open in Atmos.
 
 Most users do not need to run these commands by hand. They are mainly useful when an agent is helping you create notes, arrange cards, draw diagrams, or inspect what is already on the board.
 
-## Before You Use It
+## Before you use it
 
 1. Open **Canvas** in Atmos.
 2. Enable agent access from the Canvas agent controls.
 3. Give the agent the Canvas instructions shown in the UI.
 4. Keep Canvas open while the agent works.
 
-## What Agents Can Do
+Use `--client-id` when the UI gives an agent a specific Canvas client id.
 
-- Check whether Canvas is ready.
-- Read the current board.
-- Create notes, frames, shapes, and arrows.
-- Move, align, group, or delete selected items.
-- Focus the view on important work.
+## Command groups
+
+| Commands | Use them for |
+|----------|--------------|
+| `skill-dir`, `skill-path` | Find the bundled Canvas agent skill |
+| `status` | Check whether the bridge is online |
+| `get-state`, `extract-text` | Read board state or terminal text; `extract-text` can use `--older-offset` |
+| `create-note`, `create-frame`, `create-geo`, `create-arrow`, `create-draw` | Create Canvas content |
+| `select`, `clear-selection`, `move`, `delete` | Select and edit items; `delete` requires `--confirm` |
+| `layout-row`, `layout-column`, `layout-grid` | Arrange items |
+| `update-shape`, `viewport`, `align`, `stack`, `distribute`, `place` | Refine placement and view |
+| `lint`, `apply` | Validate or apply command batches; `apply` accepts `--commands` or `--commands-file` |
+| `set-agent-view`, `set-status` | Update the agent viewport or mark the agent status `idle` or `active` |
 
 ## Tips
 
 - Use Canvas for planning, comparing workspaces, or explaining architecture.
-- Ask the agent to keep changes small and visible.
+- Ask agents to keep Canvas changes small, visible, and reversible.
 - If a command fails, make sure Canvas is open and agent access is enabled.

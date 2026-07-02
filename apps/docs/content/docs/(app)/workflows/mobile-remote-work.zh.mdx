@@ -1,0 +1,62 @@
+---
+title: 移动端远程工作
+description: 把移动应用连接到在线 Atmos Computer，并从手机处理工作。
+---
+
+移动端远程工作意味着手机是客户端，Atmos Computer 负责执行工作。仓库、终端、Agent 和 Git 命令都留在已注册的电脑上。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
+
+## 1. 准备电脑
+
+在存放仓库的机器上：
+
+1. 安装桌面应用或本地 Web Runtime。
+2. 确认 Atmos Server 可以启动。
+3. 使用移动端期间保持这台机器在线。
+
+如果你使用私有 Relay，连接移动端前先准备好 Relay URL 和 secret key。
+
+## 2. 连接移动端
+
+1. 打开移动应用。
+2. 选择 **Connect Atmos**。
+3. 生成或粘贴 **Access Token**。
+4. 创建一次性注册命令。
+5. 在你准备好的电脑上运行该命令。
+6. 刷新 **My Computers**，选择在线电脑。
+
+桌面和 Web 通常把同一类凭据叫作 **Access Key**。移动端叫作 **Access Token**。
+
+## 3. 打开或创建工作
+
+在移动端你可以：
+
+- 打开已有工作空间；
+- 通过浏览或输入远程电脑上的路径导入项目；
+- 创建带标题、base branch、可选 GitHub issue 或 PR URL、TODO 提取、优先级、状态和标签的工作空间。
+
+移动端项目导入选择的是远程电脑上的路径，不会从手机 clone 项目。
+
+## 4. 使用工作空间
+
+| 视图 | 用途 |
+|------|------|
+| **Terminal** | 连接已有终端，或创建新的移动端终端 |
+| **Changes** | 查看 diff、stage、unstage、commit 和 push |
+| **Overview** | 查看工作空间上下文和状态 |
+
+移动端终端断线时不会排队发送输入。发送命令前，请先重新连接到电脑。
+
+## 故障排查
+
+- 如果没有看到电脑，重新生成注册命令，并在电脑上运行，不是在手机上运行。
+- 如果电脑离线，在那台机器上检查 `atmos computer status` 和 `atmos runtime status`。
+- 如果 Relay 设置发生变化，打开工作空间前重新选择电脑。
+- 如果 commit 或 push 失败，打开终端并检查远程电脑上的 Git 输出。
+
+## 相关内容
+
+- [移动应用](/zh/features/mobile-app)
+- [Atmos Computer](/zh/features/atmos-computer)
+- [远程构建](/zh/workflows/remote-build)

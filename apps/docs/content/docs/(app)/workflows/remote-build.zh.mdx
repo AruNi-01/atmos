@@ -13,11 +13,12 @@ description: 在另一台机器上构建，同时从笔记本或浏览器使用 
 
 - 工作空间、分支、终端和 Agent 历史都属于那台电脑；
 - 你的笔记本或浏览器只是客户端；
-- 当 UI 已连接到那台电脑时，本地 CLI 命令也会解析到同一个活跃电脑。
+- CLI 可以通过 `~/.atmos/client-session.json` 解析到同一台活跃电脑；
+- 如果没有远程 client session，CLI 会回退到本机 runtime manifest。
 
 要回到眼前这台机器的 runtime，选择 **Use locally**。
 
-## 第 1 步：创建 Access Key
+## 第 1 步：创建 Access Key 或 Access Token
 
 1. 打开 **Settings** → **Atmos Computer**。
 2. 找到 **Access Key** 区域。
@@ -26,6 +27,10 @@ description: 在另一台机器上构建，同时从笔记本或浏览器使用 
 5. 如果需要注册另一台 host，立即复制它。
 
 请像保护密码一样保护 access key。
+
+移动应用会把同一类凭据显示为 **Access Token**。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
 
 ## 第 2 步：注册电脑
 
@@ -38,12 +43,20 @@ description: 在另一台机器上构建，同时从笔记本或浏览器使用 
 
 ### 另一台机器
 
-1. 在负责运行工作的机器上安装 Atmos。
+1. 在负责运行工作的机器上安装 Atmos Desktop 或本地 Web Runtime。
 2. 在保存了 access key 的设备上创建注册码。
 3. 在目标机器上运行界面显示的 CLI 命令。
 4. 确认该电脑显示为 **Online**。
 
 注册码是短期且一次性的。如果过期，请生成新的注册码。
+
+生成的命令通常会调用：
+
+```bash
+atmos computer start --token <registration_code> --daemon
+```
+
+如果使用私有 Relay，命令可能还会包含 `--relay` 和 `--relay-secret-key`。
 
 ## 第 3 步：连接
 
@@ -62,6 +75,14 @@ description: 在另一台机器上构建，同时从笔记本或浏览器使用 
 - [General Build Process](/zh/workflows/general-build-process)
 - [Code Review in Atmos](/zh/workflows/code-review-in-atmos)
 - [Build in Canvas](/zh/workflows/build-in-canvas)
+- [自动化重复工作](/zh/workflows/automate-recurring-work)
+
+CLI 命令使用以下解析顺序：
+
+| 设置 | 解析顺序 |
+|------|----------|
+| API URL | `--api-url`、`ATMOS_API_URL`、活跃的 `client-session.json`、`runtime_manifest.json` |
+| API token | `--api-token`、`ATMOS_API_TOKEN`、`ATMOS_LOCAL_TOKEN`、活跃 client-session 的 gateway token |
 
 ## 安全注意事项
 
@@ -69,6 +90,7 @@ description: 在另一台机器上构建，同时从笔记本或浏览器使用 
 |------|------|
 | **Access key** | 拥有 key 的人可以管理你注册的电脑，请妥善保存。 |
 | **注册码** | 短期、一次性。删除未使用的注册码。 |
+| **Relay secret** | 私有 Relay 部署可能除了 Access Key 之外还需要 Relay secret。 |
 | **Session** | Connect session 会过期，需要时从 **My Computers** 重新连接。 |
 | **撤销** | 当一台电脑不应该继续可用时，从 **My Computers** 中移除它。 |
 
@@ -76,3 +98,4 @@ description: 在另一台机器上构建，同时从笔记本或浏览器使用 
 
 - [Atmos Computer](/zh/features/atmos-computer) — 功能概览
 - [跨平台与隧道连接器](/zh/features/cross-platform-tunnel-connector) — 本地客户端和浏览器隧道
+- [移动端远程工作](/zh/workflows/mobile-remote-work) — 从 iOS 或 Android 使用远程电脑

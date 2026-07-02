@@ -1,0 +1,35 @@
+---
+title: Project Wiki
+description: Generate and maintain a navigable wiki for a project.
+---
+
+Project Wiki builds a local knowledge base from a project so you can browse architecture notes, implementation areas, and source links without starting from a blank search.
+
+This feature may appear under **Settings** -> **Experiments** as **Project Wiki (Center Tabs)**.
+
+## What it creates
+
+Atmos creates wiki files under `.atmos/wiki/` in the project. The generated pages are shown inside Atmos with a catalog, article view, table of contents, source references, and update controls.
+
+## Generate a wiki
+
+1. Open a project or workspace.
+2. Enable **Project Wiki** from Experiments if needed.
+3. Open the Project Wiki tab.
+4. Choose the wiki language.
+5. Start generation and let the Project Wiki agent inspect the repo.
+6. Review the generated pages and source references.
+
+Large projects can take a while. Keep the terminal or agent run open until generation finishes.
+
+## Update or specify content
+
+Use **Update Wiki** when the project has changed and the wiki is stale. Use **Specify Wiki** when you want an article about a particular subsystem, feature, or file path.
+
+If an existing wiki conflicts with a new generation, Atmos asks whether to replace it.
+
+## Tips
+
+- Treat the wiki as a navigational aid, not as source of truth.
+- Prefer narrow specified articles for fast answers on large repos.
+- Pair it with [Global Search & Command Palette](/features/global-search-command-palette) and the [Built-in Lightweight Editor](/features/built-in-editor) when moving from explanation to code.

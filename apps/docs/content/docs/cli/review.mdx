@@ -1,5 +1,5 @@
 ---
-title: atmos review
+title: Atmos Review
 description: Review workflow from the terminal.
 ---
 
@@ -7,15 +7,32 @@ description: Review workflow from the terminal.
 
 Most users review changes in the app. Use the CLI when you are running a coding agent in a terminal and want it to participate in the same review session.
 
-## What It Can Help With
+## Commands
 
-- List and inspect review sessions.
-- Read review comments and their surrounding context.
-- Add or reply to comments.
-- Start, summarize, or finish an agent review run.
-- Mark review work as resolved, failed, or complete.
+| Command | Use it for |
+|---------|------------|
+| `session-list` | List sessions for `--workspace` or `--project`; add `--include-archived` when needed |
+| `session-show` | Show one session by `--session` |
+| `comment-list` | List comments for `--session` and optional `--revision` |
+| `comment-context` | Fetch context around `--comment` |
+| `reply-comment` | Reply to a comment |
+| `update-comment-status` | Set a comment status |
+| `create-comment` | Create a line comment on a file and revision |
+| `create-agent-run` | Start a review agent run for a session and base revision |
+| `summarize-run` | Write or update a run summary |
+| `finalize-run` | Finalize a review run with optional title and summary |
+| `set-status` | Set run status to `running`, `succeeded`, or `failed` |
 
-## Typical Flow
+## Text input
+
+Commands that need comment or summary text accept inline, file, or stdin input:
+
+| Purpose | Options |
+|---------|---------|
+| Comment or reply body | `--body`, `--body-file`, `--body-stdin` |
+| Final summary | `--summary`, `--summary-file`, `--summary-stdin` |
+
+## Typical flow
 
 1. Create a review session in Atmos.
 2. Add comments in the diff, or start an agent review.
@@ -26,3 +43,4 @@ Most users review changes in the app. Use the CLI when you are running a coding 
 
 - Keep the app open while reviewing so you can inspect changes visually.
 - Use the CLI for agent coordination, not as a replacement for reading the diff yourself.
+- Prefer `--json` when another tool will parse the output.

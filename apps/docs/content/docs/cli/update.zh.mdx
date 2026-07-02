@@ -1,5 +1,5 @@
 ---
-title: atmos update
+title: Atmos Update
 description: 更新 CLI 二进制文件。
 ---
 
@@ -14,8 +14,10 @@ description: 更新 CLI 二进制文件。
 | 只检查，不安装 | `atmos update --check` |
 | 安装最新可用 CLI | `atmos update` |
 
-## 使用建议
+## 安装位置和检查
 
-- CLI 也可能在其他命令之后显示更新提示。
-- 更新检查会优先读取 `https://install.atmos.land/cli/latest.json`。
-- 如果 manifest 暂时不可用，CLI 才会回退到 GitHub release feed。
+CLI 会安装到 `~/.atmos/bin/atmos`。Desktop 和 API 也可以从 **Settings** -> **About** 检查或安装 CLI。
+
+更新检查会优先读取 `https://install.atmos.land/cli/latest.json`。如果 manifest 暂时不可用，CLI 会回退到 GitHub release feed。
+
+CLI 也可能在非 update 命令之后显示更新提示。设置 `ATMOS_NO_UPDATE_CHECK` 可以关闭这种机会性检查。

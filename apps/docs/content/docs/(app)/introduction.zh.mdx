@@ -6,28 +6,32 @@ icon: BookOpen
 
 # 介绍
 
-Atmos 是一个并发开发工作空间，用来在持久终端会话中运行多个 code-agent。
+Atmos 是一个并发开发工作空间，把 Code Agent、终端、Git、Review 和远程机器放在同一个 UI 中管理。
 
-它会为每个任务提供独立的 Git worktree，让长时间运行的 code-agent 终端保持在线，并让你在多个并行分支之间切换时不丢上下文。你可以把 Atmos 当作桌面应用使用，也可以在浏览器里打开，还可以把界面连接到另一台真正存放代码的机器。
+它会为每个任务提供独立的 Git worktree，让长时间运行的终端会话保持在线，并让你在多个并行分支之间切换时不丢上下文。你可以把 Atmos 当作桌面应用使用，也可以在浏览器里打开、连接到 Atmos Computer，或用移动应用连接远程机器。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
 
 ## 你可以做什么
 
-- **同时打开多个任务** — 为每个功能、修复、实验或 Review 创建独立工作空间和分支。
-- **并行运行多个 code-agent** — 每个工作空间可以保留一个或多个 Agent 终端。
-- **让长时间运行的工作可恢复** — 即使刷新页面、重启应用，甚至电脑宕机重启，终端会话也会保留在对应工作空间上。
-- **在上下文所在的地方使用 Agent** — 在工作空间终端里运行你的 code-agent CLI，然后在同一个地方检查文件、diff、Review 和输出。
-- **发布前先 Review** — 检查 diff、留下行内评论、让 Agent 修复问题，然后更有把握地提交。
-- **可视化规划** — 当多个工作空间需要对比时，把终端和笔记固定到 Canvas。
-- **跟踪大量任务** — 用 Kanban、标签、优先级、搜索和 Agent 状态保持方向感。
-- **在另一台机器上工作** — 当仓库和 Agent 需要跑在远程机器上时，连接到 Atmos Computer。
+- **同时运行多个任务** — 为每个功能、修复、实验或 Review 创建独立工作空间和分支。
+- **让终端可恢复** — 工作空间终端能跨刷新、应用重启、连接中断和机器重启恢复。
+- **使用你已经信任的 Agent** — 在工作空间 shell 中启动 Claude Code、Codex、Gemini、OpenCode、Cursor Agent 或其他终端 Agent。
+- **在工作发生的地方检查结果** — 不离开工作空间就能查看文件、diff、终端输出、Agent 状态、PR、Actions 和笔记。
+- **发布前先 Review** — 留下行内评论、让 Agent 修复、运行测试，然后提交或打开 PR。
+- **组织并行工作** — 使用 Kanban、Canvas、标签、优先级、全局搜索和状态通知。
+- **自动化重复工作** — 在正确的项目或工作空间中运行手动、定时或 GitHub 触发的自动化。
+- **从其他设备工作** — 当工作需要跑在另一台机器上时，通过 Atmos Computer、Tunnel Connector 或原生移动应用连接。
 
 ## 从哪里开始
 
 | 章节 | 内容 |
 |------|------|
-| [快速开始](/zh/getting-started) | 安装 Atmos，创建基于 worktree 的工作空间，并启动 code-agent 终端 |
+| [快速开始](/zh/getting-started) | 安装 Atmos，选择 Desktop/Web/Mobile，并创建第一个工作空间 |
 | [项目与工作空间管理](/zh/workflows/project-and-workspace-manager) | 添加项目、创建工作空间、管理任务卡片 |
 | [通用构建流程](/zh/workflows/general-build-process) | 从想法到已 Review 变更的日常流程 |
+| [自动化重复工作](/zh/workflows/automate-recurring-work) | 把 prompt 变成手动、定时或 GitHub 触发的自动化 |
 | [在 Atmos 中做代码 Review](/zh/workflows/code-review-in-atmos) | 查看 diff、评论，并让 Agent 修复问题 |
 | [远程构建](/zh/workflows/remote-build) | 在另一台机器上运行项目和 Agent |
+| [移动端远程工作](/zh/workflows/mobile-remote-work) | 把移动应用连接到在线的 Atmos Computer |
 | [CLI](/zh/cli) | 本地运行、远程机器、Canvas 和 Review 的命令行辅助工具 |

@@ -1,0 +1,48 @@
+---
+title: 自动化
+description: 在 Atmos 中运行定时或事件触发的 Agent 工作。
+---
+
+自动化让 Atmos 在你没有打开工作空间时也能运行可重复的工作。它适合定时检查、周期维护、GitHub 事件跟进，或需要保留独立历史的手动 Agent 任务。
+
+部分自动化控制可能仍在 **Settings** -> **Experiments** 后面，表示功能还在预览和打磨阶段。
+
+## 自动化能做什么
+
+- 用 **Run now** 手动运行。
+- 按 hourly、daily、weekly、monthly 或 cron 计划运行。
+- 在 Atmos Computer 可通过 Relay 连接时，响应受支持的 GitHub 事件。
+- 把运行历史、产物、终端输出和状态保存在一个地方。
+- 在 project、workspace、新 workspace 或 standalone 目录中运行。
+
+## 触发器
+
+| 触发器 | 适合场景 |
+|--------|----------|
+| **Manual** | 你从 Automations 面板手动启动的任务 |
+| **Schedule** | 常规检查、清理、报告生成、周期性 Review |
+| **GitHub** | 由 PR、issue、push、评论、workflow 或 label 驱动的工作 |
+
+GitHub 触发器需要一台已连接的 Atmos Computer，因为实际工作仍然运行在你的机器上，而不是 Relay 上。
+
+## 运行环境
+
+| 环境 | 行为 |
+|------|------|
+| **Project** | 在已有项目中运行 |
+| **Workspace** | 在已有工作空间中运行 |
+| **New Workspace** | 为本次自动化创建一个工作空间 |
+| **Standalone** | 在归属电脑的 automation run 目录中运行 |
+
+选择能提供所需文件和上下文的最小环境。
+
+## 运行历史
+
+每次运行都会记录状态和输出。打开一次运行可以查看终端日志、产物和对话。你可以取消运行中的任务、继续受支持的运行，或在调整 prompt 和触发器后重新运行。
+
+## 使用建议
+
+- 让自动化 prompt 保持具体，并先手动试跑再设置计划。
+- 用 GitHub 的 branch、label、user、workflow name 或 conclusion 过滤条件减少噪音。
+- 需要关注失败时，配合 [Agent 状态通知](/zh/features/agent-status-notifications) 使用。
+- 如果自动化需要在你离开 UI 后继续运行，先设置 [Atmos Computer](/zh/features/atmos-computer)。

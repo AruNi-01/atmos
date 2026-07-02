@@ -14,10 +14,14 @@ description: 在一个地方查看 diff、辅助提交、代码 Review 和管理
 
 ## 你可以做什么
 
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
+
 - 查看已修改文件和并排 diff。
 - 根据工作空间上下文暂存和提交。
 - 查看与当前任务相关的历史。
-- 连接仓库后管理 GitHub Pull Request。
+- 连接仓库后创建和管理 GitHub Pull Request。
+- 查看 GitHub Actions，并在 Actions 面板中让 Agent 修复失败 job。
+- 在移动端 **Changes** 视图中刷新变更、查看 diff、stage、unstage、commit 和 push。
 
 ## 开始使用
 
@@ -25,10 +29,11 @@ description: 在一个地方查看 diff、辅助提交、代码 Review 和管理
 2. 打开 **Git** 视图。
 3. 逐个文件阅读 diff。
 4. 在终端中运行项目检查。
-5. 用你正常的 Git 流程提交或打开 PR。
+5. 从右侧边栏提交、打开 draft PR，或查看已有 PR 和 Actions 状态。
 
 ## 使用建议
 
 - 每次 Agent 运行后都 Review diff，不要只在最后看。
 - 使用 [Review Workflow](/zh/features/review-workflow) 做行内评论和 Agent 修复。
 - 保持提交较小，并和工作空间任务名对应。
+- 移动端 Git 有意比桌面端更小：不包含完整 PR 面板、AI commit 生成、discard、history 或 chunk-level 控制。

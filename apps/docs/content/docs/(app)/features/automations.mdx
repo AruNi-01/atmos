@@ -1,0 +1,48 @@
+---
+title: Automations
+description: Run recurring or event-driven agent work from Atmos.
+---
+
+Automations let Atmos run repeatable work without you opening a workspace every time. Use them for scheduled checks, recurring maintenance, GitHub-driven follow-up, or manual agent jobs that should keep their own history.
+
+Some automation controls may be behind **Settings** -> **Experiments** while the feature is still being refined.
+
+## What automations do
+
+- Run on demand with **Run now**.
+- Run on schedules such as hourly, daily, weekly, monthly, or cron.
+- React to supported GitHub events when your Atmos Computer is reachable through Relay.
+- Keep run history, artifacts, terminal output, and status in one place.
+- Run in a project, a workspace, a new workspace, or a standalone directory.
+
+## Triggers
+
+| Trigger | Use it for |
+|---------|------------|
+| **Manual** | Jobs you start yourself from the Automations panel |
+| **Schedule** | Regular checks, cleanup, report generation, and recurring review |
+| **GitHub** | Pull request, issue, push, comment, workflow, and label-driven work |
+
+GitHub triggers need a connected Atmos Computer because the work still runs on your machine, not on the Relay.
+
+## Environments
+
+| Environment | What happens |
+|-------------|--------------|
+| **Project** | Runs against an existing project |
+| **Workspace** | Runs inside an existing workspace |
+| **New Workspace** | Creates a workspace for the automation run |
+| **Standalone** | Runs in the owning computer's automation run directory |
+
+Choose the smallest environment that has the files and context the job needs.
+
+## Run history
+
+Every run records its status and output. Open a run to inspect terminal logs, artifacts, and the conversation. You can cancel running work, continue supported runs, or rerun the automation after adjusting the prompt or trigger.
+
+## Tips
+
+- Keep automation prompts narrow and test them manually before scheduling.
+- Use GitHub filters such as branch, label, user, workflow name, or conclusion to avoid noisy runs.
+- Pair automation with [Agent Status Notifications](/features/agent-status-notifications) when failures need attention.
+- Use [Atmos Computer](/features/atmos-computer) first if the automation should run while you are away from the UI.

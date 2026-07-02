@@ -1,0 +1,49 @@
+---
+title: Mobile App
+description: Use Atmos from iOS or Android against a remote Atmos Computer.
+---
+
+The Atmos mobile app is a native iOS and Android client for remote work. The phone does not run Atmos Server, clone repositories, or execute agents locally. It connects through Relay to an online Atmos Computer where your projects, terminals, Git operations, and agents run.
+
+> The Mobile App is currently in development and temporarily unavailable.
+
+## What mobile is for
+
+- Check workspaces while away from your desk.
+- Open a single terminal attached to a remote workspace.
+- Review changed files, stage or unstage, commit, and push.
+- Import projects by selecting a path on the remote computer.
+- Create workspaces with issue or PR context, TODO extraction, priority, status, and labels.
+- Rename, select, or revoke registered computers.
+
+## Connect flow
+
+1. Open the mobile app and choose **Connect Atmos**.
+2. Enter or generate an **Access Token**.
+3. Create a one-time register command.
+4. Run that command on the computer where Atmos Server and your repos should run.
+5. Refresh **My Computers** and select an online computer.
+6. Open a workspace.
+
+In the desktop and web app this same credential is often called an **Access Key**. In mobile it is shown as an **Access Token**.
+
+## Workspace views
+
+| View | What you can do |
+|------|-----------------|
+| **Terminal** | Attach to an existing terminal or create a new mobile terminal |
+| **Changes** | Refresh Git status, view diffs, stage, unstage, commit, and push |
+| **Overview** | Read workspace context and status |
+
+Mobile intentionally keeps the workspace surface smaller than desktop. It does not provide desktop multi-pane terminal layouts, full PR panels, or local offline queues.
+
+## Settings
+
+Mobile settings include token switching, token rotation, phone reset, custom Relay URL, self-hosted Relay secret, register command creation, computer rename, and computer revoke.
+
+## Tips
+
+- Keep at least one Atmos Computer online before opening mobile.
+- Use the official Relay URL unless your team operates a private Relay.
+- If the selected computer changes or Relay settings are saved, select the computer again before opening workspaces.
+- See [Mobile Remote Work](/workflows/mobile-remote-work) for a step-by-step workflow.

@@ -20,11 +20,19 @@ description: 在 Atmos 的任何地方和编码 Agent 对话。
 - 找到某个功能在哪里实现。
 - 做一个小改动，并运行相关检查。
 - 提交前 Review 一个 diff。
+- 粘贴桌面窗口捕获后，让 Agent 检查 Appshot。
+- 需要更多空间时，导出对话或在独立窗口中打开。
+
+## Agent 与运行配置
+
+Atmos 可以在应用中使用终端 Agent 和自定义 ACP Agent。打开 **Settings** -> **Code Agent** 或 Agent 管理器，可以启用内置 Agent、添加自定义 Agent，并保存运行配置。
+
+运行配置可以包含模型、reasoning 或 thinking 级别，以及额外参数。当结构化模型或 reasoning 设置启用时，Atmos 会阻止冲突参数。
 
 ## 开始使用
 
 1. 打开当前任务的工作空间。
-2. 打开 Agent 聊天面板。
+2. 打开 Agent 聊天面板或 Agent 管理器。
 3. 说明目标、有用文件和预期结果。
 4. 发布前检查改动和终端输出。
 
@@ -32,3 +40,4 @@ description: 在 Atmos 的任何地方和编码 Agent 对话。
 
 - 给 Agent 一个清晰的终点；大任务拆成小步骤。
 - 和 [技能管理](/zh/features/skill-management) 搭配，处理可重复的工作流。
+- 当缺失的上下文在屏幕上时，配合 [Appshots](/zh/features/appshots) 使用。

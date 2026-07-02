@@ -1,9 +1,9 @@
 ---
-title: atmos canvas
+title: Atmos Canvas
 description: Canvas 相关 CLI 操作。
 ---
 
-`atmos canvas` 让编码 Agent 可以操作你在 Atmos 中打开的 Canvas 画布。
+`atmos canvas` 让编码 Agent 可以检查并更新你在 Atmos 中打开的 Canvas 画布。
 
 大多数用户不需要手动运行这些命令。它们主要用于 Agent 帮你创建笔记、整理卡片、绘图，或查看画布上已有内容。
 
@@ -14,16 +14,24 @@ description: Canvas 相关 CLI 操作。
 3. 把 UI 中显示的 Canvas 指令给 Agent。
 4. Agent 工作时保持 Canvas 打开。
 
-## Agent 可以做什么
+当 UI 给 Agent 一个特定 Canvas client id 时，使用 `--client-id`。
 
-- 检查 Canvas 是否已准备好。
-- 读取当前画布。
-- 创建笔记、Frame、图形和箭头。
-- 移动、对齐、分组或删除选中元素。
-- 把视图聚焦到重要工作上。
+## 命令分组
+
+| 命令 | 用途 |
+|------|------|
+| `skill-dir`、`skill-path` | 找到内置 Canvas Agent skill |
+| `status` | 检查 bridge 是否在线 |
+| `get-state`、`extract-text` | 读取画布状态或终端文本；`extract-text` 可使用 `--older-offset` |
+| `create-note`、`create-frame`、`create-geo`、`create-arrow`、`create-draw` | 创建 Canvas 内容 |
+| `select`、`clear-selection`、`move`、`delete` | 选择和编辑元素；`delete` 需要 `--confirm` |
+| `layout-row`、`layout-column`、`layout-grid` | 排列元素 |
+| `update-shape`、`viewport`、`align`、`stack`、`distribute`、`place` | 调整位置和视图 |
+| `lint`、`apply` | 校验或应用命令批次；`apply` 接收 `--commands` 或 `--commands-file` |
+| `set-agent-view`、`set-status` | 更新 Agent 视口，或把 Agent 状态标记为 `idle` / `active` |
 
 ## 使用建议
 
 - 用 Canvas 做规划、比较工作空间或解释架构。
-- 要求 Agent 保持改动小而可见。
+- 要求 Agent 保持 Canvas 改动小、可见、可回退。
 - 如果命令失败，确认 Canvas 已打开，并且已允许 Agent 访问。

@@ -13,11 +13,12 @@ After you connect to an Atmos Computer:
 
 - workspaces, branches, terminals, and agent history belong to that computer;
 - your laptop or browser acts as the client;
-- local CLI commands resolve the same active computer when your UI is connected there.
+- the CLI can resolve the same active computer through `~/.atmos/client-session.json`;
+- if no remote client session exists, the CLI falls back to the local runtime manifest.
 
 To return to the runtime on the machine in front of you, choose **Use locally**.
 
-## Step 1: Create An Access Key
+## Step 1: Create an Access Key or Access Token
 
 1. Open **Settings** → **Atmos Computer**.
 2. Find the **Access Key** area.
@@ -26,6 +27,10 @@ To return to the runtime on the machine in front of you, choose **Use locally**.
 5. Copy it immediately if you need to register another host.
 
 Treat the access key like a password.
+
+The mobile app uses the label **Access Token** for the same credential.
+
+> The Mobile App is currently in development and temporarily unavailable.
 
 ## Step 2: Register A Computer
 
@@ -38,12 +43,20 @@ Treat the access key like a password.
 
 ### Another Machine
 
-1. Install Atmos on the machine that should run the work.
+1. Install Atmos Desktop or the local web runtime on the machine that should run the work.
 2. Create a registration code from the device where your access key is saved.
 3. Run the shown CLI command on the target machine.
 4. Confirm the computer appears as **Online**.
 
 Registration codes are short-lived and single-use. Generate a new one if it expires.
+
+The generated command usually calls:
+
+```bash
+atmos computer start --token <registration_code> --daemon
+```
+
+For private Relay, the command may also include `--relay` and `--relay-secret-key`.
 
 ## Step 3: Connect
 
@@ -62,6 +75,14 @@ Once connected, use the same Atmos workflows:
 - [General Build Process](/workflows/general-build-process)
 - [Code Review in Atmos](/workflows/code-review-in-atmos)
 - [Build in Canvas](/workflows/build-in-canvas)
+- [Automate Recurring Work](/workflows/automate-recurring-work)
+
+CLI commands use this resolution order:
+
+| Setting | Resolution order |
+|---------|------------------|
+| API URL | `--api-url`, `ATMOS_API_URL`, active `client-session.json`, `runtime_manifest.json` |
+| API token | `--api-token`, `ATMOS_API_TOKEN`, `ATMOS_LOCAL_TOKEN`, active client-session gateway token |
 
 ## Security Notes
 
@@ -69,6 +90,7 @@ Once connected, use the same Atmos workflows:
 |-------|--------------|
 | **Access key** | Anyone with the key can manage your registered computers. Store it carefully. |
 | **Registration codes** | Short-lived and one-time. Remove unused codes. |
+| **Relay secrets** | Private Relay deployments may require a Relay secret in addition to the Access Key. |
 | **Sessions** | Connect sessions expire. Reconnect from **My Computers** when needed. |
 | **Revocation** | Remove a computer from **My Computers** when it should no longer be available. |
 
@@ -76,3 +98,4 @@ Once connected, use the same Atmos workflows:
 
 - [Atmos Computer](/features/atmos-computer) — feature overview
 - [Cross-Platform & Tunnel Connector](/features/cross-platform-tunnel-connector) — local clients and browser tunnels
+- [Mobile Remote Work](/workflows/mobile-remote-work) — use a remote computer from iOS or Android

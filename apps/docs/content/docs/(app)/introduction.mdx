@@ -6,28 +6,32 @@ icon: BookOpen
 
 # Introduction
 
-Atmos is a concurrent development workspace for running multiple code agents in persistent terminal sessions.
+Atmos is a concurrent development workspace for running code agents, terminals, Git work, review, and remote machines from one UI.
 
-It gives each task its own Git worktree, keeps long-running code-agent terminals alive, and lets you switch between parallel branches without losing context. You can run Atmos as a desktop app, open it in a browser, or connect the app to another machine where your code actually lives.
+It gives each task its own Git worktree, keeps long-running terminal sessions alive, and lets you switch between parallel branches without losing context. You can run Atmos as a desktop app, open it in a browser, connect to an Atmos Computer, or use the mobile app against a remote machine.
+
+> The Mobile App is currently in development and temporarily unavailable.
 
 ## What You Can Do
 
-- **Open several tasks at once** — create a separate workspace and branch for each feature, bug fix, experiment, or review.
-- **Run multiple code agents in parallel** — keep one or more agent terminals alive per workspace.
-- **Keep long-running work recoverable** — terminal sessions stay attached to the workspace across reloads, app restarts, and even machine reboots.
-- **Work with agents where the context is** — run your code-agent CLI in the workspace terminal, then inspect files, diffs, reviews, and output in the same place.
-- **Review before you ship** — inspect diffs, leave line comments, ask an agent to fix them, then commit with confidence.
-- **Plan visually** — pin terminals and notes to Canvas when several workspaces need to be compared.
-- **Track many tasks** — use Kanban, labels, priority, search, and agent status to stay oriented.
-- **Work from another machine** — connect to an Atmos Computer when your repos and agents should run on a remote box.
+- **Run several tasks at once** — create a separate workspace and branch for each feature, bug fix, experiment, or review.
+- **Keep terminals recoverable** — workspace terminals survive reloads, app restarts, connection drops, and machine restarts.
+- **Use the agents you already trust** — start Claude Code, Codex, Gemini, OpenCode, Cursor Agent, or another terminal agent inside the workspace shell.
+- **Inspect the work where it happens** — review files, diffs, terminal output, agent status, PRs, Actions, and notes without leaving the workspace.
+- **Review before you ship** — leave line comments, ask an agent to fix them, run tests, then commit or open a PR.
+- **Organize parallel work** — use Kanban, Canvas, labels, priority, global search, and status notifications.
+- **Automate repeatable work** — run manual, scheduled, or GitHub-triggered automations on the right project or workspace.
+- **Work from another device** — connect through Atmos Computer, Tunnel Connector, or the native mobile app when the work should run on another machine.
 
 ## Where To Start
 
 | Section | Topics |
 |---------|--------|
-| [Getting started](/getting-started) | Install Atmos, create a worktree-backed workspace, and start a code-agent terminal |
+| [Getting started](/getting-started) | Install Atmos, choose Desktop/Web/Mobile, and create your first workspace |
 | [Project & Workspace Manager](/workflows/project-and-workspace-manager) | Add a project, create workspaces, and manage task cards |
 | [General Build Process](/workflows/general-build-process) | The everyday loop from idea to reviewed change |
+| [Automate Recurring Work](/workflows/automate-recurring-work) | Turn a prompt into manual, scheduled, or GitHub-triggered automation |
 | [Code Review in Atmos](/workflows/code-review-in-atmos) | Review diffs, comment, and ask agents to fix issues |
 | [Remote Build](/workflows/remote-build) | Run projects and agents on another machine |
+| [Mobile Remote Work](/workflows/mobile-remote-work) | Connect the mobile app to an online Atmos Computer |
 | [CLI](/cli) | Command-line helpers for runtime, remote computers, Canvas, and review |

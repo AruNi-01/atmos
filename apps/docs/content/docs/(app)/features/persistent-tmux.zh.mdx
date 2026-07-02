@@ -16,6 +16,12 @@ description: 让终端工作始终挂在对应工作空间上。
 
 当你重新打开工作空间时，Atmos 会重新连接到已保存的终端会话，而不是从空白终端开始。
 
+桌面和 Web 工作空间可以使用多个 pane 和 tab。需要恢复或清理 shell 状态时，**Terminal Manager** 可以帮助检查 system PTY、workspace terminal 和 orphaned session。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
+
+移动应用的终端界面更小：一次只渲染一个终端。它可以连接已有 session，也可以创建新的移动端终端，但断线时不会排队发送终端输入。
+
 ## 开始使用
 
 1. 打开一个工作空间。
@@ -28,3 +34,4 @@ description: 让终端工作始终挂在对应工作空间上。
 - 如果同时打开多个终端，给会话起名字。
 - 如果输出看起来卡住了，在那个面板里停止进程，然后从同一个工作空间重新运行。
 - 当 Agent 在多个分支上并行工作时，和 [多工作空间开发](/zh/features/multi-workspace) 搭配使用。
+- 使用终端设置选择文件链接的打开方式，以及默认 split prompt 使用哪个 Agent。

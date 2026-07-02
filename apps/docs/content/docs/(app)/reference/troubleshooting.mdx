@@ -1,26 +1,64 @@
 ---
 title: Troubleshooting
-description: Common issues and fixes.
+description: Common setup, runtime, remote, terminal, mobile, and CLI fixes.
 ---
 
-Start with the simple checks below. They solve most setup and connection issues.
+Start with the simplest checks. They solve most setup and connection issues.
 
-## Atmos will not open
+## Atmos will not open or the UI cannot connect
 
-1. Restart the app.
-2. If you manage Atmos from the CLI, run `atmos runtime ensure` to make sure the local runtime is running.
-3. Open Desktop again, or open [app.atmos.land](https://app.atmos.land) in your browser.
+1. Restart Desktop or refresh the browser app.
+2. Run `atmos runtime status`.
+3. If the runtime is stopped or unhealthy, run `atmos runtime ensure --force-restart`.
+4. Check `~/.atmos/runtime/logs/server.log` for startup errors.
+5. If the CLI cannot find an API URL, pass `--api-url`, set `ATMOS_API_URL`, or recreate `~/.atmos/runtime_manifest.json` with `atmos runtime ensure`.
 
-## Terminal is not responding
+The local runtime normally listens on port `30303` and writes `~/.atmos/runtime_manifest.json`.
+
+## The CLI returns 401 or cannot authenticate
+
+1. If you enabled local auth, set `--api-token`, `ATMOS_API_TOKEN`, or `ATMOS_LOCAL_TOKEN`.
+2. If you are connected to a remote computer from the UI, make sure `~/.atmos/client-session.json` exists for the active session.
+3. Reconnect from **My Computers** if the session expired.
+
+## Terminal is not responding or output is stuck
 
 1. Stop the current command if it is stuck.
 2. Open a new terminal in the same workspace.
 3. Run a small command such as `pwd` to confirm the shell works.
+4. Open **Terminal Manager** to inspect orphaned or system PTY sessions.
+5. If only mobile is affected, reconnect before sending input; mobile does not queue terminal input while disconnected.
 
 ## A remote computer is offline
 
-On that machine, run `atmos runtime status`. If it is stopped, run `atmos runtime ensure`.
+On that machine:
+
+1. Run `atmos computer status`.
+2. Run `atmos runtime status`.
+3. If the runtime is stopped, run `atmos runtime ensure --force-restart`.
+4. If registration expired, generate a new register command from **Settings** -> **Atmos Computer**.
+5. For private Relay, confirm the Relay URL and secret key match on the client and the computer.
+
+## Mobile cannot see or use a computer
+
+> The Mobile App is currently in development and temporarily unavailable.
+
+1. Generate a new register command from mobile settings or Desktop/Web.
+2. Run it on the computer where the repos should live, not on the phone.
+3. Tap **Refresh Computers** and select an online computer.
+4. If you changed Relay URL or Relay secret, select the computer again before opening a workspace.
+5. If project import fails, verify the path exists on the remote computer and is a Git repository.
+
+## Appshots do not capture
+
+1. Use the desktop app.
+2. On macOS, grant **Accessibility** and **Screen Recording** permissions.
+3. Focus the app window you want to capture.
+4. Press `Left Shift + Right Shift`.
+5. Restart Desktop after changing permissions if capture still fails.
 
 ## Agent output looks wrong
 
 Check that you opened the right workspace and project folder. Then rerun the agent with a smaller, more specific request.
+
+If the wrong terminal agent starts, open **Settings** -> **Code Agent** and check the enabled agent, command, parameters, saved run configuration, model, reasoning, and extra arguments.

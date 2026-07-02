@@ -38,6 +38,10 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 
 项目会出现在侧边栏里，工作空间会显示在项目下方。
 
+在移动端，项目导入选择的是已连接 Atmos Computer 上的路径。通过浏览或搜索找到那台电脑上的 Git 仓库，验证路径后再导入。移动端不会从手机 clone 项目。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
+
 ## 2. 配置工作空间脚本
 
 每个项目都可以配置在关键生命周期中运行的脚本。打开项目 **⋯** 菜单 → **Workspace Scripts**。
@@ -91,6 +95,8 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 2. 在 **Create New Workspace** 或 **Build Workspace from Issue** 中选择项目、名称、分支，以及可选的 GitHub issue 或 pull request。
 3. **Create Workspace** 会运行和 composer 相同的准备流程。
 
+移动端工作空间创建支持同样的核心思路，但界面更小：title、base branch、可选 internal name 和 branch、GitHub Issue 或 PR URL、TODO 提取、priority、status、labels、setup progress、**Confirm TODOs**、**Retry Setup** 和 **Open Workspace**。
+
 ### 4.4 Kanban：Issue Only 工作空间
 
 1. 打开 **Kanban**（侧边栏图标，或 `⌘⇧K` 展开看板）。
@@ -113,8 +119,15 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 
 用 Kanban 回答一个问题：*我接下来该做什么？*
 
+## 6. Workspace Overview
+
+Workspace Overview 会在不打开每个面板的情况下总结当前任务。用它检查 requirements、tasks、notes、pull requests、Actions 和 workspace state，再决定下一步运行什么。
+
+在移动端，**Overview** 是三个工作空间视图之一，另外两个是 **Terminal** 和 **Changes**。
+
 ## 相关内容
 
 - [通用构建流程](/zh/workflows/general-build-process) — 工作空间创建后的下一步。
 - [多工作空间开发](/zh/features/multi-workspace) — 功能概览。
 - [Kanban 视图](/zh/features/kanban-view) — 以看板为中心的使用建议。
+- [移动端远程工作](/zh/workflows/mobile-remote-work) — 从手机使用项目和工作空间。

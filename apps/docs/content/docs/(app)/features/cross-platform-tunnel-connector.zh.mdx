@@ -5,6 +5,8 @@ description: 在本机、浏览器或受支持的隧道服务中使用 Atmos。
 
 Atmos 运行在保存项目、终端、Agent 和工作空间的那台机器上。你可以在这台机器上使用桌面应用，也可以从浏览器打开本地 Web UI，或者通过 **Tunnel Connector** 发布一个浏览器入口。
 
+Tunnel Connector 仅在桌面应用中可用。它通过受支持的隧道服务暴露当前电脑的本机 Atmos runtime。它不同于 [Atmos Computer](/zh/features/atmos-computer)：Atmos Computer 会把一台机器注册到 Relay，供其他客户端选择为当前工作的电脑。
+
 ## 本地客户端
 
 当你正在使用运行 Atmos 的同一台机器时，可以选择这些入口：
@@ -32,17 +34,19 @@ Atmos 运行在保存项目、终端、Agent 和工作空间的那台机器上�
 | 服务 | 典型用途 |
 |------|----------|
 | **Tailscale** | 在同一个 tailnet 内进行私有访问 |
-| **Cloudflare Tunnel** | 通过 Cloudflare 创建临时 HTTPS 链接 |
+| **Cloudflare Tunnel** | 通过 Cloudflare Quick Tunnel 创建临时公网 HTTPS 链接 |
 | **ngrok** | 为演示和短期分享创建快速公网 HTTPS 链接 |
 
 每个服务都是一个独立 connector。Atmos 统一管理本地 gateway、session token、状态、过期时间和分享链接。
+
+Tailscale 可以是私有访问。Cloudflare Quick Tunnel 和 ngrok 链接应当按临时公网入口处理，除非你的服务账号额外配置了访问控制。
 
 ## 启动隧道
 
 1. 打开**桌面应用**。
 2. 进入 **Settings** → **Tunnel Connector**。
 3. 点击 **Refresh** 检测已安装的服务。
-4. 如果缺少二进制或凭据，按页面中的 provider setup 操作完成配置。
+4. 如果缺少二进制、登录、系统服务或凭据，按页面中的 provider setup 操作完成配置。
 5. 选择访问模式和过期时间，然后启动隧道。
 6. 复制 Atmos 显示的 **Public URL** 或分享链接。
 

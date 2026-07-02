@@ -1,26 +1,64 @@
 ---
 title: 故障排查
-description: 常见问题和修复方式。
+description: 常见设置、runtime、远程、终端、移动端和 CLI 问题的修复方式。
 ---
 
-先从下面这些简单检查开始。它们能解决大多数设置和连接问题。
+先从最简单的检查开始。它们能解决大多数设置和连接问题。
 
-## Atmos 打不开
+## Atmos 打不开或 UI 无法连接
 
-1. 重启应用。
-2. 如果你通过 CLI 管理 Atmos，运行 `atmos runtime ensure`，确认本地运行环境已启动。
-3. 再次打开桌面应用，或在浏览器中打开 [app.atmos.land](https://app.atmos.land)。
+1. 重启 Desktop，或刷新浏览器应用。
+2. 运行 `atmos runtime status`。
+3. 如果 runtime 已停止或不健康，运行 `atmos runtime ensure --force-restart`。
+4. 检查 `~/.atmos/runtime/logs/server.log` 中的启动错误。
+5. 如果 CLI 找不到 API URL，传入 `--api-url`、设置 `ATMOS_API_URL`，或用 `atmos runtime ensure` 重新创建 `~/.atmos/runtime_manifest.json`。
 
-## 终端没有响应
+本地 runtime 通常监听端口 `30303`，并写入 `~/.atmos/runtime_manifest.json`。
 
-1. 如果当前命令卡住了，先停止它。
-2. 在同一个工作空间里打开一个新终端。
-3. 运行一个小命令，比如 `pwd`，确认 shell 可以正常工作。
+## CLI 返回 401 或无法鉴权
+
+1. 如果启用了本地鉴权，设置 `--api-token`、`ATMOS_API_TOKEN` 或 `ATMOS_LOCAL_TOKEN`。
+2. 如果 UI 已连接到远程电脑，确认当前 session 的 `~/.atmos/client-session.json` 存在。
+3. 如果 session 过期，从 **My Computers** 重新连接。
+
+## 终端没有响应或输出卡住
+
+1. 停止当前卡住的命令。
+2. 在同一个工作空间中打开新终端。
+3. 运行 `pwd` 等小命令，确认 shell 可以工作。
+4. 打开 **Terminal Manager** 检查 orphaned 或 system PTY session。
+5. 如果只有移动端受影响，发送输入前先重新连接；移动端断线时不会排队发送终端输入。
 
 ## 远程电脑离线
 
-在那台机器上运行 `atmos runtime status`。如果它已经停止，运行 `atmos runtime ensure`。
+在那台机器上：
+
+1. 运行 `atmos computer status`。
+2. 运行 `atmos runtime status`。
+3. 如果 runtime 已停止，运行 `atmos runtime ensure --force-restart`。
+4. 如果注册已过期，从 **Settings** -> **Atmos Computer** 生成新的注册命令。
+5. 如果使用私有 Relay，确认客户端和电脑上的 Relay URL 与 secret key 一致。
+
+## 移动端看不到或无法使用电脑
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
+
+1. 从移动端设置或 Desktop/Web 生成新的注册命令。
+2. 在存放仓库的电脑上运行该命令，不是在手机上运行。
+3. 点击 **Refresh Computers**，选择在线电脑。
+4. 如果修改了 Relay URL 或 Relay secret，打开工作空间前重新选择电脑。
+5. 如果项目导入失败，确认路径存在于远程电脑上，并且是 Git 仓库。
+
+## Appshots 无法捕获
+
+1. 使用桌面应用。
+2. 在 macOS 上授予 **Accessibility** 和 **Screen Recording** 权限。
+3. 聚焦你要捕获的应用窗口。
+4. 按 `Left Shift + Right Shift`。
+5. 修改权限后如果仍然失败，重启 Desktop。
 
 ## Agent 输出看起来不对
 
-确认你打开的是正确的工作空间和项目文件夹。然后用更小、更具体的请求重新运行 Agent。
+检查你是否打开了正确的工作空间和项目文件夹。然后用更小、更具体的请求重新运行 Agent。
+
+如果启动了错误的终端 Agent，打开 **Settings** -> **Code Agent**，检查启用的 Agent、命令、参数、保存的运行配置、模型、reasoning 和额外参数。

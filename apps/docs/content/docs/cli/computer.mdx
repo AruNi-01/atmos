@@ -1,31 +1,44 @@
 ---
-title: atmos computer
+title: Atmos Computer
 description: Register this machine as an Atmos Computer.
 ---
 
-`atmos computer` helps register this machine as an Atmos Computer so you can connect to it from Desktop or the browser app.
+`atmos computer` registers and starts the machine where your projects, terminals, Git operations, and agents should run. Use it on the target computer, not on a laptop that only displays the UI.
 
-Use it on the machine where your projects, terminals, and agents should run.
-
-## Common Tasks
+## Common tasks
 
 | Task | Command |
 |------|---------|
-| Register and start this machine | `atmos computer start --token <token>` |
-| Register an already-running local API | `atmos computer start --token <token> --daemon` |
+| Register and start this machine | `atmos computer start --token <registration_code>` |
+| Start the API in the background and exit after readiness | `atmos computer start --token <registration_code> --daemon` |
 | Start an already registered machine | `atmos computer start` |
 | Check registration and connection status | `atmos computer status` |
 
-## Typical Flow
+## Start options
 
-1. In the app, open **Settings** → **Atmos Computer**.
-2. Create or copy a registration code.
-3. On the remote machine, run the command shown in the app.
+| Option or env var | Use it for |
+|-------------------|------------|
+| `--token`, `ATMOS_REGISTER_TOKEN` | One-time registration token |
+| `--relay`, `ATMOS_RELAY_URL` | Custom Relay URL |
+| `--relay-secret-key`, `ATMOS_RELAY_SECRET_KEY` | Private Relay authentication |
+| `--display-name`, `ATMOS_COMPUTER_DISPLAY_NAME` | Name shown in **My Computers** |
+| `--port`, `--host`, `--lan` | Local Atmos Server binding |
+| `--force-restart` | Restart the local runtime before registering |
+| `--daemon` | Start in the background, wait for readiness, then return |
+
+## Typical flow
+
+1. In the app, open **Settings** -> **Atmos Computer**.
+2. Create or copy a registration command.
+3. Run the command on the computer that should own the work.
 4. Return to **My Computers** and wait for the machine to show **Online**.
-5. Click **Connect** from Desktop or the browser app.
+5. Click **Connect** from Desktop, the browser app, or mobile.
+
+> The Mobile App is currently in development and temporarily unavailable.
 
 ## Tips
 
-- Treat registration codes and access keys like passwords.
-- Run this on the remote machine, not on the laptop that only runs the UI.
-- If a computer is offline, check `atmos computer status` on that machine.
+- Treat registration codes, Access Keys, and Access Tokens like passwords.
+- Registration codes are short-lived and single-use.
+- Relay identity is stored on the registered machine; revoke computers you no longer trust.
+- If a computer is offline, check `atmos computer status` and `atmos runtime status` on that machine.

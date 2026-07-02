@@ -1,27 +1,45 @@
 ---
-title: atmos runtime
+title: Atmos Runtime
 description: 启动、停止和检查本地 Atmos。
 ---
 
-`atmos runtime` 管理你电脑上的本地 Atmos runtime。当桌面应用或浏览器应用无法连接，或你想在打开 UI 前先启动 Atmos 时，可以使用它。
+`atmos runtime` 管理你电脑上的本地 Atmos Server。当桌面应用或浏览器应用无法连接、你想在打开 UI 前先启动 Atmos，或正在准备一台要注册为 Atmos Computer 的机器时，可以使用它。
 
 ## 常见任务
 
 | 任务 | 命令 |
 |------|------|
 | 如果 Atmos 没有运行，则启动它 | `atmos runtime ensure` |
-| 检查 Atmos 是否健康 | `atmos runtime status` |
+| 在指定端口启动 | `atmos runtime ensure --port 30303` |
+| 绑定到指定 host | `atmos runtime ensure --host 127.0.0.1` |
+| 即使已有 runtime 也重启 | `atmos runtime ensure --force-restart` |
+| 后台启动 | `atmos runtime ensure --daemon` |
+| 检查 runtime 健康状态 | `atmos runtime status` |
 | 停止本地 runtime | `atmos runtime stop` |
+| 强制停止 | `atmos runtime stop --force` |
 
-## 什么时候使用
+`--lan` 会绑定到 `0.0.0.0` 以支持 LAN 访问。runtime manifest 仍然会让本地客户端指向 loopback。
 
-- 你安装了 Local Web Runtime，并想在浏览器中打开 Atmos。
-- 桌面应用找不到本地 runtime。
-- 你正在准备一台机器，之后要把它注册为 Atmos Computer。
-- 你想在本地设置变化后重启 runtime。
+## 安装 Local Web Runtime
+
+如果 runtime 二进制还没有安装，安装本地 Web Runtime：
+
+```bash
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
+```
+
+常用安装器参数包括 `--port`、`--token`、`--relay`、`--display-name`、`--daemon`、`--no-start`、`--no-open` 和 `--github-source`。
+
+## 文件和日志
+
+| 路径 | 用途 |
+|------|------|
+| `~/.atmos/runtime/current` | 已安装的 runtime |
+| `~/.atmos/runtime_manifest.json` | 本地客户端使用的 host、port、HTTP URL 和 WebSocket URL |
+| `~/.atmos/runtime/logs/server.log` | Runtime 日志 |
 
 ## 使用建议
 
 - 脚本需要原始状态对象时，使用 `--json`。
-- 如果 `status` 显示 runtime 已停止，运行 `ensure`，然后重新打开 Atmos。
-- 如果你在使用 Atmos Computer，确认这些命令运行在项目实际所在的机器上。
+- 如果 `status` 显示 runtime 已停止，运行 `atmos runtime ensure --force-restart`。
+- 如果你在使用 Atmos Computer，确认 runtime 命令运行在项目实际所在的机器上。

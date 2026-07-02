@@ -1,31 +1,44 @@
 ---
-title: atmos computer
+title: Atmos Computer
 description: 把这台机器注册为 Atmos Computer。
 ---
 
-`atmos computer` 帮你把这台机器注册为 Atmos Computer，这样你就可以从桌面应用或浏览器应用连接到它。
-
-请在项目、终端和 Agent 应该运行的那台机器上使用它。
+`atmos computer` 会注册并启动负责运行项目、终端、Git 操作和 Agent 的机器。请在目标电脑上使用它，不要在只负责显示 UI 的笔记本上运行。
 
 ## 常见任务
 
 | 任务 | 命令 |
 |------|------|
-| 注册并启动这台机器 | `atmos computer start --token <token>` |
-| 注册已经运行中的本机 API | `atmos computer start --token <token> --daemon` |
+| 注册并启动这台机器 | `atmos computer start --token <registration_code>` |
+| 后台启动 API，并在 readiness 后退出 | `atmos computer start --token <registration_code> --daemon` |
 | 启动已经注册过的机器 | `atmos computer start` |
 | 检查注册和连接状态 | `atmos computer status` |
 
+## start 参数
+
+| 参数或环境变量 | 用途 |
+|----------------|------|
+| `--token`、`ATMOS_REGISTER_TOKEN` | 一次性注册 token |
+| `--relay`、`ATMOS_RELAY_URL` | 自定义 Relay URL |
+| `--relay-secret-key`、`ATMOS_RELAY_SECRET_KEY` | 私有 Relay 鉴权 |
+| `--display-name`、`ATMOS_COMPUTER_DISPLAY_NAME` | **My Computers** 中显示的名称 |
+| `--port`、`--host`、`--lan` | 本地 Atmos Server 绑定 |
+| `--force-restart` | 注册前重启本地 runtime |
+| `--daemon` | 后台启动，等待 readiness，然后返回 |
+
 ## 典型流程
 
-1. 在应用中打开 **Settings** → **Atmos Computer**。
-2. 创建或复制注册码。
-3. 在远程机器上运行应用中显示的命令。
+1. 在应用中打开 **Settings** -> **Atmos Computer**。
+2. 创建或复制注册命令。
+3. 在负责运行工作的电脑上运行该命令。
 4. 回到 **My Computers**，等待机器显示 **Online**。
-5. 从桌面应用或浏览器应用点击 **Connect**。
+5. 从桌面应用、浏览器应用或移动端点击 **Connect**。
+
+> 当前 Mobile App 处于开发阶段，暂时无法使用。
 
 ## 使用建议
 
-- 像密码一样保护注册码和 access key。
-- 在远程机器上运行这个命令，不要在只负责显示 UI 的笔记本上运行。
-- 如果某台电脑离线，在那台机器上检查 `atmos computer status`。
+- 像密码一样保护注册码、Access Key 和 Access Token。
+- 注册码是短期且一次性的。
+- Relay identity 会保存在已注册机器上；撤销不再信任的电脑。
+- 如果某台电脑离线，在那台机器上检查 `atmos computer status` 和 `atmos runtime status`。

@@ -1,0 +1,37 @@
+---
+title: Appshots
+description: 捕获当前桌面应用窗口，并作为可复用的 Agent 上下文。
+---
+
+Appshots 会捕获当前聚焦的桌面应用窗口，并生成可以粘贴到 Atmos prompt 中的引用。当你希望 Agent 理解屏幕内容，但不想写很长的视觉描述时，它很有用。
+
+Appshots 仅在桌面应用中可用。
+
+## Appshot 包含什么
+
+根据权限和捕获模式，一个 Appshot 可以包含：
+
+- 当前聚焦应用窗口的截图；
+- UI tree 或辅助功能元数据；
+- 窗口元数据；
+- 可附加到 prompt 的本地 `atmos://appshots/...` 引用。
+
+## 设置权限
+
+在 macOS 上，Appshots 需要 **Accessibility** 和 **Screen Recording** 权限。缺少权限时，Atmos 会显示权限状态，并引导你打开对应系统设置。
+
+修改权限后，如果捕获仍失败，重启桌面应用。
+
+## 捕获并使用 Appshot
+
+1. 打开桌面应用。
+2. 聚焦你要捕获的应用窗口。
+3. 按 **Left Shift + Right Shift**。
+4. 复制 Appshot reference，或把它粘贴到 prompt composer。
+5. 让 Agent 检查、总结或基于捕获到的 UI 上下文执行任务。
+
+## 使用建议
+
+- 只捕获当前任务需要的窗口。
+- 捕获前先移除屏幕上的敏感内容。
+- 需要 UI 调试或设计反馈时，配合 [全局 Agent 聊天面板](/zh/features/agent-chat-panel) 使用。

@@ -1,5 +1,5 @@
 ---
-title: atmos update
+title: Atmos Update
 description: Update the CLI binary.
 ---
 
@@ -7,15 +7,17 @@ description: Update the CLI binary.
 
 Use it when the app or docs mention a new CLI feature, or when a command behaves differently from the current docs.
 
-## Common Tasks
+## Common tasks
 
 | Task | Command |
 |------|---------|
 | Check without installing | `atmos update --check` |
 | Install the latest available CLI | `atmos update` |
 
-## Tips
+## Install location and checks
 
-- The CLI may also show an update hint after other commands.
-- Update checks use the Atmos download manifest at `https://install.atmos.land/cli/latest.json` first.
-- If the manifest is unavailable, the CLI falls back to GitHub release feeds.
+The CLI installs to `~/.atmos/bin/atmos`. Desktop and the API can also check or install the CLI from **Settings** -> **About**.
+
+Update checks use `https://install.atmos.land/cli/latest.json` first. If that manifest is unavailable, the CLI falls back to GitHub release feeds.
+
+The CLI may show an update hint after non-update commands. Set `ATMOS_NO_UPDATE_CHECK` to disable opportunistic checks.

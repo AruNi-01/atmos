@@ -38,6 +38,10 @@ Separate workspaces let multiple tasks share one project while staying on differ
 
 The project appears in the sidebar with its workspaces underneath.
 
+On mobile, project import selects a path on the connected Atmos Computer. Use browse or search to find a Git repository on that computer, validate the path, then import it. Mobile does not clone projects from the phone.
+
+> The Mobile App is currently in development and temporarily unavailable.
+
 ## 2. Configure workspace scripts
 
 Per-project scripts run at key lifecycle moments. Open the project **⋯** menu → **Workspace Scripts**.
@@ -91,6 +95,8 @@ Best for: agent-first tasks with rich context up front.
 2. In **Create New Workspace** or **Build Workspace from Issue**, choose the project, name, branch, and optional GitHub issue or pull request.
 3. **Create Workspace** runs the same preparation flow as the composer.
 
+Mobile workspace creation supports the same core idea with a smaller screen: title, base branch, optional internal name and branch, GitHub Issue or PR URL, TODO extraction, priority, status, labels, setup progress, **Confirm TODOs**, **Retry Setup**, and **Open Workspace**.
+
 ### 4.4 Kanban: Issue Only workspaces
 
 1. Open **Kanban** (sidebar icon or `⌘⇧K` for expanded board).
@@ -113,8 +119,15 @@ Best for: agent-first tasks with rich context up front.
 
 Use Kanban to answer: *What should I work on next?*
 
+## 6. Workspace Overview
+
+The workspace overview summarizes the current task without opening every panel. Use it to check requirements, tasks, notes, pull requests, Actions, and workspace state before deciding what to run next.
+
+On mobile, **Overview** is one of the three workspace views alongside **Terminal** and **Changes**.
+
 ## Related
 
 - [General Build Process](/workflows/general-build-process) — after a workspace exists.
 - [Multi-Workspace Development](/features/multi-workspace) — feature overview.
 - [Kanban View](/features/kanban-view) — board-centric tips.
+- [Mobile Remote Work](/workflows/mobile-remote-work) — use projects and workspaces from a phone.

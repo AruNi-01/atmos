@@ -1,27 +1,45 @@
 ---
-title: atmos runtime
+title: Atmos Runtime
 description: Start, stop, and check local Atmos.
 ---
 
-`atmos runtime` manages the local Atmos runtime on your computer. Use it when the desktop app or browser app cannot connect, or when you want to start Atmos before opening the UI.
+`atmos runtime` manages the local Atmos Server on your computer. Use it when Desktop or the browser app cannot connect, when you want to start Atmos before opening the UI, or when you are preparing a machine to become an Atmos Computer.
 
-## Common Tasks
+## Common tasks
 
 | Task | Command |
 |------|---------|
 | Start Atmos if it is not running | `atmos runtime ensure` |
-| Check whether Atmos is healthy | `atmos runtime status` |
+| Start on a specific port | `atmos runtime ensure --port 30303` |
+| Bind to a different host | `atmos runtime ensure --host 127.0.0.1` |
+| Restart even if a runtime exists | `atmos runtime ensure --force-restart` |
+| Start in the background | `atmos runtime ensure --daemon` |
+| Check runtime health | `atmos runtime status` |
 | Stop the local runtime | `atmos runtime stop` |
+| Force stop | `atmos runtime stop --force` |
 
-## When To Use It
+`--lan` binds to `0.0.0.0` for LAN access. The runtime manifest still points local clients at loopback.
 
-- You installed the local web runtime and want to open Atmos in a browser.
-- Desktop cannot find the local runtime.
-- You are preparing a machine before registering it as an Atmos Computer.
-- You want to restart the runtime after changing local setup.
+## Local web runtime install
+
+If the runtime binary is not installed, install the local web runtime:
+
+```bash
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
+```
+
+Useful installer flags include `--port`, `--token`, `--relay`, `--display-name`, `--daemon`, `--no-start`, `--no-open`, and `--github-source`.
+
+## Files and logs
+
+| Path | Purpose |
+|------|---------|
+| `~/.atmos/runtime/current` | Installed runtime |
+| `~/.atmos/runtime_manifest.json` | Host, port, HTTP URL, and WebSocket URL for local clients |
+| `~/.atmos/runtime/logs/server.log` | Runtime log |
 
 ## Tips
 
 - Use `--json` when scripts need the raw status object.
-- If `status` says the runtime is stopped, run `ensure` and then open Atmos again.
-- If you are using Atmos Computer, make sure you run these commands on the machine where your projects should live.
+- If `status` says the runtime is stopped, run `atmos runtime ensure --force-restart`.
+- If you are using Atmos Computer, run runtime commands on the machine where your projects should live.
