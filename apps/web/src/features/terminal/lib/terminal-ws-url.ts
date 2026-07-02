@@ -6,6 +6,10 @@ interface TerminalWsUrlParams {
   noTmux?: boolean;
   projectName?: string;
   sessionId: string;
+  sideChatId?: string;
+  sourcePaneId?: string;
+  sourceTmuxWindowName?: string;
+  terminalKind?: "standard" | "side_chat";
   terminalName?: string;
   tmuxWindowName?: string;
   workspaceId: string;
@@ -42,6 +46,10 @@ export function buildTerminalWsUrl({
   noTmux,
   projectName,
   sessionId,
+  sideChatId,
+  sourcePaneId,
+  sourceTmuxWindowName,
+  terminalKind,
   terminalName,
   tmuxWindowName,
   workspaceId,
@@ -60,6 +68,18 @@ export function buildTerminalWsUrl({
   }
   if (workspaceName) {
     wsParams.set("workspace_name", workspaceName);
+  }
+  if (terminalKind) {
+    wsParams.set("terminal_kind", terminalKind);
+  }
+  if (sideChatId) {
+    wsParams.set("side_chat_id", sideChatId);
+  }
+  if (sourcePaneId) {
+    wsParams.set("source_pane_id", sourcePaneId);
+  }
+  if (sourceTmuxWindowName) {
+    wsParams.set("source_tmux_window_name", sourceTmuxWindowName);
   }
 
   if (noTmux) {

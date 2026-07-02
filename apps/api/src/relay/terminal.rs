@@ -4,7 +4,8 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use core_engine::GitEngine;
 use core_service::{
-    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalResponse,
+    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalKind,
+    TerminalResponse,
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
@@ -296,6 +297,10 @@ async fn open_terminal(
                 workspace_name,
                 window_name: terminal_name,
                 cwd,
+                terminal_kind: TerminalKind::Standard,
+                side_chat_id: None,
+                source_pane_id: None,
+                source_tmux_window_name: None,
             })
             .await
             .map(|(rx, snapshot)| (rx, snapshot, false))

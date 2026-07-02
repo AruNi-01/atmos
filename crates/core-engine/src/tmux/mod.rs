@@ -24,7 +24,7 @@ use locale::apply_utf8_env;
 
 pub use types::{
     TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion,
-    TmuxWindowInfo,
+    TmuxWindowAtmosMetadata, TmuxWindowInfo,
 };
 
 /// Default socket path for Atmos tmux server
@@ -286,6 +286,75 @@ impl TmuxEngine {
 
         debug!("Resized pane {} to {}x{}", target, cols, rows);
         Ok(())
+    }
+
+    pub fn set_window_user_option(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        key: &str,
+        value: &str,
+    ) -> Result<()> {
+        let target = format!("{}:{}", session_name, window_index);
+        self.run_tmux(&["set-window-option", "-t", &target, key, value])?;
+        Ok(())
+    }
+
+    pub fn set_window_atmos_metadata(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        metadata: &TmuxWindowAtmosMetadata,
+    ) -> Result<()> {
+        let values = [
+            ("@atmos_terminal_kind", metadata.terminal_kind.as_deref()),
+            ("@atmos_side_chat_id", metadata.side_chat_id.as_deref()),
+            ("@atmos_context_id", metadata.context_id.as_deref()),
+            ("@atmos_source_pane_id", metadata.source_pane_id.as_deref()),
+            (
+                "@atmos_source_tmux_window_name",
+                metadata.source_tmux_window_name.as_deref(),
+            ),
+        ];
+
+        for (key, value) in values {
+            if let Some(value) = value {
+                self.set_window_user_option(session_name, window_index, key, value)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn get_window_atmos_metadata(
+        &self,
+        session_name: &str,
+        window_index: u32,
+    ) -> Result<TmuxWindowAtmosMetadata> {
+        let target = format!("{}:{}", session_name, window_index);
+        let raw = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{@atmos_terminal_kind}\t#{@atmos_side_chat_id}\t#{@atmos_context_id}\t#{@atmos_source_pane_id}\t#{@atmos_source_tmux_window_name}",
+        ])?;
+        let mut parts = raw.split('\t').map(|part| {
+            let trimmed = part.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
+
+        Ok(TmuxWindowAtmosMetadata {
+            terminal_kind: parts.next().flatten(),
+            side_chat_id: parts.next().flatten(),
+            context_id: parts.next().flatten(),
+            source_pane_id: parts.next().flatten(),
+            source_tmux_window_name: parts.next().flatten(),
+        })
     }
 }
 

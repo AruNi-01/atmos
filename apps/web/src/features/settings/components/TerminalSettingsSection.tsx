@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Button,
@@ -7,10 +8,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Input,
   Switch,
 } from '@workspace/ui';
 import { Check, ChevronDown } from 'lucide-react';
 import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
+import {
+  MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES,
+  MIN_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES,
+  TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_STEP_BYTES,
+  normalizeTerminalSideContextPromptBudgetBytes,
+} from '@/features/settings/store/terminal-side-chat-settings-store';
 import {
   QUICK_OPEN_APP_MAP,
   QUICK_OPEN_APP_OPTIONS,
@@ -23,19 +31,26 @@ export function TerminalSettingsSection({
   fileLinkOpenApp,
   useLastSplitAgentOnSplit,
   lastSplitAgentId,
+  sideContextPromptBudgetBytes,
   setFileLinkOpenMode,
   setFileLinkOpenApp,
   setUseLastSplitAgentOnSplit,
+  setSideContextPromptBudgetBytes,
 }: {
   fileLinkOpenMode: TerminalFileLinkOpenMode;
   fileLinkOpenApp: QuickOpenAppName;
   useLastSplitAgentOnSplit: boolean;
   lastSplitAgentId: string | null;
+  sideContextPromptBudgetBytes: number;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
+  setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
 }) {
   const t = useTranslations('settings.terminalSection');
+  const [localSideContextBudget, setLocalSideContextBudget] = React.useState(
+    sideContextPromptBudgetBytes.toString(),
+  );
   const terminalLinkModeOptions = [
     {
       value: 'atmos',
@@ -57,6 +72,26 @@ export function TerminalSettingsSection({
     terminalLinkModeOptions.find((option) => option.value === fileLinkOpenMode) ??
     terminalLinkModeOptions[0];
   const activeQuickOpenApp = QUICK_OPEN_APP_MAP[fileLinkOpenApp];
+  const formattedMinSideContextBudget =
+    MIN_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString();
+  const formattedMaxSideContextBudget =
+    MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString();
+
+  React.useEffect(() => {
+    setLocalSideContextBudget(sideContextPromptBudgetBytes.toString());
+  }, [sideContextPromptBudgetBytes]);
+
+  const handleSideContextBudgetCommit = async (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed)) {
+      setLocalSideContextBudget(sideContextPromptBudgetBytes.toString());
+      return;
+    }
+
+    const normalized = normalizeTerminalSideContextPromptBudgetBytes(parsed);
+    setLocalSideContextBudget(normalized.toString());
+    await setSideContextPromptBudgetBytes(normalized);
+  };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border">
@@ -147,6 +182,37 @@ export function TerminalSettingsSection({
             checked={useLastSplitAgentOnSplit}
             onCheckedChange={setUseLastSplitAgentOnSplit}
           />
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">{t('sideContextBudget.title')}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {t('sideContextBudget.description', {
+              min: formattedMinSideContextBudget,
+              max: formattedMaxSideContextBudget,
+            })}
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={MIN_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES}
+              max={MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES}
+              step={TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_STEP_BYTES}
+              value={localSideContextBudget}
+              onChange={(event) => setLocalSideContextBudget(event.target.value)}
+              onBlur={(event) => void handleSideContextBudgetCommit(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  void handleSideContextBudgetCommit(localSideContextBudget);
+                }
+              }}
+              className="w-32"
+            />
+            <span className="text-sm text-muted-foreground">{t('sideContextBudget.bytes')}</span>
+          </div>
         </div>
       </div>
     </div>

@@ -9,7 +9,8 @@
 //! - Closing a session detaches the PTY but keeps the tmux window alive
 
 use crate::error::{Result, ServiceError};
-use core_engine::{TmuxEngine, TmuxPaneSnapshot};
+use core_engine::{TmuxEngine, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
+use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,8 +25,9 @@ mod types;
 
 use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
 pub use types::{
-    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
-    SessionType, TerminalMessage, TerminalResponse,
+    AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
+    CreateSimpleSessionParams, SessionDetail, SessionType, TerminalKind, TerminalMessage,
+    TerminalResponse, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 use types::{SessionCommand, SessionHandle};
 
@@ -34,6 +36,24 @@ const MIN_BROWSER_ROWS: u16 = 8;
 
 fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
     cols >= MIN_BROWSER_COLS && rows >= MIN_BROWSER_ROWS
+}
+
+fn validate_side_chat_id(value: &str) -> Result<()> {
+    let len = value.len();
+    if !(6..=96).contains(&len) {
+        return Err(ServiceError::Validation(
+            "side_chat_id length must be between 6 and 96 bytes".to_string(),
+        ));
+    }
+    if !value
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | ':'))
+    {
+        return Err(ServiceError::Validation(
+            "side_chat_id must use URL-safe ASCII characters".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 /// Terminal service managing all PTY sessions with tmux persistence
@@ -48,6 +68,7 @@ pub struct TerminalService {
     creation_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     /// Directory where shell shim scripts are installed (for dynamic title injection)
     shims_dir: Option<PathBuf>,
+    db: Option<Arc<DatabaseConnection>>,
 }
 
 impl Default for TerminalService {
@@ -78,11 +99,30 @@ impl TerminalService {
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
+            db: None,
         }
+    }
+
+    pub fn new_with_db(db: Arc<DatabaseConnection>) -> Self {
+        Self::new_internal(None, Some(db))
     }
 
     /// Create terminal service with custom TmuxEngine
     pub fn with_tmux_engine(tmux_engine: Arc<TmuxEngine>) -> Self {
+        Self::new_internal(Some(tmux_engine), None)
+    }
+
+    pub fn with_tmux_engine_and_db(
+        tmux_engine: Arc<TmuxEngine>,
+        db: Arc<DatabaseConnection>,
+    ) -> Self {
+        Self::new_internal(Some(tmux_engine), Some(db))
+    }
+
+    fn new_internal(
+        tmux_engine: Option<Arc<TmuxEngine>>,
+        db: Option<Arc<DatabaseConnection>>,
+    ) -> Self {
         // Install shell shims for dynamic terminal titles
         let shims_dir = match core_engine::shims::ensure_installed() {
             Ok(dir) => Some(dir),
@@ -97,11 +137,12 @@ impl TerminalService {
 
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
-            tmux_engine,
+            tmux_engine: tmux_engine.unwrap_or_else(|| Arc::new(TmuxEngine::new())),
             default_cols: 120,
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
+            db,
         }
     }
 
@@ -176,9 +217,28 @@ impl TerminalService {
             workspace_name,
             window_name,
             cwd,
+            terminal_kind,
+            side_chat_id,
+            source_pane_id,
+            source_tmux_window_name,
         } = params;
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
+
+        if terminal_kind == TerminalKind::SideChat {
+            let side_chat_id = side_chat_id.as_deref().ok_or_else(|| {
+                ServiceError::Validation("side_chat_id is required for side chat terminals".into())
+            })?;
+            validate_side_chat_id(side_chat_id)?;
+            if source_tmux_window_name
+                .as_deref()
+                .map_or(true, |value| value.trim().is_empty())
+            {
+                return Err(ServiceError::Validation(
+                    "source_tmux_window_name is required for side chat terminals".into(),
+                ));
+            }
+        }
 
         // Compute tmux session name (without creating it yet) so we can acquire lock first
         let tmux_session_name =
@@ -355,11 +415,26 @@ impl TerminalService {
         // The frontend session_id is a per-connection UUID that changes on every
         // reconnect, making it useless as a stable hook key.
         let stable_pane_id = format!("{}:{}", workspace_id, final_window_name);
-        let atmos_env_vars: Vec<(&str, &str)> = vec![
+        let computed_source_pane_id = source_tmux_window_name
+            .as_ref()
+            .map(|name| format!("{}:{}", workspace_id, name));
+        let source_pane_id_value = source_pane_id
+            .as_deref()
+            .or(computed_source_pane_id.as_deref());
+        let mut atmos_env_vars: Vec<(&str, &str)> = vec![
             ("ATMOS_MANAGED", "1"),
             ("ATMOS_CONTEXT_ID", &workspace_id),
             ("ATMOS_PANE_ID", &stable_pane_id),
         ];
+        if terminal_kind == TerminalKind::SideChat {
+            atmos_env_vars.push(("ATMOS_TERMINAL_KIND", "side_chat"));
+            if let Some(side_chat_id) = side_chat_id.as_deref() {
+                atmos_env_vars.push(("ATMOS_SIDE_CHAT_ID", side_chat_id));
+            }
+            if let Some(source_pane_id) = source_pane_id_value {
+                atmos_env_vars.push(("ATMOS_SOURCE_PANE_ID", source_pane_id));
+            }
+        }
         let window_index = self
             .tmux_engine
             .create_window(
@@ -372,6 +447,25 @@ impl TerminalService {
             .map_err(|e| {
                 ServiceError::Processing(format!("Failed to create tmux window: {}", e))
             })?;
+
+        if terminal_kind == TerminalKind::SideChat {
+            let metadata = TmuxWindowAtmosMetadata {
+                terminal_kind: Some("side_chat".to_string()),
+                side_chat_id: side_chat_id.clone(),
+                context_id: Some(workspace_id.clone()),
+                source_pane_id: source_pane_id_value.map(ToOwned::to_owned),
+                source_tmux_window_name: source_tmux_window_name.clone(),
+            };
+            if let Err(error) =
+                self.tmux_engine
+                    .set_window_atmos_metadata(&tmux_session, window_index, &metadata)
+            {
+                warn!(
+                    "Failed to set side chat tmux metadata for {}:{}: {}",
+                    tmux_session, window_index, error
+                );
+            }
+        }
 
         // Now attach to this tmux window via tmux control mode.
         // We keep the guard until AFTER attach_to_tmux_window completes, which inserts into self.sessions
@@ -390,6 +484,10 @@ impl TerminalService {
                 workspace_name,
                 Some(final_window_name),
                 cwd,
+                terminal_kind,
+                side_chat_id,
+                source_pane_id_value.map(ToOwned::to_owned),
+                source_tmux_window_name,
             )
             .await;
         let snapshot = if result.is_ok() {
@@ -483,6 +581,10 @@ impl TerminalService {
                     workspace_name,
                     terminal_name,
                     cwd: cwd_for_handle,
+                    terminal_kind: TerminalKind::Standard,
+                    side_chat_id: None,
+                    source_pane_id: None,
+                    source_tmux_window_name: None,
                     created_at: Instant::now(),
                 };
 
@@ -635,6 +737,10 @@ impl TerminalService {
                 workspace_name,
                 terminal_name,
                 None, // CWD not tracked for attach
+                TerminalKind::Standard,
+                None,
+                None,
+                None,
             )
             .await?;
         let snapshot = self
@@ -661,6 +767,10 @@ impl TerminalService {
         workspace_name: Option<String>,
         terminal_name: Option<String>,
         cwd: Option<String>,
+        terminal_kind: TerminalKind,
+        side_chat_id: Option<String>,
+        source_pane_id: Option<String>,
+        source_tmux_window_name: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
         // Each WebSocket connection gets its own tmux client session, named after
         // the ephemeral session_id UUID assigned by the frontend.
@@ -791,6 +901,10 @@ impl TerminalService {
                     workspace_name,
                     terminal_name,
                     cwd,
+                    terminal_kind,
+                    side_chat_id,
+                    source_pane_id,
+                    source_tmux_window_name,
                     created_at: Instant::now(),
                 };
 

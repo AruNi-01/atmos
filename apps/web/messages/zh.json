@@ -107,8 +107,9 @@
       "browserViaSidecarDescription": "先在浏览器使用本地 Atmos Server 链接。Atmos Server 预热完成后会自动打开同一页面。",
       "tunnelConnector": "Tunnel Connector",
       "starting": "启动中...",
+      "checkingWeb": "正在检测 Web...",
       "openInWeb": "在 Web 打开",
-      "startWeb": "启动 Web"
+      "retryWeb": "重试 Web 访问"
     },
     "summary": {
       "fallbackWorkspace": "工作区",
@@ -2814,6 +2815,7 @@
         "addProject": "添加项目"
       },
       "slashPopover": {
+        "commands": "命令",
         "skills": "技能",
         "loadingSkills": "正在加载技能...",
         "global": "全局",
@@ -3446,6 +3448,10 @@
       "openModeFailed": "更新终端链接打开模式失败。",
       "openAppFailed": "更新终端链接应用失败。"
     },
+    "terminalSideChatSettingsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "budgetFailed": "更新 side chat 上下文预算失败。"
+    },
     "notificationStore": {
       "unknownError": "未知错误"
     },
@@ -3810,6 +3816,9 @@
             },
             "defaultSplitAgent": {
               "label": "默认分屏 Agent"
+            },
+            "sideContextBudget": {
+              "label": "Side chat 上下文预算"
             }
           },
           "workspace": {
@@ -4588,6 +4597,11 @@
         "title": "默认分屏 Agent",
         "description": "启用后，普通分屏操作（工具栏点击、⌘D 或右键菜单）会复用你上次在分屏子菜单中选择的 Agent。悬停分屏按钮可选择其他 Agent。",
         "lastAgent": "上次分屏 Agent："
+      },
+      "sideContextBudget": {
+        "title": "Side chat 上下文预算",
+        "description": "/side Agent prompt 中最多注入的终端上下文字节数。服务端仍会将请求限制在 {min} 到 {max} bytes 之间。",
+        "bytes": "bytes"
       }
     },
     "headerLayoutSection": {
@@ -7379,7 +7393,29 @@
   },
   "terminal": {
     "agentInput": {
-      "placeholder": "[⌘ + G] 输入任何内容到终端（@ 标注、/ 命令，或粘贴图片）"
+      "placeholder": "[⌘ + G] 输入任何内容到终端（@ 标注、/ 命令，或粘贴图片）",
+      "sideCommand": {
+        "description": "把此终端上下文 fork 到 side chat",
+        "chooseAgent": "选择用于 side chat 的 Agent",
+        "noAgent": "没有可运行的 Agent。",
+        "cancel": "取消"
+      }
+    },
+    "sideChat": {
+      "title": "Side chat",
+      "hide": "隐藏",
+      "close": "关闭",
+      "closeTab": "关闭 side chat 标签",
+      "closeAll": "关闭全部 side chat",
+      "closeAllTitle": "关闭全部 side chat？",
+      "closeAllDescription": "这会关闭从当前 terminal fork 出来的所有 side chat terminal。",
+      "closeAllConfirm": "全部关闭",
+      "show": "显示 side chat",
+      "starting": "正在启动 side chat",
+      "cancel": "取消",
+      "errorTitle": "Side chat 启动失败",
+      "sourceNotReady": "这个终端还未准备好，暂时不能 fork。",
+      "startFailed": "无法启动 side chat。"
     },
     "sections": {
       "uptime": {
@@ -7526,6 +7562,20 @@
   "app": {
     "loading": {
       "label": "加载中…"
+    },
+    "errorBreakout": {
+      "notFound": {
+        "description": "抱歉，你要找的页面不存在。",
+        "home": "返回首页"
+      },
+      "server": {
+        "description": "抱歉，Atmos 出了点问题。",
+        "retry": "重试"
+      },
+      "canvasLabel": {
+        "notFound": "Atmos 404 页面的可玩打砖块游戏板",
+        "server": "Atmos 500 页面的可玩打砖块游戏板"
+      }
     }
   },
   "browser": {

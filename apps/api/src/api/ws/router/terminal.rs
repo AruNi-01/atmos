@@ -2,6 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use super::*;
 use core_engine::TmuxEngine;
+use core_service::{
+    CaptureSideContextParams, TerminalSideChatRecord, TerminalSideChatStatus,
+    UpsertTerminalSideChatParams,
+};
 
 impl WsMessageService {
     pub(super) async fn handle_terminal_workspace_candidates(
@@ -101,6 +105,10 @@ impl WsMessageService {
                 workspace_name: session.workspace_name.or_else(|| workspace_name.clone()),
                 terminal_name: session.terminal_name,
                 cwd: session.cwd,
+                terminal_kind: Some(session.terminal_kind.as_str().to_string()),
+                side_chat_id: session.side_chat_id,
+                source_pane_id: session.source_pane_id,
+                source_tmux_window_name: session.source_tmux_window_name,
                 active: true,
             });
         }
@@ -122,6 +130,9 @@ impl WsMessageService {
                 if !seen_session_ids.insert(session_id.clone()) {
                     continue;
                 }
+                let metadata = tmux_engine
+                    .get_window_atmos_metadata(&session_name, *window_index)
+                    .unwrap_or_default();
 
                 candidates.push(TerminalWorkspaceCandidate {
                     id: format!("tmux:{}:{}", session_name, window_index),
@@ -136,12 +147,124 @@ impl WsMessageService {
                     workspace_name: workspace_name.clone(),
                     terminal_name: Some(window_name.to_string()),
                     cwd: None,
+                    terminal_kind: metadata.terminal_kind,
+                    side_chat_id: metadata.side_chat_id,
+                    source_pane_id: metadata.source_pane_id,
+                    source_tmux_window_name: metadata.source_tmux_window_name,
                     active: false,
                 });
             }
         }
 
         Ok(json!(TerminalWorkspaceCandidatesResponse { candidates }))
+    }
+
+    pub(super) async fn handle_terminal_side_context_capture(
+        &self,
+        req: TerminalSideContextCaptureRequest,
+    ) -> Result<Value> {
+        let captured = self
+            .terminal_service
+            .capture_side_context(CaptureSideContextParams {
+                workspace_id: req.workspace_id,
+                project_name: req.project_name,
+                workspace_name: req.workspace_name,
+                source_tmux_window_name: req.source_tmux_window_name,
+                max_prompt_bytes: req.max_prompt_bytes,
+            })?;
+
+        Ok(json!(TerminalSideContextCaptureResponse {
+            workspace_id: captured.workspace_id,
+            project_name: captured.project_name,
+            workspace_name: captured.workspace_name,
+            tmux_window_name: captured.tmux_window_name,
+            tmux_window_index: captured.tmux_window_index,
+            captured_lines: captured.captured_lines,
+            captured_bytes: captured.captured_bytes,
+            prompt_budget_bytes: captured.prompt_budget_bytes,
+            omitted_older_bytes: captured.omitted_older_bytes,
+            omitted_middle_bytes: captured.omitted_middle_bytes,
+            truncated_bytes: captured.truncated_bytes,
+            text: captured.text,
+        }))
+    }
+
+    pub(super) async fn handle_terminal_side_chat_list(
+        &self,
+        req: TerminalSideChatListRequest,
+    ) -> Result<Value> {
+        let workspace_id = req.workspace_id.trim().to_string();
+        if workspace_id.is_empty() {
+            return Err(ServiceError::Validation(
+                "workspace_id is required".to_string(),
+            ));
+        }
+
+        let records = self
+            .terminal_service
+            .list_side_chat_records(&workspace_id)
+            .await?
+            .into_iter()
+            .map(side_chat_record_to_dto)
+            .collect();
+
+        Ok(json!(TerminalSideChatListResponse {
+            workspace_id,
+            records,
+        }))
+    }
+
+    pub(super) async fn handle_terminal_side_chat_upsert(
+        &self,
+        req: TerminalSideChatUpsertRequest,
+    ) -> Result<Value> {
+        let status = TerminalSideChatStatus::try_from(req.record.status.as_str())
+            .map_err(ServiceError::Validation)?;
+        let record = self
+            .terminal_service
+            .upsert_side_chat_record(UpsertTerminalSideChatParams {
+                side_chat_id: req.record.side_chat_id,
+                workspace_id: req.record.workspace_id,
+                project_name: req.record.project_name,
+                workspace_name: req.record.workspace_name,
+                source_pane_id: req.record.source_pane_id,
+                source_tmux_window_name: req.record.source_tmux_window_name,
+                source_surface_kind: req.record.source_surface_kind,
+                source_surface_ref_json: req.record.source_surface_ref_json,
+                side_tmux_window_name: req.record.side_tmux_window_name,
+                agent_ref_json: req.record.agent_ref_json,
+                color_hex: req.record.color_hex,
+                status,
+            })
+            .await?;
+        Ok(json!(side_chat_record_to_dto(record)))
+    }
+
+    pub(super) async fn handle_terminal_side_chat_status_update(
+        &self,
+        req: TerminalSideChatStatusRequest,
+    ) -> Result<Value> {
+        let status = TerminalSideChatStatus::try_from(req.status.as_str())
+            .map_err(ServiceError::Validation)?;
+        let record = self
+            .terminal_service
+            .set_side_chat_status(&req.workspace_id, &req.side_chat_id, status)
+            .await?;
+        Ok(json!(side_chat_record_to_dto(record)))
+    }
+
+    pub(super) async fn handle_terminal_side_chat_close(
+        &self,
+        req: TerminalSideChatCloseRequest,
+    ) -> Result<Value> {
+        self.terminal_service
+            .close_side_chat(&req.workspace_id, &req.side_chat_id)
+            .await?;
+        Ok(json!({
+            "workspace_id": req.workspace_id,
+            "side_chat_id": req.side_chat_id,
+            "closed": true,
+        }))
     }
 
     async fn resolve_terminal_workspace_names(
@@ -184,6 +307,25 @@ impl WsMessageService {
         }
 
         Ok((project_name, workspace_name))
+    }
+}
+
+fn side_chat_record_to_dto(record: TerminalSideChatRecord) -> TerminalSideChatRecordDto {
+    TerminalSideChatRecordDto {
+        side_chat_id: record.side_chat_id,
+        workspace_id: record.workspace_id,
+        project_name: record.project_name,
+        workspace_name: record.workspace_name,
+        source_pane_id: record.source_pane_id,
+        source_tmux_window_name: record.source_tmux_window_name,
+        source_surface_kind: record.source_surface_kind,
+        source_surface_ref_json: record.source_surface_ref_json,
+        side_tmux_window_name: record.side_tmux_window_name,
+        agent_ref_json: record.agent_ref_json,
+        color_hex: record.color_hex,
+        status: record.status.as_str().to_string(),
+        created_at: Some(record.created_at.and_utc().to_rfc3339()),
+        updated_at: Some(record.updated_at.and_utc().to_rfc3339()),
     }
 }
 

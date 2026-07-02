@@ -2,10 +2,11 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { cn } from "@workspace/ui";
-import { Folder, Loader2, Puzzle } from "lucide-react";
+import { Folder, Loader2, MessageCirclePlus, Puzzle } from "lucide-react";
 
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 
 type ExpandedSections = {
@@ -31,17 +32,20 @@ interface SlashCommandPopoverProps {
   activeIndex: number;
   expandedSections: ExpandedSections;
   filteredAgents: AgentMenuOption[];
+  filteredCommands?: SlashCommandOption[];
   filteredProjects: ProjectOption[];
   filteredSkills: SkillInfo[];
   isSkillsLoading: boolean;
   onClose: () => void;
   onSelectAgent: (agent: AgentMenuOption) => void;
+  onSelectCommand?: (command: SlashCommandOption) => void;
   onSelectProject: (project: ProjectOption) => void;
   onSelectSkill: (skill: SkillInfo) => void;
   popover: SlashPopoverPosition | null;
   setExpandedSections: React.Dispatch<React.SetStateAction<ExpandedSections>>;
   setItemRef: (index: number, element: HTMLButtonElement | null) => void;
   showAgents?: boolean;
+  showCommands?: boolean;
   showProjects?: boolean;
   showSkills?: boolean;
   listRef: React.RefObject<HTMLDivElement | null>;
@@ -51,17 +55,20 @@ export function SlashCommandPopover({
   activeIndex,
   expandedSections,
   filteredAgents,
+  filteredCommands = [],
   filteredProjects,
   filteredSkills,
   isSkillsLoading,
   onClose,
   onSelectAgent,
+  onSelectCommand,
   onSelectProject,
   onSelectSkill,
   popover,
   setExpandedSections,
   setItemRef,
   showAgents = true,
+  showCommands = false,
   showProjects = true,
   showSkills = true,
   listRef,
@@ -69,6 +76,7 @@ export function SlashCommandPopover({
   const t = useTranslations("Welcome.components");
   if (!popover || typeof document === "undefined") return null;
 
+  const visibleCommands = showCommands ? filteredCommands : [];
   const visibleSkills = showSkills
     ? expandedSections.skills
       ? filteredSkills
@@ -87,12 +95,14 @@ export function SlashCommandPopover({
   const skillsShowMore = showSkills && filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
   const projectsShowMore = showProjects && filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
 
+  const commandsCount = visibleCommands.length;
+  const skillsStartIndex = commandsCount;
   const skillsCount = !showSkills
     ? 0
     : expandedSections.skills
     ? filteredSkills.length
     : Math.min(filteredSkills.length, 3);
-  const projectsStartIndex = skillsCount + skillsShowMore;
+  const projectsStartIndex = skillsStartIndex + skillsCount + skillsShowMore;
   const projectsCount = !showProjects
     ? 0
     : expandedSections.projects
@@ -112,6 +122,43 @@ export function SlashCommandPopover({
           left: popover.left,
         }}
       >
+        {showCommands && visibleCommands.length > 0 ? (
+          <>
+            <div className="px-2 py-1 text-sm font-medium text-foreground">{t("slashPopover.commands")}</div>
+            {visibleCommands.map((command, index) => (
+              <button
+                key={command.id}
+                type="button"
+                ref={(el) => {
+                  setItemRef(index, el);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                  index === activeIndex && "bg-muted",
+                )}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onSelectCommand?.(command);
+                }}
+              >
+                <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{command.label}</span>
+                  {command.description ? (
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {command.description}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            ))}
+          </>
+        ) : null}
+
+        {showCommands && visibleCommands.length > 0 && showSkills ? (
+          <div className="my-1 h-px bg-border/60" />
+        ) : null}
+
         {showSkills ? (
           <>
             <div className="px-2 py-1 text-sm font-medium text-foreground">{t("slashPopover.skills")}</div>
@@ -126,12 +173,12 @@ export function SlashCommandPopover({
                   <button
                     key={skill.id}
                     type="button"
-                    ref={(el) => {
-                      setItemRef(index, el);
+                      ref={(el) => {
+                      setItemRef(skillsStartIndex + index, el);
                     }}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
-                      index === activeIndex && "bg-muted",
+                      skillsStartIndex + index === activeIndex && "bg-muted",
                     )}
                     onMouseDown={(event) => {
                       event.preventDefault();
@@ -149,11 +196,11 @@ export function SlashCommandPopover({
                   <button
                     type="button"
                     ref={(el) => {
-                      setItemRef(skillsCount, el);
+                      setItemRef(skillsStartIndex + skillsCount, el);
                     }}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted",
-                      skillsCount === activeIndex && "bg-muted",
+                      skillsStartIndex + skillsCount === activeIndex && "bg-muted",
                     )}
                     onMouseDown={(event) => {
                       event.preventDefault();

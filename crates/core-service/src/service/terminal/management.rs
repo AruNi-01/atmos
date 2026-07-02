@@ -1,15 +1,294 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use core_engine::{TmuxPaneCapturePage, TmuxPaneSnapshot};
+use core_engine::{TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
+use infra::db::entities::terminal_side_chat;
+use infra::{TerminalSideChatRepo, UpsertTerminalSideChatInput};
 use tracing::{debug, info, warn};
 
 use crate::error::{Result, ServiceError};
 
 use super::runtime::apply_utf8_env_to_tmux_command;
-use super::{SessionCommand, SessionDetail, SessionHandle, TerminalService};
+use super::{
+    CaptureSideContextParams, CapturedSideContext, SessionCommand, SessionDetail, SessionHandle,
+    TerminalService, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+};
+
+const DEFAULT_SIDE_PROMPT_BYTES: usize = 98_304;
+const MIN_SIDE_PROMPT_BYTES: usize = 8_192;
+const MAX_SIDE_PROMPT_BYTES: usize = 131_072;
+const RAW_SIDE_CAPTURE_BYTES: usize = 524_288;
+const SIDE_CAPTURE_APPROX_LINES: i32 = 12_000;
+const SIDE_CONTEXT_PREFIX_BYTES: usize = 8_192;
 
 impl TerminalService {
+    /// Capture bounded plain tmux text for `/side` prompt construction.
+    pub fn capture_side_context(
+        &self,
+        params: CaptureSideContextParams,
+    ) -> Result<CapturedSideContext> {
+        let workspace_id = params.workspace_id.trim().to_string();
+        if workspace_id.is_empty() {
+            return Err(ServiceError::Validation("workspace_id is required".into()));
+        }
+
+        let source_tmux_window_name = params.source_tmux_window_name.trim().to_string();
+        if source_tmux_window_name.is_empty() {
+            return Err(ServiceError::Validation(
+                "source_tmux_window_name is required".into(),
+            ));
+        }
+
+        let prompt_budget_bytes = params
+            .max_prompt_bytes
+            .map(|value| value as usize)
+            .unwrap_or(DEFAULT_SIDE_PROMPT_BYTES)
+            .clamp(MIN_SIDE_PROMPT_BYTES, MAX_SIDE_PROMPT_BYTES);
+
+        let tmux_session = if let (Some(project), Some(workspace)) = (
+            params.project_name.as_deref(),
+            params.workspace_name.as_deref(),
+        ) {
+            self.tmux_engine
+                .get_session_name_from_names(project, workspace)
+        } else {
+            self.tmux_engine.get_session_name(&workspace_id)
+        };
+
+        let tmux_window_index = self
+            .tmux_engine
+            .find_window_index_by_name(&tmux_session, &source_tmux_window_name)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!(
+                    "Tmux window with name '{}' not found",
+                    source_tmux_window_name
+                ))
+            })?;
+
+        let raw_full = self.tmux_engine.capture_pane_text(
+            &tmux_session,
+            tmux_window_index,
+            SIDE_CAPTURE_APPROX_LINES,
+        )?;
+        let omitted_older_bytes = raw_full.len().saturating_sub(RAW_SIDE_CAPTURE_BYTES);
+        let raw = byte_suffix(&raw_full, RAW_SIDE_CAPTURE_BYTES);
+        let captured_lines = count_lines(&raw);
+        let mut selected = select_side_context_text(&raw, prompt_budget_bytes);
+        selected.omitted_older_bytes = selected
+            .omitted_older_bytes
+            .saturating_add(omitted_older_bytes);
+        let captured_bytes = selected.text.len();
+
+        Ok(CapturedSideContext {
+            workspace_id,
+            project_name: params.project_name,
+            workspace_name: params.workspace_name,
+            tmux_session,
+            tmux_window_name: source_tmux_window_name,
+            tmux_window_index,
+            captured_lines,
+            captured_bytes: captured_bytes as u32,
+            prompt_budget_bytes: prompt_budget_bytes as u32,
+            omitted_older_bytes: selected.omitted_older_bytes as u32,
+            omitted_middle_bytes: selected.omitted_middle_bytes as u32,
+            truncated_bytes: selected.truncated_bytes,
+            text: selected.text,
+        })
+    }
+
+    pub async fn upsert_side_chat_record(
+        &self,
+        params: UpsertTerminalSideChatParams,
+    ) -> Result<TerminalSideChatRecord> {
+        super::validate_side_chat_id(&params.side_chat_id)?;
+        validate_non_empty("workspace_id", &params.workspace_id)?;
+        validate_non_empty("source_pane_id", &params.source_pane_id)?;
+        validate_non_empty("source_tmux_window_name", &params.source_tmux_window_name)?;
+        validate_non_empty("source_surface_kind", &params.source_surface_kind)?;
+        validate_non_empty("side_tmux_window_name", &params.side_tmux_window_name)?;
+        validate_bright_color(&params.color_hex)?;
+        if params
+            .source_surface_ref_json
+            .as_ref()
+            .map_or(false, |value| value.len() > 4096)
+        {
+            return Err(ServiceError::Validation(
+                "source_surface_ref_json is too large".into(),
+            ));
+        }
+        if params
+            .agent_ref_json
+            .as_ref()
+            .map_or(false, |value| value.len() > 4096)
+        {
+            return Err(ServiceError::Validation(
+                "agent_ref_json is too large".into(),
+            ));
+        }
+
+        let repo = self.side_chat_repo()?;
+        let model = repo
+            .upsert_active(UpsertTerminalSideChatInput {
+                side_chat_id: params.side_chat_id,
+                workspace_guid: params.workspace_id,
+                project_name: params.project_name,
+                workspace_name: params.workspace_name,
+                source_pane_id: params.source_pane_id,
+                source_tmux_window_name: params.source_tmux_window_name,
+                source_surface_kind: params.source_surface_kind,
+                source_surface_ref_json: params.source_surface_ref_json,
+                side_tmux_window_name: params.side_tmux_window_name,
+                agent_ref_json: params.agent_ref_json,
+                color_hex: params.color_hex,
+                status: params.status.as_str().to_string(),
+            })
+            .await?;
+        model_to_side_chat_record(model)
+    }
+
+    pub async fn list_side_chat_records(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<TerminalSideChatRecord>> {
+        self.reconcile_side_chat_records(workspace_id).await
+    }
+
+    pub async fn set_side_chat_status(
+        &self,
+        workspace_id: &str,
+        side_chat_id: &str,
+        status: TerminalSideChatStatus,
+    ) -> Result<TerminalSideChatRecord> {
+        validate_non_empty("workspace_id", workspace_id)?;
+        super::validate_side_chat_id(side_chat_id)?;
+        let repo = self.side_chat_repo()?;
+        let Some(model) = repo.update_status(side_chat_id, status.as_str()).await? else {
+            return Err(ServiceError::NotFound(format!(
+                "Side chat not found: {side_chat_id}"
+            )));
+        };
+        if model.workspace_guid != workspace_id {
+            return Err(ServiceError::NotFound(format!(
+                "Side chat not found in workspace: {side_chat_id}"
+            )));
+        }
+        model_to_side_chat_record(model)
+    }
+
+    pub async fn close_side_chat(&self, workspace_id: &str, side_chat_id: &str) -> Result<()> {
+        validate_non_empty("workspace_id", workspace_id)?;
+        super::validate_side_chat_id(side_chat_id)?;
+        let repo = self.side_chat_repo()?;
+        let Some(record) = repo.get_active_by_side_chat_id(side_chat_id).await? else {
+            return Ok(());
+        };
+        if record.workspace_guid != workspace_id {
+            return Err(ServiceError::NotFound(format!(
+                "Side chat not found in workspace: {side_chat_id}"
+            )));
+        }
+
+        self.kill_record_side_window(&record);
+        repo.soft_delete(side_chat_id).await?;
+        Ok(())
+    }
+
+    pub async fn cleanup_side_chats_for_source(
+        &self,
+        workspace_id: &str,
+        source_tmux_window_name: &str,
+    ) -> Result<usize> {
+        validate_non_empty("workspace_id", workspace_id)?;
+        validate_non_empty("source_tmux_window_name", source_tmux_window_name)?;
+        let repo = self.side_chat_repo()?;
+        let records = repo
+            .list_active_by_source(workspace_id, source_tmux_window_name)
+            .await?;
+        for record in &records {
+            self.kill_record_side_window(record);
+        }
+        repo.soft_delete_by_source(workspace_id, source_tmux_window_name)
+            .await?;
+        Ok(records.len())
+    }
+
+    pub async fn reconcile_side_chat_records(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<TerminalSideChatRecord>> {
+        validate_non_empty("workspace_id", workspace_id)?;
+        let repo = self.side_chat_repo()?;
+        let records = repo.list_active_by_workspace(workspace_id).await?;
+        let live = self.discover_live_side_chat_windows(workspace_id);
+        let live_side_ids = live
+            .iter()
+            .filter_map(|window| window.metadata.side_chat_id.clone())
+            .collect::<HashSet<_>>();
+
+        for record in &records {
+            if !live_side_ids.contains(&record.side_chat_id) {
+                repo.soft_delete(&record.side_chat_id).await?;
+                continue;
+            }
+
+            let source_exists = self.source_window_exists_for_record(record, &live);
+            if !source_exists {
+                self.kill_record_side_window(record);
+                repo.soft_delete(&record.side_chat_id).await?;
+            }
+        }
+
+        let existing_after_cleanup = repo.list_active_by_workspace(workspace_id).await?;
+        let existing_ids = existing_after_cleanup
+            .iter()
+            .map(|record| record.side_chat_id.clone())
+            .collect::<HashSet<_>>();
+
+        for live_window in live {
+            let Some(side_chat_id) = live_window.metadata.side_chat_id.clone() else {
+                continue;
+            };
+            if existing_ids.contains(&side_chat_id) {
+                continue;
+            }
+
+            let source_tmux_window_name = live_window
+                .metadata
+                .source_tmux_window_name
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
+            let source_pane_id = live_window
+                .metadata
+                .source_pane_id
+                .clone()
+                .unwrap_or_else(|| format!("{}:{}", workspace_id, source_tmux_window_name));
+            let color_hex = fallback_side_chat_color(&side_chat_id);
+            let model = repo
+                .upsert_active(UpsertTerminalSideChatInput {
+                    side_chat_id,
+                    workspace_guid: workspace_id.to_string(),
+                    project_name: None,
+                    workspace_name: None,
+                    source_pane_id,
+                    source_tmux_window_name,
+                    source_surface_kind: "center".to_string(),
+                    source_surface_ref_json: None,
+                    side_tmux_window_name: live_window.window_name,
+                    agent_ref_json: None,
+                    color_hex,
+                    status: TerminalSideChatStatus::Hidden.as_str().to_string(),
+                })
+                .await?;
+            let _ = model_to_side_chat_record(model)?;
+        }
+
+        repo.list_active_by_workspace(workspace_id)
+            .await?
+            .into_iter()
+            .map(model_to_side_chat_record)
+            .collect()
+    }
+
     /// Capture visible tmux pane text for a workspace window (read-only, no PTY attach).
     pub fn capture_window_snapshot(
         &self,
@@ -180,6 +459,28 @@ impl TerminalService {
 
             // Step 2: Kill the tmux window in the master session.
             if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
+                if handle.terminal_kind != super::TerminalKind::SideChat {
+                    let source_name = handle.terminal_name.clone().or_else(|| {
+                        self.tmux_engine.list_windows(ts).ok().and_then(|windows| {
+                            windows
+                                .into_iter()
+                                .find(|window| window.index == twi)
+                                .map(|window| window.name)
+                        })
+                    });
+                    if let Some(source_name) = source_name {
+                        if let Err(error) = self
+                            .cleanup_side_chats_for_source(&handle.workspace_id, &source_name)
+                            .await
+                        {
+                            warn!(
+                                "Failed to cleanup child side chats for source {}: {}",
+                                source_name, error
+                            );
+                        }
+                    }
+                }
+
                 if let Err(e) = self.tmux_engine.kill_window(ts, twi) {
                     warn!("Failed to kill tmux window: {}", e);
                 }
@@ -489,4 +790,269 @@ impl TerminalService {
             );
         }
     }
+
+    fn side_chat_repo(&self) -> Result<TerminalSideChatRepo<'_>> {
+        let db = self.db.as_deref().ok_or_else(|| {
+            ServiceError::Processing("terminal side chat registry is unavailable".to_string())
+        })?;
+        Ok(TerminalSideChatRepo::new(db))
+    }
+
+    fn discover_live_side_chat_windows(&self, workspace_id: &str) -> Vec<LiveSideChatWindow> {
+        let sessions = self.tmux_engine.list_sessions().unwrap_or_default();
+        let mut live = Vec::new();
+
+        for session in sessions {
+            if session.name.starts_with("atmos_client_") {
+                continue;
+            }
+            let windows = match self.tmux_engine.list_windows(&session.name) {
+                Ok(windows) => windows,
+                Err(error) => {
+                    debug!(
+                        "Failed to list tmux windows for side chat reconciliation in {}: {}",
+                        session.name, error
+                    );
+                    continue;
+                }
+            };
+
+            for window in windows {
+                let metadata = match self
+                    .tmux_engine
+                    .get_window_atmos_metadata(&session.name, window.index)
+                {
+                    Ok(metadata) => metadata,
+                    Err(error) => {
+                        debug!(
+                            "Failed to read side chat metadata for {}:{}: {}",
+                            session.name, window.index, error
+                        );
+                        continue;
+                    }
+                };
+                if metadata.terminal_kind.as_deref() != Some("side_chat") {
+                    continue;
+                }
+                if metadata.context_id.as_deref() != Some(workspace_id) {
+                    continue;
+                }
+
+                live.push(LiveSideChatWindow {
+                    session_name: session.name.clone(),
+                    window_name: window.name,
+                    metadata,
+                });
+            }
+        }
+
+        live
+    }
+
+    fn source_window_exists_for_record(
+        &self,
+        record: &terminal_side_chat::Model,
+        live_windows: &[LiveSideChatWindow],
+    ) -> bool {
+        let Some(live_window) = live_windows
+            .iter()
+            .find(|window| window.metadata.side_chat_id.as_deref() == Some(&record.side_chat_id))
+        else {
+            return false;
+        };
+
+        self.tmux_engine
+            .find_window_index_by_name(&live_window.session_name, &record.source_tmux_window_name)
+            .ok()
+            .flatten()
+            .is_some()
+    }
+
+    fn kill_record_side_window(&self, record: &terminal_side_chat::Model) {
+        for session_name in self.tmux_session_candidates_for_record(record) {
+            match self
+                .tmux_engine
+                .find_window_index_by_name(&session_name, &record.side_tmux_window_name)
+            {
+                Ok(Some(index)) => {
+                    let _ = self.tmux_engine.kill_window(&session_name, index);
+                    return;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    debug!(
+                        "Failed to resolve side chat tmux window {} in {}: {}",
+                        record.side_tmux_window_name, session_name, error
+                    );
+                }
+            }
+        }
+    }
+
+    fn tmux_session_candidates_for_record(
+        &self,
+        record: &terminal_side_chat::Model,
+    ) -> Vec<String> {
+        let mut candidates = Vec::new();
+        if let (Some(project_name), Some(workspace_name)) = (
+            record.project_name.as_deref(),
+            record.workspace_name.as_deref(),
+        ) {
+            candidates.push(
+                self.tmux_engine
+                    .get_session_name_from_names(project_name, workspace_name),
+            );
+        }
+        candidates.push(self.tmux_engine.get_session_name(&record.workspace_guid));
+        if let Ok(sessions) = self.tmux_engine.list_sessions() {
+            candidates.extend(
+                sessions
+                    .into_iter()
+                    .filter(|session| !session.name.starts_with("atmos_client_"))
+                    .map(|session| session.name),
+            );
+        }
+        candidates.sort();
+        candidates.dedup();
+        candidates
+    }
+}
+
+struct LiveSideChatWindow {
+    session_name: String,
+    window_name: String,
+    metadata: TmuxWindowAtmosMetadata,
+}
+
+struct SelectedSideContextText {
+    text: String,
+    omitted_older_bytes: usize,
+    omitted_middle_bytes: usize,
+    truncated_bytes: bool,
+}
+
+fn model_to_side_chat_record(model: terminal_side_chat::Model) -> Result<TerminalSideChatRecord> {
+    let status = TerminalSideChatStatus::try_from(model.status.as_str())
+        .map_err(ServiceError::Validation)?;
+    Ok(TerminalSideChatRecord {
+        side_chat_id: model.side_chat_id,
+        workspace_id: model.workspace_guid,
+        project_name: model.project_name,
+        workspace_name: model.workspace_name,
+        source_pane_id: model.source_pane_id,
+        source_tmux_window_name: model.source_tmux_window_name,
+        source_surface_kind: model.source_surface_kind,
+        source_surface_ref_json: model.source_surface_ref_json,
+        side_tmux_window_name: model.side_tmux_window_name,
+        agent_ref_json: model.agent_ref_json,
+        color_hex: model.color_hex,
+        status,
+        created_at: model.created_at,
+        updated_at: model.updated_at,
+    })
+}
+
+fn validate_non_empty(field: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(ServiceError::Validation(format!("{field} is required")));
+    }
+    Ok(())
+}
+
+fn validate_bright_color(value: &str) -> Result<()> {
+    let hex = value.trim();
+    if hex.len() != 7 || !hex.starts_with('#') || !hex[1..].chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(ServiceError::Validation(
+            "color_hex must be a #RRGGBB value".into(),
+        ));
+    }
+    let parse = |range: std::ops::Range<usize>| u8::from_str_radix(&hex[range], 16).unwrap_or(0);
+    let r = parse(1..3) as u16;
+    let g = parse(3..5) as u16;
+    let b = parse(5..7) as u16;
+    let luminance = (299 * r + 587 * g + 114 * b) / 1000;
+    if luminance < 120 {
+        return Err(ServiceError::Validation(
+            "color_hex must be bright enough for terminal surfaces".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn count_lines(text: &str) -> u32 {
+    if text.is_empty() {
+        0
+    } else {
+        text.matches('\n').count() as u32 + 1
+    }
+}
+
+fn select_side_context_text(text: &str, budget: usize) -> SelectedSideContextText {
+    if text.len() <= budget {
+        return SelectedSideContextText {
+            text: text.to_string(),
+            omitted_older_bytes: 0,
+            omitted_middle_bytes: 0,
+            truncated_bytes: false,
+        };
+    }
+
+    let marker_overhead = 128usize;
+    let prefix_budget = SIDE_CONTEXT_PREFIX_BYTES.min(budget / 4).max(1024);
+    let tail_budget = budget
+        .saturating_sub(prefix_budget + marker_overhead)
+        .max(1024);
+    let prefix = byte_prefix(text, prefix_budget);
+    let tail = byte_suffix(text, tail_budget);
+    let omitted_middle_bytes = text
+        .len()
+        .saturating_sub(prefix.len())
+        .saturating_sub(tail.len());
+    let marker = format!(
+        "\n\n[... omitted {} bytes from the middle of the terminal transcript ...]\n\n",
+        omitted_middle_bytes
+    );
+    let mut selected = format!("{prefix}{marker}{tail}");
+    if selected.len() > budget {
+        selected = byte_suffix(&selected, budget);
+    }
+
+    SelectedSideContextText {
+        text: selected,
+        omitted_older_bytes: 0,
+        omitted_middle_bytes,
+        truncated_bytes: true,
+    }
+}
+
+fn byte_prefix(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut end = max_bytes.min(text.len());
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text[..end].to_string()
+}
+
+fn byte_suffix(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut start = text.len().saturating_sub(max_bytes);
+    while start < text.len() && !text.is_char_boundary(start) {
+        start += 1;
+    }
+    text[start..].to_string()
+}
+
+fn fallback_side_chat_color(side_chat_id: &str) -> String {
+    const COLORS: &[&str] = &[
+        "#6ee7b7", "#93c5fd", "#fcd34d", "#fca5a5", "#c4b5fd", "#67e8f9", "#bef264", "#f9a8d4",
+    ];
+    let sum = side_chat_id
+        .bytes()
+        .fold(0usize, |acc, byte| acc.wrapping_add(byte as usize));
+    COLORS[sum % COLORS.len()].to_string()
 }

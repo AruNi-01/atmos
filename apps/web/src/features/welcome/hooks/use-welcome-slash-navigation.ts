@@ -12,9 +12,16 @@ export type WelcomeSlashPopoverState = {
   query: string;
 } | null;
 
+export interface SlashCommandOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
 type SlashSection = "skills" | "projects" | "agents";
 
 type SlashNavigationItem<Project> =
+  | { type: "command"; item: SlashCommandOption }
   | { type: "skill"; item: SkillInfo }
   | { type: "project"; item: Project }
   | { type: "agent"; item: AgentMenuOption }
@@ -22,9 +29,11 @@ type SlashNavigationItem<Project> =
 
 interface UseWelcomeSlashNavigationArgs<Project> {
   filteredAgents: AgentMenuOption[];
+  filteredCommands?: SlashCommandOption[];
   filteredProjects: Project[];
   filteredSkills: SkillInfo[];
   onSelectAgent: (agent: AgentMenuOption) => void;
+  onSelectCommand?: (command: SlashCommandOption) => void;
   onSelectProject: (project: Project) => void;
   onSelectSkill: (skill: SkillInfo) => void;
   popover: WelcomeSlashPopoverState;
@@ -32,9 +41,11 @@ interface UseWelcomeSlashNavigationArgs<Project> {
 
 export function useWelcomeSlashNavigation<Project>({
   filteredAgents,
+  filteredCommands = [],
   filteredProjects,
   filteredSkills,
   onSelectAgent,
+  onSelectCommand,
   onSelectProject,
   onSelectSkill,
   popover,
@@ -68,6 +79,7 @@ export function useWelcomeSlashNavigation<Project>({
       : filteredProjects.slice(0, 3);
     const agentsToShow = expandedSections.agents ? filteredAgents : filteredAgents.slice(0, 3);
 
+    items.push(...filteredCommands.map((item) => ({ type: "command" as const, item })));
     items.push(...skillsToShow.map((item) => ({ type: "skill" as const, item })));
     if (filteredSkills.length > 3 && !expandedSections.skills) {
       items.push({ type: "show-more", section: "skills" });
@@ -84,7 +96,7 @@ export function useWelcomeSlashNavigation<Project>({
     }
 
     return items;
-  }, [expandedSections, filteredAgents, filteredProjects, filteredSkills]);
+  }, [expandedSections, filteredAgents, filteredCommands, filteredProjects, filteredSkills]);
 
   React.useEffect(() => {
     setActiveIndex((prev) => {
@@ -122,7 +134,9 @@ export function useWelcomeSlashNavigation<Project>({
       const item = visibleItems[activeIndex];
       if (!item) return;
       event.preventDefault();
-      if (item.type === "skill") {
+      if (item.type === "command") {
+        onSelectCommand?.(item.item);
+      } else if (item.type === "skill") {
         onSelectSkill(item.item);
       } else if (item.type === "project") {
         onSelectProject(item.item);
@@ -134,7 +148,7 @@ export function useWelcomeSlashNavigation<Project>({
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [activeIndex, onSelectAgent, onSelectProject, onSelectSkill, popover, visibleItems]);
+  }, [activeIndex, onSelectAgent, onSelectCommand, onSelectProject, onSelectSkill, popover, visibleItems]);
 
   return {
     activeIndex,

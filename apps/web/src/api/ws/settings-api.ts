@@ -47,6 +47,7 @@ export interface FunctionSettings {
   terminal?: {
     file_link_open_mode?: "atmos" | "finder" | "app";
     file_link_open_app?: string;
+    side_context_prompt_budget_bytes?: number;
   };
   git_commit?: {
     acp_new_session_switch?: boolean;

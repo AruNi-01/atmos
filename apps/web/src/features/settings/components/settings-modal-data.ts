@@ -627,6 +627,9 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("terminal.defaultSplitAgent", {
       keywords: ["split terminal", "last agent", "toolbar click", "command d", "context menu"],
     }),
+    settingsModalSearchItem("terminal.sideContextBudget", {
+      keywords: ["/side", "side chat", "context budget", "prompt bytes", "terminal capture"],
+    }),
   ],
   workspace: [
     settingsModalSearchItem("workspace.branchNaming", {

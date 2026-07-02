@@ -1,0 +1,178 @@
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(TerminalSideChat::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(TerminalSideChat::Guid)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::IsDeleted)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::WorkspaceGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::ProjectName)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::WorkspaceName)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::SideChatId)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::SourcePaneId)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::SourceTmuxWindowName)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::SourceSurfaceKind)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::SourceSurfaceRefJson)
+                            .text()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(TerminalSideChat::SideTmuxWindowName)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(TerminalSideChat::AgentRefJson).text().null())
+                    .col(
+                        ColumnDef::new(TerminalSideChat::ColorHex)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(TerminalSideChat::Status).string().not_null())
+                    .col(
+                        ColumnDef::new(TerminalSideChat::ClosedAt)
+                            .date_time()
+                            .null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-terminal_side_chat-side_chat_id")
+                    .table(TerminalSideChat::Table)
+                    .col(TerminalSideChat::SideChatId)
+                    .unique()
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-terminal_side_chat-workspace")
+                    .table(TerminalSideChat::Table)
+                    .col(TerminalSideChat::WorkspaceGuid)
+                    .col(TerminalSideChat::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-terminal_side_chat-source")
+                    .table(TerminalSideChat::Table)
+                    .col(TerminalSideChat::WorkspaceGuid)
+                    .col(TerminalSideChat::SourceTmuxWindowName)
+                    .col(TerminalSideChat::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-terminal_side_chat-side-window")
+                    .table(TerminalSideChat::Table)
+                    .col(TerminalSideChat::WorkspaceGuid)
+                    .col(TerminalSideChat::SideTmuxWindowName)
+                    .col(TerminalSideChat::IsDeleted)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(TerminalSideChat::Table).to_owned())
+            .await?;
+        Ok(())
+    }
+}
+
+#[derive(DeriveIden)]
+enum TerminalSideChat {
+    Table,
+    Guid,
+    CreatedAt,
+    UpdatedAt,
+    IsDeleted,
+    WorkspaceGuid,
+    ProjectName,
+    WorkspaceName,
+    SideChatId,
+    SourcePaneId,
+    SourceTmuxWindowName,
+    SourceSurfaceKind,
+    SourceSurfaceRefJson,
+    SideTmuxWindowName,
+    AgentRefJson,
+    ColorHex,
+    Status,
+    ClosedAt,
+}

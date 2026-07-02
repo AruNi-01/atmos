@@ -13,6 +13,7 @@ import {
 } from '@workspace/ui';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 import { useTerminalLinkSettingsStore } from '@/features/settings/store/terminal-link-settings-store';
+import { useTerminalSideChatSettingsStore } from '@/features/settings/store/terminal-side-chat-settings-store';
 import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
 import {
   agentBehaviourSettingsApi,
@@ -271,11 +272,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     hydrate: hydrateTerminalSplitPrefs,
     setUseLastSplitAgentOnSplit,
   } = useTerminalSplitPrefsStore();
+  const {
+    sideContextPromptBudgetBytes,
+    loadSettings: loadTerminalSideChatSettings,
+    setSideContextPromptBudgetBytes,
+  } = useTerminalSideChatSettingsStore();
 
   useEffect(() => {
     void loadTerminalLinkSettings();
+    void loadTerminalSideChatSettings();
     hydrateTerminalSplitPrefs();
-  }, [hydrateTerminalSplitPrefs, loadTerminalLinkSettings]);
+  }, [hydrateTerminalSplitPrefs, loadTerminalLinkSettings, loadTerminalSideChatSettings]);
 
   // Load agent custom settings when modal opens
   const loadAgentSettings = React.useCallback(async () => {
@@ -878,9 +885,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     fileLinkOpenApp={fileLinkOpenApp}
                     useLastSplitAgentOnSplit={useLastSplitAgentOnSplit}
                     lastSplitAgentId={lastSplitAgentId}
+                    sideContextPromptBudgetBytes={sideContextPromptBudgetBytes}
                     setFileLinkOpenMode={setFileLinkOpenMode}
                     setFileLinkOpenApp={setFileLinkOpenApp}
                     setUseLastSplitAgentOnSplit={setUseLastSplitAgentOnSplit}
+                    setSideContextPromptBudgetBytes={setSideContextPromptBudgetBytes}
                     agentCustomSettings={agentCustomSettings}
                     agentSettingsLoading={agentSettingsLoading}
                     builtInAgentOpen={builtInAgentOpen}

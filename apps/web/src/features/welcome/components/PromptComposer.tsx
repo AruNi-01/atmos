@@ -8,7 +8,8 @@ import { parseAppshotProtocol } from "@/features/appshot/lib/appshot-protocol";
 export type MentionRef =
   | { kind: "issue" | "pr"; number: number }
   | { kind: "file"; relativePath: string }
-  | { kind: "skill"; absolutePath: string; name: string };
+  | { kind: "skill"; absolutePath: string; name: string }
+  | { kind: "side" };
 
 export interface AtTriggerContext {
   caretRect: DOMRect;
@@ -64,13 +65,13 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/side|\[#img-\d+\]|\[#appshot:\d{13}\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
 
 /**
- * SVG icons used inside chips live as static assets under
+ * Most SVG icons used inside chips live as static assets under
  * `apps/web/public/icons/`. They are rendered via CSS mask so they inherit
  * `currentColor` for theme support (`<img src>` would lose the stroke color).
  */
@@ -92,6 +93,32 @@ function buildMaskIcon(url: string): HTMLSpanElement {
     "-webkit-mask-position:center",
   ].join(";");
   return icon;
+}
+
+function buildMessageCirclePlusIcon(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.flexShrink = "0";
+
+  for (const d of [
+    "M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719",
+    "M8 12h8",
+    "M12 8v8",
+  ]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+
+  return svg;
 }
 
 function buildChipNode(token: string): HTMLSpanElement {
@@ -146,6 +173,14 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
     const label = document.createElement("span");
     label.textContent = filename;
+    span.appendChild(label);
+  } else if (token === "/side") {
+    span.dataset.kind = "side";
+    span.dataset.tooltip = "Fork this terminal context into a side chat";
+    span.className += " border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
+    span.appendChild(buildMessageCirclePlusIcon());
+    const label = document.createElement("span");
+    label.textContent = "Side";
     span.appendChild(label);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
@@ -542,6 +577,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           token = `@file:${mention.relativePath}`;
         } else if (mention.kind === "skill") {
           token = `/skill:${mention.absolutePath}`;
+        } else if (mention.kind === "side") {
+          token = "/side";
         } else {
           token = `@${mention.kind}#${mention.number}`;
         }
@@ -567,6 +604,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           token = `@file:${mention.relativePath}`;
         } else if (mention.kind === "skill") {
           token = `/skill:${mention.absolutePath}`;
+        } else if (mention.kind === "side") {
+          token = "/side";
         } else {
           token = `@${mention.kind}#${mention.number}`;
         }
@@ -592,6 +631,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           token = `/skill:${mention.absolutePath}`;
         } else if (mention.kind === "file") {
           token = `@file:${mention.relativePath}`;
+        } else if (mention.kind === "side") {
+          token = "/side";
         } else {
           token = `@${mention.kind}#${mention.number}`;
         }

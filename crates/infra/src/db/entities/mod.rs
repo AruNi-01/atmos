@@ -12,6 +12,7 @@ pub mod review_file_state;
 pub mod review_message;
 pub mod review_revision;
 pub mod review_session;
+pub mod terminal_side_chat;
 pub mod test_message;
 pub mod workspace;
 pub mod workspace_label;

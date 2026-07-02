@@ -147,6 +147,36 @@ impl TmuxEngine {
         Ok(content)
     }
 
+    /// Capture plain pane text for prompt/context use.
+    ///
+    /// This intentionally avoids `-e` so ANSI control sequences and styling are
+    /// not fed into agent prompts. The caller remains responsible for byte
+    /// budgeting the returned UTF-8 text.
+    pub fn capture_pane_text(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        approximate_lines: i32,
+    ) -> Result<String> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let lines = approximate_lines.clamp(1, 50_000);
+        let start_line = format!("-{}", lines);
+        let args = vec![
+            "capture-pane",
+            "-t",
+            &target,
+            "-p",
+            "-N",
+            "-S",
+            &start_line,
+            "-E",
+            "-",
+        ];
+        let mut content = self.run_tmux_raw(&args)?;
+        trim_single_trailing_newline(&mut content);
+        Ok(content)
+    }
+
     /// Scrollback depth for a pane (lines retained by tmux).
     pub fn get_pane_history_size(&self, session_name: &str, window_index: u32) -> Result<u32> {
         let target = format!("{}:{}.0", session_name, window_index);

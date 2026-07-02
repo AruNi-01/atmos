@@ -25,6 +25,7 @@ import {
 import { TerminalTitleWithAgent } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalToolbarTitle } from "../hooks/use-terminal-toolbar-title";
+import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import {
   getAgentContextDragText,
@@ -173,6 +174,32 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
   const isPanePinned = panePinKey ? pinnedPaneKeys.has(panePinKey) : false;
   const agentForSubmit = pane.agent ?? toolbarAgent;
   const agentSubmitMode = resolveTerminalAgentSubmitMode(agentForSubmit);
+  const sideChatAgentOptions = useMemo(() => {
+    const options = quickOpenAgents.map(({ agent, command }) => ({ ...agent, command }));
+    if (agentForSubmit?.command?.trim() && !options.some((agent) => agent.id === agentForSubmit.id)) {
+      options.unshift(agentForSubmit);
+    }
+    return options;
+  }, [agentForSubmit, quickOpenAgents]);
+  const {
+    sideChatDots,
+    sideChatLayer,
+    startSideChat,
+  } = useTerminalSideChats({
+    workspaceId,
+    projectName: workspaceInfo?.projectName ?? null,
+    workspaceName: workspaceInfo?.workspaceName ?? null,
+    localPath: workspaceInfo?.localPath ?? null,
+    projectRootPath: activeProject?.mainFilePath ?? workspaceInfo?.localPath ?? null,
+    sourcePaneId: pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId,
+    sourceSurfaceKind: "terminal_pane",
+    sourceSurfaceRef: {
+      paneId: id,
+      scope: isProjectContext ? "project" : "workspace",
+      terminalTabId,
+    },
+    sourceTmuxWindowName: pane.tmuxWindowName ?? null,
+  });
   const pinButtonLabel = isPanePinned
     ? t.has("pin.alreadyPinnedTitle")
       ? t("pin.alreadyPinnedTitle")
@@ -437,6 +464,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           }
           isTerminalReady={isTerminalReady}
           localPath={workspaceInfo?.localPath}
+          onStartSideChat={startSideChat}
           onSendEnter={() => {
             terminalRefsMap.current.get(id)?.sendEnter();
           }}
@@ -446,8 +474,12 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
             terminalRef?.focus();
             terminalRef?.sendText(text);
           }}
+          sideChatAgent={agentForSubmit ?? null}
+          sideChatAgentOptions={sideChatAgentOptions}
+          sideChatDots={sideChatDots}
           submitMode={agentSubmitMode}
         />
+        {sideChatLayer}
       </div>
     </MosaicWindow>
   );

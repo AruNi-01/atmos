@@ -205,7 +205,12 @@ function resolveAgentForLabel<TAgent extends TerminalTitleAgent>(
 ): TAgent | undefined {
   if (!label) return undefined;
   const normalizedLabel = label.trim().toLowerCase();
-  return agents.find((agent) => agent.label.trim().toLowerCase() === normalizedLabel);
+  return agents.find((agent) => {
+    const normalizedAgentLabel = agent.label.trim().toLowerCase();
+    if (normalizedLabel === normalizedAgentLabel) return true;
+    const suffix = normalizedLabel.slice(normalizedAgentLabel.length);
+    return suffix.startsWith("-") && /^\d+$/.test(suffix.slice(1));
+  });
 }
 
 export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(options: {
@@ -229,11 +234,9 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   const { baseTitle, dynamicTitle, configuredAgents = [], agent } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
   const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents);
-  const labelAgent = dynamicTitleIsVersion
-    ? resolveAgentForLabel(baseTitle, configuredAgents)
-    : undefined;
+  const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
   const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
-    ? agent
+    ? agent ?? labelAgent
     : dynamicTitleIsVersion
       ? labelAgent ?? agent
       : undefined;

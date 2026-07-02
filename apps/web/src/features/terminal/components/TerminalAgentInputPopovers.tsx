@@ -9,6 +9,7 @@ import {
   type MentionPopoverState,
 } from "@/features/welcome/components/WelcomeMentionPopover";
 import type { WelcomeSlashPopoverState } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 
 type ImagePreviewAttachment = {
@@ -21,6 +22,7 @@ export function TerminalAgentInputPopovers({
   activeSlashItemIndex,
   expandedSections,
   filteredAgents,
+  filteredCommands,
   filteredProjects,
   filteredSkills,
   isMentionFilesLoading,
@@ -33,6 +35,7 @@ export function TerminalAgentInputPopovers({
   onSelectMentionFile,
   onSelectMentionNavItem,
   onSelectSlashAgent,
+  onSelectSlashCommand,
   onSelectSlashProject,
   onSelectSlashSkill,
   onClosePreviewAttachment,
@@ -47,6 +50,7 @@ export function TerminalAgentInputPopovers({
   activeSlashItemIndex: number;
   expandedSections: React.ComponentProps<typeof SlashCommandPopover>["expandedSections"];
   filteredAgents: React.ComponentProps<typeof SlashCommandPopover>["filteredAgents"];
+  filteredCommands?: SlashCommandOption[];
   filteredProjects: React.ComponentProps<typeof SlashCommandPopover>["filteredProjects"];
   filteredSkills: React.ComponentProps<typeof SlashCommandPopover>["filteredSkills"];
   isMentionFilesLoading: boolean;
@@ -59,6 +63,7 @@ export function TerminalAgentInputPopovers({
   onSelectMentionFile: (item: { relativePath: string }) => void;
   onSelectMentionNavItem: (item: MentionNavItem) => void;
   onSelectSlashAgent: () => void;
+  onSelectSlashCommand?: (command: SlashCommandOption) => void;
   onSelectSlashProject: () => void;
   onSelectSlashSkill: React.ComponentProps<typeof SlashCommandPopover>["onSelectSkill"];
   onClosePreviewAttachment: () => void;
@@ -88,18 +93,21 @@ export function TerminalAgentInputPopovers({
         activeIndex={activeSlashItemIndex}
         expandedSections={expandedSections}
         filteredAgents={filteredAgents}
+        filteredCommands={filteredCommands}
         filteredProjects={filteredProjects}
         filteredSkills={filteredSkills}
         isSkillsLoading={isSkillsLoading}
         listRef={slashPopoverListRef}
         onClose={onCloseSlash}
         onSelectAgent={onSelectSlashAgent}
+        onSelectCommand={onSelectSlashCommand}
         onSelectProject={onSelectSlashProject}
         onSelectSkill={onSelectSlashSkill}
         popover={slashPopover}
         setExpandedSections={setExpandedSections}
         setItemRef={setSlashItemRef}
         showAgents={false}
+        showCommands={Boolean(filteredCommands?.length)}
         showProjects={false}
       />
       {previewAttachment ? (

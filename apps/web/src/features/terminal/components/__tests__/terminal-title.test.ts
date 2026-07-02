@@ -41,6 +41,32 @@ describe("terminal title runtime wrapper fallback", () => {
     }
   });
 
+  it("restores the toolbar agent from a persisted label when the runtime title is node", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent",
+        dynamicTitle: "node",
+        configuredAgents: [hermesAgent],
+      }),
+    ).toMatchObject({
+      displayTitle: "Hermes Agent",
+      toolbarAgent: hermesAgent,
+    });
+  });
+
+  it("restores the toolbar agent from a unique agent label suffix", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Hermes Agent-2",
+        dynamicTitle: "NODE20",
+        configuredAgents: [hermesAgent],
+      }),
+    ).toMatchObject({
+      displayTitle: "Hermes Agent",
+      toolbarAgent: hermesAgent,
+    });
+  });
+
   it("still shows direct agent commands when the dynamic title names the agent", () => {
     expect(
       getTerminalDisplayMeta({

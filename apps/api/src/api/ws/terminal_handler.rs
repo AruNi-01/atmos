@@ -18,8 +18,8 @@ use axum::{
 };
 use core_engine::GitEngine;
 use core_service::{
-    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalResponse,
-    TerminalService,
+    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalKind,
+    TerminalResponse, TerminalService,
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -54,6 +54,14 @@ pub struct TerminalWsQuery {
     pub cols: Option<u16>,
     /// Optional: initial terminal rows (from frontend fitAddon)
     pub rows: Option<u16>,
+    /// Optional: terminal kind, e.g. side_chat for APP-030 side terminals
+    pub terminal_kind: Option<TerminalKind>,
+    /// Optional: stable side chat id for side_chat terminals
+    pub side_chat_id: Option<String>,
+    /// Optional: stable source pane id for side_chat terminals
+    pub source_pane_id: Option<String>,
+    /// Optional: source tmux window name for side_chat terminals
+    pub source_tmux_window_name: Option<String>,
 }
 
 /// Terminal message from client
@@ -104,6 +112,10 @@ pub struct TerminalSessionConfig {
     pub cwd: Option<String>,
     pub initial_cols: Option<u16>,
     pub initial_rows: Option<u16>,
+    pub terminal_kind: TerminalKind,
+    pub side_chat_id: Option<String>,
+    pub source_pane_id: Option<String>,
+    pub source_tmux_window_name: Option<String>,
 }
 
 /// Terminal WebSocket upgrade handler
@@ -141,6 +153,10 @@ pub async fn terminal_ws_handler(
         cwd: query.cwd,
         initial_cols: query.cols,
         initial_rows: query.rows,
+        terminal_kind: query.terminal_kind.unwrap_or_default(),
+        side_chat_id: query.side_chat_id,
+        source_pane_id: query.source_pane_id,
+        source_tmux_window_name: query.source_tmux_window_name,
     };
 
     ws.on_upgrade(move |socket| handle_terminal_socket(socket, config, state))
@@ -164,6 +180,10 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
         cwd,
         initial_cols,
         initial_rows,
+        terminal_kind,
+        side_chat_id,
+        source_pane_id,
+        source_tmux_window_name,
     } = config;
 
     let mut actually_attached = false;
@@ -265,6 +285,10 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                         workspace_name: workspace_name.clone(),
                         window_name: terminal_name.clone(),
                         cwd: cwd.clone(),
+                        terminal_kind: terminal_kind.clone(),
+                        side_chat_id: side_chat_id.clone(),
+                        source_pane_id: source_pane_id.clone(),
+                        source_tmux_window_name: source_tmux_window_name.clone(),
                     })
                     .await
                 {
@@ -303,6 +327,10 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                 workspace_name,
                 window_name: terminal_name,
                 cwd,
+                terminal_kind,
+                side_chat_id,
+                source_pane_id,
+                source_tmux_window_name,
             })
             .await
         {

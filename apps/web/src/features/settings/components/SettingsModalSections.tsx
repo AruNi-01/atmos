@@ -47,9 +47,11 @@ interface SettingsModalSectionsProps {
   fileLinkOpenApp: QuickOpenAppName;
   useLastSplitAgentOnSplit: boolean;
   lastSplitAgentId: string | null;
+  sideContextPromptBudgetBytes: number;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
+  setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
   agentCustomSettings: BuiltInAgentSettings;
   agentSettingsLoading: boolean;
   builtInAgentOpen: Record<string, boolean>;
@@ -149,9 +151,11 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           fileLinkOpenApp={props.fileLinkOpenApp}
           useLastSplitAgentOnSplit={props.useLastSplitAgentOnSplit}
           lastSplitAgentId={props.lastSplitAgentId}
+          sideContextPromptBudgetBytes={props.sideContextPromptBudgetBytes}
           setFileLinkOpenMode={props.setFileLinkOpenMode}
           setFileLinkOpenApp={props.setFileLinkOpenApp}
           setUseLastSplitAgentOnSplit={props.setUseLastSplitAgentOnSplit}
+          setSideContextPromptBudgetBytes={props.setSideContextPromptBudgetBytes}
         />
       );
     case 'code-agent':

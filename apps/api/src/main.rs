@@ -147,34 +147,25 @@ fn spawn_non_critical_startup_tasks(
     });
 
     tokio::task::spawn_blocking(move || {
-        let report = core_engine::agent_hooks::install_all_hooks(api_port);
+        let report = core_engine::agent_hooks::sync_installed_hooks(api_port);
+        let label = |status: &core_engine::agent_hooks::AgentHookToolStatus| {
+            if status.installed {
+                if status.outdated {
+                    "outdated"
+                } else {
+                    "current"
+                }
+            } else {
+                "skipped"
+            }
+        };
         tracing::info!(
-            "Agent hooks auto-install: claude_code={}, codex={}, opencode={}, pi={}, hermes={}",
-            if report.claude_code.installed {
-                "installed"
-            } else {
-                "skipped"
-            },
-            if report.codex.installed {
-                "installed"
-            } else {
-                "skipped"
-            },
-            if report.opencode.installed {
-                "installed"
-            } else {
-                "skipped"
-            },
-            if report.pi.installed {
-                "installed"
-            } else {
-                "skipped"
-            },
-            if report.hermes.installed {
-                "installed"
-            } else {
-                "skipped"
-            },
+            "Agent hooks version sync: claude_code={}, codex={}, opencode={}, pi={}, hermes={}",
+            label(&report.claude_code),
+            label(&report.codex),
+            label(&report.opencode),
+            label(&report.pi),
+            label(&report.hermes),
         );
     });
 
@@ -325,7 +316,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_service_for_startup = Arc::clone(&agent_service);
     let usage_service = Arc::new(UsageService::default());
     let token_usage_service = Arc::new(TokenUsageService::default());
-    let terminal_service = Arc::new(TerminalService::new());
+    let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
     let agent_hooks_service = Arc::new(AgentHooksService::new());
     let notification_service = Arc::new(NotificationService::new());
     let automation_service = Arc::new(AutomationService::new(

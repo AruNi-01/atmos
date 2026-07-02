@@ -36,6 +36,11 @@ export interface TerminalProps {
   workspaceName?: string;
   /** Terminal/window name (e.g., "Claude", "Codex", or auto-incremented number) */
   terminalName?: string;
+  /** Side-chat terminals are scoped children of a source terminal pane. */
+  terminalKind?: "standard" | "side_chat";
+  sideChatId?: string;
+  sourcePaneId?: string;
+  sourceTmuxWindowName?: string;
   /** 
    * If true, this is a new pane - use terminalName to create a new window.
    * If false/undefined, use tmuxWindowName to attach to existing window.

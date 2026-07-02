@@ -349,6 +349,16 @@ pub enum WsAction {
     // ===== Terminal 操作 =====
     /// 列出指定 Workspace 的可附着 terminal/tmux window 候选
     TerminalWorkspaceCandidates,
+    /// Capture bounded plain terminal context for /side side chats
+    TerminalSideContextCapture,
+    /// List/reconcile active side chat records for a workspace
+    TerminalSideChatList,
+    /// Upsert side chat registry metadata
+    TerminalSideChatUpsert,
+    /// Update side chat open/hidden/closing status
+    TerminalSideChatStatusUpdate,
+    /// Close one side chat and cleanup its registry record
+    TerminalSideChatClose,
 
     // ===== Review 操作 =====
     /// 列出 Workspace 下的 review sessions

@@ -107,8 +107,9 @@
       "browserViaSidecarDescription": "Use the local Atmos Server URL in your browser. Once Atmos Server finishes warming up, the same page will open there.",
       "tunnelConnector": "Tunnel Connector",
       "starting": "Starting...",
+      "checkingWeb": "Checking Web...",
       "openInWeb": "Open In Web",
-      "startWeb": "Start Web"
+      "retryWeb": "Retry Web Access"
     },
     "summary": {
       "fallbackWorkspace": "Workspace",
@@ -2814,6 +2815,7 @@
         "addProject": "Add Project"
       },
       "slashPopover": {
+        "commands": "Commands",
         "skills": "Skills",
         "loadingSkills": "Loading skills...",
         "global": "Global",
@@ -3446,6 +3448,10 @@
       "openModeFailed": "Failed to update the terminal link open mode.",
       "openAppFailed": "Failed to update the terminal link app."
     },
+    "terminalSideChatSettingsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "budgetFailed": "Failed to update the side chat context budget."
+    },
     "notificationStore": {
       "unknownError": "Unknown error"
     },
@@ -3810,6 +3816,9 @@
             },
             "defaultSplitAgent": {
               "label": "Default split agent"
+            },
+            "sideContextBudget": {
+              "label": "Side chat context budget"
             }
           },
           "workspace": {
@@ -4588,6 +4597,11 @@
         "title": "Default split agent",
         "description": "When enabled, plain split (toolbar click, ⌘D, or context menu) reuses the last agent you picked from a split submenu. Hover split to choose a different agent.",
         "lastAgent": "Last split agent:"
+      },
+      "sideContextBudget": {
+        "title": "Side chat context budget",
+        "description": "Maximum terminal context bytes sent into a /side agent prompt. The server still clamps requests between {min} and {max} bytes.",
+        "bytes": "bytes"
       }
     },
     "headerLayoutSection": {
@@ -7379,7 +7393,29 @@
   },
   "terminal": {
     "agentInput": {
-      "placeholder": "[⌘ + G] Input anything to terminal (@ annotation, / command, or paste img)"
+      "placeholder": "[⌘ + G] Input anything to terminal (@ annotation, / command, or paste img)",
+      "sideCommand": {
+        "description": "Fork this terminal context into a side chat",
+        "chooseAgent": "Choose an agent for this side chat",
+        "noAgent": "No runnable agent available.",
+        "cancel": "Cancel"
+      }
+    },
+    "sideChat": {
+      "title": "Side chat",
+      "hide": "Hide",
+      "close": "Close",
+      "closeTab": "Close side chat tab",
+      "closeAll": "Close all side chats",
+      "closeAllTitle": "Close all side chats?",
+      "closeAllDescription": "This will close every side chat terminal forked from this terminal.",
+      "closeAllConfirm": "Close all",
+      "show": "Show side chat",
+      "starting": "Starting side chat",
+      "cancel": "Cancel",
+      "errorTitle": "Side chat failed",
+      "sourceNotReady": "This terminal is not ready to fork yet.",
+      "startFailed": "Could not start the side chat."
     },
     "sections": {
       "uptime": {
@@ -7526,6 +7562,20 @@
   "app": {
     "loading": {
       "label": "Loading…"
+    },
+    "errorBreakout": {
+      "notFound": {
+        "description": "Sorry, the page you're looking for could not be found.",
+        "home": "GO BACK HOME"
+      },
+      "server": {
+        "description": "Sorry, something went wrong in Atmos.",
+        "retry": "TRY AGAIN"
+      },
+      "canvasLabel": {
+        "notFound": "Playable Breakout board for the Atmos 404 page",
+        "server": "Playable Breakout board for the Atmos 500 page"
+      }
     }
   },
   "browser": {

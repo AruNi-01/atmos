@@ -27,5 +27,5 @@ pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{
     TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxSessionInfo,
-    TmuxVersion, TmuxWindowInfo,
+    TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
 };

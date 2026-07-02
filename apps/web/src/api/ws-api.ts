@@ -231,6 +231,74 @@ export const canvasWsApi = {
   },
 };
 
+// ===== Terminal side chat API (APP-030) =====
+
+export interface TerminalSideContextCaptureResponse {
+  workspace_id: string;
+  project_name?: string | null;
+  workspace_name?: string | null;
+  tmux_window_name: string;
+  tmux_window_index: number;
+  captured_lines: number;
+  captured_bytes: number;
+  prompt_budget_bytes: number;
+  omitted_older_bytes: number;
+  omitted_middle_bytes: number;
+  truncated_bytes: boolean;
+  text: string;
+}
+
+export type TerminalSideChatStatus = "open" | "hidden" | "closing";
+
+export interface TerminalSideChatRecord {
+  side_chat_id: string;
+  workspace_id: string;
+  project_name?: string | null;
+  workspace_name?: string | null;
+  source_pane_id: string;
+  source_tmux_window_name: string;
+  source_surface_kind: string;
+  source_surface_ref_json?: string | null;
+  side_tmux_window_name: string;
+  agent_ref_json?: string | null;
+  color_hex: string;
+  status: TerminalSideChatStatus;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface TerminalSideChatListResponse {
+  workspace_id: string;
+  records: TerminalSideChatRecord[];
+}
+
+export const terminalSideChatApi = {
+  captureContext: (payload: {
+    workspace_id: string;
+    project_name?: string | null;
+    workspace_name?: string | null;
+    source_tmux_window_name: string;
+    max_prompt_bytes?: number;
+  }) => wsRequest<TerminalSideContextCaptureResponse>("terminal_side_context_capture", payload),
+
+  list: (workspaceId: string) =>
+    wsRequest<TerminalSideChatListResponse>("terminal_side_chat_list", {
+      workspace_id: workspaceId,
+    }),
+
+  upsert: (record: TerminalSideChatRecord) =>
+    wsRequest<TerminalSideChatRecord>("terminal_side_chat_upsert", { record }),
+
+  setStatus: (payload: {
+    workspace_id: string;
+    side_chat_id: string;
+    status: "open" | "hidden";
+  }) => wsRequest<TerminalSideChatRecord>("terminal_side_chat_status_update", payload),
+
+  close: (payload: { workspace_id: string; side_chat_id: string }) =>
+    wsRequest<{ ok: boolean }>("terminal_side_chat_close", payload),
+};
+
 // ===== Canvas terminal-agent bridge (APP-015) =====
 
 export interface CanvasBridgeRegisterPayload {

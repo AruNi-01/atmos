@@ -3,7 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
+import { Bot } from "lucide-react";
 
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   type AtTriggerContext,
   type ComposerHandle,
@@ -17,6 +19,7 @@ import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welc
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import {
   useWelcomeSlashNavigation,
+  type SlashCommandOption,
   type WelcomeSlashPopoverState,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
@@ -30,6 +33,7 @@ import {
   type TerminalAgentSubmitMode,
   wrapBracketedPaste,
 } from "../lib/terminal-runtime-utils";
+import type { TerminalPaneAgent } from "../types";
 import { TerminalAgentFlyingMessagePortal } from "./TerminalAgentFlyingMessagePortal";
 import { TerminalAgentInputPopovers } from "./TerminalAgentInputPopovers";
 import { TerminalAgentInputShell } from "./TerminalAgentInputShell";
@@ -50,6 +54,10 @@ interface TerminalAgentInputOverlayProps {
   localPath?: string | null;
   onSendEnter: () => void;
   onSendText: (text: string) => void;
+  onStartSideChat?: (prompt: string, agent: TerminalPaneAgent) => Promise<void> | void;
+  sideChatAgent?: TerminalPaneAgent | null;
+  sideChatAgentOptions?: TerminalPaneAgent[];
+  sideChatDots?: React.ReactNode;
   submitMode?: TerminalAgentSubmitMode;
 }
 
@@ -68,6 +76,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   localPath,
   onSendEnter,
   onSendText,
+  onStartSideChat,
+  sideChatAgent,
+  sideChatAgentOptions = [],
+  sideChatDots,
   submitMode = "text-enter",
 }, ref) {
   const t = useTranslations("terminal.agentInput");
@@ -83,8 +95,21 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [flyingMessage, setFlyingMessage] = React.useState<TerminalAgentFlyingMessage | null>(null);
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
+  const [pendingSidePrompt, setPendingSidePrompt] = React.useState<string | null>(null);
   const isOverlayVisible = isOpen || isSendAnimating || isSendExiting;
   const canSubmit = isTerminalReady && text.trim().length > 0 && !isSending && !isSendAnimating && !isSendExiting;
+
+  const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
+    if (!onStartSideChat) return [];
+    const query = slashPopover?.query.trim().toLowerCase() ?? "";
+    const sideCommand = {
+      id: "side",
+      label: "Side",
+      description: t("sideCommand.description"),
+    };
+    if (!query || "side".includes(query)) return [sideCommand];
+    return [];
+  }, [onStartSideChat, slashPopover?.query, t]);
 
   const focusComposerSoon = React.useCallback(() => {
     window.requestAnimationFrame(() => composerRef.current?.focus());
@@ -202,9 +227,21 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setItemRef: setSlashItemRef,
   } = useWelcomeSlashNavigation({
     filteredAgents,
+    filteredCommands: slashCommands,
     filteredProjects,
     filteredSkills,
     onSelectAgent: () => setSlashPopover(null),
+    onSelectCommand: (command) => {
+      if (command.id !== "side") return;
+      const popover = slashPopover;
+      if (!popover) return;
+      composerRef.current?.applySlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+        { kind: "side" },
+      );
+      setSlashPopover(null);
+    },
     onSelectProject: () => setSlashPopover(null),
     onSelectSkill: selectSlashSkill,
     popover: slashPopover,
@@ -250,6 +287,15 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsSendExiting(true);
   }, []);
 
+  const resolveSideAgent = React.useCallback(() => {
+    if (sideChatAgent?.command?.trim()) return sideChatAgent;
+    if (sideChatAgent?.id) {
+      const match = sideChatAgentOptions.find((agent) => agent.id === sideChatAgent.id && agent.command?.trim());
+      if (match) return match;
+    }
+    return sideChatAgentOptions.find((agent) => agent.command?.trim()) ?? null;
+  }, [sideChatAgent, sideChatAgentOptions]);
+
   React.useEffect(() => {
     if (!isSendAnimating) return;
     const timer = window.setTimeout(startSendExit, 590);
@@ -283,6 +329,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     flyingMessageIdRef.current = message.id;
   }, [getTerminalCursorClientPoint]);
 
+  const startSuccessfulSubmitAnimation = React.useCallback((messageText: string) => {
+    launchFlyingMessage(messageText);
+    setIsOpen(true);
+    setIsSendAnimating(true);
+    composerRef.current?.clear();
+    clearAttachments();
+    setMentionPopover(null);
+    setSlashPopover(null);
+    setPendingSidePrompt(null);
+  }, [clearAttachments, launchFlyingMessage]);
+
+  const runSideChat = React.useCallback(async (prompt: string, agent: TerminalPaneAgent) => {
+    if (!onStartSideChat) return;
+    await onStartSideChat(prompt, agent);
+    startSuccessfulSubmitAnimation(prompt);
+  }, [onStartSideChat, startSuccessfulSubmitAnimation]);
+
   const submit = React.useCallback(async () => {
     const rawText = composerRef.current?.getText() ?? text;
     if (!isTerminalReady || !rawText.trim() || isSending || isSendAnimating || isSendExiting) return;
@@ -293,8 +356,25 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         localPath,
         text: rawText,
       });
-      launchFlyingMessage(rawText);
       const trimmedResolvedText = resolvedText.trim();
+      const sidePrompt = onStartSideChat ? stripSideCommandToken(trimmedResolvedText) : null;
+      if (sidePrompt !== null) {
+        const prompt = sidePrompt.trim();
+        const agent = resolveSideAgent();
+        if (!prompt || !onStartSideChat) {
+          return;
+        }
+        if (!agent) {
+          setPendingSidePrompt(prompt);
+          setIsOpen(true);
+          focusComposerSoon();
+          return;
+        }
+        await runSideChat(prompt, agent);
+        return;
+      }
+
+      launchFlyingMessage(rawText);
       if (submitMode === "bracketed-paste-enter") {
         onSendText(wrapBracketedPaste(trimmedResolvedText));
         onSendEnter();
@@ -331,8 +411,12 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     isTerminalReady,
     launchFlyingMessage,
     localPath,
+    focusComposerSoon,
     onSendEnter,
     onSendText,
+    onStartSideChat,
+    resolveSideAgent,
+    runSideChat,
     submitMode,
     text,
   ]);
@@ -378,7 +462,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           event.stopPropagation();
           appendAgentContextItems(items, { x: event.clientX, y: event.clientY });
         }}
-        onMouseEnter={() => setIsOpen(true)}
         onMouseLeave={() => {
           if (!isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
             setIsOpen(false);
@@ -407,23 +490,44 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           startSendExit={startSendExit}
         />
 
-        <button
-          type="button"
-          aria-label="Open agent input"
-          className={cn(
-            "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
-            isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
-          )}
-          onFocus={() => setIsOpen(true)}
-          onMouseEnter={() => setIsOpen(true)}
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Open agent input"
+            className={cn(
+              "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
+              isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
+            )}
+            onFocus={() => setIsOpen(true)}
+            onMouseEnter={() => setIsOpen(true)}
+          />
+          <div
+            className={cn(
+              "flex min-h-5 items-center gap-1 transition-opacity duration-200",
+              isOverlayVisible ? "pointer-events-none opacity-0" : "opacity-100",
+            )}
+          >
+            {sideChatDots}
+          </div>
+        </div>
       </div>
+
+      {pendingSidePrompt ? (
+        <SideChatAgentPicker
+          agents={sideChatAgentOptions}
+          onCancel={() => setPendingSidePrompt(null)}
+          onSelect={(agent) => {
+            void runSideChat(pendingSidePrompt, agent);
+          }}
+        />
+      ) : null}
 
       <TerminalAgentInputPopovers
         activeMentionFileIndex={activeMentionFileIndex}
         activeSlashItemIndex={activeSlashItemIndex}
         expandedSections={expandedSections}
         filteredAgents={filteredAgents}
+        filteredCommands={slashCommands}
         filteredProjects={filteredProjects}
         filteredSkills={filteredSkills}
         isMentionFilesLoading={isMentionFilesLoading}
@@ -436,6 +540,17 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         onSelectMentionFile={selectMentionFile}
         onSelectMentionNavItem={selectMentionNavItem}
         onSelectSlashAgent={() => setSlashPopover(null)}
+        onSelectSlashCommand={(command) => {
+          if (command.id !== "side") return;
+          const popover = slashPopover;
+          if (!popover) return;
+          composerRef.current?.applySlashAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            { kind: "side" },
+          );
+          setSlashPopover(null);
+        }}
         onSelectSlashProject={() => setSlashPopover(null)}
         onSelectSlashSkill={selectSlashSkill}
         onClosePreviewAttachment={() => setPreviewAttachment(null)}
@@ -453,3 +568,64 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     </div>
   );
 });
+
+function stripSideCommandToken(text: string): string | null {
+  const sideTokenPattern = /(^|\s)\/side(\s|$)/;
+  if (!sideTokenPattern.test(text)) return null;
+  return text.replace(sideTokenPattern, "$1").trim();
+}
+
+function SideChatAgentPicker({
+  agents,
+  onCancel,
+  onSelect,
+}: {
+  agents: TerminalPaneAgent[];
+  onCancel: () => void;
+  onSelect: (agent: TerminalPaneAgent) => void;
+}) {
+  const t = useTranslations("terminal.agentInput.sideCommand");
+  const runnableAgents = agents.filter((agent) => agent.command?.trim());
+
+  return (
+    <div className="pointer-events-auto fixed bottom-20 left-1/2 z-[2147483647] w-[min(92vw,320px)] -translate-x-1/2 rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-lg">
+      <div className="px-2.5 py-2 text-xs font-medium text-muted-foreground">
+        {t("chooseAgent")}
+      </div>
+      {runnableAgents.length > 0 ? (
+        runnableAgents.map((agent) => (
+          <button
+            key={agent.id}
+            type="button"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left hover:bg-muted"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              onSelect(agent);
+            }}
+          >
+            {agent.iconType === "built-in" ? (
+              <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+            ) : (
+              <Bot className="size-4 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate">{agent.label}</span>
+          </button>
+        ))
+      ) : (
+        <div className="px-2.5 py-2 text-xs text-muted-foreground">
+          {t("noAgent")}
+        </div>
+      )}
+      <button
+        type="button"
+        className="mt-1 flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+        onMouseDown={(event) => {
+          event.preventDefault();
+          onCancel();
+        }}
+      >
+        {t("cancel")}
+      </button>
+    </div>
+  );
+}

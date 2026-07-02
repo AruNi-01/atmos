@@ -19,4 +19,5 @@ pub use migration::Migrator;
 pub use repo::ProjectRepo;
 pub use repo::ReviewRepo;
 pub use repo::TestMessageRepo;
+pub use repo::{TerminalSideChatRepo, UpsertTerminalSideChatInput};
 pub use sea_orm::DatabaseConnection;

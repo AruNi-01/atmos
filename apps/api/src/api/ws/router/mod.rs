@@ -400,6 +400,26 @@ impl WsMessageService {
                 self.handle_terminal_workspace_candidates(parse_request(request.data)?)
                     .await
             }
+            WsAction::TerminalSideContextCapture => {
+                self.handle_terminal_side_context_capture(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSideChatList => {
+                self.handle_terminal_side_chat_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSideChatUpsert => {
+                self.handle_terminal_side_chat_upsert(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSideChatStatusUpdate => {
+                self.handle_terminal_side_chat_status_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSideChatClose => {
+                self.handle_terminal_side_chat_close(parse_request(request.data)?)
+                    .await
+            }
 
             // Review
             WsAction::ReviewSessionList => {

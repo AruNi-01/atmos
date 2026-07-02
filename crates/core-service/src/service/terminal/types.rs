@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use core_engine::TmuxPaneSnapshot;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -32,6 +33,59 @@ pub enum SessionType {
     Simple,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalKind {
+    Standard,
+    SideChat,
+}
+
+impl Default for TerminalKind {
+    fn default() -> Self {
+        Self::Standard
+    }
+}
+
+impl TerminalKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TerminalKind::Standard => "standard",
+            TerminalKind::SideChat => "side_chat",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalSideChatStatus {
+    Open,
+    Hidden,
+    Closing,
+}
+
+impl TerminalSideChatStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TerminalSideChatStatus::Open => "open",
+            TerminalSideChatStatus::Hidden => "hidden",
+            TerminalSideChatStatus::Closing => "closing",
+        }
+    }
+}
+
+impl TryFrom<&str> for TerminalSideChatStatus {
+    type Error = String;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
+            "open" | "visible" => Ok(Self::Open),
+            "hidden" => Ok(Self::Hidden),
+            "closing" | "closed" => Ok(Self::Closing),
+            other => Err(format!("invalid side chat status: {other}")),
+        }
+    }
+}
+
 /// Terminal session handle - thread-safe wrapper for PTY session
 pub(super) struct SessionHandle {
     pub(super) command_tx: mpsc::UnboundedSender<SessionCommand>,
@@ -44,6 +98,10 @@ pub(super) struct SessionHandle {
     pub(super) workspace_name: Option<String>,
     pub(super) terminal_name: Option<String>,
     pub(super) cwd: Option<String>,
+    pub(super) terminal_kind: TerminalKind,
+    pub(super) side_chat_id: Option<String>,
+    pub(super) source_pane_id: Option<String>,
+    pub(super) source_tmux_window_name: Option<String>,
     pub(super) created_at: Instant,
 }
 
@@ -59,6 +117,10 @@ pub struct SessionDetail {
     pub tmux_session: Option<String>,
     pub tmux_window_index: Option<u32>,
     pub cwd: Option<String>,
+    pub terminal_kind: TerminalKind,
+    pub side_chat_id: Option<String>,
+    pub source_pane_id: Option<String>,
+    pub source_tmux_window_name: Option<String>,
     /// Seconds since the session was created
     pub uptime_secs: u64,
 }
@@ -75,6 +137,10 @@ impl SessionHandle {
             tmux_session: self.tmux_session.clone(),
             tmux_window_index: self.tmux_window_index,
             cwd: self.cwd.clone(),
+            terminal_kind: self.terminal_kind.clone(),
+            side_chat_id: self.side_chat_id.clone(),
+            source_pane_id: self.source_pane_id.clone(),
+            source_tmux_window_name: self.source_tmux_window_name.clone(),
             uptime_secs: self.created_at.elapsed().as_secs(),
         }
     }
@@ -152,6 +218,10 @@ pub struct CreateSessionParams {
     pub workspace_name: Option<String>,
     pub window_name: Option<String>,
     pub cwd: Option<String>,
+    pub terminal_kind: TerminalKind,
+    pub side_chat_id: Option<String>,
+    pub source_pane_id: Option<String>,
+    pub source_tmux_window_name: Option<String>,
 }
 
 /// Parameters for creating a simple (non-tmux) terminal session
@@ -177,4 +247,91 @@ pub struct AttachSessionParams {
     pub rows: Option<u16>,
     pub project_name: Option<String>,
     pub workspace_name: Option<String>,
+}
+
+pub struct CaptureSideContextParams {
+    pub workspace_id: String,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub source_tmux_window_name: String,
+    pub max_prompt_bytes: Option<u32>,
+}
+
+pub struct CapturedSideContext {
+    pub workspace_id: String,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub tmux_session: String,
+    pub tmux_window_name: String,
+    pub tmux_window_index: u32,
+    pub captured_lines: u32,
+    pub captured_bytes: u32,
+    pub prompt_budget_bytes: u32,
+    pub omitted_older_bytes: u32,
+    pub omitted_middle_bytes: u32,
+    pub truncated_bytes: bool,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TerminalSideChatRecord {
+    pub side_chat_id: String,
+    pub workspace_id: String,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub source_pane_id: String,
+    pub source_tmux_window_name: String,
+    pub source_surface_kind: String,
+    pub source_surface_ref_json: Option<String>,
+    pub side_tmux_window_name: String,
+    pub agent_ref_json: Option<String>,
+    pub color_hex: String,
+    pub status: TerminalSideChatStatus,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+pub struct UpsertTerminalSideChatParams {
+    pub side_chat_id: String,
+    pub workspace_id: String,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub source_pane_id: String,
+    pub source_tmux_window_name: String,
+    pub source_surface_kind: String,
+    pub source_surface_ref_json: Option<String>,
+    pub side_tmux_window_name: String,
+    pub agent_ref_json: Option<String>,
+    pub color_hex: String,
+    pub status: TerminalSideChatStatus,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TerminalSideChatStatus;
+
+    #[test]
+    fn side_chat_status_accepts_canonical_and_legacy_values() {
+        assert_eq!(
+            TerminalSideChatStatus::try_from("open").unwrap(),
+            TerminalSideChatStatus::Open
+        );
+        assert_eq!(
+            TerminalSideChatStatus::try_from("visible").unwrap(),
+            TerminalSideChatStatus::Open
+        );
+        assert_eq!(
+            TerminalSideChatStatus::try_from("hidden").unwrap(),
+            TerminalSideChatStatus::Hidden
+        );
+        assert_eq!(
+            TerminalSideChatStatus::try_from("closing").unwrap(),
+            TerminalSideChatStatus::Closing
+        );
+        assert_eq!(
+            TerminalSideChatStatus::try_from("closed").unwrap(),
+            TerminalSideChatStatus::Closing
+        );
+        assert!(TerminalSideChatStatus::try_from("bad").is_err());
+    }
 }

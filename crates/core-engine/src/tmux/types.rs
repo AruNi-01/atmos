@@ -18,6 +18,16 @@ pub struct TmuxWindowInfo {
     pub panes: u32,
 }
 
+/// Atmos-specific metadata stored on a tmux window through user options.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TmuxWindowAtmosMetadata {
+    pub terminal_kind: Option<String>,
+    pub side_chat_id: Option<String>,
+    pub context_id: Option<String>,
+    pub source_pane_id: Option<String>,
+    pub source_tmux_window_name: Option<String>,
+}
+
 /// Snapshot of a tmux pane for initial terminal hydration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TmuxPaneSnapshot {

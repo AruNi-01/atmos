@@ -40,8 +40,10 @@ pub use service::notification::NotificationService;
 pub use service::project::ProjectService;
 pub use service::review::ReviewService;
 pub use service::terminal::{
-    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
-    SessionType, TerminalMessage, TerminalResponse, TerminalService,
+    AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
+    CreateSimpleSessionParams, SessionDetail, SessionType, TerminalKind, TerminalMessage,
+    TerminalResponse, TerminalService, TerminalSideChatRecord, TerminalSideChatStatus,
+    UpsertTerminalSideChatParams,
 };
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;

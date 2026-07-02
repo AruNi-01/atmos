@@ -298,6 +298,27 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }
     return result;
   }, [addCodeReviewTerminal, addProjectWikiTerminal, addTerminalToStore, focusPane, isCodeReview, isProjectWiki, terminalTabId, workspaceId]);
+
+  const setPaneAgentForCurrentGrid = useCallback((paneId: string, agent: TerminalPaneAgent) => {
+    if (isCodeReview) {
+      setCodeReviewPaneAgent(workspaceId, paneId, agent);
+      return;
+    }
+    if (isProjectWiki) {
+      setProjectWikiPaneAgent(workspaceId, paneId, agent);
+      return;
+    }
+    setPaneAgent(workspaceId, paneId, agent, terminalTabId);
+  }, [
+    isCodeReview,
+    isProjectWiki,
+    setCodeReviewPaneAgent,
+    setPaneAgent,
+    setProjectWikiPaneAgent,
+    terminalTabId,
+    workspaceId,
+  ]);
+
   const removeTerminalFromScope = useCallback((id: string) => {
     if (isCodeReview) {
       removeCodeReviewTerminal(workspaceId, id);
@@ -320,7 +341,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         const [existingId, existingPane] = currentPanes[0];
         if (!existingPane.agent && !pendingCommandsRef.current.has(existingId)) {
           if (agent) {
-            setPaneAgent(workspaceId, existingId, agent);
+            setPaneAgentForCurrentGrid(existingId, agent);
           }
           const termRef = terminalRefsMap.current.get(existingId);
           // Only send immediately when the underlying tmux session has reported
@@ -341,6 +362,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       const existingPaneId = getPaneIdByLabelOrWindowName(label);
       const cmd = command.trim() + "\r";
       if (existingPaneId) {
+        if (agent && !panes[existingPaneId]?.agent) {
+          setPaneAgentForCurrentGrid(existingPaneId, agent);
+        }
         const termRef = terminalRefsMap.current.get(existingPaneId);
         if (termRef) {
           termRef.sendText(cmd);
@@ -401,7 +425,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       focusPane(paneId);
       return true;
     },
-  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgent, terminalTabId]);
+  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgentForCurrentGrid, terminalTabId]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout

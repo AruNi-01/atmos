@@ -13,9 +13,12 @@ import { ArrowUpRight, PinOff, Plus, SquareTerminal, X } from "lucide-react";
 import { cn, toastManager } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
+import { TerminalAgentInputOverlay } from "@/features/terminal/components/TerminalAgentInputOverlay";
 import { TerminalTitleWithAgent } from "@/features/terminal/components/terminal-title";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
+import { useTerminalSideChats } from "@/features/terminal/hooks/use-terminal-side-chats";
+import { resolveTerminalAgentSubmitMode } from "@/features/terminal/lib/terminal-runtime-utils";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { clearLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
@@ -88,6 +91,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
   const terminalApiRef = React.useRef<TerminalRef | null>(null);
+  const [isTerminalReady, setIsTerminalReady] = React.useState(false);
   const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
@@ -121,6 +125,32 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   );
   const isActive = activeShapeId === shape.id;
   const isRendered = renderedShapeIds.includes(shape.id);
+  const sourcePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
+  const agentForSubmit = shape.props.paneAgent ?? toolbarAgent;
+  const agentSubmitMode = resolveTerminalAgentSubmitMode(agentForSubmit);
+  const sideChatAgentOptions = React.useMemo(() => {
+    const options = [...configuredAgents];
+    if (agentForSubmit?.command?.trim() && !options.some((agent) => agent.id === agentForSubmit.id)) {
+      options.unshift(agentForSubmit);
+    }
+    return options;
+  }, [agentForSubmit, configuredAgents]);
+  const {
+    sideChatDots,
+    sideChatLayer,
+    startSideChat,
+  } = useTerminalSideChats({
+    workspaceId: shape.props.workspaceId,
+    projectName: shape.props.projectName,
+    workspaceName: shape.props.workspaceName,
+    localPath: shape.props.localPath || null,
+    projectRootPath: shape.props.localPath || null,
+    sourcePaneId,
+    sourceSurfaceKind: "canvas_terminal",
+    sourceSurfaceRef: { shapeId: shape.id, contextScope: shape.props.contextScope },
+    sourceTmuxWindowName: shape.props.tmuxWindowName,
+    terminalScale: terminalViewport?.scale,
+  });
 
   React.useEffect(() => {
     const container = editor.getContainer();
@@ -144,6 +174,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 
   const handleSessionReady = React.useCallback(() => {
     markAttached();
+    setIsTerminalReady(true);
     const pendingCommand = consumePendingTerminalCommand(shape.id);
     if (pendingCommand) {
       terminalApiRef.current?.sendText(pendingCommand);
@@ -441,6 +472,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               onSessionReady={handleSessionReady}
               onTitleChange={onTitleChange}
               onSessionError={(_, error) => {
+                setIsTerminalReady(false);
                 toastManager.add({
                   title: t("common.canvas"),
                   description: error,
@@ -448,6 +480,26 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
                 });
               }}
             />
+            <TerminalAgentInputOverlay
+              activeProjectId={shape.props.contextScope === "project" ? shape.props.workspaceId : null}
+              getTerminalCursorClientPoint={() => terminalApiRef.current?.getCursorClientPoint() ?? null}
+              isTerminalReady={isTerminalReady}
+              localPath={shape.props.localPath || null}
+              onStartSideChat={startSideChat}
+              onSendEnter={() => {
+                terminalApiRef.current?.sendEnter();
+              }}
+              onSendText={(text) => {
+                activateTerminal();
+                terminalApiRef.current?.focus();
+                terminalApiRef.current?.sendText(text);
+              }}
+              sideChatAgent={agentForSubmit ?? null}
+              sideChatAgentOptions={sideChatAgentOptions}
+              sideChatDots={sideChatDots}
+              submitMode={agentSubmitMode}
+            />
+            {sideChatLayer}
           </div>,
           portalRoot,
         )
