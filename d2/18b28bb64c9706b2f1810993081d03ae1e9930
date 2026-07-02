@@ -1,0 +1,196 @@
+apps/docs/content/docs/(app)/features/project-wiki.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-35
+apps/docs/content/docs/(app)/features/lightweight-local-models.zh.mdx
+  s_76a833565e1d19::t_6fe6e3d5ad4b8c 2-3,6,13,15-24,37-41,47
+apps/docs/content/docs/(app)/getting-started.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 49-50
+  s_76a833565e1d19::t_e407899b86d87b 9,13,15-17,19-27,39-48,51-53,57,62,67-69,73,75-78
+apps/docs/content/docs/(app)/features/mobile-app.zh.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-7,10-49
+  s_76a833565e1d19::t_5fea0afeb13559 8-9
+apps/docs/content/docs/(app)/features/lightweight-local-models.mdx
+  s_76a833565e1d19::t_6fe6e3d5ad4b8c 2-3,6,13,15-24,37-41,47
+apps/docs/content/docs/(app)/features/agent-status-notifications.zh.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 19-20,22-24,30,37
+apps/docs/content/docs/(app)/features/global-search-command-palette.zh.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 18,21
+apps/docs/content/docs/(app)/reference/keyboard-shortcuts.zh.mdx
+  s_76a833565e1d19::t_2a7a635a2a2082 3,6,8,10-18,20,22-30,32,34-57
+apps/docs/content/docs/(app)/introduction.zh.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 13
+  s_76a833565e1d19::t_e407899b86d87b 9,11,17-24,30,33,36
+  s_76a833565e1d19::t_33c936762ee4e1 12
+apps/docs/content/docs/(app)/features/cross-platform-tunnel-connector.zh.mdx
+  s_76a833565e1d19::t_6fe6e3d5ad4b8c 8-9,37,42-43,49
+apps/docs/content/docs/(app)/workflows/code-review-in-atmos.mdx
+  s_76a833565e1d19::t_52d9fa7dabd9b2 67-69,71
+apps/docs/content/docs/(app)/features/automations.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-48
+apps/docs/content/docs/(app)/workflows/code-review-in-atmos.zh.mdx
+  s_76a833565e1d19::t_52d9fa7dabd9b2 67-69,71
+apps/docs/content/docs/cli/index.mdx
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+  s_76a833565e1d19::t_50c183115782c9 6,8,14,17,20,22-47
+apps/docs/src/components/docs-layout-shell.tsx
+  s_76a833565e1d19::t_36626d6444c01e 7,18-28,33-34
+apps/docs/content/docs/(app)/reference/meta.zh.json
+  s_76a833565e1d19::t_3d276b1fb798cd 1-4
+apps/docs/content/docs/(app)/workflows/general-build-process.zh.mdx
+  s_76a833565e1d19::t_a75276129aaf94 68-71,86
+apps/docs/content/docs/(app)/workflows/meta.json
+  s_76a833565e1d19::t_3d276b1fb798cd 6,9-10
+apps/docs/content/docs/(app)/reference/keyboard-shortcuts.mdx
+  s_76a833565e1d19::t_2a7a635a2a2082 3,6,8,10-18,20,22-30,32,34-57
+apps/docs/content/docs/(app)/features/appshots.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-37
+apps/docs/content/docs/(app)/features/meta.json
+  s_76a833565e1d19::t_3d276b1fb798cd 9-13,17-19,23
+apps/docs/content/docs/(app)/features/mobile-app.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 8-9
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-7,10-49
+apps/docs/content/docs/(app)/features/atmos-computer.mdx
+  s_76a833565e1d19::t_6fe6e3d5ad4b8c 6,18,24-27,31-32,41-53,59,66
+  s_76a833565e1d19::t_5fea0afeb13559 8
+  s_76a833565e1d19::t_102f62fd23d8b4 7
+apps/docs/content/docs/(app)/features/skill-management.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 21-23,36
+apps/docs/content/docs/(app)/features/usage-analytics-dashboard.zh.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 21,33
+apps/docs/content/docs/(app)/features/review-workflow.zh.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 8-9,35
+apps/docs/content/docs/cli/canvas.mdx
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+  s_76a833565e1d19::t_50c183115782c9 6,10,17,19-31,36
+apps/docs/content/docs/cli/update.mdx
+  s_76a833565e1d19::t_50c183115782c9 10,17,19-23
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+apps/docs/content/docs/(app)/introduction.mdx
+  s_76a833565e1d19::t_e407899b86d87b 9,11,17-24,30,33,36
+  s_76a833565e1d19::t_5fea0afeb13559 13
+  s_76a833565e1d19::t_f9c654172930b1 12
+apps/docs/content/docs/(app)/features/persistent-tmux.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 19-20,23-24,37
+  s_76a833565e1d19::t_5fea0afeb13559 21-22
+apps/docs/content/docs/(app)/features/global-search-command-palette.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 18,21
+apps/docs/content/docs/(app)/features/persistent-tmux.zh.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 19-20,23-24,37
+  s_76a833565e1d19::t_5fea0afeb13559 21-22
+apps/docs/content/docs/(app)/features/integrated-git-workflow.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 17-18
+  s_76a833565e1d19::t_b13edc0ee0d9af 22-24,32,39
+apps/docs/content/docs/cli/computer.mdx
+  s_76a833565e1d19::t_50c183115782c9 6,8,12-13,17-27,29-33,35,41-44
+  s_76a833565e1d19::t_5fea0afeb13559 37
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+  s_76a833565e1d19::t_71c5a781296d18 36
+apps/docs/content/docs/(app)/features/project-wiki.zh.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-35
+apps/docs/content/docs/(app)/features/built-in-editor.zh.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 21,34
+apps/docs/content/docs/(app)/workflows/remote-build.zh.mdx
+  s_76a833565e1d19::t_69e82fa1cdfff4 16-17,21,31-32,46,53-60,78-85,93,101
+  s_76a833565e1d19::t_5fea0afeb13559 33-34
+apps/docs/content/docs/(app)/features/appshots.zh.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-37
+apps/docs/content/docs/(app)/workflows/automate-recurring-work.mdx
+  s_76a833565e1d19::t_1ab4e3f2500e37 1-54
+apps/docs/content/docs/(app)/features/review-workflow.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 8-9,35
+apps/docs/content/docs/(app)/workflows/project-and-workspace-manager.mdx
+  s_76a833565e1d19::t_af878176e6efc5 41-42,98-99,122-127,133
+  s_76a833565e1d19::t_5fea0afeb13559 43-44
+apps/docs/content/docs/cli/runtime.mdx
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+  s_76a833565e1d19::t_50c183115782c9 6,8,13-17,19,21,23-39,44-45
+apps/docs/content/docs/(app)/reference/troubleshooting.mdx
+  s_76a833565e1d19::t_2a7a635a2a2082 3,6,8,10-14,16-24,29-30,34-43,46-58,63-64
+  s_76a833565e1d19::t_5fea0afeb13559 44-45
+apps/docs/content/docs/cli/review.zh.mdx
+  s_76a833565e1d19::t_8708ef09b7915c 10,12-33,46
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+apps/docs/content/docs/cli/update.zh.mdx
+  s_76a833565e1d19::t_8708ef09b7915c 17,19-23
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+apps/docs/content/docs/cli/computer.zh.mdx
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+  s_76a833565e1d19::t_5fea0afeb13559 37
+  s_76a833565e1d19::t_8708ef09b7915c 6,12-13,17-28,31-33,35,41-44
+  s_76a833565e1d19::t_bba78886274a15 36
+apps/docs/content/docs/(app)/workflows/mobile-remote-work.zh.mdx
+  s_76a833565e1d19::t_1ab4e3f2500e37 1-7,10-62
+  s_76a833565e1d19::t_5fea0afeb13559 8-9
+apps/docs/content/docs/(app)/features/agent-status-notifications.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 19-20,22-24,30,37
+apps/docs/content/docs/(app)/features/cross-platform-tunnel-connector.mdx
+  s_76a833565e1d19::t_6fe6e3d5ad4b8c 8-9,37,42-43,49
+apps/docs/content/docs/(app)/workflows/remote-build.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 33-34
+  s_76a833565e1d19::t_69e82fa1cdfff4 16-17,21,31-32,46,53-60,78-85,93,101
+apps/docs/content/docs/(app)/features/agent-chat-panel.zh.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 23-30,35,43
+apps/docs/content/docs/(app)/features/atmos-computer.zh.mdx
+  s_76a833565e1d19::t_6fe6e3d5ad4b8c 6,18,24-27,31-32,41-53,59,66
+  s_76a833565e1d19::t_5fea0afeb13559 8
+  s_76a833565e1d19::t_a377428ce6ea5b 7
+apps/docs/content/docs/(app)/features/agent-chat-panel.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 23-30,35,43
+apps/docs/content/docs/(app)/features/meta.zh.json
+  s_76a833565e1d19::t_3d276b1fb798cd 9-13,17-19,23
+apps/docs/content/docs/(app)/features/integrated-git-workflow.zh.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 17-18
+  s_76a833565e1d19::t_b13edc0ee0d9af 22-24,32,39
+apps/docs/content/docs/(app)/features/usage-analytics-dashboard.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 21,33
+apps/docs/content/docs/(app)/workflows/mobile-remote-work.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 8-9
+  s_76a833565e1d19::t_1ab4e3f2500e37 1-7,10-62
+apps/docs/content/docs/cli/review.mdx
+  s_76a833565e1d19::t_50c183115782c9 10,12-24,26-35,46
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+apps/docs/content/docs/cli/canvas.zh.mdx
+  s_76a833565e1d19::t_8708ef09b7915c 6,17,19-31,36
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+apps/docs/content/docs/(app)/reference/troubleshooting.zh.mdx
+  s_76a833565e1d19::t_5fea0afeb13559 44-45
+  s_76a833565e1d19::t_2a7a635a2a2082 3,6,8,10-14,16,18-30,34-43,46-58,62-64
+apps/docs/content/docs/(app)/workflows/automate-recurring-work.zh.mdx
+  s_76a833565e1d19::t_1ab4e3f2500e37 1-54
+apps/docs/content/docs/(app)/features/automations.zh.mdx
+  s_76a833565e1d19::t_d1b0ad7d475f31 1-48
+apps/docs/content/docs/(app)/features/skill-management.zh.mdx
+  s_76a833565e1d19::t_b13edc0ee0d9af 21-23,36
+apps/docs/content/docs/(app)/features/built-in-editor.mdx
+  s_76a833565e1d19::t_cb5fa75341cb5c 21,34
+apps/docs/content/docs/(app)/workflows/meta.zh.json
+  s_76a833565e1d19::t_3d276b1fb798cd 6,9-10
+apps/docs/content/docs/(app)/workflows/project-and-workspace-manager.zh.mdx
+  s_76a833565e1d19::t_af878176e6efc5 41-42,98-99,122-127,133
+  s_76a833565e1d19::t_5fea0afeb13559 43-44
+apps/docs/content/docs/cli/runtime.zh.mdx
+  s_76a833565e1d19::t_8708ef09b7915c 6,13-17,19,21,23-39,44-45
+  s_76a833565e1d19::t_9a248a6be35f7e 2
+apps/docs/content/docs/cli/index.zh.mdx
+  s_76a833565e1d19::t_8708ef09b7915c 6,8,14,17,20-31,33-47
+apps/docs/content/docs/(app)/getting-started.zh.mdx
+  s_76a833565e1d19::t_e407899b86d87b 9,13,15-17,19-27,31,35,39-48,51-53,57-63,67-69,71,73,75-78
+  s_76a833565e1d19::t_5fea0afeb13559 49-50
+apps/docs/content/docs/(app)/workflows/general-build-process.mdx
+  s_76a833565e1d19::t_a75276129aaf94 68-71,86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "d218b28bb64c9706b2f1810993081d03ae1e9930",
+  "prompts": {},
+  "sessions": {
+    "s_76a833565e1d19": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f21f5-6601-73f3-a39e-9dbead8fce6b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
