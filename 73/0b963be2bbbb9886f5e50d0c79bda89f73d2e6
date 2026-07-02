@@ -1,0 +1,25 @@
+apps/web/src/features/skills/lib/constants.ts
+  s_e2d64a7a050680::t_0515baa1927274 23,34,67,73-74
+  s_e2d64a7a050680::t_79731e26e028fb 91-99
+apps/web/src/features/skills/components/SkillCard.tsx
+  s_e2d64a7a050680::t_f4c45a0489da8e 17-18,41-43,57-61
+apps/web/src/features/skills/components/InstalledSkillListCard.tsx
+  s_e2d64a7a050680::t_a0df551682d5e6 9,19-25
+  s_e2d64a7a050680::t_fc9495b4c448af 97-99,122-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "730b963be2bbbb9886f5e50d0c79bda89f73d2e6",
+  "prompts": {},
+  "sessions": {
+    "s_e2d64a7a050680": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f217d-c031-7830-b60e-e5ae01453fb0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
