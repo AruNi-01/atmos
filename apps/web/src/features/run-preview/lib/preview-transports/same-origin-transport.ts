@@ -10,6 +10,7 @@ export function connectSameOriginPreviewTransport(
     sessionId,
     onReady: handlers.onReady,
     onSelected: handlers.onSelected,
+    onHover: handlers.onHover,
     onCleared: handlers.onCleared,
     onError: handlers.onError,
     onNavigationChanged: handlers.onNavigationChanged,

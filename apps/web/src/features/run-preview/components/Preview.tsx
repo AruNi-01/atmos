@@ -11,7 +11,11 @@ import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
-import type { PreviewHelperCapability, PreviewHelperPayload } from "../lib/preview-helper/types";
+import type {
+  PreviewHelperCapability,
+  PreviewHelperPayload,
+  PreviewHoverPayload,
+} from "../lib/preview-helper/types";
 import type {
   PreviewTransportMode,
   PreviewBridgeController,
@@ -156,6 +160,11 @@ export const Preview: React.FC<PreviewProps> = ({
   const [isElementPickerTooltipOpen, setIsElementPickerTooltipOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoadingState] = useState(false);
   const [previewLoadError, setPreviewLoadError] = useState<PreviewLoadError | null>(null);
+  const [hoverCursorLabel, setHoverCursorLabel] = useState<{
+    label: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
   const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
   const [suppressNativePreviewOcclusion, setSuppressNativePreviewOcclusion] = useState(false);
@@ -188,6 +197,12 @@ export const Preview: React.FC<PreviewProps> = ({
   const desktopPreviewVisibleRef = useRef(false);
   const isPreviewLoadingRef = useRef(false);
   const forceDesktopNavigationRef = useRef(false);
+
+  useEffect(() => {
+    if (!isElementPickerEnabled) {
+      setHoverCursorLabel(null);
+    }
+  }, [isElementPickerEnabled]);
   const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
   const canvasViewportSyncInFlightRef = useRef(false);
@@ -528,8 +543,30 @@ export const Preview: React.FC<PreviewProps> = ({
       extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl, pageUrl);
     },
     onSelected: (payload: PreviewHelperPayload) => {
+      setHoverCursorLabel(null);
       handleSelectedPayload(mode, payload);
       extraHandlers?.onSelected?.(payload);
+    },
+    onHover: (payload: PreviewHoverPayload | null) => {
+      if (!payload || mode === 'desktop-native') {
+        setHoverCursorLabel(null);
+        extraHandlers?.onHover?.(payload);
+        return;
+      }
+
+      const bounds = iframeRef.current?.getBoundingClientRect();
+      if (!bounds) {
+        setHoverCursorLabel(null);
+        extraHandlers?.onHover?.(payload);
+        return;
+      }
+
+      setHoverCursorLabel({
+        label: payload.label,
+        x: bounds.left + payload.cursor.x,
+        y: bounds.top + payload.cursor.y,
+      });
+      extraHandlers?.onHover?.(payload);
     },
     onToolbarAction: (
       action: 'copy' | 'add' | 'update' | 'delete',
@@ -548,10 +585,12 @@ export const Preview: React.FC<PreviewProps> = ({
       extraHandlers?.onToolbarAction?.(action, note, annotationId);
     },
     onCleared: () => {
+      setHoverCursorLabel(null);
       dismissSelectionPopover(false);
       extraHandlers?.onCleared?.();
     },
     onError: (message: string) => {
+      setHoverCursorLabel(null);
       if (mode === 'extension') {
         extensionConnectingRef.current = false;
       }
@@ -578,6 +617,7 @@ export const Preview: React.FC<PreviewProps> = ({
       extraHandlers?.onError?.(message);
     },
     onNavigationChanged: (nextUrl: string, pageTitle?: string, faviconUrl?: string) => {
+      setHoverCursorLabel(null);
       if (mode === 'desktop-native') {
         const canonicalUrl = canonicalizeUrl(nextUrl);
         desktopPreviewUrlRef.current = canonicalUrl;
@@ -1300,6 +1340,7 @@ export const Preview: React.FC<PreviewProps> = ({
     iframeKey,
     iframeRef,
     iframeSrc,
+    hoverCursorLabel,
     isDesktopNativePreviewOccluded,
     isPreviewLoading,
     onCloseFavoritesList: () => setFavoritesListOpen(false),

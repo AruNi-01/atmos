@@ -78,6 +78,8 @@ export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
 export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
+export { NativeFollowCursor } from "./components/native/native-follow-cursor";
+export type { NativeFollowCursorProps } from "./components/native/native-follow-cursor";
 export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
 export { SlidingNumber } from "./components/ui/sliding-number";

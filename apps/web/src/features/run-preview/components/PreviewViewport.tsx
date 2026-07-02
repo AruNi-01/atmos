@@ -5,7 +5,7 @@ import type React from "react";
 import { useTranslations } from "next-intl";
 import { MessageCirclePlus, Pencil, Trash2 } from "lucide-react";
 
-import { cn } from "@workspace/ui";
+import { cn, NativeFollowCursor } from "@workspace/ui";
 import { SelectionPopover } from "@/features/selection/components/SelectionPopover";
 import type { SelectionInfo } from "@/shared/lib/format-selection-for-ai";
 import type { PreviewTransportMode } from "../lib/preview-bridge/types";
@@ -28,6 +28,11 @@ type PreviewViewportProps = {
   iframeKey: number;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   iframeSrc: string;
+  hoverCursorLabel: {
+    label: string;
+    x: number;
+    y: number;
+  } | null;
   isDesktopNativePreviewOccluded: boolean;
   isPreviewLoading: boolean;
   onCloseFavoritesList: () => void;
@@ -66,6 +71,7 @@ export function PreviewViewport({
   iframeKey,
   iframeRef,
   iframeSrc,
+  hoverCursorLabel,
   isDesktopNativePreviewOccluded,
   isPreviewLoading,
   onCloseFavoritesList,
@@ -118,6 +124,7 @@ export function PreviewViewport({
         height: Math.max(2, rect.height),
       }];
     });
+  const hasIframeSrc = iframeSrc.trim().length > 0;
 
   return (
     <div
@@ -154,6 +161,13 @@ export function PreviewViewport({
           onClick={onCloseFavoritesList}
         />
       ) : null}
+      {resolvedTransportMode !== "desktop-native" ? (
+        <NativeFollowCursor
+          active={Boolean(hoverCursorLabel)}
+          label={hoverCursorLabel?.label ?? ""}
+          point={hoverCursorLabel ? { x: hoverCursorLabel.x, y: hoverCursorLabel.y } : null}
+        />
+      ) : null}
       {activeUrl ? (
         previewLoadError && !isPreviewLoading ? (
           renderPreviewErrorCard(previewLoadError, handleRefresh)
@@ -188,7 +202,7 @@ export function PreviewViewport({
               </div>
             ) : null}
           </div>
-        ) : (
+        ) : hasIframeSrc ? (
           <div
             className={cn(
               "relative h-full",
@@ -198,7 +212,7 @@ export function PreviewViewport({
             <iframe
               key={iframeKey}
               ref={iframeRef}
-              src={iframeSrc}
+              src={iframeSrc || undefined}
               onLoad={handleIframeLoad}
               style={{ colorScheme: "dark" }}
               className={cn(
@@ -257,6 +271,15 @@ export function PreviewViewport({
               </div>
             ))}
           </div>
+        ) : isPreviewLoading ? (
+          renderPreviewLoadingOverlay(viewMode)
+        ) : (
+          <PreviewHome
+            projectId={projectId}
+            workspaceId={workspaceId}
+            shouldStackPreviewHomeCards={shouldStackPreviewHomeCards}
+            onOpenUrl={onOpenLocalServiceUrl}
+          />
         )
       ) : (
         <PreviewHome

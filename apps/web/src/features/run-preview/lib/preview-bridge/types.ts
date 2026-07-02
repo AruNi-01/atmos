@@ -1,6 +1,7 @@
 import type {
   PreviewHelperCapability,
   PreviewHelperMessage,
+  PreviewHoverPayload,
   PreviewHelperPayload,
 } from '../preview-helper/types';
 
@@ -56,6 +57,7 @@ export interface PreviewBridgeEventHandlers {
     pageUrl?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
+  onHover?: (payload: PreviewHoverPayload | null) => void;
   onToolbarAction?: (
     action: 'copy' | 'add' | 'update' | 'delete',
     note?: string,

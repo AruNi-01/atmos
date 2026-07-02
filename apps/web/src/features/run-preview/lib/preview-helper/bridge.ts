@@ -1,4 +1,9 @@
-import type { PreviewHelperCapability, PreviewHelperMessage, PreviewHelperPayload } from './types';
+import type {
+  PreviewHelperCapability,
+  PreviewHelperMessage,
+  PreviewHelperPayload,
+  PreviewHoverPayload,
+} from './types';
 
 export interface PreviewBridgeOptions {
   sessionId: string;
@@ -23,12 +28,14 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
         faviconUrl,
       });
     },
-    hover(rect: PreviewHelperPayload['rect']) {
+    hover(payload: PreviewHoverPayload | null) {
       post({
         type: 'atmos-preview:hover',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
-        rect,
+        label: payload?.label,
+        rect: payload?.rect,
+        cursor: payload?.cursor,
       });
     },
     selected(payload: PreviewHelperPayload) {

@@ -23,6 +23,15 @@ export interface PreviewHelperPayload {
   sourceLocation: SourceLocationResult | null;
 }
 
+export interface PreviewHoverPayload {
+  rect: PreviewElementRect;
+  label: string;
+  cursor: {
+    x: number;
+    y: number;
+  };
+}
+
 export type PreviewHelperCapability =
   | 'dom-inspection'
   | 'element-selection'
@@ -45,7 +54,12 @@ export type PreviewHelperMessage =
       type: 'atmos-preview:hover';
       sessionId: string;
       pageUrl: string;
-      rect: PreviewElementRect;
+      label?: string;
+      rect?: PreviewElementRect;
+      cursor?: {
+        x: number;
+        y: number;
+      };
     }
   | ({
       type: 'atmos-preview:selected';

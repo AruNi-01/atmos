@@ -138,6 +138,17 @@ export function connectExtensionPreviewTransport(
       case 'atmos-preview:selected':
         options.onSelected?.(event.data);
         break;
+      case 'atmos-preview:hover':
+        options.onHover?.(
+          event.data.label && event.data.rect && event.data.cursor
+            ? {
+                label: event.data.label,
+                rect: event.data.rect,
+                cursor: event.data.cursor,
+              }
+            : null,
+        );
+        break;
       case 'atmos-preview:cleared':
         options.onCleared?.();
         break;

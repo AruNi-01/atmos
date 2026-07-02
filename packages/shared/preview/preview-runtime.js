@@ -182,28 +182,296 @@
       const label = doc.createElement('div');
       label.dataset.atmosPreviewOverlay = 'true';
       label.style.position = 'fixed';
-      label.style.padding = '4px 8px';
-      label.style.borderRadius = '8px';
+      label.style.left = '0';
+      label.style.top = '0';
+      label.style.padding = '6px 12px';
+      label.style.borderRadius = '999px';
+      label.style.border = '1px solid rgba(255, 255, 255, 0.1)';
       label.style.fontSize = '12px';
-      label.style.lineHeight = '16px';
+      label.style.fontWeight = '500';
+      label.style.lineHeight = '1';
       label.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-      label.style.background = 'rgba(15, 23, 42, 0.92)';
-      label.style.color = '#f8fafc';
+      label.style.background = 'rgba(9, 9, 11, 0.88)';
+      label.style.color = '#fafafa';
       label.style.pointerEvents = 'none';
       label.style.display = 'none';
       label.style.maxWidth = '320px';
       label.style.whiteSpace = 'nowrap';
       label.style.overflow = 'hidden';
-      label.style.textOverflow = 'ellipsis';
+      label.style.boxShadow = '0 14px 34px rgba(0, 0, 0, 0.28)';
+      label.style.backdropFilter = 'blur(18px)';
+      label.style.webkitBackdropFilter = 'blur(18px)';
+      label.style.transform = 'translate3d(-9999px, -9999px, 0)';
+      label.style.willChange = 'transform';
       label.style.zIndex = Z_TOP_OVERLAY;
+
+      const text = doc.createElement('span');
+      text.style.position = 'relative';
+      text.style.display = 'inline-flex';
+      text.style.maxWidth = '100%';
+      text.style.overflow = 'hidden';
+      text.style.verticalAlign = 'top';
+      label.appendChild(text);
       doc.documentElement.appendChild(label);
-      return label;
+
+      var visible = false;
+      var cursorKnown = false;
+      var cursorX = 0;
+      var cursorY = 0;
+      var fallbackX = 8;
+      var fallbackY = 8;
+      var x = 0;
+      var y = 0;
+      var velocityX = 0;
+      var velocityY = 0;
+      var animationFrame = 0;
+      var currentText = '';
+      var prefersReducedMotion = false;
+      try {
+        prefersReducedMotion = !!(win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      } catch (_) {}
+
+      var textTransition = 'opacity 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1)';
+
+      function truncateLabel(value) {
+        var normalized = (value || '').replace(/\s+/g, ' ').trim();
+        if (normalized.length <= 96) return normalized;
+        return normalized.slice(0, 95).trimEnd() + '…';
+      }
+
+      function textCharacters(value) {
+        var counts = {};
+        return value.split('').map(function (character) {
+          var lower = character.toLowerCase();
+          counts[lower] = (counts[lower] || 0) + 1;
+          return {
+            id: lower + counts[lower],
+            label: character === ' ' ? '\u00A0' : character,
+          };
+        });
+      }
+
+      function styleCharacter(span) {
+        span.style.display = 'inline-block';
+        span.style.whiteSpace = 'pre';
+        span.style.willChange = 'transform, opacity';
+        span.style.transition = textTransition;
+      }
+
+      function morphText(nextText) {
+        var previousSpans = {};
+        var previousRects = {};
+        Array.prototype.forEach.call(text.children, function (child) {
+          var id = child.dataset && child.dataset.morphId;
+          if (!id) return;
+          previousSpans[id] = child;
+          previousRects[id] = child.getBoundingClientRect();
+        });
+
+        var characters = textCharacters(nextText);
+        var nextIds = {};
+        var nextSpans = {};
+        var fragment = doc.createDocumentFragment();
+
+        characters.forEach(function (character) {
+          nextIds[character.id] = true;
+        });
+
+        Object.keys(previousSpans).forEach(function (id) {
+          if (nextIds[id] || prefersReducedMotion) return;
+          var rect = previousRects[id];
+          if (!rect) return;
+          var ghost = previousSpans[id].cloneNode(true);
+          styleCharacter(ghost);
+          ghost.style.position = 'fixed';
+          ghost.style.left = rect.left + 'px';
+          ghost.style.top = rect.top + 'px';
+          ghost.style.width = rect.width + 'px';
+          ghost.style.height = rect.height + 'px';
+          ghost.style.margin = '0';
+          ghost.style.pointerEvents = 'none';
+          ghost.style.zIndex = Z_TOP_OVERLAY;
+          doc.documentElement.appendChild(ghost);
+          win.requestAnimationFrame(function () {
+            ghost.style.opacity = '0';
+            ghost.style.transform = 'translateY(-6px)';
+          });
+          win.setTimeout(function () {
+            ghost.remove();
+          }, 190);
+        });
+
+        characters.forEach(function (character) {
+          var span = previousSpans[character.id] || doc.createElement('span');
+          span.dataset.morphId = character.id;
+          span.textContent = character.label;
+          styleCharacter(span);
+          if (!previousSpans[character.id] && !prefersReducedMotion) {
+            span.style.opacity = '0';
+            span.style.transform = 'translateY(6px)';
+          } else {
+            span.style.opacity = '1';
+            span.style.transform = 'translate(0, 0)';
+          }
+          nextSpans[character.id] = span;
+          fragment.appendChild(span);
+        });
+
+        text.replaceChildren(fragment);
+        if (prefersReducedMotion) return;
+
+        win.requestAnimationFrame(function () {
+          characters.forEach(function (character) {
+            var span = nextSpans[character.id];
+            var previousRect = previousRects[character.id];
+            if (!span) return;
+            if (!previousRect) {
+              span.style.opacity = '1';
+              span.style.transform = 'translateY(0)';
+              return;
+            }
+            var nextRect = span.getBoundingClientRect();
+            var deltaX = previousRect.left - nextRect.left;
+            var deltaY = previousRect.top - nextRect.top;
+            if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+            span.style.transition = 'none';
+            span.style.transform = 'translate(' + deltaX + 'px, ' + deltaY + 'px)';
+            span.getBoundingClientRect();
+            span.style.transition = textTransition;
+            span.style.transform = 'translate(0, 0)';
+          });
+        });
+      }
+
+      function setText(value) {
+        var nextText = truncateLabel(value || '');
+        if (nextText === currentText) return;
+        currentText = nextText;
+        morphText(nextText);
+      }
+
+      function targetPosition() {
+        var width = label.offsetWidth;
+        var height = label.offsetHeight;
+        var originX = cursorKnown ? cursorX : fallbackX;
+        var originY = cursorKnown ? cursorY : fallbackY;
+        var targetX = originX + 16;
+        var targetY = originY + 18;
+
+        if (targetX + width > win.innerWidth - 8) {
+          targetX = originX - width - 12;
+        }
+        if (targetY + height > win.innerHeight - 8) {
+          targetY = originY - height - 12;
+        }
+
+        return {
+          x: clamp(targetX, 8, Math.max(8, win.innerWidth - width - 8)),
+          y: clamp(targetY, 8, Math.max(8, win.innerHeight - height - 8)),
+        };
+      }
+
+      function applyTransform() {
+        label.style.transform = 'translate3d(' + Math.round(x) + 'px, ' + Math.round(y) + 'px, 0)';
+      }
+
+      function animate() {
+        if (!visible) {
+          animationFrame = 0;
+          return;
+        }
+
+        var target = targetPosition();
+        if (prefersReducedMotion) {
+          x = target.x;
+          y = target.y;
+          applyTransform();
+          animationFrame = 0;
+          return;
+        }
+
+        var nextX = x + (target.x - x) * 0.28;
+        var nextY = y + (target.y - y) * 0.28;
+        velocityX = nextX - x;
+        velocityY = nextY - y;
+        x = nextX;
+        y = nextY;
+        applyTransform();
+
+        if (
+          Math.abs(target.x - x) < 0.2 &&
+          Math.abs(target.y - y) < 0.2 &&
+          Math.abs(velocityX) < 0.2 &&
+          Math.abs(velocityY) < 0.2
+        ) {
+          x = target.x;
+          y = target.y;
+          velocityX = 0;
+          velocityY = 0;
+          applyTransform();
+          animationFrame = 0;
+          return;
+        }
+
+        animationFrame = win.requestAnimationFrame(animate);
+      }
+
+      function startAnimation() {
+        if (animationFrame) return;
+        animationFrame = win.requestAnimationFrame(animate);
+      }
+
+      return {
+        node: label,
+        updateCursor(xValue, yValue) {
+          if (!Number.isFinite(xValue) || !Number.isFinite(yValue)) return;
+          cursorKnown = true;
+          cursorX = xValue;
+          cursorY = yValue;
+          if (visible) startAnimation();
+        },
+        show(value, rect) {
+          if (!value) {
+            this.hide();
+            return;
+          }
+          fallbackX = rect.x;
+          fallbackY = Math.max(8, rect.y - 32);
+          setText(value);
+          label.style.display = 'block';
+          if (!visible) {
+            visible = true;
+            var target = targetPosition();
+            x = target.x;
+            y = target.y;
+            velocityX = 0;
+            velocityY = 0;
+            applyTransform();
+          }
+          startAnimation();
+        },
+        hide() {
+          visible = false;
+          label.style.display = 'none';
+          velocityX = 0;
+          velocityY = 0;
+          if (animationFrame) {
+            win.cancelAnimationFrame(animationFrame);
+            animationFrame = 0;
+          }
+        },
+        remove() {
+          this.hide();
+          label.remove();
+        },
+      };
     }
 
     const hoverBox = createBox(PICKER_HOVER_COLOR);
     const lockedBox = createBox(PICKER_LOCKED_COLOR);
     const hoverLabel = createLabel();
     const lockedLabel = createLabel();
+    const showHoverLabel = !!(options && options.showSelectionToolbar);
 
     function stopPropagation(event) {
       event.stopPropagation();
@@ -917,10 +1185,9 @@
       right.style.width = thickness + 'px';
       right.style.height = height + 'px';
 
-      label.style.display = text ? 'block' : 'none';
-      label.textContent = text || '';
-      label.style.left = rect.x + 'px';
-      label.style.top = Math.max(8, rect.y - 32) + 'px';
+      if (label) {
+        label.show(text || '', rect);
+      }
     }
 
     function clearBox(box) {
@@ -944,11 +1211,15 @@
           '[data-atmos-preview-overlay="true"] input, [data-atmos-preview-overlay="true"] textarea, [data-atmos-preview-overlay="true"] [contenteditable="true"] { cursor: text !important; }';
       },
       updateHover(rect, label) {
-        place(hoverBox, hoverLabel, rect, label);
+        place(hoverBox, showHoverLabel ? hoverLabel : null, rect, label);
+      },
+      updateCursor(x, y) {
+        hoverLabel.updateCursor(x, y);
+        lockedLabel.updateCursor(x, y);
       },
       clearHover() {
         clearBox(hoverBox);
-        hoverLabel.style.display = 'none';
+        hoverLabel.hide();
       },
       lock(rect, label, meta) {
         if (meta) {
@@ -968,7 +1239,7 @@
       },
       clearLocked() {
         clearBox(lockedBox);
-        lockedLabel.style.display = 'none';
+        lockedLabel.hide();
         detailsCard.style.display = 'none';
         noteInput.value = '';
         currentMeta = null;
@@ -1504,6 +1775,7 @@
       locked: null,
       sessionId: null,
     };
+    var shouldEmitHover = !config.showSelectionToolbar;
 
     function emit(message) {
       if (!state.sessionId) return;
@@ -1511,6 +1783,11 @@
         sessionId: state.sessionId,
         pageUrl: win.location.href,
       }, message));
+    }
+
+    function emitHover(payload) {
+      if (!shouldEmitHover) return;
+      emit(Object.assign({ type: 'atmos-preview:hover' }, payload || {}));
     }
 
     function setPickerCursor(cursor) {
@@ -1606,6 +1883,7 @@
       state.locked = null;
       overlay.clearLocked();
       overlay.clearHover();
+      emitHover(null);
       setPickerCursor(state.enabled ? hoverCursor : 'default');
       if (notifyHost) {
         emit({ type: 'atmos-preview:cleared' });
@@ -1646,19 +1924,23 @@
       state.hovered = null;
       overlay.clearLocked();
       overlay.clearHover();
+      emitHover(null);
       setPickerCursor(state.enabled ? hoverCursor : 'default');
     }
 
     function handleMouseMove(event) {
       if (!state.enabled) return;
+      overlay.updateCursor(event.clientX, event.clientY);
       if (state.locked) {
         overlay.clearHover();
+        emitHover(null);
         setPickerCursor(lockedCursor);
         return;
       }
       var target = event.target;
       if (!(target instanceof Element) || isIgnoredElement(target)) {
         overlay.clearHover();
+        emitHover(null);
         setPickerCursor(hoverCursor);
         state.hovered = null;
         return;
@@ -1666,7 +1948,16 @@
       state.hovered = target;
       setPickerCursor(hoverCursor);
       var rect = getPreviewElementRect(target);
-      overlay.updateHover(rect, buildElementSelector(target));
+      var label = buildElementSelector(target);
+      overlay.updateHover(rect, label);
+      emitHover({
+        label: label,
+        rect: rect,
+        cursor: {
+          x: event.clientX,
+          y: event.clientY,
+        },
+      });
     }
 
     function isOverlayEventTarget(target) {
@@ -1684,12 +1975,14 @@
       if (!state.enabled) return;
       var target = event.target;
       if (isOverlayEventTarget(target)) return;
+      overlay.updateCursor(event.clientX, event.clientY);
       event.preventDefault();
       event.stopPropagation();
       if (state.locked) return;
       if (!(target instanceof Element) || isIgnoredElement(target)) return;
       state.locked = target;
       overlay.clearHover();
+      emitHover(null);
       selectElement(target);
     }
 
@@ -1857,6 +2150,7 @@
         state.hovered = null;
         overlay.clearLocked();
         overlay.clearHover();
+        emitHover(null);
         setPickerCursor('default');
       },
       destroy: function () {

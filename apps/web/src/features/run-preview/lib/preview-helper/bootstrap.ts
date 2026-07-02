@@ -10,7 +10,7 @@ import {
   createPreviewPickerCursor,
 } from './overlay';
 import { createPreviewSelectionState } from './selection-state';
-import type { PreviewHelperCapability, PreviewHelperPayload } from './types';
+import type { PreviewHelperCapability, PreviewHelperPayload, PreviewHoverPayload } from './types';
 
 interface InstallPreviewHelperOptions {
   sessionId: string;
@@ -22,6 +22,7 @@ interface InstallPreviewHelperOptions {
     pageUrl?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
+  onHover?: (payload: PreviewHoverPayload | null) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
@@ -139,6 +140,8 @@ export function installPreviewHelper(
     state.locked = null;
     overlay.clearLocked();
     overlay.clearHover();
+    options.onHover?.(null);
+    bridge.hover(null);
     overlay.setCursor(state.enabled ? hoverCursor : 'default');
     if (notifyHost) {
       options.onCleared?.();
@@ -156,7 +159,7 @@ export function installPreviewHelper(
     const rect = getPreviewElementRect(element);
     const elementContext = inspectPreviewElement(element);
     const sourceLocation = locateSourceForElement(element, win);
-    overlay.lock(rect, sourceLocation?.componentName || buildElementSelector(element));
+    overlay.lock(rect);
     overlay.setCursor(lockedCursor);
     const payload = {
       pageUrl: win.location.href,
@@ -170,9 +173,12 @@ export function installPreviewHelper(
 
   const handleMouseMove = (event: MouseEvent) => {
     if (!state.enabled) return;
+    overlay.updateCursor(event.clientX, event.clientY);
     if (state.locked) {
       overlay.clearHover();
       overlay.setCursor(lockedCursor);
+      options.onHover?.(null);
+      bridge.hover(null);
       return;
     }
     const target = event.target;
@@ -180,13 +186,25 @@ export function installPreviewHelper(
       overlay.clearHover();
       overlay.setCursor(hoverCursor);
       state.hovered = null;
+      options.onHover?.(null);
+      bridge.hover(null);
       return;
     }
     state.hovered = target;
     overlay.setCursor(hoverCursor);
     const rect = getPreviewElementRect(target);
-    overlay.updateHover(rect, buildElementSelector(target));
-    bridge.hover(rect);
+    const label = buildElementSelector(target);
+    const hoverPayload = {
+      label,
+      rect,
+      cursor: {
+        x: event.clientX,
+        y: event.clientY,
+      },
+    };
+    overlay.updateHover(rect);
+    options.onHover?.(hoverPayload);
+    bridge.hover(hoverPayload);
   };
 
   const isOverlayTarget = (target: EventTarget | null) => {
@@ -203,6 +221,7 @@ export function installPreviewHelper(
   const handleClick = (event: MouseEvent) => {
     if (!state.enabled) return;
     if (isOverlayTarget(event.target)) return;
+    overlay.updateCursor(event.clientX, event.clientY);
     event.preventDefault();
     event.stopPropagation();
     if (state.locked) {
@@ -212,6 +231,8 @@ export function installPreviewHelper(
     if (!isInspectableElement(target, elementCtor) || isIgnoredElement(target)) return;
     state.locked = target;
     overlay.clearHover();
+    options.onHover?.(null);
+    bridge.hover(null);
     emitSelection(target);
   };
 
