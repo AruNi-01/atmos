@@ -120,5 +120,5 @@
 
 - 结果文件将随修复分支 `codex/quality-fix/2026-07-01` 推送到 `origin`，并包含在 PR https://github.com/AruNi-01/atmos/pull/146 中。
 - 修复代码提交 hash：`cb1c5e194`
-- 结果文件提交 hash：由本报告文件提交生成后，以 `git log` 和最终执行摘要为准。
+- 结果文件首次归档提交 hash：`70c42df5b`
 - 推送目标：`origin/codex/quality-fix/2026-07-01`
