@@ -253,6 +253,7 @@ pub struct CaptureSideContextParams {
     pub workspace_id: String,
     pub project_name: Option<String>,
     pub workspace_name: Option<String>,
+    pub source_session_id: Option<String>,
     pub source_tmux_window_name: String,
     pub max_prompt_bytes: Option<u32>,
 }

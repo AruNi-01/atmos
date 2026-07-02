@@ -194,6 +194,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
     );
 
     let terminal_service = state.terminal_service.clone();
+    let requested_tmux_window_name = tmux_window_name.clone();
 
     let cwd = if let Some(path) = cwd {
         Some(path)
@@ -283,7 +284,9 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                         rows: initial_rows,
                         project_name: project_name.clone(),
                         workspace_name: workspace_name.clone(),
-                        window_name: terminal_name.clone(),
+                        window_name: terminal_name
+                            .clone()
+                            .or_else(|| requested_tmux_window_name.clone()),
                         cwd: cwd.clone(),
                         terminal_kind: terminal_kind.clone(),
                         side_chat_id: side_chat_id.clone(),

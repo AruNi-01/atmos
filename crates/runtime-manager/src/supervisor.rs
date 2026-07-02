@@ -33,7 +33,11 @@ fn interim_api_bin_name() -> &'static str {
 }
 
 fn legacy_api_bin_name() -> &'static str {
-    if cfg!(windows) { "api.exe" } else { "api" }
+    if cfg!(windows) {
+        "api.exe"
+    } else {
+        "api"
+    }
 }
 
 #[derive(Debug, Clone)]

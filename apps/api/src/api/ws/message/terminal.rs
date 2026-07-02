@@ -55,6 +55,8 @@ pub struct TerminalSideContextCaptureRequest {
     pub project_name: Option<String>,
     #[serde(default)]
     pub workspace_name: Option<String>,
+    #[serde(default)]
+    pub source_session_id: Option<String>,
     pub source_tmux_window_name: String,
     #[serde(default)]
     pub max_prompt_bytes: Option<u32>,

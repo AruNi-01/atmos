@@ -169,9 +169,11 @@ impl WsMessageService {
                 workspace_id: req.workspace_id,
                 project_name: req.project_name,
                 workspace_name: req.workspace_name,
+                source_session_id: req.source_session_id,
                 source_tmux_window_name: req.source_tmux_window_name,
                 max_prompt_bytes: req.max_prompt_bytes,
-            })?;
+            })
+            .await?;
 
         Ok(json!(TerminalSideContextCaptureResponse {
             workspace_id: captured.workspace_id,

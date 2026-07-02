@@ -365,6 +365,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         server_config.port = port;
     }
     let cors = server_config.cors_layer();
+    let static_cors = cors.clone();
 
     // Keep a reference for shutdown cleanup (must clone before moving into AppState)
     let terminal_service_shutdown = terminal_service.clone();
@@ -504,6 +505,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .append_index_html_on_directories(true)
                 .fallback(ServeFile::new(fallback_file));
             let serve_static = ServiceBuilder::new()
+                .layer(static_cors)
                 .map_response(add_static_no_store_headers)
                 .service(serve_dir);
             app = app.fallback_service(serve_static);

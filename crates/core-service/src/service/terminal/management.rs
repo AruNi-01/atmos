@@ -23,7 +23,7 @@ const SIDE_CONTEXT_PREFIX_BYTES: usize = 8_192;
 
 impl TerminalService {
     /// Capture bounded plain tmux text for `/side` prompt construction.
-    pub fn capture_side_context(
+    pub async fn capture_side_context(
         &self,
         params: CaptureSideContextParams,
     ) -> Result<CapturedSideContext> {
@@ -45,7 +45,7 @@ impl TerminalService {
             .unwrap_or(DEFAULT_SIDE_PROMPT_BYTES)
             .clamp(MIN_SIDE_PROMPT_BYTES, MAX_SIDE_PROMPT_BYTES);
 
-        let tmux_session = if let (Some(project), Some(workspace)) = (
+        let primary_tmux_session = if let (Some(project), Some(workspace)) = (
             params.project_name.as_deref(),
             params.workspace_name.as_deref(),
         ) {
@@ -55,15 +55,27 @@ impl TerminalService {
             self.tmux_engine.get_session_name(&workspace_id)
         };
 
-        let tmux_window_index = self
-            .tmux_engine
-            .find_window_index_by_name(&tmux_session, &source_tmux_window_name)?
-            .ok_or_else(|| {
-                ServiceError::NotFound(format!(
-                    "Tmux window with name '{}' not found",
-                    source_tmux_window_name
-                ))
-            })?;
+        let capture_target = if let Some(source_session_id) = params
+            .source_session_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            self.resolve_active_session_capture_target(source_session_id, &workspace_id)
+                .await
+        } else {
+            None
+        };
+
+        let (tmux_session, tmux_window_index, tmux_window_name) =
+            if let Some(target) = capture_target {
+                target
+            } else {
+                self.resolve_capture_target_by_window_name(
+                    &primary_tmux_session,
+                    &source_tmux_window_name,
+                )?
+            };
 
         let raw_full = self.tmux_engine.capture_pane_text(
             &tmux_session,
@@ -84,7 +96,7 @@ impl TerminalService {
             project_name: params.project_name,
             workspace_name: params.workspace_name,
             tmux_session,
-            tmux_window_name: source_tmux_window_name,
+            tmux_window_name,
             tmux_window_index,
             captured_lines,
             captured_bytes: captured_bytes as u32,
@@ -94,6 +106,67 @@ impl TerminalService {
             truncated_bytes: selected.truncated_bytes,
             text: selected.text,
         })
+    }
+
+    async fn resolve_active_session_capture_target(
+        &self,
+        session_id: &str,
+        workspace_id: &str,
+    ) -> Option<(String, u32, String)> {
+        let (tmux_session, tmux_window_index, terminal_name) = {
+            let sessions = self.sessions.lock().await;
+            let handle = sessions.get(session_id)?;
+            if handle.workspace_id != workspace_id {
+                return None;
+            }
+            (
+                handle.tmux_session.clone()?,
+                handle.tmux_window_index?,
+                handle.terminal_name.clone().unwrap_or_default(),
+            )
+        };
+        let tmux_window_name =
+            self.tmux_window_name_for_index(&tmux_session, tmux_window_index, &terminal_name);
+        Some((tmux_session, tmux_window_index, tmux_window_name))
+    }
+
+    fn resolve_capture_target_by_window_name(
+        &self,
+        tmux_session: &str,
+        tmux_window_name: &str,
+    ) -> Result<(String, u32, String)> {
+        if let Some(window_index) = self
+            .tmux_engine
+            .find_window_index_by_name(tmux_session, tmux_window_name)?
+        {
+            let window_name =
+                self.tmux_window_name_for_index(tmux_session, window_index, tmux_window_name);
+            return Ok((tmux_session.to_string(), window_index, window_name));
+        }
+
+        Err(ServiceError::NotFound(format!(
+            "Tmux window with name '{}' not found",
+            tmux_window_name
+        )))
+    }
+
+    fn tmux_window_name_for_index(
+        &self,
+        tmux_session: &str,
+        tmux_window_index: u32,
+        fallback: &str,
+    ) -> String {
+        self.tmux_engine
+            .list_windows(tmux_session)
+            .ok()
+            .and_then(|windows| {
+                windows
+                    .into_iter()
+                    .find(|window| window.index == tmux_window_index)
+                    .map(|window| window.name)
+            })
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or_else(|| fallback.to_string())
     }
 
     pub async fn upsert_side_chat_record(
@@ -220,26 +293,9 @@ impl TerminalService {
         let repo = self.side_chat_repo()?;
         let records = repo.list_active_by_workspace(workspace_id).await?;
         let live = self.discover_live_side_chat_windows(workspace_id);
-        let live_side_ids = live
-            .iter()
-            .filter_map(|window| window.metadata.side_chat_id.clone())
-            .collect::<HashSet<_>>();
-
-        for record in &records {
-            if !live_side_ids.contains(&record.side_chat_id) {
-                repo.soft_delete(&record.side_chat_id).await?;
-                continue;
-            }
-
-            let source_exists = self.source_window_exists_for_record(record, &live);
-            if !source_exists {
-                self.kill_record_side_window(record);
-                repo.soft_delete(&record.side_chat_id).await?;
-            }
-        }
-
-        let existing_after_cleanup = repo.list_active_by_workspace(workspace_id).await?;
-        let existing_ids = existing_after_cleanup
+        // Listing is part of page hydration, so it must not delete persisted
+        // records when tmux discovery is temporarily empty during reload.
+        let existing_ids = records
             .iter()
             .map(|record| record.side_chat_id.clone())
             .collect::<HashSet<_>>();
@@ -839,7 +895,6 @@ impl TerminalService {
                 }
 
                 live.push(LiveSideChatWindow {
-                    session_name: session.name.clone(),
                     window_name: window.name,
                     metadata,
                 });
@@ -847,25 +902,6 @@ impl TerminalService {
         }
 
         live
-    }
-
-    fn source_window_exists_for_record(
-        &self,
-        record: &terminal_side_chat::Model,
-        live_windows: &[LiveSideChatWindow],
-    ) -> bool {
-        let Some(live_window) = live_windows
-            .iter()
-            .find(|window| window.metadata.side_chat_id.as_deref() == Some(&record.side_chat_id))
-        else {
-            return false;
-        };
-
-        self.tmux_engine
-            .find_window_index_by_name(&live_window.session_name, &record.source_tmux_window_name)
-            .ok()
-            .flatten()
-            .is_some()
     }
 
     fn kill_record_side_window(&self, record: &terminal_side_chat::Model) {
@@ -919,7 +955,6 @@ impl TerminalService {
 }
 
 struct LiveSideChatWindow {
-    session_name: String,
     window_name: String,
     metadata: TmuxWindowAtmosMetadata,
 }
@@ -967,9 +1002,9 @@ fn validate_bright_color(value: &str) -> Result<()> {
         ));
     }
     let parse = |range: std::ops::Range<usize>| u8::from_str_radix(&hex[range], 16).unwrap_or(0);
-    let r = parse(1..3) as u16;
-    let g = parse(3..5) as u16;
-    let b = parse(5..7) as u16;
+    let r = parse(1..3) as u32;
+    let g = parse(3..5) as u32;
+    let b = parse(5..7) as u32;
     let luminance = (299 * r + 587 * g + 114 * b) / 1000;
     if luminance < 120 {
         return Err(ServiceError::Validation(
@@ -1055,4 +1090,55 @@ fn fallback_side_chat_color(side_chat_id: &str) -> String {
         .bytes()
         .fold(0usize, |acc, byte| acc.wrapping_add(byte as usize));
     COLORS[sum % COLORS.len()].to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use sea_orm::Database;
+    use sea_orm_migration::MigratorTrait;
+
+    use super::*;
+
+    async fn setup_service() -> TerminalService {
+        let db = Database::connect("sqlite::memory:").await.unwrap();
+        infra::Migrator::up(&db, None).await.unwrap();
+        TerminalService::new_with_db(Arc::new(db))
+    }
+
+    #[tokio::test]
+    async fn list_side_chat_records_keeps_persisted_records_when_live_discovery_is_empty() {
+        let service = setup_service().await;
+        let workspace_id = format!("workspace-{}", uuid::Uuid::new_v4());
+
+        service
+            .upsert_side_chat_record(UpsertTerminalSideChatParams {
+                side_chat_id: "side-persisted-1".to_string(),
+                workspace_id: workspace_id.clone(),
+                project_name: Some("Project".to_string()),
+                workspace_name: Some("Workspace".to_string()),
+                source_pane_id: format!("{workspace_id}:main"),
+                source_tmux_window_name: "main".to_string(),
+                source_surface_kind: "terminal_pane".to_string(),
+                source_surface_ref_json: None,
+                side_tmux_window_name: "side-persisted-window".to_string(),
+                agent_ref_json: None,
+                color_hex: "#06b6d4".to_string(),
+                status: TerminalSideChatStatus::Open,
+            })
+            .await
+            .unwrap();
+
+        let records = service.list_side_chat_records(&workspace_id).await.unwrap();
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].side_chat_id, "side-persisted-1");
+        assert_eq!(records[0].status, TerminalSideChatStatus::Open);
+
+        let records_after_hydration = service.list_side_chat_records(&workspace_id).await.unwrap();
+
+        assert_eq!(records_after_hydration.len(), 1);
+        assert_eq!(records_after_hydration[0].side_chat_id, "side-persisted-1");
+    }
 }
