@@ -1,0 +1,90 @@
+apps/desktop/AGENTS.md
+  s_301e593671ee88::t_3b49a8ca794985 24
+  s_301e593671ee88::t_95680bf0109bd7 9,11,16,29,31,33,49
+  s_301e593671ee88::t_92b14a49bcdacc 25
+crates/runtime-manager/src/lib.rs
+  s_301e593671ee88::t_3b49a8ca794985 4
+crates/runtime-manager/src/supervisor.rs
+  s_301e593671ee88::t_28c57f48164079 538,540-542,544-545
+  s_301e593671ee88::t_4cce8d021d949e 19-20,29-38,537,539,543,546-549,551
+  s_301e593671ee88::t_95680bf0109bd7 567
+  s_301e593671ee88::t_8f01e123cd594d 339,347,356,390,410,419,587
+  s_301e593671ee88::t_367406f0209507 21-28,69,71
+apps/desktop/src-tauri/src/commands.rs
+  s_301e593671ee88::t_43b2dff6ef88dc 192,531-544
+  s_301e593671ee88::t_f23fb869fb1b03 464,502
+  s_301e593671ee88::t_61d40ca5625f20 82
+  s_301e593671ee88::t_92b14a49bcdacc 10,34,472,507,526-530
+  s_301e593671ee88::t_56cfb7b306bf69 156-157
+  s_301e593671ee88::t_25f1bcb01796e2 545
+apps/desktop/src-tauri/src/appshot/permissions_window.rs
+  s_301e593671ee88::t_43b2dff6ef88dc 1-2,64,66-68
+  s_301e593671ee88::t_92b14a49bcdacc 18,71,73
+apps/web/src/shared/lib/desktop-runtime.ts
+  s_301e593671ee88::t_d16966aad6d628 135-137,149-151
+  s_301e593671ee88::t_92b14a49bcdacc 30
+scripts/pages/README.md
+  s_301e593671ee88::t_95680bf0109bd7 87
+apps/cli/src/output.rs
+  s_301e593671ee88::t_ec00547ee97496 145
+apps/cli/src/commands/review.rs
+  s_301e593671ee88::t_ec00547ee97496 284
+apps/cli/src/commands/computer.rs
+  s_301e593671ee88::t_95680bf0109bd7 221,226,233
+crates/runtime-manager/AGENTS.md
+  s_301e593671ee88::t_95680bf0109bd7 3
+  s_301e593671ee88::t_3b9b0c2b819c5b 50
+scripts/desktop/README.md
+  s_301e593671ee88::t_3b49a8ca794985 10,118
+scripts/desktop/layout-runtime-bundle.mjs
+  s_301e593671ee88::t_95680bf0109bd7 39
+  s_301e593671ee88::t_4cce8d021d949e 45
+  s_301e593671ee88::t_ec00547ee97496 46-47
+apps/web/messages/zh.json
+  s_301e593671ee88::t_dd463403d0191f 5112,6998,7000
+  s_301e593671ee88::t_2fc3a265c1ce84 105-107
+apps/web/messages/en.json
+  s_301e593671ee88::t_2fc3a265c1ce84 105-107
+  s_301e593671ee88::t_dd463403d0191f 5112,6998,7000
+apps/cli/AGENTS.md
+  s_301e593671ee88::t_3b9b0c2b819c5b 38,40
+  s_301e593671ee88::t_95680bf0109bd7 37,39,42,48,58,68
+crates/runtime-manager/src/manifest.rs
+  s_301e593671ee88::t_95680bf0109bd7 154
+crates/runtime-manager/src/cli_update.rs
+  s_301e593671ee88::t_3b9b0c2b819c5b 156,282,302,333
+scripts/local-runtime/build-runtime.mjs
+  s_301e593671ee88::t_ec00547ee97496 202,210,228
+apps/desktop/src-tauri/src/runtime.rs
+  s_301e593671ee88::t_28c57f48164079 22,76,93,95,114
+  s_301e593671ee88::t_3f782597774e75 8-12,59
+  s_301e593671ee88::t_95680bf0109bd7 1
+  s_301e593671ee88::t_4cce8d021d949e 92,94,96,105-108
+apps/cli/src/main.rs
+  s_301e593671ee88::t_ec00547ee97496 32,37
+apps/cli/src/api_client.rs
+  s_301e593671ee88::t_95680bf0109bd7 1,15
+apps/desktop/src-tauri/src/main.rs
+  s_301e593671ee88::t_95680bf0109bd7 97,327
+  s_301e593671ee88::t_ec00547ee97496 84,335,342
+  s_301e593671ee88::t_3f782597774e75 107
+  s_301e593671ee88::t_92b14a49bcdacc 100-103
+apps/cli/src/commands/runtime.rs
+  s_301e593671ee88::t_95680bf0109bd7 1,17,19,21,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "0d466f308dc441168373ced76ee75ef91ae5695f",
+  "prompts": {},
+  "sessions": {
+    "s_301e593671ee88": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f21be-1485-7290-aa34-fc0abc672bff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
