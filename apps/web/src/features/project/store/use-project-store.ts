@@ -80,6 +80,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   workspaceLabels: [],
   activeWorkspaceId: null,
   isLoading: false,
+  hasLoadedProjects: false,
   connectionEpoch: 0,
 
   fetchProjects: async () => {
@@ -117,7 +118,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         return;
       }
 
-      set({ projects: projectsWithWorkspaces });
+      set({ projects: projectsWithWorkspaces, hasLoadedProjects: true });
     } catch (error) {
       if (get().connectionEpoch !== epoch) {
         return;
@@ -171,6 +172,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       workspaceLabels: [],
       activeWorkspaceId: null,
       isLoading: false,
+      hasLoadedProjects: false,
       setupProgress: {},
       connectionEpoch: state.connectionEpoch + 1,
     }));

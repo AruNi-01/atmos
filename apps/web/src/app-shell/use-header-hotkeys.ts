@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslations } from "next-intl";
 import type { MutableRefObject } from "react";
@@ -17,6 +18,7 @@ function isTerminalHotkeyTarget(target: EventTarget | null) {
 export function useHeaderHotkeys({
   actionMenuFocusRef,
   isActionMenuOpen,
+  refreshCurrentRoute,
   setIsActionMenuOpen,
   setIsUsagePopoverOpen,
   showRightSidebar,
@@ -25,6 +27,7 @@ export function useHeaderHotkeys({
 }: {
   actionMenuFocusRef: MutableRefObject<HTMLElement | null>;
   isActionMenuOpen: boolean;
+  refreshCurrentRoute?: () => void;
   setIsActionMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsUsagePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showRightSidebar: boolean;
@@ -32,6 +35,14 @@ export function useHeaderHotkeys({
   toggleRightSidebar: () => void;
 }) {
   const t = useTranslations("header.hotkeys");
+  const router = useRouter();
+  const handleRefreshCurrentRoute = useCallback(() => {
+    if (refreshCurrentRoute) {
+      refreshCurrentRoute();
+      return;
+    }
+    router.refresh();
+  }, [refreshCurrentRoute, router]);
 
   useEffect(() => {
     // Native menu accelerators were removed, so JS handles bracket navigation on web and desktop.
@@ -64,12 +75,12 @@ export function useHeaderHotkeys({
     description: t("toggleLeftSidebar"),
   });
 
-  useHotkeys("mod+r", () => window.location.reload(), {
+  useHotkeys("mod+r", handleRefreshCurrentRoute, {
     enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
     description: t("refreshPage"),
-  });
+  }, [handleRefreshCurrentRoute]);
 
   useHotkeys("mod+u", () => setIsUsagePopoverOpen((prev) => !prev), {
     enableOnContentEditable: true,

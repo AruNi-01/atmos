@@ -90,6 +90,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         reorderWorkspaces,
         setupProgress,
         isLoading,
+        hasLoadedProjects,
     } = useProjectStore(
         useShallow(s => ({
             projects: s.projects,
@@ -114,6 +115,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             reorderWorkspaces: s.reorderWorkspaces,
             setupProgress: s.setupProgress,
             isLoading: s.isLoading,
+            hasLoadedProjects: s.hasLoadedProjects,
         }))
     );
 
@@ -280,15 +282,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }
     }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
 
-    const hasFetchedRef = useRef(false);
     useEffect(() => {
-        if (projects.length > 0 || isLoading) {
-            hasFetchedRef.current = true;
-        }
-    }, [projects, isLoading]);
-
-    useEffect(() => {
-        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading || !hasFetchedRef.current) {
+        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading || !hasLoadedProjects) {
             return;
         }
 
@@ -303,6 +298,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [
         currentView,
         currentWorkspaceId,
+        hasLoadedProjects,
         isLoading,
         openingWorkspaceId,
         projects,

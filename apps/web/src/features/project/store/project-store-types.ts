@@ -13,6 +13,7 @@ export interface ProjectStore {
   workspaceLabels: WorkspaceLabel[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
+  hasLoadedProjects: boolean;
   connectionEpoch: number;
 
   fetchProjects: () => Promise<void>;
