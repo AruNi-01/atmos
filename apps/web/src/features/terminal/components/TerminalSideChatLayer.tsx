@@ -3,8 +3,9 @@
 import React from "react";
 
 import {
-  isSideChatClosing,
-  isSideChatOpen,
+  getAvailableSideChatRecords,
+  getFirstOpenSideChatRecord,
+  hasOpenSideChatRecord,
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
 import { TerminalSideChatModal } from "./TerminalSideChatModal";
@@ -49,13 +50,13 @@ export function TerminalSideChatLayer({
   onSelectSideChat,
   onReady,
 }: TerminalSideChatLayerProps) {
-  const availableRecords = records.filter((record) => !isSideChatClosing(record.status));
+  const availableRecords = getAvailableSideChatRecords(records);
   const activeRecord =
     availableRecords.find((record) => record.side_chat_id === activeSideChatId) ??
-    availableRecords.find((record) => isSideChatOpen(record.status)) ??
+    getFirstOpenSideChatRecord(availableRecords) ??
     availableRecords[0] ??
     null;
-  const hasOpenRecord = availableRecords.some((record) => isSideChatOpen(record.status));
+  const hasOpenRecord = hasOpenSideChatRecord(availableRecords);
 
   if (!activeRecord || !hasOpenRecord) return null;
 

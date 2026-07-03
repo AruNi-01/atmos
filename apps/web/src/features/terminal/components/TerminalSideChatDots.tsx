@@ -4,8 +4,8 @@ import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 
 import {
-  isSideChatClosing,
-  isSideChatOpen,
+  getAvailableSideChatRecords,
+  hasOpenSideChatRecord,
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
 
@@ -21,8 +21,8 @@ export function TerminalSideChatDots({
   onShow: (sideChatId: string) => void;
 }) {
   const t = useTranslations("terminal.sideChat");
-  const availableRecords = records.filter((record) => !isSideChatClosing(record.status));
-  const hasOpenRecord = availableRecords.some((record) => isSideChatOpen(record.status));
+  const availableRecords = getAvailableSideChatRecords(records);
+  const hasOpenRecord = hasOpenSideChatRecord(availableRecords);
   const targetRecord =
     availableRecords.find((record) => record.side_chat_id === activeSideChatId) ??
     availableRecords.at(-1) ??

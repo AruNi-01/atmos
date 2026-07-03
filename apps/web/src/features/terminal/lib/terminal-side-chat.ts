@@ -55,11 +55,18 @@ export function mergeSideChatRecords(
 ) {
   const currentById = new Map(current.map((record) => [record.side_chat_id, record]));
   const incomingIds = new Set(incoming.map((record) => record.side_chat_id));
-  const merged = incoming.map((record) => ({
-    ...record,
-    ...currentById.get(record.side_chat_id),
-    ...record,
-  }));
+  const merged = incoming.map((record) => {
+    const currentRecord = currentById.get(record.side_chat_id);
+    if (!currentRecord) return record;
+    return {
+      ...record,
+      agent: currentRecord.agent ?? record.agent,
+      hasSentInitialCommand: currentRecord.hasSentInitialCommand,
+      initialCommand: currentRecord.initialCommand,
+      isNew: currentRecord.isNew,
+      sessionId: currentRecord.sessionId,
+    };
+  });
   for (const record of current) {
     if (!incomingIds.has(record.side_chat_id) && record.isNew) {
       merged.push(record);
@@ -100,6 +107,18 @@ export function isSideChatOpen(status: LegacySideChatStatus): boolean {
 
 export function isSideChatClosing(status: LegacySideChatStatus): boolean {
   return normalizeSideChatStatus(status) === "closing";
+}
+
+export function getAvailableSideChatRecords(records: LocalSideChatRecord[]): LocalSideChatRecord[] {
+  return records.filter((record) => !isSideChatClosing(record.status));
+}
+
+export function getFirstOpenSideChatRecord(records: LocalSideChatRecord[]): LocalSideChatRecord | undefined {
+  return records.find((record) => isSideChatOpen(record.status));
+}
+
+export function hasOpenSideChatRecord(records: LocalSideChatRecord[]): boolean {
+  return getFirstOpenSideChatRecord(records) !== undefined;
 }
 
 export function pickUniqueBrightColor(existingColors: string[]) {

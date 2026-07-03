@@ -5,6 +5,8 @@ import React from "react";
 import { terminalSideChatApi, type TerminalSideChatRecord } from "@/api/ws-api";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import {
+  getAvailableSideChatRecords,
+  getFirstOpenSideChatRecord,
   isSideChatClosing,
   isSideChatOpen,
   mergeSideChatRecords,
@@ -174,13 +176,13 @@ export function useTerminalSideChatRecords({
   }, [records, showSideChat]);
 
   React.useEffect(() => {
-    const availableRecords = records.filter((record) => !isSideChatClosing(record.status));
+    const availableRecords = getAvailableSideChatRecords(records);
     if (availableRecords.length === 0) {
       if (activeSideChatId !== null) setActiveSideChatId(null);
       return;
     }
     if (!activeSideChatId || !availableRecords.some((record) => record.side_chat_id === activeSideChatId)) {
-      const fallback = availableRecords.find((record) => isSideChatOpen(record.status)) ?? availableRecords[0];
+      const fallback = getFirstOpenSideChatRecord(availableRecords) ?? availableRecords[0];
       setActiveSideChatId(fallback.side_chat_id);
     }
   }, [activeSideChatId, records]);

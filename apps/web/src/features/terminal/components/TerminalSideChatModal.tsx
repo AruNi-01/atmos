@@ -157,6 +157,8 @@ export function TerminalSideChatModal({
                   <TabsTab
                     key={record.side_chat_id}
                     value={record.side_chat_id}
+                    nativeButton={false}
+                    render={<div />}
                     className="group/side-tab relative h-7 min-w-0 max-w-40 gap-1.5 px-2 pr-2 text-xs data-active:pr-7"
                   >
                     <span
@@ -167,15 +169,14 @@ export function TerminalSideChatModal({
                     <span className="min-w-0 truncate">
                       {sideChatTabLabel(record, index, t("title"))}
                     </span>
-                    <span
+                    <button
+                      type="button"
                       data-side-chat-control="true"
-                      role="button"
-                      tabIndex={0}
                       aria-label={t("closeTab")}
                       className={cn(
                         "absolute right-1 top-1/2 z-10 size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground",
                         activeSideChatId === record.side_chat_id
-                          ? "flex opacity-0 group-hover/side-tab:opacity-100"
+                          ? "flex opacity-0 group-hover/side-tab:opacity-100 focus-visible:opacity-100"
                           : "hidden",
                       )}
                       onPointerDown={(event) => {
@@ -187,15 +188,9 @@ export function TerminalSideChatModal({
                         event.stopPropagation();
                         onClose(record.side_chat_id);
                       }}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        onClose(record.side_chat_id);
-                      }}
                     >
                       <X className="size-3" />
-                    </span>
+                    </button>
                   </TabsTab>
                 ))}
               </TabsList>
@@ -305,9 +300,9 @@ export function TerminalSideChatModal({
                   }}
                 />
                 <TerminalAgentInputOverlay
-                  ref={(overlayRef) => {
-                    if (overlayRef) {
-                      agentInputOverlayRefs.current.set(record.side_chat_id, overlayRef);
+                  ref={(inputOverlayRef) => {
+                    if (inputOverlayRef) {
+                      agentInputOverlayRefs.current.set(record.side_chat_id, inputOverlayRef);
                     } else {
                       agentInputOverlayRefs.current.delete(record.side_chat_id);
                     }
