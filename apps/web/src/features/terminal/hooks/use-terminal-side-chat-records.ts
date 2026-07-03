@@ -38,6 +38,12 @@ export function useTerminalSideChatRecords({
   const [activeSideChatId, setActiveSideChatId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    openedSideChatParamRef.current = null;
+    setActiveSideChatId(null);
+    setRecords([]);
+  }, [sourceSurfaceKind, sourceSurfaceRefJson, sourceTmuxWindowName, workspaceId]);
+
+  React.useEffect(() => {
     if (!workspaceId || !sourceTmuxWindowName) return;
     let cancelled = false;
     void terminalSideChatApi
@@ -58,7 +64,7 @@ export function useTerminalSideChatRecords({
             isNew: false,
             sessionId: crypto.randomUUID(),
           }));
-        setRecords((current) => mergeSideChatRecords(current, sourceRecords));
+        setRecords((current) => mergeSideChatRecords(current, sourceRecords, workspaceId));
       })
       .catch((error) => {
         console.error("Failed to load terminal side chats:", error);

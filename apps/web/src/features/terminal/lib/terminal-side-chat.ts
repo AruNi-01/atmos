@@ -52,11 +52,16 @@ export function sideChatRecordMatchesSource(
 export function mergeSideChatRecords(
   current: LocalSideChatRecord[],
   incoming: LocalSideChatRecord[],
+  workspaceId: string,
 ) {
-  const currentById = new Map(current.map((record) => [record.side_chat_id, record]));
-  const incomingIds = new Set(incoming.map((record) => record.side_chat_id));
-  const merged = incoming.map((record) => {
-    const currentRecord = currentById.get(record.side_chat_id);
+  const currentInWorkspace = current.filter((record) => record.workspace_id === workspaceId);
+  const incomingInWorkspace = incoming.filter((record) => record.workspace_id === workspaceId);
+  const currentById = new Map(
+    currentInWorkspace.map((record) => [sideChatRecordScopedId(record), record]),
+  );
+  const incomingIds = new Set(incomingInWorkspace.map((record) => sideChatRecordScopedId(record)));
+  const merged = incomingInWorkspace.map((record) => {
+    const currentRecord = currentById.get(sideChatRecordScopedId(record));
     if (!currentRecord) return record;
     return {
       ...record,
@@ -67,12 +72,16 @@ export function mergeSideChatRecords(
       sessionId: currentRecord.sessionId,
     };
   });
-  for (const record of current) {
-    if (!incomingIds.has(record.side_chat_id) && record.isNew) {
+  for (const record of currentInWorkspace) {
+    if (!incomingIds.has(sideChatRecordScopedId(record)) && record.isNew) {
       merged.push(record);
     }
   }
   return merged;
+}
+
+function sideChatRecordScopedId(record: LocalSideChatRecord): string {
+  return `${record.workspace_id}\0${record.side_chat_id}`;
 }
 
 export function toSideChatDto(record: LocalSideChatRecord): TerminalSideChatRecord {
