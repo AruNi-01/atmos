@@ -1,0 +1,28 @@
+apps/web/src/features/terminal/lib/__tests__/terminal-side-chat.test.ts
+  s_9b1e17e73ca7c1::t_019ff48551374f 1-48,79-80
+  s_9b1e17e73ca7c1::t_e3564520a6d3e8 49-78
+apps/web/src/features/terminal/lib/terminal-side-chat.ts
+  s_9b1e17e73ca7c1::t_e3564520a6d3e8 55,57-63,75
+  s_9b1e17e73ca7c1::t_019ff48551374f 64,76,83-84
+  s_9b1e17e73ca7c1::t_cd82931ac69c47 85-86
+apps/web/src/features/terminal/hooks/use-terminal-side-chat-records.ts
+  s_9b1e17e73ca7c1::t_019ff48551374f 41-45
+  s_9b1e17e73ca7c1::t_e3564520a6d3e8 67
+  s_9b1e17e73ca7c1::t_9deb5027cc7ab1 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "a56e816c7ad86a6dd01d6131cbcd98e08bffdb39",
+  "prompts": {},
+  "sessions": {
+    "s_9b1e17e73ca7c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2547-76a1-7fa2-8a1f-606850e34484",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
