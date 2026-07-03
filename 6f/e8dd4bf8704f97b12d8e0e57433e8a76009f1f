@@ -1,0 +1,157 @@
+apps/web/src/features/settings/components/LabelSettingsSection.tsx
+  s_6007466de64e8d::t_4c25debb09eb79 4,63,65,70,457
+apps/web/src/features/terminal/components/terminal-mosaic-workspace-pane-window.tsx
+  s_eaa92a688b7ee7::t_765e22b58ea032 185,467
+apps/web/messages/en.json
+  s_8656ed7d9dbc56::t_c55f4c96ffd8e4 1854
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_6007466de64e8d::t_c5b62615664195 4,57,873,899
+apps/web/src/features/welcome/components/WelcomeComposerControls.tsx
+  s_eaa92a688b7ee7::t_fc00eb5a291e2c 53-54,68-69,105-106
+apps/desktop/src-tauri/src/main.rs
+  s_fd0db05d57ceaf::t_862287da898d44 365-368
+  s_fd0db05d57ceaf::t_994cf0c455b4cc 9-10,361,383
+apps/web/src/app-shell/header-action-controls.tsx
+  s_6007466de64e8d::t_c58648d24b3967 84,235,454
+  s_6007466de64e8d::t_ceecc9d0c37cd2 277,338,490
+apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx
+  s_eaa92a688b7ee7::t_41da73a0175dee 57,196,248-255
+packages/shared/src/utils/time.ts
+  s_6007466de64e8d::t_77fd7b5bc444da 16,18-39,77,83,92-94,98,102,106,109,115-119,121,127-131,133
+apps/web/src/features/workspace/components/ArchivedWorkspacesModal.tsx
+  s_6007466de64e8d::t_15ad3638bb50e9 4,36,157
+packages/ui/src/components/ui/calendar.tsx
+  s_6007466de64e8d::t_3b8177c5ea59f0 24,30,46
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  s_6007466de64e8d::t_7e5a1d5ddffbf6 387
+apps/web/src/features/welcome/components/__tests__/prompt-composer-appshot-paste.test.tsx
+  s_eaa92a688b7ee7::t_f775f992caeb7e 188-230,328-331
+  s_eaa92a688b7ee7::t_4702539ba85fbd 84,126-139,231,256,260-293
+  s_eaa92a688b7ee7::t_97062557375785 332-334
+  s_eaa92a688b7ee7::t_5894a8eb8309f0 335-337
+apps/web/messages/zh.json
+  s_8656ed7d9dbc56::t_c55f4c96ffd8e4 1854
+apps/web/src/features/tunnel-connector/components/tunnel-connector-controls.tsx
+  s_6007466de64e8d::t_5c4c7fdb81464f 4,479,544-546,558
+apps/web/src/app-shell/header-action-controls-utils.ts
+  s_6007466de64e8d::t_bc864c6aeb4140 1-13
+apps/web/src/features/agent/components/UsageBadges.tsx
+  s_6007466de64e8d::t_3b389829986a06 4,17,78-79,102,125,129,134,143,149,158
+apps/desktop/src-tauri/src/window_activation.rs
+  s_fd0db05d57ceaf::t_862287da898d44 2
+  s_fd0db05d57ceaf::t_79e9c1252b0860 1
+  s_fd0db05d57ceaf::t_c923f0a552d0e2 6-7,10-11,18,24,29-36
+  s_fd0db05d57ceaf::t_994cf0c455b4cc 3-5,8-9,12-17,19-23,25-28,37-101
+apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx
+  s_6007466de64e8d::t_bbdff1d4104eb6 5,96,784
+apps/web/src/features/diff/components/ReviewView.tsx
+  s_6007466de64e8d::t_7b39e52279abfd 4,60,412
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.css
+  s_eaa92a688b7ee7::t_fcc5881d0e45e0 16-48,152-156
+  s_eaa92a688b7ee7::t_0c2b99029c5df4 157-158
+apps/web/src/features/workspace/components/RecentWorkspacesView.tsx
+  s_6007466de64e8d::t_8d4f1a824d6a72 2-3,103-104,477-479
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  s_eaa92a688b7ee7::t_1a4bc95ea7ba96 58,86
+  s_eaa92a688b7ee7::t_9c02d49a8b7337 6,133-137,139-146,149,356,365-366,368-369,608,612,620-621
+  s_eaa92a688b7ee7::t_dcbb9c5976fa79 391-394,399,407-411,429-431
+  s_eaa92a688b7ee7::t_637d58f203921b 714-725
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  s_6007466de64e8d::t_7056a5045265cc 104,107,640,859
+apps/web/src/features/terminal/components/terminal-mosaic-scoped-pane-window.tsx
+  s_eaa92a688b7ee7::t_ba047be9dc2c8a 158,408
+apps/web/src/features/appshot/components/AppshotCapturePreview.tsx
+  s_fd0db05d57ceaf::t_d5285dac651579 7,298,406-409,411-415,417-426,431-432,442-444,446
+  s_fd0db05d57ceaf::t_f05fc17433f967 410,416,433-441,445
+  s_fd0db05d57ceaf::t_629a8d5ebcfdbb 427-430
+  s_fd0db05d57ceaf::t_f6d64f60363bce 447-449
+apps/web/src/features/diff/components/review/MessageBubble.tsx
+  s_6007466de64e8d::t_0d80f18beb36f5 4,24,73
+apps/web/src/app-shell/sidebar/WorkspaceKanbanCard.tsx
+  s_6007466de64e8d::t_461be77ed94042 2,96,276,370,404
+apps/web/src/features/settings/components/TerminalSettingsSection.tsx
+  s_6007466de64e8d::t_f3116223421ddf 4,51,77,79
+apps/web/src/features/agent/components/TerminalAgentRunConfigDialog.tsx
+  s_8656ed7d9dbc56::t_6f08299babba4e 216-226,431-433,435-442
+apps/web/src/app-shell/header-action-controls-utils.test.ts
+  s_6007466de64e8d::t_05832b39ee4ca5 1-20
+apps/desktop/src-tauri/src/appshot/mod.rs
+  s_fd0db05d57ceaf::t_994cf0c455b4cc 142,158-165,168-170,172
+  s_fd0db05d57ceaf::t_11d966806eff60 21,166-167
+  s_fd0db05d57ceaf::t_3f9e5450fe9d65 171
+  s_fd0db05d57ceaf::t_011a9ecdbdedec 173-174
+apps/web/src/features/atmos-computer/components/ComputerDetailsDialog.tsx
+  s_6007466de64e8d::t_4b69a99e9e1542 4,36,40,43,48,138,148,278,393-394
+apps/web/src/features/terminal/components/TerminalAgentInputShell.tsx
+  s_eaa92a688b7ee7::t_9c450825fa6f98 61-62,123-140,142
+  s_eaa92a688b7ee7::t_e0936c90160784 22,43,141
+  s_eaa92a688b7ee7::t_2a50c24b706ab9 77,91
+apps/web/src/features/canvas/components/CanvasAgentIsland.tsx
+  s_6007466de64e8d::t_891318d0c9c21d 4,60-61,221-222,248
+apps/web/src/features/github/components/CommitList.tsx
+  s_6007466de64e8d::t_ec72929b6ff8b0 73,76,116,149,151,175
+  s_6007466de64e8d::t_5185aae0520724 6
+apps/web/src/features/diff/components/review/utils.ts
+  s_6007466de64e8d::t_7d6fa986c4ec8a 28,31
+apps/desktop/src-tauri/Cargo.toml
+  s_fd0db05d57ceaf::t_994cf0c455b4cc 37
+apps/web/src/features/terminal/components/TerminalSideChatLayer.tsx
+  s_eaa92a688b7ee7::t_fc5a0468d8a3d2 26,41,72
+apps/web/src/app-shell/WorkspaceStatusPopover.tsx
+  s_6007466de64e8d::t_d803edac6cad0b 4,34,77
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  s_eaa92a688b7ee7::t_18bace32c56a4e 72-73,285-290,663,689
+  s_eaa92a688b7ee7::t_010ad28ec0f4b1 593-606,671,697
+  s_eaa92a688b7ee7::t_80863650b450dd 252-277,279
+apps/web/src/features/agent/components/TerminalAgentSelectorWithRunConfig.tsx
+  s_eaa92a688b7ee7::t_89fb417dc8d0a4 64-65,367-370,384
+apps/web/src/features/workspace/components/ArchivedWorkspacesView.tsx
+  s_6007466de64e8d::t_b6dab5bfe91db3 4,63,360
+  s_6007466de64e8d::t_3d00af7e2e64cb 104
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  s_eaa92a688b7ee7::t_3ebafe76705224 47,62,255
+packages/ui/src/components/ui/animated-number.tsx
+  s_6007466de64e8d::t_9a7cdce156bf73 10,18,26
+Cargo.lock
+  s_fd0db05d57ceaf::t_093c0bab99b86f 537
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "6fe8dd4bf8704f97b12d8e0e57433e8a76009f1f",
+  "prompts": {},
+  "sessions": {
+    "s_6007466de64e8d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f267b-cb62-7832-a1d0-737050a5e0bb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_8656ed7d9dbc56": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f26d1-fc1c-7c01-847a-8bda6209b811",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_eaa92a688b7ee7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2605-bf6d-7980-9b2f-6dd4cc79c744",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_fd0db05d57ceaf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f26d7-9c0c-7b63-b36f-14649c4f8c4a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
