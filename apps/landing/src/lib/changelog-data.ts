@@ -34,6 +34,90 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.7.3",
+    title: {
+      zh: "终端侧聊 · Appshots 工作流 · 预览检查增强",
+      en: "Terminal Side Chats, Appshots Workflow & Preview Inspection",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.7.3 将 beta 阶段的终端侧聊、更丰富的预览检查、更清晰的 Agent hook 上下文、Appshots 工作流打磨和桌面运行时可靠性更新整理为稳定版。",
+      en: "Atmos Desktop 2026.7.3 graduates the beta line with terminal side chats, richer preview inspection, cleaner agent hook context, Appshots workflow polish, and desktop runtime reliability updates.",
+    },
+    date: "2026-07-03",
+    version: "2026.7.3",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-2026.7.3",
+    tags: [
+      { zh: "终端侧聊", en: "Side Chats" },
+      { zh: "Appshots", en: "Appshots" },
+      { zh: "预览", en: "Preview" },
+      { zh: "Agent Hooks", en: "Agent Hooks" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Tmux 支持的终端侧聊** — 可从终端 AI Input 使用 `/side` 启动一个独立 Agent 对话，并带入受限的终端上下文，而不会把旁支任务发送回原终端。",
+          "**侧聊持久化与恢复** — 隐藏的侧聊现在会保留恢复 handle，只要底层 tmux window 还存在，就能从来源终端表面恢复。",
+          "**侧聊 Agent 选择器** — 当父终端还没有检测到 Agent 时，侧聊会显示明确的 Agent selector，并复用 welcome composer 的 Agent 选择和运行配置流程。",
+          "**预览悬停标签** — Preview overlay/runtime 新增 follow-cursor hover labels，用更轻量的方式识别当前悬停的页面元素。",
+          "**带终端上下文的 Agent Hooks** — 版本管理的 Agent hooks 现在能把终端上下文带入 hook 通知和状态导航，包括侧聊终端。",
+          "**独立错误页面** — 新增应用级错误和 not-found 状态的专用 breakout pages。",
+        ],
+        fixes: [
+          "**macOS Appshots 焦点回传** — 修复全局快捷键截图完成后主 Atmos 窗口没有重新前置的问题。",
+          "**终端 AI Input 交互** — 修复 canvas 和侧聊 modal 中的 Cmd/Ctrl+G、hover-to-focus、`/` 与 `@` popover 键盘选择，以及侧聊 modal resize 行为。",
+          "**终端快捷键与焦点** — 修复全局应用快捷键、quick-open surface 和终端网格焦点抢占常用终端输入流程的问题。",
+          "**桌面运行时启动配置** — 修复 Desktop browser web runtime launch configuration，确保桌面 shell 刷新并使用预期运行时设置。",
+          "**Agent 与运行时显示** — 修复 Cursor 内置 Agent launch 的 interactive yolo mode、Atmos Server 运行时命名、技能 Agent 图标映射和 workspace overview 文本约束。",
+        ],
+        improvements: [
+          "**Appshots 捕获体验** — 捕获 popover 倒计时加入 hover-to-pause、animated badge expansion，并保持未暂停时的紧凑倒计时状态。",
+          "**终端侧聊状态处理** — 改进 scoped record merges、scoped status updates、本地 modal 状态保留、split terminal side chat workflow 和 stale side chat registry cleanup。",
+          "**侧聊动作与 WebSocket 流程** — 补齐更多 terminal side chat action wiring，并继续打磨终端 UX 和桌面 launcher integration。",
+          "**应用交互打磨** — 改进 workspace header controls、workspace/sidebar cards、usage badges、review/chat surfaces 和 prompt composer Appshot paste coverage。",
+          "**Atmos Computer 与预览传输** — 改进本地 Atmos Computer 切换、connection hydration、connected computer copy，以及 same-origin/extension-backed preview sessions 的 hover label 支持。",
+          "**启动、发布与文档** — 稳定桌面启动和发布检查路径，并刷新当前 app、CLI、功能和 workflow 文档布局。",
+        ],
+        others: [
+          "新增 terminal side chats 和 architecture review work 的 specs 与架构记录。",
+          "更新内部 docs-writing/spec-visualization skills，并刷新 landing changelog 内容。",
+          "移除 release line 中过时的 review CLI 引用。",
+          "[完整变更对比](https://github.com/AruNi-01/atmos/compare/desktop-2026.7.2...desktop-2026.7.3)",
+        ],
+      },
+      en: {
+        features: [
+          "**Tmux-backed terminal side chats** — Use `/side` from terminal AI Input to start a separate agent conversation seeded with bounded terminal context, without sending the tangent into the source terminal.",
+          "**Side chat persistence and restore handles** — Hidden side chats can be restored from their source terminal surface while the underlying tmux window still exists.",
+          "**Side chat Agent selector** — When the parent terminal has not detected an Agent, side chat now shows an explicit Agent selector and reuses the welcome composer Agent selector and run configuration flow.",
+          "**Preview hover labels** — Follow-cursor preview hover labels across the preview overlay/runtime make hovered elements easier to identify with a lighter inspection flow.",
+          "**Agent hooks with terminal context** — Version-managed agent hooks now carry terminal context into hook notifications and status navigation, including side chat terminals.",
+          "**Dedicated breakout error pages** — Added dedicated breakout pages for app-level errors and not-found states.",
+        ],
+        fixes: [
+          "**macOS Appshots focus handoff** — Restored the focus handoff after global shortcut captures so the main Atmos window is brought forward again when a capture completes.",
+          "**Terminal AI Input interactions** — Fixed Cmd/Ctrl+G handling, hover-to-focus input behavior, `/` and `@` popover keyboard selection, and side chat modal resizing in canvas and side chat modal surfaces.",
+          "**Terminal shortcuts and focus** — Fixed global app shortcuts, quick-open surfaces, and terminal grid focus stealing common terminal input flows.",
+          "**Desktop runtime launch configuration** — Fixed Desktop browser web runtime launch configuration so the desktop shell refreshes and uses the expected runtime settings.",
+          "**Agent and runtime display** — Fixed Cursor built-in Agent launches, Atmos Server runtime labeling, skill Agent icon mapping, and workspace overview text constraints.",
+        ],
+        improvements: [
+          "**Appshots capture experience** — Smoothed the capture popover countdown with hover-to-pause behavior and animated badge expansion while keeping the compact countdown state tight when it is not paused.",
+          "**Terminal side chat state handling** — Improved scoped record merges, scoped status updates, local modal state preservation, split terminal side chat workflow support, and stale side chat registry cleanup.",
+          "**Side chat actions and WebSocket flow** — Finished more terminal side chat action wiring through the WebSocket flow and refined the surrounding terminal UX and desktop launcher integration.",
+          "**App interaction polish** — Improved workspace header controls, workspace/sidebar cards, usage badges, review/chat surfaces, and prompt composer Appshot paste coverage.",
+          "**Atmos Computer and preview transport** — Improved local Atmos Computer switching, connection hydration, connected computer copy, and hover label support for same-origin and extension-backed preview sessions.",
+          "**Startup, release checks, and docs** — Stabilized desktop startup and release checks, then refreshed product docs and documentation layout for current app, CLI, feature, and workflow coverage.",
+        ],
+        others: [
+          "Added specs and architecture notes for terminal side chats and architecture review work.",
+          "Updated internal docs-writing/spec-visualization skills and refreshed landing changelog content.",
+          "Removed an obsolete review CLI reference from the release line.",
+          "[Full changelog comparison](https://github.com/AruNi-01/atmos/compare/desktop-2026.7.2...desktop-2026.7.3)",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.7.2",
     title: {
       zh: "Canvas 工作台 · 预览窗口 · Agent Chat 稳定性",
