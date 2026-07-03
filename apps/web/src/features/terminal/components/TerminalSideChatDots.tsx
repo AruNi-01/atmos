@@ -46,7 +46,7 @@ export function TerminalSideChatDots({
           <span className={cn(sideChatIndicatorClassName, "animate-pulse")} />
         </span>
       ) : null}
-      {targetRecord && !hasOpenRecord ? (
+      {!isStarting && targetRecord && !hasOpenRecord ? (
         <button
           type="button"
           className="group/side-dot ml-1.5 inline-flex h-5 w-8 items-center justify-center"

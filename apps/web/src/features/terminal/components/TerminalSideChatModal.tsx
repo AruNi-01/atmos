@@ -142,7 +142,7 @@ export function TerminalSideChatModal({
           className="min-h-0 flex-1"
         >
           <div
-            className="flex h-11 shrink-0 cursor-grab items-center justify-between gap-3 bg-background px-3 pt-1 active:cursor-grabbing"
+            className="flex h-11 shrink-0 cursor-grab touch-none items-center justify-between gap-3 bg-background px-3 pt-1 active:cursor-grabbing"
             onPointerDown={handleDragStart}
             onClickCapture={(event) => {
               if (!suppressNextHeaderClickRef.current) return;

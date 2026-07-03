@@ -32,6 +32,7 @@ export function useSideChatModalLayout({
 }: UseSideChatModalLayoutOptions) {
   const resizeAbortControllerRef = React.useRef<AbortController | null>(null);
   const dragAbortControllerRef = React.useRef<AbortController | null>(null);
+  const restoreBodyInteractionStylesRef = React.useRef<(() => void) | null>(null);
   const resizeStateRef = React.useRef<{
     startX: number;
     startY: number;
@@ -52,6 +53,26 @@ export function useSideChatModalLayout({
       onInteraction?.(event);
     },
     [onInteraction],
+  );
+
+  const restoreBodyInteractionStyles = React.useCallback(() => {
+    restoreBodyInteractionStylesRef.current?.();
+    restoreBodyInteractionStylesRef.current = null;
+  }, []);
+
+  const setBodyInteractionStyles = React.useCallback(
+    ({ cursor, userSelect }: { cursor?: string; userSelect?: string }) => {
+      restoreBodyInteractionStyles();
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      if (cursor !== undefined) document.body.style.cursor = cursor;
+      if (userSelect !== undefined) document.body.style.userSelect = userSelect;
+      restoreBodyInteractionStylesRef.current = () => {
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+      };
+    },
+    [restoreBodyInteractionStyles],
   );
 
   React.useLayoutEffect(() => {
@@ -86,18 +107,20 @@ export function useSideChatModalLayout({
       resizeAbortControllerRef.current = null;
       dragAbortControllerRef.current?.abort();
       dragAbortControllerRef.current = null;
+      restoreBodyInteractionStyles();
     };
-  }, []);
+  }, [restoreBodyInteractionStyles]);
 
   const handleResizeStart = React.useCallback(
     (edge: SideChatResizeEdge) => (event: React.PointerEvent<HTMLDivElement>) => {
       const overlay = overlayRef.current;
-      if (!overlay || !layout) return;
+      if (event.button !== 0 || !overlay || !layout) return;
 
       markInteraction(event);
       event.preventDefault();
       event.stopPropagation();
       resizeAbortControllerRef.current?.abort();
+      restoreBodyInteractionStyles();
 
       resizeStateRef.current = {
         startX: event.clientX,
@@ -106,10 +129,10 @@ export function useSideChatModalLayout({
         edge,
       };
 
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
-      document.body.style.cursor = sideChatModalResizeCursor(edge);
-      document.body.style.userSelect = "none";
+      setBodyInteractionStyles({
+        cursor: sideChatModalResizeCursor(edge),
+        userSelect: "none",
+      });
 
       const finishResize = (finishEvent?: PointerEvent) => {
         if (finishEvent) {
@@ -118,8 +141,7 @@ export function useSideChatModalLayout({
         resizeStateRef.current = null;
         resizeAbortControllerRef.current?.abort();
         resizeAbortControllerRef.current = null;
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
+        restoreBodyInteractionStyles();
       };
 
       const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -130,8 +152,15 @@ export function useSideChatModalLayout({
 
         const dx = moveEvent.clientX - state.startX;
         const dy = moveEvent.clientY - state.startY;
-        const next = resizeSideChatModalLayout(state.original, state.edge, dx, dy);
-        setLayout(clampSideChatModalLayout(next, readSideChatModalBounds(currentOverlay)));
+        setLayout(
+          resizeSideChatModalLayout(
+            state.original,
+            state.edge,
+            dx,
+            dy,
+            readSideChatModalBounds(currentOverlay),
+          ),
+        );
       };
 
       resizeAbortControllerRef.current = new AbortController();
@@ -140,7 +169,7 @@ export function useSideChatModalLayout({
       document.addEventListener("pointerup", finishResize, { capture: true, signal });
       document.addEventListener("pointercancel", finishResize, { capture: true, signal });
     },
-    [layout, markInteraction, overlayRef],
+    [layout, markInteraction, overlayRef, restoreBodyInteractionStyles, setBodyInteractionStyles],
   );
 
   const handleDragStart = React.useCallback(
@@ -152,15 +181,13 @@ export function useSideChatModalLayout({
       markInteraction(event);
       event.stopPropagation();
       dragAbortControllerRef.current?.abort();
+      restoreBodyInteractionStyles();
       dragStateRef.current = {
         startX: event.clientX,
         startY: event.clientY,
         original: layout,
         moved: false,
       };
-
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
 
       const finishDrag = (finishEvent?: PointerEvent) => {
         if (finishEvent) {
@@ -169,8 +196,7 @@ export function useSideChatModalLayout({
         dragStateRef.current = null;
         dragAbortControllerRef.current?.abort();
         dragAbortControllerRef.current = null;
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
+        restoreBodyInteractionStyles();
       };
 
       const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -183,10 +209,11 @@ export function useSideChatModalLayout({
         const dy = moveEvent.clientY - state.startY;
         if (!state.moved && Math.hypot(dx, dy) < 3) return;
 
-        state.moved = true;
-        suppressNextHeaderClickRef.current = true;
-        document.body.style.cursor = "grabbing";
-        document.body.style.userSelect = "none";
+        if (!state.moved) {
+          state.moved = true;
+          suppressNextHeaderClickRef.current = true;
+          setBodyInteractionStyles({ cursor: "grabbing", userSelect: "none" });
+        }
         setLayout(
           clampSideChatModalLayout(
             { ...state.original, x: state.original.x + dx, y: state.original.y + dy },
@@ -201,7 +228,7 @@ export function useSideChatModalLayout({
       document.addEventListener("pointerup", finishDrag, { capture: true, signal });
       document.addEventListener("pointercancel", finishDrag, { capture: true, signal });
     },
-    [layout, markInteraction, overlayRef],
+    [layout, markInteraction, overlayRef, restoreBodyInteractionStyles, setBodyInteractionStyles],
   );
 
   const modalStyle: React.CSSProperties = layout
@@ -273,21 +300,34 @@ function resizeSideChatModalLayout(
   edge: SideChatResizeEdge,
   dx: number,
   dy: number,
+  bounds: SideChatModalBounds,
 ): SideChatModalLayout {
-  let { x, y, width, height } = layout;
+  const horizontal = resizeSideChatModalAxis({
+    delta: dx,
+    direction: edge.includes("w") ? "start" : edge.includes("e") ? "end" : null,
+    minSize: Math.min(SIDE_CHAT_MODAL_MIN_WIDTH, bounds.width),
+    position: layout.x,
+    size: layout.width,
+    trackSize: bounds.width,
+  });
+  const vertical = resizeSideChatModalAxis({
+    delta: dy,
+    direction: edge.includes("n") ? "start" : edge.includes("s") ? "end" : null,
+    minSize: Math.min(SIDE_CHAT_MODAL_MIN_HEIGHT, bounds.height),
+    position: layout.y,
+    size: layout.height,
+    trackSize: bounds.height,
+  });
 
-  if (edge.includes("e")) width += dx;
-  if (edge.includes("s")) height += dy;
-  if (edge.includes("w")) {
-    width -= dx;
-    x += dx;
-  }
-  if (edge.includes("n")) {
-    height -= dy;
-    y += dy;
-  }
-
-  return { x, y, width, height };
+  return clampSideChatModalLayout(
+    {
+      x: horizontal.position,
+      y: vertical.position,
+      width: horizontal.size,
+      height: vertical.size,
+    },
+    bounds,
+  );
 }
 
 function sideChatModalResizeCursor(edge: SideChatResizeEdge): string {
@@ -306,4 +346,40 @@ function sideChatModalLayoutsEqual(
 function clampNumber(value: number, min: number, max: number): number {
   if (max <= min) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+function resizeSideChatModalAxis({
+  delta,
+  direction,
+  minSize,
+  position,
+  size,
+  trackSize,
+}: {
+  delta: number;
+  direction: "start" | "end" | null;
+  minSize: number;
+  position: number;
+  size: number;
+  trackSize: number;
+}): { position: number; size: number } {
+  if (direction === "end") {
+    const maxSize = Math.max(0, trackSize - position);
+    return {
+      position,
+      size: clampNumber(size + delta, minSize, maxSize),
+    };
+  }
+
+  if (direction === "start") {
+    const fixedEnd = position + size;
+    const maxSize = Math.max(0, fixedEnd);
+    const nextSize = clampNumber(size - delta, minSize, maxSize);
+    return {
+      position: fixedEnd - nextSize,
+      size: nextSize,
+    };
+  }
+
+  return { position, size };
 }

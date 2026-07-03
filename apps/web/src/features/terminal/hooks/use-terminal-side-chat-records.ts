@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { terminalSideChatApi } from "@/api/ws-api";
+import { terminalSideChatApi, type TerminalSideChatRecord } from "@/api/ws-api";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import {
   isSideChatClosing,
@@ -78,6 +78,24 @@ export function useTerminalSideChatRecords({
     );
   }, []);
 
+  const applyPersistedRecords = React.useCallback((updatedRecords: TerminalSideChatRecord[]) => {
+    if (updatedRecords.length === 0) return;
+    const updatedById = new Map(updatedRecords.map((record) => [record.side_chat_id, record]));
+    setRecords((current) =>
+      current.map((record) => {
+        const updatedRecord = updatedById.get(record.side_chat_id);
+        if (!updatedRecord) return record;
+        return {
+          ...record,
+          ...updatedRecord,
+          status: normalizeSideChatStatus(updatedRecord.status),
+          sessionId: crypto.randomUUID(),
+          isNew: false,
+        };
+      }),
+    );
+  }, []);
+
   const addRecord = React.useCallback((record: LocalSideChatRecord) => {
     setActiveSideChatId(record.side_chat_id);
     setRecords((current) => [...current, record]);
@@ -87,59 +105,55 @@ export function useTerminalSideChatRecords({
     async () => {
       const openRecords = records.filter((record) => isSideChatOpen(record.status));
       if (openRecords.length === 0) return;
-      const openIds = new Set(openRecords.map((record) => record.side_chat_id));
-      setRecords((current) =>
-        current.map((record) =>
-          openIds.has(record.side_chat_id)
-            ? { ...record, status: "hidden", sessionId: crypto.randomUUID(), isNew: false }
-            : record,
+      const results = await Promise.allSettled(
+        openRecords.map((record) =>
+          terminalSideChatApi.setStatus({
+            workspace_id: workspaceId,
+            side_chat_id: record.side_chat_id,
+            status: "hidden",
+          }),
         ),
       );
-      try {
-        await Promise.all(
-          openRecords.map((record) =>
-            terminalSideChatApi.setStatus({
-              workspace_id: workspaceId,
-              side_chat_id: record.side_chat_id,
-              status: "hidden",
-            }),
-          ),
-        );
-      } catch (error) {
-        console.error("Failed to hide terminal side chat:", error);
-      }
+      applyPersistedRecords(
+        results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
+      );
+      results.forEach((result) => {
+        if (result.status === "rejected") {
+          console.error("Failed to hide terminal side chat:", result.reason);
+        }
+      });
     },
-    [records, workspaceId],
+    [applyPersistedRecords, records, workspaceId],
   );
 
   const showSideChat = React.useCallback(
     async (sideChatId: string) => {
-      setActiveSideChatId(sideChatId);
-      updateLocalRecord(sideChatId, { status: "open", sessionId: crypto.randomUUID(), isNew: false });
       try {
-        await terminalSideChatApi.setStatus({
+        const updatedRecord = await terminalSideChatApi.setStatus({
           workspace_id: workspaceId,
           side_chat_id: sideChatId,
           status: "open",
         });
+        setActiveSideChatId(sideChatId);
+        applyPersistedRecords([updatedRecord]);
       } catch (error) {
         console.error("Failed to show terminal side chat:", error);
       }
     },
-    [updateLocalRecord, workspaceId],
+    [applyPersistedRecords, workspaceId],
   );
 
   const closeSideChat = React.useCallback(
     async (sideChatId: string) => {
-      terminalRefs.current.get(sideChatId)?.destroy();
-      terminalRefs.current.delete(sideChatId);
-      setActiveSideChatId((current) => (current === sideChatId ? null : current));
-      setRecords((current) => current.filter((record) => record.side_chat_id !== sideChatId));
       try {
         await terminalSideChatApi.close({
           workspace_id: workspaceId,
           side_chat_id: sideChatId,
         });
+        terminalRefs.current.get(sideChatId)?.destroy();
+        terminalRefs.current.delete(sideChatId);
+        setActiveSideChatId((current) => (current === sideChatId ? null : current));
+        setRecords((current) => current.filter((record) => record.side_chat_id !== sideChatId));
       } catch (error) {
         console.error("Failed to close terminal side chat:", error);
       }
