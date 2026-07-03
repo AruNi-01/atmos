@@ -1,0 +1,35 @@
+apps/web/src/features/terminal/hooks/use-side-chat-modal-layout.ts
+  s_9b1e17e73ca7c1::t_b99d0d9d2c3a7e 1-309
+automations/review/quality/result/2026-07/07-03_score-82_RESULT.md
+  s_9b1e17e73ca7c1::t_e88dfa12deb48d 110,121-122
+apps/web/src/features/terminal/components/TerminalSideChatLayer.tsx
+  s_9b1e17e73ca7c1::t_494edb60214499 10-11
+  s_9b1e17e73ca7c1::t_bede99e458b41a 1-9,12-83
+apps/web/src/features/terminal/lib/terminal-side-chat.ts
+  s_9b1e17e73ca7c1::t_8649beeae82980 1-198
+apps/web/src/features/terminal/hooks/use-terminal-side-chat-records.ts
+  s_9b1e17e73ca7c1::t_3a1fb28c2ca784 1-185
+apps/web/src/features/terminal/components/TerminalSideChatDots.tsx
+  s_9b1e17e73ca7c1::t_a2b5d114d97592 1-67
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  s_9b1e17e73ca7c1::t_30c117af65016b 1-389
+apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx
+  s_9b1e17e73ca7c1::t_dd3a30875feab2 5,7,15,17-22,24,76-92,158,171
+  s_9b1e17e73ca7c1::t_88f1c7338a2c36 13-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "0c966927acb6854581440cf81024c63a48e0f914",
+  "prompts": {},
+  "sessions": {
+    "s_9b1e17e73ca7c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2547-76a1-7fa2-8a1f-606850e34484",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
