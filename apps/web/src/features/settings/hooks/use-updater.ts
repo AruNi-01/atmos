@@ -23,7 +23,7 @@ export type UpdateStatus =
   | { stage: 'error'; message: string }
   | { stage: 'upToDate' };
 
-type GitHubRelease = {
+type DesktopRelease = {
   tag_name: string;
   prerelease: boolean;
 };
@@ -171,7 +171,9 @@ export function compareVersions(versionA: string, versionB: string): number {
 }
 
 /**
- * Fetch the latest release for a specific version type from GitHub API.
+ * Fetch the latest release for a specific version type from the desktop shell.
+ * The native command prefers the user's GitHub CLI, then falls back to a
+ * native HTTP request when `gh` is not available.
  * Returns the latest version tag that is greater than the current version.
  */
 async function getLatestReleaseForVersionType(
@@ -179,20 +181,7 @@ async function getLatestReleaseForVersionType(
   currentVersion: string,
 ): Promise<string | null> {
   try {
-    const response = await fetch(
-      'https://api.github.com/repos/AruNi-01/atmos/releases?per_page=100',
-      {
-        headers: {
-          'User-Agent': 'atmos-desktop-updater',
-        },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`GitHub API returned error: ${response.status}`);
-    }
-
-    const releases = (await response.json()) as GitHubRelease[];
+    const releases = await invoke<DesktopRelease[]>('list_desktop_releases');
 
     // Filter releases based on version type
     const filteredReleases = releases.filter((release) => {

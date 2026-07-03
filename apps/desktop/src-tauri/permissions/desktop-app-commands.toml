@@ -20,6 +20,7 @@ commands.allow = [
   "get_api_config",
   "get_local_computer_display_name",
   "get_version_info",
+  "list_desktop_releases",
   "open_agent_chat_window",
   "open_in_external_editor",
   "open_preview_browser_window",

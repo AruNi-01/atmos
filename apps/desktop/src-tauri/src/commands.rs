@@ -3,6 +3,7 @@ use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
 use crate::updater;
 use runtime_manager::{clear_client_session, local_computer_display_name_opt};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
@@ -15,6 +16,33 @@ use tauri::{LogicalPosition, Position, TitleBarStyle};
 const AGENT_CHAT_WINDOW_LABEL: &str = "agent-chat";
 const PREVIEW_BROWSER_WINDOW_LABEL: &str = "preview-browser";
 const AGENT_CHAT_HANDOFF_MAX_AGE: Duration = Duration::from_secs(12 * 60 * 60);
+const DESKTOP_RELEASES_API_URL: &str =
+    "https://api.github.com/repos/AruNi-01/atmos/releases?per_page=100";
+
+#[derive(Debug, Serialize)]
+pub struct DesktopReleaseInfo {
+    tag_name: String,
+    prerelease: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct GhRelease {
+    #[serde(rename = "tagName")]
+    tag_name: String,
+    #[serde(default, rename = "isPrerelease")]
+    is_prerelease: bool,
+    #[serde(default, rename = "isDraft")]
+    is_draft: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubApiRelease {
+    tag_name: String,
+    #[serde(default)]
+    prerelease: bool,
+    #[serde(default)]
+    draft: bool,
+}
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
@@ -45,6 +73,17 @@ pub fn get_version_info(app: tauri::AppHandle) -> Result<serde_json::Value, Stri
         "version": version,
         "version_type": version_type.to_string(),
     }))
+}
+
+#[tauri::command]
+pub async fn list_desktop_releases() -> Result<Vec<DesktopReleaseInfo>, String> {
+    match list_desktop_releases_with_gh().await {
+        Ok(releases) if !releases.is_empty() => return Ok(releases),
+        Ok(_) => {}
+        Err(_) => {}
+    }
+
+    list_desktop_releases_with_http().await
 }
 
 #[tauri::command]
@@ -612,4 +651,110 @@ fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {
         .map_err(|error| format!("API not ready: {error}"))?
         .map(|manifest| manifest.api.port)
         .ok_or_else(|| "API not ready".to_string())
+}
+
+async fn list_desktop_releases_with_gh() -> Result<Vec<DesktopReleaseInfo>, String> {
+    let mut command = tokio::process::Command::new("gh");
+    command.args([
+        "release",
+        "list",
+        "--repo",
+        "AruNi-01/atmos",
+        "--limit",
+        "100",
+        "--json",
+        "tagName,isPrerelease,isDraft",
+    ]);
+
+    if let Some(path) = augmented_desktop_tool_path() {
+        command.env("PATH", path);
+    }
+
+    let output = tokio::time::timeout(Duration::from_secs(8), command.output())
+        .await
+        .map_err(|_| "gh release list timed out".to_string())?
+        .map_err(|error| format!("failed to run gh: {error}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "gh release list exited with {}: {}",
+            output.status,
+            stderr.trim()
+        ));
+    }
+
+    let releases: Vec<GhRelease> = serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("failed to parse gh release list output: {error}"))?;
+
+    Ok(releases
+        .into_iter()
+        .filter(|release| !release.is_draft && release.tag_name.starts_with("desktop-"))
+        .map(|release| DesktopReleaseInfo {
+            tag_name: release.tag_name,
+            prerelease: release.is_prerelease,
+        })
+        .collect())
+}
+
+async fn list_desktop_releases_with_http() -> Result<Vec<DesktopReleaseInfo>, String> {
+    let client = reqwest::Client::new();
+    let response = client
+        .get(DESKTOP_RELEASES_API_URL)
+        .header("User-Agent", "atmos-desktop-updater")
+        .send()
+        .await
+        .map_err(|error| format!("failed to fetch GitHub releases: {error}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "GitHub releases API returned {}",
+            response.status()
+        ));
+    }
+
+    let releases: Vec<GitHubApiRelease> = response
+        .json()
+        .await
+        .map_err(|error| format!("failed to parse GitHub releases response: {error}"))?;
+
+    Ok(releases
+        .into_iter()
+        .filter(|release| !release.draft && release.tag_name.starts_with("desktop-"))
+        .map(|release| DesktopReleaseInfo {
+            tag_name: release.tag_name,
+            prerelease: release.prerelease,
+        })
+        .collect())
+}
+
+fn augmented_desktop_tool_path() -> Option<String> {
+    let mut paths = Vec::new();
+
+    if let Some(home) = dirs::home_dir() {
+        paths.extend([
+            home.join(".atmos").join("bin"),
+            home.join(".local").join("bin"),
+            home.join(".npm-global").join("bin"),
+            home.join(".bun").join("bin"),
+            home.join(".cargo").join("bin"),
+            home.join(".deno").join("bin"),
+            home.join(".yarn").join("bin"),
+            home.join(".local").join("share").join("pnpm"),
+            home.join("Library").join("pnpm"),
+        ]);
+    }
+
+    paths.extend(
+        ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"]
+            .iter()
+            .map(PathBuf::from),
+    );
+    paths.extend(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    ));
+
+    std::env::join_paths(paths)
+        .ok()
+        .map(|value| value.to_string_lossy().to_string())
 }

@@ -278,6 +278,7 @@ fn main() {
             commands::get_local_computer_display_name,
             commands::clear_client_session_cmd,
             commands::get_version_info,
+            commands::list_desktop_releases,
             commands::open_agent_chat_window,
             commands::write_agent_chat_handoff,
             commands::read_agent_chat_handoff,
