@@ -1,0 +1,26 @@
+apps/web/src/api/ws-api.ts
+  s_9b1e17e73ca7c1::t_672acfc33fecc0 300
+crates/infra/src/db/repo/terminal_side_chat_repo.rs
+  s_9b1e17e73ca7c1::t_e87a8598450cfc 138,140,150,156-161
+apps/api/src/api/ws/router/terminal.rs
+  s_9b1e17e73ca7c1::t_f6d45398e42450 266
+crates/core-service/src/service/terminal/management.rs
+  s_9b1e17e73ca7c1::t_1379ce42441434 238-241,1108-1128,1135-1139,1154-1184
+  s_9b1e17e73ca7c1::t_6897b5a432d5b6 1185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "0f51e0f0bbc72aaadfe215fe6c45050015ec49de",
+  "prompts": {},
+  "sessions": {
+    "s_9b1e17e73ca7c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2547-76a1-7fa2-8a1f-606850e34484",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
