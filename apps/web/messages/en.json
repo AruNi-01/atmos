@@ -1851,6 +1851,7 @@
         "save": "Save",
         "edit": "Edit",
         "apply": "Apply",
+        "reset": "Reset",
         "loading": "Loading...",
         "refresh": "Refresh",
         "manageConfigs": "Manage configs"

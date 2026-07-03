@@ -13,7 +13,30 @@ import {
   subMonths,
   subYears,
   formatDistanceToNow,
+  type Locale as DateFnsLocale,
 } from 'date-fns';
+import { enUS, zhCN } from 'date-fns/locale';
+
+function dateFnsLocaleFor(locale?: string | null): DateFnsLocale {
+  return locale?.startsWith('zh') ? zhCN : enUS;
+}
+
+function compactRelativeTime(value: number, unit: 'second' | 'minute' | 'hour' | 'day', locale?: string | null): string {
+  if (!locale?.startsWith('zh')) {
+    const suffix = unit === 'second' ? 's' : unit === 'minute' ? 'm' : unit === 'hour' ? 'h' : 'd';
+    return `${value}${suffix}`;
+  }
+
+  const unitLabel =
+    unit === 'second'
+      ? '秒'
+      : unit === 'minute'
+        ? '分钟'
+        : unit === 'hour'
+          ? '小时'
+          : '天';
+  return `${value}${unitLabel}`;
+}
 
 /**
  * Get user's local IANA timezone (e.g., "Asia/Shanghai", "America/New_York")
@@ -51,13 +74,13 @@ export function parseUTCDate(utcDateString: string, timeZone?: string): TZDate {
  * - < 7d: "Xd"
  * - >= 7d: date string (e.g., "Jan 15")
  */
-export function formatRelativeTime(utcDateString: string): string {
+export function formatRelativeTime(utcDateString: string, locale?: string | null): string {
   const target = parseUTCDate(utcDateString);
   const now = new Date();
   const diffMs = now.getTime() - target.getTime();
 
   if (diffMs < 0) {
-    return 'just now';
+    return locale?.startsWith('zh') ? '刚刚' : 'just now';
   }
 
   const diffSeconds = Math.floor(diffMs / 1000);
@@ -66,38 +89,48 @@ export function formatRelativeTime(utcDateString: string): string {
   const diffDays = Math.floor(diffHours / 24);
 
   if (diffSeconds < 60) {
-    return diffSeconds <= 5 ? 'just now' : `${diffSeconds}s`;
+    return diffSeconds <= 5
+      ? locale?.startsWith('zh') ? '刚刚' : 'just now'
+      : compactRelativeTime(diffSeconds, 'second', locale);
   }
 
   if (diffMinutes < 60) {
-    return `${diffMinutes}m`;
+    return compactRelativeTime(diffMinutes, 'minute', locale);
   }
 
   if (diffHours < 24) {
-    return `${diffHours}h`;
+    return compactRelativeTime(diffHours, 'hour', locale);
   }
 
   if (diffDays < 7) {
-    return `${diffDays}d`;
+    return compactRelativeTime(diffDays, 'day', locale);
   }
 
-  return format(target, 'MMM d');
+  return format(target, 'MMM d', { locale: dateFnsLocaleFor(locale) });
 }
 
 /**
  * Format a UTC date string to local date string (e.g., "Jan 15, 2026")
  */
-export function formatLocalDate(utcDateString: string, formatStr: string = 'MMM d, yyyy'): string {
+export function formatLocalDate(
+  utcDateString: string,
+  formatStr: string = 'MMM d, yyyy',
+  locale?: string | null,
+): string {
   const date = parseUTCDate(utcDateString);
-  return format(date, formatStr);
+  return format(date, formatStr, { locale: dateFnsLocaleFor(locale) });
 }
 
 /**
  * Format a UTC date string to local datetime string (e.g., "Jan 15, 2026 • 14:30")
  */
-export function formatLocalDateTime(utcDateString: string, formatStr: string = 'MMM d, yyyy • HH:mm:ss'): string {
+export function formatLocalDateTime(
+  utcDateString: string,
+  formatStr: string = 'MMM d, yyyy • HH:mm:ss',
+  locale?: string | null,
+): string {
   const date = parseUTCDate(utcDateString);
-  return format(date, formatStr);
+  return format(date, formatStr, { locale: dateFnsLocaleFor(locale) });
 }
 
 // Re-export date-fns utilities for convenient use in apps

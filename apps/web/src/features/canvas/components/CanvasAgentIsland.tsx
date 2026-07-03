@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Eye,
@@ -57,8 +57,8 @@ const MAX_HISTORY_ROWS = 100;
  */
 const ISLAND_ACTIVE_WINDOW_MS = 15_000;
 
-function formatTime(at: number): string {
-  return new Intl.DateTimeFormat(undefined, {
+function formatTime(at: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -218,6 +218,8 @@ function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
 }
 
 function HistoryRow({ row }: { row: SummarizedFeedRow }) {
+  const locale = useLocale();
+
   return (
     <li className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs">
       <HistoryIcon
@@ -243,7 +245,7 @@ function HistoryRow({ row }: { row: SummarizedFeedRow }) {
         className="shrink-0 tabular-nums text-[10px] text-muted-foreground"
         dateTime={new Date(row.time).toISOString()}
       >
-        {formatTime(row.time)}
+        {formatTime(row.time, locale)}
       </time>
     </li>
   );

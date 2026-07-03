@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { enUS, zhCN } from 'date-fns/locale';
 import {
   Input,
   ScrollArea,
@@ -99,6 +100,8 @@ const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
 
 export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey, viewSwitcher }) => {
   const t = useTranslations('Workspace.components.recentView');
+  const locale = useLocale();
+  const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
   const router = useAppRouter();
   const projects = useProjectStore(s => s.projects);
   const isStoreLoading = useProjectStore(s => s.isLoading);
@@ -471,7 +474,9 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                 </div>
 
                                 <div className="w-full shrink-0 pl-14 text-left text-[11px] font-medium tabular-nums text-muted-foreground/70 md:w-[110px] md:pl-6 md:text-right">
-                                  {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime()) ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy') : '-'}
+                                  {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime())
+                                    ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy', { locale: dateLocale })
+                                    : '-'}
                                 </div>
                               </motion.button>
                             );

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Button,
   DropdownMenu,
@@ -48,6 +48,7 @@ export function TerminalSettingsSection({
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
 }) {
   const t = useTranslations('settings.terminalSection');
+  const locale = useLocale();
   const [localSideContextBudget, setLocalSideContextBudget] = React.useState(
     sideContextPromptBudgetBytes.toString(),
   );
@@ -73,9 +74,9 @@ export function TerminalSettingsSection({
     terminalLinkModeOptions[0];
   const activeQuickOpenApp = QUICK_OPEN_APP_MAP[fileLinkOpenApp];
   const formattedMinSideContextBudget =
-    MIN_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString();
+    MIN_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString(locale);
   const formattedMaxSideContextBudget =
-    MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString();
+    MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString(locale);
 
   React.useEffect(() => {
     setLocalSideContextBudget(sideContextPromptBudgetBytes.toString());

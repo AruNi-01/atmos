@@ -50,6 +50,8 @@ export function WelcomeAgentSelector({
   open,
   purpose,
   trigger,
+  triggerPlacement,
+  contentAlign,
   variant = "floating",
 }: {
   availableAgents: AgentMenuOption[];
@@ -63,6 +65,8 @@ export function WelcomeAgentSelector({
   onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
   purpose?: "interactive" | "automation";
   trigger?: React.ReactNode;
+  triggerPlacement?: "notch" | "inline";
+  contentAlign?: "start" | "center" | "end";
   variant?: "floating" | "menu";
 }) {
   const t = useTranslations("Welcome.components.composerControls");
@@ -98,6 +102,8 @@ export function WelcomeAgentSelector({
       emptyActionLabel={t("connectAgents")}
       onInteraction={onInteraction}
       purpose={purpose}
+      triggerPlacement={triggerPlacement}
+      contentAlign={contentAlign}
     />
   );
 }

@@ -18,7 +18,7 @@ use crate::appshot::types::{
     AppshotRecordListItem, AppshotSnapshotView, AppshotStatus, AppshotTriggerMode,
     AppshotTriggerStatus,
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 const PREVIEW_EVENT: &str = "appshot://preview";
 
@@ -139,10 +139,7 @@ pub async fn trigger_capture(app: AppHandle) {
     match capture_current().await {
         Ok(captured) => match pending::insert(captured) {
             Ok(preview) => {
-                if let Some(main) = app.get_webview_window("main") {
-                    let _ = main.show();
-                    let _ = main.set_focus();
-                }
+                restore_main_window_after_capture(&app);
                 let _ = app.emit(PREVIEW_EVENT, &preview);
                 if preview.expires_in_ms > 0 {
                     pending::spawn_auto_accept(app, preview.preview_id);
@@ -154,6 +151,23 @@ pub async fn trigger_capture(app: AppHandle) {
         },
         Err(error) => {
             let _ = app.emit("appshot://error", error);
+        }
+    }
+}
+
+fn restore_main_window_after_capture(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        crate::window_activation::restore_main_window_after_activation(app, "appshot");
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        use tauri::Manager as _;
+
+        if let Some(main) = app.get_webview_window("main") {
+            let _ = main.show();
+            let _ = main.set_focus();
         }
     }
 }

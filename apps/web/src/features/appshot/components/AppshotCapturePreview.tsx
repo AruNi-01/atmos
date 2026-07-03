@@ -4,6 +4,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2, XCircle } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import {
   acceptAppshotPending,
@@ -269,9 +270,6 @@ export function AppshotCapturePreview() {
   const busy = resolveState !== "idle";
   const deniedPermissions = (preview.permissions ?? []).filter((permission) => !permission.granted);
   const countdownSeconds = Math.ceil(remainingMs / 1_000);
-  const countdownLabel = countdownPaused
-    ? `Paused ${countdownSeconds}s`
-    : `${countdownSeconds}s`;
 
   return createPortal(
     <div
@@ -297,9 +295,7 @@ export function AppshotCapturePreview() {
             </p>
           </div>
           {preview.expires_in_ms > 0 ? (
-            <span className="rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {countdownLabel}
-            </span>
+            <CountdownStatusBadge paused={countdownPaused} seconds={countdownSeconds} />
           ) : (
             <span className="rounded-md border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">
               Needs permission
@@ -404,6 +400,50 @@ export function AppshotCapturePreview() {
       </div>
     </div>,
     portalContainer,
+  );
+}
+
+function CountdownStatusBadge({ paused, seconds }: { paused: boolean; seconds: number }) {
+  const reduceMotion = useReducedMotion();
+  const transition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const };
+
+  return (
+    <span
+      aria-label={paused ? `Paused ${seconds}s` : `${seconds}s`}
+      className={cn(
+        "inline-flex h-5 shrink-0 items-center overflow-hidden rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        paused
+          ? "border-warning/35 bg-warning/10 text-warning"
+          : "border-border text-muted-foreground",
+      )}
+    >
+      <AnimatePresence initial={false}>
+        {paused ? (
+          <motion.span
+            key="paused"
+            aria-hidden="true"
+            className="overflow-hidden whitespace-nowrap font-medium"
+            initial={reduceMotion ? false : { width: 0, opacity: 0, marginRight: 0 }}
+            animate={{ width: "auto", opacity: 1, marginRight: 4 }}
+            exit={reduceMotion ? undefined : { width: 0, opacity: 0, marginRight: 0 }}
+            transition={transition}
+          >
+            <motion.span
+              className="block"
+              initial={reduceMotion ? false : { x: 5 }}
+              animate={{ x: 0 }}
+              exit={reduceMotion ? undefined : { x: 5 }}
+              transition={transition}
+            >
+              Paused
+            </motion.span>
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+      <span aria-hidden="true">{seconds}s</span>
+    </span>
   );
 }
 

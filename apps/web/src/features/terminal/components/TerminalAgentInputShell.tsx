@@ -17,9 +17,9 @@ type PromptComposerProps = React.ComponentProps<typeof PromptComposer>;
 
 export function TerminalAgentInputShell({
   attachments,
-  beforeSendControl,
   canSubmit,
   composerRef,
+  footerEndControl,
   handleAttachmentRemove,
   handleImagePaste,
   handleTextChange,
@@ -38,9 +38,9 @@ export function TerminalAgentInputShell({
   startSendExit,
 }: {
   attachments: AttachmentBarProps["attachments"];
-  beforeSendControl?: React.ReactNode;
   canSubmit: boolean;
   composerRef: React.RefObject<ComposerHandle | null>;
+  footerEndControl?: React.ReactNode;
   handleAttachmentRemove: AttachmentBarProps["onRemove"];
   handleImagePaste: PromptComposerProps["onImagePaste"];
   handleTextChange: (nextText: string) => void;
@@ -58,6 +58,8 @@ export function TerminalAgentInputShell({
   placeholder: string;
   startSendExit: () => void;
 }) {
+  const hasFooterContent = attachments.length > 0 || !!footerEndControl;
+
   return (
     <div
       className={cn(
@@ -72,7 +74,7 @@ export function TerminalAgentInputShell({
       <div className="min-h-0 overflow-hidden">
         <div
           ref={inputShellRef}
-          className="terminal-agent-input-shell relative overflow-hidden rounded-[1.65rem] border border-border/70 bg-background/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-md"
+          className="terminal-agent-input-shell relative overflow-hidden rounded-[1.65rem] bg-background/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-md dark:bg-[#151515]"
           data-send-animating={isSendAnimating ? "true" : "false"}
         >
           {isSendAnimating ? (
@@ -86,7 +88,7 @@ export function TerminalAgentInputShell({
               }}
             />
           ) : null}
-          <div className="relative z-10 flex items-end gap-2 rounded-[1.25rem] bg-muted/30 px-4 py-2">
+          <div className="relative z-10 flex items-end gap-2 rounded-[1.25rem] bg-muted/30 px-4 py-2 dark:bg-[#0b0b0b]">
             <div className="min-w-0 flex-1">
               <PromptComposer
                 ref={composerRef}
@@ -102,9 +104,6 @@ export function TerminalAgentInputShell({
                 onSlashCancel={onSlashCancel}
               />
             </div>
-            {beforeSendControl ? (
-              <div className="flex shrink-0 items-center">{beforeSendControl}</div>
-            ) : null}
             <button
               type="button"
               className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-45"
@@ -121,12 +120,26 @@ export function TerminalAgentInputShell({
               )}
             </button>
           </div>
-          <AttachmentBar
-            attachments={attachments}
-            onRemove={handleAttachmentRemove}
-            onPreview={onPreviewAttachment}
-            className="relative z-10 px-3 pb-2 pt-1.5"
-          />
+          <div
+            className="terminal-agent-input-footer relative z-10"
+            data-visible={hasFooterContent ? "true" : "false"}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="terminal-agent-input-footer-content flex items-end gap-2 px-3 pb-2 pt-1.5">
+                <AttachmentBar
+                  attachments={attachments}
+                  onRemove={handleAttachmentRemove}
+                  onPreview={onPreviewAttachment}
+                  className="min-w-0 flex-1"
+                />
+                {footerEndControl ? (
+                  <div className="ml-auto flex shrink-0 items-center self-end">
+                    {footerEndControl}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

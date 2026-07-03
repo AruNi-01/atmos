@@ -23,6 +23,7 @@ interface TerminalSideChatLayerProps {
   projectName?: string | null;
   projectRootPath?: string | null;
   records: LocalSideChatRecord[];
+  sideChatFlyTargetRef: React.RefObject<HTMLDivElement | null>;
   sourcePaneId: string;
   sourceTmuxWindowName: string;
   terminalRefs: React.MutableRefObject<Map<string, TerminalRef>>;
@@ -37,6 +38,7 @@ export function TerminalSideChatLayer({
   projectRootPath,
   records,
   activeSideChatId,
+  sideChatFlyTargetRef,
   sourcePaneId,
   sourceTmuxWindowName,
   terminalRefs,
@@ -67,6 +69,7 @@ export function TerminalSideChatLayer({
       projectName={projectName}
       projectRootPath={projectRootPath}
       records={availableRecords}
+      sideChatFlyTargetRef={sideChatFlyTargetRef}
       sourcePaneId={sourcePaneId}
       sourceTmuxWindowName={sourceTmuxWindowName}
       terminalRefs={terminalRefs}

@@ -69,6 +69,8 @@ const CHIP_TOKEN_PATTERN =
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
+const CHIP_TRAILING_SPACER = "\u00A0";
+const TRAILING_CHIP_SPACER_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})([ \\u00A0]+)$`);
 
 /**
  * Most SVG icons used inside chips live as static assets under
@@ -247,13 +249,45 @@ function getCaretTextOffset(root: HTMLElement): number | null {
   return serializeRange(beforeRange).length;
 }
 
+function getChipBoundaryTextOffset(
+  root: HTMLElement,
+  direction: "backward" | "forward",
+): number | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed || !root.contains(range.startContainer)) return null;
+
+  const start =
+    range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? (range.startContainer as Element)
+      : range.startContainer.parentElement;
+  const chip = start?.closest?.("[data-token]") as HTMLElement | null;
+  if (!chip || !root.contains(chip)) return null;
+
+  const beforeRange = document.createRange();
+  beforeRange.selectNodeContents(root);
+  if (direction === "backward") {
+    beforeRange.setEndAfter(chip);
+  } else {
+    beforeRange.setEndBefore(chip);
+  }
+  return serializeRange(beforeRange).length;
+}
+
 function deleteChipNearCaret(root: HTMLElement, direction: "backward" | "forward"): boolean {
-  const caretOffset = getCaretTextOffset(root);
+  const caretOffset = getChipBoundaryTextOffset(root, direction) ?? getCaretTextOffset(root);
   if (caretOffset === null) return false;
 
   const currentText = serialize(root);
   const before = currentText.slice(0, caretOffset);
   const after = currentText.slice(caretOffset);
+  if (direction === "backward" && TRAILING_CHIP_SPACER_REGEX.test(before)) {
+    const nextText = currentText.slice(0, caretOffset - 1) + currentText.slice(caretOffset);
+    inflateInto(root, nextText);
+    setCaretAtTextOffset(root, caretOffset - 1);
+    return true;
+  }
   const match =
     direction === "backward"
       ? before.match(BACKSPACE_CHIP_REGEX)
@@ -556,6 +590,20 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       });
     }, []);
 
+    const setCaretAtOffsetAndRemember = React.useCallback((offset: number) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const place = () => {
+        const current = editorRef.current;
+        if (!current || document.activeElement !== current) return;
+        const boundedOffset = Math.max(0, Math.min(offset, serialize(current).length));
+        setCaretAtTextOffset(current, boundedOffset);
+        savedCaretOffsetRef.current = boundedOffset;
+      };
+      place();
+      window.requestAnimationFrame(place);
+    }, []);
+
     React.useImperativeHandle(ref, () => ({
       getText: () => (editorRef.current ? serialize(editorRef.current) : ""),
       setText: (text: string) => {
@@ -612,7 +660,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(atOffset - 1, 0);
         const replaceTo = Math.min(atOffset + queryLength, currentText.length);
-        const insertText = `${token} `;
+        const insertText = `${token}${CHIP_TRAILING_SPACER}`;
         const nextText =
           currentText.slice(0, replaceFrom) +
           insertText +
@@ -620,8 +668,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
-        setCaretAtTextOffset(editorRef.current, nextCaretOffset);
-        savedCaretOffsetRef.current = nextCaretOffset;
+        setCaretAtOffsetAndRemember(nextCaretOffset);
       },
       applySlashAtRange: (slashOffset, queryLength, mention) => {
         if (!editorRef.current) return;
@@ -639,7 +686,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(slashOffset - 1, 0);
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
-        const insertText = `${token} `;
+        const insertText = `${token}${CHIP_TRAILING_SPACER}`;
         const nextText =
           currentText.slice(0, replaceFrom) +
           insertText +
@@ -647,8 +694,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
-        setCaretAtTextOffset(editorRef.current, nextCaretOffset);
-        savedCaretOffsetRef.current = nextCaretOffset;
+        setCaretAtOffsetAndRemember(nextCaretOffset);
       },
       insertImagePlaceholder: (n) => {
         if (!editorRef.current) return;

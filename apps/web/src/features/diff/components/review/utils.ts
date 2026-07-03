@@ -25,10 +25,10 @@ export function compareReviewTimestamps(left: string, right: string) {
   return parseUTCDate(left).getTime() - parseUTCDate(right).getTime();
 }
 
-export function formatReviewDateTime(value: string | null | undefined) {
+export function formatReviewDateTime(value: string | null | undefined, locale?: string | null) {
   if (!value) return "Unknown";
   try {
-    return formatLocalDateTime(value, "MMM d, HH:mm");
+    return formatLocalDateTime(value, "MMM d, HH:mm", locale);
   } catch {
     return value;
   }

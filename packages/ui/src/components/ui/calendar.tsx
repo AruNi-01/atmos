@@ -21,11 +21,13 @@ function Calendar({
   showOutsideDays = true,
   captionLayout = "label",
   buttonVariant = "ghost",
+  formatLocale,
   formatters,
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
+  formatLocale?: Intl.LocalesArgument
 }) {
   const defaultClassNames = getDefaultClassNames()
 
@@ -41,7 +43,7 @@ function Calendar({
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+          date.toLocaleString(formatLocale, { month: "short" }),
         ...formatters,
       }}
       classNames={{

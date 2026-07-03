@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useLocale } from "next-intl";
 import { Button, Textarea } from "@workspace/ui";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { cn } from "@/shared/lib/utils";
@@ -20,6 +21,7 @@ interface MessageBubbleProps {
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, action, onEdit }) => {
+  const locale = useLocale();
   const isUser = message.author_type === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState(message.body_full);
@@ -68,7 +70,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, action, o
           {isUser ? <User className="size-3" /> : <Bot className="size-3" />}
           {isUser ? "you" : message.author_type}
         </span>
-        <span>{formatReviewDateTime(message.created_at)}</span>
+        <span>{formatReviewDateTime(message.created_at, locale)}</span>
       </div>
       <div className="min-w-0">
         {isEditing ? (

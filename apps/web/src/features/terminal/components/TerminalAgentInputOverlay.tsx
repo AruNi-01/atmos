@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
-import { Bot, ChevronDown } from "lucide-react";
+import { Bot } from "lucide-react";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
@@ -55,6 +55,7 @@ import "./TerminalAgentInputOverlay.css";
 
 interface TerminalAgentInputOverlayProps {
   activeProjectId?: string | null;
+  getSideChatFlyTargetClientPoint?: () => { x: number; y: number } | null;
   getTerminalCursorClientPoint?: () => { x: number; y: number } | null;
   isTerminalReady?: boolean;
   localPath?: string | null;
@@ -82,6 +83,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   TerminalAgentInputOverlayProps
 >(function TerminalAgentInputOverlay({
   activeProjectId,
+  getSideChatFlyTargetClientPoint,
   getTerminalCursorClientPoint,
   isTerminalReady = true,
   localPath,
@@ -128,15 +130,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     () => resolveDetectedSideChatAgent(sideChatAgent, runnableSideChatAgents),
     [runnableSideChatAgents, sideChatAgent],
   );
+  const isSideCommandActive = React.useMemo(
+    () => !!onStartSideChat && stripSideCommandToken(text) !== null,
+    [onStartSideChat, text],
+  );
+  const effectiveSelectedSideChatAgentId = selectedSideChatAgentId || detectedSideChatAgent?.id || "";
   const selectedSideChatAgent = React.useMemo(
-    () =>
-      selectedSideChatAgentId
-        ? runnableSideChatAgents.find((agent) => agent.id === selectedSideChatAgentId) ?? null
-        : null,
-    [runnableSideChatAgents, selectedSideChatAgentId],
+    () => {
+      if (!effectiveSelectedSideChatAgentId) return null;
+      return (
+        runnableSideChatAgents.find((agent) => agent.id === effectiveSelectedSideChatAgentId) ??
+        (detectedSideChatAgent?.id === effectiveSelectedSideChatAgentId ? detectedSideChatAgent : null)
+      );
+    },
+    [detectedSideChatAgent, effectiveSelectedSideChatAgentId, runnableSideChatAgents],
   );
   const shouldShowSideChatAgentSelector =
-    !!onStartSideChat && !detectedSideChatAgent && sideChatAgentMenuOptions.length > 0;
+    isSideCommandActive && sideChatAgentMenuOptions.length > 0;
 
   const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
     if (!onStartSideChat) return [];
@@ -336,9 +346,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, []);
 
   const resolveSideAgent = React.useCallback(() => {
-    if (detectedSideChatAgent) {
-      return { agent: detectedSideChatAgent, runConfig: null };
-    }
     if (selectedSideChatAgent) {
       return {
         agent: selectedSideChatAgent,
@@ -346,7 +353,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       };
     }
     return null;
-  }, [detectedSideChatAgent, selectedSideChatAgent, sideChatRunConfigs]);
+  }, [selectedSideChatAgent, sideChatRunConfigs]);
 
   React.useEffect(() => {
     if (!selectedSideChatAgentId) return;
@@ -355,9 +362,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, [runnableSideChatAgents, selectedSideChatAgentId]);
 
   React.useEffect(() => {
-    if (!detectedSideChatAgent) return;
+    if (isSideCommandActive) return;
+    setPendingSidePrompt(null);
     setSideChatAgentSelectorOpen(false);
-  }, [detectedSideChatAgent]);
+    setSelectedSideChatAgentId("");
+  }, [isSideCommandActive]);
 
   React.useEffect(() => {
     if (!isSendAnimating) return;
@@ -379,12 +388,15 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     };
   }, []);
 
-  const launchFlyingMessage = React.useCallback((messageText: string) => {
+  const launchFlyingMessage = React.useCallback((
+    messageText: string,
+    targetOverride?: { x: number; y: number } | null,
+  ) => {
     const message = buildTerminalAgentFlyingMessage({
       id: flyingMessageIdRef.current + 1,
       messageText,
       shell: inputShellRef.current,
-      target: getTerminalCursorClientPoint?.(),
+      target: targetOverride ?? getTerminalCursorClientPoint?.(),
     });
     if (!message) return;
 
@@ -392,8 +404,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     flyingMessageIdRef.current = message.id;
   }, [getTerminalCursorClientPoint]);
 
-  const startSuccessfulSubmitAnimation = React.useCallback((messageText: string) => {
-    launchFlyingMessage(messageText);
+  const startSuccessfulSubmitAnimation = React.useCallback((
+    messageText: string,
+    targetOverride?: { x: number; y: number } | null,
+  ) => {
+    launchFlyingMessage(messageText, targetOverride);
     setIsOpen(true);
     setIsSendAnimating(true);
     composerRef.current?.clear();
@@ -411,8 +426,9 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   ) => {
     if (!onStartSideChat) return;
     await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig));
-    startSuccessfulSubmitAnimation(prompt);
-  }, [onStartSideChat, startSuccessfulSubmitAnimation]);
+    const flyTarget = await resolveSideChatFlyTarget(getSideChatFlyTargetClientPoint);
+    startSuccessfulSubmitAnimation(prompt, flyTarget);
+  }, [getSideChatFlyTargetClientPoint, onStartSideChat, startSuccessfulSubmitAnimation]);
 
   const handleSideChatRunConfigChange = React.useCallback(
     (agentId: string, value: TerminalAgentRunConfigInput | null) => {
@@ -589,10 +605,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           onSubmit={submit}
           placeholder={t("placeholder")}
           startSendExit={startSendExit}
-          beforeSendControl={
+          footerEndControl={
             shouldShowSideChatAgentSelector ? (
               <WelcomeAgentSelector
                 availableAgents={sideChatAgentMenuOptions}
+                contentAlign="end"
                 onInteraction={onInteraction}
                 onOpenChange={setSideChatAgentSelectorOpen}
                 onRunConfigChange={handleSideChatRunConfigChange}
@@ -600,19 +617,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                 open={sideChatAgentSelectorOpen}
                 purpose="interactive"
                 runConfigByAgentId={sideChatRunConfigs}
-                selectedAgentId={selectedSideChatAgentId}
-                trigger={
-                  <SideChatAgentSelectorTrigger
-                    agent={selectedSideChatAgent}
-                    isOpen={sideChatAgentSelectorOpen}
-                    label={
-                      selectedSideChatAgent
-                        ? t("sideCommand.changeAgent", { label: selectedSideChatAgent.label })
-                        : t("sideCommand.selectAgent")
-                    }
-                  />
-                }
-                variant="menu"
+                selectedAgentId={effectiveSelectedSideChatAgentId}
+                triggerPlacement="inline"
               />
             ) : undefined
           }
@@ -705,37 +711,18 @@ function stripSideCommandToken(text: string): string | null {
   return text.replace(sideTokenPattern, "$1").trim();
 }
 
-function SideChatAgentSelectorTrigger({
-  agent,
-  isOpen,
-  label,
-}: {
-  agent: TerminalPaneAgent | null;
-  isOpen: boolean;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "relative flex size-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/85 text-foreground shadow-sm transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-45",
-        isOpen && "bg-background ring-1 ring-ring/35",
-      )}
-      aria-label={label}
-      title={label}
-    >
-      {agent ? (
-        agent.iconType === "built-in" ? (
-          <AgentIcon registryId={agent.id} name={agent.label} size={16} />
-        ) : (
-          <Bot className="size-4 text-muted-foreground" />
-        )
-      ) : (
-        <Bot className="size-4 text-muted-foreground" />
-      )}
-      <ChevronDown className="absolute bottom-1 right-1 size-2.5 text-muted-foreground" />
-    </button>
-  );
+async function resolveSideChatFlyTarget(
+  getTarget?: () => { x: number; y: number } | null,
+): Promise<{ x: number; y: number } | null> {
+  if (!getTarget || typeof window === "undefined") return null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const target = getTarget();
+    if (target) return target;
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  }
+  return null;
 }
 
 function getRunnableUniqueSideChatAgents(agents: TerminalPaneAgent[]): TerminalPaneAgent[] {

@@ -13,6 +13,39 @@
     0 0 34px color-mix(in srgb, #2563eb 18%, transparent);
 }
 
+.terminal-agent-input-footer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, -4px, 0);
+  transition:
+    grid-template-rows 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 140ms ease-out,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.terminal-agent-input-footer[data-visible="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+}
+
+.terminal-agent-input-footer-content {
+  opacity: 0;
+  transform: translate3d(0, -3px, 0);
+  transition:
+    opacity 160ms ease-out,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.terminal-agent-input-footer[data-visible="true"] .terminal-agent-input-footer-content {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition-delay: 45ms;
+}
+
 .terminal-agent-send-sweep {
   position: absolute;
   inset: -30% -8%;
@@ -114,6 +147,13 @@
 @media (prefers-reduced-motion: reduce) {
   .terminal-agent-input-shell {
     transition-duration: 1ms;
+  }
+
+  .terminal-agent-input-footer,
+  .terminal-agent-input-footer-content {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+    transform: none;
   }
 
   .terminal-agent-send-sweep,

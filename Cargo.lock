@@ -534,6 +534,7 @@ dependencies = [
  "core-graphics",
  "dirs 5.0.1",
  "keyring",
+ "objc2",
  "objc2-app-kit",
  "reqwest 0.12.28",
  "runtime-manager",

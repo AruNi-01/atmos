@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
   onDeleteProject,
 }) => {
   const t = useTranslations('Workspace.components.archivedModal');
+  const locale = useLocale();
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
@@ -153,7 +154,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {t('archivedAt', { time: formatRelativeTime(ws.archived_at) })}
+                            {t('archivedAt', { time: formatRelativeTime(ws.archived_at, locale) })}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

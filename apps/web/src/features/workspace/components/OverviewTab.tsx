@@ -101,10 +101,10 @@ interface OverviewTabProps {
   onOpenActionRun?: (run: ActionRun) => void;
 }
 
-function formatDate(isoString?: string): string {
+function formatDate(isoString: string | undefined, locale: string): string {
   if (!isoString) return '-';
   try {
-    return formatLocalDateTime(isoString);
+    return formatLocalDateTime(isoString, undefined, locale);
   } catch {
     return '-';
   }
@@ -637,7 +637,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <span className="text-[11px] text-muted-foreground">{t('details.created')}</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
-                    {formatDate(createdAt)}
+                    {formatDate(createdAt, locale)}
                   </span>
                 </div>
               )}
@@ -856,7 +856,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             <Rocket className="size-3 shrink-0" />
                             <span className="truncate">{run.workflowName}</span>
                             <span className="shrink-0">•</span>
-                            <span className="shrink-0">{formatDate(run.createdAt)}</span>
+                            <span className="shrink-0">{formatDate(run.createdAt, locale)}</span>
                           </div>
                         </div>
                       );

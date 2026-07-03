@@ -384,7 +384,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const shortName = getWorkspaceShortName(workspace.name);
   const rawDisplayName = workspace.displayName?.trim() || "";
-  const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt);
+  const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale);
 
   React.useEffect(() => {
     setEditableName(rawDisplayName);

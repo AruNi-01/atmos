@@ -61,6 +61,8 @@ type FloatingProps = SharedProps & {
   runConfigByAgentId: Record<string, TerminalAgentRunConfigInput | null | undefined>;
   onEmptyAction?: () => void;
   emptyActionLabel?: string;
+  triggerPlacement?: "notch" | "inline";
+  contentAlign?: React.ComponentProps<typeof DropdownMenuContent>["align"];
 };
 
 type FieldProps = SharedProps & {
@@ -362,7 +364,10 @@ export function TerminalAgentSelectorWithRunConfig(
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="absolute -left-3 -top-3 z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
+                className={cn(
+                  "z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground",
+                  props.triggerPlacement === "inline" ? "relative" : "absolute -left-3 -top-3",
+                )}
                 aria-label={t("selectAgent")}
               >
                 {selectedOption ? (
@@ -376,7 +381,7 @@ export function TerminalAgentSelectorWithRunConfig(
           <TooltipContent side="top">{summary}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
-          align="start"
+          align={props.contentAlign ?? "start"}
           className="p-1.5"
           onDoubleClick={handleContentInteraction}
           onKeyDown={handleContentInteraction}

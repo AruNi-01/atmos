@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -33,19 +33,19 @@ import {
   registrationMetaFromRecord,
 } from '@/features/connection/lib/registration-meta';
 
-function formatTime(epochSec: number | null | undefined): string {
+function formatTime(epochSec: number | null | undefined, locale: string): string {
   if (!epochSec) {
     return '—';
   }
-  return new Date(epochSec * 1000).toLocaleString();
+  return new Date(epochSec * 1000).toLocaleString(locale);
 }
 
-function formatIsoTime(iso: string | null | undefined): string {
+function formatIsoTime(iso: string | null | undefined, locale: string): string {
   if (!iso?.trim()) {
     return '—';
   }
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(locale);
 }
 
 function formatUptime(secs: number | null | undefined): string {
@@ -135,6 +135,7 @@ function canFetchLiveDetails(
 
 function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }) {
   const t = useTranslations('atmosComputer.detailsDialog');
+  const locale = useLocale();
   const manifest = runtimeInfo.runtime_manifest;
   const relay = runtimeInfo.relay;
 
@@ -144,7 +145,7 @@ function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }
         {manifest ? (
           <>
             <DetailRow label={t('runtimeManifest.source')} value={manifest.source} />
-            <DetailRow label={t('runtimeManifest.started')} value={formatIsoTime(manifest.started_at)} />
+            <DetailRow label={t('runtimeManifest.started')} value={formatIsoTime(manifest.started_at, locale)} />
             <DetailRow
               label={t('runtimeManifest.apiUrl')}
               value={<span className="font-mono text-xs">{manifest.api_url}</span>}
@@ -274,6 +275,7 @@ export function ComputerDetailsDialog({
   isCurrent: boolean;
 }) {
   const t = useTranslations('atmosComputer.detailsDialog');
+  const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<TerminalOverviewResponse | null>(null);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfoResponse | null>(null);
@@ -388,8 +390,8 @@ export function ComputerDetailsDialog({
             label={t('overview.serverId')}
             value={<span className="font-mono text-xs">{computer.server_id}</span>}
           />
-          <DetailRow label={t('overview.added')} value={formatTime(computer.created_at)} />
-          <DetailRow label={t('overview.lastSeen')} value={formatTime(computer.last_seen_at ?? null)} />
+          <DetailRow label={t('overview.added')} value={formatTime(computer.created_at, locale)} />
+          <DetailRow label={t('overview.lastSeen')} value={formatTime(computer.last_seen_at ?? null, locale)} />
           {displayHostname ? <DetailRow label={t('overview.hostname')} value={displayHostname} /> : null}
           {registrationMeta ? (
             <>

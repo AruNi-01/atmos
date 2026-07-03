@@ -182,6 +182,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     return options;
   }, [agentForSubmit, quickOpenAgents]);
   const {
+    getSideChatFlyTargetClientPoint,
     sideChatDots,
     sideChatLayer,
     startSideChat,
@@ -463,6 +464,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           getTerminalCursorClientPoint={() =>
             terminalRefsMap.current.get(id)?.getCursorClientPoint() ?? null
           }
+          getSideChatFlyTargetClientPoint={getSideChatFlyTargetClientPoint}
           isTerminalReady={isTerminalReady}
           localPath={workspaceInfo?.localPath}
           onStartSideChat={startSideChat}

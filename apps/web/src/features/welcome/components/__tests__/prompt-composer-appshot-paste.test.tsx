@@ -81,7 +81,7 @@ describe("PromptComposer Appshot paste handling", () => {
     expect(composerRef.current?.getText().trim()).toBe(`[#appshot:${timestamp}]`);
   });
 
-  it("deletes a pasted Appshot chip with one Backspace from the end", async () => {
+  it("deletes the spacer before deleting a pasted Appshot chip from the end", async () => {
     const composerRef = React.createRef<ComposerHandle>();
     let latestText = "";
     const container = document.createElement("div");
@@ -112,6 +112,20 @@ describe("PromptComposer Appshot paste handling", () => {
         ),
       );
     });
+
+    await act(async () => {
+      editor.dispatchEvent(
+        new window.KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Backspace",
+        }),
+      );
+    });
+
+    expect(editor.querySelector("[data-kind='appshot']")).not.toBeNull();
+    expect(latestText).toBe(`[#appshot:${timestamp}]`);
+    expect(composerRef.current?.getText()).toBe(`[#appshot:${timestamp}]`);
 
     await act(async () => {
       editor.dispatchEvent(
@@ -171,7 +185,50 @@ describe("PromptComposer Appshot paste handling", () => {
     expect(composerRef.current?.getText().trim()).toBe("");
   });
 
-  it("does not delete an Appshot chip when Backspace is deleting user-entered spaces after it", async () => {
+  it("deletes an Appshot chip with one Backspace when the browser places the caret inside the chip boundary", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    let latestText = "";
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <PromptComposer
+          ref={composerRef}
+          onTextChange={(text) => {
+            latestText = text;
+          }}
+        />,
+      );
+    });
+
+    await act(async () => {
+      composerRef.current?.setText(`[#appshot:${timestamp}]`);
+    });
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    const chip = editor?.querySelector<HTMLElement>("[data-kind='appshot']");
+    if (!editor || !chip) {
+      throw new Error("PromptComposer Appshot chip not found");
+    }
+    placeCaretInside(chip, 0);
+
+    await act(async () => {
+      editor.dispatchEvent(
+        new window.KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Backspace",
+        }),
+      );
+    });
+
+    expect(editor.querySelector("[data-kind='appshot']")).toBeNull();
+    expect(latestText.trim()).toBe("");
+    expect(composerRef.current?.getText().trim()).toBe("");
+  });
+
+  it("deletes only one user-entered space after an Appshot chip", async () => {
     const composerRef = React.createRef<ComposerHandle>();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -190,19 +247,50 @@ describe("PromptComposer Appshot paste handling", () => {
     }
     placeCaretAtEnd(editor);
 
-    let eventWasNotPrevented = false;
     await act(async () => {
       const event = new window.KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
         key: "Backspace",
       });
-      eventWasNotPrevented = editor.dispatchEvent(event);
+      editor.dispatchEvent(event);
     });
 
-    expect(eventWasNotPrevented).toBe(true);
     expect(editor.querySelector("[data-kind='appshot']")).not.toBeNull();
-    expect(composerRef.current?.getText()).toBe(`[#appshot:${timestamp}]   `);
+    expect(composerRef.current?.getText()).toBe(`[#appshot:${timestamp}]  `);
+  });
+
+  it("deletes the spacer before a slash-command chip", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    await act(async () => {
+      composerRef.current?.setText("/");
+      composerRef.current?.applySlashAtRange(1, 0, { kind: "side" });
+    });
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) {
+      throw new Error("PromptComposer editor not found");
+    }
+
+    await act(async () => {
+      editor.dispatchEvent(
+        new window.KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Backspace",
+        }),
+      );
+    });
+
+    expect(editor.querySelector("[data-kind='side']")).not.toBeNull();
+    expect(composerRef.current?.getText()).toBe("/side");
   });
 });
 
@@ -231,6 +319,16 @@ function placeCaretAtEnd(element: HTMLElement): void {
 function placeCaretBefore(element: HTMLElement): void {
   const range = document.createRange();
   range.setStartBefore(element);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
+function placeCaretInside(element: HTMLElement, offset: number): void {
+  element.focus();
+  const range = document.createRange();
+  range.setStart(element, offset);
   range.collapse(true);
   const selection = window.getSelection();
   selection?.removeAllRanges();

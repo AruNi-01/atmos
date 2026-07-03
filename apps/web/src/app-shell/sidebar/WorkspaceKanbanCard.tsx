@@ -1,5 +1,5 @@
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -93,6 +93,7 @@ export function KanbanWorkspaceCard({
   onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
 }) {
   const t = useTranslations("AppShell.chrome");
+  const locale = useLocale();
   const isIssueOnly = workspace.createSource === "issue_only";
   const isAutomation = workspace.createSource === "automation";
   const workspaceTitle = isIssueOnly && workspace.githubIssue
@@ -272,7 +273,7 @@ export function KanbanWorkspaceCard({
 
       <div className="mt-auto flex items-center justify-between pt-2">
         {cardProperties.last_visit ? (
-          <span className="text-xs text-muted-foreground">{formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt)}</span>
+          <span className="text-xs text-muted-foreground">{formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale)}</span>
         ) : <span />}
         {cardProperties.enter_button ? (
           <div className="flex items-center gap-1">
@@ -366,6 +367,7 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
 }
 
 export function KanbanDragPreview({ item }: { item: DragItem }) {
+  const locale = useLocale();
   const priorityOption = getWorkspacePriorityMeta(item.preview.priority);
   const statusMeta = getWorkspaceWorkflowStatusMeta(item.preview.workflowStatus);
   const PriorityIcon = priorityOption.icon;
@@ -399,7 +401,7 @@ export function KanbanDragPreview({ item }: { item: DragItem }) {
         </div>
         <div className="mt-auto flex items-center justify-between pt-2">
           <span className="text-xs text-muted-foreground">
-            {formatRelativeTime(item.preview.lastVisitedAt ?? item.preview.createdAt)}
+            {formatRelativeTime(item.preview.lastVisitedAt ?? item.preview.createdAt, locale)}
           </span>
         </div>
       </div>

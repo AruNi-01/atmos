@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { useShallow } from 'zustand/shallow';
 import {
@@ -60,13 +60,14 @@ function parseColorToRgb(colorStr: string): { r: number; g: number; b: number; a
   return { r, g, b, a: 1 };
 }
 
-function formatDate(dateStr?: string) {
+function formatDate(dateStr: string | undefined, locale: string) {
   if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleDateString();
+  return new Date(dateStr).toLocaleDateString(locale);
 }
 
 export function LabelSettingsSection() {
   const t = useTranslations('settings.labelSection');
+  const locale = useLocale();
   const {
     workspaceLabels,
     updateWorkspaceLabel,
@@ -453,7 +454,7 @@ export function LabelSettingsSection() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs text-muted-foreground">{formatDate(label.createdAt)}</span>
+                      <span className="text-xs text-muted-foreground">{formatDate(label.createdAt, locale)}</span>
                     </TableCell>
                     <TableCell>
                       <Popover

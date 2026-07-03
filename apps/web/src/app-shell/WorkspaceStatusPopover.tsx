@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLocale } from "next-intl";
 import {
   AnimatedNumber,
   Popover,
@@ -30,6 +31,7 @@ function ProgressRing({
   status: WorkspaceSetupProgress["status"];
   highlightReview: boolean;
 }) {
+  const locale = useLocale();
   const radius = 9;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (progress / 100) * circumference;
@@ -72,6 +74,7 @@ function ProgressRing({
       </svg>
       <AnimatedNumber
         value={progress}
+        locale={locale}
         springOptions={{ stiffness: 55, damping: 18, mass: 1.25 }}
         className={cn(
           "absolute inset-0 flex items-center justify-center text-[7px] font-semibold",

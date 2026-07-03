@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { format } from "date-fns";
-import { createTranslator } from "next-intl";
+import { createTranslator, useLocale } from "next-intl";
 import {
   Button,
   Calendar,
@@ -477,6 +476,7 @@ function TtlPicker({
   onChange: (seconds: number) => void;
   disabled?: boolean;
 }) {
+  const locale = useLocale();
   const [mode, setMode] = React.useState<"preset" | "custom">(() => {
     if (value === NO_EXPIRY_SECONDS) return "preset";
     return TTL_PRESETS.some((p) => p.seconds === value) ? "preset" : "custom";
@@ -541,7 +541,9 @@ function TtlPicker({
               className="min-w-0 flex-1 justify-between font-normal"
             >
               <span className="truncate text-xs">
-                {customDate ? format(customDate, "PP") : tunnelT("ttl.pickDate")}
+                {customDate
+                  ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(customDate)
+                  : tunnelT("ttl.pickDate")}
               </span>
               <CalendarIcon className="ml-1 size-3.5 shrink-0 opacity-50" />
             </Button>
@@ -553,6 +555,7 @@ function TtlPicker({
               captionLayout="dropdown"
               defaultMonth={customDate ?? new Date()}
               disabled={{ before: new Date() }}
+              formatLocale={locale}
               onSelect={(d) => setCustomDate(d)}
               classNames={{ month_grid: "w-full", weeks: "min-h-[168px]" }}
             />

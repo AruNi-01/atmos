@@ -1851,6 +1851,7 @@
         "save": "保存",
         "edit": "编辑",
         "apply": "应用",
+        "reset": "重置",
         "loading": "加载中...",
         "refresh": "刷新",
         "manageConfigs": "管理配置"

@@ -44,6 +44,7 @@ export interface TerminalSideChatModalProps {
   projectName?: string | null;
   projectRootPath?: string | null;
   records: LocalSideChatRecord[];
+  sideChatFlyTargetRef: React.RefObject<HTMLDivElement | null>;
   sourcePaneId: string;
   sourceTmuxWindowName: string;
   terminalRefs: React.MutableRefObject<Map<string, TerminalRef>>;
@@ -58,6 +59,7 @@ export function TerminalSideChatModal({
   projectName,
   projectRootPath,
   records,
+  sideChatFlyTargetRef,
   sourcePaneId,
   sourceTmuxWindowName,
   terminalRefs,
@@ -250,7 +252,7 @@ export function TerminalSideChatModal({
               </Popover>
             </div>
           </div>
-          <div className="min-h-0 flex-1 bg-background">
+          <div ref={sideChatFlyTargetRef} className="min-h-0 flex-1 bg-background">
             {records.map((record) => (
               <TabsContent
                 key={record.side_chat_id}

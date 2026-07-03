@@ -54,6 +54,7 @@ export function useTerminalSideChats({
 }: UseTerminalSideChatsOptions) {
   const t = useTranslations("terminal.sideChat");
   const terminalRefs = React.useRef<Map<string, TerminalRef>>(new Map());
+  const sideChatFlyTargetRef = React.useRef<HTMLDivElement | null>(null);
   const [isStarting, setIsStarting] = React.useState(false);
   const {
     sideContextPromptBudgetBytes,
@@ -192,6 +193,7 @@ export function useTerminalSideChats({
       activeSideChatId={activeSideChatId}
       sourcePaneId={sourcePaneId}
       sourceTmuxWindowName={sourceTmuxWindowName ?? ""}
+      sideChatFlyTargetRef={sideChatFlyTargetRef}
       terminalRefs={terminalRefs}
       terminalScale={terminalScale}
       workspaceId={workspaceId}
@@ -243,6 +245,14 @@ export function useTerminalSideChats({
   );
 
   return {
+    getSideChatFlyTargetClientPoint: () => {
+      const rect = sideChatFlyTargetRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + Math.min(24, rect.height / 2),
+      };
+    },
     sideChatDots,
     sideChatLayer,
     startSideChat,

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Input,
   ScrollArea,
@@ -60,6 +60,7 @@ interface ArchivedWorkspacesViewProps {
 
 export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ viewSwitcher }) => {
   const t = useTranslations('Workspace.components.archivedView');
+  const locale = useLocale();
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,7 +101,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadArchivedWorkspaces();
@@ -356,7 +357,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <span className="text-[11px] text-muted-foreground/70 font-medium truncate block">
-                                      {t('archivedAt', { time: formatRelativeTime(ws.archived_at) })}
+                                      {t('archivedAt', { time: formatRelativeTime(ws.archived_at, locale) })}
                                     </span>
                                   </div>
                                 </div>

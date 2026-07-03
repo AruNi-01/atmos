@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import {
   Button,
@@ -93,6 +93,7 @@ function sameStringSet(left: string[], right: string[]): boolean {
 
 export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProps> = ({ hideHeader = false }) => {
   const t = useTranslations("chatSessions.managementView");
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useQueryState("q", chatSessionsParams.q);
@@ -780,7 +781,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
 
                                   <div className="ml-4 w-[110px] shrink-0 text-right">
                                     <div className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                                      {session.updated_at ? formatRelativeTime(session.updated_at) : "-"}
+                                      {session.updated_at ? formatRelativeTime(session.updated_at, locale) : "-"}
                                     </div>
                                     <div className="mt-0.5 text-[10px] text-muted-foreground/55 tabular-nums">
                                       {session.updated_at && !Number.isNaN(parseUTCDate(session.updated_at).getTime())

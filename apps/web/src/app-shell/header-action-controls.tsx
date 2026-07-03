@@ -81,6 +81,7 @@ import { TunnelItem } from "./header-parts";
 import { HeaderWorkspaceSummaryButton } from "./header-workspace-widgets";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useWorkbenchLocale } from "@/providers/app/workbench-intl-provider";
+import { formatComputerSeenAt } from "./header-action-controls-utils";
 
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
 
@@ -231,6 +232,7 @@ function AtmosComputerPopoverContent({
   onOpenSettings: () => void;
 }) {
   const t = useTranslations("header");
+  const { locale } = useWorkbenchLocale();
   const {
     accessToken,
     computers,
@@ -272,7 +274,7 @@ function AtmosComputerPopoverContent({
         setIsRefreshing(false);
       }
     },
-    [setComputers],
+    [setComputers, t],
   );
 
   React.useEffect(() => {
@@ -333,7 +335,7 @@ function AtmosComputerPopoverContent({
     }
   }
 
-  async function useLocalComputer() {
+  async function switchToLocalComputer() {
     setBusyId(LOCAL_SWITCH_BUSY_ID);
     setError(null);
     try {
@@ -449,7 +451,7 @@ function AtmosComputerPopoverContent({
                       </span>
                       {isLocal ? <span>{t("remoteAccess.currentMachine")}</span> : null}
                       {computer.last_seen_at ? (
-                        <span>{t("remoteAccess.seen", { value: formatComputerSeenAt(computer.last_seen_at, t) })}</span>
+                        <span>{t("remoteAccess.seen", { value: formatComputerSeenAt(computer.last_seen_at, locale, t) })}</span>
                       ) : null}
                     </div>
                   </div>
@@ -485,7 +487,7 @@ function AtmosComputerPopoverContent({
             size="sm"
             className="flex-1 cursor-pointer"
             disabled={busyId !== null}
-            onClick={() => void useLocalComputer()}
+            onClick={() => void switchToLocalComputer()}
           >
             {busyId === LOCAL_SWITCH_BUSY_ID ? (
               <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
@@ -506,14 +508,6 @@ function AtmosComputerPopoverContent({
       </div>
     </div>
   );
-}
-
-function formatComputerSeenAt(value: number, t: (key: string) => string): string {
-  const date = new Date(value * 1000);
-  if (Number.isNaN(date.getTime())) {
-    return t("remoteAccess.recently");
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function TunnelConnectorPopoverContent({

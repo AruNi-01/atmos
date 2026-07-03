@@ -3,8 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { GitCommit as GitCommitIcon, Copy, Check, Github, Loader2 } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
-import { cn } from '@/shared/lib/utils';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
@@ -71,10 +70,10 @@ function HashCopyButton({ hash, shortHash }: { hash: string; shortHash: string }
 function CommitRow({ commit, owner, repo }: { commit: CommitListItem; owner?: string; repo?: string }) {
   const locale = useLocale();
   const t = useTranslations('github.commitList');
-  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
+  const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
   const timeAgo = formatDistanceToNow(commit.timestamp, {
     addSuffix: true,
-    locale: relativeTimeLocale,
+    locale: dateLocale,
   });
   const fullMessage = commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject;
   const githubUrl = commit.githubUrl ?? (owner && repo ? `https://github.com/${owner}/${repo}/commit/${commit.hash}` : null);
@@ -114,7 +113,7 @@ function CommitRow({ commit, owner, repo }: { commit: CommitListItem; owner?: st
               <TooltipTrigger asChild>
                 <span className="cursor-default shrink-0">{timeAgo}</span>
               </TooltipTrigger>
-              <TooltipContent side="top" className="text-[11px]">{format(commit.timestamp, 'PPpp')}</TooltipContent>
+              <TooltipContent side="top" className="text-[11px]">{format(commit.timestamp, 'PPpp', { locale: dateLocale })}</TooltipContent>
             </Tooltip>
           </div>
           {githubUrl && (
@@ -147,7 +146,9 @@ interface CommitListProps {
 }
 
 export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
+  const locale = useLocale();
   const t = useTranslations('github.commitList');
+  const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
   if (loading && commits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-muted-foreground gap-3">
@@ -171,7 +172,7 @@ export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
   const seen = new Map<string, number>();
   for (const commit of commits) {
     const key = format(commit.timestamp, 'yyyy-MM-dd');
-    const label = format(commit.timestamp, 'MMM d, yyyy');
+    const label = format(commit.timestamp, 'MMM d, yyyy', { locale: dateLocale });
     if (!seen.has(key)) {
       seen.set(key, groups.length);
       groups.push({ dateLabel: label, commits: [] });

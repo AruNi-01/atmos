@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Button,
   Loader2,
@@ -57,6 +57,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
   onOpenReviewFile,
 }) => {
   const t = useTranslations("diff.reviewView");
+  const locale = useLocale();
   const { effectiveContextId } = useContextParams();
   const reviewEditorKey = contextId ?? effectiveContextId;
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
@@ -408,7 +409,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
               />
               <span>{t("sections.summary")}</span>
               <span className="text-[11px] text-muted-foreground ml-auto">
-                {formatReviewDateTime(latestSummaryRun.updated_at)}
+                {formatReviewDateTime(latestSummaryRun.updated_at, locale)}
               </span>
             </CollapsibleTrigger>
             <CollapsibleContent>

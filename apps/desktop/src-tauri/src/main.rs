@@ -6,6 +6,8 @@ mod runtime;
 mod state;
 mod tunnel_connector;
 mod updater;
+#[cfg(target_os = "macos")]
+mod window_activation;
 
 use std::fs;
 use std::path::PathBuf;
@@ -356,11 +358,14 @@ fn main() {
                 &app_handle,
                 &format!("run event reopen: has_visible_windows={has_visible_windows}"),
             );
-            restore_main_window_after_activation(&app_handle, "reopen");
+            window_activation::restore_main_window_after_activation(&app_handle, "reopen");
             let retry_handle = app_handle.clone();
             tauri::async_runtime::spawn(async move {
                 sleep(Duration::from_millis(150)).await;
-                restore_main_window_after_activation(&retry_handle, "reopen-retry");
+                window_activation::restore_main_window_after_activation(
+                    &retry_handle,
+                    "reopen-retry",
+                );
             });
             let _ = preview_bridge::show_active_preview_window(&app_handle);
         }
@@ -375,54 +380,11 @@ fn main() {
                     &app_handle,
                     "run event resumed: restoring hidden main window",
                 );
-                restore_main_window_after_activation(&app_handle, "resumed");
+                window_activation::restore_main_window_after_activation(&app_handle, "resumed");
             }
         }
         _ => {}
     });
-}
-
-#[cfg(target_os = "macos")]
-fn restore_main_window_after_activation(app_handle: &tauri::AppHandle, source: &str) {
-    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Regular);
-    let Some(window) = app_handle.get_webview_window("main") else {
-        log_desktop_event(
-            app_handle,
-            &format!("{source}: main window unavailable during restore"),
-        );
-        return;
-    };
-
-    let was_visible = window.is_visible().unwrap_or(false);
-    let was_minimized = window.is_minimized().unwrap_or(false);
-    log_desktop_event(
-        app_handle,
-        &format!("{source}: restore main window visible={was_visible} minimized={was_minimized}"),
-    );
-
-    if !was_visible {
-        if let Err(error) = window.show() {
-            log_desktop_event(app_handle, &format!("{source}: main show failed: {error}"));
-        }
-    }
-    if was_minimized {
-        if let Err(error) = window.unminimize() {
-            log_desktop_event(
-                app_handle,
-                &format!("{source}: main unminimize failed: {error}"),
-            );
-        }
-    }
-    if let Err(error) = window.set_focus() {
-        log_desktop_event(app_handle, &format!("{source}: main focus failed: {error}"));
-    }
-
-    if window.is_visible().unwrap_or(false) {
-        app_handle
-            .state::<AppState>()
-            .main_hidden_by_close
-            .store(false, Ordering::SeqCst);
-    }
 }
 
 fn log_desktop_event(app_handle: &tauri::AppHandle, message: &str) {

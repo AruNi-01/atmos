@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 export type AnimatedNumberProps = {
   value: number;
   className?: string;
+  locale?: Intl.LocalesArgument;
   springOptions?: SpringOptions;
   as?: React.ElementType;
 };
@@ -14,6 +15,7 @@ export type AnimatedNumberProps = {
 export function AnimatedNumber({
   value,
   className,
+  locale,
   springOptions,
   as = 'span',
 }: AnimatedNumberProps) {
@@ -21,7 +23,7 @@ export function AnimatedNumber({
 
   const spring = useSpring(value, springOptions);
   const display = useTransform(spring, (current) =>
-    Math.round(current).toLocaleString()
+    Math.round(current).toLocaleString(locale)
   );
 
   useEffect(() => {

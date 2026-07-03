@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQueryState, parseAsString } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import {
@@ -54,6 +54,7 @@ export function useReviewContext({
   initialRevisionGuid = null,
 }: UseReviewContextArgs) {
   const t = useTranslations("codeReview.reviewContext");
+  const locale = useLocale();
   const loadSessionsErrorTextRef = useRef({
     title: t("loadSessions.errorTitle"),
     unknownReviewSession: t("errors.unknownReviewSession"),
@@ -869,7 +870,7 @@ export function useReviewContext({
         const result = await reviewWsApi.finalizeAgentRun({
           runGuid: run.guid,
           title: t("finalizeRun.resultTitle", {
-            time: new Date().toLocaleTimeString([], {
+            time: new Date().toLocaleTimeString(locale, {
               hour: "2-digit",
               minute: "2-digit",
             }),
@@ -895,7 +896,7 @@ export function useReviewContext({
         setIsFinalizingRun(null);
       }
     },
-    [loadSessions, setSelectedRevisionGuid, t],
+    [loadSessions, locale, setSelectedRevisionGuid, t],
   );
 
   const handlePreviewArtifact = useCallback(

@@ -213,6 +213,17 @@ export function TerminalAgentRunConfigContent({
     onApply(draft.config);
   }, [buildDraftRunConfig, onApply]);
 
+  const handleReset = React.useCallback(() => {
+    setModelEnabled(false);
+    setModelValue("");
+    setReasoningEnabled(false);
+    setReasoningValue(defaultReasoningValue(capability.reasoningSupport));
+    setExtraArgsText("");
+    setSelectedTemplateId("__none__");
+    setError(null);
+    onApply(null);
+  }, [capability.reasoningSupport, onApply]);
+
   React.useEffect(() => {
     if (!liveApply) return;
     if (hydratedAgentId !== agentId) return;
@@ -417,13 +428,18 @@ export function TerminalAgentRunConfigContent({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       {showActions ? (
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {t("common.cancel")}
+        <div className="flex items-center justify-between gap-2">
+          <Button type="button" variant="ghost" onClick={handleReset}>
+            {t("common.reset")}
           </Button>
-          <Button type="button" onClick={handleApply}>
-            {t("common.apply")}
-          </Button>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" onClick={handleApply}>
+              {t("common.apply")}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
