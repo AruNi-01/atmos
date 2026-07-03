@@ -297,7 +297,7 @@ export const terminalSideChatApi = {
   }) => wsRequest<TerminalSideChatRecord>("terminal_side_chat_status_update", payload),
 
   close: (payload: { workspace_id: string; side_chat_id: string }) =>
-    wsRequest<{ ok: boolean }>("terminal_side_chat_close", payload),
+    wsRequest<{ ok: boolean; closed: boolean }>("terminal_side_chat_close", payload),
 };
 
 // ===== Canvas terminal-agent bridge (APP-015) =====

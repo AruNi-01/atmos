@@ -263,6 +263,7 @@ impl WsMessageService {
             .close_side_chat(&req.workspace_id, &req.side_chat_id)
             .await?;
         Ok(json!({
+            "ok": true,
             "workspace_id": req.workspace_id,
             "side_chat_id": req.side_chat_id,
             "closed": true,

@@ -235,16 +235,14 @@ impl TerminalService {
         validate_non_empty("workspace_id", workspace_id)?;
         super::validate_side_chat_id(side_chat_id)?;
         let repo = self.side_chat_repo()?;
-        let Some(model) = repo.update_status(side_chat_id, status.as_str()).await? else {
+        let Some(model) = repo
+            .update_status_in_workspace(workspace_id, side_chat_id, status.as_str())
+            .await?
+        else {
             return Err(ServiceError::NotFound(format!(
                 "Side chat not found: {side_chat_id}"
             )));
         };
-        if model.workspace_guid != workspace_id {
-            return Err(ServiceError::NotFound(format!(
-                "Side chat not found in workspace: {side_chat_id}"
-            )));
-        }
         model_to_side_chat_record(model)
     }
 
@@ -1107,26 +1105,38 @@ mod tests {
         TerminalService::new_with_db(Arc::new(db))
     }
 
+    fn side_chat_params(
+        workspace_id: String,
+        side_chat_id: &str,
+        status: TerminalSideChatStatus,
+    ) -> UpsertTerminalSideChatParams {
+        UpsertTerminalSideChatParams {
+            side_chat_id: side_chat_id.to_string(),
+            workspace_id: workspace_id.clone(),
+            project_name: Some("Project".to_string()),
+            workspace_name: Some("Workspace".to_string()),
+            source_pane_id: format!("{workspace_id}:main"),
+            source_tmux_window_name: "main".to_string(),
+            source_surface_kind: "terminal_pane".to_string(),
+            source_surface_ref_json: None,
+            side_tmux_window_name: format!("{side_chat_id}-window"),
+            agent_ref_json: None,
+            color_hex: "#06b6d4".to_string(),
+            status,
+        }
+    }
+
     #[tokio::test]
     async fn list_side_chat_records_keeps_persisted_records_when_live_discovery_is_empty() {
         let service = setup_service().await;
         let workspace_id = format!("workspace-{}", uuid::Uuid::new_v4());
 
         service
-            .upsert_side_chat_record(UpsertTerminalSideChatParams {
-                side_chat_id: "side-persisted-1".to_string(),
-                workspace_id: workspace_id.clone(),
-                project_name: Some("Project".to_string()),
-                workspace_name: Some("Workspace".to_string()),
-                source_pane_id: format!("{workspace_id}:main"),
-                source_tmux_window_name: "main".to_string(),
-                source_surface_kind: "terminal_pane".to_string(),
-                source_surface_ref_json: None,
-                side_tmux_window_name: "side-persisted-window".to_string(),
-                agent_ref_json: None,
-                color_hex: "#06b6d4".to_string(),
-                status: TerminalSideChatStatus::Open,
-            })
+            .upsert_side_chat_record(side_chat_params(
+                workspace_id.clone(),
+                "side-persisted-1",
+                TerminalSideChatStatus::Open,
+            ))
             .await
             .unwrap();
 
@@ -1140,5 +1150,37 @@ mod tests {
 
         assert_eq!(records_after_hydration.len(), 1);
         assert_eq!(records_after_hydration[0].side_chat_id, "side-persisted-1");
+    }
+
+    #[tokio::test]
+    async fn set_side_chat_status_requires_matching_workspace() {
+        let service = setup_service().await;
+        let workspace_id = format!("workspace-{}", uuid::Uuid::new_v4());
+        let other_workspace_id = format!("workspace-{}", uuid::Uuid::new_v4());
+
+        service
+            .upsert_side_chat_record(side_chat_params(
+                workspace_id.clone(),
+                "side-workspace-scoped-1",
+                TerminalSideChatStatus::Open,
+            ))
+            .await
+            .unwrap();
+
+        let error = service
+            .set_side_chat_status(
+                &other_workspace_id,
+                "side-workspace-scoped-1",
+                TerminalSideChatStatus::Hidden,
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, ServiceError::NotFound(_)));
+
+        let records = service.list_side_chat_records(&workspace_id).await.unwrap();
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].status, TerminalSideChatStatus::Open);
     }
 }

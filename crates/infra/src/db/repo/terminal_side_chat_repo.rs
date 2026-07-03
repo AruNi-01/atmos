@@ -135,8 +135,9 @@ impl<'a> TerminalSideChatRepo<'a> {
             .await?)
     }
 
-    pub async fn update_status(
+    pub async fn update_status_in_workspace(
         &self,
+        workspace_guid: &str,
         side_chat_id: &str,
         status: &str,
     ) -> Result<Option<terminal_side_chat::Model>> {
@@ -146,12 +147,18 @@ impl<'a> TerminalSideChatRepo<'a> {
                 Expr::value(Utc::now().naive_utc()),
             )
             .col_expr(terminal_side_chat::Column::Status, Expr::value(status))
+            .filter(terminal_side_chat::Column::WorkspaceGuid.eq(workspace_guid))
             .filter(terminal_side_chat::Column::SideChatId.eq(side_chat_id))
             .filter(terminal_side_chat::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
 
-        self.get_active_by_side_chat_id(side_chat_id).await
+        Ok(terminal_side_chat::Entity::find()
+            .filter(terminal_side_chat::Column::WorkspaceGuid.eq(workspace_guid))
+            .filter(terminal_side_chat::Column::SideChatId.eq(side_chat_id))
+            .filter(terminal_side_chat::Column::IsDeleted.eq(false))
+            .one(self.db)
+            .await?)
     }
 
     pub async fn soft_delete(&self, side_chat_id: &str) -> Result<()> {
