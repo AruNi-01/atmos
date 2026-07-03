@@ -1,0 +1,185 @@
+"use client";
+
+import React from "react";
+
+import { terminalSideChatApi } from "@/api/ws-api";
+import type { TerminalRef } from "@/features/terminal/components/Terminal";
+import {
+  isSideChatClosing,
+  isSideChatOpen,
+  mergeSideChatRecords,
+  normalizeSideChatStatus,
+  parseAgentRef,
+  sideChatRecordMatchesSource,
+  toSideChatDto,
+  type LocalSideChatRecord,
+  type SourceSurfaceKind,
+} from "@/features/terminal/lib/terminal-side-chat";
+
+interface UseTerminalSideChatRecordsOptions {
+  sourceSurfaceKind: SourceSurfaceKind;
+  sourceSurfaceRefJson: string | null;
+  sourceTmuxWindowName?: string | null;
+  terminalRefs: React.MutableRefObject<Map<string, TerminalRef>>;
+  workspaceId: string;
+}
+
+export function useTerminalSideChatRecords({
+  sourceSurfaceKind,
+  sourceSurfaceRefJson,
+  sourceTmuxWindowName,
+  terminalRefs,
+  workspaceId,
+}: UseTerminalSideChatRecordsOptions) {
+  const openedSideChatParamRef = React.useRef<string | null>(null);
+  const [records, setRecords] = React.useState<LocalSideChatRecord[]>([]);
+  const [activeSideChatId, setActiveSideChatId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!workspaceId || !sourceTmuxWindowName) return;
+    let cancelled = false;
+    void terminalSideChatApi
+      .list(workspaceId)
+      .then((response) => {
+        if (cancelled) return;
+        const sourceRecords = response.records
+          .filter(
+            (record) =>
+              record.source_surface_kind === sourceSurfaceKind &&
+              sideChatRecordMatchesSource(record, sourceSurfaceRefJson, sourceTmuxWindowName) &&
+              !isSideChatClosing(record.status),
+          )
+          .map<LocalSideChatRecord>((record) => ({
+            ...record,
+            status: normalizeSideChatStatus(record.status),
+            agent: parseAgentRef(record.agent_ref_json),
+            isNew: false,
+            sessionId: crypto.randomUUID(),
+          }));
+        setRecords((current) => mergeSideChatRecords(current, sourceRecords));
+      })
+      .catch((error) => {
+        console.error("Failed to load terminal side chats:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceSurfaceKind, sourceSurfaceRefJson, sourceTmuxWindowName, workspaceId]);
+
+  const persistRecord = React.useCallback(async (record: LocalSideChatRecord) => {
+    return terminalSideChatApi.upsert(toSideChatDto(record));
+  }, []);
+
+  const updateLocalRecord = React.useCallback((sideChatId: string, patch: Partial<LocalSideChatRecord>) => {
+    setRecords((current) =>
+      current.map((record) =>
+        record.side_chat_id === sideChatId ? { ...record, ...patch } : record,
+      ),
+    );
+  }, []);
+
+  const addRecord = React.useCallback((record: LocalSideChatRecord) => {
+    setActiveSideChatId(record.side_chat_id);
+    setRecords((current) => [...current, record]);
+  }, []);
+
+  const hideSideChat = React.useCallback(
+    async () => {
+      const openRecords = records.filter((record) => isSideChatOpen(record.status));
+      if (openRecords.length === 0) return;
+      const openIds = new Set(openRecords.map((record) => record.side_chat_id));
+      setRecords((current) =>
+        current.map((record) =>
+          openIds.has(record.side_chat_id)
+            ? { ...record, status: "hidden", sessionId: crypto.randomUUID(), isNew: false }
+            : record,
+        ),
+      );
+      try {
+        await Promise.all(
+          openRecords.map((record) =>
+            terminalSideChatApi.setStatus({
+              workspace_id: workspaceId,
+              side_chat_id: record.side_chat_id,
+              status: "hidden",
+            }),
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to hide terminal side chat:", error);
+      }
+    },
+    [records, workspaceId],
+  );
+
+  const showSideChat = React.useCallback(
+    async (sideChatId: string) => {
+      setActiveSideChatId(sideChatId);
+      updateLocalRecord(sideChatId, { status: "open", sessionId: crypto.randomUUID(), isNew: false });
+      try {
+        await terminalSideChatApi.setStatus({
+          workspace_id: workspaceId,
+          side_chat_id: sideChatId,
+          status: "open",
+        });
+      } catch (error) {
+        console.error("Failed to show terminal side chat:", error);
+      }
+    },
+    [updateLocalRecord, workspaceId],
+  );
+
+  const closeSideChat = React.useCallback(
+    async (sideChatId: string) => {
+      terminalRefs.current.get(sideChatId)?.destroy();
+      terminalRefs.current.delete(sideChatId);
+      setActiveSideChatId((current) => (current === sideChatId ? null : current));
+      setRecords((current) => current.filter((record) => record.side_chat_id !== sideChatId));
+      try {
+        await terminalSideChatApi.close({
+          workspace_id: workspaceId,
+          side_chat_id: sideChatId,
+        });
+      } catch (error) {
+        console.error("Failed to close terminal side chat:", error);
+      }
+    },
+    [terminalRefs, workspaceId],
+  );
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sideChatId = new URLSearchParams(window.location.search).get("sideChat");
+    if (!sideChatId || openedSideChatParamRef.current === sideChatId) return;
+    const record = records.find((item) => item.side_chat_id === sideChatId);
+    if (!record) return;
+    openedSideChatParamRef.current = sideChatId;
+    if (!isSideChatOpen(record.status)) {
+      void showSideChat(sideChatId);
+    }
+  }, [records, showSideChat]);
+
+  React.useEffect(() => {
+    const availableRecords = records.filter((record) => !isSideChatClosing(record.status));
+    if (availableRecords.length === 0) {
+      if (activeSideChatId !== null) setActiveSideChatId(null);
+      return;
+    }
+    if (!activeSideChatId || !availableRecords.some((record) => record.side_chat_id === activeSideChatId)) {
+      const fallback = availableRecords.find((record) => isSideChatOpen(record.status)) ?? availableRecords[0];
+      setActiveSideChatId(fallback.side_chat_id);
+    }
+  }, [activeSideChatId, records]);
+
+  return {
+    activeSideChatId,
+    addRecord,
+    closeSideChat,
+    hideSideChat,
+    persistRecord,
+    records,
+    setActiveSideChatId,
+    showSideChat,
+    updateLocalRecord,
+  };
+}

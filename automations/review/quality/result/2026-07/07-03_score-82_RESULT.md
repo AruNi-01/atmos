@@ -107,7 +107,7 @@
 人工 review 今天最值得重点盯：
 
 1. side chat 的 workspace / source pane / tmux window 归属边界，确认所有写操作都先按作用域定位。
-2. `use-terminal-side-chats.tsx` 的拆分路线，优先拆状态/持久化和 modal layout，避免继续堆 UI 副作用。
+2. `use-terminal-side-chats.tsx` 的拆分边界，当前 PR 后续补充修复已拆出 records hook、modal layout hook、UI 组件和纯函数，人工 review 重点确认行为是否保持一致。
 3. preview follow-cursor 两份 runtime 是否能收敛同步源，至少先锁定参数和行为合同。
 4. WS DTO 与 Web TS 类型是否有系统性生成或集中校验的空间。
 
@@ -118,7 +118,8 @@
 - 修复提交：`0f51e0f0b` (`fix: scope terminal side chat status updates`)
 - PR：https://github.com/AruNi-01/atmos/pull/147
 - 已修复：repo 更新状态时加入 workspace 过滤；服务层不再先写后验；新增 `set_side_chat_status_requires_matching_workspace` 测试；`terminal_side_chat_close` 返回 `ok: true` 并同步 Web 类型。
-- 未修复：side chat 大 hook 拆分、preview follow-cursor runtime 复用属于较大结构治理，已保留为 PR review 重点。
+- 后续补充修复：`use-terminal-side-chats.tsx` 已从 1326 行拆到约 250 行，并拆出 `use-terminal-side-chat-records.ts`、`use-side-chat-modal-layout.ts`、`TerminalSideChatLayer.tsx`、`TerminalSideChatModal.tsx`、`TerminalSideChatDots.tsx` 和 `terminal-side-chat.ts`。
+- 未修复：preview follow-cursor runtime 复用属于较大结构治理，已保留为后续质量风险。
 - 标签：已添加 `codex`；仓库不存在 `codex-automation`，已跳过。
 - 验证通过：`cargo fmt`、`cargo test -p core-service set_side_chat_status_requires_matching_workspace`、`cargo check -p api`、`bun --filter web typecheck`、`git diff --check`。
 - 验证备注：`cargo check -p api` 曾同步当前 main 中无关的 `Cargo.lock` desktop beta2 版本漂移，已恢复，未纳入 PR。
