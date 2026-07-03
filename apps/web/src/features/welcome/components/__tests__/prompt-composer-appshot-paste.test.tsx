@@ -294,6 +294,75 @@ describe("PromptComposer Appshot paste handling", () => {
   });
 });
 
+describe("PromptComposer mention and slash triggers", () => {
+  it("keeps slashes inside an unfinished @ file query from opening slash commands", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    let atQuery: string | null = null;
+    let slashQuery: string | null = null;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <PromptComposer
+          ref={composerRef}
+          onAtTrigger={(ctx) => {
+            atQuery = ctx.query;
+          }}
+          onSlashTrigger={(ctx) => {
+            slashQuery = ctx.query;
+          }}
+        />,
+      );
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) {
+      throw new Error("PromptComposer editor not found");
+    }
+
+    await act(async () => {
+      composerRef.current?.setText("@pages/");
+    });
+    placeCaretAtEnd(editor);
+    await act(async () => {
+      editor.dispatchEvent(new window.Event("input", { bubbles: true, cancelable: true }));
+    });
+
+    expect(atQuery).toBe("pages/");
+    expect(slashQuery).toBeNull();
+
+    await act(async () => {
+      composerRef.current?.setText("/sid");
+    });
+    placeCaretAtEnd(editor);
+    await act(async () => {
+      editor.dispatchEvent(new window.Event("input", { bubbles: true, cancelable: true }));
+    });
+
+    expect(slashQuery).toBe("sid");
+  });
+
+  it("removes slash query text for state-only slash selections", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    await act(async () => {
+      composerRef.current?.setText("Run with /codex now");
+      composerRef.current?.removeSlashAtRange(10, "codex".length);
+    });
+
+    expect(composerRef.current?.getText()).toBe("Run with  now");
+  });
+});
+
 function pasteEvent(text: string): Event {
   const event = new Event("paste", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "clipboardData", {

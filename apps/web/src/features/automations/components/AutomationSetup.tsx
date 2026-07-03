@@ -269,18 +269,36 @@ export function AutomationSetup({
     },
     [slashPopover],
   );
-  const selectSlashProject = React.useCallback((project: { id: string }) => {
-    setTargetKind("project");
-    setProjectGuid(project.id);
-    setWorkspaceGuid("");
-    setSubmitError(null);
-    setSlashPopover(null);
-  }, []);
-  const selectSlashAgent = React.useCallback((agent: AgentMenuOption) => {
-    setAgentId(agent.id);
-    setSubmitError(null);
-    setSlashPopover(null);
-  }, []);
+  const selectSlashProject = React.useCallback(
+    (project: { id: string }) => {
+      const popover = slashPopover;
+      if (!popover) return;
+      setSlashPopover(null);
+      composerRef.current?.removeSlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+      );
+      setTargetKind("project");
+      setProjectGuid(project.id);
+      setWorkspaceGuid("");
+      setSubmitError(null);
+    },
+    [slashPopover, setProjectGuid, setSubmitError, setTargetKind, setWorkspaceGuid],
+  );
+  const selectSlashAgent = React.useCallback(
+    (agent: AgentMenuOption) => {
+      const popover = slashPopover;
+      if (!popover) return;
+      setSlashPopover(null);
+      composerRef.current?.removeSlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+      );
+      setAgentId(agent.id);
+      setSubmitError(null);
+    },
+    [slashPopover, setAgentId, setSubmitError],
+  );
   const {
     activeIndex: activeSlashItemIndex,
     expandedSections,

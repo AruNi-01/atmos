@@ -41,6 +41,11 @@ export interface ComposerHandle {
    * so the user can keep typing.
    */
   applySlashAtRange: (slashOffset: number, queryLength: number, mention: MentionRef) => void;
+  /**
+   * Remove the `/<query>` slice without inserting a chip. Used by slash actions
+   * that update surrounding composer state instead of becoming prompt tokens.
+   */
+  removeSlashAtRange: (slashOffset: number, queryLength: number) => void;
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
   focus: () => void;
@@ -519,6 +524,15 @@ function readSlashContextFromSelection(root: HTMLElement): SlashTriggerContext |
   const domAtIndex = beforeDomText.lastIndexOf("/");
   if (domAtIndex < 0) return null;
 
+  const activeMentionStart = beforeDomText.lastIndexOf("@");
+  if (
+    activeMentionStart >= 0 &&
+    activeMentionStart < domAtIndex &&
+    !/\s/.test(beforeDomText.slice(activeMentionStart + 1))
+  ) {
+    return null;
+  }
+
   const query = beforeDomText.slice(domAtIndex + 1);
   if (/\s/.test(query)) return null;
 
@@ -695,6 +709,19 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
         setCaretAtOffsetAndRemember(nextCaretOffset);
+      },
+      removeSlashAtRange: (slashOffset, queryLength) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(slashOffset - 1, 0);
+        const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        setCaretAtOffsetAndRemember(replaceFrom);
       },
       insertImagePlaceholder: (n) => {
         if (!editorRef.current) return;

@@ -149,6 +149,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const branchTouchedRef = React.useRef(false);
   const generatedBranchRef = React.useRef<string | null>(null);
   const branchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const appliedLauncherProjectIdRef = React.useRef<string | null>(null);
   const prevProjectIdsRef = React.useRef<string[]>([]);
   const waitingForNewProjectRef = React.useRef(false);
   React.useEffect(() => {
@@ -163,8 +164,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
   React.useEffect(() => {
     if (selectedProjectIdFromLauncher && projects.some((project) => project.id === selectedProjectIdFromLauncher)) {
-      setProjectId(selectedProjectIdFromLauncher);
+      if (appliedLauncherProjectIdRef.current !== selectedProjectIdFromLauncher) {
+        appliedLauncherProjectIdRef.current = selectedProjectIdFromLauncher;
+        setProjectId(selectedProjectIdFromLauncher);
+      }
       return;
+    }
+    if (!selectedProjectIdFromLauncher) {
+      appliedLauncherProjectIdRef.current = null;
     }
     if (!projectId && projects.length > 0) {
       setProjectId(projects[0].id);
@@ -341,6 +348,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       if (!popover) return;
       // Close popover immediately to prevent re-opening from side effects
       setSlashPopover(null);
+      composerRef.current?.removeSlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+      );
       // Then switch project
       setProjectId(project.id);
     },
@@ -353,6 +364,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       if (!popover) return;
       // Close popover immediately to prevent re-opening from side effects
       setSlashPopover(null);
+      composerRef.current?.removeSlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+      );
       // Then switch agent
       setSelectedAgentId(agent.id);
     },

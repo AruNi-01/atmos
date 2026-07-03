@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Fuse from "fuse.js";
 import {
   fsApi,
   type GithubIssuePayload,
@@ -16,6 +15,7 @@ import {
   useDebouncedPopoverQuery,
   type MentionFileCandidate,
 } from "@/features/welcome/lib/welcome-page-helpers";
+import { filterMentionFileCandidates } from "@/features/welcome/lib/mention-file-search";
 
 export function useWelcomeMentionSearch({
   issuePreview,
@@ -70,33 +70,9 @@ export function useWelcomeMentionSearch({
     };
   }, [selectedProjectPath]);
 
-  const mentionFileFuse = React.useMemo(
-    () =>
-      new Fuse(projectTreeEntries, {
-        keys: [
-          { name: "name", weight: 0.68 },
-          { name: "relativePath", weight: 0.32 },
-        ],
-        threshold: 0.32,
-        ignoreLocation: true,
-      }),
-    [projectTreeEntries],
-  );
-
   const mentionFiles = React.useMemo(() => {
-    const query = debouncedMentionQuery;
-    if (!query) return [] as MentionFileCandidate[];
-    const hits = mentionFileFuse.search(query, { limit: 60 }).map((r) => r.item);
-    return hits
-      .sort((a, b) => {
-        const bucket = (item: MentionFileCandidate) =>
-          item.isHidden ? 2 : item.isDir ? 1 : 0;
-        const bucketDiff = bucket(a) - bucket(b);
-        if (bucketDiff !== 0) return bucketDiff;
-        return a.relativePath.localeCompare(b.relativePath);
-      })
-      .slice(0, 12);
-  }, [debouncedMentionQuery, mentionFileFuse]);
+    return filterMentionFileCandidates(projectTreeEntries, debouncedMentionQuery);
+  }, [debouncedMentionQuery, projectTreeEntries]);
 
   const mentionNavItems = React.useMemo<MentionNavItem[]>(() => {
     const items: MentionNavItem[] = [];
