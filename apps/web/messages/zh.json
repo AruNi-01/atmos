@@ -115,8 +115,6 @@
       "fallbackWorkspace": "工作区",
       "loadingTasks": "正在加载任务",
       "taskMeta": "{activeCount} 个进行中 · 完成 {doneCount}/{totalCount}",
-      "loadingNote": "正在加载备注",
-      "noNotesYet": "暂未有备注",
       "mergeConflictsNeedAttention": "存在待处理冲突",
       "changed": "{count} 个变更",
       "unpushed": "{count} 个未推送",
@@ -124,7 +122,6 @@
       "openWorkspaceSummary": "打开工作区摘要",
       "workspaceSummary": "工作区摘要",
       "task": "任务",
-      "note": "备注",
       "commitPush": "提交并推送"
     },
     "hotkeys": {
@@ -224,11 +221,9 @@
       "typeToSearch": "至少输入一个字符",
       "fallback": {
         "tasks": "全部任务",
-        "note": "备注",
         "commit": "提交与推送",
         "usage": "使用情况"
       },
-      "noteTitle": "备注",
       "groups": {
         "workspace": "工作区",
         "theme": "主题",
@@ -236,7 +231,6 @@
         "management": "管理",
         "modal": "弹窗",
         "todo": "待办",
-        "note": "备注",
         "commit": "提交",
         "usage": "用量",
         "newWorkspace": "新建工作区",
@@ -831,11 +825,6 @@
         "title": "工作区 TODO",
         "descriptionWithLabel": "{label} - 查看任务",
         "description": "查看当前任务"
-      },
-      "workspaceNote": {
-        "title": "工作区笔记",
-        "descriptionWithLabel": "{label} - 预览并编辑笔记",
-        "description": "预览并编辑笔记"
       },
       "commitPush": {
         "title": "提交并推送",
@@ -4701,11 +4690,9 @@
       "enabledCount": "已启用 {count} 项",
       "hidden": "已隐藏",
       "summaryButtonTitle": "工作区摘要按钮",
-      "summaryButtonDescription": "在全局搜索前显示一个紧凑图标按钮，提供项目、任务、备注和提交快捷入口。",
+      "summaryButtonDescription": "在全局搜索前显示一个紧凑图标按钮，提供项目、任务和提交快捷入口。",
       "taskTitle": "TASK 区块",
       "taskDescription": "在摘要弹层中显示任务计数，并通过嵌套弹层展示完整任务面板。",
-      "noteTitle": "NOTE 区块",
-      "noteDescription": "显示备注预览行，并通过嵌套弹层展示 Markdown 编辑器/预览。",
       "commitTitle": "Commit & Push 区块",
       "commitDescription": "显示仓库变更状态，并通过嵌套弹层展示共享的 Commit & Push 控件。"
     },

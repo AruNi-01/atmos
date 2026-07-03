@@ -32,7 +32,6 @@ export function LayoutSettingsSection() {
     showAgentStatus,
     showHeaderSummary,
     showHeaderSummaryTask,
-    showHeaderSummaryNote,
     showHeaderSummaryCommit,
     loadSettings,
     setProjectFilesSide,
@@ -47,7 +46,6 @@ export function LayoutSettingsSection() {
     setFooterShowAgentStatus,
     setHeaderShowSummary,
     setHeaderShowSummaryTask,
-    setHeaderShowSummaryNote,
     setHeaderShowSummaryCommit,
   } = useLayoutSettingsStore();
   const managementAgentsEnabled = useExperimentSettingsStore((state) => state.managementAgentsEnabled);
@@ -227,11 +225,9 @@ export function LayoutSettingsSection() {
         onExpandedChange={setHeaderLayoutExpanded}
         showHeaderSummary={showHeaderSummary}
         showHeaderSummaryTask={showHeaderSummaryTask}
-        showHeaderSummaryNote={showHeaderSummaryNote}
         showHeaderSummaryCommit={showHeaderSummaryCommit}
         setHeaderShowSummary={setHeaderShowSummary}
         setHeaderShowSummaryTask={setHeaderShowSummaryTask}
-        setHeaderShowSummaryNote={setHeaderShowSummaryNote}
         setHeaderShowSummaryCommit={setHeaderShowSummaryCommit}
       />
 

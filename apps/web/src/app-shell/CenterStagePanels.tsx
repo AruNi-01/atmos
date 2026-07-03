@@ -30,7 +30,6 @@ import type { TerminalGridHandle } from "@/features/terminal/components/Terminal
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
-import { WorkspaceNotePanel } from "@/features/workspace/components/WorkspaceNotePanel";
 
 function TerminalGridLoadingFallback() {
   const t = useTranslations("appShell.centerStagePanels");
@@ -93,11 +92,6 @@ const TerminalGrid = dynamic(
     loading: () => <TerminalGridLoadingFallback />,
   },
 );
-
-function isSpecsFilePath(path: string): boolean {
-  const sourcePath = getEditorSourcePath(path).replace(/\\/g, "/");
-  return sourcePath.startsWith("specs/") || sourcePath.includes("/specs/");
-}
 
 type TerminalQuickOpenAgent = {
   agent: TerminalPaneAgent;
@@ -171,7 +165,6 @@ export function CenterStagePanels({
   wikiRefreshTrigger,
 }: CenterStagePanelsProps) {
   const t = useTranslations("appShell.centerStagePanels");
-  const noteEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath || null;
 
   return (
     <>
@@ -356,20 +349,6 @@ export function CenterStagePanels({
             </ReviewContextProvider>
           ) : isConflictResolveEditorPath(file.path) ? (
             <GitConflictResolver />
-          ) : isSpecsFilePath(file.path) ? (
-            <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-              <FileViewer
-                file={file}
-                className="min-h-0 flex-1"
-                surfaceActive={activeValue === file.path}
-              />
-              <WorkspaceNotePanel
-                contextId={effectiveContextId}
-                effectivePath={noteEffectivePath}
-                title={t("notesTitle")}
-                className="min-h-[260px] lg:min-h-0"
-              />
-            </div>
           ) : (
             <FileViewer
               file={file}

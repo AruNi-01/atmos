@@ -7,18 +7,16 @@ import {
   CollapsibleTrigger,
   Switch,
 } from '@workspace/ui';
-import { ChevronDown, GitCommit, ListTodo, PanelTop, StickyNote } from 'lucide-react';
+import { ChevronDown, GitCommit, ListTodo, PanelTop } from 'lucide-react';
 
 interface HeaderLayoutSettingsSectionProps {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   showHeaderSummary: boolean;
   showHeaderSummaryTask: boolean;
-  showHeaderSummaryNote: boolean;
   showHeaderSummaryCommit: boolean;
   setHeaderShowSummary: (value: boolean) => Promise<void>;
   setHeaderShowSummaryTask: (value: boolean) => Promise<void>;
-  setHeaderShowSummaryNote: (value: boolean) => Promise<void>;
   setHeaderShowSummaryCommit: (value: boolean) => Promise<void>;
 }
 
@@ -27,17 +25,14 @@ export function HeaderLayoutSettingsSection({
   onExpandedChange,
   showHeaderSummary,
   showHeaderSummaryTask,
-  showHeaderSummaryNote,
   showHeaderSummaryCommit,
   setHeaderShowSummary,
   setHeaderShowSummaryTask,
-  setHeaderShowSummaryNote,
   setHeaderShowSummaryCommit,
 }: HeaderLayoutSettingsSectionProps) {
   const t = useTranslations('settings.headerLayoutSection');
   const enabledCount =
     Number(showHeaderSummaryTask) +
-    Number(showHeaderSummaryNote) +
     Number(showHeaderSummaryCommit);
 
   return (
@@ -100,26 +95,6 @@ export function HeaderLayoutSettingsSection({
                   checked={showHeaderSummaryTask}
                   disabled={!showHeaderSummary}
                   onCheckedChange={(checked) => void setHeaderShowSummaryTask(!!checked)}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="border-b border-border px-2 py-4 last:border-b-0">
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-              <div className="flex gap-3">
-                <StickyNote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t('noteTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('noteDescription')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end">
-                <Switch
-                  checked={showHeaderSummaryNote}
-                  disabled={!showHeaderSummary}
-                  onCheckedChange={(checked) => void setHeaderShowSummaryNote(!!checked)}
                 />
               </div>
             </div>

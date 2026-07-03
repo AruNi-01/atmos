@@ -19,7 +19,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  StickyNote,
   Tabs,
   TabsList,
   TabsTab,
@@ -27,7 +26,6 @@ import {
 import type { SearchMatch } from "@/api/ws-api";
 import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
-import { WorkspaceNotePanel } from "@/features/workspace/components/WorkspaceNotePanel";
 import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import { UsagePopover } from "@/app-shell/UsagePopover";
 import {
@@ -39,7 +37,7 @@ import {
 } from "@/app-shell/global-search-parts";
 import { useTranslations } from "next-intl";
 
-type SubView = "todo" | "note" | "commit" | "usage";
+type SubView = "todo" | "commit" | "usage";
 
 interface SearchProjectSummary {
   id: string;
@@ -164,41 +162,6 @@ export function TodoSubView({
   );
 }
 
-interface NoteSubViewProps {
-  contextId: string | null;
-  currentProject?: SearchProjectSummary;
-  currentWorkspace?: SearchWorkspaceSummary;
-  currentEffectivePath?: string | null;
-  onBack: () => void;
-}
-
-export function NoteSubView({
-  contextId,
-  currentProject,
-  currentWorkspace,
-  currentEffectivePath,
-  onBack,
-}: NoteSubViewProps) {
-  const t = useTranslations("appShell");
-  return (
-    <GlobalSearchSubViewFrame
-      icon={<StickyNote className="size-4 shrink-0 text-muted-foreground" />}
-      title={currentWorkspace?.name || currentProject?.name || t("globalSearch.fallback.note")}
-      onBack={onBack}
-    >
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <WorkspaceNotePanel
-          contextId={contextId}
-          effectivePath={currentEffectivePath}
-          title={t("globalSearch.noteTitle")}
-          compact
-          className="h-full rounded-none border-0 bg-background"
-        />
-      </div>
-    </GlobalSearchSubViewFrame>
-  );
-}
-
 interface CommitSubViewProps {
   currentProject?: SearchProjectSummary;
   currentWorkspace?: SearchWorkspaceSummary;
@@ -308,7 +271,6 @@ function AppSearchResults({
     { key: "management", heading: t("globalSearch.groups.management"), showDescription: true },
     { key: "modal", heading: t("globalSearch.groups.modal"), showDescription: true },
     { key: "todo", heading: t("globalSearch.groups.todo") },
-    { key: "note", heading: t("globalSearch.groups.note") },
     { key: "commit", heading: t("globalSearch.groups.commit"), showDescription: true },
     { key: "usage", heading: t("globalSearch.groups.usage"), showDescription: true },
     { key: "new-workspace", heading: t("globalSearch.groups.newWorkspace"), showDescription: true },

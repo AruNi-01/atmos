@@ -29,7 +29,6 @@ import { buildGlobalSearchItems } from '@/app-shell/global-search-app-items';
 import {
   CommitSubView,
   GlobalSearchMainView,
-  NoteSubView,
   TodoSubView,
   UsageSubView,
   type GroupedAppItems,
@@ -431,7 +430,6 @@ export function GlobalSearch() {
       management: [],
       modal: [],
       todo: [],
-      note: [],
       commit: [],
       usage: [],
     };
@@ -507,14 +505,6 @@ export function GlobalSearch() {
         />
       ) : subView === 'usage' ? (
         <UsageSubView onBack={() => setSubView(null)} />
-      ) : subView === 'note' ? (
-        <NoteSubView
-          contextId={contextId}
-          currentProject={currentProject}
-          currentWorkspace={currentWorkspace}
-          currentEffectivePath={currentEffectivePath}
-          onBack={() => setSubView(null)}
-        />
       ) : subView === 'commit' ? (
         <CommitSubView
           currentProject={currentProject}

@@ -18,7 +18,6 @@ import {
   Plus,
   Settings,
   SquareKanban,
-  StickyNote,
   Sun,
   Terminal,
   Timer,
@@ -120,7 +119,7 @@ interface BuildGlobalSearchItemsParams {
   setIsLeftCollapsed: (collapsed: boolean) => void;
   setActiveSettingTab: (tab: SettingsModalTab) => void;
   setSettingsOpen: (open: boolean) => void;
-  setSubView: (view: "todo" | "note" | "commit" | "usage") => void;
+  setSubView: (view: "todo" | "commit" | "usage") => void;
   showCreating: () => void;
   showOpening: (workspaceId: string) => void;
   clearWorkspaceCreationOverlay: () => void;
@@ -491,17 +490,6 @@ export function buildGlobalSearchItems({
         icon: <ListTodo className="size-4 text-muted-foreground" />,
         action: () => {
           setSubView("todo");
-        },
-      },
-      {
-        id: "note-current-workspace",
-        type: "note",
-        title: globalSearchItemsT("workspaceNote.title"),
-        description: todoLabel ? globalSearchItemsT("workspaceNote.descriptionWithLabel", { label: todoLabel }) : globalSearchItemsT("workspaceNote.description"),
-        keywords: ["note", "notes", "markdown", "memo", "workspace", "project", "preview", "edit"],
-        icon: <StickyNote className="size-4 text-muted-foreground" />,
-        action: () => {
-          setSubView("note");
         },
       },
       {

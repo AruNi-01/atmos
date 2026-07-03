@@ -10,12 +10,11 @@ import {
   TooltipTrigger,
   cn,
 } from '@workspace/ui';
-import { ChevronRight, GitCommit, ListTodo, PanelTop, StickyNote } from 'lucide-react';
+import { ChevronRight, GitCommit, ListTodo, PanelTop } from 'lucide-react';
 import {
   TaskListPanel,
   type TaskListPanelTask,
 } from '@/features/workspace/components/TaskListPanel';
-import { WorkspaceNotePanel } from '@/features/workspace/components/WorkspaceNotePanel';
 import { useWorkspaceContextStore } from '@/features/workspace/hooks/use-workspace-context';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
@@ -72,22 +71,6 @@ function useHeaderTasks(contextId: string | null, effectivePath?: string | null,
       contextId ? deleteTask(contextId, path, idx) : Promise.resolve()
     ), [contextId, deleteTask]),
   };
-}
-
-function useHeaderNote(contextId: string | null, effectivePath?: string | null, enabled = true) {
-  const note = useWorkspaceContextStore((state) =>
-    contextId ? state.workspaceStates[contextId]?.note ?? '' : '',
-  );
-  const noteLoading = useWorkspaceContextStore((state) => state.noteLoading);
-  const loadNote = useWorkspaceContextStore((state) => state.loadNote);
-
-  React.useEffect(() => {
-    if (!enabled) return;
-    if (!contextId || !effectivePath) return;
-    void loadNote(contextId, effectivePath);
-  }, [contextId, effectivePath, enabled, loadNote]);
-
-  return { note, noteLoading };
 }
 
 type SummaryRowProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -189,7 +172,6 @@ export function HeaderWorkspaceSummaryButton({
 }: HeaderWorkspaceSummaryButtonProps) {
   const t = useTranslations("header");
   const showTask = useLayoutSettingsStore((state) => state.showHeaderSummaryTask);
-  const showNote = useLayoutSettingsStore((state) => state.showHeaderSummaryNote);
   const showCommit = useLayoutSettingsStore((state) => state.showHeaderSummaryCommit);
   const {
     hasMergeConflicts,
@@ -206,7 +188,6 @@ export function HeaderWorkspaceSummaryButton({
     updateTaskContent,
     deleteTask,
   } = useHeaderTasks(contextId, effectivePath, showTask);
-  const { note, noteLoading } = useHeaderNote(contextId, effectivePath, showNote);
 
   if (!contextId || !effectivePath) return null;
 
@@ -223,9 +204,6 @@ export function HeaderWorkspaceSummaryButton({
   const taskMeta = tasksLoading && tasks.length === 0
     ? t("summary.loadingTasks")
     : t("summary.taskMeta", { activeCount: activeTaskCount, doneCount, totalCount: tasks.length });
-  const notePreview = noteLoading && !note
-    ? t("summary.loadingNote")
-    : note.trim().split(/\r?\n/).find((line) => line.trim())?.trim() || t("summary.noNotesYet");
   const commitMeta = hasMergeConflicts
     ? t("summary.mergeConflictsNeedAttention")
     : [
@@ -307,30 +285,6 @@ export function HeaderWorkspaceSummaryButton({
                   deleteTask={deleteTask}
                 />
               </div>
-            </NestedSummaryPopover>
-          ) : null}
-
-          {showNote ? (
-            <NestedSummaryPopover
-              widthClassName="w-[460px]"
-              row={(
-                <SummaryRow
-                  icon={<StickyNote className="size-4" />}
-                  label={notePreview}
-                  meta={notePreview}
-                  title={t("summary.note")}
-                />
-              )}
-            >
-              <WorkspaceNotePanel
-                contextId={contextId}
-                effectivePath={effectivePath}
-                title={t("summary.note")}
-                compact
-                defaultMode="preview"
-                previewFirst
-                className="h-[min(540px,76vh)] border-0 bg-popover"
-              />
             </NestedSummaryPopover>
           ) : null}
 

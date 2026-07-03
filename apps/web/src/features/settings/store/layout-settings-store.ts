@@ -16,7 +16,6 @@ export interface FooterLayoutPrefs {
 export interface HeaderLayoutPrefs {
   showHeaderSummary: boolean;
   showHeaderSummaryTask: boolean;
-  showHeaderSummaryNote: boolean;
   showHeaderSummaryCommit: boolean;
 }
 
@@ -41,7 +40,6 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs {
   setFooterShowAgentStatus: (value: boolean) => Promise<void>;
   setHeaderShowSummary: (value: boolean) => Promise<void>;
   setHeaderShowSummaryTask: (value: boolean) => Promise<void>;
-  setHeaderShowSummaryNote: (value: boolean) => Promise<void>;
   setHeaderShowSummaryCommit: (value: boolean) => Promise<void>;
 }
 
@@ -56,9 +54,7 @@ function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLa
 
 function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLayoutPrefs {
   const legacyTodo = layout?.header_show_todo;
-  const legacyNote = layout?.header_show_note;
-  const legacySummaryEnabled =
-    legacyTodo === false && legacyNote === false ? false : true;
+  const legacySummaryEnabled = legacyTodo !== false;
 
   return {
     showHeaderSummary:
@@ -69,10 +65,6 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
       typeof layout?.header_summary_show_task === 'boolean'
         ? layout.header_summary_show_task
         : legacyTodo !== false,
-    showHeaderSummaryNote:
-      typeof layout?.header_summary_show_note === 'boolean'
-        ? layout.header_summary_show_note
-        : legacyNote !== false,
     showHeaderSummaryCommit: layout?.header_summary_show_commit !== false,
   };
 }
@@ -104,7 +96,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     showAgentStatus: true,
     showHeaderSummary: true,
     showHeaderSummaryTask: true,
-    showHeaderSummaryNote: true,
     showHeaderSummaryCommit: true,
     loaded: false,
 
@@ -186,9 +177,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setHeaderShowSummaryTask: (value) =>
       updateLayoutSetting({ showHeaderSummaryTask: value }, 'header_summary_show_task', value),
-
-    setHeaderShowSummaryNote: (value) =>
-      updateLayoutSetting({ showHeaderSummaryNote: value }, 'header_summary_show_note', value),
 
     setHeaderShowSummaryCommit: (value) =>
       updateLayoutSetting({ showHeaderSummaryCommit: value }, 'header_summary_show_commit', value),

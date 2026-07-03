@@ -115,8 +115,6 @@
       "fallbackWorkspace": "Workspace",
       "loadingTasks": "Loading tasks",
       "taskMeta": "{activeCount} active · {doneCount}/{totalCount} done",
-      "loadingNote": "Loading note",
-      "noNotesYet": "No notes yet",
       "mergeConflictsNeedAttention": "Merge conflicts need attention",
       "changed": "{count} changed",
       "unpushed": "{count} unpushed",
@@ -124,7 +122,6 @@
       "openWorkspaceSummary": "Open workspace summary",
       "workspaceSummary": "Workspace Summary",
       "task": "TASK",
-      "note": "NOTE",
       "commitPush": "Commit & Push"
     },
     "hotkeys": {
@@ -224,11 +221,9 @@
       "typeToSearch": "Type at least one character",
       "fallback": {
         "tasks": "All Tasks",
-        "note": "Notes",
         "commit": "Commit & Push",
         "usage": "Usage"
       },
-      "noteTitle": "Note",
       "groups": {
         "workspace": "Workspace",
         "theme": "Theme",
@@ -236,7 +231,6 @@
         "management": "Management",
         "modal": "Modal",
         "todo": "Todo",
-        "note": "Note",
         "commit": "Commit",
         "usage": "Usage",
         "newWorkspace": "New Workspace",
@@ -831,11 +825,6 @@
         "title": "Workspace TODOs",
         "descriptionWithLabel": "{label} - View tasks",
         "description": "View current tasks"
-      },
-      "workspaceNote": {
-        "title": "Workspace Note",
-        "descriptionWithLabel": "{label} - Preview and edit notes",
-        "description": "Preview and edit notes"
       },
       "commitPush": {
         "title": "Commit & Push",
@@ -4701,11 +4690,9 @@
       "enabledCount": "{count} enabled",
       "hidden": "Hidden",
       "summaryButtonTitle": "Workspace summary button",
-      "summaryButtonDescription": "Show one compact icon button before global search with project, task, note, and commit shortcuts.",
+      "summaryButtonDescription": "Show one compact icon button before global search with project, task, and commit shortcuts.",
       "taskTitle": "TASK section",
       "taskDescription": "Show task counts in the summary popover and expose the full task panel as a nested popover.",
-      "noteTitle": "NOTE section",
-      "noteDescription": "Show a note preview row and expose the markdown editor/preview as a nested popover.",
       "commitTitle": "Commit & Push section",
       "commitDescription": "Show repository change status and expose the shared Commit & Push controls as a nested popover."
     },
