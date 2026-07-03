@@ -6,3 +6,4 @@ attachments/
 # safe to sync across workspaces or should be added to this ignore list.
 context/
 reviews/
+tmp/

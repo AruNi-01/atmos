@@ -4,7 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 
-import { terminalSideChatApi } from "@/api/ws-api";
+import { fsApi, terminalSideChatApi, type TerminalSideContextCaptureResponse } from "@/api/ws-api";
 import {
   buildInteractiveAgentCommand,
   type TerminalAgentRunConfigInput,
@@ -14,9 +14,13 @@ import { TerminalSideChatDots } from "@/features/terminal/components/TerminalSid
 import { TerminalSideChatLayer } from "@/features/terminal/components/TerminalSideChatLayer";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import {
+  buildSideChatContextFileContent,
+  buildSideChatContextFilePath,
   buildSideChatPrompt,
+  buildSideChatPromptWithContextFile,
   isSideChatOpen,
   pickUniqueBrightColor,
+  shouldInlineSideChatPrompt,
   type LocalSideChatRecord,
   type SourceSurfaceKind,
 } from "@/features/terminal/lib/terminal-side-chat";
@@ -120,10 +124,18 @@ export function useTerminalSideChats({
         const sideChatId = `side-${crypto.randomUUID()}`;
         const sideTmuxWindowName = `side-${sideChatId.slice(5, 13)}`;
         const colorHex = pickUniqueBrightColor(records.map((record) => record.color_hex));
-        const sidePrompt = buildSideChatPrompt({
+        const directSidePrompt = buildSideChatPrompt({
           capture,
           sourceTmuxWindowName: resolvedSourceTmuxWindowName,
           userPrompt,
+        });
+        const sidePrompt = await resolveSideChatPrompt({
+          capture,
+          directSidePrompt,
+          rootPath: localPath?.trim() || projectRootPath?.trim() || null,
+          sourceTmuxWindowName: resolvedSourceTmuxWindowName,
+          userPrompt,
+          workspaceId,
         });
         const initialCommand = `${buildInteractiveAgentCommand({
           agentId: agent.id,
@@ -170,7 +182,9 @@ export function useTerminalSideChats({
     },
     [
       addRecord,
+      localPath,
       projectName,
+      projectRootPath,
       records,
       sideContextPromptBudgetBytes,
       sourcePaneId,
@@ -257,4 +271,49 @@ export function useTerminalSideChats({
     sideChatLayer,
     startSideChat,
   };
+}
+
+async function resolveSideChatPrompt({
+  capture,
+  directSidePrompt,
+  rootPath,
+  sourceTmuxWindowName,
+  userPrompt,
+  workspaceId,
+}: {
+  capture: TerminalSideContextCaptureResponse;
+  directSidePrompt: string;
+  rootPath: string | null;
+  sourceTmuxWindowName: string;
+  userPrompt: string;
+  workspaceId: string;
+}): Promise<string> {
+  if (shouldInlineSideChatPrompt(directSidePrompt) || !rootPath) {
+    return directSidePrompt;
+  }
+
+  const contextFilePath = buildSideChatContextFilePath({
+    rootPath,
+    workspaceId,
+    timestampMs: Date.now(),
+  });
+
+  try {
+    await fsApi.writeFile(
+      contextFilePath,
+      buildSideChatContextFileContent({
+        capture,
+        sourceTmuxWindowName,
+      }),
+    );
+    return buildSideChatPromptWithContextFile({
+      capture,
+      contextFilePath,
+      sourceTmuxWindowName,
+      userPrompt,
+    });
+  } catch (error) {
+    console.warn("Failed to write terminal side chat context file; falling back to inline prompt", error);
+    return directSidePrompt;
+  }
 }

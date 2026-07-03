@@ -30,6 +30,8 @@ const BRIGHT_SIDE_CHAT_COLORS = [
   "#f97316",
 ];
 
+export const SIDE_CHAT_INLINE_PROMPT_MAX_LINES = 30;
+
 export function sideChatTabLabel(
   record: LocalSideChatRecord,
   index: number,
@@ -153,14 +155,7 @@ export function buildSideChatPrompt({
   sourceTmuxWindowName: string;
   userPrompt: string;
 }) {
-  const metadata = [
-    `Source terminal: ${sourceTmuxWindowName}`,
-    `Captured lines: ${capture.captured_lines}`,
-    `Captured bytes: ${capture.captured_bytes}/${capture.prompt_budget_bytes}`,
-  ];
-  if (capture.omitted_older_bytes > 0 || capture.omitted_middle_bytes > 0 || capture.truncated_bytes) {
-    metadata.push("Capture was bounded; omitted content may exist outside this excerpt.");
-  }
+  const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
 
   return [
     "You are continuing in a side chat forked from an Atmos terminal.",
@@ -172,6 +167,80 @@ export function buildSideChatPrompt({
     "```text",
     capture.text,
     "```",
+    "",
+    "User prompt:",
+    userPrompt.trim(),
+  ].join("\n");
+}
+
+export function shouldInlineSideChatPrompt(
+  prompt: string,
+  maxLines = SIDE_CHAT_INLINE_PROMPT_MAX_LINES,
+): boolean {
+  return countTextLines(prompt) <= maxLines;
+}
+
+export function buildSideChatContextFilePath({
+  rootPath,
+  workspaceId,
+  timestampMs,
+}: {
+  rootPath: string;
+  workspaceId: string;
+  timestampMs: number;
+}): string {
+  return joinLocalPath(
+    rootPath,
+    ".atmos",
+    "tmp",
+    "context",
+    sanitizeSideChatContextId(workspaceId),
+    `side_${timestampMs}.txt`,
+  );
+}
+
+export function buildSideChatContextFileContent({
+  capture,
+  sourceTmuxWindowName,
+}: {
+  capture: TerminalSideContextCaptureResponse;
+  sourceTmuxWindowName: string;
+}): string {
+  const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
+
+  return [
+    "Atmos terminal side chat context",
+    "",
+    metadata.join("\n"),
+    "",
+    "Captured terminal context:",
+    "```text",
+    capture.text,
+    "```",
+    "",
+  ].join("\n");
+}
+
+export function buildSideChatPromptWithContextFile({
+  capture,
+  contextFilePath,
+  sourceTmuxWindowName,
+  userPrompt,
+}: {
+  capture: TerminalSideContextCaptureResponse;
+  contextFilePath: string;
+  sourceTmuxWindowName: string;
+  userPrompt: string;
+}): string {
+  const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
+
+  return [
+    "You are continuing in a side chat forked from an Atmos terminal.",
+    "The captured terminal context is stored in a local file instead of this prompt.",
+    "Read the file before relying on the terminal context. Do not assume it is complete.",
+    "",
+    metadata.join("\n"),
+    `Context file: ${contextFilePath}`,
     "",
     "User prompt:",
     userPrompt.trim(),
@@ -200,6 +269,37 @@ export function parseAgentRef(value: string | null | undefined): TerminalPaneAge
     return undefined;
   }
   return undefined;
+}
+
+function buildSideChatContextMetadata(
+  capture: TerminalSideContextCaptureResponse,
+  sourceTmuxWindowName: string,
+): string[] {
+  const metadata = [
+    `Source terminal: ${sourceTmuxWindowName}`,
+    `Captured lines: ${capture.captured_lines}`,
+    `Captured bytes: ${capture.captured_bytes}/${capture.prompt_budget_bytes}`,
+  ];
+  if (capture.omitted_older_bytes > 0 || capture.omitted_middle_bytes > 0 || capture.truncated_bytes) {
+    metadata.push("Capture was bounded; omitted content may exist outside this excerpt.");
+  }
+  return metadata;
+}
+
+function countTextLines(text: string): number {
+  if (!text) return 0;
+  return text.split(/\r\n|\r|\n/).length;
+}
+
+function joinLocalPath(rootPath: string, ...segments: string[]): string {
+  const trimmedRoot = rootPath.trim();
+  const normalizedRoot = trimmedRoot.replace(/[\\/]+$/, "") || trimmedRoot;
+  const separator = normalizedRoot.endsWith("/") || normalizedRoot.endsWith("\\") ? "" : "/";
+  return `${normalizedRoot}${separator}${segments.join("/")}`;
+}
+
+function sanitizeSideChatContextId(value: string): string {
+  return value.trim().replace(/[^a-zA-Z0-9_.-]/g, "_") || "workspace";
 }
 
 function hslToHex(h: number, s: number, l: number) {
