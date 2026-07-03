@@ -1,0 +1,28 @@
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  s_9b1e17e73ca7c1::t_c854fd71e940c3 160-161,172-173,179,193,303-305
+apps/web/src/features/terminal/components/TerminalSideChatDots.tsx
+  s_9b1e17e73ca7c1::t_7f4d218024394d 7-8,24-25
+apps/web/src/features/terminal/hooks/use-terminal-side-chat-records.ts
+  s_9b1e17e73ca7c1::t_7f4d218024394d 8-9,179,185
+apps/web/src/features/terminal/components/TerminalSideChatLayer.tsx
+  s_9b1e17e73ca7c1::t_7f4d218024394d 6-8,53,56,59
+apps/web/src/features/terminal/lib/terminal-side-chat.ts
+  s_9b1e17e73ca7c1::t_7f4d218024394d 58-69,112-122
+  s_9b1e17e73ca7c1::t_79156eb9fbe41c 123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "226e3dca8d808d8e5ea4dd0c45ad20ae144e6225",
+  "prompts": {},
+  "sessions": {
+    "s_9b1e17e73ca7c1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2547-76a1-7fa2-8a1f-606850e34484",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
