@@ -224,6 +224,9 @@ export function buildInteractiveAgentCommand(args: {
   if (args.agentId === "opencode") {
     return `${baseCommand} --prompt ${quotedPrompt}`;
   }
+  if (args.agentId === "antigravity") {
+    return `${baseCommand} --prompt-interactive ${quotedPrompt}`;
+  }
   if (strategy === "prompt_flag" && definition) {
     const promptFlag = promptFlagForInteractiveCommand(definition);
     if (promptFlag) {
@@ -302,6 +305,7 @@ export function modelFlagForAgent(agentId: string): string | null {
     case "claude":
     case "codex":
     case "gemini":
+    case "antigravity":
     case "devin":
     case "droid":
     case "cursor":

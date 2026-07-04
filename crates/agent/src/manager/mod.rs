@@ -84,6 +84,15 @@ impl AgentManager {
                 executable: "gemini".to_string(),
                 auth_paths: vec![".config/gemini".to_string()],
             },
+            KnownAgent {
+                id: AgentId::AntigravityCli,
+                registry_id: "antigravity".to_string(),
+                name: "Antigravity CLI".to_string(),
+                description: "Google Antigravity command line agent".to_string(),
+                npm_package: "@google/antigravity-cli".to_string(),
+                executable: "agy".to_string(),
+                auth_paths: vec![".gemini/antigravity-cli".to_string()],
+            },
         ]
     }
 
@@ -442,6 +451,7 @@ impl AgentManager {
             "claude-code-acp" => (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
             "codex-acp" => (AgentId::Codex, "OPENAI_API_KEY"),
             "gemini" => (AgentId::GeminiCli, "GEMINI_API_KEY"),
+            "antigravity" => (AgentId::AntigravityCli, "GEMINI_API_KEY"),
             _ => return None,
         };
         let key = keyring::keyring_get_api_key(agent_id).ok()?;

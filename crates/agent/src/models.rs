@@ -6,6 +6,7 @@ pub enum AgentId {
     ClaudeCode,
     Codex,
     GeminiCli,
+    AntigravityCli,
 }
 
 impl AgentId {
@@ -14,6 +15,7 @@ impl AgentId {
             Self::ClaudeCode => "claude_code",
             Self::Codex => "codex",
             Self::GeminiCli => "gemini_cli",
+            Self::AntigravityCli => "antigravity_cli",
         }
     }
 }

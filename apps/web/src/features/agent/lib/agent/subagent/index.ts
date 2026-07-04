@@ -11,6 +11,7 @@ const adaptersByVendor: Record<AgentVendor, typeof claudeCodeSubAgentAdapter[]> 
   opencode: [opencodeSubAgentAdapter, fallbackSubAgentAdapter],
   cursor: [cursorSubAgentAdapter],
   gemini: [fallbackSubAgentAdapter],
+  antigravity: [fallbackSubAgentAdapter],
   "factory-droid": [fallbackSubAgentAdapter],
   kiro: [fallbackSubAgentAdapter],
   unknown: [cursorSubAgentAdapter, fallbackSubAgentAdapter],

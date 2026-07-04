@@ -51,6 +51,7 @@ pub fn routes() -> Router<AppState> {
         .route("/codex", post(handle_codex_hook))
         .route("/cursor", post(handle_cursor_hook))
         .route("/gemini", post(handle_gemini_hook))
+        .route("/antigravity", post(handle_antigravity_hook))
         .route("/factory-droid", post(handle_factory_droid_hook))
         .route("/kiro", post(handle_kiro_hook))
         .route("/opencode", post(handle_opencode_hook))
@@ -164,6 +165,18 @@ async fn handle_gemini_hook(
     state
         .agent_hooks_service
         .handle_gemini_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_antigravity_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_antigravity_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 

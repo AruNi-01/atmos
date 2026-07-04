@@ -440,6 +440,7 @@ fn tool_display_name(tool: &AgentToolType) -> &'static str {
         AgentToolType::Codex => "Codex",
         AgentToolType::Cursor => "Cursor",
         AgentToolType::Gemini => "Gemini CLI",
+        AgentToolType::Antigravity => "Antigravity",
         AgentToolType::FactoryDroid => "Factory Droid",
         AgentToolType::Kiro => "Kiro",
         AgentToolType::Opencode => "OpenCode",

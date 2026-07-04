@@ -35,6 +35,7 @@ interface AgentHookInstallReport {
   codex: AgentHookToolStatus;
   cursor: AgentHookToolStatus;
   gemini: AgentHookToolStatus;
+  antigravity: AgentHookToolStatus;
   factory_droid: AgentHookToolStatus;
   kiro: AgentHookToolStatus;
   opencode: AgentHookToolStatus;
@@ -48,6 +49,7 @@ const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
   { key: 'codex', label: 'Codex CLI' },
   { key: 'cursor', label: 'Cursor' },
   { key: 'gemini', label: 'Gemini CLI' },
+  { key: 'antigravity', label: 'Antigravity' },
   { key: 'factory_droid', label: 'Factory Droid' },
   { key: 'kiro', label: 'Kiro' },
   { key: 'opencode', label: 'OpenCode' },

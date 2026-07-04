@@ -2,7 +2,7 @@
 
 import { wsRequest } from "@/api/ws/request";
 
-export type AgentId = "claude_code" | "codex" | "gemini_cli";
+export type AgentId = "claude_code" | "codex" | "gemini_cli" | "antigravity_cli";
 
 export interface AgentStatus {
   id: AgentId;

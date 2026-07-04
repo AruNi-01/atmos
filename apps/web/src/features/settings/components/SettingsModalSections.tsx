@@ -74,7 +74,7 @@ interface SettingsModalSectionsProps {
   syncingBuiltInEnabledIds: Record<string, boolean>;
   syncingCustomEnabledIds: Record<string, boolean>;
   onAddCustomAgent: () => void;
-  onAgentSettingChange: (agentId: string, field: 'cmd' | 'flags' | 'enabled', value: string | boolean) => void;
+  onAgentSettingChange: (agentId: string, field: 'cmd' | 'flags' | 'interactiveFlags' | 'enabled', value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
   onCustomAgentChange: (id: string, field: keyof CodeAgentCustomEntry, value: string | boolean) => void;
   onCustomAgentEnabledChange: (id: string, enabled: boolean) => void;

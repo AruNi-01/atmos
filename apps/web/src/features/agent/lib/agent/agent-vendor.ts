@@ -1,4 +1,4 @@
-export type AgentVendor = "claude" | "opencode" | "cursor" | "gemini" | "factory-droid" | "kiro" | "unknown";
+export type AgentVendor = "claude" | "opencode" | "cursor" | "gemini" | "antigravity" | "factory-droid" | "kiro" | "unknown";
 
 const REGISTRY_VENDOR_MAP: Record<string, AgentVendor> = {
   claude_code: "claude",
@@ -11,6 +11,8 @@ const REGISTRY_VENDOR_MAP: Record<string, AgentVendor> = {
   "cursor-agent": "cursor",
   gemini: "gemini",
   "gemini-cli": "gemini",
+  antigravity: "antigravity",
+  "antigravity-cli": "antigravity",
   "factory-droid": "factory-droid",
   droid: "factory-droid",
   "factory-droid-acp": "factory-droid",
@@ -29,6 +31,7 @@ export function resolveAgentVendor(registryId: string): AgentVendor {
   if (normalized.includes("opencode")) return "opencode";
   if (normalized.includes("cursor")) return "cursor";
   if (normalized.includes("gemini")) return "gemini";
+  if (normalized.includes("antigravity")) return "antigravity";
   if (normalized.includes("factory") || normalized.includes("droid")) return "factory-droid";
   if (normalized.includes("kiro")) return "kiro";
 

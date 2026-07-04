@@ -150,6 +150,7 @@ pub(super) fn parse_agent_id(raw: &str) -> Result<AgentId> {
         "claude_code" => Ok(AgentId::ClaudeCode),
         "codex" => Ok(AgentId::Codex),
         "gemini_cli" => Ok(AgentId::GeminiCli),
+        "antigravity_cli" => Ok(AgentId::AntigravityCli),
         other => Err(ServiceError::Validation(format!(
             "Unsupported agent id: {}",
             other

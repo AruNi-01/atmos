@@ -17,6 +17,7 @@ describe("getInteractiveAgentParams", () => {
   it("uses interactive params for agents with prompt-flag automation commands", () => {
     expect(getInteractiveAgentParams(agent("openclaw"))).toBe("agent --agent main --local");
     expect(getInteractiveAgentParams(agent("hermes"))).toBe("chat --yolo");
+    expect(getInteractiveAgentParams(agent("antigravity"))).toBe("--dangerously-skip-permissions");
   });
 
   it("uses Cursor yolo alias for interactive terminal commands", () => {
@@ -39,6 +40,9 @@ describe("getInteractiveAgentParams", () => {
       getInteractiveAgentParams(agent("openclaw"), "agent --agent main --local --json --message"),
     ).toBe("agent --agent main --local");
     expect(getInteractiveAgentParams(agent("hermes"), "chat --yolo -q")).toBe("chat --yolo");
+    expect(
+      getInteractiveAgentParams(agent("antigravity"), "--dangerously-skip-permissions --output-format stream-json -p"),
+    ).toBe("--dangerously-skip-permissions");
   });
 
   it("builds Codex terminal prompts with the interactive command", () => {
@@ -79,5 +83,15 @@ describe("getInteractiveAgentParams", () => {
         prompt: "fix this",
       }),
     ).toBe("opencode --prompt 'fix this'");
+  });
+
+  it("starts Antigravity workspace prompts with the interactive prompt flag", () => {
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "antigravity",
+        launchCommand: "agy --dangerously-skip-permissions",
+        prompt: "fix this",
+      }),
+    ).toBe("agy --dangerously-skip-permissions --prompt-interactive 'fix this'");
   });
 });
