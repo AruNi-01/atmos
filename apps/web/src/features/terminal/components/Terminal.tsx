@@ -993,17 +993,21 @@ const Terminal = ({
       uiStatus={uiStatus}
       workspaceId={workspaceId}
       selectionToolbar={
-        onAddSelectionAsContext && onStartSideChatForSelection ? (
+        onAddSelectionAsContext ? (
           <TerminalSelectionToolbar
             snapshot={selectionSnapshot}
             onAddAsContext={(snapshot) => {
               onAddSelectionAsContext(snapshot);
               setCurrentSelectionSnapshot(null);
             }}
-            onSideChatForSelection={(snapshot) => {
+            onDismiss={() => {
+              setCurrentSelectionSnapshot(null);
+              terminalRef.current?.clearSelection();
+            }}
+            onSideChatForSelection={onStartSideChatForSelection ? (snapshot) => {
               onStartSideChatForSelection(snapshot);
               setCurrentSelectionSnapshot(null);
-            }}
+            } : undefined}
           />
         ) : null
       }

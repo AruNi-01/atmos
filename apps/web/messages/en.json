@@ -7514,7 +7514,7 @@
   },
   "terminal": {
     "agentInput": {
-      "placeholder": "[⌘ + G] Input anything to terminal (@ annotation, / command, or paste img)",
+      "placeholder": "[⌘ + (⇧ Pin) + G] Input anything to terminal (@ annotation, / command, or paste img)",
       "sideCommand": {
         "description": "Fork this terminal context into a side chat",
         "selectAgent": "Select side chat agent",
@@ -7524,6 +7524,7 @@
         "cancel": "Cancel"
       },
       "selectionContext": {
+        "copy": "Copy",
         "addAsContext": "Add as context",
         "sideChatForSelection": "Side chat for selection",
         "selectionChip": "Selection",

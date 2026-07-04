@@ -7514,7 +7514,7 @@
   },
   "terminal": {
     "agentInput": {
-      "placeholder": "[⌘ + G] 输入任何内容到终端（@ 标注、/ 命令，或粘贴图片）",
+      "placeholder": "[⌘ + (⇧ 固定) + G] 输入任何内容到终端（@ 标注、/ 命令，或粘贴图片）",
       "sideCommand": {
         "description": "把此终端上下文 fork 到 side chat",
         "selectAgent": "选择 side chat Agent",
@@ -7524,6 +7524,7 @@
         "cancel": "取消"
       },
       "selectionContext": {
+        "copy": "复制",
         "addAsContext": "添加为上下文",
         "sideChatForSelection": "为选区打开 side chat",
         "selectionChip": "选区",

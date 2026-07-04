@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { MessageCircleMore, MessageCirclePlus } from "lucide-react";
+import { Check, Copy, MessageCircleMore, MessageCirclePlus } from "lucide-react";
 import { cn } from "@workspace/ui";
 
 import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
@@ -10,12 +10,14 @@ import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
 export function TerminalSelectionToolbar({
   className,
   onAddAsContext,
+  onDismiss,
   onSideChatForSelection,
   snapshot,
 }: {
   className?: string;
   onAddAsContext: (snapshot: TerminalSelectionSnapshot) => void;
-  onSideChatForSelection: (snapshot: TerminalSelectionSnapshot) => void;
+  onDismiss?: () => void;
+  onSideChatForSelection?: (snapshot: TerminalSelectionSnapshot) => void;
   snapshot: TerminalSelectionSnapshot | null;
 }) {
   const t = useTranslations("terminal.agentInput.selectionContext");
@@ -40,6 +42,7 @@ export function TerminalSelectionToolbar({
       onMouseDown={stopToolbarEvent}
       onDoubleClick={stopToolbarEvent}
     >
+      <CopyButton text={snapshot.text} label={t("copy")} onDone={onDismiss} />
       <button
         type="button"
         className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -53,19 +56,49 @@ export function TerminalSelectionToolbar({
         <MessageCircleMore className="size-3.5" />
         <span>{t("addAsContext")}</span>
       </button>
-      <button
-        type="button"
-        className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-cyan-700 transition-colors hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-cyan-300"
-        onClick={(event) => {
-          stopToolbarEvent(event);
-          onSideChatForSelection(snapshot);
-        }}
-        title={t("sideChatForSelection")}
-        aria-label={t("sideChatForSelection")}
-      >
-        <MessageCirclePlus className="size-3.5" />
-        <span>{t("sideChatForSelection")}</span>
-      </button>
+      {onSideChatForSelection ? (
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-cyan-700 transition-colors hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-cyan-300"
+          onClick={(event) => {
+            stopToolbarEvent(event);
+            onSideChatForSelection(snapshot);
+          }}
+          title={t("sideChatForSelection")}
+          aria-label={t("sideChatForSelection")}
+        >
+          <MessageCirclePlus className="size-3.5" />
+          <span>{t("sideChatForSelection")}</span>
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+function CopyButton({ text, label, onDone }: { text: string; label: string; onDone?: () => void }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const stopToolbarEvent = (event: React.SyntheticEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return (
+    <button
+      type="button"
+      className="inline-flex size-7 items-center justify-center rounded text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={(event) => {
+        stopToolbarEvent(event);
+        if (copied) return;
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => onDone?.(), 600);
+        });
+      }}
+      title={label}
+      aria-label={label}
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </button>
   );
 }
