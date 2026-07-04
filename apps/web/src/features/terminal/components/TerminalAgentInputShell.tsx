@@ -77,18 +77,18 @@ export function TerminalAgentInputShell({
           className="terminal-agent-input-shell relative overflow-hidden rounded-[1.65rem] bg-background/95 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-md dark:bg-[#151515]"
           data-send-animating={isSendAnimating ? "true" : "false"}
         >
-          {isSendAnimating ? (
-            <div
-              aria-hidden="true"
-              className="terminal-agent-send-sweep"
-              onAnimationEnd={(event) => {
-                if (event.animationName === "terminalAgentBlueSweep") {
-                  startSendExit();
-                }
-              }}
-            />
-          ) : null}
-          <div className="relative z-10 flex items-end gap-2 rounded-[1.25rem] bg-muted/30 px-4 py-2 dark:bg-[#0b0b0b]">
+          <div className="relative z-10 flex items-end gap-2 overflow-hidden rounded-[1.25rem] bg-muted/30 px-4 py-2 dark:bg-[#0b0b0b]">
+            {isSendAnimating ? (
+              <div
+                aria-hidden="true"
+                className="terminal-agent-send-sweep"
+                onAnimationEnd={(event) => {
+                  if (event.animationName === "terminalAgentBlueSweep") {
+                    startSendExit();
+                  }
+                }}
+              />
+            ) : null}
             <div className="min-w-0 flex-1">
               <PromptComposer
                 ref={composerRef}
