@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { shellQuote } from "@/shared/lib/shell-quote";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
 import {
-  buildStructuredRunConfigArgs,
+  buildInteractiveAgentCommand,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
 
@@ -50,32 +49,14 @@ export function buildCommand(
   const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
   if (!agent) return "";
 
-  const strategy = agent.promptStrategy ?? (agent.useEcho ? "stdin" : "arg");
-  const structuredArgs = buildStructuredRunConfigArgs(agentId, runConfig).map((item) =>
-    shellQuote(item),
-  );
-
-  if (prompt.trim() === "") {
-    const interactiveParams = getInteractiveAgentParams(agent);
-    return [agent.cmd, interactiveParams, ...structuredArgs].filter(Boolean).join(" ");
-  }
-
-  const quoted = shellQuote(prompt);
-
-  if (strategy === "stdin") {
-    const params = agent.params ? ` ${agent.params}` : "";
-    return `echo ${quoted} | ${[`${agent.cmd}${params}`, ...structuredArgs].filter(Boolean).join(" ")}`;
-  }
-
-  const parts: string[] = [agent.cmd];
-
-  if (agent.params) {
-    parts.push(agent.params);
-  }
-
-  parts.push(...structuredArgs, quoted);
-
-  return parts.join(" ");
+  const interactiveParams = getInteractiveAgentParams(agent);
+  const launchCommand = [agent.cmd, interactiveParams].filter(Boolean).join(" ");
+  return buildInteractiveAgentCommand({
+    agentId,
+    launchCommand,
+    prompt,
+    runConfig,
+  });
 }
 
 interface AgentSelectProps {
