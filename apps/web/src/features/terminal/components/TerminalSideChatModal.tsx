@@ -23,6 +23,7 @@ import {
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
 import {
+  isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
   resolveTerminalAgentSubmitMode,
 } from "@/features/terminal/lib/terminal-runtime-utils";
@@ -78,6 +79,8 @@ export function TerminalSideChatModal({
   const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
   const [closeAllConfirmOpen, setCloseAllConfirmOpen] = React.useState(false);
   const [readySideChatIds, setReadySideChatIds] = React.useState<Set<string>>(() => new Set());
+  const [isFocusedWithin, setIsFocusedWithin] = React.useState(true);
+  const modalRef = React.useRef<HTMLDivElement | null>(null);
   const {
     handleDragStart,
     handleResizeStart,
@@ -100,6 +103,12 @@ export function TerminalSideChatModal({
   const handleModalKeyDownCapture = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       markInteraction(event);
+      if (isTerminalAgentInputPinShortcut(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        agentInputOverlayRefs.current.get(activeSideChatId)?.togglePin();
+        return;
+      }
       if (!isTerminalAgentInputShortcut(event)) return;
 
       event.preventDefault();
@@ -117,6 +126,25 @@ export function TerminalSideChatModal({
     [markInteraction],
   );
 
+  React.useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+    const handleFocusIn = () => setIsFocusedWithin(true);
+    const handleFocusOut = (event: FocusEvent) => {
+      if (event.relatedTarget instanceof Node && modal.contains(event.relatedTarget)) return;
+      setIsFocusedWithin(false);
+    };
+    const handlePointerDown = () => setIsFocusedWithin(true);
+    modal.addEventListener("focusin", handleFocusIn);
+    modal.addEventListener("focusout", handleFocusOut);
+    modal.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      modal.removeEventListener("focusin", handleFocusIn);
+      modal.removeEventListener("focusout", handleFocusOut);
+      modal.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
+
   return (
     <div
       data-side-chat-modal="true"
@@ -124,7 +152,11 @@ export function TerminalSideChatModal({
       className="pointer-events-none absolute inset-2 z-[95]"
     >
       <div
-        className="pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)]"
+        ref={modalRef}
+        className={cn(
+          "pointer-events-auto absolute flex min-w-0 flex-col overflow-hidden rounded-md border border-border/70 bg-background shadow-[0_22px_60px_rgba(0,0,0,0.38)] transition-opacity duration-200",
+          isFocusedWithin ? "opacity-100" : "opacity-75",
+        )}
         onContextMenu={(event) => {
           markInteraction(event);
           event.preventDefault();
@@ -282,6 +314,9 @@ export function TerminalSideChatModal({
                   sourcePaneId={sourcePaneId}
                   sourceTmuxWindowName={sourceTmuxWindowName}
                   terminalScale={terminalScale}
+                  onAddSelectionAsContext={(snapshot) => {
+                    agentInputOverlayRefs.current.get(record.side_chat_id)?.addTerminalSelectionContext(snapshot);
+                  }}
                   onSessionReady={() => {
                     setReadySideChatIds((current) => new Set(current).add(record.side_chat_id));
                     onReady(record);

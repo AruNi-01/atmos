@@ -611,6 +611,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     agentInputOverlayRefsMap.current.get(paneId)?.toggle();
   }, [getFocusedPaneId]);
 
+  const togglePinFocusedAgentInput = useCallback(() => {
+    const paneId = getFocusedPaneId();
+    if (!paneId) return;
+    setActivePaneId(paneId);
+    agentInputOverlayRefsMap.current.get(paneId)?.togglePin();
+  }, [getFocusedPaneId]);
+
   useTerminalGridHotkeys({
     terminalHotkeyScopeRef,
     focusPaneByOffset,
@@ -621,6 +628,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     requestCloseTerminal,
     splitFocusedTerminal,
     toggleFocusedAgentInput,
+    togglePinFocusedAgentInput,
   });
 
   const handleSplitMenuEnter = useCallback((key: string) => {

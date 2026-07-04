@@ -312,3 +312,19 @@ export function isTerminalAgentInputShortcut(event: {
     (event.key.toLowerCase() === "g" || event.code === "KeyG")
   );
 }
+
+export function isTerminalAgentInputPinShortcut(event: {
+  altKey?: boolean;
+  code?: string;
+  ctrlKey: boolean;
+  key: string;
+  metaKey: boolean;
+  shiftKey?: boolean;
+}): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !!event.shiftKey &&
+    (event.key.toLowerCase() === "g" || event.code === "KeyG")
+  );
+}

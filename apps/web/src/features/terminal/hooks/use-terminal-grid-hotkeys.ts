@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { isTerminalAgentInputShortcut } from "../lib/terminal-runtime-utils";
+import { isTerminalAgentInputPinShortcut, isTerminalAgentInputShortcut } from "../lib/terminal-runtime-utils";
 
 type UseTerminalGridHotkeysOptions = {
   terminalHotkeyScopeRef: React.RefObject<HTMLDivElement | null>;
@@ -14,6 +14,7 @@ type UseTerminalGridHotkeysOptions = {
   requestCloseTerminal: (id?: string | null) => void;
   splitFocusedTerminal: (direction: "row" | "column") => void;
   toggleFocusedAgentInput: () => void;
+  togglePinFocusedAgentInput: () => void;
 };
 
 export function useTerminalGridHotkeys({
@@ -26,6 +27,7 @@ export function useTerminalGridHotkeys({
   requestCloseTerminal,
   splitFocusedTerminal,
   toggleFocusedAgentInput,
+  togglePinFocusedAgentInput,
 }: UseTerminalGridHotkeysOptions) {
   React.useEffect(() => {
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
@@ -61,6 +63,13 @@ export function useTerminalGridHotkeys({
         event.preventDefault();
         event.stopImmediatePropagation();
         onNewTerminalTab?.();
+        return;
+      }
+
+      if (isTerminalAgentInputPinShortcut(event)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        togglePinFocusedAgentInput();
         return;
       }
 
@@ -123,5 +132,6 @@ export function useTerminalGridHotkeys({
     splitFocusedTerminal,
     terminalHotkeyScopeRef,
     toggleFocusedAgentInput,
+    togglePinFocusedAgentInput,
   ]);
 }
