@@ -23,9 +23,9 @@ export function NewWorkspaceWelcomeOverlay() {
       aria-modal="true"
       aria-label="New workspace"
       className={cn(
-        "fixed bottom-6 right-0 top-12 z-[49] overflow-hidden bg-background",
+        "fixed bottom-6 right-0 top-12 z-[49] transform-gpu overflow-hidden bg-background will-change-transform",
         welcomeOverlay.animationState === "visible" || welcomeOverlay.isClosing
-          ? "transition-[left,transform] duration-350 ease-in-out"
+          ? "transition-[left,transform] duration-[350ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           : "",
         welcomeOverlay.isClosing
           ? "translate-y-full"
