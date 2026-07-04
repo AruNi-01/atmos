@@ -5,8 +5,6 @@ import Image from "next/image";
 import {
   ArrowLeftIcon,
   List,
-  PanelRightClose,
-  PanelRightOpen,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
@@ -25,6 +23,7 @@ import {
 } from "@workspace/ui/components/ui/accordion";
 import { Button } from "@workspace/ui/components/ui/button";
 import { Badge } from "@workspace/ui/components/ui/badge";
+import { ScrollToc } from "@workspace/ui/components/ui/scroll-toc";
 import { BlinkingGrid } from "@/components/ui/blinking-grid";
 import { changelogData } from "@/lib/changelog-data";
 import { cn, formatDate } from "@/lib/utils";
@@ -52,7 +51,6 @@ export default function ChangelogPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isTocOpen, setIsTocOpen] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
-  const [isDesktopTocCollapsed, setIsDesktopTocCollapsed] = useState(true);
   const githubIconRef = useRef<GithubIconHandle>(null);
   const [releaseGithubIconRefs] = useState(() =>
     changelogData.map(() => createRef<GithubIconHandle>())
@@ -250,77 +248,22 @@ export default function ChangelogPage() {
       <section className="relative border-t">
         <div className="pointer-events-none absolute inset-0 z-40 hidden xl:block">
           <div className="mx-auto h-full w-full max-w-6xl">
-            <div className="sticky top-20 flex justify-end">
-              <aside className="pointer-events-auto relative w-64 translate-x-[calc(100%+0.75rem)]">
-                <div
-                  className={cn(
-                    "absolute top-4 right-4 transition-all duration-300 ease-out",
-                    isDesktopTocCollapsed
-                      ? "translate-x-0 opacity-100"
-                      : "translate-x-4 opacity-0 pointer-events-none"
-                  )}
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setIsDesktopTocCollapsed(false)}
-                    className="cursor-pointer rounded-sm bg-background/90 shadow-xl backdrop-blur-sm hover:bg-muted/60"
-                    aria-label={t("changelog.toc")}
-                    title={t("changelog.toc")}
-                  >
-                    <PanelRightOpen className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div
-                  className={cn(
-                    "w-64 rounded-2xl bg-background/90 p-4 shadow-xl backdrop-blur-sm transition-all duration-300 ease-out",
-                    isDesktopTocCollapsed
-                      ? "translate-x-8 opacity-0 pointer-events-none"
-                      : "translate-x-0 opacity-100"
-                  )}
-                >
-                  <div className="flex items-center justify-between pb-3">
-                    <h4 className="flex items-center gap-2 text-left text-sm font-semibold text-foreground">
-                      <List className="h-4 w-4" />
-                      {t("changelog.toc")}
-                    </h4>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setIsDesktopTocCollapsed(true)}
-                      className="cursor-pointer rounded-sm hover:bg-muted/60"
-                      aria-label={t("changelog.toc")}
-                      title={t("changelog.toc")}
-                    >
-                      <PanelRightClose className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <nav className="space-y-1">
-                    {changelogData.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => item.version && handleTocClick(item.version)}
-                        className={cn(
-                          "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                          "hover:bg-muted/50",
-                          activeId === `v${item.version}`
-                            ? "bg-primary/10 font-medium text-primary"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        <span className="mr-2 font-mono text-xs">
-                          v{item.version}
-                        </span>
-                        <span className="line-clamp-1">{item.title[language]}</span>
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+            <div className="sticky top-40 flex justify-end">
+              <aside className="pointer-events-auto relative mt-10 translate-x-[calc(100%+0.75rem)]">
+                <ScrollToc
+                  items={changelogData.map((item) => ({
+                    id: item.version ? `v${item.version}` : item.id,
+                    label: item.title[language],
+                    index: item.version ? `v${item.version}` : undefined,
+                  }))}
+                  activeId={activeId}
+                  onItemClick={(item, idx) => {
+                    const entry = changelogData[idx];
+                    if (entry?.version) handleTocClick(entry.version);
+                  }}
+                  height={350}
+                  width={280}
+                />
               </aside>
             </div>
           </div>

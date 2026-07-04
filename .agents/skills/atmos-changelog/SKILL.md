@@ -78,6 +78,7 @@ Apply the filter as follows:
 - Store the release tag URL in `releaseUrl` when the output type supports it.
 - Keep the release link out of the markdown description and section bullet content when the UI already renders a dedicated GitHub button.
 - Keep `version` user-facing. Convert tags such as `desktop-2026.7.2` to `2026.7.2` unless the file already uses a different convention.
+- If multiple releases share the same date-based version (e.g. two releases on `2026.3.18`), disambiguate by appending a sequential suffix: `2026.3.18-1` (oldest), `2026.3.18-2` (newest), etc. Higher suffix = newer release. This prevents duplicate React keys in the changelog UI.
 
 ## Mapping Heuristics
 

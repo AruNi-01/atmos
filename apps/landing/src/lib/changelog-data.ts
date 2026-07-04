@@ -585,7 +585,7 @@ export const changelogData: ChangelogItem[] = [
       en: "Release `2026.3.18` introduces in-app updates, a settings modal, Homebrew distribution, and the supporting release infrastructure.",
     },
     date: "2026-03-18",
-    version: "2026.3.18",
+    version: "2026.3.18-2",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.1",
     tags: [
       { zh: "更新", en: "Updates" },
@@ -639,7 +639,7 @@ export const changelogData: ChangelogItem[] = [
       en: "Release `2026.3.18` overhauls desktop terminal behavior and adds AI token cost estimates plus Cursor usage sync.",
     },
     date: "2026-03-18",
-    version: "2026.3.18",
+    version: "2026.3.18-1",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v0.2.0",
     tags: [
       { zh: "终端", en: "Terminal" },

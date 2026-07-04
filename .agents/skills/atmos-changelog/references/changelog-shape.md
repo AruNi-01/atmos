@@ -31,6 +31,7 @@ The page currently renders:
 - Keep entries sorted newest first.
 - Keep `id` stable and tag-like when possible, for example `desktop-2026.7.2`.
 - Keep `version` short and user-facing, for example `2026.7.2`.
+- If multiple releases share the same date-based version, append a sequential suffix: `2026.3.18-1` (oldest), `2026.3.18-2` (newest), etc. Higher suffix = newer release. This prevents duplicate React keys.
 - Keep `releaseUrl` as the GitHub release tag URL.
 - Do not place GitHub release links inside `description` if the UI already renders a release button beside the title.
 - Keep markdown valid inside descriptions and bullet items because the page renders them with `react-markdown`.
