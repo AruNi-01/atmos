@@ -224,17 +224,47 @@ export function buildInteractiveAgentCommand(args: {
   if (args.agentId === "opencode") {
     return `${baseCommand} --prompt ${quotedPrompt}`;
   }
-  if (strategy === "prompt_flag" && definition?.params?.trim()) {
-    const promptedBaseCommand = [
-      definition.cmd,
-      definition.params,
-      ...structuredArgs.map((item) => shellQuote(item)),
-    ]
-      .filter(Boolean)
-      .join(" ");
-    return `${promptedBaseCommand} ${quotedPrompt}`;
+  if (strategy === "prompt_flag" && definition) {
+    const promptFlag = promptFlagForInteractiveCommand(definition);
+    if (promptFlag) {
+      const flagPrefix = commandContainsToken(args.launchCommand, promptFlag)
+        ? ""
+        : ` ${shellQuote(promptFlag)}`;
+      return `${baseCommand}${flagPrefix} ${quotedPrompt}`;
+    }
   }
   return `${baseCommand} ${quotedPrompt}`;
+}
+
+function promptFlagForInteractiveCommand(definition: TerminalAgentDefinition): string | null {
+  const params = tokenizeCommand(definition.params);
+  if (params.length === 0) return null;
+  const interactive = tokenizeCommand(definition.interactiveParams ?? "");
+  let prefixLength = 0;
+  while (
+    prefixLength < params.length &&
+    prefixLength < interactive.length &&
+    params[prefixLength] === interactive[prefixLength]
+  ) {
+    prefixLength += 1;
+  }
+  const candidates = params.slice(prefixLength).filter((item) => item.startsWith("-"));
+  return candidates.at(-1) ?? null;
+}
+
+function commandContainsToken(command: string, token: string): boolean {
+  return tokenizeCommand(command).includes(token);
+}
+
+function tokenizeCommand(value: string): string[] {
+  try {
+    return parseExtraArgsText(value);
+  } catch {
+    return value
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
 }
 
 export function buildStructuredRunConfigArgs(

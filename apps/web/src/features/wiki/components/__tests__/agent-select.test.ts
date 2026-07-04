@@ -31,11 +31,20 @@ describe("getInteractiveAgentParams", () => {
   });
 
   it("maps saved non-interactive default flags back to interactive params", () => {
+    expect(
+      getInteractiveAgentParams(agent("codex"), "exec --json --dangerously-bypass-approvals-and-sandbox"),
+    ).toBe("--dangerously-bypass-approvals-and-sandbox");
     expect(getInteractiveAgentParams(agent("pi"), "-p")).toBe("");
     expect(
       getInteractiveAgentParams(agent("openclaw"), "agent --agent main --local --json --message"),
     ).toBe("agent --agent main --local");
     expect(getInteractiveAgentParams(agent("hermes"), "chat --yolo -q")).toBe("chat --yolo");
+  });
+
+  it("builds Codex terminal prompts with the interactive command", () => {
+    expect(buildCommand("codex", "fix this")).toBe(
+      "codex --dangerously-bypass-approvals-and-sandbox 'fix this'",
+    );
   });
 
   it("builds Hermes one-shot prompts with the documented query flag", () => {
@@ -50,6 +59,16 @@ describe("getInteractiveAgentParams", () => {
         prompt: "fix this",
       }),
     ).toBe("hermes chat --yolo -q 'fix this'");
+  });
+
+  it("starts OpenClaw workspace prompts without the automation json flag", () => {
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "openclaw",
+        launchCommand: "openclaw agent --agent main --local",
+        prompt: "fix this",
+      }),
+    ).toBe("openclaw agent --agent main --local --message 'fix this'");
   });
 
   it("starts OpenCode workspace prompts with the interactive prompt flag", () => {
