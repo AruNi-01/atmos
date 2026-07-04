@@ -47,6 +47,27 @@
     }
   },
   {
+    "id": "antigravity",
+    "label": "Antigravity",
+    "cmd": "agy",
+    "params": "--dangerously-skip-permissions --output-format stream-json -p",
+    "interactiveParams": "--dangerously-skip-permissions",
+    "promptStrategy": "prompt_flag",
+    "stdoutParser": "cursor_stream_json",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "none"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "agy",
+        "models"
+      ],
+      "parser": "line_list"
+    }
+  },
+  {
     "id": "devin",
     "label": "Devin",
     "cmd": "devin",
@@ -164,6 +185,7 @@
     "label": "Kiro",
     "cmd": "kiro-cli",
     "params": "chat --agent atmos --trust-all-tools",
+    "interactiveParams": "chat --agent atmos --trust-all-tools",
     "promptStrategy": "arg",
     "modelSupport": "catalog",
     "reasoningSupport": {

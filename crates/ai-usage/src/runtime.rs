@@ -708,9 +708,9 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Desktop,
             live_kind: Some(LiveProviderKind::Antigravity),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Launch Antigravity so its local language server is running.",
-            auth_env_keys: &[],
-            auth_paths: &[],
+            setup_hint: "Launch Antigravity, sign in to its CLI (agy), or set GEMINI_API_KEY.",
+            auth_env_keys: &["GEMINI_API_KEY"],
+            auth_paths: &["~/.gemini/antigravity-cli/settings.json"],
         },
         ProviderSpec {
             id: "zai",

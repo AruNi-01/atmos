@@ -20,7 +20,7 @@ import { CodeAgentRunConfigSettingsSection } from "@/features/settings/component
 import { SaveActionButton } from "@/features/settings/components/settings/SaveActionButton";
 import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
-type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
+type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>;
 type AgentOption = { id: string; label: string };
 
 interface CodeAgentSettingsSectionProps {
@@ -46,7 +46,7 @@ interface CodeAgentSettingsSectionProps {
   syncingBuiltInEnabledIds: Record<string, boolean>;
   syncingCustomEnabledIds: Record<string, boolean>;
   onAddCustomAgent: () => void;
-  onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "enabled", value: string | boolean) => void;
+  onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "interactiveFlags" | "enabled", value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
   onCustomAgentChange: (id: string, field: keyof CodeAgentCustomEntry, value: string | boolean) => void;
   onCustomAgentEnabledChange: (id: string, enabled: boolean) => void;
@@ -141,13 +141,14 @@ export function CodeAgentSettingsSection({
                 const savedAgent = savedAgentCustomSettings[agent.id];
                 const isDirty =
                   (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
-                  (savedAgent?.flags ?? (agent.params || "")) !== (custom?.flags ?? (agent.params || ""));
+                  (savedAgent?.flags ?? (agent.params || "")) !== (custom?.flags ?? (agent.params || "")) ||
+                  (savedAgent?.interactiveFlags ?? (agent.interactiveParams || "")) !== (custom?.interactiveFlags ?? (agent.interactiveParams || ""));
                 const isSaving = !!savingBuiltInAgentIds[agent.id];
                 const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                 const enabled = custom?.enabled ?? true;
                 const summary = [
                   custom?.cmd ?? agent.cmd,
-                  getInteractiveAgentParams(agent, custom?.flags),
+                  custom?.interactiveFlags ?? getInteractiveAgentParams(agent, custom?.flags),
                 ]
                   .filter(Boolean)
                   .join(" ");
@@ -188,25 +189,42 @@ export function CodeAgentSettingsSection({
                     </div>
 
                     <CollapsibleContent>
-                      <div className="grid grid-cols-2 gap-3 pt-4">
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">{t("fields.command")}</label>
-                          <Input
-                            value={custom?.cmd ?? agent.cmd}
-                            placeholder={agent.cmd}
-                            onChange={(event) => onAgentSettingChange(agent.id, "cmd", event.target.value)}
-                            className="h-9 text-sm font-mono"
-                          />
+                      <div className="space-y-3 pt-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="mb-1 block text-xs text-muted-foreground">{t("fields.command")}</label>
+                            <Input
+                              value={custom?.cmd ?? agent.cmd}
+                              placeholder={agent.cmd}
+                              onChange={(event) => onAgentSettingChange(agent.id, "cmd", event.target.value)}
+                              className="h-9 text-sm font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs text-muted-foreground">
+                              {agent.interactiveParams !== undefined ? t("fields.interactiveParameters") : t("fields.parameters")}
+                            </label>
+                            <Input
+                              value={custom?.interactiveFlags ?? (agent.interactiveParams || "")}
+                              placeholder={agent.interactiveParams || t("common.noParameters")}
+                              onChange={(event) => onAgentSettingChange(agent.id, "interactiveFlags", event.target.value)}
+                              className="h-9 text-sm font-mono"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">{t("fields.parameters")}</label>
-                          <Input
-                            value={custom?.flags ?? (agent.params || "")}
-                            placeholder={agent.params || t("common.noDefaultParameters")}
-                            onChange={(event) => onAgentSettingChange(agent.id, "flags", event.target.value)}
-                            className="h-9 text-sm font-mono"
-                          />
-                        </div>
+                        {agent.interactiveParams !== undefined && (
+                          <div>
+                            <label className="mb-1 block text-xs text-muted-foreground">
+                              {t("fields.automationParameters")}
+                            </label>
+                            <Input
+                              value={custom?.flags ?? (agent.params || "")}
+                              placeholder={agent.params || t("common.noDefaultParameters")}
+                              onChange={(event) => onAgentSettingChange(agent.id, "flags", event.target.value)}
+                              className="h-9 text-sm font-mono"
+                            />
+                          </div>
+                        )}
                       </div>
                     </CollapsibleContent>
                   </Collapsible>

@@ -4564,7 +4564,9 @@
       "fields": {
         "name": "Name",
         "command": "Command",
-        "parameters": "Parameters"
+        "parameters": "Parameters",
+        "automationParameters": "Automation Parameters (Non-interactive)",
+        "interactiveParameters": "Interactive Parameters"
       },
       "builtIn": {
         "title": "Built-in Agents",

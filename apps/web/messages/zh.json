@@ -4564,7 +4564,9 @@
       "fields": {
         "name": "名称",
         "command": "命令",
-        "parameters": "参数"
+        "parameters": "参数",
+        "automationParameters": "自动化参数 (非交互)",
+        "interactiveParameters": "交互式参数"
       },
       "builtIn": {
         "title": "内置 Agents",

@@ -253,6 +253,8 @@ struct TerminalCodeAgentEntry {
     cmd: String,
     #[serde(default)]
     flags: String,
+    #[serde(default, rename = "interactiveFlags")]
+    interactive_flags: Option<String>,
     #[serde(default, rename = "promptStrategy")]
     prompt_strategy: Option<PromptStrategy>,
     #[serde(default, rename = "stdoutParser")]
@@ -454,13 +456,18 @@ fn resolve_terminal_agents_with_settings(
         let flags = override_flags
             .clone()
             .unwrap_or_else(|| definition.params.clone());
-        let interactive_flags = match override_flags {
-            Some(value) if value.trim() != definition.params.trim() => value,
-            _ => definition
-                .interactive_params
-                .clone()
-                .unwrap_or_else(|| definition.params.clone()),
-        };
+        let override_interactive_flags = override_entry
+            .and_then(|entry| entry.interactive_flags.as_ref())
+            .and_then(|flags| non_empty(flags));
+        let interactive_flags = override_interactive_flags.unwrap_or_else(|| {
+            match override_flags {
+                Some(value) if value.trim() != definition.params.trim() => value,
+                _ => definition
+                    .interactive_params
+                    .clone()
+                    .unwrap_or_else(|| definition.params.clone()),
+            }
+        });
         resolved.push(ResolvedTerminalAgent {
             id: definition.id,
             label: definition.label,
@@ -495,7 +502,7 @@ fn resolve_terminal_agents_with_settings(
             label,
             cmd,
             flags: entry.flags.clone(),
-            interactive_flags: entry.flags,
+            interactive_flags: entry.interactive_flags.clone().and_then(|flags| non_empty(&flags)).unwrap_or_else(|| entry.flags.clone()),
             prompt_strategy: entry.prompt_strategy.unwrap_or(PromptStrategy::Arg),
             stdout_parser: entry.stdout_parser.unwrap_or_default(),
             model_support: AutomationAgentModelInputMode::None,
@@ -1084,7 +1091,7 @@ fn build_run_config_args(
 
 fn model_flag_for_agent(agent_id: &str) -> Option<&'static str> {
     match agent_id {
-        "claude" | "codex" | "gemini" | "devin" | "droid" | "cursor" | "kilocode" | "kiro"
+        "claude" | "codex" | "gemini" | "antigravity" | "devin" | "droid" | "cursor" | "kilocode" | "kiro"
         | "commandcode" | "pi" | "opencode" | "kimi" => Some("--model"),
         _ => None,
     }
@@ -1271,6 +1278,14 @@ mod tests {
         assert!(agents.iter().any(|agent| agent.id == "cursor"
             && agent.params.starts_with("--force --print")
             && agent.interactive_params.as_deref() == Some("--yolo")));
+        assert!(agents.iter().any(|agent| agent.id == "antigravity"
+            && agent.cmd == "agy"
+            && agent.params == "--dangerously-skip-permissions --output-format stream-json -p"
+            && agent.interactive_params.as_deref() == Some("--dangerously-skip-permissions")
+            && agent.prompt_strategy == Some(PromptStrategy::PromptFlag)
+            && agent.stdout_parser == StdoutParser::CursorStreamJson
+            && agent.model_support == AutomationAgentModelInputMode::Catalog
+            && agent.model_list.as_ref().map_or(false, |m| m.supported && m.command == vec!["agy", "models"])));
     }
 
     #[test]
@@ -1296,6 +1311,7 @@ mod tests {
                         label: "Codex".to_string(),
                         cmd: "custom-codex".to_string(),
                         flags: "--yolo".to_string(),
+                        interactive_flags: None,
                         prompt_strategy: None,
                         stdout_parser: None,
                         enabled: Some(false),
@@ -1305,6 +1321,7 @@ mod tests {
                         label: "Custom Agent".to_string(),
                         cmd: "custom-agent".to_string(),
                         flags: "--non-interactive".to_string(),
+                        interactive_flags: Some("--interactive-only-flag".to_string()),
                         prompt_strategy: Some(PromptStrategy::Stdin),
                         stdout_parser: Some(StdoutParser::Plain),
                         enabled: Some(true),
@@ -1325,7 +1342,7 @@ mod tests {
             .unwrap();
         assert_eq!(custom.label, "Custom Agent");
         assert_eq!(custom.flags, "--non-interactive");
-        assert_eq!(custom.interactive_flags, "--non-interactive");
+        assert_eq!(custom.interactive_flags, "--interactive-only-flag");
         assert_eq!(custom.prompt_strategy, PromptStrategy::Stdin);
     }
 
@@ -1389,6 +1406,13 @@ mod tests {
                 "gemini",
                 PromptStrategy::PromptFlag,
                 vec!["--yolo", "--output-format", "stream-json", "--prompt"],
+                PromptDelivery::Arg,
+                StdoutParser::CursorStreamJson,
+            ),
+            (
+                "antigravity",
+                PromptStrategy::PromptFlag,
+                vec!["--dangerously-skip-permissions", "--output-format", "stream-json", "-p"],
                 PromptDelivery::Arg,
                 StdoutParser::CursorStreamJson,
             ),

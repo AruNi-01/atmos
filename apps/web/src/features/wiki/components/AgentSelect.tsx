@@ -38,6 +38,9 @@ function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string
   if (agentId === "openclaw") {
     return flags === "agent --agent main --local --json --message";
   }
+  if (agentId === "antigravity") {
+    return /(?:^|\s)(?:-p|--print|--prompt-interactive|-i)\s*$/.test(flags);
+  }
   return false;
 }
 

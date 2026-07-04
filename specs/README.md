@@ -110,6 +110,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-029** | Native Preview Occlusion | `specs/APP/APP-029_native-preview-occlusion/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-030** | Terminal Side Chat | `specs/APP/APP-030_terminal-side-chat/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-031** | Terminal Selection AI Context | `specs/APP/APP-031_terminal-selection-ai-context/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-032** | Antigravity CLI Support | `specs/APP/APP-032_antigravity-cli-support/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

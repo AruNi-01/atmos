@@ -185,6 +185,7 @@ export interface CodeAgentCustomEntry {
   label: string;
   cmd: string;
   flags: string;
+  interactiveFlags?: string;
   enabled?: boolean;
 }
 

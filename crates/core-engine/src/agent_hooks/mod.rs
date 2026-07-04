@@ -1,4 +1,5 @@
 mod ampcode;
+mod antigravity;
 mod claude_code;
 mod codex;
 mod cursor;
@@ -26,6 +27,7 @@ pub struct AgentHookInstallReport {
     pub codex: AgentHookToolStatus,
     pub cursor: AgentHookToolStatus,
     pub gemini: AgentHookToolStatus,
+    pub antigravity: AgentHookToolStatus,
     pub factory_droid: AgentHookToolStatus,
     pub kiro: AgentHookToolStatus,
     pub opencode: AgentHookToolStatus,
@@ -120,7 +122,7 @@ pub(super) fn hook_version_header_shell() -> String {
 }
 
 pub(super) fn hook_version_header_ts() -> String {
-    format!(r#""X-Atmos-Hook-Version": String(ATMOS_HOOK_VERSION),"#)
+    r#""X-Atmos-Hook-Version": String(ATMOS_HOOK_VERSION),"#.to_string()
 }
 
 pub(super) fn installed_status_from_content(
@@ -181,6 +183,7 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     let codex = codex::install(port);
     let cursor = cursor::install(port);
     let gemini_status = gemini::install(port);
+    let antigravity_status = antigravity::install(port);
     let factory = factory_droid::install(port);
     let kiro_status = kiro::install(port);
     let opencode = opencode::install(port);
@@ -189,11 +192,12 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     let hermes_status = hermes::install(port);
 
     info!(
-        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, factory_droid={}, kiro={}, opencode={}, ampcode={}, pi={}, hermes={}",
+        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, antigravity={}, factory_droid={}, kiro={}, opencode={}, ampcode={}, pi={}, hermes={}",
         if claude.installed { "ok" } else { "skip" },
         if codex.installed { "ok" } else { "skip" },
         if cursor.installed { "ok" } else { "skip" },
         if gemini_status.installed { "ok" } else { "skip" },
+        if antigravity_status.installed { "ok" } else { "skip" },
         if factory.installed { "ok" } else { "skip" },
         if kiro_status.installed { "ok" } else { "skip" },
         if opencode.installed { "ok" } else { "skip" },
@@ -207,6 +211,7 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
         codex,
         cursor,
         gemini: gemini_status,
+        antigravity: antigravity_status,
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
@@ -223,6 +228,7 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
     let codex = codex::uninstall();
     let cursor = cursor::uninstall();
     let gemini_status = gemini::uninstall();
+    let antigravity_status = antigravity::uninstall();
     let factory = factory_droid::uninstall();
     let kiro_status = kiro::uninstall();
     let opencode = opencode::uninstall();
@@ -235,6 +241,7 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
         codex,
         cursor,
         gemini: gemini_status,
+        antigravity: antigravity_status,
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
@@ -249,6 +256,7 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
     let codex = codex::check();
     let cursor = cursor::check();
     let gemini_status = gemini::check();
+    let antigravity_status = antigravity::check();
     let factory = factory_droid::check();
     let kiro_status = kiro::check();
     let opencode = opencode::check();
@@ -261,6 +269,7 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
         codex,
         cursor,
         gemini: gemini_status,
+        antigravity: antigravity_status,
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
@@ -300,7 +309,12 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
     });
     let codex = sync_hook_if_installed("codex", codex::check(), || codex::install(port));
     let cursor = sync_hook_if_installed("cursor", cursor::check(), || cursor::install(port));
-    let gemini_status = sync_hook_if_installed("gemini", gemini::check(), || gemini::install(port));
+    let gemini_status = sync_hook_if_installed("gemini", gemini::check(), || {
+        gemini::install(port)
+    });
+    let antigravity_status = sync_hook_if_installed("antigravity", antigravity::check(), || {
+        antigravity::install(port)
+    });
     let factory = sync_hook_if_installed("factory_droid", factory_droid::check(), || {
         factory_droid::install(port)
     });
@@ -316,6 +330,7 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
         codex,
         cursor,
         gemini: gemini_status,
+        antigravity: antigravity_status,
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
@@ -337,6 +352,7 @@ pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
         "codex" => codex::install(port),
         "cursor" => cursor::install(port),
         "gemini" => gemini::install(port),
+        "antigravity" => antigravity::install(port),
         "factory_droid" => factory_droid::install(port),
         "kiro" => kiro::install(port),
         "opencode" => opencode::install(port),
@@ -354,6 +370,7 @@ pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
         "codex" => codex::uninstall(),
         "cursor" => cursor::uninstall(),
         "gemini" => gemini::uninstall(),
+        "antigravity" => antigravity::uninstall(),
         "factory_droid" => factory_droid::uninstall(),
         "kiro" => kiro::uninstall(),
         "opencode" => opencode::uninstall(),

@@ -6,7 +6,7 @@ use std::time::Duration;
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
-    build_percent_usage_summary, extract_flag_value, format_reset_relative_text,
+    build_percent_usage_summary, expand_home, extract_flag_value, format_reset_relative_text,
     parse_offset_datetime, round_metric, run_command, unix_now,
 };
 
@@ -275,7 +275,55 @@ fn antigravity_select_models(models: &[AntigravityModel]) -> Vec<AntigravityPool
 }
 
 pub(crate) async fn fetch_antigravity_live() -> Result<LiveFetchResult, ProviderError> {
-    let process = detect_antigravity_process()?;
+    let process = match detect_antigravity_process() {
+        Ok(proc) => proc,
+        Err(e) => {
+            // Check if local auth exists
+            let has_env = std::env::var("GEMINI_API_KEY")
+                .map(|val| !val.trim().is_empty())
+                .unwrap_or(false);
+            let has_file = expand_home("~/.gemini/antigravity-cli/settings.json")
+                .map(|path| path.exists())
+                .unwrap_or(false);
+            if has_env || has_file {
+                return Ok(LiveFetchResult {
+                    plan_label: Some("Antigravity CLI".to_string()),
+                    usage_summary: None,
+                    detail_sections: vec![
+                        DetailSection {
+                            title: "Account".to_string(),
+                            rows: vec![
+                                DetailRow {
+                                    label: "Status".to_string(),
+                                    value: "CLI Active (Offline)".to_string(),
+                                    tone: RowTone::Default,
+                                },
+                                DetailRow {
+                                    label: "Plan".to_string(),
+                                    value: "Antigravity".to_string(),
+                                    tone: RowTone::Default,
+                                },
+                            ],
+                        },
+                        DetailSection {
+                            title: "Note".to_string(),
+                            rows: vec![DetailRow {
+                                label: "Language Server".to_string(),
+                                value: "Not running (Quota tracking requires Antigravity IDE)".to_string(),
+                                tone: RowTone::Muted,
+                            }],
+                        },
+                    ],
+                    warnings: vec![],
+                    fetch_message: "Local settings detected (CLI mode)".to_string(),
+                    reset_at: None,
+                    credits_label: None,
+                    last_updated_at: Some(unix_now()),
+                });
+            }
+            return Err(e);
+        }
+    };
     let ports = antigravity_listening_ports(process.pid)?;
     let mut selected_port = None;
     for port in ports {
@@ -383,4 +431,23 @@ pub(crate) async fn fetch_antigravity_live() -> Result<LiveFetchResult, Provider
         credits_label: None,
         last_updated_at: Some(unix_now()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_fetch_antigravity_live_fallback() {
+        std::env::set_var("GEMINI_API_KEY", "test-key");
+        let result = fetch_antigravity_live().await;
+        std::env::remove_var("GEMINI_API_KEY");
+
+        assert!(result.is_ok(), "Expected LiveFetchResult from fallback, got {:?}", result);
+        let live_res = result.unwrap();
+        assert_eq!(live_res.plan_label, Some("Antigravity CLI".to_string()));
+        assert!(live_res.usage_summary.is_none());
+        assert_eq!(live_res.warnings.len(), 0);
+        assert_eq!(live_res.fetch_message, "Local settings detected (CLI mode)");
+    }
 }

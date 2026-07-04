@@ -54,7 +54,7 @@ export function dedupeCodeAgentEntries(
 }
 
 export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
-  const next: Record<string, { cmd?: string; flags?: string; enabled?: boolean }> = {};
+  const next: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }> = {};
 
   for (const agent of AGENT_OPTIONS) {
     const entry = entries.find((item) => item.id === agent.id);
@@ -62,12 +62,14 @@ export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
 
     const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
     const flags = entry.flags !== (agent.params || "") ? entry.flags : undefined;
+    const interactiveFlags = entry.interactiveFlags !== (agent.interactiveParams || "") ? entry.interactiveFlags : undefined;
     const enabled = entry.enabled === false ? false : undefined;
-    if (!cmd && !flags && enabled === undefined) continue;
+    if (!cmd && !flags && !interactiveFlags && enabled === undefined) continue;
 
     next[agent.id] = {};
     if (cmd !== undefined) next[agent.id].cmd = cmd;
     if (flags !== undefined) next[agent.id].flags = flags;
+    if (interactiveFlags !== undefined) next[agent.id].interactiveFlags = interactiveFlags;
     if (enabled !== undefined) next[agent.id].enabled = enabled;
   }
 
@@ -75,14 +77,15 @@ export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
 }
 
 export function buildBuiltInEntries(
-  overrides: Record<string, { cmd?: string; flags?: string; enabled?: boolean }>,
+  overrides: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>,
 ): CodeAgentCustomEntry[] {
   return AGENT_OPTIONS.flatMap((agent) => {
     const draft = overrides[agent.id];
     const cmd = draft?.cmd ?? agent.cmd;
     const flags = draft?.flags ?? (agent.params || "");
+    const interactiveFlags = draft?.interactiveFlags ?? (agent.interactiveParams || "");
     const enabled = draft?.enabled ?? true;
-    const changed = cmd !== agent.cmd || flags !== (agent.params || "") || enabled !== true;
+    const changed = cmd !== agent.cmd || flags !== (agent.params || "") || interactiveFlags !== (agent.interactiveParams || "") || enabled !== true;
 
     if (!changed) return [];
 
@@ -91,6 +94,7 @@ export function buildBuiltInEntries(
       label: agent.label,
       cmd,
       flags,
+      interactiveFlags,
       enabled,
     }];
   });

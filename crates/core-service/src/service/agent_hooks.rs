@@ -1,4 +1,5 @@
 mod ampcode;
+mod antigravity;
 mod claude_code;
 mod codex;
 mod cursor;
@@ -46,6 +47,7 @@ pub enum AgentToolType {
     Codex,
     Cursor,
     Gemini,
+    Antigravity,
     FactoryDroid,
     Kiro,
     Opencode,
@@ -61,6 +63,7 @@ impl std::fmt::Display for AgentToolType {
             Self::Codex => write!(f, "codex"),
             Self::Cursor => write!(f, "cursor"),
             Self::Gemini => write!(f, "gemini"),
+            Self::Antigravity => write!(f, "antigravity"),
             Self::FactoryDroid => write!(f, "factory-droid"),
             Self::Kiro => write!(f, "kiro"),
             Self::Opencode => write!(f, "opencode"),
@@ -358,6 +361,10 @@ impl AgentHooksService {
 
     pub fn handle_gemini_event(&self, payload: &Value, ctx: &AtmosContext) {
         gemini::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_antigravity_event(&self, payload: &Value, ctx: &AtmosContext) {
+        antigravity::handle_event(self, payload, ctx);
     }
 
     pub fn handle_factory_droid_event(&self, payload: &Value, ctx: &AtmosContext) {

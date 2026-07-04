@@ -235,8 +235,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [settingsContentElement, setSettingsContentElement] = useState<HTMLElement | null>(null);
   const providerTestUnsubscribeRef = useRef<Record<string, (() => void) | null>>({});
   // Code Agent settings persisted in ~/.atmos/agent/terminal_code_agent.json
-  const [agentCustomSettings, setAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
-  const [savedAgentCustomSettings, setSavedAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
+  const [agentCustomSettings, setAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>>({});
+  const [savedAgentCustomSettings, setSavedAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>>({});
   const [agentSettingsLoading, setAgentSettingsLoading] = useState(false);
   const [savingBuiltInAgentIds, setSavingBuiltInAgentIds] = useState<Record<string, boolean>>({});
   const [syncingBuiltInEnabledIds, setSyncingBuiltInEnabledIds] = useState<Record<string, boolean>>({});
@@ -369,7 +369,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     return nextAgents;
   }, []);
 
-  const handleAgentSettingChange = React.useCallback((agentId: string, field: 'cmd' | 'flags' | 'enabled', value: string | boolean) => {
+  const handleAgentSettingChange = React.useCallback((agentId: string, field: 'cmd' | 'flags' | 'interactiveFlags' | 'enabled', value: string | boolean) => {
     setAgentCustomSettings((prev) => ({
       ...prev,
       [agentId]: { ...prev[agentId], [field]: value },
@@ -386,7 +386,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       (nextBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
       (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '') &&
+      (nextBuiltInSettings[agentId]?.interactiveFlags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.interactiveParams || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.interactiveParams || '')
     ) {
       delete nextBuiltInSettings[agentId];
     }
@@ -432,6 +434,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
       (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
         (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '') &&
+      (nextSavedBuiltInSettings[agentId]?.interactiveFlags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.interactiveParams || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.interactiveParams || '') &&
       (nextSavedBuiltInSettings[agentId]?.enabled ?? true) === true
     ) {
       delete nextSavedBuiltInSettings[agentId];
