@@ -52,7 +52,7 @@ export function useWelcomeOverlayState() {
         savedEl.focus();
       }
       previousFocusRef.current = null;
-    }, 350);
+    }, 420);
   }, [clearCloseTimer, isClosing, setNewWorkspace]);
 
   const openCreateProject = useCallback(() => {
