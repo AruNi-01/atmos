@@ -524,6 +524,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               isNewPane={shape.props.isNewTerminal}
               className="h-full"
               terminalScale={terminalViewport.scale}
+              onAddSelectionAsContext={(snapshot) => {
+                activateTerminal();
+                agentInputOverlayRef.current?.addTerminalSelectionContext(snapshot);
+              }}
+              onStartSideChatForSelection={(snapshot) => {
+                activateTerminal();
+                agentInputOverlayRef.current?.startSideChatForTerminalSelection(snapshot);
+              }}
               onSessionReady={handleSessionReady}
               onTitleChange={onTitleChange}
               onSessionError={(_, error) => {

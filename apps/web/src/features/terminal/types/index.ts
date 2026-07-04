@@ -63,6 +63,24 @@ export interface TerminalProps {
   terminalScale?: number;
   /** Called when the terminal's dynamic title changes (from shell shim OSC sequences) */
   onTitleChange?: (title: string) => void;
+  /** Called when the terminal has a non-empty text selection that can become AI context. */
+  onSelectionSnapshotChange?: (snapshot: TerminalSelectionSnapshot | null) => void;
+  /** Adds the current terminal selection to terminal AI Input context. */
+  onAddSelectionAsContext?: (snapshot: TerminalSelectionSnapshot) => void;
+  /** Adds the current terminal selection and activates side chat mode. */
+  onStartSideChatForSelection?: (snapshot: TerminalSelectionSnapshot) => void;
+}
+
+export interface TerminalSelectionSnapshot {
+  id: string;
+  text: string;
+  sourceSessionId?: string | null;
+  sourceTmuxWindowName?: string | null;
+  selectedAtMs: number;
+  lineCount: number;
+  byteCount: number;
+  truncated: boolean;
+  anchor: { x: number; y: number };
 }
 
 export interface TerminalPaneAgent {

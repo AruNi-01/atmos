@@ -2,14 +2,24 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { createTranslator } from "next-intl";
 import { cn, getFileIconProps } from "@workspace/ui";
 import { parseAppshotProtocol } from "@/features/appshot/lib/appshot-protocol";
+import {
+  formatSideChatProtocol,
+  formatTerminalSelectionProtocol,
+  parseSideChatProtocolToken,
+  parseTerminalSelectionProtocolToken,
+} from "@/features/terminal/lib/terminal-ai-context-protocol";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export type MentionRef =
   | { kind: "issue" | "pr"; number: number }
   | { kind: "file"; relativePath: string }
   | { kind: "skill"; absolutePath: string; name: string }
-  | { kind: "side" };
+  | { kind: "side"; contextId: string };
 
 export interface AtTriggerContext {
   caretRect: DOMRect;
@@ -46,6 +56,10 @@ export interface ComposerHandle {
    * that update surrounding composer state instead of becoming prompt tokens.
    */
   removeSlashAtRange: (slashOffset: number, queryLength: number) => void;
+  insertTerminalSelectionContext: (contextId: string) => void;
+  insertSideChatCommand: (contextId: string) => void;
+  applySideCommandAtRange: (slashOffset: number, queryLength: number, contextId: string) => void;
+  removeContextToken: (contextId: string) => void;
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
   focus: () => void;
@@ -70,12 +84,29 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/side|\[#img-\d+\]|\[#appshot:\d{13}\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
 const CHIP_TRAILING_SPACER = "\u00A0";
 const TRAILING_CHIP_SPACER_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})([ \\u00A0]+)$`);
+
+let cachedPromptComposerLocale: "en" | "zh" | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedPromptComposerTranslator: any = null;
+
+function promptComposerT(key: string): string {
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+  if (!cachedPromptComposerTranslator || cachedPromptComposerLocale !== locale) {
+    cachedPromptComposerLocale = locale;
+    cachedPromptComposerTranslator = createTranslator({
+      locale,
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "terminal.agentInput",
+    });
+  }
+  return cachedPromptComposerTranslator(key as never);
+}
 
 /**
  * Most SVG icons used inside chips live as static assets under
@@ -126,6 +157,46 @@ function buildMessageCirclePlusIcon(): SVGSVGElement {
   }
 
   return svg;
+}
+
+function buildMessageCircleMoreIcon(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.flexShrink = "0";
+
+  for (const d of [
+    "M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719",
+    "M8 12h.01",
+    "M12 12h.01",
+    "M16 12h.01",
+  ]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+
+  return svg;
+}
+
+function tokenForMention(mention: MentionRef): string {
+  if (mention.kind === "file") {
+    return `@file:${mention.relativePath}`;
+  }
+  if (mention.kind === "skill") {
+    return `/skill:${mention.absolutePath}`;
+  }
+  if (mention.kind === "side") {
+    return formatSideChatProtocol(mention.contextId);
+  }
+  return `@${mention.kind}#${mention.number}`;
 }
 
 function buildChipNode(token: string): HTMLSpanElement {
@@ -181,13 +252,21 @@ function buildChipNode(token: string): HTMLSpanElement {
     const label = document.createElement("span");
     label.textContent = filename;
     span.appendChild(label);
-  } else if (token === "/side") {
+  } else if (parseTerminalSelectionProtocolToken(token)) {
+    span.dataset.kind = "terminal-selection";
+    span.dataset.tooltip = promptComposerT("selectionContext.selectionTooltip");
+    span.className += " border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    span.appendChild(buildMessageCircleMoreIcon());
+    const label = document.createElement("span");
+    label.textContent = promptComposerT("selectionContext.selectionChip");
+    span.appendChild(label);
+  } else if (parseSideChatProtocolToken(token)) {
     span.dataset.kind = "side";
-    span.dataset.tooltip = "Fork this terminal context into a side chat";
+    span.dataset.tooltip = promptComposerT("sideCommand.description");
     span.className += " border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
     span.appendChild(buildMessageCirclePlusIcon());
     const label = document.createElement("span");
-    label.textContent = "Side";
+    label.textContent = promptComposerT("selectionContext.sideChip");
     span.appendChild(label);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
@@ -634,16 +713,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       insertMention: (mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
-        let token: string;
-        if (mention.kind === "file") {
-          token = `@file:${mention.relativePath}`;
-        } else if (mention.kind === "skill") {
-          token = `/skill:${mention.absolutePath}`;
-        } else if (mention.kind === "side") {
-          token = "/side";
-        } else {
-          token = `@${mention.kind}#${mention.number}`;
-        }
+        const token = tokenForMention(mention);
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
@@ -661,16 +731,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       applyMentionAtRange: (atOffset, queryLength, mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
-        let token: string;
-        if (mention.kind === "file") {
-          token = `@file:${mention.relativePath}`;
-        } else if (mention.kind === "skill") {
-          token = `/skill:${mention.absolutePath}`;
-        } else if (mention.kind === "side") {
-          token = "/side";
-        } else {
-          token = `@${mention.kind}#${mention.number}`;
-        }
+        const token = tokenForMention(mention);
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(atOffset - 1, 0);
         const replaceTo = Math.min(atOffset + queryLength, currentText.length);
@@ -687,16 +748,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       applySlashAtRange: (slashOffset, queryLength, mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
-        let token: string;
-        if (mention.kind === "skill") {
-          token = `/skill:${mention.absolutePath}`;
-        } else if (mention.kind === "file") {
-          token = `@file:${mention.relativePath}`;
-        } else if (mention.kind === "side") {
-          token = "/side";
-        } else {
-          token = `@${mention.kind}#${mention.number}`;
-        }
+        const token = tokenForMention(mention);
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(slashOffset - 1, 0);
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
@@ -722,6 +774,52 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         inflateInto(editorRef.current, nextText);
         fireChange();
         setCaretAtOffsetAndRemember(replaceFrom);
+      },
+      insertTerminalSelectionContext: (contextId) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token = formatTerminalSelectionProtocol(contextId);
+        insertNodeAtCaret(editorRef.current, buildChipNode(token));
+        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+        rememberCaretOffset();
+      },
+      insertSideChatCommand: (contextId) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token = formatSideChatProtocol(contextId);
+        insertNodeAtCaret(editorRef.current, buildChipNode(token));
+        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+        rememberCaretOffset();
+      },
+      applySideCommandAtRange: (slashOffset, queryLength, contextId) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(slashOffset - 1, 0);
+        const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
+        const insertText = `${formatSideChatProtocol(contextId)}${CHIP_TRAILING_SPACER}`;
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          insertText +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        const nextCaretOffset = replaceFrom + insertText.length;
+        setCaretAtOffsetAndRemember(nextCaretOffset);
+      },
+      removeContextToken: (contextId) => {
+        if (!editorRef.current) return;
+        const tokens = [
+          formatTerminalSelectionProtocol(contextId),
+          formatSideChatProtocol(contextId),
+        ];
+        for (const token of tokens) {
+          const nodes = editorRef.current.querySelectorAll(`[data-token="${CSS.escape(token)}"]`);
+          nodes.forEach((node) => node.remove());
+        }
+        fireChange();
       },
       insertImagePlaceholder: (n) => {
         if (!editorRef.current) return;

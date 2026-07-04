@@ -433,6 +433,14 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
           onTitleChange={onTitleChange}
+          onAddSelectionAsContext={(snapshot) => {
+            setActivePaneId(id);
+            agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
+          }}
+          onStartSideChatForSelection={(snapshot) => {
+            setActivePaneId(id);
+            agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
+          }}
           onSessionReady={() => {
             readyPanesRef.current.add(id);
             setIsTerminalReady(true);

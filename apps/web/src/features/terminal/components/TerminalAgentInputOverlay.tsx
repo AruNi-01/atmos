@@ -39,7 +39,7 @@ import {
   type TerminalAgentSubmitMode,
   wrapBracketedPaste,
 } from "../lib/terminal-runtime-utils";
-import type { TerminalPaneAgent } from "../types";
+import type { TerminalPaneAgent, TerminalSelectionSnapshot } from "../types";
 import { TerminalAgentFlyingMessagePortal } from "./TerminalAgentFlyingMessagePortal";
 import { TerminalAgentInputPopovers } from "./TerminalAgentInputPopovers";
 import { TerminalAgentInputShell } from "./TerminalAgentInputShell";
@@ -50,6 +50,17 @@ import {
   type TerminalAgentFlyingMessage,
   type TerminalAgentPromptAttachment,
 } from "../lib/terminal-agent-input-overlay-utils";
+import {
+  createTerminalCaptureContextId,
+  createTerminalSelectionContextFromSnapshot,
+  expandPromptWithTerminalSelectionContexts,
+  extractSideChatContextIds,
+  extractTerminalSelectionContextIds,
+  hasKnownSideChatCommand,
+  resolveSelectionContextsForText,
+  stripResolvedTerminalAiProtocolTokens,
+  type TerminalPromptContext,
+} from "../lib/terminal-ai-context-protocol";
 
 import "./TerminalAgentInputOverlay.css";
 
@@ -66,6 +77,7 @@ interface TerminalAgentInputOverlayProps {
     prompt: string,
     agent: TerminalPaneAgent,
     runConfig?: TerminalAgentRunConfigInput | null,
+    contexts?: TerminalPromptContext[],
   ) => Promise<void> | void;
   sideChatAgent?: TerminalPaneAgent | null;
   sideChatAgentOptions?: TerminalPaneAgent[];
@@ -76,6 +88,8 @@ interface TerminalAgentInputOverlayProps {
 export interface TerminalAgentInputOverlayHandle {
   focus: () => void;
   toggle: () => void;
+  addTerminalSelectionContext: (snapshot: TerminalSelectionSnapshot) => void;
+  startSideChatForTerminalSelection: (snapshot: TerminalSelectionSnapshot) => void;
 }
 
 export const TerminalAgentInputOverlay = React.forwardRef<
@@ -110,6 +124,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
   const [pendingSidePrompt, setPendingSidePrompt] = React.useState<string | null>(null);
+  const [pendingSideContexts, setPendingSideContexts] = React.useState<TerminalPromptContext[]>([]);
+  const [promptContexts, setPromptContexts] = React.useState<TerminalPromptContext[]>([]);
   const [selectedSideChatAgentId, setSelectedSideChatAgentId] = React.useState("");
   const [sideChatAgentSelectorOpen, setSideChatAgentSelectorOpen] = React.useState(false);
   const [sideChatRunConfigs, setSideChatRunConfigs] = React.useState<
@@ -131,8 +147,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [runnableSideChatAgents, sideChatAgent],
   );
   const isSideCommandActive = React.useMemo(
-    () => !!onStartSideChat && stripSideCommandToken(text) !== null,
-    [onStartSideChat, text],
+    () => !!onStartSideChat && hasKnownSideChatCommand(text, promptContexts),
+    [onStartSideChat, promptContexts, text],
   );
   const effectiveSelectedSideChatAgentId = selectedSideChatAgentId || detectedSideChatAgent?.id || "";
   const selectedSideChatAgent = React.useMemo(
@@ -181,6 +197,43 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     focusComposerSoon();
   }, [focusComposerSoon, isSendAnimating, isSendExiting]);
 
+  const upsertPromptContext = React.useCallback((context: TerminalPromptContext) => {
+    setPromptContexts((current) => [
+      ...current.filter((item) => item.contextId !== context.contextId),
+      context,
+    ]);
+  }, []);
+
+  const createCapturePromptContext = React.useCallback(() => {
+    const context: TerminalPromptContext = {
+      kind: "terminal_capture",
+      contextId: createTerminalCaptureContextId(),
+    };
+    upsertPromptContext(context);
+    return context;
+  }, [upsertPromptContext]);
+
+  const insertTerminalSelectionContext = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
+    const context = createTerminalSelectionContextFromSnapshot(snapshot);
+    upsertPromptContext(context);
+    setIsOpen(true);
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focus();
+      composerRef.current?.insertTerminalSelectionContext(context.contextId);
+    });
+  }, [upsertPromptContext]);
+
+  const insertSideChatForTerminalSelection = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
+    const context = createTerminalSelectionContextFromSnapshot(snapshot);
+    upsertPromptContext(context);
+    setIsOpen(true);
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focus();
+      composerRef.current?.insertTerminalSelectionContext(context.contextId);
+      composerRef.current?.insertSideChatCommand(context.contextId);
+    });
+  }, [upsertPromptContext]);
+
   const stopOverlayInteractionPropagation = React.useCallback(
     (event: React.SyntheticEvent) => {
       onInteraction?.(event);
@@ -192,7 +245,9 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   React.useImperativeHandle(ref, () => ({
     focus: focusInput,
     toggle: toggleInput,
-  }), [focusInput, toggleInput]);
+    addTerminalSelectionContext: insertTerminalSelectionContext,
+    startSideChatForTerminalSelection: insertSideChatForTerminalSelection,
+  }), [focusInput, insertSideChatForTerminalSelection, insertTerminalSelectionContext, toggleInput]);
 
   const {
     attachments,
@@ -292,10 +347,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       if (command.id !== "side") return;
       const popover = slashPopover;
       if (!popover) return;
-      composerRef.current?.applySlashAtRange(
+      const context = createCapturePromptContext();
+      composerRef.current?.applySideCommandAtRange(
         popover.slashOffset,
         popover.query.length,
-        { kind: "side" },
+        context.contextId,
       );
       setSlashPopover(null);
     },
@@ -308,6 +364,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     (nextText: string) => {
       setText(nextText);
       setPendingSidePrompt(null);
+      setPendingSideContexts([]);
+      const referencedIds = new Set([
+        ...extractTerminalSelectionContextIds(nextText),
+        ...extractSideChatContextIds(nextText),
+      ]);
+      setPromptContexts((current) =>
+        current.filter((context) => referencedIds.has(context.contextId)),
+      );
       syncAttachmentPlaceholders(nextText);
     },
     [syncAttachmentPlaceholders],
@@ -364,6 +428,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   React.useEffect(() => {
     if (isSideCommandActive) return;
     setPendingSidePrompt(null);
+    setPendingSideContexts([]);
     setSideChatAgentSelectorOpen(false);
     setSelectedSideChatAgentId("");
   }, [isSideCommandActive]);
@@ -413,9 +478,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsSendAnimating(true);
     composerRef.current?.clear();
     clearAttachments();
+    setPromptContexts([]);
     setMentionPopover(null);
     setSlashPopover(null);
     setPendingSidePrompt(null);
+    setPendingSideContexts([]);
     setSideChatAgentSelectorOpen(false);
   }, [clearAttachments, launchFlyingMessage]);
 
@@ -423,9 +490,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     prompt: string,
     agent: TerminalPaneAgent,
     runConfig?: TerminalAgentRunConfigInput | null,
+    contexts: TerminalPromptContext[] = [],
   ) => {
     if (!onStartSideChat) return;
-    await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig));
+    await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig), contexts);
     const flyTarget = await resolveSideChatFlyTarget(getSideChatFlyTargetClientPoint);
     startSuccessfulSubmitAnimation(prompt, flyTarget);
   }, [getSideChatFlyTargetClientPoint, onStartSideChat, startSuccessfulSubmitAnimation]);
@@ -447,11 +515,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       if (!pendingPrompt) return;
       const agent = runnableSideChatAgents.find((item) => item.id === agentId);
       if (!agent) return;
+      const contexts = pendingSideContexts;
       setPendingSidePrompt(null);
+      setPendingSideContexts([]);
       setSideChatAgentSelectorOpen(false);
-      void runSideChat(pendingPrompt, agent, sideChatRunConfigs[agentId] ?? null);
+      void runSideChat(pendingPrompt, agent, sideChatRunConfigs[agentId] ?? null, contexts);
     },
-    [pendingSidePrompt, runnableSideChatAgents, runSideChat, sideChatRunConfigs],
+    [pendingSideContexts, pendingSidePrompt, runnableSideChatAgents, runSideChat, sideChatRunConfigs],
   );
 
   const submit = React.useCallback(async () => {
@@ -465,15 +535,25 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         text: rawText,
       });
       const trimmedResolvedText = resolvedText.trim();
-      const sidePrompt = onStartSideChat ? stripSideCommandToken(trimmedResolvedText) : null;
-      if (sidePrompt !== null) {
-        const prompt = sidePrompt.trim();
+      const sideContextIds = onStartSideChat ? extractSideChatContextIds(trimmedResolvedText) : [];
+      const knownContextIds = new Set(promptContexts.map((context) => context.contextId));
+      const sideContextId = sideContextIds.find((contextId) => knownContextIds.has(contextId));
+      if (sideContextId) {
+        const prompt = stripResolvedTerminalAiProtocolTokens(
+          trimmedResolvedText,
+          promptContexts,
+        ).trim();
+        const selectedContexts = resolveSelectionContextsForText(
+          trimmedResolvedText,
+          promptContexts,
+        );
         const sideAgent = resolveSideAgent();
         if (!prompt || !onStartSideChat) {
           return;
         }
         if (!sideAgent) {
           setPendingSidePrompt(prompt);
+          setPendingSideContexts(selectedContexts);
           setIsOpen(true);
           if (shouldShowSideChatAgentSelector) {
             setSideChatAgentSelectorOpen(true);
@@ -481,16 +561,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           focusComposerSoon();
           return;
         }
-        await runSideChat(prompt, sideAgent.agent, sideAgent.runConfig);
+        await runSideChat(prompt, sideAgent.agent, sideAgent.runConfig, selectedContexts);
         return;
       }
 
-      launchFlyingMessage(rawText);
+      const expandedResolvedText = expandPromptWithTerminalSelectionContexts({
+        contexts: promptContexts,
+        text: trimmedResolvedText,
+      });
+      const trimmedExpandedText = expandedResolvedText.trim();
+      if (!trimmedExpandedText) return;
+      const flyingText = stripResolvedTerminalAiProtocolTokens(rawText, promptContexts) || rawText;
+      launchFlyingMessage(flyingText);
       if (submitMode === "bracketed-paste-enter") {
-        onSendText(wrapBracketedPaste(trimmedResolvedText));
+        onSendText(wrapBracketedPaste(trimmedExpandedText));
         onSendEnter();
       } else if (submitMode === "text-ctrl-enter") {
-        onSendText(trimmedResolvedText);
+        onSendText(trimmedExpandedText);
         if (delayedSubmitTimerRef.current != null) {
           window.clearTimeout(delayedSubmitTimerRef.current);
         }
@@ -499,13 +586,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           onSendText(ctrlEnterInput());
         }, 80);
       } else {
-        onSendText(trimmedResolvedText);
+        onSendText(trimmedExpandedText);
         onSendEnter();
       }
       setIsOpen(true);
       setIsSendAnimating(true);
       composerRef.current?.clear();
       clearAttachments();
+      setPromptContexts([]);
       setMentionPopover(null);
       setSlashPopover(null);
     } catch (error) {
@@ -526,6 +614,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     onSendEnter,
     onSendText,
     onStartSideChat,
+    promptContexts,
     resolveSideAgent,
     runSideChat,
     shouldShowSideChatAgentSelector,
@@ -650,10 +739,15 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       {pendingSidePrompt && !shouldShowSideChatAgentSelector ? (
         <SideChatAgentPicker
           agents={sideChatAgentOptions}
-          onCancel={() => setPendingSidePrompt(null)}
+          onCancel={() => {
+            setPendingSidePrompt(null);
+            setPendingSideContexts([]);
+          }}
           onInteraction={onInteraction}
           onSelect={(agent) => {
-            void runSideChat(pendingSidePrompt, agent);
+            const contexts = pendingSideContexts;
+            setPendingSideContexts([]);
+            void runSideChat(pendingSidePrompt, agent, null, contexts);
           }}
         />
       ) : null}
@@ -680,10 +774,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           if (command.id !== "side") return;
           const popover = slashPopover;
           if (!popover) return;
-          composerRef.current?.applySlashAtRange(
+          const context = createCapturePromptContext();
+          composerRef.current?.applySideCommandAtRange(
             popover.slashOffset,
             popover.query.length,
-            { kind: "side" },
+            context.contextId,
           );
           setSlashPopover(null);
         }}
@@ -704,12 +799,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     </div>
   );
 });
-
-function stripSideCommandToken(text: string): string | null {
-  const sideTokenPattern = /(^|\s)\/side(\s|$)/;
-  if (!sideTokenPattern.test(text)) return null;
-  return text.replace(sideTokenPattern, "$1").trim();
-}
 
 async function resolveSideChatFlyTarget(
   getTarget?: () => { x: number; y: number } | null,

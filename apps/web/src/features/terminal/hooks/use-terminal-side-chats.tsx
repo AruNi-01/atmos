@@ -24,6 +24,7 @@ import {
   type LocalSideChatRecord,
   type SourceSurfaceKind,
 } from "@/features/terminal/lib/terminal-side-chat";
+import type { TerminalPromptContext } from "@/features/terminal/lib/terminal-ai-context-protocol";
 import type { TerminalPaneAgent } from "@/features/terminal/types";
 import { useTerminalSideChatRecords } from "./use-terminal-side-chat-records";
 
@@ -101,6 +102,7 @@ export function useTerminalSideChats({
       userPrompt: string,
       agent: TerminalPaneAgent,
       runConfig?: TerminalAgentRunConfigInput | null,
+      contexts: TerminalPromptContext[] = [],
     ) => {
       if (!sourceTmuxWindowName) {
         toastManager.add({
@@ -124,8 +126,13 @@ export function useTerminalSideChats({
         const sideChatId = `side-${crypto.randomUUID()}`;
         const sideTmuxWindowName = `side-${sideChatId.slice(5, 13)}`;
         const colorHex = pickUniqueBrightColor(records.map((record) => record.color_hex));
+        const selectedContexts = contexts.filter(
+          (context): context is TerminalPromptContext & { kind: "terminal_selection" } =>
+            context.kind === "terminal_selection",
+        );
         const directSidePrompt = buildSideChatPrompt({
           capture,
+          selectedContexts,
           sourceTmuxWindowName: resolvedSourceTmuxWindowName,
           userPrompt,
         });
@@ -133,6 +140,7 @@ export function useTerminalSideChats({
           capture,
           directSidePrompt,
           rootPath: localPath?.trim() || projectRootPath?.trim() || null,
+          selectedContexts,
           sourceTmuxWindowName: resolvedSourceTmuxWindowName,
           userPrompt,
           workspaceId,
@@ -277,6 +285,7 @@ async function resolveSideChatPrompt({
   capture,
   directSidePrompt,
   rootPath,
+  selectedContexts,
   sourceTmuxWindowName,
   userPrompt,
   workspaceId,
@@ -284,6 +293,7 @@ async function resolveSideChatPrompt({
   capture: TerminalSideContextCaptureResponse;
   directSidePrompt: string;
   rootPath: string | null;
+  selectedContexts: Array<TerminalPromptContext & { kind: "terminal_selection" }>;
   sourceTmuxWindowName: string;
   userPrompt: string;
   workspaceId: string;
@@ -303,12 +313,14 @@ async function resolveSideChatPrompt({
       contextFilePath,
       buildSideChatContextFileContent({
         capture,
+        selectedContexts,
         sourceTmuxWindowName,
       }),
     );
     return buildSideChatPromptWithContextFile({
       capture,
       contextFilePath,
+      selectedContexts,
       sourceTmuxWindowName,
       userPrompt,
     });

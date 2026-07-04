@@ -4,6 +4,7 @@ import type {
   TerminalSideContextCaptureResponse,
 } from "@/api/ws-api";
 import type { TerminalPaneAgent } from "@/features/terminal/types";
+import type { TerminalPromptContext } from "./terminal-ai-context-protocol";
 
 export type SourceSurfaceKind = "terminal_pane" | "canvas_terminal";
 
@@ -148,10 +149,12 @@ export function pickUniqueBrightColor(existingColors: string[]) {
 
 export function buildSideChatPrompt({
   capture,
+  selectedContexts = [],
   sourceTmuxWindowName,
   userPrompt,
 }: {
   capture: TerminalSideContextCaptureResponse;
+  selectedContexts?: TerminalSelectionPromptContext[];
   sourceTmuxWindowName: string;
   userPrompt: string;
 }) {
@@ -168,6 +171,7 @@ export function buildSideChatPrompt({
     capture.text,
     "```",
     "",
+    ...buildSelectedContextPromptLines(selectedContexts),
     "User prompt:",
     userPrompt.trim(),
   ].join("\n");
@@ -201,9 +205,11 @@ export function buildSideChatContextFilePath({
 
 export function buildSideChatContextFileContent({
   capture,
+  selectedContexts = [],
   sourceTmuxWindowName,
 }: {
   capture: TerminalSideContextCaptureResponse;
+  selectedContexts?: TerminalSelectionPromptContext[];
   sourceTmuxWindowName: string;
 }): string {
   const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
@@ -218,17 +224,20 @@ export function buildSideChatContextFileContent({
     capture.text,
     "```",
     "",
+    ...buildSelectedContextPromptLines(selectedContexts),
   ].join("\n");
 }
 
 export function buildSideChatPromptWithContextFile({
   capture,
   contextFilePath,
+  selectedContexts = [],
   sourceTmuxWindowName,
   userPrompt,
 }: {
   capture: TerminalSideContextCaptureResponse;
   contextFilePath: string;
+  selectedContexts?: TerminalSelectionPromptContext[];
   sourceTmuxWindowName: string;
   userPrompt: string;
 }): string {
@@ -237,7 +246,9 @@ export function buildSideChatPromptWithContextFile({
   return [
     "You are continuing in a side chat forked from an Atmos terminal.",
     "The captured terminal context is stored in a local file instead of this prompt.",
-    "Read the file before relying on the terminal context. Do not assume it is complete.",
+    selectedContexts.length > 0
+      ? "Read the file before relying on the terminal context. It also includes terminal text explicitly selected by the user. Do not assume either context is complete."
+      : "Read the file before relying on the terminal context. Do not assume it is complete.",
     "",
     metadata.join("\n"),
     `Context file: ${contextFilePath}`,
@@ -284,6 +295,31 @@ function buildSideChatContextMetadata(
     metadata.push("Capture was bounded; omitted content may exist outside this excerpt.");
   }
   return metadata;
+}
+
+type TerminalSelectionPromptContext = TerminalPromptContext & { kind: "terminal_selection" };
+
+function buildSelectedContextPromptLines(
+  selectedContexts: TerminalSelectionPromptContext[],
+): string[] {
+  if (selectedContexts.length === 0) return [];
+  const blocks: string[] = [];
+  selectedContexts.forEach((context, index) => {
+    if (index > 0) blocks.push("");
+    blocks.push(
+      "User-selected terminal context:",
+      "The user explicitly selected this terminal text as context for the side chat.",
+      `Source terminal: ${context.sourceTmuxWindowName?.trim() || "unknown"}`,
+      `Selected lines: ${context.lineCount}`,
+      `Selected bytes: ${context.byteCount}`,
+      `Selection was truncated: ${context.truncated ? "yes" : "no"}`,
+      "```text",
+      context.text,
+      "```",
+    );
+  });
+  blocks.push("");
+  return blocks;
 }
 
 function countTextLines(text: string): number {

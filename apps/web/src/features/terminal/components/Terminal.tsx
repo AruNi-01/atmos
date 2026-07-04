@@ -45,10 +45,16 @@ import {
   writeXtermPayload,
 } from "../lib/terminal-runtime-utils";
 import { TerminalChrome } from "./TerminalChrome";
+import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
 import { useTerminalInputReady } from "../hooks/use-terminal-input-ready";
 import { useTerminalLinks } from "../hooks/use-terminal-links";
 import { useTerminalSearch } from "../hooks/use-terminal-search";
+import {
+  createOpaqueId,
+  normalizeTerminalSelectionText,
+} from "../lib/terminal-ai-context-protocol";
+import type { TerminalSelectionSnapshot } from "../types";
 
 export interface TerminalRef {
   focus: () => void;
@@ -98,6 +104,9 @@ const Terminal = ({
   terminalScale,
   onInputWhileReadOnly,
   onTitleChange,
+  onSelectionSnapshotChange,
+  onAddSelectionAsContext,
+  onStartSideChatForSelection,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,12 +122,22 @@ const Terminal = ({
   // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
   const onTitleChangeRef = useRef(onTitleChange);
   useEffect(() => { onTitleChangeRef.current = onTitleChange; });
+  const onSelectionSnapshotChangeRef = useRef(onSelectionSnapshotChange);
+  useEffect(() => { onSelectionSnapshotChangeRef.current = onSelectionSnapshotChange; });
+  const sourceSessionIdRef = useRef(sessionId);
+  const sourceTmuxWindowNameRef = useRef(tmuxWindowName);
+  useEffect(() => {
+    sourceSessionIdRef.current = sessionId;
+    sourceTmuxWindowNameRef.current = tmuxWindowName;
+  }, [sessionId, tmuxWindowName]);
 
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminalInputCleanupRef = useRef<(() => void) | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [selectionSnapshot, setSelectionSnapshot] = useState<TerminalSelectionSnapshot | null>(null);
+  const lastSelectionAnchorRef = useRef<{ x: number; y: number } | null>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
@@ -300,6 +319,11 @@ const Terminal = ({
   });
 
   const uiStatus = isReconnecting ? "reconnecting" : status;
+
+  const setCurrentSelectionSnapshot = useCallback((snapshot: TerminalSelectionSnapshot | null) => {
+    setSelectionSnapshot(snapshot);
+    onSelectionSnapshotChangeRef.current?.(snapshot);
+  }, []);
 
   const getCursorClientPoint = useCallback(() => {
     const terminal = terminalRef.current;
@@ -484,6 +508,8 @@ const Terminal = ({
 
     let cancelled = false;
     let linkProvider: { dispose: () => void } | null = null;
+    let selectionChangeDisposable: { dispose: () => void } | null = null;
+    let selectionAnchorCleanup: (() => void) | null = null;
     let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
     let connectRafId = 0;
 
@@ -535,6 +561,56 @@ const Terminal = ({
 
     // Open terminal in container
     terminal.open(containerRef.current);
+
+    const readCurrentSelectionSnapshot = (): TerminalSelectionSnapshot | null => {
+      const selectedText = terminal.hasSelection() ? terminal.getSelection() : "";
+      const normalized = normalizeTerminalSelectionText(selectedText);
+      if (!normalized.text.trim()) return null;
+      const wrapperRect =
+        containerRef.current?.parentElement?.getBoundingClientRect() ??
+        containerRef.current?.getBoundingClientRect();
+      const fallbackAnchor = wrapperRect
+        ? { x: wrapperRect.width / 2, y: Math.max(20, wrapperRect.height * 0.35) }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      return {
+        id: `selection-${createOpaqueId()}`,
+        text: normalized.text,
+        sourceSessionId: sourceSessionIdRef.current,
+        sourceTmuxWindowName: sourceTmuxWindowNameRef.current,
+        selectedAtMs: Date.now(),
+        lineCount: normalized.lineCount,
+        byteCount: normalized.byteCount,
+        truncated: normalized.truncated,
+        anchor: lastSelectionAnchorRef.current ?? fallbackAnchor,
+      };
+    };
+
+    const emitCurrentSelectionSnapshot = () => {
+      if (cancelled) return;
+      setCurrentSelectionSnapshot(readCurrentSelectionSnapshot());
+    };
+
+    const rememberSelectionAnchor = (event: PointerEvent | MouseEvent) => {
+      const wrapperRect =
+        containerRef.current?.parentElement?.getBoundingClientRect() ??
+        containerRef.current?.getBoundingClientRect();
+      lastSelectionAnchorRef.current = {
+        x: wrapperRect ? event.clientX - wrapperRect.left : event.clientX,
+        y: wrapperRect ? event.clientY - wrapperRect.top : event.clientY,
+      };
+      window.requestAnimationFrame(emitCurrentSelectionSnapshot);
+    };
+
+    const selectionContainer = containerRef.current;
+    selectionContainer.addEventListener("pointerup", rememberSelectionAnchor);
+    selectionContainer.addEventListener("mouseup", rememberSelectionAnchor);
+    selectionAnchorCleanup = () => {
+      selectionContainer.removeEventListener("pointerup", rememberSelectionAnchor);
+      selectionContainer.removeEventListener("mouseup", rememberSelectionAnchor);
+    };
+    selectionChangeDisposable = terminal.onSelectionChange(() => {
+      window.requestAnimationFrame(emitCurrentSelectionSnapshot);
+    });
 
     // ── Paste + Shift+Enter (tmux control mode) ───────────────────────
     // tmux control mode does not forward `\x1b[?2004h` to xterm.js, so xterm
@@ -861,6 +937,9 @@ const Terminal = ({
       terminalInputCleanupRef.current = null;
       if (visibilityPollTimer) clearTimeout(visibilityPollTimer);
       if (connectRafId) cancelAnimationFrame(connectRafId);
+      selectionAnchorCleanup?.();
+      selectionChangeDisposable?.dispose();
+      setCurrentSelectionSnapshot(null);
       if (resizeRafIdRef.current) {
         cancelAnimationFrame(resizeRafIdRef.current);
         resizeRafIdRef.current = 0;
@@ -913,6 +992,21 @@ const Terminal = ({
       terminalScale={normalizedTerminalScale}
       uiStatus={uiStatus}
       workspaceId={workspaceId}
+      selectionToolbar={
+        onAddSelectionAsContext && onStartSideChatForSelection ? (
+          <TerminalSelectionToolbar
+            snapshot={selectionSnapshot}
+            onAddAsContext={(snapshot) => {
+              onAddSelectionAsContext(snapshot);
+              setCurrentSelectionSnapshot(null);
+            }}
+            onSideChatForSelection={(snapshot) => {
+              onStartSideChatForSelection(snapshot);
+              setCurrentSelectionSnapshot(null);
+            }}
+          />
+        ) : null
+      }
     />
   );
 };

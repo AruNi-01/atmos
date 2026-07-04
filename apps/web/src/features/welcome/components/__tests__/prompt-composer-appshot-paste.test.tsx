@@ -272,7 +272,7 @@ describe("PromptComposer Appshot paste handling", () => {
 
     await act(async () => {
       composerRef.current?.setText("/");
-      composerRef.current?.applySlashAtRange(1, 0, { kind: "side" });
+      composerRef.current?.applySideCommandAtRange(1, 0, "capture-test");
     });
     const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
     if (!editor) {
@@ -290,7 +290,7 @@ describe("PromptComposer Appshot paste handling", () => {
     });
 
     expect(editor.querySelector("[data-kind='side']")).not.toBeNull();
-    expect(composerRef.current?.getText()).toBe("/side");
+    expect(composerRef.current?.getText()).toBe("atmos://side-chat/capture-test");
   });
 });
 

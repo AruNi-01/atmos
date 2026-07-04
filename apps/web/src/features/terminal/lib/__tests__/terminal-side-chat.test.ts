@@ -103,6 +103,17 @@ describe("side chat context prompt routing", () => {
     truncated_bytes: false,
     text: "secret terminal context\nsecond captured line",
   };
+  const selectedContext = {
+    kind: "terminal_selection" as const,
+    contextId: "selection-test",
+    text: "selected stack trace line",
+    sourceSessionId: "source-session",
+    sourceTmuxWindowName: "main",
+    selectedAtMs: 1760000000000,
+    lineCount: 1,
+    byteCount: 25,
+    truncated: false,
+  };
 
   it("treats thirty display lines as the inline cutoff", () => {
     const thirtyLines = Array.from(
@@ -146,5 +157,42 @@ describe("side chat context prompt routing", () => {
     expect(fileContent).toContain("secret terminal context");
     expect(filePrompt).toContain("/repo/.atmos/tmp/context/workspace-1/side_123.txt");
     expect(filePrompt).not.toContain("secret terminal context");
+  });
+
+  it("appends user-selected terminal context after captured side chat context", () => {
+    const directPrompt = buildSideChatPrompt({
+      capture,
+      selectedContexts: [selectedContext],
+      sourceTmuxWindowName: "main",
+      userPrompt: "What should I do next?",
+    });
+    const captureIndex = directPrompt.indexOf("Captured terminal context:");
+    const selectionIndex = directPrompt.indexOf("User-selected terminal context:");
+    const promptIndex = directPrompt.indexOf("User prompt:");
+
+    expect(captureIndex).toBeGreaterThanOrEqual(0);
+    expect(selectionIndex).toBeGreaterThan(captureIndex);
+    expect(promptIndex).toBeGreaterThan(selectionIndex);
+    expect(directPrompt).toContain("selected stack trace line");
+  });
+
+  it("stores selected context in the side context file when the prompt uses a file", () => {
+    const fileContent = buildSideChatContextFileContent({
+      capture,
+      selectedContexts: [selectedContext],
+      sourceTmuxWindowName: "main",
+    });
+    const filePrompt = buildSideChatPromptWithContextFile({
+      capture,
+      contextFilePath: "/repo/.atmos/tmp/context/workspace-1/side_123.txt",
+      selectedContexts: [selectedContext],
+      sourceTmuxWindowName: "main",
+      userPrompt: "What should I do next?",
+    });
+
+    expect(fileContent).toContain("secret terminal context");
+    expect(fileContent).toContain("selected stack trace line");
+    expect(filePrompt).toContain("It also includes terminal text explicitly selected by the user");
+    expect(filePrompt).not.toContain("selected stack trace line");
   });
 });

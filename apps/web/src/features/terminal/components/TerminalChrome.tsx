@@ -1,6 +1,6 @@
 import { ArrowDown, ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
 import { Button, cn } from "@workspace/ui";
-import type { CSSProperties, RefObject } from "react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { ITheme } from "@xterm/xterm";
 import { isFindShortcut } from "../lib/terminal-runtime-utils";
 
@@ -23,6 +23,7 @@ interface TerminalChromeProps {
   searchInputRef: RefObject<HTMLInputElement | null>;
   searchQuery: string;
   searchStats: { current: number; total: number };
+  selectionToolbar?: ReactNode;
   sessionId: string;
   showScrollDown: boolean;
   terminalSearchInputId: string;
@@ -48,6 +49,7 @@ export function TerminalChrome({
   searchInputRef,
   searchQuery,
   searchStats,
+  selectionToolbar,
   sessionId,
   showScrollDown,
   terminalSearchInputId,
@@ -181,6 +183,7 @@ export function TerminalChrome({
           <ArrowDown className="size-3.5" />
         </Button>
       )}
+      {selectionToolbar}
     </div>
   );
 }

@@ -7522,6 +7522,15 @@
         "chooseAgent": "Choose an agent for this side chat",
         "noAgent": "No runnable agent available.",
         "cancel": "Cancel"
+      },
+      "selectionContext": {
+        "addAsContext": "Add as context",
+        "sideChatForSelection": "Side chat for selection",
+        "selectionChip": "Selection",
+        "sideChip": "Side",
+        "selectionTooltip": "User-selected terminal context",
+        "sideMissingContext": "This side chat context is no longer available.",
+        "selectionTruncated": "Selection was truncated."
       }
     },
     "sideChat": {

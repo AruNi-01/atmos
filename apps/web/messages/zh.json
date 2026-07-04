@@ -7522,6 +7522,15 @@
         "chooseAgent": "选择用于 side chat 的 Agent",
         "noAgent": "没有可运行的 Agent。",
         "cancel": "取消"
+      },
+      "selectionContext": {
+        "addAsContext": "添加为上下文",
+        "sideChatForSelection": "为选区打开 side chat",
+        "selectionChip": "选区",
+        "sideChip": "Side",
+        "selectionTooltip": "用户选择的终端上下文",
+        "sideMissingContext": "这个 side chat 上下文已不可用。",
+        "selectionTruncated": "选区已被截断。"
       }
     },
     "sideChat": {
