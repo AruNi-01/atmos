@@ -124,7 +124,7 @@ export function SlashCommandPopover({
       >
         {showCommands && visibleCommands.length > 0 ? (
           <>
-            <div className="px-2 py-1 text-sm font-medium text-foreground">{t("slashPopover.commands")}</div>
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{t("slashPopover.commands")}</div>
             {visibleCommands.map((command, index) => (
               <button
                 key={command.id}
@@ -155,13 +155,11 @@ export function SlashCommandPopover({
           </>
         ) : null}
 
-        {showCommands && visibleCommands.length > 0 && showSkills ? (
-          <div className="my-1 h-px bg-border/60" />
-        ) : null}
+
 
         {showSkills ? (
           <>
-            <div className="px-2 py-1 text-sm font-medium text-foreground">{t("slashPopover.skills")}</div>
+            <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">{t("slashPopover.skills")}</div>
             {isSkillsLoading ? (
               <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" />
@@ -217,11 +215,11 @@ export function SlashCommandPopover({
           </>
         ) : null}
 
-        {showSkills && showProjects ? <div className="my-1 h-px bg-border/60" /> : null}
+
 
         {showProjects ? (
           <>
-            <div className="px-2 py-1 text-sm font-medium text-foreground">{t("slashPopover.projects")}</div>
+            <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">{t("slashPopover.projects")}</div>
             {filteredProjects.length > 0 ? (
               <>
                 {visibleProjects.map((project, index) => {
@@ -272,11 +270,11 @@ export function SlashCommandPopover({
           </>
         ) : null}
 
-        {(showProjects && showAgents) || (showSkills && showAgents) ? <div className="my-1 h-px bg-border/60" /> : null}
+
 
         {showAgents ? (
           <>
-            <div className="px-2 py-1 text-sm font-medium text-foreground">{t("slashPopover.codeAgents")}</div>
+            <div className="mt-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">{t("slashPopover.codeAgents")}</div>
             {filteredAgents.length > 0 ? (
               <>
                 {visibleAgents.map((agent, index) => {
@@ -336,7 +334,6 @@ export function SlashCommandPopover({
 
         {showProjects || showAgents ? (
           <>
-            <div className="my-1 h-px bg-border/60" />
             <div className="flex items-center justify-between px-2 py-1 text-[11px] text-muted-foreground">
               <span>{t("slashPopover.hidden")}</span>
               <span>

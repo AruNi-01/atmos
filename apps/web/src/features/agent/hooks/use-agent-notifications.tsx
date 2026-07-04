@@ -155,7 +155,7 @@ export function useAgentNotifications() {
       title: `${agentName}: ${statusLabel}`,
       description: contextLabel,
       type: isPermissionRequest ? "warning" : "success",
-      timeout: isPermissionRequest ? 0 : 10000,
+      timeout: 10000,
       data: {
         titlePrefix: (
           <AgentIcon

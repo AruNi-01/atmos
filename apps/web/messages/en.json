@@ -7514,7 +7514,7 @@
   },
   "terminal": {
     "agentInput": {
-      "placeholder": "[⌘ + G] Input anything to terminal (@ annotation, / command, or paste img)",
+      "placeholder": "[⌘ + (⇧ Pin) + G] Input anything to terminal (@ annotation, / command, or paste img)",
       "sideCommand": {
         "description": "Fork this terminal context into a side chat",
         "selectAgent": "Select side chat agent",
@@ -7522,6 +7522,16 @@
         "chooseAgent": "Choose an agent for this side chat",
         "noAgent": "No runnable agent available.",
         "cancel": "Cancel"
+      },
+      "selectionContext": {
+        "copy": "Copy",
+        "addAsContext": "Add as context",
+        "sideChatForSelection": "Side chat for selection",
+        "selectionChip": "Selection",
+        "sideChip": "Side",
+        "selectionTooltip": "User-selected terminal context",
+        "sideMissingContext": "This side chat context is no longer available.",
+        "selectionTruncated": "Selection was truncated."
       }
     },
     "sideChat": {

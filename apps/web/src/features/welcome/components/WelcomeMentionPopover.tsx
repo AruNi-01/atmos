@@ -152,10 +152,9 @@ export function WelcomeMentionPopover({
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            <div className="my-1 h-px bg-border/60" />
           </>
         ) : null}
-        <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
+        <div className={cn("flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground", githubCount > 0 && "mt-1.5")}>
           <Files className="size-3" />
           <span>{t("mentionPopover.files")}</span>
         </div>

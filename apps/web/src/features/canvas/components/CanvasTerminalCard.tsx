@@ -22,6 +22,7 @@ import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
 import { useTerminalSideChats } from "@/features/terminal/hooks/use-terminal-side-chats";
 import {
+  isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
   resolveTerminalAgentSubmitMode,
 } from "@/features/terminal/lib/terminal-runtime-utils";
@@ -300,11 +301,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   }, [focusTerminal, isActive, isRendered]);
 
   React.useEffect(() => {
-    const handleCanvasTerminalAgentInputShortcut = (event: KeyboardEvent) => {
-      if (!isTerminalAgentInputShortcut(event)) return;
-
+    const resolveCanvasTerminalTarget = (event: KeyboardEvent) => {
       const overlay = terminalOverlayRef.current;
-      if (!overlay || overlay.getClientRects().length === 0) return;
+      if (!overlay || overlay.getClientRects().length === 0) return false;
 
       const eventTarget = event.target instanceof Node ? event.target : null;
       const activeTarget = document.activeElement;
@@ -314,17 +313,25 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       const isCanvasTerminalTarget =
         (eventTarget !== null && overlay.contains(eventTarget)) ||
         (activeTarget !== null && overlay.contains(activeTarget));
-      if (
-        !isCanvasTerminalTarget ||
-        isSideChatTarget(eventTarget instanceof Element ? eventTarget : null) ||
-        isSideChatTarget(activeTarget)
-      ) {
+      return (
+        isCanvasTerminalTarget &&
+        !isSideChatTarget(eventTarget instanceof Element ? eventTarget : null) &&
+        !isSideChatTarget(activeTarget)
+      );
+    };
+
+    const handleCanvasTerminalAgentInputShortcut = (event: KeyboardEvent) => {
+      if (isTerminalAgentInputPinShortcut(event) && resolveCanvasTerminalTarget(event)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        agentInputOverlayRef.current?.togglePin();
         return;
       }
-
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      agentInputOverlayRef.current?.toggle();
+      if (isTerminalAgentInputShortcut(event) && resolveCanvasTerminalTarget(event)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        agentInputOverlayRef.current?.toggle();
+      }
     };
 
     window.addEventListener("keydown", handleCanvasTerminalAgentInputShortcut, { capture: true });
@@ -524,6 +531,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               isNewPane={shape.props.isNewTerminal}
               className="h-full"
               terminalScale={terminalViewport.scale}
+              onAddSelectionAsContext={(snapshot) => {
+                activateTerminal();
+                agentInputOverlayRef.current?.addTerminalSelectionContext(snapshot);
+              }}
+              onStartSideChatForSelection={(snapshot) => {
+                activateTerminal();
+                agentInputOverlayRef.current?.startSideChatForTerminalSelection(snapshot);
+              }}
               onSessionReady={handleSessionReady}
               onTitleChange={onTitleChange}
               onSessionError={(_, error) => {

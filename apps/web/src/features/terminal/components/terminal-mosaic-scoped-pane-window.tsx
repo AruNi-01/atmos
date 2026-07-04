@@ -367,6 +367,14 @@ export function TerminalMosaicScopedPaneWindow({
           isNewPane={pane.isNewPane}
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
+          onAddSelectionAsContext={(snapshot) => {
+            setActivePaneId(id);
+            agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
+          }}
+          onStartSideChatForSelection={(snapshot) => {
+            setActivePaneId(id);
+            agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
+          }}
           onTitleChange={(title) => {
             const detectedAgent = resolveAgentForTitle(title, configuredAgents);
             setDynamicTitle(workspaceId, id, title);

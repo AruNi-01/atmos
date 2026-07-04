@@ -6,11 +6,6 @@
 }
 
 .terminal-agent-input-shell[data-send-animating="true"] {
-  border-color: color-mix(in srgb, #38bdf8 45%, var(--border));
-  box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.28),
-    0 0 0 1px color-mix(in srgb, #38bdf8 18%, transparent),
-    0 0 34px color-mix(in srgb, #2563eb 18%, transparent);
 }
 
 .terminal-agent-input-footer {
@@ -142,6 +137,24 @@
     opacity: 0;
     transform: translate3d(var(--terminal-agent-fly-to-x), var(--terminal-agent-fly-to-y), 0) translate(-50%, -50%) scale(0.28);
   }
+}
+
+.terminal-agent-selector-attention {
+  animation: terminalAgentSelectorShake 400ms ease-in-out;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, #f59e0b 60%, transparent),
+    0 0 12px color-mix(in srgb, #f59e0b 25%, transparent);
+}
+
+@keyframes terminalAgentSelectorShake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-3px); }
+  30% { transform: translateX(3px); }
+  45% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+  75% { transform: translateX(-1px); }
+  90% { transform: translateX(1px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

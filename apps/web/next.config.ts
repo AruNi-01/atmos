@@ -82,6 +82,10 @@ const devRewritesConfig =
               source: "/api/:path*",
               destination: `http://127.0.0.1:${devApiPort}/api/:path*`,
             },
+            {
+              source: "/hooks/:path*",
+              destination: `http://127.0.0.1:${devApiPort}/hooks/:path*`,
+            },
           ];
         },
       }
