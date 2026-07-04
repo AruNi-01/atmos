@@ -442,6 +442,7 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
 };
 
 type SettingsSearchItemDefinition = {
+  translationKey: string;
   label: string;
   description?: string;
   keywords?: readonly string[];
@@ -455,6 +456,7 @@ function settingsModalSearchItem(
   } = {},
 ): SettingsSearchItemDefinition {
   return {
+    translationKey: key,
     label: settingsModalT(`search.items.${key}.label`),
     description: options.hasDescription ? settingsModalT(`search.items.${key}.description`) : undefined,
     keywords: options.keywords,
@@ -920,6 +922,7 @@ export const SETTINGS_SEARCH_ITEMS = Object.entries(SETTINGS_SETTING_ITEMS).flat
       sectionLabel: section.label,
       label: item.label,
       description: item.description ?? section.description,
+      translationKey: item.translationKey,
       keywords: [
         item.label,
         item.description ?? "",
@@ -956,6 +959,7 @@ export const SETTINGS_SEARCH_ENTRIES = [
     description: section.description,
     keywords: section.keywords,
     kind: "section" as const,
+    translationKey: undefined,
   })),
   ...SETTINGS_SEARCH_ITEMS.map((item) => ({
     ...item,

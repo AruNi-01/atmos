@@ -70,6 +70,8 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+
 function buildSettingsSearchTerms(query: string) {
   const trimmedQuery = query.trim();
   if (!trimmedQuery) return [];
@@ -857,10 +859,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <section ref={setSettingsContentElement} className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <div className="px-8 py-4">
               <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
-                {activeSectionMeta.label}
+                {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
               </h2>
               <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
-                {activeSectionMeta.description}
+                {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
               </p>
             </div>
             <div className="px-8">
