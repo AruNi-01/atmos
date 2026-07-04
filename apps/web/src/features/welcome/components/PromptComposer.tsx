@@ -672,12 +672,13 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     const focusEditor = React.useCallback(() => {
       const editor = editorRef.current;
       if (!editor) return;
-      const savedOffset = savedCaretOffsetRef.current;
       editor.focus({ preventScroll: true });
-      if (savedOffset === null) return;
+      if (savedCaretOffsetRef.current === null) return;
       window.requestAnimationFrame(() => {
         const current = editorRef.current;
         if (!current || document.activeElement !== current) return;
+        const savedOffset = savedCaretOffsetRef.current;
+        if (savedOffset === null) return;
         const boundedOffset = Math.max(0, Math.min(savedOffset, serialize(current).length));
         setCaretAtTextOffset(current, boundedOffset);
       });

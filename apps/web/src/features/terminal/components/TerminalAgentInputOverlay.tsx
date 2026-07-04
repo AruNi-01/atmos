@@ -88,6 +88,7 @@ interface TerminalAgentInputOverlayProps {
 export interface TerminalAgentInputOverlayHandle {
   focus: () => void;
   toggle: () => void;
+  togglePin: () => void;
   addTerminalSelectionContext: (snapshot: TerminalSelectionSnapshot) => void;
   startSideChatForTerminalSelection: (snapshot: TerminalSelectionSnapshot) => void;
 }
@@ -116,6 +117,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
   const flyingMessageIdRef = React.useRef(0);
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isPinned, setIsPinned] = React.useState(false);
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -128,6 +130,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [promptContexts, setPromptContexts] = React.useState<TerminalPromptContext[]>([]);
   const [selectedSideChatAgentId, setSelectedSideChatAgentId] = React.useState("");
   const [sideChatAgentSelectorOpen, setSideChatAgentSelectorOpen] = React.useState(false);
+  const [agentSelectorAttention, setAgentSelectorAttention] = React.useState(false);
   const [sideChatRunConfigs, setSideChatRunConfigs] = React.useState<
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
@@ -191,6 +194,17 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopover(null);
   }, [focusComposerSoon, isSendAnimating, isSendExiting]);
 
+  const togglePin = React.useCallback(() => {
+    setIsPinned((current) => {
+      const next = !current;
+      if (next) {
+        setIsOpen(true);
+        focusComposerSoon();
+      }
+      return next;
+    });
+  }, [focusComposerSoon]);
+
   const focusInput = React.useCallback(() => {
     if (isSendAnimating || isSendExiting) return;
     setIsOpen(true);
@@ -229,8 +243,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsOpen(true);
     window.requestAnimationFrame(() => {
       composerRef.current?.focus();
-      composerRef.current?.insertTerminalSelectionContext(context.contextId);
       composerRef.current?.insertSideChatCommand(context.contextId);
+      composerRef.current?.insertTerminalSelectionContext(context.contextId);
     });
   }, [upsertPromptContext]);
 
@@ -245,9 +259,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   React.useImperativeHandle(ref, () => ({
     focus: focusInput,
     toggle: toggleInput,
+    togglePin,
     addTerminalSelectionContext: insertTerminalSelectionContext,
     startSideChatForTerminalSelection: insertSideChatForTerminalSelection,
-  }), [focusInput, insertSideChatForTerminalSelection, insertTerminalSelectionContext, toggleInput]);
+  }), [focusInput, insertSideChatForTerminalSelection, insertTerminalSelectionContext, toggleInput, togglePin]);
 
   const {
     attachments,
@@ -401,8 +416,12 @@ export const TerminalAgentInputOverlay = React.forwardRef<
 
   const finishSendExit = React.useCallback(() => {
     setIsSendExiting(false);
-    setIsOpen(false);
-  }, []);
+    if (isPinned) {
+      focusComposerSoon();
+    } else {
+      setIsOpen(false);
+    }
+  }, [focusComposerSoon, isPinned]);
 
   const startSendExit = React.useCallback(() => {
     setIsSendAnimating(false);
@@ -432,6 +451,12 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSideChatAgentSelectorOpen(false);
     setSelectedSideChatAgentId("");
   }, [isSideCommandActive]);
+
+  React.useEffect(() => {
+    if (!agentSelectorAttention) return;
+    const timer = window.setTimeout(() => setAgentSelectorAttention(false), 820);
+    return () => window.clearTimeout(timer);
+  }, [agentSelectorAttention]);
 
   React.useEffect(() => {
     if (!isSendAnimating) return;
@@ -557,6 +582,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           setIsOpen(true);
           if (shouldShowSideChatAgentSelector) {
             setSideChatAgentSelectorOpen(true);
+            setAgentSelectorAttention(true);
           }
           focusComposerSoon();
           return;
@@ -573,11 +599,12 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       if (!trimmedExpandedText) return;
       const flyingText = stripResolvedTerminalAiProtocolTokens(rawText, promptContexts) || rawText;
       launchFlyingMessage(flyingText);
+      const isMultiLine = trimmedExpandedText.includes("\n");
       if (submitMode === "bracketed-paste-enter") {
         onSendText(wrapBracketedPaste(trimmedExpandedText));
         onSendEnter();
       } else if (submitMode === "text-ctrl-enter") {
-        onSendText(trimmedExpandedText);
+        onSendText(isMultiLine ? wrapBracketedPaste(trimmedExpandedText) : trimmedExpandedText);
         if (delayedSubmitTimerRef.current != null) {
           window.clearTimeout(delayedSubmitTimerRef.current);
         }
@@ -586,7 +613,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           onSendText(ctrlEnterInput());
         }, 80);
       } else {
-        onSendText(trimmedExpandedText);
+        onSendText(isMultiLine ? wrapBracketedPaste(trimmedExpandedText) : trimmedExpandedText);
         onSendEnter();
       }
       setIsOpen(true);
@@ -669,7 +696,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           appendAgentContextItems(items, { x: event.clientX, y: event.clientY });
         }}
         onMouseLeave={() => {
-          if (!isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
+          if (!isPinned && !isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
             setIsOpen(false);
           }
         }}
@@ -696,19 +723,21 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           startSendExit={startSendExit}
           footerEndControl={
             shouldShowSideChatAgentSelector ? (
-              <WelcomeAgentSelector
-                availableAgents={sideChatAgentMenuOptions}
-                contentAlign="end"
-                onInteraction={onInteraction}
-                onOpenChange={setSideChatAgentSelectorOpen}
-                onRunConfigChange={handleSideChatRunConfigChange}
-                onSelectAgent={handleSideChatAgentSelect}
-                open={sideChatAgentSelectorOpen}
-                purpose="interactive"
-                runConfigByAgentId={sideChatRunConfigs}
-                selectedAgentId={effectiveSelectedSideChatAgentId}
-                triggerPlacement="inline"
-              />
+              <div className={agentSelectorAttention ? "terminal-agent-selector-attention" : undefined}>
+                <WelcomeAgentSelector
+                  availableAgents={sideChatAgentMenuOptions}
+                  contentAlign="end"
+                  onInteraction={onInteraction}
+                  onOpenChange={setSideChatAgentSelectorOpen}
+                  onRunConfigChange={handleSideChatRunConfigChange}
+                  onSelectAgent={handleSideChatAgentSelect}
+                  open={sideChatAgentSelectorOpen}
+                  purpose="interactive"
+                  runConfigByAgentId={sideChatRunConfigs}
+                  selectedAgentId={effectiveSelectedSideChatAgentId}
+                  triggerPlacement="inline"
+                />
+              </div>
             ) : undefined
           }
         />
