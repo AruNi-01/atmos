@@ -79,6 +79,8 @@ function entryMatchesSettingsSearch(entry: SettingsSearchEntry, query: string) {
   return entry.keywords.some((keyword) => keywordMatchesSearch(keyword, normalizedQuery, queryTerms));
 }
 
+const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+
 interface SettingsModalSidebarProps {
   activeSection: SettingsSectionId;
   searchQuery: string;
@@ -134,11 +136,31 @@ export function SettingsModalSidebar({
 
     const seen = new Set<SettingsSectionId>();
     return SETTINGS_SEARCH_ENTRIES.flatMap((entry) => {
-      if (seen.has(entry.sectionId) || !entryMatchesSettingsSearch(entry, trimmedSearchQuery)) return [];
-      seen.add(entry.sectionId);
-      return [entry.sectionId];
+      const camelSectionId = toCamelCase(entry.sectionId);
+      let localizedLabel = "";
+      let localizedDescription = "";
+
+      if (entry.kind === "section") {
+        localizedLabel = t(`sections.${camelSectionId}.label`);
+        localizedDescription = t(`sections.${camelSectionId}.description`);
+      } else {
+        localizedLabel = entry.translationKey ? t(`search.items.${entry.translationKey}.label`) : entry.label;
+        localizedDescription = entry.translationKey && entry.description
+          ? t(`search.items.${entry.translationKey}.description`)
+          : t(`sections.${camelSectionId}.description`);
+      }
+
+      const localizedEntry = {
+        ...entry,
+        label: localizedLabel,
+        description: localizedDescription,
+      };
+
+      if (seen.has(localizedEntry.sectionId) || !entryMatchesSettingsSearch(localizedEntry, trimmedSearchQuery)) return [];
+      seen.add(localizedEntry.sectionId);
+      return [localizedEntry.sectionId];
     });
-  }, [trimmedSearchQuery]);
+  }, [trimmedSearchQuery, t]);
   const matchingSectionIds = React.useMemo(
     () => new Set(orderedMatchingSectionIds),
     [orderedMatchingSectionIds],
@@ -207,7 +229,9 @@ export function SettingsModalSidebar({
             ) : null}
             {filteredGroups.map((group) => (
               <MotionSidebarGroup key={group.id} className="px-2 py-1 first:pt-1">
-                <MotionSidebarGroupLabel className="h-7">{group.label}</MotionSidebarGroupLabel>
+                <MotionSidebarGroupLabel className="h-7">
+                  {t(`groups.${toCamelCase(group.id)}.label`)}
+                </MotionSidebarGroupLabel>
                 <MotionSidebarMenu>
                   {group.items.map((itemId) => {
                     const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
@@ -227,7 +251,9 @@ export function SettingsModalSidebar({
                           onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
                         >
                           <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
-                          <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
+                          <span className="min-w-0 truncate text-sm font-medium">
+                            {t(`sections.${toCamelCase(section.id)}.label`)}
+                          </span>
                         </MotionSidebarMenuButton>
                       </MotionSidebarMenuItem>
                     );
