@@ -29,7 +29,7 @@ Atmosphere for Agentic Builders
 - **Usage Analytics Dashboard** — Track AI coding subscription quotas, agent token consumption, and cost estimation.
 - **Kanban View** — Quickly manage Workspace status, priority, labels and other information in Kanban view.
 - **Canvas** — A cross-project infinite canvas: pin terminal cards from any workspace or project onto one persistent board, and let Code Agents drive the canvas diagrams, notes, and layout without leaving your agent workflow.
-- **Atmos Computer** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and Mobile to run terminals, workspaces, and Canvas on that computer. Integrated tunnel connector (Ngrok/Tailscale/Cloudflare Tunnel) for remote access.
+- **Remote Access** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and Mobile to run terminals, workspaces, and Canvas on that computer. Integrated tunnel connector (Ngrok/Tailscale/Cloudflare Tunnel) for remote access.
 - **Browser Element Inspector** — Hover and click to select elements in live browser preview, locating source code in React, Vue, Angular, and Svelte projects.
 - **Automations & GitHub Triggers** — Scheduled local automation runs powered by Atmos terminal agents, with optional GitHub App webhook triggers.
 - **Appshots** — Cross-app desktop snapshots as lightweight clipboard references for quick capture during development.

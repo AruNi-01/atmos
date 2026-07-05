@@ -28,7 +28,7 @@ Atmosphere for Agentic Builders
 - **用量分析看板** — AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。
 - **Kanban 视图** — 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
 - **Canvas** — 跨项目的无限画布：把任意工作区/项目的终端会话固定为卡片，在同一张持久化画板上排布；Code Agent 可操作画布，画示意图、便签与布局，无需离开 Agent 工作流。
-- **Atmos Computer** — 将 VPS 或任意机器注册到 Atmos Register Center，随后在 Desktop、Web、Mobile 中一键切换并连接，在该 Computer 上使用终端、工作区与 Canvas 等。集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel），无论设备部署在何处，都可使用你的 Atmos 运行环境。
+- **远程访问** — 将 VPS 或任意机器注册到 Atmos Register Center，随后在 Desktop、Web、Mobile 中一键切换并连接，在该 Computer 上使用终端、工作区与 Canvas 等。集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel），无论设备部署在何处，都可使用你的 Atmos 运行环境。
 - **浏览器元素检查器** — 在实时浏览器预览中悬停点击选取元素，自动定位 React、Vue、Angular、Svelte 项目中的源码位置。
 - **自动化与 GitHub 触发器** — 基于 Atmos 终端 Agent 的本地定时自动化，可选配 GitHub App Webhook 事件触发。
 - **Appshots** — 桌面端跨应用快照，轻量剪贴板引用，开发过程中快速记录。
