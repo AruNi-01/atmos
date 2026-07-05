@@ -4,17 +4,8 @@ import { GeistPixelSquare } from 'geist/font/pixel'
 import { ArrowRightIcon, RocketIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-  DialogTitle,
-  DialogDescription
-} from '@workspace/ui/components/ui/dialog'
-
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
-
-import Image from 'next/image'
+import { HeroVideoDialog } from '@/components/ui/hero-video-dialog'
 import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@workspace/ui/components/ui/craft-button'
 
 import AtmosPreview from '@/assets/img/atmos_preview.png'
@@ -137,31 +128,13 @@ const HeroSection = () => {
             transition={{ duration: 1, delay: 0.5 }}
             className='relative flex items-center justify-center w-full'
           >
-            <Dialog>
-              <DialogTrigger asChild>
-                <div className='relative w-full cursor-pointer group'>
-                  <div className='absolute inset-0  rounded-full opacity-50 transition-opacity duration-300 group-hover:opacity-80' />
-                  <Image
-                    src={AtmosPreview}
-                    alt={t('previewAlt')}
-                    className='relative w-full h-auto rounded-lg border border-border/50 transition-transform duration-300 group-hover:scale-[1.02]'
-                    priority
-                  />
-                </div>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[90vw] max-w-[95vw] w-auto p-0 overflow-hidden bg-transparent border-none shadow-none">
-                <DialogTitle className="sr-only">{t('previewTitle')}</DialogTitle>
-                <DialogDescription className="sr-only">{t('previewDescription')}</DialogDescription>
-                <div className="relative w-full h-auto flex items-center justify-center">
-                  <Image
-                    src={AtmosPreview}
-                    alt={t('previewAlt')}
-                    className='max-w-[90vw] max-h-[90vh] w-auto h-auto rounded-lg'
-                    priority
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
+            <HeroVideoDialog
+              className="w-full"
+              animationStyle="from-center"
+              videoSrc="/videos/agent-terminal-use-flow.mp4"
+              thumbnailSrc={AtmosPreview.src}
+              thumbnailAlt={t('previewAlt')}
+            />
           </MotionPreset>
         </div>
       </MotionPreset>
