@@ -8,7 +8,7 @@ import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { HeroVideoDialog } from '@/components/ui/hero-video-dialog'
 import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@workspace/ui/components/ui/craft-button'
 
-import AtmosPreview from '@/assets/img/atmos_preview.png'
+import TerminalAgentGrid from '@/assets/img/terminal-agent-grid.png'
 import AgentShow from './agent-show'
 
 const HeroSection = () => {
@@ -132,7 +132,7 @@ const HeroSection = () => {
               className="w-full"
               animationStyle="from-center"
               videoSrc="/videos/agent-terminal-use-flow.mp4"
-              thumbnailSrc={AtmosPreview.src}
+              thumbnailSrc={TerminalAgentGrid.src}
               thumbnailAlt={t('previewAlt')}
             />
           </MotionPreset>
