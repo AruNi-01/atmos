@@ -15,22 +15,25 @@ Atmosphere for Agentic Builders
 
 ## Features
 
+- **15+ Built-in Terminal Agents** — Launch and manage Claude Code, Codex, Gemini, Cursor, Devin, Antigravity, and more from one unified terminal interface.
 - **Multi-Workspace Development** — Git worktree isolation for parallel agent execution across multiple environments.
 - **Persistent Tmux Sessions** — Fault-tolerant terminal management with tmux; sessions survive interruptions and restarts.
 - **Built-in Lightweight Editor** — File preview, inline editing, and switch back to manual coding mode anytime.
 - **Integrated Git Workflow** — Diff view, commit assistance, code review, and GitHub PR management in one place.
+- **Review Workflow** — Review changes in Atmos's built-in diff UI, leave inline comments on specific lines, then hand off to your Code Agent to apply fixes.
+- **Global Agent Chat Panel** — Start non-terminal conversations from anywhere via ACP, reusing your Code Agent CLI.
+- **Terminal Side Chat** — Quick `/side` conversations from the terminal AI input without leaving your terminal workflow.
 - **Skill Management System** — Discover, enable/disable, and delete agent skills with one-click control.
-- **Global Agent Chat Panel** — Start non-terminal conversations from anywhere, powered by ACP to reuse your Code Agent CLI.
 - **Global Search & Command Palette** — Keyboard-driven workflow for searching and executing Atmos features.
+- **Agent Status & Notifications** — Real-time agent lifecycle tracking via hooks (running, idle, waiting for permission, done) across the UI, with native notifications and self-hosted push server support (ntfy, Gotify, or a custom webhook).
 - **Usage Analytics Dashboard** — Track AI coding subscription quotas, agent token consumption, and cost estimation.
-- **Agent Status Notifications** — Hook-based status monitoring with native notifications and self-hosted push server support.
-- **Cross-Platform & Tunnel Connector** — Web and desktop apps, mobile app (planned), integrated tunneling (Ngrok/Tailscale/Cloudflare Tunnel).
-- **Kanban View** - Quickly manage Workspace status, priority, labels and other information in Kanban view.
+- **Kanban View** — Quickly manage Workspace status, priority, labels and other information in Kanban view.
 - **Canvas** — A cross-project infinite canvas: pin terminal cards from any workspace or project onto one persistent board, and let Code Agents drive the canvas diagrams, notes, and layout without leaving your agent workflow.
 - **Atmos Computer** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and run terminals, workspaces, and Canvas on that computer—your Atmos environment, wherever the machine lives.
-- **Review Workflow** — Review changes in Atmos's built-in diff UI, leave inline comments on specific lines, then hand off to your Code Agent to apply fixes.
-- **Agent Status Tracking** — Real-time agent lifecycle sync via hooks (running, idle, waiting for permission, done) across the UI, with notifications on state changes—native alerts plus self-hosted push (ntfy, Gotify, or a custom webhook).
-- **Lightweight Local Models** — One-click run llama-server for small Hugging Face models on your machine—ideal for light tasks such as workspace TODO extraction and Git commit message generation without configuring a cloud API.
+- **Browser Element Inspector** — Hover and click to select elements in live browser preview, locating source code in React, Vue, Angular, and Svelte projects.
+- **Cross-Platform & Tunnel Connector** — Web, desktop, and mobile apps, integrated tunneling (Ngrok/Tailscale/Cloudflare Tunnel).
+- **Automations & GitHub Triggers** — Scheduled local automation runs powered by Atmos terminal agents, with optional GitHub App webhook triggers.
+- **Appshots** — Cross-app desktop snapshots as lightweight clipboard references for quick capture during development.
 
 ## Get Started
 

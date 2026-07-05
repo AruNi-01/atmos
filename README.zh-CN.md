@@ -14,22 +14,25 @@ Atmosphere for Agentic Builders
 
 ## 功能亮点
 
+- **15+ 内置终端 Agent** — 统一管理 Claude Code、Codex、Gemini、Cursor、Devin、Antigravity 等主流编码 Agent，一个界面随时切换。
 - **多工作区开发** — 基于 Git worktree 的环境隔离，实现多环境下的 Agent 并行执行。
 - **Tmux 持久化会话** — 容错式终端管理，会话中断后可无缝恢复。
 - **内置轻量级编辑器** — 文件预览与行内编辑，随时随地切换回原始人 coding 模式。
 - **集成 Git 工作流** — Diff 视图、提交辅助、代码审查与 GitHub PR 管理一体化。
-- **技能管理系统** — 一键启用/禁用或删除 Agent 技能，灵活控制能力集合。
+- **Review 工作流** — 在 Atmos 内置 Diff 界面中审查改动、在指定行留下行内评论，再交给 Code Agent 按评论修复。
 - **全局 Agent 聊天面板** — 任意位置发起非终端 Chat 对话，基于 ACP 复用你的 Code Agent CLI。
-- **全局搜索/操作Relay板** — 键盘驱动的工作流，快速搜索与执行 Atmos 功能。
+- **终端侧聊** — 在终端 AI 输入框中通过 `/side` 快速发起侧聊，不打断终端工作流。
+- **技能管理系统** — 一键启用/禁用或删除 Agent 技能，灵活控制能力集合。
+- **全局搜索/命令面板** — 键盘驱动的工作流，快速搜索与执行 Atmos 功能。
+- **Agent 状态与通知** — 通过 Agent Hooks 将运行中、空闲、等待授权、完成等状态实时同步到全站 UI；状态变化时推送通知，支持系统原生提醒及自托管推送（ntfy、Gotify 或自定义 Webhook）。
 - **用量分析看板** — AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。
-- **Agent 状态通知** — 基于钩子的状态监控，支持原生通知与自托管推送服务。
-- **跨平台与隧道连接器** — Web 与桌面应用，移动端（规划中），集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel）。
-- **Kanban 视图** - 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
+- **Kanban 视图** — 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
 - **Canvas** — 跨项目的无限画布：把任意工作区/项目的终端会话固定为卡片，在同一张持久化画板上排布；Code Agent 可操作画布，画示意图、便签与布局，无需离开 Agent 工作流。
 - **Atmos Computer** — 将 VPS 或任意机器注册到 Atmos Register Center，随后在 Desktop、Web 中一键切换并连接，在该 Computer 上使用终端、工作区与 Canvas 等，无论设备部署在何处，都可使用你的 Atmos 运行环境。
-- **Review Workflow** — 在 Atmos 内置 Diff 界面中审查改动、在指定行留下行内评论，再交给 Code Agent 按评论修复。
-- **Agent 状态追踪** — 通过 Agent Hooks 将运行中、空闲、等待授权、完成等状态实时同步到全站 UI；状态变化时推送通知，支持系统原生提醒，以及自托管推送（ntfy、Gotify 或自定义 Webhook）。
-- **轻量级本地模型** — 一键启动 llama server，运行 Hugging Face 上的小参数模型，用于会话标题生成、工作区 TODO 抽取、Git 提交说明等轻量任务，无需为小事而配置云端 API。
+- **浏览器元素检查器** — 在实时浏览器预览中悬停点击选取元素，自动定位 React、Vue、Angular、Svelte 项目中的源码位置。
+- **跨平台与隧道连接器** — Web、桌面与移动端应用，集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel）。
+- **自动化与 GitHub 触发器** — 基于 Atmos 终端 Agent 的本地定时自动化，可选配 GitHub App Webhook 事件触发。
+- **Appshots** — 桌面端跨应用快照，轻量剪贴板引用，开发过程中快速记录。
 
 ## 开始使用
 
