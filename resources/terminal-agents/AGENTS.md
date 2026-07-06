@@ -5,6 +5,7 @@ This directory owns repo-level terminal-agent manifests that are consumed by bot
 ## Files
 
 - `builtin_agents.json`: Atmos built-in terminal agent defaults: stable ids, display labels, executable names, default launch flags, and prompt delivery strategy hints.
+- `tui_follow_up_agents.json`: Web terminal agents that must launch interactively first, then wait for a TUI-ready pattern before auto-sending the initial prompt. Each entry maps `agentId` to `readyPattern` (regex against accumulated terminal output).
 
 ## Rules
 
@@ -13,6 +14,7 @@ This directory owns repo-level terminal-agent manifests that are consumed by bot
 - When changing `builtin_agents.json`, verify both consumers:
   - Web Agent Select adapter: `apps/web/src/features/agent/lib/terminal-agent-definitions.ts`
   - Automation resolver: `crates/core-service/src/service/automation/agents.rs`
+- When changing `tui_follow_up_agents.json`, verify the web loader in `apps/web/src/features/agent/lib/terminal-agent-tui-follow-up.ts`.
 - Preserve existing agent `id` values unless a migration plan is documented; user settings and persisted automation definitions refer to these ids.
 - Use `promptStrategy` for automation prompt delivery. Supported values are `arg`, `stdin`, `prompt_flag`, and `file_flag`; keep `useEcho` only for existing interactive UI compatibility.
 - Keep the JSON plain and cross-runtime friendly. Avoid comments, trailing commas, or TypeScript/Rust-specific fields.

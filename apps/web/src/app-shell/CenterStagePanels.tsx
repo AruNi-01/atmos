@@ -27,6 +27,7 @@ import type { FixedTab } from "@/shared/lib/nuqs/searchParams";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { cn } from "@/shared/lib/utils";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
+import type { PendingNamedTerminalRun } from "@/app-shell/center-stage-support";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
@@ -122,7 +123,7 @@ interface CenterStagePanelsProps {
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
   reviewTarget: ReviewTarget | null;
   setFixedTab: (tab: FixedTab) => void;
-  setProjectWikiPendingCommand: React.Dispatch<React.SetStateAction<string | null>>;
+  setProjectWikiPendingCommand: React.Dispatch<React.SetStateAction<PendingNamedTerminalRun | null>>;
   setProjectWikiVisibleMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setWikiPage: (page: string) => void;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
@@ -271,23 +272,23 @@ export function CenterStagePanels({
             refreshTrigger={wikiRefreshTrigger}
             terminalGridRef={terminalGridRef}
             onSwitchToTerminal={() => setFixedTab("terminal")}
-            onSwitchToProjectWikiAndRun={(command) => {
+            onSwitchToProjectWikiAndRun={(run) => {
               projectWikiUserTriggeredRef.current = true;
-              setProjectWikiPendingCommand(command);
+              setProjectWikiPendingCommand(run);
               setProjectWikiVisibleMap((prev) => ({
                 ...prev,
                 [effectiveContextId]: true,
               }));
               setFixedTab("project-wiki");
             }}
-            onProjectWikiReplaceAndRun={async (command) => {
+            onProjectWikiReplaceAndRun={async (run) => {
               try {
                 await systemApi.killProjectWikiWindow(effectiveContextId);
                 projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(
                   PROJECT_WIKI_WINDOW_NAME,
                 );
                 projectWikiUserTriggeredRef.current = true;
-                setProjectWikiPendingCommand(command);
+                setProjectWikiPendingCommand(run);
                 setProjectWikiVisibleMap((prev) => ({
                   ...prev,
                   [effectiveContextId]: true,

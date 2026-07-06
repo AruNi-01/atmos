@@ -42,7 +42,7 @@ describe("mergeSideChatRecords", () => {
       side_chat_id: "side-collision",
       workspace_id: "workspace-old",
       hasSentInitialCommand: true,
-      initialCommand: "old prompt\r",
+      pendingInitialRun: { launch: "old prompt" },
       isNew: true,
       sessionId: "session-old",
     });
@@ -50,7 +50,7 @@ describe("mergeSideChatRecords", () => {
       side_chat_id: "side-collision",
       workspace_id: "workspace-new",
       hasSentInitialCommand: false,
-      initialCommand: undefined,
+      pendingInitialRun: undefined,
       isNew: false,
       sessionId: "session-new",
     });
@@ -63,7 +63,7 @@ describe("mergeSideChatRecords", () => {
       side_chat_id: "side-stable",
       workspace_id: "workspace-1",
       hasSentInitialCommand: true,
-      initialCommand: "local prompt\r",
+      pendingInitialRun: { launch: "local prompt" },
       isNew: true,
       sessionId: "session-local",
     });
@@ -71,7 +71,7 @@ describe("mergeSideChatRecords", () => {
       side_chat_id: "side-stable",
       workspace_id: "workspace-1",
       hasSentInitialCommand: false,
-      initialCommand: undefined,
+      pendingInitialRun: undefined,
       isNew: false,
       sessionId: "session-server",
     });
@@ -80,7 +80,7 @@ describe("mergeSideChatRecords", () => {
       {
         ...incoming,
         hasSentInitialCommand: true,
-        initialCommand: "local prompt\r",
+        pendingInitialRun: { launch: "local prompt" },
         isNew: true,
         sessionId: "session-local",
       },

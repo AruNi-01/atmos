@@ -85,7 +85,7 @@
     "cmd": "amp",
     "params": "--dangerously-allow-all --execute",
     "interactiveParams": "--dangerously-allow-all",
-    "promptStrategy": "arg",
+    "promptStrategy": "stdin",
     "useEcho": true,
     "modelSupport": "none",
     "reasoningSupport": {

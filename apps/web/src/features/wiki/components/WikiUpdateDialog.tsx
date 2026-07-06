@@ -16,7 +16,7 @@ import { Download, Loader2, LoaderCircle, RotateCw } from "lucide-react";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
-import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
+import { AgentSelect, buildWikiTerminalRun, toTerminalPaneAgent, type AgentId, type WikiTerminalRun } from "./AgentSelect";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 const PROJECT_WIKI_UPDATE_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-update";
@@ -37,8 +37,8 @@ interface WikiUpdateDialogProps {
   workspaceId: string;
   terminalGridRef?: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal?: () => void;
-  onSwitchToProjectWikiAndRun?: (command: string) => void;
-  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
+  onSwitchToProjectWikiAndRun?: (run: WikiTerminalRun) => void;
+  onProjectWikiReplaceAndRun?: (run: WikiTerminalRun) => Promise<void>;
   onComplete?: () => void;
 }
 
@@ -61,7 +61,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [isRunning, setIsRunning] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const [pendingCommand, setPendingCommand] = useState<WikiTerminalRun | null>(null);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [isInstalling, setIsInstalling] = useState(false);
@@ -110,9 +110,9 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   }, [checkSystemSkill]);
 
   const doRunUpdate = useCallback(
-    (command: string) => {
+    (run: WikiTerminalRun) => {
       if (onSwitchToProjectWikiAndRun) {
-        onSwitchToProjectWikiAndRun(command);
+        onSwitchToProjectWikiAndRun(run);
         toastManager.add({
           title: t("toasts.started.title"),
           description: t("toasts.started.description"),
@@ -121,7 +121,9 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       } else if (terminalGridRef?.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
           label: t("terminalLabel"),
-          command,
+          command: run.command,
+          tuiFollowUpPrompt: run.tuiFollowUpPrompt,
+          agent: toTerminalPaneAgent(run.agentId),
         });
         onSwitchToTerminal?.();
         toastManager.add({
@@ -151,22 +153,22 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
 
   const handleRunUpdate = useCallback(async () => {
     const prompt = buildUpdatePrompt(catalogCommit, currentCommit);
-    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
+    const run = buildWikiTerminalRun(agentId, prompt, currentAgentRunConfig);
 
     setIsRunning(true);
     try {
       if (workspaceId) {
         const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
         if (exists) {
-          setPendingCommand(command);
+          setPendingCommand(run);
           setConflictDialogOpen(true);
           setIsRunning(false);
           return;
         }
       }
-      doRunUpdate(command);
+      doRunUpdate(run);
     } catch {
-      setPendingCommand(command);
+      setPendingCommand(run);
       setConflictDialogOpen(true);
     } finally {
       setIsRunning(false);

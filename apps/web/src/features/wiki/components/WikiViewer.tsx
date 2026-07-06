@@ -26,6 +26,7 @@ import { WikiUpdateDialog } from "./WikiUpdateDialog";
 import { WikiSpecifyDialog } from "./WikiSpecifyDialog";
 
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
+import type { WikiTerminalRun } from "./AgentSelect";
 
 interface WikiViewerProps {
   contextId: string;
@@ -39,8 +40,8 @@ interface WikiViewerProps {
   isWikiTabActive?: boolean;
   terminalGridRef?: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal?: () => void;
-  onSwitchToProjectWikiAndRun?: (command: string) => void;
-  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
+  onSwitchToProjectWikiAndRun?: (run: WikiTerminalRun) => void;
+  onProjectWikiReplaceAndRun?: (run: WikiTerminalRun) => Promise<void>;
 }
 
 export const WikiViewer: React.FC<WikiViewerProps> = ({

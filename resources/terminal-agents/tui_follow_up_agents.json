@@ -1,0 +1,11 @@
+{
+  "quietMs": 250,
+  "timeoutMs": 25000,
+  "outputBufferLimit": 4096,
+  "agents": [
+    {
+      "agentId": "hermes",
+      "readyPattern": "❯"
+    }
+  ]
+}

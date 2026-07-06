@@ -102,7 +102,8 @@ import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
 import type { ResolvedAgentFixLaunchRequest } from "@/features/agent-fix/types";
 import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
-import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
+import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
+import { toPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
 import {
   createRelatedCanvasTerminalShape,
   resolveRelatedCanvasTerminalFrameName,
@@ -185,7 +186,7 @@ export const CanvasView: React.FC = () => {
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
-  const queuePendingTerminalCommand = useCanvasRuntimeStore((state) => state.queuePendingTerminalCommand);
+  const queuePendingTerminalRun = useCanvasRuntimeStore((state) => state.queuePendingTerminalRun);
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
@@ -491,11 +492,13 @@ export const CanvasView: React.FC = () => {
       command,
       label,
       requestedContext,
+      tuiFollowUpPrompt,
     }: {
       agent?: TerminalPaneAgent;
       command: string;
       label: string;
       requestedContext?: { contextId: string; scope: "project" | "workspace" };
+      tuiFollowUpPrompt?: string;
     }) => {
       const editor = editorRef.current;
       if (!editor) {
@@ -531,8 +534,13 @@ export const CanvasView: React.FC = () => {
         throw new Error(t("errors.terminalPlacementFailed"));
       }
 
-      const commandToRun = command.endsWith("\r") ? command : `${command}\r`;
-      queuePendingTerminalCommand(result.newShapeId, commandToRun);
+      queuePendingTerminalRun(
+        result.newShapeId,
+        toPendingTerminalRun(command, {
+          agentId: agent?.id,
+          tuiFollowUpPrompt,
+        }),
+      );
       dispatchCanvasTerminalPinStateChange(result.pinKey, true);
       setActiveShapeId(result.newShapeId);
       editor.select(result.newShapeId);
@@ -569,7 +577,7 @@ export const CanvasView: React.FC = () => {
       createTerminalTabWithInitialPane,
       maxRenderedTerminals,
       projects,
-      queuePendingTerminalCommand,
+      queuePendingTerminalRun,
       resolveCanvasTerminalSource,
       router,
       setActiveShapeId,
@@ -580,7 +588,7 @@ export const CanvasView: React.FC = () => {
 
   const handleRunAgentFixInCanvasTerminal = React.useCallback(
     async (request: ResolvedAgentFixLaunchRequest) => {
-      const command = buildInteractiveAgentCommand({
+      const plan = buildInteractiveAgentRunPlan({
         agentId: request.agent.id,
         launchCommand: request.agent.launchCommand.trim(),
         prompt: request.prompt,
@@ -594,7 +602,8 @@ export const CanvasView: React.FC = () => {
           command: request.agent.command,
           iconType: request.agent.iconType,
         },
-        command,
+        command: plan.launchCommand,
+        tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
         label: request.terminalTabTitle,
         requestedContext: request.context,
       });

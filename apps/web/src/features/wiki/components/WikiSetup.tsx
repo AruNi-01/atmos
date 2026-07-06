@@ -20,7 +20,7 @@ import {
   DialogFooter,
 } from "@workspace/ui";
 import { BookOpen, Copy, Loader2, Download, AlertTriangle } from "lucide-react";
-import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
+import { AgentSelect, buildCommand, buildWikiTerminalRun, toTerminalPaneAgent, type AgentId, type WikiTerminalRun } from "./AgentSelect";
 import { getWikiLanguageOptions } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
@@ -51,9 +51,9 @@ interface WikiSetupProps {
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal: () => void;
   /** Switch to Project Wiki tab and run command (preferred over Terminal tab) */
-  onSwitchToProjectWikiAndRun?: (command: string) => void;
+  onSwitchToProjectWikiAndRun?: (run: WikiTerminalRun) => void;
   /** Kill existing Project Wiki window, remount terminal, then run (for conflict replace) */
-  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
+  onProjectWikiReplaceAndRun?: (run: WikiTerminalRun) => Promise<void>;
   onRetryCheck: () => void;
 }
 
@@ -76,7 +76,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   const [customLanguage, setCustomLanguage] = useState("");
   const [isInstalling, setIsInstalling] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const [pendingCommand, setPendingCommand] = useState<WikiTerminalRun | null>(null);
   const currentAgentRunConfig = agentRunConfigs[agentId] ?? null;
 
   const checkSystemSkill = useCallback(async () => {
@@ -124,7 +124,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
   const handleCopyPrompt = useCallback(() => {
     const prompt = buildPrompt(language, customLanguage);
-    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
+    const command = buildCommand(agentId, prompt, currentAgentRunConfig, "headless");
     navigator.clipboard.writeText(command);
     toastManager.add({
       title: t("toasts.copiedTitle"),
@@ -134,9 +134,9 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   }, [agentId, currentAgentRunConfig, customLanguage, language, t]);
 
   const doRunGenerate = useCallback(
-    (command: string) => {
+    (run: WikiTerminalRun) => {
       if (onSwitchToProjectWikiAndRun) {
-        onSwitchToProjectWikiAndRun(command);
+        onSwitchToProjectWikiAndRun(run);
         toastManager.add({
           title: t("toasts.generationStartedTitle"),
           description: t("toasts.generationStartedDescription"),
@@ -145,7 +145,9 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
       } else if (terminalGridRef.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
           label: t("terminalLabel"),
-          command,
+          command: run.command,
+          tuiFollowUpPrompt: run.tuiFollowUpPrompt,
+          agent: toTerminalPaneAgent(run.agentId),
         });
         onSwitchToTerminal();
         toastManager.add({
@@ -175,22 +177,22 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     }
 
     const prompt = buildPrompt(language, customLanguage);
-    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
+    const run = buildWikiTerminalRun(agentId, prompt, currentAgentRunConfig);
 
     setIsGenerating(true);
     try {
       if (workspaceId) {
         const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
         if (exists) {
-          setPendingCommand(command);
+          setPendingCommand(run);
           setConflictDialogOpen(true);
           setIsGenerating(false);
           return;
         }
       }
-      doRunGenerate(command);
+      doRunGenerate(run);
     } catch (_err) {
-      setPendingCommand(command);
+      setPendingCommand(run);
       setConflictDialogOpen(true);
     } finally {
       setIsGenerating(false);

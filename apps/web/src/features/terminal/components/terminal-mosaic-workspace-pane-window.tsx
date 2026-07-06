@@ -26,6 +26,7 @@ import { TerminalTitleWithAgent } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalToolbarTitle } from "../hooks/use-terminal-toolbar-title";
 import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
+import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import {
   getAgentContextDragText,
@@ -90,7 +91,8 @@ type TerminalMosaicWorkspacePaneWindowProps = {
   terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>;
   agentInputOverlayRefsMap: React.MutableRefObject<Map<string, TerminalAgentInputOverlayHandle>>;
   readyPanesRef: React.MutableRefObject<Set<string>>;
-  pendingCommandsRef: React.MutableRefObject<Map<string, string>>;
+  pendingRunsRef: React.MutableRefObject<Map<string, PendingTerminalRun>>;
+  deliverPendingRunForPane: (paneId: string) => void;
   markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
 };
 
@@ -127,7 +129,8 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     terminalRefsMap,
     agentInputOverlayRefsMap,
     readyPanesRef,
-    pendingCommandsRef,
+    pendingRunsRef,
+    deliverPendingRunForPane,
     markPaneAttached,
   } = props;
 
@@ -445,10 +448,8 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
             readyPanesRef.current.add(id);
             setIsTerminalReady(true);
             markPaneAttached(workspaceId, id, terminalTabId);
-            const cmd = pendingCommandsRef.current.get(id);
-            if (cmd) {
-              pendingCommandsRef.current.delete(id);
-              terminalRefsMap.current.get(id)?.sendText(cmd);
+            if (pendingRunsRef.current.has(id)) {
+              deliverPendingRunForPane(id);
             }
           }}
           onSessionClose={() => {
@@ -469,6 +470,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
             }
           }}
           activeProjectId={activeProject?.id ?? null}
+          agent={agentForSubmit ?? null}
           getTerminalCursorClientPoint={() =>
             terminalRefsMap.current.get(id)?.getCursorClientPoint() ?? null
           }
