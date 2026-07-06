@@ -19,6 +19,8 @@ export type PendingTerminalRun = {
   };
 };
 
+type TimerHandle = number | null;
+
 export function toPendingTerminalRun(
   launchCommand: string,
   options?: {
@@ -44,7 +46,7 @@ export function sendTuiFollowUpPrompt(
   terminalRef: TerminalRef,
   prompt: string,
   options?: { agentId?: string },
-) {
+): (() => void) | undefined {
   const trimmed = prompt.trim();
   if (!trimmed) return;
 
@@ -70,18 +72,29 @@ export function sendTuiFollowUpPrompt(
 
   if (submitMode === "bracketed-paste-enter" || hasMultiline) {
     terminalRef.sendText(wrapBracketedPaste(normalized));
-    setTimeout(submitPrompt, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
-    return;
+    const timer: TimerHandle = window.setTimeout(submitPrompt, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
+    return () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
   }
 
   if (submitMode === "text-ctrl-enter") {
     terminalRef.sendText(normalized);
-    setTimeout(submitPrompt, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
-    return;
+    const timer: TimerHandle = window.setTimeout(submitPrompt, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
+    return () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
   }
 
   // Default interactive agents (e.g. Hermes): fill and submit in one write.
   terminalRef.sendText(`${normalized}\r`);
+  return;
+}
+
 }
 
 export function deliverTerminalAgentLaunch(
@@ -96,9 +109,11 @@ export function deliverPendingTerminalRun(
   terminalRef: TerminalRef,
   run: PendingTerminalRun,
 ): () => void {
-  deliverTerminalAgentLaunch(terminalRef, run.launch, run.execute !== false);
   if (!run.tuiFollowUp) {
+    deliverTerminalAgentLaunch(terminalRef, run.launch, run.execute !== false);
     return () => {};
   }
-  return startAgentTuiFollowUp(terminalRef, run.tuiFollowUp.agentId, run.tuiFollowUp.prompt);
+  const cleanup = startAgentTuiFollowUp(terminalRef, run.tuiFollowUp.agentId, run.tuiFollowUp.prompt);
+  deliverTerminalAgentLaunch(terminalRef, run.launch, run.execute !== false);
+  return cleanup;
 }

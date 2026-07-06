@@ -61,6 +61,7 @@ export function useTerminalSideChats({
   const t = useTranslations("terminal.sideChat");
   const terminalRefs = React.useRef<Map<string, TerminalRef>>(new Map());
   const sideChatFlyTargetRef = React.useRef<HTMLDivElement | null>(null);
+  const tuiFollowUpCleanupBySideChatRef = React.useRef<Map<string, () => void>>(new Map());
   const [isStarting, setIsStarting] = React.useState(false);
   const {
     sideContextPromptBudgetBytes,
@@ -70,6 +71,15 @@ export function useTerminalSideChats({
   React.useEffect(() => {
     void loadTerminalSideChatSettings();
   }, [loadTerminalSideChatSettings]);
+
+  React.useEffect(() => {
+    return () => {
+      for (const cleanup of tuiFollowUpCleanupBySideChatRef.current.values()) {
+        cleanup();
+      }
+      tuiFollowUpCleanupBySideChatRef.current.clear();
+    };
+  }, []);
 
   const sourceSurfaceRefJson = React.useMemo(() => {
     if (sourceSurfaceRef == null) return null;
@@ -97,6 +107,19 @@ export function useTerminalSideChats({
     terminalRefs,
     workspaceId,
   });
+
+  const clearSideChatFollowUp = React.useCallback((sideChatId: string) => {
+    const cleanup = tuiFollowUpCleanupBySideChatRef.current.get(sideChatId);
+    if (cleanup) {
+      cleanup();
+      tuiFollowUpCleanupBySideChatRef.current.delete(sideChatId);
+    }
+  }, []);
+
+  const handleCloseSideChat = React.useCallback((sideChatId: string) => {
+    clearSideChatFollowUp(sideChatId);
+    closeSideChat(sideChatId);
+  }, [clearSideChatFollowUp, closeSideChat]);
 
   const startSideChat = React.useCallback(
     async (
@@ -225,9 +248,9 @@ export function useTerminalSideChats({
       terminalScale={terminalScale}
       workspaceId={workspaceId}
       workspaceName={workspaceName}
-      onClose={closeSideChat}
+      onClose={handleCloseSideChat}
       onCloseAll={(sideChatIds) => {
-        void Promise.all(sideChatIds.map((sideChatId) => closeSideChat(sideChatId)));
+        void Promise.all(sideChatIds.map(handleCloseSideChat));
       }}
       onHide={hideSideChat}
       onInteraction={onInteraction}
@@ -242,9 +265,11 @@ export function useTerminalSideChats({
       }}
       onReady={(record) => {
         if (record.pendingInitialRun && !record.hasSentInitialCommand) {
+          clearSideChatFollowUp(record.side_chat_id);
           const terminalRef = terminalRefs.current.get(record.side_chat_id);
           if (terminalRef) {
-            deliverPendingTerminalRun(terminalRef, record.pendingInitialRun);
+            const cleanup = deliverPendingTerminalRun(terminalRef, record.pendingInitialRun);
+            tuiFollowUpCleanupBySideChatRef.current.set(record.side_chat_id, cleanup);
           }
           updateLocalRecord(record.side_chat_id, {
             hasSentInitialCommand: true,

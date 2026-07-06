@@ -242,7 +242,7 @@ export function buildPipedAgentTerminalInput(
   }
   const interactiveParams = definition.interactiveParams ?? "";
   const baseCommand = [command.trim(), interactiveParams].filter(Boolean).join(" ");
-  return `echo ${shellQuote(trimmed)} | ${baseCommand}`;
+  return `printf '%s\\n' ${shellQuote(trimmed)} | ${baseCommand}`;
 }
 
 export interface TerminalAgentRunPlan {
@@ -284,7 +284,7 @@ export function buildInteractiveAgentRunPlan(args: {
   const quotedPrompt = shellQuote(prompt);
   if (strategy === "stdin") {
     return {
-      launchCommand: `echo ${quotedPrompt} | ${baseCommand}`,
+      launchCommand: `printf '%s\\n' ${quotedPrompt} | ${baseCommand}`,
     };
   }
   if (args.agentId === "opencode") {

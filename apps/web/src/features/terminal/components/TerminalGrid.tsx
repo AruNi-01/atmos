@@ -75,7 +75,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const contextSplitSubmenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
   const lastFocusedElementRef = React.useRef<HTMLElement | null>(null);
-  const { deliverPendingRun } = useTerminalAgentTuiFollowUp(terminalRefsMap);
 
   const queuePendingRun = useCallback(
     (
@@ -94,6 +93,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     },
     [],
   );
+
+  const { deliverPendingRun } = useTerminalAgentTuiFollowUp(terminalRefsMap);
 
   const deliverPendingRunForPane = useCallback(
     (paneId: string) => {
@@ -461,7 +462,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       focusPane(paneId);
       return true;
     },
-  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgentForCurrentGrid, terminalTabId]);
+  }), [workspaceId, addTerminal, deliverPendingRun, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, queuePendingRun, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgentForCurrentGrid, terminalTabId]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout
