@@ -57,12 +57,11 @@ export function buildCommandPlan(
   const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
   if (!agent) return { launchCommand: "" };
 
-  const structuredArgs = buildStructuredRunConfigArgs(agentId, runConfig).map((item) =>
-    shellQuote(item),
-  );
-
   if (prompt.trim() === "") {
     const interactiveParams = getInteractiveAgentParams(agent);
+    const structuredArgs = buildStructuredRunConfigArgs(agentId, runConfig).map((item) =>
+      shellQuote(item),
+    );
     return {
       launchCommand: [agent.cmd, interactiveParams, ...structuredArgs].filter(Boolean).join(" "),
     };
@@ -70,9 +69,7 @@ export function buildCommandPlan(
 
   if (mode === "interactive") {
     const interactiveParams = getInteractiveAgentParams(agent);
-    const launchCommand = [agent.cmd, interactiveParams, ...structuredArgs]
-      .filter(Boolean)
-      .join(" ");
+    const launchCommand = [agent.cmd, interactiveParams].filter(Boolean).join(" ");
     return buildInteractiveAgentRunPlan({
       agentId,
       launchCommand,
@@ -86,7 +83,6 @@ export function buildCommandPlan(
   if (agent.params) {
     launchParts.push(agent.params);
   }
-  launchParts.push(...structuredArgs);
   return buildInteractiveAgentRunPlan({
     agentId,
     launchCommand: launchParts.join(" "),

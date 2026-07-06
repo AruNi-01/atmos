@@ -83,19 +83,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       command: string,
       options?: { agentId?: string; tuiFollowUpPrompt?: string; execute?: boolean },
     ) => {
+      const run = toPendingTerminalRun(command, {
+        agentId: options?.agentId,
+        tuiFollowUpPrompt: options?.tuiFollowUpPrompt,
+      });
       pendingRunsRef.current.set(
         paneId,
-        toPendingTerminalRun(command, {
-          agentId: options?.agentId,
-          tuiFollowUpPrompt: options?.tuiFollowUpPrompt,
-        }),
+        options?.execute === false ? { ...run, execute: false } : run,
       );
-      if (options?.execute === false) {
-        const run = pendingRunsRef.current.get(paneId);
-        if (run) {
-          pendingRunsRef.current.set(paneId, { ...run, execute: false });
-        }
-      }
     },
     [],
   );

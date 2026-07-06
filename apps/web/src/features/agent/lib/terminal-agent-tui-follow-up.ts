@@ -70,7 +70,9 @@ export function getTerminalAgentTuiFollowUpConfig(
   return {
     agentId: config.agentId,
     readyPattern: config.readyPattern,
-    readyPatternFlags: config.readyPatternFlags,
+    ...(config.readyPatternFlags !== undefined
+      ? { readyPatternFlags: config.readyPatternFlags }
+      : {}),
   };
 }
 
