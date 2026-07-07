@@ -567,7 +567,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       });
       queueAgentRun({
         workspaceId,
-        prompt: resolvedPrompt.trim() || finalDisplayName || finalBranch,
+        prompt: resolvedPrompt.trim(),
         agentRunConfig: selectedAgent ? sanitizeRunConfig(agentRunConfigs[selectedAgent.id]) : null,
         agent: selectedAgent
           ? {

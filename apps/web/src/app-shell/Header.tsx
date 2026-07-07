@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState, useQueryStates } from "nuqs";
 import { useTheme } from "next-themes";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -60,7 +60,7 @@ import { useHeaderHotkeys } from './use-header-hotkeys';
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
+
   const searchParams = useSearchParams();
   const { setTheme, theme } = useTheme();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
@@ -94,8 +94,8 @@ const Header: React.FC = () => {
     toggleFullScreen,
   } = useHeaderFullscreen();
   const refreshCurrentRoute = useCallback(() => {
-    router.refresh();
-  }, [router]);
+    window.location.reload();
+  }, []);
   const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
   const {
     currentBranch,

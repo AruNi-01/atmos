@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslations } from "next-intl";
 import type { MutableRefObject } from "react";
@@ -35,14 +34,13 @@ export function useHeaderHotkeys({
   toggleRightSidebar: () => void;
 }) {
   const t = useTranslations("header.hotkeys");
-  const router = useRouter();
   const handleRefreshCurrentRoute = useCallback(() => {
     if (refreshCurrentRoute) {
       refreshCurrentRoute();
       return;
     }
-    router.refresh();
-  }, [refreshCurrentRoute, router]);
+    window.location.reload();
+  }, [refreshCurrentRoute]);
 
   useEffect(() => {
     // Native menu accelerators were removed, so JS handles bracket navigation on web and desktop.
