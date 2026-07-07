@@ -604,7 +604,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       launchFlyingMessage(flyingText);
       const pipedInput =
         agent && trimmedExpandedText
-          ? buildPipedAgentTerminalInput(agent.id, agent.pipeCommand ?? agent.command, trimmedExpandedText)
+          ? buildPipedAgentTerminalInput(agent.id, agent.command, trimmedExpandedText)
           : null;
       if (pipedInput) {
         onSendText(`${pipedInput}\r`);

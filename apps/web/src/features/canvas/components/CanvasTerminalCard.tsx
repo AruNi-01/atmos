@@ -101,7 +101,6 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const terminalOverlayRef = React.useRef<HTMLDivElement | null>(null);
   const terminalApiRef = React.useRef<TerminalRef | null>(null);
   const agentInputOverlayRef = React.useRef<TerminalAgentInputOverlayHandle | null>(null);
-  const tuiFollowUpCleanupRef = React.useRef<(() => void) | null>(null);
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
   const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
@@ -200,7 +199,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     setIsTerminalReady(true);
     const pendingRun = consumePendingTerminalRun(shape.id);
     if (pendingRun && terminalApiRef.current) {
-      tuiFollowUpCleanupRef.current = deliverPendingTerminalRun(terminalApiRef.current, pendingRun);
+      deliverPendingTerminalRun(terminalApiRef.current, pendingRun);
     }
   }, [consumePendingTerminalRun, markAttached, shape.id]);
 
@@ -301,13 +300,6 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       cancelAnimationFrame(frame);
     };
   }, [focusTerminal, isActive, isRendered]);
-
-  React.useEffect(() => {
-    return () => {
-      tuiFollowUpCleanupRef.current?.();
-      tuiFollowUpCleanupRef.current = null;
-    };
-  }, []);
 
   React.useEffect(() => {
     const resolveCanvasTerminalTarget = (event: KeyboardEvent) => {

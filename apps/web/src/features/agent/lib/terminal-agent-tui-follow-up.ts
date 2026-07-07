@@ -89,7 +89,6 @@ export function isAgentTuiReady(agentId: string, output: string): boolean {
   if (!config) {
     return false;
   }
-  config.readyRegex.lastIndex = 0;
   return config.readyRegex.test(output);
 }
 

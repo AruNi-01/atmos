@@ -14,8 +14,6 @@ type ActiveTuiFollowUp = {
   quietTimer: ReturnType<typeof setTimeout> | null;
   timeoutTimer: ReturnType<typeof setTimeout>;
   unsubscribe: (() => void) | null;
-  submitCleanup: (() => void) | null;
-  completed: boolean;
 };
 
 export function startAgentTuiFollowUp(
@@ -32,8 +30,6 @@ export function startAgentTuiFollowUp(
       complete();
     }, TUI_FOLLOW_UP_TIMEOUT_MS),
     unsubscribe: null,
-    submitCleanup: null,
-    completed: false,
   };
 
   const clear = () => {
@@ -43,25 +39,15 @@ export function startAgentTuiFollowUp(
     }
     clearTimeout(active.timeoutTimer);
     active.unsubscribe?.();
-    active.submitCleanup?.();
     active = null;
   };
 
   const complete = () => {
-    if (!active || active.completed) return;
-    active.completed = true;
+    if (!active) return;
     const pendingPrompt = active.prompt;
     const pendingAgentId = active.agentId;
-    const submitCleanup = sendTuiFollowUpPrompt(terminalRef, pendingPrompt, { agentId: pendingAgentId });
-    active.submitCleanup = submitCleanup ?? null;
-    // Clear timers and unsubscribe, but keep active state with submitCleanup for the final cleanup
-    if (active.quietTimer) {
-      clearTimeout(active.quietTimer);
-    }
-    clearTimeout(active.timeoutTimer);
-    active.unsubscribe?.();
-    active.quietTimer = null;
-    active.unsubscribe = null;
+    clear();
+    sendTuiFollowUpPrompt(terminalRef, pendingPrompt, { agentId: pendingAgentId });
   };
 
   const scheduleQuietReady = () => {
