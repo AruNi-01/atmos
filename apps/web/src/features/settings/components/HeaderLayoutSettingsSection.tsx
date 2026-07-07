@@ -6,7 +6,6 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  Switch,
 } from '@workspace/ui';
 import {
   ChevronDown,
@@ -21,42 +20,11 @@ import {
 } from 'lucide-react';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 interface HeaderLayoutSettingsSectionProps {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-}
-
-interface ToggleRowProps {
-  icon?: React.ReactNode;
-  title: string;
-  description: string;
-  checked: boolean;
-  disabled?: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}
-
-function ToggleRow({ icon, title, description, checked, disabled, onCheckedChange }: ToggleRowProps) {
-  return (
-    <div className="border-b border-border px-2 py-4 last:border-b-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-        <div className={icon ? 'flex gap-3' : undefined}>
-          {icon ? <span className="mt-0.5 size-4 shrink-0 text-muted-foreground">{icon}</span> : null}
-          <div>
-            <p className="text-sm font-medium text-foreground">{title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end">
-          <Switch
-            checked={checked}
-            disabled={disabled}
-            onCheckedChange={(value) => onCheckedChange(!!value)}
-          />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function HeaderLayoutSettingsSection({
@@ -120,35 +88,35 @@ export function HeaderLayoutSettingsSection({
 
       <CollapsibleContent>
         <div className="border-t border-border px-4">
-          <ToggleRow
+          <SettingsToggleRow
             icon={<Command className="size-4" />}
             title={t('quickOpenTitle')}
             description={t('quickOpenDescription')}
             checked={showHeaderQuickOpen}
             onCheckedChange={(value) => void setHeaderShowQuickOpen(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<GitBranch className="size-4" />}
             title={t('gitToolbarTitle')}
             description={t('gitToolbarDescription')}
             checked={showHeaderGitToolbar}
             onCheckedChange={(value) => void setHeaderShowGitToolbar(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<Search className="size-4" />}
             title={t('globalSearchTitle')}
             description={t('globalSearchDescription')}
             checked={showHeaderGlobalSearch}
             onCheckedChange={(value) => void setHeaderShowGlobalSearch(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<PanelTop className="size-4" />}
             title={t('summaryButtonTitle')}
             description={t('summaryButtonDescription')}
             checked={showHeaderSummary}
             onCheckedChange={(value) => void setHeaderShowSummary(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<ListTodo className="size-4" />}
             title={t('taskTitle')}
             description={t('taskDescription')}
@@ -156,7 +124,7 @@ export function HeaderLayoutSettingsSection({
             disabled={!showHeaderSummary}
             onCheckedChange={(value) => void setHeaderShowSummaryTask(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<GitCommit className="size-4" />}
             title={t('commitTitle')}
             description={t('commitDescription')}
@@ -166,14 +134,14 @@ export function HeaderLayoutSettingsSection({
           />
           {isDesktop ? (
             <>
-              <ToggleRow
+              <SettingsToggleRow
                 icon={<Globe className="size-4" />}
                 title={t('remoteAccessTitle')}
                 description={t('remoteAccessDescription')}
                 checked={showHeaderRemoteAccess}
                 onCheckedChange={(value) => void setHeaderShowRemoteAccess(value)}
               />
-              <ToggleRow
+              <SettingsToggleRow
                 icon={<SquareDashedMousePointer className="size-4" />}
                 title={t('appshotTitle')}
                 description={t('appshotDescription')}

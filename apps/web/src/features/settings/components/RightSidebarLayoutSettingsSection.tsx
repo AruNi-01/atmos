@@ -1,12 +1,10 @@
 'use client';
 
-import React from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  Switch,
 } from '@workspace/ui';
 import {
   ChevronDown,
@@ -19,37 +17,11 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 interface RightSidebarLayoutSettingsSectionProps {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-}
-
-interface ToggleRowProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}
-
-function ToggleRow({ icon, title, description, checked, onCheckedChange }: ToggleRowProps) {
-  return (
-    <div className="border-b border-border px-2 py-4 last:border-b-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-        <div className="flex gap-3">
-          <span className="mt-0.5 size-4 shrink-0 text-muted-foreground">{icon}</span>
-          <div>
-            <p className="text-sm font-medium text-foreground">{title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end">
-          <Switch checked={checked} onCheckedChange={(value) => onCheckedChange(!!value)} />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function RightSidebarLayoutSettingsSection({
@@ -109,42 +81,42 @@ export function RightSidebarLayoutSettingsSection({
 
       <CollapsibleContent>
         <div className="border-t border-border px-4">
-          <ToggleRow
+          <SettingsToggleRow
             icon={<GitBranch className="size-4" />}
             title={t('changesTitle')}
             description={t('changesDescription')}
             checked={rsShowChanges}
             onCheckedChange={(value) => void setRightSidebarShowChanges(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<FileDiff className="size-4" />}
             title={t('reviewTitle')}
             description={t('reviewDescription')}
             checked={rsShowReview}
             onCheckedChange={(value) => void setRightSidebarShowReview(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<Globe className="size-4" />}
             title={t('browserTitle')}
             description={t('browserDescription')}
             checked={rsShowBrowser}
             onCheckedChange={(value) => void setRightSidebarShowBrowser(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<Play className="size-4" />}
             title={t('runTitle')}
             description={t('runDescription')}
             checked={rsShowRun}
             onCheckedChange={(value) => void setRightSidebarShowRun(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<GitPullRequest className="size-4" />}
             title={t('prTitle')}
             description={t('prDescription')}
             checked={rsShowPr}
             onCheckedChange={(value) => void setRightSidebarShowPr(value)}
           />
-          <ToggleRow
+          <SettingsToggleRow
             icon={<Workflow className="size-4" />}
             title={t('actionsTitle')}
             description={t('actionsDescription')}

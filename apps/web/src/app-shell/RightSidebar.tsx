@@ -187,11 +187,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowPr, rsShowActions],
   );
   const topTabs = useMemo(() => {
-    const base = BASE_TABS.filter((tab) => tabVisibility[tab.value]);
-    if (!showFilesTab) return base;
-    const idx = base.findIndex((t) => t.value === "run");
-    if (idx === -1) return [...base, FILES_TAB];
-    return [...base.slice(0, idx + 1), FILES_TAB, ...base.slice(idx + 1)];
+    // Insert FILES_TAB into the canonical order first, then filter by
+    // visibility. This keeps Files in its slot (right after Run's position)
+    // even when Run itself is hidden.
+    const runIdx = BASE_TABS.findIndex((t) => t.value === "run");
+    const ordered = showFilesTab
+      ? [...BASE_TABS.slice(0, runIdx + 1), FILES_TAB, ...BASE_TABS.slice(runIdx + 1)]
+      : BASE_TABS;
+    return ordered.filter((tab) => tabVisibility[tab.value]);
   }, [showFilesTab, tabVisibility]);
 
   const currentProject = useMemo(
