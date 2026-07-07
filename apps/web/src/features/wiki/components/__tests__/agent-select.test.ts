@@ -1,7 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
-import { AGENT_OPTIONS, buildCommand, getInteractiveAgentParams } from "../AgentSelect";
+import {
+  buildInteractiveAgentCommand,
+  buildInteractiveAgentRunPlan,
+  buildPipedAgentTerminalInput,
+} from "@/features/agent/lib/terminal-agent-run-config";
+import { AGENT_OPTIONS, buildCommand, buildCommandPlan, getInteractiveAgentParams } from "../AgentSelect";
 
 function agent(id: string) {
   const found = AGENT_OPTIONS.find((item) => item.id === id);
@@ -51,18 +55,49 @@ describe("getInteractiveAgentParams", () => {
     );
   });
 
-  it("builds Hermes one-shot prompts with the documented query flag", () => {
-    expect(buildCommand("hermes", "fix this")).toBe("hermes chat --yolo -q 'fix this'");
+  it("builds Hermes headless prompts with the documented query flag", () => {
+    expect(buildCommand("hermes", "fix this", null, "headless")).toBe(
+      "hermes chat --yolo -q 'fix this'",
+    );
   });
 
-  it("starts Hermes workspace prompts with the documented query flag", () => {
+  it("starts Hermes interactive sessions with launch plus TUI follow-up prompt", () => {
     expect(
-      buildInteractiveAgentCommand({
+      buildInteractiveAgentRunPlan({
         agentId: "hermes",
         launchCommand: "hermes chat --yolo",
         prompt: "fix this",
       }),
-    ).toBe("hermes chat --yolo -q 'fix this'");
+    ).toEqual({
+      launchCommand: "hermes chat --yolo",
+      tuiFollowUpPrompt: "fix this",
+    });
+    expect(buildCommand("hermes", "fix this")).toBe("hermes chat --yolo");
+    expect(buildCommandPlan("hermes", "fix this").tuiFollowUpPrompt).toBe("fix this");
+  });
+
+  it("starts Pi interactive sessions with a positional prompt", () => {
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "pi",
+        launchCommand: "pi",
+        prompt: "fix this",
+      }),
+    ).toBe("pi 'fix this'");
+  });
+
+  it("pipes Amp prompts into the interactive CLI", () => {
+    expect(buildCommand("amp", "fix this")).toBe("echo 'fix this' | amp --dangerously-allow-all");
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "amp",
+        launchCommand: "amp --dangerously-allow-all",
+        prompt: "fix this",
+      }),
+    ).toBe("echo 'fix this' | amp --dangerously-allow-all");
+    expect(buildPipedAgentTerminalInput("amp", "amp", "fix this")).toBe(
+      "echo 'fix this' | amp --dangerously-allow-all",
+    );
   });
 
   it("starts OpenClaw workspace prompts without the automation json flag", () => {

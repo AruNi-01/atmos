@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@workspace/ui";
 import { Download, Loader2, FilePlus } from "lucide-react";
-import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
+import { AgentSelect, buildWikiTerminalRun, toTerminalPaneAgent, type AgentId, type WikiTerminalRun } from "./AgentSelect";
 import { getWikiLanguageOptions } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
@@ -52,8 +52,8 @@ interface WikiSpecifyDialogProps {
   workspaceId: string;
   terminalGridRef?: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal?: () => void;
-  onSwitchToProjectWikiAndRun?: (command: string) => void;
-  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
+  onSwitchToProjectWikiAndRun?: (run: WikiTerminalRun) => void;
+  onProjectWikiReplaceAndRun?: (run: WikiTerminalRun) => Promise<void>;
   onComplete?: () => void;
 }
 
@@ -75,7 +75,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   const [customLanguage, setCustomLanguage] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const [pendingCommand, setPendingCommand] = useState<WikiTerminalRun | null>(null);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [isInstalling, setIsInstalling] = useState(false);
@@ -125,9 +125,9 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   }, [checkSystemSkill]);
 
   const doRunSpecify = useCallback(
-    (command: string) => {
+    (run: WikiTerminalRun) => {
       if (onSwitchToProjectWikiAndRun) {
-        onSwitchToProjectWikiAndRun(command);
+        onSwitchToProjectWikiAndRun(run);
         toastManager.add({
           title: t("toasts.started.title"),
           description: t("toasts.started.description"),
@@ -136,7 +136,9 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       } else if (terminalGridRef?.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
           label: t("terminalLabel"),
-          command,
+          command: run.command,
+          tuiFollowUpPrompt: run.tuiFollowUpPrompt,
+          agent: toTerminalPaneAgent(run.agentId),
         });
         onSwitchToTerminal?.();
         toastManager.add({
@@ -176,22 +178,22 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     }
 
     const prompt = buildSpecifyPrompt(trimmed, language, customLanguage);
-    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
+    const run = buildWikiTerminalRun(agentId, prompt, currentAgentRunConfig);
 
     setIsRunning(true);
     try {
       if (workspaceId) {
         const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
         if (exists) {
-          setPendingCommand(command);
+          setPendingCommand(run);
           setConflictDialogOpen(true);
           setIsRunning(false);
           return;
         }
       }
-      doRunSpecify(command);
+      doRunSpecify(run);
     } catch {
-      setPendingCommand(command);
+      setPendingCommand(run);
       setConflictDialogOpen(true);
     } finally {
       setIsRunning(false);

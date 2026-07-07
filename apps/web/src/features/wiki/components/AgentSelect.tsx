@@ -1,10 +1,14 @@
 "use client";
 
 import React from "react";
+import { shellQuote } from "@/shared/lib/shell-quote";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
 import {
-  buildInteractiveAgentCommand,
+  buildInteractiveAgentRunPlan,
+  buildStructuredRunConfigArgs,
+  type TerminalAgentRunMode,
+  type TerminalAgentRunPlan,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
 
@@ -44,22 +48,87 @@ function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string
   return false;
 }
 
+export function buildCommandPlan(
+  agentId: AgentId,
+  prompt: string,
+  runConfig?: TerminalAgentRunConfigInput | null,
+  mode: TerminalAgentRunMode = "interactive",
+): TerminalAgentRunPlan {
+  const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
+  if (!agent) return { launchCommand: "" };
+
+  if (prompt.trim() === "") {
+    const interactiveParams = getInteractiveAgentParams(agent);
+    const structuredArgs = buildStructuredRunConfigArgs(agentId, runConfig).map((item) =>
+      shellQuote(item),
+    );
+    return {
+      launchCommand: [agent.cmd, interactiveParams, ...structuredArgs].filter(Boolean).join(" "),
+    };
+  }
+
+  if (mode === "interactive") {
+    const interactiveParams = getInteractiveAgentParams(agent);
+    const launchCommand = [agent.cmd, interactiveParams].filter(Boolean).join(" ");
+    return buildInteractiveAgentRunPlan({
+      agentId,
+      launchCommand,
+      prompt,
+      runConfig,
+      mode,
+    });
+  }
+
+  const launchParts: string[] = [agent.cmd];
+  if (agent.params) {
+    launchParts.push(agent.params);
+  }
+  return buildInteractiveAgentRunPlan({
+    agentId,
+    launchCommand: launchParts.join(" "),
+    prompt,
+    runConfig,
+    mode: "headless",
+  });
+}
+
 export function buildCommand(
   agentId: AgentId,
   prompt: string,
   runConfig?: TerminalAgentRunConfigInput | null,
+  mode: TerminalAgentRunMode = "interactive",
 ): string {
-  const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
-  if (!agent) return "";
+  return buildCommandPlan(agentId, prompt, runConfig, mode).launchCommand;
+}
 
-  const interactiveParams = getInteractiveAgentParams(agent);
-  const launchCommand = [agent.cmd, interactiveParams].filter(Boolean).join(" ");
-  return buildInteractiveAgentCommand({
+export function toTerminalPaneAgent(agentId: AgentId) {
+  const agent = AGENT_OPTIONS.find((item) => item.id === agentId);
+  if (!agent) return undefined;
+  return {
+    id: agent.id,
+    label: agent.label,
+    command: agent.cmd,
+    iconType: "built-in" as const,
+  };
+}
+
+export type WikiTerminalRun = {
+  command: string;
+  tuiFollowUpPrompt?: string;
+  agentId: AgentId;
+};
+
+export function buildWikiTerminalRun(
+  agentId: AgentId,
+  prompt: string,
+  runConfig?: TerminalAgentRunConfigInput | null,
+): WikiTerminalRun {
+  const plan = buildCommandPlan(agentId, prompt, runConfig, "interactive");
+  return {
+    command: plan.launchCommand,
+    tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
     agentId,
-    launchCommand,
-    prompt,
-    runConfig,
-  });
+  };
 }
 
 interface AgentSelectProps {

@@ -43,9 +43,21 @@ export interface TerminalGridProps {
 export interface TerminalGridHandle {
   addTerminal: (label?: string, agent?: TerminalPaneAgent) => void;
   /** Create a new terminal tab and run command after session is ready */
-  createAndRunTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => Promise<void>;
+  createAndRunTerminal: (options: {
+    label: string;
+    command: string;
+    agent?: TerminalPaneAgent;
+    agentId?: string;
+    tuiFollowUpPrompt?: string;
+  }) => Promise<void>;
   /** Create or focus terminal by label/window name (e.g. "Generate Project Wiki") and run command. Reuses existing pane if found. */
-  createOrFocusAndRunTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => Promise<void>;
+  createOrFocusAndRunTerminal: (options: {
+    label: string;
+    command: string;
+    agent?: TerminalPaneAgent;
+    agentId?: string;
+    tuiFollowUpPrompt?: string;
+  }) => Promise<void>;
   /** Remove terminal pane by tmux window name. Used when killing backend tmux window before replace. */
   removeTerminalByTmuxWindowName: (tmuxWindowName: string) => boolean;
   /** Create a new terminal and pre-fill command text without executing it */

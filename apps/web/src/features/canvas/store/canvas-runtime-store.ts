@@ -3,6 +3,8 @@
 import type { TLShapeId } from "tldraw";
 import { create } from "zustand";
 
+import type { PendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
+
 export interface CanvasUnsupportedInteractionNotice {
   widgetLabel: string | null;
   targetPath: string | null;
@@ -12,10 +14,10 @@ interface CanvasRuntimeState {
   activeShapeId: TLShapeId | null;
   renderedShapeIds: TLShapeId[];
   focusPulseShapeIds: TLShapeId[];
-  pendingTerminalCommands: Record<string, string>;
+  pendingTerminalRuns: Record<string, PendingTerminalRun>;
   unsupportedInteractionNotice: CanvasUnsupportedInteractionNotice | null;
-  consumePendingTerminalCommand: (shapeId: TLShapeId) => string | null;
-  queuePendingTerminalCommand: (shapeId: TLShapeId, command: string) => void;
+  consumePendingTerminalRun: (shapeId: TLShapeId) => PendingTerminalRun | null;
+  queuePendingTerminalRun: (shapeId: TLShapeId, run: PendingTerminalRun) => void;
   setActiveShapeId: (shapeId: TLShapeId | null) => void;
   setRenderedShapeIds: (shapeIds: TLShapeId[]) => void;
   setFocusPulseShapeIds: (shapeIds: TLShapeId[]) => void;
@@ -29,26 +31,26 @@ export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
   activeShapeId: null,
   renderedShapeIds: [],
   focusPulseShapeIds: [],
-  pendingTerminalCommands: {},
+  pendingTerminalRuns: {},
   unsupportedInteractionNotice: null,
-  consumePendingTerminalCommand: (shapeId) => {
-    let command: string | null = null;
+  consumePendingTerminalRun: (shapeId) => {
+    let run: PendingTerminalRun | null = null;
     set((state) => {
-      command = state.pendingTerminalCommands[shapeId] ?? null;
-      if (!command) {
+      run = state.pendingTerminalRuns[shapeId] ?? null;
+      if (!run) {
         return state;
       }
-      const next = { ...state.pendingTerminalCommands };
+      const next = { ...state.pendingTerminalRuns };
       delete next[shapeId];
-      return { pendingTerminalCommands: next };
+      return { pendingTerminalRuns: next };
     });
-    return command;
+    return run;
   },
-  queuePendingTerminalCommand: (shapeId, command) =>
+  queuePendingTerminalRun: (shapeId, run) =>
     set((state) => ({
-      pendingTerminalCommands: {
-        ...state.pendingTerminalCommands,
-        [shapeId]: command,
+      pendingTerminalRuns: {
+        ...state.pendingTerminalRuns,
+        [shapeId]: run,
       },
     })),
   setActiveShapeId: (shapeId) => set({ activeShapeId: shapeId }),
@@ -65,7 +67,7 @@ export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
       activeShapeId: null,
       renderedShapeIds: [],
       focusPulseShapeIds: [],
-      pendingTerminalCommands: {},
+      pendingTerminalRuns: {},
       unsupportedInteractionNotice: null,
     }),
 }));
