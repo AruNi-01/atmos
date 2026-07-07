@@ -49,8 +49,9 @@ export type TunnelConnectorStatusMap = Partial<Record<ProviderKind, TunnelConnec
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useTunnelConnector() {
+export function useTunnelConnector(enabled = true) {
   const isDesktop = useMemo(() => isTauriRuntime(), []);
+  const isActive = isDesktop && enabled;
 
   const [statusMap, setStatusMap] = useState<TunnelConnectorStatusMap>({});
   const [providers, setProviders] = useState<ProviderDiagnostics[]>([]);
@@ -227,13 +228,13 @@ export function useTunnelConnector() {
   );
 
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isActive) return;
     void refreshStatus();
-  }, [isDesktop, refreshStatus]);
+  }, [isActive, refreshStatus]);
 
   // Listen for the startup recovery event emitted by Rust after sidecar is ready.
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isActive) return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
@@ -255,7 +256,7 @@ export function useTunnelConnector() {
       cancelled = true;
       unlisten?.();
     };
-  }, [isDesktop]);
+  }, [isActive]);
 
   return {
     statusMap,

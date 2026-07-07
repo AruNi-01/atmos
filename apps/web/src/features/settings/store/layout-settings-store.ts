@@ -17,9 +17,23 @@ export interface HeaderLayoutPrefs {
   showHeaderSummary: boolean;
   showHeaderSummaryTask: boolean;
   showHeaderSummaryCommit: boolean;
+  showHeaderQuickOpen: boolean;
+  showHeaderGitToolbar: boolean;
+  showHeaderGlobalSearch: boolean;
+  showHeaderRemoteAccess: boolean;
+  showHeaderAppshot: boolean;
 }
 
-interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs {
+export interface RightSidebarLayoutPrefs {
+  rsShowChanges: boolean;
+  rsShowReview: boolean;
+  rsShowBrowser: boolean;
+  rsShowRun: boolean;
+  rsShowPr: boolean;
+  rsShowActions: boolean;
+}
+
+interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, RightSidebarLayoutPrefs {
   projectFilesSide: ProjectFilesSide;
   workspaceSidebarTwoColumn: boolean;
   workspaceSidebarTwoColumnShowPinned: boolean;
@@ -41,6 +55,17 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs {
   setHeaderShowSummary: (value: boolean) => Promise<void>;
   setHeaderShowSummaryTask: (value: boolean) => Promise<void>;
   setHeaderShowSummaryCommit: (value: boolean) => Promise<void>;
+  setHeaderShowQuickOpen: (value: boolean) => Promise<void>;
+  setHeaderShowGitToolbar: (value: boolean) => Promise<void>;
+  setHeaderShowGlobalSearch: (value: boolean) => Promise<void>;
+  setHeaderShowRemoteAccess: (value: boolean) => Promise<void>;
+  setHeaderShowAppshot: (value: boolean) => Promise<void>;
+  setRightSidebarShowChanges: (value: boolean) => Promise<void>;
+  setRightSidebarShowReview: (value: boolean) => Promise<void>;
+  setRightSidebarShowBrowser: (value: boolean) => Promise<void>;
+  setRightSidebarShowRun: (value: boolean) => Promise<void>;
+  setRightSidebarShowPr: (value: boolean) => Promise<void>;
+  setRightSidebarShowActions: (value: boolean) => Promise<void>;
 }
 
 function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
@@ -66,6 +91,22 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
         ? layout.header_summary_show_task
         : legacyTodo !== false,
     showHeaderSummaryCommit: layout?.header_summary_show_commit !== false,
+    showHeaderQuickOpen: layout?.header_show_quick_open !== false,
+    showHeaderGitToolbar: layout?.header_show_git_toolbar !== false,
+    showHeaderGlobalSearch: layout?.header_show_global_search !== false,
+    showHeaderRemoteAccess: layout?.header_show_remote_access !== false,
+    showHeaderAppshot: layout?.header_show_appshot !== false,
+  };
+}
+
+function readRightSidebarLayout(layout: Record<string, unknown> | undefined): RightSidebarLayoutPrefs {
+  return {
+    rsShowChanges: layout?.right_sidebar_show_changes !== false,
+    rsShowReview: layout?.right_sidebar_show_review !== false,
+    rsShowBrowser: layout?.right_sidebar_show_browser !== false,
+    rsShowRun: layout?.right_sidebar_show_run !== false,
+    rsShowPr: layout?.right_sidebar_show_pr !== false,
+    rsShowActions: layout?.right_sidebar_show_actions !== false,
   };
 }
 
@@ -97,6 +138,17 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     showHeaderSummary: true,
     showHeaderSummaryTask: true,
     showHeaderSummaryCommit: true,
+    showHeaderQuickOpen: true,
+    showHeaderGitToolbar: true,
+    showHeaderGlobalSearch: true,
+    showHeaderRemoteAccess: true,
+    showHeaderAppshot: true,
+    rsShowChanges: true,
+    rsShowReview: true,
+    rsShowBrowser: true,
+    rsShowRun: true,
+    rsShowPr: true,
+    rsShowActions: true,
     loaded: false,
 
     loadSettings: async (force = false) => {
@@ -110,6 +162,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
         const side = layout?.project_files_side;
         const footer = readFooterLayout(layout);
         const header = readHeaderLayout(layout);
+        const rightSidebar = readRightSidebarLayout(layout);
         set({
           projectFilesSide: side === 'left' ? 'left' : 'right',
           workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
@@ -119,6 +172,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
           ...footer,
           ...header,
+          ...rightSidebar,
           loaded: true,
         });
       } catch {
@@ -180,5 +234,38 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setHeaderShowSummaryCommit: (value) =>
       updateLayoutSetting({ showHeaderSummaryCommit: value }, 'header_summary_show_commit', value),
+
+    setHeaderShowQuickOpen: (value) =>
+      updateLayoutSetting({ showHeaderQuickOpen: value }, 'header_show_quick_open', value),
+
+    setHeaderShowGitToolbar: (value) =>
+      updateLayoutSetting({ showHeaderGitToolbar: value }, 'header_show_git_toolbar', value),
+
+    setHeaderShowGlobalSearch: (value) =>
+      updateLayoutSetting({ showHeaderGlobalSearch: value }, 'header_show_global_search', value),
+
+    setHeaderShowRemoteAccess: (value) =>
+      updateLayoutSetting({ showHeaderRemoteAccess: value }, 'header_show_remote_access', value),
+
+    setHeaderShowAppshot: (value) =>
+      updateLayoutSetting({ showHeaderAppshot: value }, 'header_show_appshot', value),
+
+    setRightSidebarShowChanges: (value) =>
+      updateLayoutSetting({ rsShowChanges: value }, 'right_sidebar_show_changes', value),
+
+    setRightSidebarShowReview: (value) =>
+      updateLayoutSetting({ rsShowReview: value }, 'right_sidebar_show_review', value),
+
+    setRightSidebarShowBrowser: (value) =>
+      updateLayoutSetting({ rsShowBrowser: value }, 'right_sidebar_show_browser', value),
+
+    setRightSidebarShowRun: (value) =>
+      updateLayoutSetting({ rsShowRun: value }, 'right_sidebar_show_run', value),
+
+    setRightSidebarShowPr: (value) =>
+      updateLayoutSetting({ rsShowPr: value }, 'right_sidebar_show_pr', value),
+
+    setRightSidebarShowActions: (value) =>
+      updateLayoutSetting({ rsShowActions: value }, 'right_sidebar_show_actions', value),
   };
 });

@@ -662,6 +662,9 @@ export function HeaderActionControls({
 }: HeaderActionControlsProps) {
   const t = useTranslations("header");
   const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
+  const showGlobalSearch = useLayoutSettingsStore((state) => state.showHeaderGlobalSearch);
+  const showRemoteAccess = useLayoutSettingsStore((state) => state.showHeaderRemoteAccess);
+  const showAppshot = useLayoutSettingsStore((state) => state.showHeaderAppshot);
   const loadLayoutSettings = useLayoutSettingsStore((state) => state.loadSettings);
   const { locale, setLocale } = useWorkbenchLocale();
   const currentLocaleLabel = locale === "zh" ? t("localeChinese") : t("localeEnglish");
@@ -679,20 +682,22 @@ export function HeaderActionControls({
 
   return (
     <div className="relative z-10 flex items-center space-x-3 justify-end">
-      {isDesktopRuntime ? <AppshotCapturePreview /> : null}
+      {isDesktopRuntime && showAppshot ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
-      <button
-        aria-label={t("searchAria")}
-        className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
-        onClick={() => setGlobalSearchOpen(true)}
-      >
-        <Search className="size-3.5" />
-        <span className="flex-1 text-left">{t("searchPlaceholder")}</span>
-        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-          <Command className="size-3" />
-          <span className="text-xs">K</span>
-        </kbd>
-      </button>
+      {showGlobalSearch ? (
+        <button
+          aria-label={t("searchAria")}
+          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
+          onClick={() => setGlobalSearchOpen(true)}
+        >
+          <Search className="size-3.5" />
+          <span className="flex-1 text-left">{t("searchPlaceholder")}</span>
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+            <Command className="size-3" />
+            <span className="text-xs">K</span>
+          </kbd>
+        </button>
+      ) : null}
       {showHeaderSummary ? (
         <HeaderWorkspaceSummaryButton
           contextId={headerContextId}
@@ -706,56 +711,56 @@ export function HeaderActionControls({
       ) : null}
 
       <div className="desktop-no-drag flex items-center justify-end gap-2">
-        {isDesktopRuntime ? (
-          <>
-            <AppshotsHeaderButton onCloseAutoFocus={onCloseAutoFocusPrevent} />
-            <Popover
-              open={desktopWebPopoverOpen}
-              onOpenChange={(open) => {
-                setDesktopWebPopoverOpen(open);
-                if (open) {
-                  void refreshDesktopWebStatus();
-                  void refreshTunnelConnectorStatus();
-                }
-              }}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  aria-label={t("menu.openInWeb")}
-                  className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                  title={t("menu.remoteAccess")}
-                >
-                  <Globe className="size-4" />
-                  {isTunnelConnectorRunning && (
-                    <span
-                      className={cn(
-                        "absolute right-1 top-1 size-2 rounded-full ring-1 ring-background",
-                        tunnelConnectorDotColor,
-                      )}
-                    />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                sideOffset={8}
-                className="w-[420px] max-w-[calc(100vw-24px)] max-h-[76vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
+        {isDesktopRuntime && showAppshot ? (
+          <AppshotsHeaderButton onCloseAutoFocus={onCloseAutoFocusPrevent} />
+        ) : null}
+        {isDesktopRuntime && showRemoteAccess ? (
+          <Popover
+            open={desktopWebPopoverOpen}
+            onOpenChange={(open) => {
+              setDesktopWebPopoverOpen(open);
+              if (open) {
+                void refreshDesktopWebStatus();
+                void refreshTunnelConnectorStatus();
+              }
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                aria-label={t("menu.openInWeb")}
+                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                title={t("menu.remoteAccess")}
               >
-                <RemoteAccessPopover
-                  activeTunnelConnectors={activeTunnelConnectors}
-                  browserUrl={browserUrl}
-                  desktopWebStatus={desktopWebStatus}
-                  isOpeningDesktopWeb={isOpeningDesktopWeb}
-                  isTunnelConnectorRunning={isTunnelConnectorRunning}
-                  onOpenDesktopWeb={onOpenDesktopWeb}
-                  renewTunnelConnector={renewTunnelConnector}
-                  setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
-                  setIsSettingsOpen={setIsSettingsOpen}
-                  setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
-                />
-              </PopoverContent>
-            </Popover>
-          </>
+                <Globe className="size-4" />
+                {isTunnelConnectorRunning && (
+                  <span
+                    className={cn(
+                      "absolute right-1 top-1 size-2 rounded-full ring-1 ring-background",
+                      tunnelConnectorDotColor,
+                    )}
+                  />
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={8}
+              className="w-[420px] max-w-[calc(100vw-24px)] max-h-[76vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
+            >
+              <RemoteAccessPopover
+                activeTunnelConnectors={activeTunnelConnectors}
+                browserUrl={browserUrl}
+                desktopWebStatus={desktopWebStatus}
+                isOpeningDesktopWeb={isOpeningDesktopWeb}
+                isTunnelConnectorRunning={isTunnelConnectorRunning}
+                onOpenDesktopWeb={onOpenDesktopWeb}
+                renewTunnelConnector={renewTunnelConnector}
+                setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
+                setIsSettingsOpen={setIsSettingsOpen}
+                setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
+              />
+            </PopoverContent>
+          </Popover>
         ) : null}
 
         <Tooltip>
