@@ -21,6 +21,7 @@ import {
   DEFAULT_LEFT_SIDEBAR_SIZE,
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
+import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
 
 const DEFAULT_RIGHT_SIDEBAR_SIZE = 20;
 
@@ -50,6 +51,8 @@ export function PanelLayout({
     setIsLeftCollapsed,
     setIsRightCollapsed,
     setLeftSidebarSize,
+    setLiveLeftSidebarSize,
+    setIsLeftSidebarDragging,
     setRequestedLeftSidebarSize,
     setShowRightSidebar,
     setToggleLeftSidebar,
@@ -188,6 +191,7 @@ export function PanelLayout({
       });
       isDividerDraggingRef.current = dragging;
       setIsDragging(dragging);
+      setIsLeftSidebarDragging(dragging);
       if (!dragging) {
         const pending = pendingLeftSidebarSizeRef.current;
         if (pending != null) {
@@ -196,7 +200,7 @@ export function PanelLayout({
         }
       }
     },
-    [setLeftSidebarSize],
+    [setLeftSidebarSize, setIsLeftSidebarDragging],
   );
 
   const handleLeftPanelResize = useCallback(
@@ -207,6 +211,7 @@ export function PanelLayout({
       });
       if (size > 0.5) {
         setLeftOverlaySize(size);
+        setLiveLeftSidebarSize(size);
       }
       if (isDividerDraggingRef.current) {
         pendingLeftSidebarSizeRef.current = size;
@@ -214,7 +219,7 @@ export function PanelLayout({
       }
       setLeftSidebarSize(size);
     },
-    [setLeftSidebarSize],
+    [setLeftSidebarSize, setLiveLeftSidebarSize],
   );
 
   const handleRootLayout = useCallback(
@@ -231,6 +236,7 @@ export function PanelLayout({
 
       if (nextLeftSize > 0.5) {
         setLeftOverlaySize(nextLeftSize);
+        setLiveLeftSidebarSize(nextLeftSize);
       }
       const nextRightSize = layout[2];
       if (typeof nextRightSize === "number" && Number.isFinite(nextRightSize) && nextRightSize > 0.5) {
@@ -242,7 +248,7 @@ export function PanelLayout({
       }
       setLeftSidebarSize(nextLeftSize);
     },
-    [setLeftSidebarSize],
+    [setLeftSidebarSize, setLiveLeftSidebarSize],
   );
 
   const handleRightPanelResize = useCallback((size: number) => {
@@ -277,6 +283,7 @@ export function PanelLayout({
         });
         setIsLeftCollapsed(true);
         setLeftSidebarSize(0);
+        setLiveLeftSidebarSize(0);
       }}
       onExpand={() => {
         logSidebarLayout("ROOT_LEFT_EXPAND", "Root left panel expanded", {
@@ -367,6 +374,8 @@ export function PanelLayout({
           </>
         ) : null}
       </PanelGroup>
+
+      <NewWorkspaceWelcomeOverlay />
     </div>
   );
 }
