@@ -248,8 +248,8 @@ export default function ChangelogPage() {
       <section className="relative border-t">
         <div className="pointer-events-none absolute inset-0 z-40 hidden xl:block">
           <div className="mx-auto h-full w-full max-w-6xl">
-            <div className="sticky top-40 flex justify-end">
-              <aside className="pointer-events-auto relative mt-10 translate-x-[calc(100%+0.75rem)]">
+            <div className="sticky top-8 flex justify-end">
+              <aside className="pointer-events-auto relative mt-0">
                 <ScrollToc
                   items={changelogData.map((item) => ({
                     id: item.version ? `v${item.version}` : item.id,
@@ -269,9 +269,9 @@ export default function ChangelogPage() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-6xl min-[1158px]:border-x">
+        <div className="mx-auto w-full max-w-6xl">
           <div className="px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-            <div className="mx-auto min-w-0 max-w-4xl pr-2">
+            <div className="mx-auto min-w-0 max-w-4xl pr-2 xl:ml-0 xl:max-w-3xl">
               <div className="relative">
                 {changelogData.map((item, itemIndex) => {
               const date = new Date(item.date);
