@@ -1,39 +1,64 @@
 'use client';
 
+import React from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  Switch,
 } from '@workspace/ui';
-import { ChevronDown, GitCommit, ListTodo, PanelTop } from 'lucide-react';
+import {
+  ChevronDown,
+  Command,
+  GitBranch,
+  GitCommit,
+  Globe,
+  ListTodo,
+  PanelTop,
+  Search,
+  SquareDashedMousePointer,
+} from 'lucide-react';
+import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 interface HeaderLayoutSettingsSectionProps {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
-  showHeaderSummary: boolean;
-  showHeaderSummaryTask: boolean;
-  showHeaderSummaryCommit: boolean;
-  setHeaderShowSummary: (value: boolean) => Promise<void>;
-  setHeaderShowSummaryTask: (value: boolean) => Promise<void>;
-  setHeaderShowSummaryCommit: (value: boolean) => Promise<void>;
 }
 
 export function HeaderLayoutSettingsSection({
   expanded,
   onExpandedChange,
-  showHeaderSummary,
-  showHeaderSummaryTask,
-  showHeaderSummaryCommit,
-  setHeaderShowSummary,
-  setHeaderShowSummaryTask,
-  setHeaderShowSummaryCommit,
 }: HeaderLayoutSettingsSectionProps) {
   const t = useTranslations('settings.headerLayoutSection');
+  const isDesktop = React.useMemo(() => isTauriRuntime(), []);
+
+  const {
+    showHeaderQuickOpen,
+    showHeaderGitToolbar,
+    showHeaderGlobalSearch,
+    showHeaderSummary,
+    showHeaderSummaryTask,
+    showHeaderSummaryCommit,
+    showHeaderRemoteAccess,
+    showHeaderAppshot,
+    setHeaderShowQuickOpen,
+    setHeaderShowGitToolbar,
+    setHeaderShowGlobalSearch,
+    setHeaderShowSummary,
+    setHeaderShowSummaryTask,
+    setHeaderShowSummaryCommit,
+    setHeaderShowRemoteAccess,
+    setHeaderShowAppshot,
+  } = useLayoutSettingsStore();
+
   const enabledCount =
-    Number(showHeaderSummaryTask) +
-    Number(showHeaderSummaryCommit);
+    Number(showHeaderQuickOpen) +
+    Number(showHeaderGitToolbar) +
+    Number(showHeaderGlobalSearch) +
+    Number(showHeaderSummary) +
+    (isDesktop ? Number(showHeaderRemoteAccess) + Number(showHeaderAppshot) : 0);
 
   return (
     <Collapsible
@@ -57,68 +82,74 @@ export function HeaderLayoutSettingsSection({
           </div>
         </CollapsibleTrigger>
         <div className="pt-1 text-xs text-muted-foreground">
-          {showHeaderSummary ? t('enabledCount', { count: enabledCount }) : t('hidden')}
+          {enabledCount > 0 ? t('enabledCount', { count: enabledCount }) : t('hidden')}
         </div>
       </div>
 
       <CollapsibleContent>
         <div className="border-t border-border px-4">
-          <div className="border-b border-border px-2 py-4 last:border-b-0">
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-              <div>
-                <p className="text-sm font-medium text-foreground">{t('summaryButtonTitle')}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t('summaryButtonDescription')}
-                </p>
-              </div>
-              <div className="flex items-center justify-end">
-                <Switch
-                  checked={showHeaderSummary}
-                  onCheckedChange={(checked) => void setHeaderShowSummary(!!checked)}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="border-b border-border px-2 py-4 last:border-b-0">
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-              <div className="flex gap-3">
-                <ListTodo className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t('taskTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('taskDescription')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end">
-                <Switch
-                  checked={showHeaderSummaryTask}
-                  disabled={!showHeaderSummary}
-                  onCheckedChange={(checked) => void setHeaderShowSummaryTask(!!checked)}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="px-2 py-4">
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-              <div className="flex gap-3">
-                <GitCommit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t('commitTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('commitDescription')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-end">
-                <Switch
-                  checked={showHeaderSummaryCommit}
-                  disabled={!showHeaderSummary}
-                  onCheckedChange={(checked) => void setHeaderShowSummaryCommit(!!checked)}
-                />
-              </div>
-            </div>
-          </div>
+          <SettingsToggleRow
+            icon={<Command className="size-4" />}
+            title={t('quickOpenTitle')}
+            description={t('quickOpenDescription')}
+            checked={showHeaderQuickOpen}
+            onCheckedChange={(value) => void setHeaderShowQuickOpen(value)}
+          />
+          <SettingsToggleRow
+            icon={<GitBranch className="size-4" />}
+            title={t('gitToolbarTitle')}
+            description={t('gitToolbarDescription')}
+            checked={showHeaderGitToolbar}
+            onCheckedChange={(value) => void setHeaderShowGitToolbar(value)}
+          />
+          <SettingsToggleRow
+            icon={<Search className="size-4" />}
+            title={t('globalSearchTitle')}
+            description={t('globalSearchDescription')}
+            checked={showHeaderGlobalSearch}
+            onCheckedChange={(value) => void setHeaderShowGlobalSearch(value)}
+          />
+          <SettingsToggleRow
+            icon={<PanelTop className="size-4" />}
+            title={t('summaryButtonTitle')}
+            description={t('summaryButtonDescription')}
+            checked={showHeaderSummary}
+            onCheckedChange={(value) => void setHeaderShowSummary(value)}
+          />
+          <SettingsToggleRow
+            icon={<ListTodo className="size-4" />}
+            title={t('taskTitle')}
+            description={t('taskDescription')}
+            checked={showHeaderSummaryTask}
+            disabled={!showHeaderSummary}
+            onCheckedChange={(value) => void setHeaderShowSummaryTask(value)}
+          />
+          <SettingsToggleRow
+            icon={<GitCommit className="size-4" />}
+            title={t('commitTitle')}
+            description={t('commitDescription')}
+            checked={showHeaderSummaryCommit}
+            disabled={!showHeaderSummary}
+            onCheckedChange={(value) => void setHeaderShowSummaryCommit(value)}
+          />
+          {isDesktop ? (
+            <>
+              <SettingsToggleRow
+                icon={<Globe className="size-4" />}
+                title={t('remoteAccessTitle')}
+                description={t('remoteAccessDescription')}
+                checked={showHeaderRemoteAccess}
+                onCheckedChange={(value) => void setHeaderShowRemoteAccess(value)}
+              />
+              <SettingsToggleRow
+                icon={<SquareDashedMousePointer className="size-4" />}
+                title={t('appshotTitle')}
+                description={t('appshotDescription')}
+                checked={showHeaderAppshot}
+                onCheckedChange={(value) => void setHeaderShowAppshot(value)}
+              />
+            </>
+          ) : null}
         </div>
       </CollapsibleContent>
     </Collapsible>

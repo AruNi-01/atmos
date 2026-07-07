@@ -16,6 +16,7 @@ import { useExperimentSettingsStore } from '@/features/settings/store/experiment
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { HeaderLayoutSettingsSection } from '@/features/settings/components/HeaderLayoutSettingsSection';
+import { RightSidebarLayoutSettingsSection } from '@/features/settings/components/RightSidebarLayoutSettingsSection';
 
 export function LayoutSettingsSection() {
   const t = useTranslations('settings.layoutSection');
@@ -30,9 +31,6 @@ export function LayoutSettingsSection() {
     showLocalServices,
     showUsageCarousel,
     showAgentStatus,
-    showHeaderSummary,
-    showHeaderSummaryTask,
-    showHeaderSummaryCommit,
     loadSettings,
     setProjectFilesSide,
     setWorkspaceSidebarTwoColumn,
@@ -44,15 +42,13 @@ export function LayoutSettingsSection() {
     setFooterShowLocalServices,
     setFooterShowUsageCarousel,
     setFooterShowAgentStatus,
-    setHeaderShowSummary,
-    setHeaderShowSummaryTask,
-    setHeaderShowSummaryCommit,
   } = useLayoutSettingsStore();
   const managementAgentsEnabled = useExperimentSettingsStore((state) => state.managementAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((state) => state.loadSettings);
   const [, setActiveSettingTab] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(false);
   const [headerLayoutExpanded, setHeaderLayoutExpanded] = React.useState(false);
+  const [rightSidebarLayoutExpanded, setRightSidebarLayoutExpanded] = React.useState(false);
   const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);
   const isAnyTwoColumnEnabled =
     workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
@@ -223,12 +219,11 @@ export function LayoutSettingsSection() {
       <HeaderLayoutSettingsSection
         expanded={headerLayoutExpanded}
         onExpandedChange={setHeaderLayoutExpanded}
-        showHeaderSummary={showHeaderSummary}
-        showHeaderSummaryTask={showHeaderSummaryTask}
-        showHeaderSummaryCommit={showHeaderSummaryCommit}
-        setHeaderShowSummary={setHeaderShowSummary}
-        setHeaderShowSummaryTask={setHeaderShowSummaryTask}
-        setHeaderShowSummaryCommit={setHeaderShowSummaryCommit}
+      />
+
+      <RightSidebarLayoutSettingsSection
+        expanded={rightSidebarLayoutExpanded}
+        onExpandedChange={setRightSidebarLayoutExpanded}
       />
 
       <Collapsible

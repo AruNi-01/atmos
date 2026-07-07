@@ -165,14 +165,37 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const projects = useProjectStore((s) => s.projects);
   // Layout settings
   const projectFilesSide = useLayoutSettingsStore((s) => s.projectFilesSide);
+  const rsShowChanges = useLayoutSettingsStore((s) => s.rsShowChanges);
+  const rsShowReview = useLayoutSettingsStore((s) => s.rsShowReview);
+  const rsShowBrowser = useLayoutSettingsStore((s) => s.rsShowBrowser);
+  const rsShowRun = useLayoutSettingsStore((s) => s.rsShowRun);
+  const rsShowPr = useLayoutSettingsStore((s) => s.rsShowPr);
+  const rsShowActions = useLayoutSettingsStore((s) => s.rsShowActions);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
+  const tabVisibility = useMemo<Record<RightSidebarTab, boolean>>(
+    () => ({
+      changes: rsShowChanges,
+      review: rsShowReview,
+      browser: rsShowBrowser,
+      run: rsShowRun,
+      pr: rsShowPr,
+      actions: rsShowActions,
+      files: true, // controlled separately by projectFilesSide
+    }),
+    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowPr, rsShowActions],
+  );
   const topTabs = useMemo(() => {
-    if (!showFilesTab) return BASE_TABS;
-    const idx = BASE_TABS.findIndex((t) => t.value === "run");
-    return [...BASE_TABS.slice(0, idx + 1), FILES_TAB, ...BASE_TABS.slice(idx + 1)];
-  }, [showFilesTab]);
+    // Insert FILES_TAB into the canonical order first, then filter by
+    // visibility. This keeps Files in its slot (right after Run's position)
+    // even when Run itself is hidden.
+    const runIdx = BASE_TABS.findIndex((t) => t.value === "run");
+    const ordered = showFilesTab
+      ? [...BASE_TABS.slice(0, runIdx + 1), FILES_TAB, ...BASE_TABS.slice(runIdx + 1)]
+      : BASE_TABS;
+    return ordered.filter((tab) => tabVisibility[tab.value]);
+  }, [showFilesTab, tabVisibility]);
 
   const currentProject = useMemo(
     () =>
@@ -228,6 +251,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const [{ rsTab: activeTab }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
+
+  // If the active tab has been hidden via layout settings, fall back to the
+  // first visible tab so the sidebar never shows an empty pane.
+  useEffect(() => {
+    const visibleValues = topTabs.map((tab) => tab.value);
+    if (visibleValues.length === 0) return;
+    if (!activeTab || !visibleValues.includes(activeTab)) {
+      void setSidebarParams({ rsTab: visibleValues[0] });
+    }
+  }, [activeTab, topTabs, setSidebarParams]);
   const [{ tab: activeCenterTab, wikiPage: activeWikiPage }] =
     useQueryStates(centerStageParams);
   const [
@@ -483,6 +516,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           )}
 
           {/* Changes tab content */}
+          {rsShowChanges && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -691,8 +725,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               renderNoContextMessage
             )}
           </div>
+          )}
 
           {/* PR tab content */}
+          {rsShowPr && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -767,8 +803,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               renderNoContextMessage
             )}
           </div>
+          )}
 
           {/* Actions tab content */}
+          {rsShowActions && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -802,8 +840,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               renderNoContextMessage
             )}
           </div>
+          )}
 
           {/* Review tab content */}
+          {rsShowReview && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -827,8 +867,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               renderNoContextMessage
             )}
           </div>
+          )}
 
           {/* Browser tab content */}
+          {rsShowBrowser && (
           <div
             className={cn(
               "flex-1 min-h-0",
@@ -841,8 +883,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               isActive={activeTab === "browser"}
             />
           </div>
+          )}
 
           {/* Run tab content */}
+          {rsShowRun && (
           <div
             className={cn(
               "flex-1 min-h-0",
@@ -857,6 +901,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               workspaceName={currentWorkspace?.name}
             />
           </div>
+          )}
         </Tabs>
 
         <RightSidebarDialogs
