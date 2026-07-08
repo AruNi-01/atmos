@@ -4698,6 +4698,16 @@
         "title": "Side chat 上下文预算",
         "description": "/side Agent prompt 中最多注入的终端上下文字节数。服务端仍会将请求限制在 {min} 到 {max} bytes 之间。",
         "bytes": "bytes"
+      },
+      "cacheWorkspaces": {
+        "title": "最大缓存上下文",
+        "description": "设置在内存中保持活跃状态的最大 Project/Workspace 数量。较多的缓存数量会占用更多内存，但可以加快切换速度。",
+        "contexts": "个"
+      },
+      "cachePanels": {
+        "title": "每个上下文最大缓存终端面板数",
+        "description": "限制单个缓存上下文中保留的终端面板数量。如果超过此限制，该上下文将被移出缓存。",
+        "panels": "个面板"
       }
     },
     "headerLayoutSection": {

@@ -12,9 +12,12 @@ interface TerminalCacheStore {
   cachedContexts: CachedContext[];
   activeContextId: string | null;
   maxSize: number;
-  maxTerminalCount: number;
+  maxTerminalPanelsPerWorkspace: number;
   ttlMs: number;
   
+  loadSettings: () => Promise<void>;
+  setMaxSize: (maxSize: number) => Promise<void>;
+  setMaxTerminalPanelsPerWorkspace: (max: number) => Promise<void>;
   touch: (contextId: string) => void;
   setActiveContextId: (contextId: string | null) => void;
   remove: (contextId: string) => void;
@@ -25,9 +28,34 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
   return {
     cachedContexts: [],
     activeContextId: null,
-    maxSize: 5,
-    maxTerminalCount: 15,
+    maxSize: 10,
+    maxTerminalPanelsPerWorkspace: 15,
     ttlMs: 60 * 60 * 1000, // 1 hour
+
+    loadSettings: async () => {
+      try {
+        const { useFunctionSettingsStore } = await import("@/features/settings/store/function-settings-store");
+        const settings = await useFunctionSettingsStore.getState().load();
+        set((state) => ({
+          maxSize: settings.terminal?.max_cached_workspaces ?? state.maxSize,
+          maxTerminalPanelsPerWorkspace: settings.terminal?.max_cached_terminal_panels_per_workspace ?? state.maxTerminalPanelsPerWorkspace,
+        }));
+      } catch {
+        // ignore
+      }
+    },
+
+    setMaxSize: async (maxSize: number) => {
+      set({ maxSize });
+      const { functionSettingsApi } = await import("@/api/ws-api");
+      await functionSettingsApi.update("terminal", "max_cached_workspaces", maxSize);
+    },
+
+    setMaxTerminalPanelsPerWorkspace: async (max: number) => {
+      set({ maxTerminalPanelsPerWorkspace: max });
+      const { functionSettingsApi } = await import("@/api/ws-api");
+      await functionSettingsApi.update("terminal", "max_cached_terminal_panels_per_workspace", max);
+    },
 
     setActiveContextId: (contextId) => {
       set((state) => {
@@ -56,40 +84,52 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
           nextCached.push({ contextId, lastAccessed: now });
         }
 
-        // Evict if over maxSize or over maxTerminalCount
-        while (nextCached.length > 0) {
-          if (nextCached.length > state.maxSize) {
-            const evicted = nextCached.shift(); // The oldest is at the beginning
-            if (evicted && evicted.contextId !== state.activeContextId) {
-              setTimeout(() => {
-                useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
-              }, 0);
+        // Evict if over maxSize or if ANY context violates the maxTerminalPanelsPerWorkspace limit
+        const nextCachedFiltered: typeof nextCached = [];
+        const evictedList: string[] = [];
+
+        const terminalStoreState = useTerminalStore.getState();
+
+        // 1. Check maxTerminalPanelsPerWorkspace for each context
+        for (const cacheItem of nextCached) {
+          const tabs = terminalStoreState.workspaceTerminalTabs[cacheItem.contextId];
+          let totalPanelsInContext = 0;
+          if (tabs) {
+            for (const tab of tabs) {
+              const panes = terminalStoreState.getPanes(cacheItem.contextId, tab.id);
+              totalPanelsInContext += Object.keys(panes).length;
             }
-            continue;
+          } else {
+            totalPanelsInContext = 1;
           }
 
-          // Check terminal count
-          const terminalStoreState = useTerminalStore.getState();
-          let currentTotalTerminals = 0;
-          for (const cacheItem of nextCached) {
-            const tabs = terminalStoreState.workspaceTerminalTabs[cacheItem.contextId];
-            currentTotalTerminals += tabs ? tabs.length : 1;
+          if (totalPanelsInContext > state.maxTerminalPanelsPerWorkspace) {
+            evictedList.push(cacheItem.contextId);
+          } else {
+            nextCachedFiltered.push(cacheItem);
           }
-
-          if (currentTotalTerminals > state.maxTerminalCount) {
-            const evicted = nextCached.shift();
-            if (evicted && evicted.contextId !== state.activeContextId) {
-              setTimeout(() => {
-                useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
-              }, 0);
-            }
-            continue;
-          }
-
-          break;
         }
 
-        return { cachedContexts: nextCached };
+        // 2. Enforce maxSize (LRU - oldest at the beginning of the array)
+        while (nextCachedFiltered.length > state.maxSize) {
+          const evicted = nextCachedFiltered.shift();
+          if (evicted) {
+            evictedList.push(evicted.contextId);
+          }
+        }
+
+        if (evictedList.length > 0) {
+          setTimeout(() => {
+            const evictRuntime = useTerminalStore.getState().evictWorkspaceRuntime;
+            for (const id of evictedList) {
+              if (id !== state.activeContextId) {
+                evictRuntime(id);
+              }
+            }
+          }, 0);
+        }
+
+        return { cachedContexts: nextCachedFiltered };
       });
     },
 
@@ -133,3 +173,4 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
     },
   };
 });
+if (typeof window !== 'undefined') { useTerminalCacheStore.getState().loadSettings(); }
