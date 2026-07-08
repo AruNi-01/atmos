@@ -145,6 +145,7 @@ export function useTerminalTabMountLifecycle({
     setMountedTerminalTabsByContext((current) => {
       const activeIds = new Set([
         effectiveContextId,
+        previousTerminalContextRef.current,
         ...cachedContexts.map((c) => c.contextId),
       ]);
       let changed = false;
