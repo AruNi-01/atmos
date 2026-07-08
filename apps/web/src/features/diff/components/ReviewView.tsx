@@ -77,6 +77,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
     currentRevision,
     canEdit,
     comments,
+    isLoading,
     isCreating,
     handleCreateSession,
     handleToggleReviewed,
@@ -190,6 +191,14 @@ const ReviewView: React.FC<ReviewViewProps> = ({
     return (
       <div className="p-3 text-xs text-muted-foreground">
         {t("empty.noContext")}
+      </div>
+    );
+  }
+
+  if (isLoading && !currentSession) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Loader2 className="size-6 animate-spin text-muted-foreground/85" />
       </div>
     );
   }

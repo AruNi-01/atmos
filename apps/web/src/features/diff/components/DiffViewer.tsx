@@ -103,6 +103,7 @@ export const DiffViewer = ({
     replyToComment: reviewCtx.handleReplyToComment,
     updateMessage: reviewCtx.handleUpdateMessage,
     deleteMessage: reviewCtx.handleDeleteMessage,
+    handleCreateComment: reviewCtx.handleCreateComment,
   }), [
     reviewCtx.currentSession,
     reviewCtx.currentRevision,
@@ -112,6 +113,7 @@ export const DiffViewer = ({
     reviewCtx.handleReplyToComment,
     reviewCtx.handleUpdateMessage,
     reviewCtx.handleDeleteMessage,
+    reviewCtx.handleCreateComment,
   ]);
 
   const {
@@ -606,7 +608,7 @@ export const DiffViewer = ({
 
     setIsSubmittingInlineComment(true);
     try {
-      await reviewWsApi.createComment({
+      const createPromise = reviewContext.handleCreateComment({
         sessionGuid: reviewContext.session.guid,
         revisionGuid: reviewContext.revision.guid,
         fileSnapshotGuid: reviewContext.file.snapshot.guid,
@@ -624,8 +626,11 @@ export const DiffViewer = ({
         },
         body,
       });
+
       setInlineCommentBody('');
       setInlineCommentDraft(null);
+
+      await createPromise;
     } catch (error) {
       toastManager.add({
         title: reviewT('errors.createCommentTitle'),
@@ -636,7 +641,7 @@ export const DiffViewer = ({
     } finally {
       setIsSubmittingInlineComment(false);
     }
-  }, [filePath, inlineCommentBody, inlineCommentDraft, reviewContext.file, reviewContext.revision, reviewContext.session, reviewT]);
+  }, [filePath, inlineCommentBody, inlineCommentDraft, reviewContext.file, reviewContext.revision, reviewContext.session, reviewContext.handleCreateComment, reviewT]);
 
   const handleToggleReviewed = useCallback(async (reviewed: boolean) => {
     if (!reviewContext.file) return;

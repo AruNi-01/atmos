@@ -406,7 +406,7 @@ function AtmosComputerPopoverContent({
           onClick={() => void refreshComputers()}
           className="h-7 cursor-pointer px-2 text-xs"
         >
-          <RotateCw className={cn("mr-1.5 size-3.5", isRefreshing && "animate-spin")} />
+          <RotateCw className={cn("mr-1.5 size-3.5", isRefreshing && "animate-spin-reverse")} />
           {t("remoteAccess.refresh")}
         </Button>
       </div>

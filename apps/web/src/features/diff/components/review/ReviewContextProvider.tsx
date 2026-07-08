@@ -58,6 +58,7 @@ export const ReviewContextProvider: React.FC<ReviewContextProviderProps> = ({
     ctx.terminalAgentRunConfigs,
     ctx.terminalAgentRunConfig,
     ctx.handleCreateSession,
+    ctx.handleCreateComment,
     ctx.setTerminalAgentRunConfig,
     ctx.handleCloseSession,
     ctx.handleArchiveSession,

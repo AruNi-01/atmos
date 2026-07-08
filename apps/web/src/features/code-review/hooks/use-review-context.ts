@@ -12,6 +12,7 @@ import {
   type ReviewSessionDto,
   type ReviewCommentDto,
   type ReviewTarget,
+  type ReviewAnchor,
 } from "@/api/ws-api";
 import { buildCommand, type AgentId } from "@/features/wiki/components/AgentSelect";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -287,7 +288,21 @@ export function useReviewContext({
         sessionGuid: currentSession.guid,
         revisionGuid: currentRevision?.guid ?? null,
       });
-      setComments(nextComments);
+      setComments((prev) => {
+        const optimistic = prev.filter((c) => c.guid.startsWith("opt-"));
+        const filteredOptimistic = optimistic.filter((opt) => {
+          const isSaved = nextComments.some(
+            (c) =>
+              c.file_snapshot_guid === opt.file_snapshot_guid &&
+              c.anchor_start_line === opt.anchor_start_line &&
+              c.anchor_end_line === opt.anchor_end_line &&
+              c.anchor_side === opt.anchor_side &&
+              c.messages[0]?.body === opt.messages[0]?.body
+          );
+          return !isSaved;
+        });
+        return [...nextComments, ...filteredOptimistic];
+      });
     } catch (error) {
       console.error("Failed to load review comments", error);
     }
@@ -529,6 +544,72 @@ export function useReviewContext({
       }
     },
     [loadSessions, loadComments, t],
+  );
+
+  const handleCreateComment = useCallback(
+    async (data: {
+      sessionGuid: string;
+      revisionGuid: string;
+      fileSnapshotGuid: string;
+      anchor: ReviewAnchor;
+      body: string;
+      title?: string | null;
+      createdBy?: string | null;
+      parentCommentGuid?: string | null;
+    }) => {
+      const tempGuid = `opt-${Math.random().toString(36).substring(2, 11)}`;
+      const optComment: ReviewCommentDto = {
+        guid: tempGuid,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_deleted: false,
+        session_guid: data.sessionGuid,
+        revision_guid: data.revisionGuid,
+        file_snapshot_guid: data.fileSnapshotGuid,
+        anchor_side: data.anchor.side,
+        anchor_start_line: data.anchor.start_line,
+        anchor_end_line: data.anchor.end_line,
+        anchor_line_range_kind: data.anchor.line_range_kind,
+        anchor_json: JSON.stringify(data.anchor),
+        status: "open",
+        parent_comment_guid: data.parentCommentGuid ?? null,
+        title: data.title ?? null,
+        created_by: data.createdBy ?? "user",
+        fixed_at: null,
+        anchor: data.anchor,
+        messages: [
+          {
+            guid: `opt-msg-${Math.random().toString(36).substring(2, 11)}`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_deleted: false,
+            comment_guid: tempGuid,
+            author_type: "user",
+            kind: "reply",
+            body_storage_kind: "inline",
+            body: data.body,
+            body_full: data.body,
+            body_rel_path: null,
+            agent_run_guid: null,
+          },
+        ],
+      };
+
+      setComments((prev) => [...prev, optComment]);
+
+      try {
+        const realComment = await reviewWsApi.createComment(data);
+        setComments((prev) =>
+          prev.map((c) => (c.guid === tempGuid ? realComment : c)),
+        );
+        void loadSessions();
+        return realComment;
+      } catch (error) {
+        setComments((prev) => prev.filter((c) => c.guid !== tempGuid));
+        throw error;
+      }
+    },
+    [loadSessions],
   );
 
   const handleReplyToComment = useCallback(
@@ -962,6 +1043,7 @@ export function useReviewContext({
     // Handlers
     loadSessions,
     loadComments,
+    handleCreateComment,
     handleCreateSession,
     handleCloseSession,
     handleArchiveSession,

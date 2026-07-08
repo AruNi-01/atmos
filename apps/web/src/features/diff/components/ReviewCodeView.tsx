@@ -517,7 +517,7 @@ export function ReviewCodeView({
 
     setIsSubmittingInlineComment(true);
     try {
-      await reviewWsApi.createComment({
+      const createPromise = reviewCtx.handleCreateComment({
         sessionGuid: reviewCtx.currentSession.guid,
         revisionGuid: reviewCtx.currentRevision.guid,
         fileSnapshotGuid: inlineCommentDraft.fileSnapshotGuid,
@@ -537,8 +537,11 @@ export function ReviewCodeView({
         },
         body,
       });
+
       setInlineCommentBody('');
       setInlineCommentDraft(null);
+
+      await createPromise;
     } catch (submitError) {
       toastManager.add({
         title: reviewT('errors.createCommentTitle'),
@@ -556,6 +559,7 @@ export function ReviewCodeView({
     inlineCommentDraft,
     reviewCtx.currentRevision,
     reviewCtx.currentSession,
+    reviewCtx.handleCreateComment,
     reviewT,
   ]);
 

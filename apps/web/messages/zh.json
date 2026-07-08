@@ -1035,7 +1035,19 @@
         },
         "pr": {
           "refreshOpenPullRequests": "刷新打开的拉取请求",
-          "refreshClosedPullRequests": "刷新已关闭的拉取请求"
+          "refreshClosedPullRequests": "刷新已关闭的拉取请求",
+          "loadingOpen": "正在加载打开的拉取请求...",
+          "loadingClosed": "正在加载已关闭的拉取请求...",
+          "noOpenFound": "未找到针对 <highlight>{branch}</highlight> 的打开的拉取请求",
+          "noClosedFound": "未找到针对 <highlight>{branch}</highlight> 的已关闭的拉取请求",
+          "selfMerging": "检测到自我合并（循环或同步 PR）",
+          "outgoingPr": "检测为从当前分支（{branch}）发出的拉取请求（OUTGOING）",
+          "incomingPr": "检测为针对当前分支（{branch}）的拉取请求（INCOMING）",
+          "to": "至",
+          "unknownAuthor": "未知",
+          "stateOpen": "开启",
+          "stateClosed": "关闭",
+          "stateMerged": "已合并"
         },
         "notAGitHubRepository": "不是 GitHub 仓库"
       },

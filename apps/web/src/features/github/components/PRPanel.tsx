@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
-import { useLocale } from 'next-intl';
+import React, { useEffect } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useGithubPRList } from '@/features/github/hooks/use-github';
 import {
   GitPullRequest,
@@ -47,6 +47,7 @@ type PRState = 'OPEN' | 'CLOSED';
 
 export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab, onLoadingChange, enabled = true }, ref) {
   const locale = useLocale();
+  const t = useTranslations('AppShell.chrome');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const stateFilter: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
 
@@ -82,10 +83,9 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
   const prs = activePrList.data;
   const loading = activePrList.loading;
   const refresh = activePrList.refresh;
-  const refreshLabel = useMemo(
-    () => `Refresh ${stateFilter.toLowerCase()} pull requests`,
-    [stateFilter],
-  );
+  const refreshLabel = stateFilter === 'OPEN'
+    ? t("rightSidebar.pr.refreshOpenPullRequests")
+    : t("rightSidebar.pr.refreshClosedPullRequests");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prList: any[] = prs || [];
@@ -98,7 +98,9 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
             <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3">
               <Loader2 className="size-5 animate-spin opacity-50" />
               <span className="text-xs font-medium">
-                Loading {stateFilter.toLowerCase()} pull requests...
+                {stateFilter === 'OPEN'
+                  ? t("rightSidebar.pr.loadingOpen")
+                  : t("rightSidebar.pr.loadingClosed")}
               </span>
             </div>
           ) : prList.length === 0 ? (
@@ -107,7 +109,14 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                 <GitPullRequest className="size-8 text-primary/40" />
               </div>
               <span className="text-sm text-center font-medium mb-8">
-                No {stateFilter.toLowerCase()} pull requests found for <span className="text-foreground font-mono bg-muted px-1.5 py-0.5 rounded border border-border/40">{branch}</span>
+                {t.rich(stateFilter === 'OPEN' ? 'rightSidebar.pr.noOpenFound' : 'rightSidebar.pr.noClosedFound', {
+                  branch,
+                  highlight: (chunks) => (
+                    <span className="text-foreground font-mono bg-muted px-1.5 py-0.5 rounded border border-border/40">
+                      {chunks}
+                    </span>
+                  ),
+                })}
               </span>
               <Button
                 variant="secondary"
@@ -127,10 +136,10 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
 
                 // Detection logic for tooltip
                 const detectionMethod = isFrom && isTo
-                  ? "Self-merging detected (Circular or Sync PR)"
+                  ? t("rightSidebar.pr.selfMerging")
                   : isFrom
-                    ? `Detected as an OUTGOING PR from your current branch (${branch})`
-                    : `Detected as an INCOMING PR targeting your current branch (${branch})`;
+                    ? t("rightSidebar.pr.outgoingPr", { branch })
+                    : t("rightSidebar.pr.incomingPr", { branch });
 
                 return (
                   <div
@@ -149,7 +158,11 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                           pr.state === 'MERGED' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
                             'bg-red-500/10 text-red-500 border border-red-500/20'
                       )}>
-                        {pr.state.toLowerCase()}
+                        {pr.state === 'OPEN'
+                          ? t("rightSidebar.pr.stateOpen")
+                          : pr.state === 'MERGED'
+                          ? t("rightSidebar.pr.stateMerged")
+                          : t("rightSidebar.pr.stateClosed")}
                       </span>
                     </div>
 
@@ -160,7 +173,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                           <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=32`} alt={pr.author?.login} />
                           <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <span className="text-[11px] font-bold text-foreground/70 truncate max-w-[80px]">{pr.author?.login || 'unknown'}</span>
+                        <span className="text-[11px] font-bold text-foreground/70 truncate max-w-[80px]">{pr.author?.login || t("rightSidebar.pr.unknownAuthor")}</span>
                       </div>
 
                       <Tooltip>
@@ -180,7 +193,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                           <div className="font-bold flex items-center gap-2">
                             <GitBranch className="size-3.5" />
                             <span className="truncate">{pr.headRefName}</span>
-                            <span className="px-1 text-[9px] bg-background/10 rounded font-black opacity-60">TO</span>
+                            <span className="px-1 text-[9px] bg-background/10 rounded font-black opacity-60">{t("rightSidebar.pr.to")}</span>
                             <span className="truncate">{pr.baseRefName}</span>
                           </div>
                           <div className="opacity-95 border-t border-background/10 pt-1.5 leading-relaxed">
@@ -213,7 +226,9 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
-                            {format(new Date(pr.createdAt), 'PPpp')}
+                            {format(new Date(pr.createdAt), 'PPpp', {
+                              locale: relativeTimeLocale,
+                            })}
                           </TooltipContent>
                         </Tooltip>
                       </div>

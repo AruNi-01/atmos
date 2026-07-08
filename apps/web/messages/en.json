@@ -1035,7 +1035,19 @@
         },
         "pr": {
           "refreshOpenPullRequests": "Refresh open pull requests",
-          "refreshClosedPullRequests": "Refresh closed pull requests"
+          "refreshClosedPullRequests": "Refresh closed pull requests",
+          "loadingOpen": "Loading open pull requests...",
+          "loadingClosed": "Loading closed pull requests...",
+          "noOpenFound": "No open pull requests found for <highlight>{branch}</highlight>",
+          "noClosedFound": "No closed pull requests found for <highlight>{branch}</highlight>",
+          "selfMerging": "Self-merging detected (Circular or Sync PR)",
+          "outgoingPr": "Detected as an OUTGOING PR from your current branch ({branch})",
+          "incomingPr": "Detected as an INCOMING PR targeting your current branch ({branch})",
+          "to": "TO",
+          "unknownAuthor": "unknown",
+          "stateOpen": "open",
+          "stateClosed": "closed",
+          "stateMerged": "merged"
         },
         "notAGitHubRepository": "Not a GitHub repository"
       },
