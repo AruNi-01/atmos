@@ -186,7 +186,6 @@ export function CenterStageSurfaceContentTab({
 }) {
   const t = useTranslations("appShell.centerStageSharedTabs");
   const resolvedTooltip = tooltip ?? path;
-  const isDiff = variant === "diff" || variant === "diff-group" || variant === "review-diff";
 
   return (
     <Tooltip>
@@ -237,7 +236,7 @@ export function CenterStageSurfaceContentTab({
           </div>
         </TabsTab>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className={cn("max-w-md break-all", isDiff && "text-current")}>
+      <TooltipContent side="bottom" className="max-w-md break-all">
         {resolvedTooltip}
       </TooltipContent>
     </Tooltip>

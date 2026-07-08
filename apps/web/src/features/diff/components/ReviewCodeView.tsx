@@ -148,16 +148,36 @@ export function ReviewCodeView({
     collapseModeRef.current = collapseMode;
   }, [collapseMode]);
 
-  const orderedFiles = useMemo(
-    () =>
-      sortByDiffTreePath(
-        (reviewCtx.currentRevision?.files ?? []).map((file) => ({
-          path: file.snapshot.file_path,
-          file,
-        })),
-      ).map((entry) => entry.file),
-    [reviewCtx.currentRevision?.files],
+  // Keep `orderedFiles` reference-stable across unrelated revision refetches
+  // (e.g. loadSessions() after adding a comment returns a fresh but equivalent
+  // files array). Only produce a new reference when the diff-relevant identity
+  // of the files actually changes, so the diff-load effect below does not remount
+  // the CodeView and reset the scroll position.
+  const orderedFilesCacheRef = useRef<{ signature: string; files: ReviewFileDto[] } | null>(
+    null,
   );
+  const orderedFiles = useMemo(() => {
+    const next = sortByDiffTreePath(
+      (reviewCtx.currentRevision?.files ?? []).map((file) => ({
+        path: file.snapshot.file_path,
+        file,
+      })),
+    ).map((entry) => entry.file);
+    const signature = next
+      .map(
+        (file) =>
+          `${file.snapshot.guid}:${file.snapshot.git_status}:${file.additions}:${file.deletions}`,
+      )
+      .join('|');
+    const cached = orderedFilesCacheRef.current;
+    if (cached && cached.signature === signature) {
+      return cached.files;
+    }
+    orderedFilesCacheRef.current = { signature, files: next };
+    return next;
+  }, [reviewCtx.currentRevision?.files]);
+
+  const currentRevisionGuid = reviewCtx.currentRevision?.guid ?? null;
 
   const treeItems = useMemo(
     () =>
@@ -245,7 +265,7 @@ export function ReviewCodeView({
     lastHandledNavRef.current = null;
     loadErrorRef.current = null;
 
-    if (!reviewCtx.currentRevision) {
+    if (!currentRevisionGuid) {
       setIsLoading(false);
       return () => {
         cancelled = true;
@@ -365,7 +385,7 @@ export function ReviewCodeView({
     return () => {
       cancelled = true;
     };
-  }, [orderedFiles, reviewCtx.currentRevision]);
+  }, [orderedFiles, currentRevisionGuid]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
