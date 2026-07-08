@@ -171,7 +171,9 @@
       "closeProjectWikiTab": "Close Project Wiki tab",
       "codeReview": "Code Review",
       "codeReviewTerminal": "Code Review Terminal",
-      "closeCodeReviewTab": "Close Code Review tab"
+      "closeCodeReviewTab": "Close Code Review tab",
+      "renameTab": "Rename Tab",
+      "renameTabPlaceholder": "Enter a tab name…"
     },
     "footer": {
       "openOnCanvasLabel": "Open on canvas",
@@ -5276,7 +5278,11 @@
         "nextPanel": "Next Panel",
         "maximizeTerminal": "Maximize Terminal",
         "restoreTerminal": "Restore Terminal",
-        "closeTerminal": "Close Terminal"
+        "closeTerminal": "Close Terminal",
+        "renameTitle": "Rename Title",
+        "renamePlaceholder": "Enter a name…",
+        "keepAgentName": "Keep Agent Name",
+        "keepCwd": "Keep CWD"
       },
       "canvasPins": {
         "invalidTerminal": "This terminal cannot be pinned until the session is fully attached.",

@@ -210,14 +210,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const scheduleInfoPopoverClose = React.useCallback(() => {
     cancelInfoPopoverClose();
     infoPopoverTimerRef.current = setTimeout(() => {
-      if (isStatusMenuOpen || isPriorityMenuOpen || isLabelPopoverOpen) {
+      if (isStatusMenuOpen || isPriorityMenuOpen || isLabelPopoverOpen || isEditingName) {
         infoPopoverTimerRef.current = null;
         return;
       }
       setIsInfoPopoverOpen(false);
       infoPopoverTimerRef.current = null;
     }, 150);
-  }, [cancelInfoPopoverClose, isLabelPopoverOpen, isPriorityMenuOpen, isStatusMenuOpen]);
+  }, [cancelInfoPopoverClose, isEditingName, isLabelPopoverOpen, isPriorityMenuOpen, isStatusMenuOpen]);
 
   React.useEffect(() => {
     return () => {
@@ -384,6 +384,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const shortName = getWorkspaceShortName(workspace.name);
   const rawDisplayName = workspace.displayName?.trim() || "";
+  const primaryLabel = rawDisplayName || shortName;
   const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale);
 
   React.useEffect(() => {
@@ -398,7 +399,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const handleSaveName = React.useCallback(async () => {
     const nextName = editableName.trim();
-    if (!nextName || nextName === rawDisplayName || !onUpdateName) {
+    // An empty value is allowed: it clears the display name (i.e. "not set").
+    // Only skip when nothing changed or there is no handler.
+    if (nextName === rawDisplayName || !onUpdateName) {
       setEditableName(rawDisplayName);
       setIsEditingName(false);
       return;
@@ -481,7 +484,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </div>
               <div className="flex items-center min-w-0 gap-1.5 pl-5">
                 <span className="text-[13px] font-medium truncate">
-                  {shortName}
+                  {primaryLabel}
                   {showProjectName && projectName && (
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
                   )}
@@ -615,7 +618,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           <Pencil className="size-2.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent data-workspace-popover-surface="true" side="right" align="start" className="w-56 p-2">
+                      <PopoverContent
+                        data-workspace-popover-surface="true"
+                        side="right"
+                        align="start"
+                        className="w-56 p-2"
+                        onMouseEnter={cancelInfoPopoverClose}
+                        onMouseLeave={scheduleInfoPopoverClose}
+                      >
                         <div className="flex items-center gap-2">
                           <Input
                             value={editableName}
@@ -634,7 +644,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           <Button
                             size="sm"
                             className="h-7 px-2 text-xs"
-                            disabled={isSavingName || !editableName.trim()}
+                            disabled={isSavingName || editableName.trim() === rawDisplayName}
                             onClick={() => void handleSaveName()}
                           >
                             {t("common.save")}

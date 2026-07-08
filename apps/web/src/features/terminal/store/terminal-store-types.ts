@@ -74,6 +74,18 @@ export interface TerminalStore {
   setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string, terminalTabId?: string) => void;
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent, terminalTabId?: string) => void;
 
+  /** Set/clear a tab's custom display title. Empty (after normalize) clears the override. */
+  setTabCustomTitle: (workspaceId: string, terminalTabId: string, title: string) => void;
+  /** Set/clear a pane's custom display label. Empty (after normalize) clears the override. */
+  setPaneCustomLabel: (workspaceId: string, paneId: string, label: string, terminalTabId?: string) => void;
+  /** Toggle a pane's keep-agent-name / keep-cwd display flags. */
+  setPaneTitleFlags: (
+    workspaceId: string,
+    paneId: string,
+    flags: { keepAgentName?: boolean; keepCwd?: boolean },
+    terminalTabId?: string,
+  ) => void;
+
   getProjectWikiPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
   getProjectWikiLayout: (workspaceId: string) => MosaicNode<string> | null;
   isProjectWikiReady: (workspaceId: string) => boolean;

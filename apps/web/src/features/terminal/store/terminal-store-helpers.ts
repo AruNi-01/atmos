@@ -43,6 +43,12 @@ export interface TerminalCenterTab {
   id: string;
   title: string;
   closable: boolean;
+  /**
+   * User custom tab name. Display-only override with top priority.
+   * Empty/undefined means no override (fall back to `title`). Persisted.
+   * `title` remains the auto name used for uniqueness/dedup.
+   */
+  customTitle?: string;
 }
 
 type TerminalLookupState = {
@@ -312,6 +318,17 @@ export function getAllDefaultPanesForWorkspace(
 
     return acc;
   }, {});
+}
+
+export const CUSTOM_NAME_MAX_LENGTH = 40;
+
+/**
+ * Normalize a user custom name: trim, collapse internal whitespace, cap length.
+ * Returns undefined when the result is empty (i.e. the override is cleared).
+ */
+export function normalizeCustomName(value: string): string | undefined {
+  const cleaned = value.trim().replace(/\s+/g, " ").slice(0, CUSTOM_NAME_MAX_LENGTH).trim();
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 export function getNextTerminalTabTitle(existingTabs: TerminalCenterTab[]): string {
@@ -585,6 +602,7 @@ export function buildPersistedTerminalWorkspaceLayout(
             ...cachedTab,
             title: tab.id === FIXED_TERMINAL_TAB_VALUE ? terminalT("tab.fixedTitle") : tab.title,
             closable: true,
+            customTitle: tab.customTitle,
           });
         }
       continue;
@@ -601,6 +619,9 @@ export function buildPersistedTerminalWorkspaceLayout(
         projectName: pane.projectName,
         workspaceName: pane.workspaceName,
         isNewPane: pane.isNewPane,
+        customLabel: pane.customLabel,
+        keepAgentName: pane.keepAgentName,
+        keepCwd: pane.keepCwd,
       };
     }
 
@@ -611,6 +632,7 @@ export function buildPersistedTerminalWorkspaceLayout(
       layout,
       panes: cleanPanes,
       maximizedTerminalId: state.workspaceMaximizedIds[scopeKey] || null,
+      customTitle: tab.customTitle,
     });
   }
 

@@ -149,6 +149,9 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     baseTitle: pane.label,
     configuredAgents,
     storeWrite,
+    customLabel: pane.customLabel,
+    keepAgentName: pane.keepAgentName,
+    keepCwd: pane.keepCwd,
   });
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
 
