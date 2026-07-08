@@ -136,6 +136,7 @@ const CenterStage: React.FC = () => {
     closeTerminalTab,
     removeTerminal,
     setActiveTerminalTab,
+    setTabCustomTitle,
     primeWorkspace,
     evictWorkspaceRuntime,
   } = useTerminalStore(
@@ -147,6 +148,7 @@ const CenterStage: React.FC = () => {
       closeTerminalTab: state.closeTerminalTab,
       removeTerminal: state.removeTerminal,
       setActiveTerminalTab: state.setActiveTerminalTab,
+      setTabCustomTitle: state.setTabCustomTitle,
       primeWorkspace: state.primeWorkspace,
       evictWorkspaceRuntime: state.evictWorkspaceRuntime,
     }))
@@ -689,6 +691,11 @@ const CenterStage: React.FC = () => {
     runWhenTerminalGridReady(nextTab.id, (grid) => grid.focusActivePane());
   }, [effectiveContextId, createTerminalTab, runWhenTerminalGridReady, setActiveFile, setActiveTerminalTab, setUrlParams]);
 
+  const handleRenameTerminalCenterTab = React.useCallback((tabId: string, title: string) => {
+    if (!effectiveContextId) return;
+    setTabCustomTitle(effectiveContextId, tabId, title);
+  }, [effectiveContextId, setTabCustomTitle]);
+
   const cleanupCanvasTerminalsForClosedTerminal = React.useCallback(async ({
     contextScope,
     pinKeys,
@@ -1113,6 +1120,7 @@ const CenterStage: React.FC = () => {
           handleCloseFile={handleCloseFile}
           handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
+          handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
           handleTabGroupDragEnd={handleTabGroupDragEnd}
           pinFile={pinFile}
           setActiveFile={setActiveFile}

@@ -106,6 +106,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     setDynamicTitle,
     setPaneAgent,
     markPaneAttached,
+    setPaneCustomLabel,
+    setPaneTitleFlags,
     getProjectWikiPanes,
     getProjectWikiLayout,
     setProjectWikiLayout,
@@ -725,6 +727,49 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     : null;
   const isFocusedPanePinned = focusedPanePinKey ? pinnedPaneKeys.has(focusedPanePinKey) : false;
 
+  // Custom naming (Rename Title / Keep Agent Name / Keep CWD) applies only to the
+  // main workspace terminal grid — not the Project Wiki / Code Review scopes.
+  const isDefaultScope = !isCodeReview && !isProjectWiki;
+  const canRenameFocusedPane = isDefaultScope && !!focusedPane;
+
+  const handleRenamePaneTitle = useCallback(
+    (value: string) => {
+      setContextMenu(null);
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId || !isDefaultScope) return;
+      setPaneCustomLabel(workspaceId, focusedPaneId, value, terminalTabId ?? FIXED_TERMINAL_TAB_VALUE);
+    },
+    [getFocusedPaneId, isDefaultScope, setPaneCustomLabel, workspaceId, terminalTabId],
+  );
+
+  const handleToggleKeepAgentName = useCallback(
+    (next: boolean) => {
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId || !isDefaultScope) return;
+      setPaneTitleFlags(
+        workspaceId,
+        focusedPaneId,
+        { keepAgentName: next },
+        terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
+      );
+    },
+    [getFocusedPaneId, isDefaultScope, setPaneTitleFlags, workspaceId, terminalTabId],
+  );
+
+  const handleToggleKeepCwd = useCallback(
+    (next: boolean) => {
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId || !isDefaultScope) return;
+      setPaneTitleFlags(
+        workspaceId,
+        focusedPaneId,
+        { keepCwd: next },
+        terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
+      );
+    },
+    [getFocusedPaneId, isDefaultScope, setPaneTitleFlags, workspaceId, terminalTabId],
+  );
+
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
@@ -885,6 +930,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       quickOpenAgents={quickOpenAgents}
       isFocusedPanePinned={isFocusedPanePinned}
       isAnyPaneMaximized={!!maximizedId}
+      canRenamePane={canRenameFocusedPane}
+      paneCustomLabel={focusedPane?.customLabel ?? ""}
+      paneKeepAgentName={focusedPane?.keepAgentName ?? true}
+      paneKeepCwd={focusedPane?.keepCwd ?? true}
+      onRenamePaneTitle={handleRenamePaneTitle}
+      onToggleKeepAgentName={handleToggleKeepAgentName}
+      onToggleKeepCwd={handleToggleKeepCwd}
       onOpenChange={(open) => {
         if (!open) {
           setContextMenu(null);

@@ -384,6 +384,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const shortName = getWorkspaceShortName(workspace.name);
   const rawDisplayName = workspace.displayName?.trim() || "";
+  const primaryLabel = rawDisplayName || shortName;
   const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale);
 
   React.useEffect(() => {
@@ -481,7 +482,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </div>
               <div className="flex items-center min-w-0 gap-1.5 pl-5">
                 <span className="text-[13px] font-medium truncate">
-                  {shortName}
+                  {primaryLabel}
                   {showProjectName && projectName && (
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
                   )}

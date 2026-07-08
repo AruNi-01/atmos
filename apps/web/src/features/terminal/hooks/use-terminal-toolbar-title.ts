@@ -10,6 +10,7 @@ import {
   FIXED_TERMINAL_TAB_VALUE,
 } from "@/features/terminal/store/use-terminal-store";
 import { getTerminalDisplayMeta, resolveAgentForTitle } from "@/features/terminal/components/terminal-title";
+import { isPathLikeTitle, shortenPath } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 
 /** Where OSC title updates should be persisted (center mosaic pane vs canvas pin). */
@@ -28,9 +29,12 @@ export function useTerminalToolbarTitle(options: {
   configuredAgents: TerminalPaneAgent[];
   pinnedAgent?: TerminalPaneAgent;
   storeWrite: TerminalToolbarStoreWrite;
+  customLabel?: string;
+  keepAgentName?: boolean;
+  keepCwd?: boolean;
 }) {
   const [localOscTitle, setLocalOscTitle] = useState<string | undefined>();
-  const { storeWrite, configuredAgents, baseTitle, pinnedAgent } = options;
+  const { storeWrite, configuredAgents, baseTitle, pinnedAgent, customLabel, keepAgentName, keepCwd } = options;
 
   const storeLive = useTerminalStore(
     useShallow((s) => {
@@ -101,13 +105,47 @@ export function useTerminalToolbarTitle(options: {
         (agent) => agent.label.trim().toLowerCase() === baseTitle.trim().toLowerCase(),
       );
     const mergedAgent = storeLive.agent ?? shapeAgent;
-    return getTerminalDisplayMeta({
+    const auto = getTerminalDisplayMeta({
       baseTitle,
       dynamicTitle: mergedDynamic,
       configuredAgents,
       agent: mergedAgent,
     });
-  }, [baseTitle, configuredAgents, pinnedAgent, storeLive.agent, storeLive.dynamicTitle, localOscTitle]);
+
+    const custom = customLabel?.trim();
+    if (!custom) {
+      return auto;
+    }
+
+    // Flags default to on: `undefined` is treated as `true`.
+    const wantAgent = keepAgentName !== false;
+    const wantCwd = keepCwd !== false;
+
+    const showAgent = wantAgent && !!auto.toolbarAgent;
+    // Agent wins over CWD: only show CWD when no agent suffix is shown (mutually exclusive).
+    const cwdSuffix =
+      !showAgent && wantCwd && isPathLikeTitle(mergedDynamic) ? shortenPath(mergedDynamic!) : undefined;
+
+    const displayTitle = [
+      custom,
+      showAgent ? auto.toolbarAgent!.label : undefined,
+      cwdSuffix,
+    ]
+      .filter(Boolean)
+      .join("  ");
+
+    return { displayTitle, toolbarAgent: showAgent ? auto.toolbarAgent : undefined };
+  }, [
+    baseTitle,
+    configuredAgents,
+    pinnedAgent,
+    storeLive.agent,
+    storeLive.dynamicTitle,
+    localOscTitle,
+    customLabel,
+    keepAgentName,
+    keepCwd,
+  ]);
 
   return { displayTitle, toolbarAgent, onTitleChange };
 }

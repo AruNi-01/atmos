@@ -28,6 +28,7 @@ import {
   getWorkspaceTerminalTabs,
   hydratePersistedTab,
   isTerminalWorkspaceScopeKeyForWorkspace,
+  normalizeCustomName,
   removePaneFromLayout,
   samePaneAgent,
   splitPaneInLayout,
@@ -624,6 +625,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
               id: tab.id,
               title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
               closable: true,
+              customTitle: tab.customTitle,
             }));
             const activeTabId =
               migrated.layout.activeTabId && availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
@@ -963,6 +965,73 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
           [paneId]: {
             ...panes[paneId],
             agent,
+          },
+        },
+      },
+    }));
+    get().saveToBackend(workspaceId);
+  },
+
+  setTabCustomTitle: (workspaceId, terminalTabId, title) => {
+    const nextCustomTitle = normalizeCustomName(title);
+    const tabs = getWorkspaceTerminalTabs(get(), workspaceId);
+    const target = tabs.find((tab) => tab.id === terminalTabId);
+    if (!target) return;
+    if (target.customTitle === nextCustomTitle) return;
+
+    set((state) => ({
+      workspaceTerminalTabs: {
+        ...state.workspaceTerminalTabs,
+        [workspaceId]: getWorkspaceTerminalTabs(state, workspaceId).map((tab) =>
+          tab.id === terminalTabId ? { ...tab, customTitle: nextCustomTitle } : tab,
+        ),
+      },
+    }));
+    get().saveToBackend(workspaceId);
+  },
+
+  setPaneCustomLabel: (workspaceId, paneId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const panes = get().workspacePanes[scopeKey];
+    if (!panes || !panes[paneId]) return;
+
+    const nextCustomLabel = normalizeCustomName(label);
+    if (panes[paneId].customLabel === nextCustomLabel) return;
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [scopeKey]: {
+          ...panes,
+          [paneId]: {
+            ...panes[paneId],
+            customLabel: nextCustomLabel,
+          },
+        },
+      },
+    }));
+    get().saveToBackend(workspaceId);
+  },
+
+  setPaneTitleFlags: (workspaceId, paneId, flags, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const panes = get().workspacePanes[scopeKey];
+    if (!panes || !panes[paneId]) return;
+
+    const current = panes[paneId];
+    const nextKeepAgentName = flags.keepAgentName ?? current.keepAgentName;
+    const nextKeepCwd = flags.keepCwd ?? current.keepCwd;
+    if (current.keepAgentName === nextKeepAgentName && current.keepCwd === nextKeepCwd) return;
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [scopeKey]: {
+          ...panes,
+          [paneId]: {
+            ...current,
+            keepAgentName: nextKeepAgentName,
+            keepCwd: nextKeepCwd,
           },
         },
       },

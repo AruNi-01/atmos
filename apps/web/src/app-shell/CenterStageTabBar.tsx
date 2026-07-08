@@ -2,6 +2,13 @@
 
 import React from "react";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  Input,
   TabsTab,
   Tooltip,
   TooltipContent,
@@ -12,6 +19,7 @@ import {
 import {
   BookOpen,
   LoaderCircle,
+  Pencil,
   Plus,
   RotateCw,
   SquareTerminal as TerminalIcon,
@@ -53,7 +61,7 @@ interface CenterStageTabBarProps {
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
   tabGroupPopoverOpen: boolean;
   termTabPlusHoveredTabId: string | null;
-  visibleTerminalTabs: Array<{ id: string; title: string; closable: boolean }>;
+  visibleTerminalTabs: Array<{ id: string; title: string; closable: boolean; customTitle?: string }>;
   wikiCenterEligible: boolean;
   wikiRefreshing: boolean;
   handleCenterStageTabChange: (value: string) => void;
@@ -61,6 +69,7 @@ interface CenterStageTabBarProps {
   handleCloseFile: (file: OpenFile) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateTerminalCenterTab: () => void;
+  handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
   pinFile: (path: string, workspaceId?: string) => void;
   setActiveFile: (path: string | null, workspaceId?: string) => void;
@@ -93,6 +102,7 @@ export function CenterStageTabBar({
   handleCloseFile,
   handleCloseTerminalCenterTab,
   handleCreateTerminalCenterTab,
+  handleRenameTerminalCenterTab,
   handleTabGroupDragEnd,
   pinFile,
   setActiveFile,
@@ -185,10 +195,11 @@ export function CenterStageTabBar({
               hoveredTabId={termTabPlusHoveredTabId}
               shortcutDigit={index + 1}
               newTerminalTabLabel={newTerminalTabLabel}
-              closeAriaLabel={t("centerStageTabBar.closeTab", { tab: tab.title })}
+              closeAriaLabel={t("centerStageTabBar.closeTab", { tab: tab.customTitle || tab.title })}
               tab={tab}
               onClose={handleCloseTerminalCenterTab}
               onCreateTab={handleCreateTerminalCenterTab}
+              onRenameTab={handleRenameTerminalCenterTab}
               setHoveredTabId={setTermTabPlusHoveredTabId}
             />
           ))}
@@ -283,6 +294,7 @@ function TerminalExtraTab({
   tab,
   onClose,
   onCreateTab,
+  onRenameTab,
   setHoveredTabId,
 }: {
   activeValue: string;
@@ -292,16 +304,38 @@ function TerminalExtraTab({
   shortcutDigit: number;
   newTerminalTabLabel: string;
   closeAriaLabel: string;
-  tab: { id: string; title: string };
+  tab: { id: string; title: string; customTitle?: string };
   onClose: (tabId: string) => void;
   onCreateTab: () => void;
+  onRenameTab: (tabId: string, title: string) => void;
   setHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
+  const t = useTranslations("appShell");
+  const displayTitle = tab.customTitle || tab.title;
+  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState(tab.customTitle ?? "");
+
+  React.useEffect(() => {
+    if (menuPos) {
+      setRenameDraft(tab.customTitle ?? "");
+    }
+  }, [menuPos, tab.customTitle]);
+
+  const commitRename = () => {
+    onRenameTab(tab.id, renameDraft);
+    setMenuPos(null);
+  };
+
   return (
+    <>
       <Tooltip>
         <TooltipTrigger asChild>
           <TabsTab
           value={tab.id}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenuPos({ x: event.clientX, y: event.clientY });
+          }}
           className="group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
         >
           <span className="relative flex size-4 shrink-0 items-center justify-center">
@@ -322,7 +356,7 @@ function TerminalExtraTab({
             />
           ) : null}
           </span>
-          <span className="text-[13px] font-medium whitespace-nowrap">{tab.title}</span>
+          <span className="text-[13px] font-medium whitespace-nowrap">{displayTitle}</span>
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
           <div
             className={cn(
@@ -353,13 +387,55 @@ function TerminalExtraTab({
             </>
           ) : (
             <>
-              <span>{tab.title}</span>
+              <span>{displayTitle}</span>
               {hasShortcut ? <ShortcutHint digit={shortcutDigit} /> : null}
             </>
           )}
         </div>
       </TooltipContent>
     </Tooltip>
+
+    <DropdownMenu
+      open={!!menuPos}
+      onOpenChange={(open) => {
+        if (!open) setMenuPos(null);
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-hidden
+          className="fixed size-0 pointer-events-none"
+          style={{ left: menuPos?.x ?? -9999, top: menuPos?.y ?? -9999 }}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={4} className="w-56">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="cursor-pointer">
+            <Pencil className="size-4 mr-2 text-muted-foreground" />
+            <span>{t("centerStageTabBar.renameTab")}</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-64 p-2">
+            <Input
+              autoFocus
+              value={renameDraft}
+              placeholder={t("centerStageTabBar.renameTabPlaceholder")}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitRename();
+                }
+              }}
+              onBlur={commitRename}
+              className="h-8 text-sm"
+            />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    </>
   );
 }
 

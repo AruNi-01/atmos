@@ -171,7 +171,9 @@
       "closeProjectWikiTab": "关闭项目 Wiki 标签页",
       "codeReview": "代码评审",
       "codeReviewTerminal": "代码评审终端",
-      "closeCodeReviewTab": "关闭代码评审标签页"
+      "closeCodeReviewTab": "关闭代码评审标签页",
+      "renameTab": "重命名标签页",
+      "renameTabPlaceholder": "输入标签页名称…"
     },
     "footer": {
       "openOnCanvasLabel": "在画布中打开",
@@ -5276,7 +5278,11 @@
         "nextPanel": "下一个面板",
         "maximizeTerminal": "最大化终端",
         "restoreTerminal": "还原终端",
-        "closeTerminal": "关闭终端"
+        "closeTerminal": "关闭终端",
+        "renameTitle": "重命名标题",
+        "renamePlaceholder": "输入名称…",
+        "keepAgentName": "保留 Agent 名称",
+        "keepCwd": "保留当前目录"
       },
       "canvasPins": {
         "invalidTerminal": "该终端在会话完全附加之前无法固定到 Canvas。",

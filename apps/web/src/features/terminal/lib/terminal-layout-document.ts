@@ -15,6 +15,8 @@ export interface PersistedTerminalTabDocument {
   layout: MosaicNode<string> | null;
   maximizedTerminalId?: string | null;
   panes: Record<string, PersistedTerminalPane>;
+  /** User custom tab name (display-only override). Persisted. */
+  customTitle?: string;
 }
 
 export interface PersistedTerminalWorkspaceLayoutDocument {
@@ -44,7 +46,7 @@ type LegacyPersistedTerminalWorkspaceLayout = {
 
 type NormalizableTerminalTab =
   & LegacyTerminalTabLike
-  & Partial<Pick<PersistedTerminalTabDocument, "layout" | "maximizedTerminalId" | "panes">>;
+  & Partial<Pick<PersistedTerminalTabDocument, "layout" | "maximizedTerminalId" | "panes" | "customTitle">>;
 
 function isPersistedTerminalWorkspaceLayout(
   value: unknown,

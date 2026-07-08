@@ -4,6 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -12,6 +13,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Input,
   cn,
 } from "@workspace/ui";
 import {
@@ -20,8 +22,10 @@ import {
   Bot,
   ClipboardPaste,
   Columns,
+  FolderTree,
   Maximize,
   Minimize,
+  Pencil,
   Pin,
   Rows,
   SquareTerminal,
@@ -50,6 +54,14 @@ type TerminalGridContextMenuProps = {
   }>;
   isFocusedPanePinned: boolean;
   isAnyPaneMaximized: boolean;
+  /** Whether the focused pane supports custom naming (main workspace grid only). */
+  canRenamePane: boolean;
+  paneCustomLabel: string;
+  paneKeepAgentName: boolean;
+  paneKeepCwd: boolean;
+  onRenamePaneTitle: (value: string) => void;
+  onToggleKeepAgentName: (next: boolean) => void;
+  onToggleKeepCwd: (next: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onAction: (action: TerminalGridContextMenuAction) => void;
   onContextSplitSubmenuEnter: (key: "row" | "column") => void;
@@ -67,6 +79,13 @@ export function TerminalGridContextMenu({
   quickOpenAgents,
   isFocusedPanePinned,
   isAnyPaneMaximized,
+  canRenamePane,
+  paneCustomLabel,
+  paneKeepAgentName,
+  paneKeepCwd,
+  onRenamePaneTitle,
+  onToggleKeepAgentName,
+  onToggleKeepCwd,
   onOpenChange,
   onAction,
   onContextSplitSubmenuEnter,
@@ -74,6 +93,20 @@ export function TerminalGridContextMenu({
   onContextSplitWithAgent,
 }: TerminalGridContextMenuProps) {
   const t = useTranslations("Terminal.chrome");
+
+  // Local draft for the rename input; reset whenever the menu (re)opens.
+  const [renameDraft, setRenameDraft] = React.useState(paneCustomLabel);
+  const hasCustomName = paneCustomLabel.trim().length > 0;
+
+  React.useEffect(() => {
+    if (contextMenu) {
+      setRenameDraft(paneCustomLabel);
+    }
+  }, [contextMenu, paneCustomLabel]);
+
+  const commitRename = () => {
+    onRenamePaneTitle(renameDraft);
+  };
 
   const renderSplitMenuItem = (
     direction: "row" | "column",
@@ -167,6 +200,55 @@ export function TerminalGridContextMenu({
           <span>{t("contextMenu.paste")}</span>
           <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
         </DropdownMenuItem>
+        {canRenamePane && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <Pencil className="size-4 mr-2 text-muted-foreground" />
+                <span>{t("contextMenu.renameTitle")}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-64 p-2">
+                <Input
+                  autoFocus
+                  value={renameDraft}
+                  placeholder={t("contextMenu.renamePlaceholder")}
+                  onChange={(event) => setRenameDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    // Keep keystrokes inside the input (avoid menu typeahead / navigation).
+                    event.stopPropagation();
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitRename();
+                    }
+                  }}
+                  onBlur={commitRename}
+                  className="h-8 text-sm"
+                />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuCheckboxItem
+              checked={paneKeepAgentName}
+              disabled={!hasCustomName}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={(checked) => onToggleKeepAgentName(checked === true)}
+              className="cursor-pointer"
+            >
+              <Bot className="size-4 mr-2 text-muted-foreground" />
+              <span>{t("contextMenu.keepAgentName")}</span>
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={paneKeepCwd}
+              disabled={!hasCustomName}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={(checked) => onToggleKeepCwd(checked === true)}
+              className="cursor-pointer"
+            >
+              <FolderTree className="size-4 mr-2 text-muted-foreground" />
+              <span>{t("contextMenu.keepCwd")}</span>
+            </DropdownMenuCheckboxItem>
+          </>
+        )}
         <DropdownMenuItem
           onClick={() => onAction("pin-to-canvas")}
           className={cn("cursor-pointer", isFocusedPanePinned && "bg-accent text-primary")}
