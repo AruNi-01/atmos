@@ -79,8 +79,23 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     while let Some(result) = receiver.next().await {
         match result {
             Ok(msg) => {
-                if !handle_incoming_message(msg, &tx, &state, &conn_id).await {
-                    break;
+                match msg {
+                    Message::Text(text) => {
+                        let tx = tx.clone();
+                        let state = state.clone();
+                        let conn_id = conn_id.clone();
+                        tokio::spawn(async move {
+                            if let Some(response) = state.ws_service.handle_message(&conn_id, &text).await {
+                                if let Err(e) = tx.send(response).await {
+                                    tracing::warn!("Failed to send response to {}: {}", conn_id, e);
+                                }
+                            }
+                        });
+                    }
+                    Message::Close(_) => {
+                        break;
+                    }
+                    _ => {}
                 }
             }
             Err(e) => {
@@ -121,34 +136,6 @@ pub(crate) async fn push_latest_messages(
                 break 'outer;
             }
         }
-    }
-}
-
-/// Handle incoming WebSocket message
-/// Returns false if connection should be closed
-async fn handle_incoming_message(
-    msg: Message,
-    tx: &mpsc::Sender<String>,
-    state: &AppState,
-    conn_id: &str,
-) -> bool {
-    match msg {
-        Message::Text(text) => {
-            let text_str: &str = text.as_ref();
-
-            // Unified message handling - API layer handles both control and business messages
-            if let Some(response) = state.ws_service.handle_message(conn_id, text_str).await {
-                // Send response if there is one
-                if let Err(e) = tx.send(response).await {
-                    tracing::warn!("Failed to send response to {}: {}", conn_id, e);
-                    return false;
-                }
-            }
-
-            true
-        }
-        Message::Close(_) => false,
-        _ => true,
     }
 }
 

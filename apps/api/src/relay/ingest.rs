@@ -366,18 +366,22 @@ pub async fn run(
                     }
                 };
 
-                if let Some(reply) = state.ws_service.handle_message(&conn_id, &body).await {
-                    let outbound = serde_json::json!( {
-                        "v": 1_u32,
-                        "stream": "app",
-                        "kind": "frame",
-                        "from": "server",
-                        "to": format!("client:{sid}"),
-                        "body": reply,
-                    })
-                    .to_string();
-                    let _ = out_tx.send(Message::Text(outbound));
-                }
+                let state = state.clone();
+                let out_tx = out_tx.clone();
+                tokio::spawn(async move {
+                    if let Some(reply) = state.ws_service.handle_message(&conn_id, &body).await {
+                        let outbound = serde_json::json!( {
+                            "v": 1_u32,
+                            "stream": "app",
+                            "kind": "frame",
+                            "from": "server",
+                            "to": format!("client:{sid}"),
+                            "body": reply,
+                        })
+                        .to_string();
+                        let _ = out_tx.send(Message::Text(outbound));
+                    }
+                });
             }
             Some(Ok(Message::Ping(payload))) => {
                 // Echo back so CF/peers know we're alive. Pong is also cheap on
