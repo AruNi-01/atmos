@@ -92,6 +92,7 @@ fn scan_macos() -> Result<Vec<LocalTcpListener>> {
     let mut records = Vec::new();
     let mut pid: Option<u32> = None;
     let mut command: Option<String> = None;
+    let mut metadata_cache: std::collections::HashMap<u32, Option<ProcessMetadata>> = std::collections::HashMap::new();
 
     for line in text.lines() {
         let Some((tag, value)) = line.split_at_checked(1) else {
@@ -108,7 +109,14 @@ fn scan_macos() -> Result<Vec<LocalTcpListener>> {
                     continue;
                 };
                 let local_addr = parse_addr_from_socket_name(value);
-                let meta = pid.and_then(process_metadata_macos);
+                let meta = if let Some(p) = pid {
+                    metadata_cache
+                        .entry(p)
+                        .or_insert_with(|| process_metadata_macos(p))
+                        .clone()
+                } else {
+                    None
+                };
                 records.push(LocalTcpListener {
                     pid,
                     process_name: command

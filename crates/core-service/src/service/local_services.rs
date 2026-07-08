@@ -246,16 +246,25 @@ impl LocalServicesService {
             }
         };
 
-        let mut services = Vec::new();
+        let mut tasks = Vec::new();
         for listener in listeners {
             let Some(attributed) = attribute_listener(listener, &roots) else {
                 continue;
             };
-            let dto = build_service_dto(&self.engine, attributed).await;
-            if !request.include_diagnostics && !is_default_visible(&dto) {
-                continue;
+            let engine = self.engine.clone();
+            tasks.push(tokio::spawn(async move {
+                build_service_dto(&engine, attributed).await
+            }));
+        }
+
+        let mut services = Vec::new();
+        for task in tasks {
+            if let Ok(dto) = task.await {
+                if !request.include_diagnostics && !is_default_visible(&dto) {
+                    continue;
+                }
+                services.push(dto);
             }
-            services.push(dto);
         }
 
         services.sort_by(|a, b| {

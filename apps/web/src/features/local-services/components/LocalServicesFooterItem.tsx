@@ -50,10 +50,10 @@ export function LocalServicesFooterItem() {
 
   React.useEffect(() => {
     if (connectionState !== "connected") return;
-    if (!scope?.data && !loading) {
-      refresh(false);
-    }
-  }, [connectionState, loading, refresh, scope?.data]);
+    refresh(false);
+    const timer = window.setInterval(() => refresh(false), 30_000);
+    return () => window.clearInterval(timer);
+  }, [connectionState, refresh]);
 
   const handleOpen = React.useCallback((service: LocalService) => {
     const openUrl = localServiceOpenUrl(service);
