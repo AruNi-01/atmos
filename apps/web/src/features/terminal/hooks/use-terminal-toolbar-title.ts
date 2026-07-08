@@ -137,7 +137,7 @@ export function useTerminalToolbarTitle(options: {
       cwdSuffix,
     ]
       .filter(Boolean)
-      .join("  ");
+      .join(" · ");
 
     return { displayTitle, toolbarAgent: showAgent ? auto.toolbarAgent : undefined };
   }, [

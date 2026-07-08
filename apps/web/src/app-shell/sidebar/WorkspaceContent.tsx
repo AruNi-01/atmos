@@ -399,7 +399,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const handleSaveName = React.useCallback(async () => {
     const nextName = editableName.trim();
-    if (!nextName || nextName === rawDisplayName || !onUpdateName) {
+    // An empty value is allowed: it clears the display name (i.e. "not set").
+    // Only skip when nothing changed or there is no handler.
+    if (nextName === rawDisplayName || !onUpdateName) {
       setEditableName(rawDisplayName);
       setIsEditingName(false);
       return;
@@ -642,7 +644,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           <Button
                             size="sm"
                             className="h-7 px-2 text-xs"
-                            disabled={isSavingName || !editableName.trim()}
+                            disabled={isSavingName || editableName.trim() === rawDisplayName}
                             onClick={() => void handleSaveName()}
                           >
                             {t("common.save")}

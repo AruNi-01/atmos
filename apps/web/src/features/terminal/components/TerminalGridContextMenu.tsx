@@ -135,6 +135,15 @@ export function TerminalGridContextMenu({
     onRenamePaneTitle(renameDraft);
   };
 
+  // Focus the rename input only AFTER the submenu has mounted its focus scope
+  // (which pauses the parent menu's focus trap) and registered as a dismissable
+  // branch. Focusing synchronously via `autoFocus` during mount makes the root
+  // menu treat the focus as an outside interaction and collapse the whole menu.
+  const focusRenameInput = React.useCallback((el: HTMLInputElement | null) => {
+    if (!el) return;
+    requestAnimationFrame(() => el.focus());
+  }, []);
+
   const renderSplitMenuItem = (
     direction: "row" | "column",
     label: string,
@@ -203,7 +212,6 @@ export function TerminalGridContextMenu({
     <DropdownMenu
       open={!!contextMenu}
       onOpenChange={onOpenChange}
-      modal={false}
     >
       <DropdownMenuTrigger asChild>
         <button
@@ -238,7 +246,7 @@ export function TerminalGridContextMenu({
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-64 space-y-1 p-2">
                 <Input
-                  autoFocus
+                  ref={focusRenameInput}
                   value={renameDraft}
                   placeholder={t("contextMenu.renamePlaceholder")}
                   onChange={(event) => setRenameDraft(event.target.value)}
