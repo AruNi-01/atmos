@@ -10,12 +10,13 @@ interface CachedContext {
 
 interface TerminalCacheStore {
   cachedContexts: CachedContext[];
+  activeContextId: string | null;
   maxSize: number;
   maxTerminalCount: number;
   ttlMs: number;
   
   touch: (contextId: string) => void;
-  activate: (contextId: string) => void;
+  setActiveContextId: (contextId: string | null) => void;
   remove: (contextId: string) => void;
   sweepExpired: () => void;
 }
@@ -23,12 +24,24 @@ interface TerminalCacheStore {
 export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
   return {
     cachedContexts: [],
+    activeContextId: null,
     maxSize: 5,
     maxTerminalCount: 15,
     ttlMs: 60 * 60 * 1000, // 1 hour
 
+    setActiveContextId: (contextId) => {
+      set((state) => {
+        if (state.activeContextId === contextId) return state;
+        const nextCached = state.cachedContexts.filter(c => c.contextId !== contextId);
+        return { activeContextId: contextId, cachedContexts: nextCached };
+      });
+    },
+
     touch: (contextId) => {
       set((state) => {
+        // Do not cache the currently active context
+        if (state.activeContextId === contextId) return state;
+
         const now = Date.now();
         const existingIndex = state.cachedContexts.findIndex(c => c.contextId === contextId);
         
@@ -47,7 +60,7 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
         while (nextCached.length > 0) {
           if (nextCached.length > state.maxSize) {
             const evicted = nextCached.shift(); // The oldest is at the beginning
-            if (evicted) {
+            if (evicted && evicted.contextId !== state.activeContextId) {
               setTimeout(() => {
                 useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
               }, 0);
@@ -65,7 +78,7 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
 
           if (currentTotalTerminals > state.maxTerminalCount) {
             const evicted = nextCached.shift();
-            if (evicted) {
+            if (evicted && evicted.contextId !== state.activeContextId) {
               setTimeout(() => {
                 useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
               }, 0);
@@ -76,13 +89,6 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
           break;
         }
 
-        return { cachedContexts: nextCached };
-      });
-    },
-
-    activate: (contextId) => {
-      set((state) => {
-        const nextCached = state.cachedContexts.filter(c => c.contextId !== contextId);
         return { cachedContexts: nextCached };
       });
     },
@@ -106,19 +112,21 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
         const evicted: string[] = [];
 
         for (const context of state.cachedContexts) {
-          if (now - context.lastAccessed > state.ttlMs) {
+          if (now - context.lastAccessed > state.ttlMs && context.contextId !== state.activeContextId) {
             evicted.push(context.contextId);
           } else {
             nextCached.push(context);
           }
         }
 
-        if (evicted.length > 0) {
-          setTimeout(() => {
-            const evictRuntime = useTerminalStore.getState().evictWorkspaceRuntime;
-            evicted.forEach(id => evictRuntime(id));
-          }, 0);
+        if (evicted.length === 0) {
+          return state;
         }
+
+        setTimeout(() => {
+          const evictRuntime = useTerminalStore.getState().evictWorkspaceRuntime;
+          evicted.forEach(id => evictRuntime(id));
+        }, 0);
 
         return { cachedContexts: nextCached };
       });

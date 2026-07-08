@@ -182,43 +182,47 @@ export function CenterStagePanels({
         const isActiveContext = contextId === effectiveContextId;
         const tabs = isActiveContext 
           ? visibleTerminalTabs 
-          : (allWorkspaceTerminalTabs[contextId] || [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: true }]);
+          : (allWorkspaceTerminalTabs[contextId] || [{ id: FIXED_TERMINAL_TAB_VALUE, title: t("fallbackTerminalTitle"), closable: true }]);
         const mountedTabs = mountedTerminalTabsByContext[contextId] || [];
         const isProject = isActiveContext ? currentView === "project" : (workspaceContexts[contextId] ?? false);
 
-        return tabs
-          .filter((tab) => mountedTabs.includes(tab.id))
-          .map((tab) => (
-            <div
-              key={`${contextId}-${tab.id}`}
-              className={cn(
-                "flex-1 min-h-0 min-w-0",
-                (!isActiveContext || activeValue !== tab.id) && "hidden",
-              )}
-            >
-              <div className="h-full w-full">
-                <TerminalGrid
-                  ref={isActiveContext
-                    ? (tab.id === FIXED_TERMINAL_TAB_VALUE
-                        ? terminalGridRef
-                        : (instance) => {
-                            if (terminalGridRefs.current) {
-                              terminalGridRefs.current[tab.id] = instance;
-                            }
-                          })
-                    : undefined
-                  }
-                  workspaceId={contextId}
-                  terminalTabId={tab.id === FIXED_TERMINAL_TAB_VALUE ? undefined : tab.id}
-                  quickOpenAgents={terminalQuickOpenAgents}
-                  className="h-full"
-                  isProjectContext={isProject}
-                  onNewTerminalTab={isActiveContext ? handleCreateTerminalCenterTab : undefined}
-                  onTerminalPaneClosed={isActiveContext ? handleTerminalPaneClosed : undefined}
-                />
-              </div>
-            </div>
-          ));
+        return (
+          <React.Fragment key={contextId}>
+            {tabs
+              .filter((tab) => mountedTabs.includes(tab.id))
+              .map((tab) => (
+                <div
+                  key={`${contextId}-${tab.id}`}
+                  className={cn(
+                    "flex-1 min-h-0 min-w-0",
+                    (!isActiveContext || activeValue !== tab.id) && "hidden",
+                  )}
+                >
+                  <div className="h-full w-full">
+                    <TerminalGrid
+                      ref={isActiveContext
+                        ? (tab.id === FIXED_TERMINAL_TAB_VALUE
+                            ? terminalGridRef
+                            : (instance) => {
+                                if (terminalGridRefs.current) {
+                                  terminalGridRefs.current[tab.id] = instance;
+                                }
+                              })
+                        : undefined
+                      }
+                      workspaceId={contextId}
+                      terminalTabId={tab.id === FIXED_TERMINAL_TAB_VALUE ? undefined : tab.id}
+                      quickOpenAgents={terminalQuickOpenAgents}
+                      className="h-full"
+                      isProjectContext={isProject}
+                      onNewTerminalTab={isActiveContext ? handleCreateTerminalCenterTab : undefined}
+                      onTerminalPaneClosed={isActiveContext ? handleTerminalPaneClosed : undefined}
+                    />
+                  </div>
+                </div>
+              ))}
+          </React.Fragment>
+        );
       })}
 
       {projectWikiTabVisible && (

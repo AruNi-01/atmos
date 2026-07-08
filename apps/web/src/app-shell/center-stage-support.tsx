@@ -137,32 +137,51 @@ export function useTerminalTabMountLifecycle({
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
   const touch = useTerminalCacheStore(s => s.touch);
-  const activate = useTerminalCacheStore(s => s.activate);
+  const setActiveContextId = useTerminalCacheStore(s => s.setActiveContextId);
   const sweepExpired = useTerminalCacheStore(s => s.sweepExpired);
+  const cachedContexts = useTerminalCacheStore(s => s.cachedContexts);
 
   React.useEffect(() => {
-    const interval = setInterval(() => {
-      sweepExpired();
-    }, 60 * 1000); // Check every minute
-    return () => clearInterval(interval);
-  }, [sweepExpired]);
+    setMountedTerminalTabsByContext((current) => {
+      const activeIds = new Set([
+        effectiveContextId,
+        ...cachedContexts.map((c) => c.contextId),
+      ]);
+      let changed = false;
+      const next: Record<string, string[]> = {};
+      for (const [key, value] of Object.entries(current)) {
+        if (activeIds.has(key)) {
+          next[key] = value;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [effectiveContextId, cachedContexts, setMountedTerminalTabsByContext]);
+
+  React.useEffect(() => {
+    // Only register one sweeper interval globally to prevent HMR leaks
+    if (!(globalThis as any).__terminalCacheSweeperInterval) {
+      (globalThis as any).__terminalCacheSweeperInterval = setInterval(() => {
+        useTerminalCacheStore.getState().sweepExpired();
+      }, 60 * 1000);
+    }
+  }, []);
 
   React.useEffect(() => {
     const previousContextId = previousTerminalContextRef.current;
 
+    // First mark the new context as active so it is protected from eviction
+    setActiveContextId(effectiveContextId ?? null);
+
+    // Then touch the previous context to push it into the LRU cache
     if (previousContextId && previousContextId !== effectiveContextId) {
-      // Instead of destroying terminals immediately, we push it to the cache.
-      // The cache store's eviction logic will call evictWorkspaceRuntime.
-      // WebGL contexts are cleaned up automatically when the TerminalGrid unmounts.
       touch(previousContextId);
-    }
-    
-    if (effectiveContextId) {
-      activate(effectiveContextId);
     }
 
     previousTerminalContextRef.current = effectiveContextId ?? null;
-  }, [effectiveContextId, touch, activate]);
+  }, [effectiveContextId, touch, setActiveContextId]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;
