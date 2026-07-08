@@ -1,10 +1,60 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use crate::error::{EngineError, Result};
 
 use super::{run_git, try_run_git, CommitInfo, GitEngine};
+
+fn run_gh_with_timeout(path: &Path, args: &[&str], timeout: Duration) -> Result<String> {
+    let mut cmd = Command::new("gh");
+    cmd.current_dir(path)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| {
+        EngineError::Git(format!("Failed to execute gh: {}", e))
+    })?;
+
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait().map_err(|e| {
+            EngineError::Git(format!("Failed to wait for gh: {}", e))
+        })? {
+            Some(status) => {
+                let mut stdout = Vec::new();
+                let mut stderr = Vec::new();
+                if let Some(mut out) = child.stdout.take() {
+                    use std::io::Read;
+                    let _ = out.read_to_end(&mut stdout);
+                }
+                if let Some(mut err) = child.stderr.take() {
+                    use std::io::Read;
+                    let _ = err.read_to_end(&mut stderr);
+                }
+
+                if !status.success() {
+                    let err_msg = String::from_utf8_lossy(&stderr);
+                    return Err(EngineError::Git(format!(
+                        "gh command failed: {}",
+                        err_msg.trim()
+                    )));
+                }
+
+                return Ok(String::from_utf8_lossy(&stdout).to_string());
+            }
+            None => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    return Err(EngineError::Git("gh command timed out".to_string()));
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+    }
+}
 
 impl GitEngine {
     /// Get commit log for the current branch (paginated)
@@ -120,26 +170,20 @@ impl GitEngine {
             return Err(EngineError::Git("Not a GitHub repository".to_string()));
         }
 
-        let output = Command::new("gh")
-            .current_dir(path)
-            .args([
+        let stdout = run_gh_with_timeout(
+            path,
+            &[
                 "repo",
                 "view",
                 "--json",
                 "owner,name",
                 "--template",
                 "{{.owner.login}}/{{.name}}",
-            ])
-            .output()
-            .map_err(|e| EngineError::Git(format!("gh-cli not found: {}", e)))?;
+            ],
+            Duration::from_millis(8000),
+        )?;
 
-        if !output.status.success() {
-            return Err(EngineError::Git(
-                "gh-cli error or not authenticated".to_string(),
-            ));
-        }
-
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        Ok(stdout.trim().to_string())
     }
 
     fn fetch_github_avatars(
@@ -155,23 +199,18 @@ impl GitEngine {
             "repos/{}/commits?per_page={}&page={}",
             repo_info, gh_limit, page
         );
-        let output = Command::new("gh")
-            .current_dir(path)
-            .args([
+        let stdout = run_gh_with_timeout(
+            path,
+            &[
                 "api",
                 &url,
                 "--jq",
                 ".[] | {sha: .sha, avatar: (.author.avatar_url // .committer.avatar_url)}",
-            ])
-            .output()
-            .map_err(|e| EngineError::Git(format!("gh api failed: {}", e)))?;
-
-        if !output.status.success() {
-            return Err(EngineError::Git("gh api error".to_string()));
-        }
+            ],
+            Duration::from_millis(8000),
+        )?;
 
         let mut avatars = HashMap::new();
-        let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
                 if let (Some(sha), Some(avatar)) = (val["sha"].as_str(), val["avatar"].as_str()) {
