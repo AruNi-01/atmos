@@ -98,13 +98,33 @@ export function TerminalGridContextMenu({
   const [renameDraft, setRenameDraft] = React.useState(paneCustomLabel);
   const hasCustomName = paneCustomLabel.trim().length > 0;
 
+  const skipBlurCommitRef = React.useRef(false);
+
   React.useEffect(() => {
     if (contextMenu) {
       setRenameDraft(paneCustomLabel);
+      skipBlurCommitRef.current = false;
     }
   }, [contextMenu, paneCustomLabel]);
 
   const commitRename = () => {
+    // Prevent the unmount-blur (fired when the menu closes) from committing twice.
+    skipBlurCommitRef.current = true;
+    onRenamePaneTitle(renameDraft);
+  };
+
+  const cancelRename = () => {
+    // Escape / dismiss: discard the draft and close without committing.
+    skipBlurCommitRef.current = true;
+    setRenameDraft(paneCustomLabel);
+    onOpenChange(false);
+  };
+
+  const handleRenameBlur = () => {
+    if (skipBlurCommitRef.current) {
+      skipBlurCommitRef.current = false;
+      return;
+    }
     onRenamePaneTitle(renameDraft);
   };
 
@@ -220,9 +240,12 @@ export function TerminalGridContextMenu({
                     if (event.key === "Enter") {
                       event.preventDefault();
                       commitRename();
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelRename();
                     }
                   }}
-                  onBlur={commitRename}
+                  onBlur={handleRenameBlur}
                   className="h-8 text-sm"
                 />
               </DropdownMenuSubContent>

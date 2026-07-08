@@ -314,14 +314,34 @@ function TerminalExtraTab({
   const displayTitle = tab.customTitle || tab.title;
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
   const [renameDraft, setRenameDraft] = React.useState(tab.customTitle ?? "");
+  const skipBlurCommitRef = React.useRef(false);
 
   React.useEffect(() => {
     if (menuPos) {
       setRenameDraft(tab.customTitle ?? "");
+      skipBlurCommitRef.current = false;
     }
   }, [menuPos, tab.customTitle]);
 
   const commitRename = () => {
+    // Prevent the unmount-blur (fired when the menu closes) from committing twice.
+    skipBlurCommitRef.current = true;
+    onRenameTab(tab.id, renameDraft);
+    setMenuPos(null);
+  };
+
+  const cancelRename = () => {
+    // Escape / dismiss: discard the draft and close without committing.
+    skipBlurCommitRef.current = true;
+    setRenameDraft(tab.customTitle ?? "");
+    setMenuPos(null);
+  };
+
+  const handleRenameBlur = () => {
+    if (skipBlurCommitRef.current) {
+      skipBlurCommitRef.current = false;
+      return;
+    }
     onRenameTab(tab.id, renameDraft);
     setMenuPos(null);
   };
@@ -426,9 +446,12 @@ function TerminalExtraTab({
                 if (event.key === "Enter") {
                   event.preventDefault();
                   commitRename();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancelRename();
                 }
               }}
-              onBlur={commitRename}
+              onBlur={handleRenameBlur}
               className="h-8 text-sm"
             />
           </DropdownMenuSubContent>

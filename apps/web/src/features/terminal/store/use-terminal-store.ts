@@ -998,18 +998,21 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     const nextCustomLabel = normalizeCustomName(label);
     if (panes[paneId].customLabel === nextCustomLabel) return;
 
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: {
-          ...panes,
-          [paneId]: {
-            ...panes[paneId],
-            customLabel: nextCustomLabel,
+    set((state) => {
+      const currentPanes = state.workspacePanes[scopeKey] ?? panes;
+      return {
+        workspacePanes: {
+          ...state.workspacePanes,
+          [scopeKey]: {
+            ...currentPanes,
+            [paneId]: {
+              ...currentPanes[paneId],
+              customLabel: nextCustomLabel,
+            },
           },
         },
-      },
-    }));
+      };
+    });
     get().saveToBackend(workspaceId);
   },
 
@@ -1023,19 +1026,22 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     const nextKeepCwd = flags.keepCwd ?? current.keepCwd;
     if (current.keepAgentName === nextKeepAgentName && current.keepCwd === nextKeepCwd) return;
 
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: {
-          ...panes,
-          [paneId]: {
-            ...current,
-            keepAgentName: nextKeepAgentName,
-            keepCwd: nextKeepCwd,
+    set((state) => {
+      const currentPanes = state.workspacePanes[scopeKey] ?? panes;
+      return {
+        workspacePanes: {
+          ...state.workspacePanes,
+          [scopeKey]: {
+            ...currentPanes,
+            [paneId]: {
+              ...currentPanes[paneId],
+              keepAgentName: nextKeepAgentName,
+              keepCwd: nextKeepCwd,
+            },
           },
         },
-      },
-    }));
+      };
+    });
     get().saveToBackend(workspaceId);
   },
 
