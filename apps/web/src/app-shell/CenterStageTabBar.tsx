@@ -342,8 +342,10 @@ function TerminalExtraTab({
       skipBlurCommitRef.current = false;
       return;
     }
+    // Persist the draft on blur but keep the menu open. Radix menu items steal
+    // focus on pointer-move (item.focus()), so any mouse movement blurs this
+    // input; closing here would collapse the whole menu on the first move.
     onRenameTab(tab.id, renameDraft);
-    setMenuPos(null);
   };
 
   // Focus the rename input only AFTER the submenu has mounted its focus scope

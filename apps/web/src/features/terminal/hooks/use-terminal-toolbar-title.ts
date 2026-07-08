@@ -121,7 +121,13 @@ export function useTerminalToolbarTitle(options: {
     const wantAgent = keepAgentName !== false;
     const wantCwd = keepCwd !== false;
 
-    const showAgent = wantAgent && !!auto.toolbarAgent;
+    // Prefer the agent detected from the current title, but fall back to the
+    // persisted pane agent (`mergedAgent` — the same source as agentForSubmit).
+    // Once a pane is running an agent we keep showing the agent name even after
+    // the agent changes its OSC title to a path/status, matching the pre-custom
+    // behavior where entering an agent hides the CWD and shows only the agent.
+    const activeAgent = auto.toolbarAgent ?? mergedAgent;
+    const showAgent = wantAgent && !!activeAgent;
     // Agent wins over CWD: only show a suffix when no agent suffix is shown (mutually exclusive).
     // "Keep CWD" preserves the dynamic CWD/command title — shorten paths, keep commands as-is.
     const cwdSuffix =
@@ -133,13 +139,13 @@ export function useTerminalToolbarTitle(options: {
 
     const displayTitle = [
       custom,
-      showAgent ? auto.toolbarAgent!.label : undefined,
+      showAgent ? activeAgent!.label : undefined,
       cwdSuffix,
     ]
       .filter(Boolean)
       .join(" · ");
 
-    return { displayTitle, toolbarAgent: showAgent ? auto.toolbarAgent : undefined };
+    return { displayTitle, toolbarAgent: showAgent ? activeAgent : undefined };
   }, [
     baseTitle,
     configuredAgents,
