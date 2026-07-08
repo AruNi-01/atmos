@@ -6,8 +6,9 @@ Instead of `TanStack Query` (which is for server state), we leverage React's cap
 
 ### Store: `useTerminalCacheStore`
 - **State:**
-  - `cachedContexts`: Array/Map of context IDs and their last access timestamp.
+  - `cachedContexts`: Array of objects (`{ contextId: string, lastAccessed: number }`) maintaining LRU order.
   - `maxSize`: 5
+  - `maxTerminalCount`: 15
   - `ttlMs`: 3,600,000 (1 hour)
 - **Actions:**
   - `touch(contextId)`: Updates/inserts the context into the cache, moving it to the most recently used.
@@ -26,5 +27,5 @@ Instead of immediately calling `evictWorkspaceRuntime(previousContextId)` and de
 2. The destruction logic is moved to the cache store's eviction callback.
 
 ## 2. Risk & Mitigations
-- **xterm.js Resize Issue:** When returning to a cached workspace (`display: none` -> `display: block`), the canvas may not properly size itself. Mitigation: We may need to trigger a window resize event or call xterm's `fit()` addon when a context becomes active again.
+- **xterm.js Resize Issue:** When returning to a cached workspace (`display: none` -> `display: block`), the canvas may not properly size itself. Mitigation: We commit to relying on the existing `ResizeObserver` inside `TerminalGrid` which automatically triggers `fit()` when the element's dimensions change upon becoming visible. If edge cases appear where `fit()` misses the visibility transition, we will explicitly call `fit()` in an effect tied to the active context state.
 - **Memory Pressure:** Keeping terminals alive means keeping WebGL instances alive. Max size of 5 and TTL of 1 hour mitigate infinite growth.
