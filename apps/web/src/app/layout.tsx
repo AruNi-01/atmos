@@ -53,9 +53,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang={defaultLocale} data-theme-ready="true" suppressHydrationWarning>
       <head>
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+        />
       </head>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
