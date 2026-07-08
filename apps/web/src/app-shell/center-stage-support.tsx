@@ -13,6 +13,7 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
+import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -145,31 +146,15 @@ export function useTerminalTabMountLifecycle({
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
+  const touch = useTerminalCacheStore(s => s.touch);
 
   React.useEffect(() => {
     const previousContextId = previousTerminalContextRef.current;
 
     if (previousContextId && previousContextId !== effectiveContextId) {
-      terminalGridRef.current?.destroyAllTerminals();
-      for (const grid of Object.values(terminalGridRefsRef.current)) {
-        grid?.destroyAllTerminals();
-      }
-      projectWikiTerminalGridRef.current?.destroyAllTerminals();
-      codeReviewTerminalGridRef.current?.destroyAllTerminals();
-
-      terminalGridRefsRef.current = {};
-
-      setMountedTerminalTabsByContext((current) => {
-        if (!(previousContextId in current)) {
-          return current;
-        }
-
-        const next = { ...current };
-        delete next[previousContextId];
-        return next;
-      });
-
-      evictWorkspaceRuntime(previousContextId);
+      // Instead of destroying terminals immediately, we push it to the cache.
+      // The cache store's eviction logic will call destroyAllTerminals and evictWorkspaceRuntime.
+      touch(previousContextId);
     }
 
     previousTerminalContextRef.current = effectiveContextId ?? null;

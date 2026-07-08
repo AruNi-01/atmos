@@ -31,6 +31,8 @@ import type { PendingNamedTerminalRun } from "@/app-shell/center-stage-support";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
+import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
+import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 
 function TerminalGridLoadingFallback() {
   const t = useTranslations("appShell.centerStagePanels");
@@ -116,7 +118,7 @@ interface CenterStagePanelsProps {
     terminalTabId: string;
     isLastPane: boolean;
   }) => void;
-  mountedTerminalTabs: string[];
+
   openFiles: OpenFile[];
   projectWikiTabVisible: boolean;
   projectWikiTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
@@ -133,6 +135,7 @@ interface CenterStagePanelsProps {
   wikiCenterEligible: boolean;
   wikiPageFromUrl?: string | null;
   wikiRefreshTrigger: number;
+  mountedTerminalTabsByContext: Record<string, string[]>;
 }
 
 export function CenterStagePanels({
@@ -147,7 +150,7 @@ export function CenterStagePanels({
   effectiveContextId,
   handleCreateTerminalCenterTab,
   handleTerminalPaneClosed,
-  mountedTerminalTabs,
+
   openFiles,
   projectWikiTabVisible,
   projectWikiTerminalGridRef,
@@ -164,39 +167,59 @@ export function CenterStagePanels({
   wikiCenterEligible,
   wikiPageFromUrl,
   wikiRefreshTrigger,
+  mountedTerminalTabsByContext,
 }: CenterStagePanelsProps) {
   const t = useTranslations("appShell.centerStagePanels");
+  const cachedContexts = useTerminalCacheStore(s => s.cachedContexts);
+  const allWorkspaceTerminalTabs = useTerminalStore(s => s.workspaceTerminalTabs);
+  const workspaceContexts = useTerminalStore(s => s.workspaceContexts);
+
+  const contextIdsToRender = Array.from(new Set([effectiveContextId, ...cachedContexts.map(c => c.contextId)])).filter(Boolean);
 
   return (
     <>
-      {visibleTerminalTabs
-        .filter((tab) => mountedTerminalTabs.includes(tab.id))
-        .map((tab) => (
-          <div
-            key={tab.id}
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              activeValue !== tab.id && "hidden",
-            )}
-          >
-            <div className="h-full w-full">
-              <TerminalGrid
-                ref={tab.id === FIXED_TERMINAL_TAB_VALUE
-                  ? terminalGridRef
-                  : (instance) => {
-                      terminalGridRefs.current[tab.id] = instance;
-                    }}
-                workspaceId={effectiveContextId}
-                terminalTabId={tab.id === FIXED_TERMINAL_TAB_VALUE ? undefined : tab.id}
-                quickOpenAgents={terminalQuickOpenAgents}
-                className="h-full"
-                isProjectContext={currentView === "project"}
-                onNewTerminalTab={handleCreateTerminalCenterTab}
-                onTerminalPaneClosed={handleTerminalPaneClosed}
-              />
+      {contextIdsToRender.map((contextId) => {
+        const isActiveContext = contextId === effectiveContextId;
+        const tabs = isActiveContext 
+          ? visibleTerminalTabs 
+          : (allWorkspaceTerminalTabs[contextId] || [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: true }]);
+        const mountedTabs = mountedTerminalTabsByContext[contextId] || [];
+        const isProject = isActiveContext ? currentView === "project" : (workspaceContexts[contextId] ?? false);
+
+        return tabs
+          .filter((tab) => mountedTabs.includes(tab.id))
+          .map((tab) => (
+            <div
+              key={`${contextId}-${tab.id}`}
+              className={cn(
+                "flex-1 min-h-0 min-w-0",
+                (!isActiveContext || activeValue !== tab.id) && "hidden",
+              )}
+            >
+              <div className="h-full w-full">
+                <TerminalGrid
+                  ref={isActiveContext
+                    ? (tab.id === FIXED_TERMINAL_TAB_VALUE
+                        ? terminalGridRef
+                        : (instance) => {
+                            if (terminalGridRefs.current) {
+                              terminalGridRefs.current[tab.id] = instance;
+                            }
+                          })
+                    : undefined
+                  }
+                  workspaceId={contextId}
+                  terminalTabId={tab.id === FIXED_TERMINAL_TAB_VALUE ? undefined : tab.id}
+                  quickOpenAgents={terminalQuickOpenAgents}
+                  className="h-full"
+                  isProjectContext={isProject}
+                  onNewTerminalTab={isActiveContext ? handleCreateTerminalCenterTab : undefined}
+                  onTerminalPaneClosed={isActiveContext ? handleTerminalPaneClosed : undefined}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+      })}
 
       {projectWikiTabVisible && (
         <div
