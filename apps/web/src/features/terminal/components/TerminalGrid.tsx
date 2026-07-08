@@ -734,7 +734,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const handleRenamePaneTitle = useCallback(
     (value: string) => {
-      setContextMenu(null);
       const focusedPaneId = getFocusedPaneId();
       if (!focusedPaneId || !isDefaultScope) return;
       setPaneCustomLabel(workspaceId, focusedPaneId, value, terminalTabId ?? FIXED_TERMINAL_TAB_VALUE);

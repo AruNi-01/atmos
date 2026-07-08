@@ -417,6 +417,7 @@ function TerminalExtraTab({
 
     <DropdownMenu
       open={!!menuPos}
+      modal={false}
       onOpenChange={(open) => {
         if (!open) setMenuPos(null);
       }}

@@ -3,8 +3,8 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
+  Checkbox,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -96,7 +96,10 @@ export function TerminalGridContextMenu({
 
   // Local draft for the rename input; reset whenever the menu (re)opens.
   const [renameDraft, setRenameDraft] = React.useState(paneCustomLabel);
-  const hasCustomName = paneCustomLabel.trim().length > 0;
+  // The Keep toggles are meaningful as soon as there is a name to keep — either a
+  // committed label or a non-empty draft — so they light up while typing.
+  const hasCustomName =
+    renameDraft.trim().length > 0 || paneCustomLabel.trim().length > 0;
 
   const skipBlurCommitRef = React.useRef(false);
 
@@ -111,6 +114,8 @@ export function TerminalGridContextMenu({
     // Prevent the unmount-blur (fired when the menu closes) from committing twice.
     skipBlurCommitRef.current = true;
     onRenamePaneTitle(renameDraft);
+    // Enter confirms and closes the whole menu.
+    onOpenChange(false);
   };
 
   const cancelRename = () => {
@@ -125,6 +130,8 @@ export function TerminalGridContextMenu({
       skipBlurCommitRef.current = false;
       return;
     }
+    // Blur (e.g. clicking a Keep toggle) persists the draft but keeps the menu
+    // open so the user can keep adjusting toggles in the same panel.
     onRenamePaneTitle(renameDraft);
   };
 
@@ -196,6 +203,7 @@ export function TerminalGridContextMenu({
     <DropdownMenu
       open={!!contextMenu}
       onOpenChange={onOpenChange}
+      modal={false}
     >
       <DropdownMenuTrigger asChild>
         <button
@@ -228,7 +236,7 @@ export function TerminalGridContextMenu({
                 <Pencil className="size-4 mr-2 text-muted-foreground" />
                 <span>{t("contextMenu.renameTitle")}</span>
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-64 p-2">
+              <DropdownMenuSubContent className="w-64 space-y-1 p-2">
                 <Input
                   autoFocus
                   value={renameDraft}
@@ -248,28 +256,60 @@ export function TerminalGridContextMenu({
                   onBlur={handleRenameBlur}
                   className="h-8 text-sm"
                 />
+                <div
+                  role="button"
+                  tabIndex={-1}
+                  aria-disabled={!hasCustomName}
+                  onClick={() => {
+                    if (!hasCustomName) return;
+                    onToggleKeepAgentName(!paneKeepAgentName);
+                  }}
+                  className={cn(
+                    "flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                    hasCustomName
+                      ? "cursor-pointer hover:bg-accent"
+                      : "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <Bot className="size-4 text-muted-foreground" />
+                    <span>{t("contextMenu.keepAgentName")}</span>
+                  </span>
+                  <Checkbox
+                    checked={paneKeepAgentName}
+                    disabled={!hasCustomName}
+                    tabIndex={-1}
+                    className="pointer-events-none"
+                  />
+                </div>
+                <div
+                  role="button"
+                  tabIndex={-1}
+                  aria-disabled={!hasCustomName}
+                  onClick={() => {
+                    if (!hasCustomName) return;
+                    onToggleKeepCwd(!paneKeepCwd);
+                  }}
+                  className={cn(
+                    "flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                    hasCustomName
+                      ? "cursor-pointer hover:bg-accent"
+                      : "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <FolderTree className="size-4 text-muted-foreground" />
+                    <span>{t("contextMenu.keepCwd")}</span>
+                  </span>
+                  <Checkbox
+                    checked={paneKeepCwd}
+                    disabled={!hasCustomName}
+                    tabIndex={-1}
+                    className="pointer-events-none"
+                  />
+                </div>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuCheckboxItem
-              checked={paneKeepAgentName}
-              disabled={!hasCustomName}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => onToggleKeepAgentName(checked === true)}
-              className="cursor-pointer"
-            >
-              <Bot className="size-4 mr-2 text-muted-foreground" />
-              <span>{t("contextMenu.keepAgentName")}</span>
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={paneKeepCwd}
-              disabled={!hasCustomName}
-              onSelect={(event) => event.preventDefault()}
-              onCheckedChange={(checked) => onToggleKeepCwd(checked === true)}
-              className="cursor-pointer"
-            >
-              <FolderTree className="size-4 mr-2 text-muted-foreground" />
-              <span>{t("contextMenu.keepCwd")}</span>
-            </DropdownMenuCheckboxItem>
           </>
         )}
         <DropdownMenuItem

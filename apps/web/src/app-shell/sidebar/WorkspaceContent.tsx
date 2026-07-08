@@ -210,14 +210,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const scheduleInfoPopoverClose = React.useCallback(() => {
     cancelInfoPopoverClose();
     infoPopoverTimerRef.current = setTimeout(() => {
-      if (isStatusMenuOpen || isPriorityMenuOpen || isLabelPopoverOpen) {
+      if (isStatusMenuOpen || isPriorityMenuOpen || isLabelPopoverOpen || isEditingName) {
         infoPopoverTimerRef.current = null;
         return;
       }
       setIsInfoPopoverOpen(false);
       infoPopoverTimerRef.current = null;
     }, 150);
-  }, [cancelInfoPopoverClose, isLabelPopoverOpen, isPriorityMenuOpen, isStatusMenuOpen]);
+  }, [cancelInfoPopoverClose, isEditingName, isLabelPopoverOpen, isPriorityMenuOpen, isStatusMenuOpen]);
 
   React.useEffect(() => {
     return () => {
@@ -616,7 +616,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           <Pencil className="size-2.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent data-workspace-popover-surface="true" side="right" align="start" className="w-56 p-2">
+                      <PopoverContent
+                        data-workspace-popover-surface="true"
+                        side="right"
+                        align="start"
+                        className="w-56 p-2"
+                        onMouseEnter={cancelInfoPopoverClose}
+                        onMouseLeave={scheduleInfoPopoverClose}
+                      >
                         <div className="flex items-center gap-2">
                           <Input
                             value={editableName}
