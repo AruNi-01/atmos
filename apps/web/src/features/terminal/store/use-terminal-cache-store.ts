@@ -11,6 +11,7 @@ interface CachedContext {
 interface TerminalCacheStore {
   cachedContexts: CachedContext[];
   maxSize: number;
+  maxTerminalCount: number;
   ttlMs: number;
   
   touch: (contextId: string) => void;
@@ -22,6 +23,7 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
   return {
     cachedContexts: [],
     maxSize: 5,
+    maxTerminalCount: 15,
     ttlMs: 60 * 60 * 1000, // 1 hour
 
     touch: (contextId) => {
@@ -40,15 +42,37 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
           nextCached.push({ contextId, lastAccessed: now });
         }
 
-        // Evict if over maxSize
-        if (nextCached.length > state.maxSize) {
-          const evicted = nextCached.shift(); // The oldest is at the beginning
-          if (evicted) {
-            // Trigger destruction
-            setTimeout(() => {
-              useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
-            }, 0);
+        // Evict if over maxSize or over maxTerminalCount
+        while (nextCached.length > 0) {
+          if (nextCached.length > state.maxSize) {
+            const evicted = nextCached.shift(); // The oldest is at the beginning
+            if (evicted) {
+              setTimeout(() => {
+                useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
+              }, 0);
+            }
+            continue;
           }
+
+          // Check terminal count
+          const terminalStoreState = useTerminalStore.getState();
+          let currentTotalTerminals = 0;
+          for (const cacheItem of nextCached) {
+            const tabs = terminalStoreState.workspaceTerminalTabs[cacheItem.contextId];
+            currentTotalTerminals += tabs ? tabs.length : 1;
+          }
+
+          if (currentTotalTerminals > state.maxTerminalCount) {
+            const evicted = nextCached.shift();
+            if (evicted) {
+              setTimeout(() => {
+                useTerminalStore.getState().evictWorkspaceRuntime(evicted.contextId);
+              }, 0);
+            }
+            continue;
+          }
+
+          break;
         }
 
         return { cachedContexts: nextCached };
