@@ -36,6 +36,10 @@ export function TerminalSettingsSection({
   setFileLinkOpenApp,
   setUseLastSplitAgentOnSplit,
   setSideContextPromptBudgetBytes,
+  terminalCacheMaxSize,
+  terminalCacheMaxPanels,
+  setTerminalCacheMaxSize,
+  setTerminalCacheMaxPanels,
 }: {
   fileLinkOpenMode: TerminalFileLinkOpenMode;
   fileLinkOpenApp: QuickOpenAppName;
@@ -46,9 +50,15 @@ export function TerminalSettingsSection({
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
+  terminalCacheMaxSize: number;
+  terminalCacheMaxPanels: number;
+  setTerminalCacheMaxSize: (size: number) => Promise<void> | void;
+  setTerminalCacheMaxPanels: (panels: number) => Promise<void> | void;
 }) {
   const t = useTranslations('settings.terminalSection');
   const locale = useLocale();
+  const [localTerminalCacheMaxSize, setLocalTerminalCacheMaxSize] = React.useState(terminalCacheMaxSize.toString());
+  const [localTerminalCacheMaxPanels, setLocalTerminalCacheMaxPanels] = React.useState(terminalCacheMaxPanels.toString());
   const [localSideContextBudget, setLocalSideContextBudget] = React.useState(
     sideContextPromptBudgetBytes.toString(),
   );
@@ -81,6 +91,36 @@ export function TerminalSettingsSection({
   React.useEffect(() => {
     setLocalSideContextBudget(sideContextPromptBudgetBytes.toString());
   }, [sideContextPromptBudgetBytes]);
+
+  React.useEffect(() => {
+    setLocalTerminalCacheMaxSize(terminalCacheMaxSize.toString());
+  }, [terminalCacheMaxSize]);
+
+  React.useEffect(() => {
+    setLocalTerminalCacheMaxPanels(terminalCacheMaxPanels.toString());
+  }, [terminalCacheMaxPanels]);
+
+  const handleTerminalCacheMaxSizeCommit = async (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 1) {
+      setLocalTerminalCacheMaxSize(terminalCacheMaxSize.toString());
+      return;
+    }
+    const normalized = Math.min(50, Math.max(1, parsed));
+    setLocalTerminalCacheMaxSize(normalized.toString());
+    await setTerminalCacheMaxSize(normalized);
+  };
+
+  const handleTerminalCacheMaxPanelsCommit = async (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 1) {
+      setLocalTerminalCacheMaxPanels(terminalCacheMaxPanels.toString());
+      return;
+    }
+    const normalized = Math.min(100, Math.max(1, parsed));
+    setLocalTerminalCacheMaxPanels(normalized.toString());
+    await setTerminalCacheMaxPanels(normalized);
+  };
 
   const handleSideContextBudgetCommit = async (value: string) => {
     const parsed = Number.parseInt(value, 10);
@@ -213,6 +253,62 @@ export function TerminalSettingsSection({
               className="w-32"
             />
             <span className="text-sm text-muted-foreground">{t('sideContextBudget.bytes')}</span>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">{t('cacheWorkspaces.title')}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {t('cacheWorkspaces.description')}
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={50}
+              step={1}
+              value={localTerminalCacheMaxSize}
+              onChange={(event) => setLocalTerminalCacheMaxSize(event.target.value)}
+              onBlur={(event) => void handleTerminalCacheMaxSizeCommit(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  void handleTerminalCacheMaxSizeCommit(localTerminalCacheMaxSize);
+                }
+              }}
+              className="w-24"
+            />
+            <span className="text-sm text-muted-foreground">{t('cacheWorkspaces.contexts')}</span>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">{t('cachePanels.title')}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {t('cachePanels.description')}
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              value={localTerminalCacheMaxPanels}
+              onChange={(event) => setLocalTerminalCacheMaxPanels(event.target.value)}
+              onBlur={(event) => void handleTerminalCacheMaxPanelsCommit(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  void handleTerminalCacheMaxPanelsCommit(localTerminalCacheMaxPanels);
+                }
+              }}
+              className="w-24"
+            />
+            <span className="text-sm text-muted-foreground">{t('cachePanels.panels')}</span>
           </div>
         </div>
       </div>

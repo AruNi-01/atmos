@@ -341,13 +341,8 @@ const CenterStage: React.FC = () => {
 
   useTerminalTabMountLifecycle({
     activeValue,
-    codeReviewTerminalGridRef,
     effectiveContextId,
-    evictWorkspaceRuntime,
-    projectWikiTerminalGridRef,
     setMountedTerminalTabsByContext,
-    terminalGridRef,
-    terminalGridRefsRef: terminalGridRefs,
     visibleTerminalTabs,
   });
 
@@ -1154,7 +1149,7 @@ const CenterStage: React.FC = () => {
           effectiveContextId={effectiveContextId}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
           handleTerminalPaneClosed={handleTerminalPaneClosed}
-          mountedTerminalTabs={mountedTerminalTabs}
+          mountedTerminalTabsByContext={mountedTerminalTabsByContext}
           openFiles={openFiles}
           projectWikiTabVisible={projectWikiTabVisible}
           projectWikiTerminalGridRef={projectWikiTerminalGridRef}

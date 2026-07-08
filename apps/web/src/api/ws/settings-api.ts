@@ -48,6 +48,8 @@ export interface FunctionSettings {
     file_link_open_mode?: "atmos" | "finder" | "app";
     file_link_open_app?: string;
     side_context_prompt_budget_bytes?: number;
+    max_cached_workspaces?: number;
+    max_cached_terminal_panels_per_workspace?: number;
   };
   git_commit?: {
     acp_new_session_switch?: boolean;

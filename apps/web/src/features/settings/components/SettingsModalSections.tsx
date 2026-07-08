@@ -52,6 +52,10 @@ interface SettingsModalSectionsProps {
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
+  terminalCacheMaxSize: number;
+  terminalCacheMaxPanels: number;
+  setTerminalCacheMaxSize: (size: number) => Promise<void> | void;
+  setTerminalCacheMaxPanels: (panels: number) => Promise<void> | void;
   agentCustomSettings: BuiltInAgentSettings;
   agentSettingsLoading: boolean;
   builtInAgentOpen: Record<string, boolean>;
@@ -156,6 +160,10 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setFileLinkOpenApp={props.setFileLinkOpenApp}
           setUseLastSplitAgentOnSplit={props.setUseLastSplitAgentOnSplit}
           setSideContextPromptBudgetBytes={props.setSideContextPromptBudgetBytes}
+          terminalCacheMaxSize={props.terminalCacheMaxSize}
+          terminalCacheMaxPanels={props.terminalCacheMaxPanels}
+          setTerminalCacheMaxSize={props.setTerminalCacheMaxSize}
+          setTerminalCacheMaxPanels={props.setTerminalCacheMaxPanels}
         />
       );
     case 'code-agent':

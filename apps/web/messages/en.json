@@ -4698,6 +4698,16 @@
         "title": "Side chat context budget",
         "description": "Maximum terminal context bytes sent into a /side agent prompt. The server still clamps requests between {min} and {max} bytes.",
         "bytes": "bytes"
+      },
+      "cacheWorkspaces": {
+        "title": "Max cached workspaces",
+        "description": "Set the maximum number of Projects/Workspaces kept active in memory. Higher cache numbers use more memory but speed up switching.",
+        "contexts": "contexts"
+      },
+      "cachePanels": {
+        "title": "Max terminal panels per workspace",
+        "description": "Limit the number of terminal panels preserved in a single cached context. If this limit is exceeded, the context will be evicted from the cache.",
+        "panels": "panels"
       }
     },
     "headerLayoutSection": {

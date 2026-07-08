@@ -13,6 +13,7 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
+import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -125,63 +126,63 @@ export function useReloadOpenFilesWhenReady({
 
 export function useTerminalTabMountLifecycle({
   activeValue,
-  codeReviewTerminalGridRef,
   effectiveContextId,
-  evictWorkspaceRuntime,
-  projectWikiTerminalGridRef,
   setMountedTerminalTabsByContext,
-  terminalGridRef,
-  terminalGridRefsRef,
   visibleTerminalTabs,
 }: {
   activeValue: string;
-  codeReviewTerminalGridRef: TerminalGridRef;
   effectiveContextId: string | null | undefined;
-  evictWorkspaceRuntime: (workspaceId: string) => void;
-  projectWikiTerminalGridRef: TerminalGridRef;
   setMountedTerminalTabsByContext: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-  terminalGridRef: TerminalGridRef;
-  terminalGridRefsRef: TerminalGridRefs;
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
+  const touch = useTerminalCacheStore(s => s.touch);
+  const setActiveContextId = useTerminalCacheStore(s => s.setActiveContextId);
+  const sweepExpired = useTerminalCacheStore(s => s.sweepExpired);
+  const cachedContexts = useTerminalCacheStore(s => s.cachedContexts);
+
+  React.useEffect(() => {
+    setMountedTerminalTabsByContext((current) => {
+      const activeIds = new Set([
+        effectiveContextId,
+        previousTerminalContextRef.current,
+        ...cachedContexts.map((c) => c.contextId),
+      ]);
+      let changed = false;
+      const next: Record<string, string[]> = {};
+      for (const [key, value] of Object.entries(current)) {
+        if (activeIds.has(key)) {
+          next[key] = value;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [effectiveContextId, cachedContexts, setMountedTerminalTabsByContext]);
+
+  React.useEffect(() => {
+    // Only register one sweeper interval globally to prevent HMR leaks
+    if (!(globalThis as any).__terminalCacheSweeperInterval) {
+      (globalThis as any).__terminalCacheSweeperInterval = setInterval(() => {
+        useTerminalCacheStore.getState().sweepExpired();
+      }, 60 * 1000);
+    }
+  }, []);
 
   React.useEffect(() => {
     const previousContextId = previousTerminalContextRef.current;
 
+    // First mark the new context as active so it is protected from eviction
+    setActiveContextId(effectiveContextId ?? null);
+
+    // Then touch the previous context to push it into the LRU cache
     if (previousContextId && previousContextId !== effectiveContextId) {
-      terminalGridRef.current?.destroyAllTerminals();
-      for (const grid of Object.values(terminalGridRefsRef.current)) {
-        grid?.destroyAllTerminals();
-      }
-      projectWikiTerminalGridRef.current?.destroyAllTerminals();
-      codeReviewTerminalGridRef.current?.destroyAllTerminals();
-
-      terminalGridRefsRef.current = {};
-
-      setMountedTerminalTabsByContext((current) => {
-        if (!(previousContextId in current)) {
-          return current;
-        }
-
-        const next = { ...current };
-        delete next[previousContextId];
-        return next;
-      });
-
-      evictWorkspaceRuntime(previousContextId);
+      touch(previousContextId);
     }
 
     previousTerminalContextRef.current = effectiveContextId ?? null;
-  }, [
-    codeReviewTerminalGridRef,
-    effectiveContextId,
-    evictWorkspaceRuntime,
-    projectWikiTerminalGridRef,
-    setMountedTerminalTabsByContext,
-    terminalGridRef,
-    terminalGridRefsRef,
-  ]);
+  }, [effectiveContextId, touch, setActiveContextId]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;

@@ -14,6 +14,7 @@ import {
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 import { useTerminalLinkSettingsStore } from '@/features/settings/store/terminal-link-settings-store';
 import { useTerminalSideChatSettingsStore } from '@/features/settings/store/terminal-side-chat-settings-store';
+import { useTerminalCacheStore } from '@/features/terminal/store/use-terminal-cache-store';
 import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
 import {
   agentBehaviourSettingsApi,
@@ -279,6 +280,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     loadSettings: loadTerminalSideChatSettings,
     setSideContextPromptBudgetBytes,
   } = useTerminalSideChatSettingsStore();
+  const { maxSize, maxTerminalPanelsPerWorkspace, loadSettings: loadTerminalCacheSettings } = useTerminalCacheStore();
+  const setTerminalCacheMaxSize = useTerminalCacheStore((state) => state.setMaxSize);
+  const setTerminalCacheMaxPanels = useTerminalCacheStore((state) => state.setMaxTerminalPanelsPerWorkspace);
 
   useEffect(() => {
     void loadTerminalLinkSettings();
@@ -896,6 +900,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setFileLinkOpenApp={setFileLinkOpenApp}
                     setUseLastSplitAgentOnSplit={setUseLastSplitAgentOnSplit}
                     setSideContextPromptBudgetBytes={setSideContextPromptBudgetBytes}
+                    terminalCacheMaxSize={maxSize}
+                    terminalCacheMaxPanels={maxTerminalPanelsPerWorkspace}
+                    setTerminalCacheMaxSize={setTerminalCacheMaxSize}
+                    setTerminalCacheMaxPanels={setTerminalCacheMaxPanels}
                     agentCustomSettings={agentCustomSettings}
                     agentSettingsLoading={agentSettingsLoading}
                     builtInAgentOpen={builtInAgentOpen}
