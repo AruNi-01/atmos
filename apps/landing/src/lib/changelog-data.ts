@@ -34,6 +34,81 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.7.9",
+    title: {
+      zh: "终端缓存控制 · 侧边栏与头部配置 · AI 选区上下文",
+      en: "Terminal Cache Control, Layout Toggles & AI Selection Context",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.7.9 将 2026.7.6 阶段的终端体验与稳定性更新打磨为了稳定版，新增了强大的终端缓存策略、自定义终端标签名称、便捷的 AI 选区上下文交互，并全面提升了性能和应用内打磨。",
+      en: "Atmos Desktop 2026.7.9 graduates the 2026.7.6 terminal UX and stability updates into a stable release, bringing robust terminal caching strategies, custom terminal tab names, instant AI selection context, and broad performance polish.",
+    },
+    date: "2026-07-09",
+    version: "2026.7.9",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-2026.7.9",
+    tags: [
+      { zh: "终端缓存", en: "Terminal Cache" },
+      { zh: "UI 定制", en: "UI Customization" },
+      { zh: "工作流", en: "Workflow" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**终端缓存策略** — 引入全面的终端缓存机制，支持面板缓存限制、新增专属缓存配置界面，并通过最大终端数限制策略实现更优的资源管理。",
+          "**自定义终端标签与面板名称** — 现在可以为终端标签页和面板命名，以便更好地区分工作流。修改名称时上下文菜单将保持非模态交互，带来更顺畅的编辑体验。",
+          "**头部与侧边栏功能定制** — 为头部按钮和右侧边栏功能区新增了可见性开关，可以按需隐藏不需要的入口。",
+          "**终端 AI 选区上下文** — 在终端中选中文本时，可通过选区弹出层快捷将其加入 AI 上下文。",
+          "**终端选择工具栏增强** — 在终端选区悬浮栏新增带自动消失反馈的复制按钮；新增 `Cmd+Shift+G` 快捷键，用于将 AI 输入面板固定在终端。",
+          "**Landing 演示视频** — Landing 首页头图已替换为全屏演示视频对话框，更直观展示 Agent 交互。",
+          "**目录滚动导航** — Changelog 页面新增了基于滚动驱动的 `ScrollToc` 组件，优化了阅读较长日志时的导航体验。",
+        ],
+        fixes: [
+          "**终端稳定性** — 解决了由缓存驱逐导致的状态错误、HMR 内存泄漏以及 React 协调 Bug，确保在发生缓存淘汰时已有的标签页能被正确保留。",
+          "**Review 差异视图** — 修复了在代码差异视图中添加评论时页面发生异常滚动跳转的问题，Tab 标签悬停也会正确显示被截断的文件名。",
+          "**终端交互细节** — 修复了将终端选区填入 AI 输入时由于光标位置错误导致芯片排序倒置的问题，以及 Prompt Composer 斜杠命令的解析失效问题。",
+          "**Agent 启动流程** — 修复了 TUI Agent 的交互启动命令执行失效问题，以及重连时刷新按钮导致的状态冲突。",
+        ],
+        improvements: [
+          "**并发 WebSocket 消息处理** — API 现已支持并发处理 WebSocket 消息，避免队头阻塞，大幅提升了操作密集型场景下的桌面端响应速度。",
+          "**扫描器与引擎性能优化** — 采用并发执行和本地缓存来优化本地服务端口扫描器；为内核引擎中的 `git` 和 `gh` CLI 执行命令增加超时控制以确保资源不会被挂起命令锁死。",
+          "**UI 与布局动效打磨** — 将终端发送命令时的扫光动效内嵌至输入框内；重构了 Toast 通知，通知栏操作更加清晰且带有弹出动画；优化了工作区进入时的浮层遮罩性能。",
+          "**设置面板与国际化配置** — 改进了设置弹窗，增强了侧边栏和模块区块标题的多语言动态切换能力；全局日期格式化默认采用 UTC，避免由于时区读取失败产生的后备渲染错误。",
+        ],
+        others: [
+          "内容安全策略 (CSP) 现已允许 `blob:` 资源加载。",
+          "移除了过时的工作区 Notes 面板以保持工作区整洁；“Atmos Computer”概念重命名为“Remote Access / 远程访问”。",
+        ],
+      },
+      en: {
+        features: [
+          "**Terminal Caching Strategy** — Implemented a comprehensive terminal caching strategy with panel-based limits, a dedicated settings UI, and max-terminal-count eviction for reliable resource management.",
+          "**Custom Terminal Tab & Pane Naming** — You can now assign custom names to terminal tabs and panes. Tab context menus have been rebuilt as non-modal popovers to ensure smooth inline renaming.",
+          "**Header & Sidebar Visibility Toggles** — Added per-feature visibility toggles for workspace header buttons and right sidebar tabs to clean up your layout.",
+          "**Selection-based AI Context Chips** — When text is selected in the terminal, you can instantly turn it into an AI context chip from the selection toolbar.",
+          "**Terminal Toolbar Enhancements** — Added a copy button to the terminal selection toolbar with transient auto-dismiss feedback, and a `Cmd+Shift+G` hotkey to pin the AI input overlay.",
+          "**Landing Demo Video** — Replaced the landing page hero image with a full-screen video dialog showing a compressed agent terminal demo.",
+          "**Scroll-driven TOC** — Added a scroll-driven `ScrollToc` component to improve table of contents navigation on the changelog page.",
+        ],
+        fixes: [
+          "**Terminal Stability** — Resolved cache eviction bugs, HMR memory leaks, and React reconciliation issues so that previous context tabs are properly preserved during aggressive transitions.",
+          "**Review Diff View** — Fixed page jump and scrolling bugs when adding comments in a review diff. Diff view tab tooltips now show full paths on hover.",
+          "**Terminal Input Positioning** — Fixed terminal caret position and chip order when inserting selection AI context, and addressed prompt composer slash command parsing failures.",
+          "**Agent Launch Flow** — Restored interactive agent launches with TUI follow-up and fixed empty launch states along with header refresh button conflicts.",
+        ],
+        improvements: [
+          "**Concurrent WebSocket Handling** — The core API now handles incoming WebSocket messages concurrently, avoiding head-of-line blocking and speeding up desktop responsiveness during high-volume events.",
+          "**Scanner & Engine Optimizations** — Sped up the local services scanner with concurrency and caching support, and added timeout limits for `git` and `gh` CLI executions so hung commands won't lock up backend workers.",
+          "**UI & Layout Polish** — Moved the terminal AI send sweep animation inside the input frame, improved toast alerts with outward dismissal animations, and optimized the new workspace overlay entry transitions.",
+          "**Settings & i18n Resilience** — Enhanced the Settings modal with dynamically translated sidebars and headers, and configured UTC as the default fallback timezone to prevent hydration mismatches.",
+        ],
+        others: [
+          "Added support for `blob:` resources in the desktop Content Security Policy (CSP).",
+          "Removed the obsolete workspace notes surface to clean up the interface, and renamed the 'Atmos Computer' concept to 'Remote Access / 远程访问' in navigation flows.",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.7.3",
     title: {
       zh: "终端侧聊 · Appshots 工作流 · 预览检查增强",
