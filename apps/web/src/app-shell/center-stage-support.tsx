@@ -126,47 +126,43 @@ export function useReloadOpenFilesWhenReady({
 
 export function useTerminalTabMountLifecycle({
   activeValue,
-  codeReviewTerminalGridRef,
   effectiveContextId,
-  evictWorkspaceRuntime,
-  projectWikiTerminalGridRef,
   setMountedTerminalTabsByContext,
-  terminalGridRef,
-  terminalGridRefsRef,
   visibleTerminalTabs,
 }: {
   activeValue: string;
-  codeReviewTerminalGridRef: TerminalGridRef;
   effectiveContextId: string | null | undefined;
-  evictWorkspaceRuntime: (workspaceId: string) => void;
-  projectWikiTerminalGridRef: TerminalGridRef;
   setMountedTerminalTabsByContext: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-  terminalGridRef: TerminalGridRef;
-  terminalGridRefsRef: TerminalGridRefs;
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
   const touch = useTerminalCacheStore(s => s.touch);
+  const activate = useTerminalCacheStore(s => s.activate);
+  const sweepExpired = useTerminalCacheStore(s => s.sweepExpired);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      sweepExpired();
+    }, 60 * 1000); // Check every minute
+    return () => clearInterval(interval);
+  }, [sweepExpired]);
 
   React.useEffect(() => {
     const previousContextId = previousTerminalContextRef.current;
 
     if (previousContextId && previousContextId !== effectiveContextId) {
       // Instead of destroying terminals immediately, we push it to the cache.
-      // The cache store's eviction logic will call destroyAllTerminals and evictWorkspaceRuntime.
+      // The cache store's eviction logic will call evictWorkspaceRuntime.
+      // WebGL contexts are cleaned up automatically when the TerminalGrid unmounts.
       touch(previousContextId);
+    }
+    
+    if (effectiveContextId) {
+      activate(effectiveContextId);
     }
 
     previousTerminalContextRef.current = effectiveContextId ?? null;
-  }, [
-    codeReviewTerminalGridRef,
-    effectiveContextId,
-    evictWorkspaceRuntime,
-    projectWikiTerminalGridRef,
-    setMountedTerminalTabsByContext,
-    terminalGridRef,
-    terminalGridRefsRef,
-  ]);
+  }, [effectiveContextId, touch, activate]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;

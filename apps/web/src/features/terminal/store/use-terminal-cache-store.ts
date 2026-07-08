@@ -15,6 +15,7 @@ interface TerminalCacheStore {
   ttlMs: number;
   
   touch: (contextId: string) => void;
+  activate: (contextId: string) => void;
   remove: (contextId: string) => void;
   sweepExpired: () => void;
 }
@@ -79,6 +80,13 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
       });
     },
 
+    activate: (contextId) => {
+      set((state) => {
+        const nextCached = state.cachedContexts.filter(c => c.contextId !== contextId);
+        return { cachedContexts: nextCached };
+      });
+    },
+
     remove: (contextId) => {
       set((state) => {
         const nextCached = state.cachedContexts.filter(c => c.contextId !== contextId);
@@ -117,10 +125,3 @@ export const useTerminalCacheStore = create<TerminalCacheStore>((set) => {
     },
   };
 });
-
-// Setup TTL sweeper interval
-if (typeof window !== "undefined") {
-  setInterval(() => {
-    useTerminalCacheStore.getState().sweepExpired();
-  }, 60 * 1000); // Check every minute
-}
