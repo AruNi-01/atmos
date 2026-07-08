@@ -21,26 +21,27 @@
 | M2 Pane rename entry | S-PANE-1 |
 | M3 Custom name priority | S-TAB-2, S-PANE-2 |
 | M4 Empty clears | S-CLEAR-1 |
-| M5 Pane toggles | S-TOGGLE-1, S-TOGGLE-2, S-TOGGLE-3 |
+| M5 Pane toggles | S-TOGGLE-1, S-TOGGLE-2, S-TOGGLE-3, S-TOGGLE-4 |
 | M6 Persistence across refresh | S-PERSIST-1 |
 | M7 Display-only (tmux untouched) | S-IDENTITY-1 |
 | S1 Normalization | S-NORM-1 |
 
 ## 3. Execution map
 
-| ID | Level | Tool | Target | Signals | Status |
-|----|-------|------|--------|---------|--------|
-| S-PANE-2 | Bun unit | `bun test` | `use-terminal-toolbar-title` composition | `displayTitle` starts with custom name; `toolbarAgent` undefined when `keepAgentName` off | planned |
-| S-TOGGLE-1 | Bun unit | `bun test` | hook with `keepAgentName` default (undefined) + detected agent | displayTitle = `custom + agent.label`; `toolbarAgent` defined (icon shows); CWD absent even if `keepCwd` on | planned |
-| S-TOGGLE-2 | Bun unit | `bun test` | hook with `keepCwd` default + path-like dynamicTitle + **no** agent | displayTitle appends `shortenPath(cwd)`; no agent suffix | planned |
-| S-TOGGLE-3 | Bun unit | `bun test` | hook with `keepAgentName=false` + detected agent + `keepCwd` on | agent hidden; CWD suffix shown instead (fallback) | planned |
-| S-CLEAR-1 | Bun unit | `bun test` | hook with `customLabel=""` | falls back to `getTerminalDisplayMeta` output | planned |
-| S-NORM-1 | Bun unit | `bun test` | `setPaneCustomLabel` / `setTabCustomTitle` normalize | trims, collapses whitespace, caps 40, `""`→undefined | planned |
-| S-PERSIST-1 | Bun unit | `bun test` | `buildPersistedTerminalWorkspaceLayout` → `parseTerminalLayoutDocument` → `hydratePersistedTab` | `customLabel`/`keepAgentName`/`keepCwd`/`customTitle` survive round-trip | planned |
-| S-IDENTITY-1 | Bun unit | `bun test` | serialize a pane with `customLabel` set | persisted `label` + `tmuxWindowName` unchanged by rename | planned |
-| S-TAB-1 / S-TAB-2 | agent-browser + manual | `just dev-web` + agent-browser | tab context menu | Rename Tab visible; tab shows custom name; fixed `Term` tab renamable | planned |
-| S-PANE-1 | agent-browser + manual | `just dev-web` + agent-browser | pane grid menu | Rename Title visible; pane toolbar shows custom name | planned |
-| S-REFRESH (UI) | agent-browser | reload page | custom names + toggles restored after refresh | planned |
+| ID | Level | Tool | Target | Fixture / Data | Signals | Status |
+|----|-------|------|--------|----------------|---------|--------|
+| S-PANE-2 | Bun unit | `bun test` | `use-terminal-toolbar-title` composition | pane: `customLabel="Backend"`, `keepAgentName=false`, `keepCwd=false`, detected agent + dynamicTitle | `displayTitle` starts with custom name; `toolbarAgent` undefined when `keepAgentName` off | planned |
+| S-TOGGLE-1 | Bun unit | `bun test` | hook composition | `customLabel` set, `keepAgentName`/`keepCwd` default (undefined), detected agent | displayTitle = `custom + agent.label`; `toolbarAgent` defined (icon shows); CWD absent even if `keepCwd` on | planned |
+| S-TOGGLE-2 | Bun unit | `bun test` | hook composition | `customLabel` set, `keepCwd` default, path-like dynamicTitle, **no** agent | displayTitle appends `shortenPath(cwd)`; no agent suffix | planned |
+| S-TOGGLE-3 | Bun unit | `bun test` | hook composition | `customLabel` set, `keepAgentName=false`, `keepCwd` on, detected agent + path-like dynamicTitle | agent hidden; `shortenPath(cwd)` suffix shown instead (fallback) | planned |
+| S-TOGGLE-4 | Bun unit | `bun test` | hook composition | `customLabel` set, `keepCwd` on, non-path command dynamicTitle (e.g. `npm start`), no agent | command title kept verbatim as suffix (not dropped) | planned |
+| S-CLEAR-1 | Bun unit | `bun test` | hook composition | `customLabel=""` (empty) | falls back to `getTerminalDisplayMeta` output | planned |
+| S-NORM-1 | Bun unit | `bun test` | `setPaneCustomLabel` / `setTabCustomTitle` | inputs `"  My   Pane  "`, 60-char string, `"   "` | trims, collapses whitespace, caps 40, `""`→undefined | planned |
+| S-PERSIST-1 | Bun unit | `bun test` | `buildPersistedTerminalWorkspaceLayout` → `parseTerminalLayoutDocument` → `hydratePersistedTab` | workspace with renamed tab (`customTitle`) + renamed pane (`customLabel` + `keepAgentName=true`) | `customLabel`/`keepAgentName`/`keepCwd`/`customTitle` survive round-trip | planned |
+| S-IDENTITY-1 | Bun unit | `bun test` | `buildPersistedTerminalWorkspaceLayout` | pane `label="2"`, `tmuxWindowName="2"`, `customLabel="Deploy"` | persisted `label` + `tmuxWindowName` unchanged by rename | planned |
+| S-TAB-1 / S-TAB-2 | agent-browser + manual | `just dev-web` + agent-browser | tab context menu | running web app with ≥1 terminal tab (incl. fixed `Term`) | Rename Tab visible; tab shows custom name; fixed `Term` tab renamable | planned |
+| S-PANE-1 | agent-browser + manual | `just dev-web` + agent-browser | pane grid menu | running web app with a terminal pane | Rename Title visible; pane toolbar shows custom name | planned |
+| S-REFRESH (UI) | agent-browser | `just dev-web` + reload page | terminal grid after refresh | renamed tab + pane with non-default toggle states | custom names + toggle states restored after refresh | planned |
 
 ## 4. Scenarios
 
@@ -61,6 +62,10 @@
 ### S-TOGGLE-3 — opt out of agent falls back to CWD
 - Given `customLabel="Backend"`, `keepAgentName=false`, `keepCwd=true`, a detected agent, and dynamicTitle `/Users/x/proj/src/api`.
 - Then the agent suffix is hidden and `displayTitle` ends with `.../src/api`.
+
+### S-TOGGLE-4 — Keep CWD preserves non-path command titles
+- Given `customLabel="Server"`, `keepCwd=true` (default), no detected agent, and a non-path dynamicTitle such as `npm start`.
+- Then `displayTitle` begins with `"Server"` and keeps the command title verbatim (`Server  npm start`); the command is not dropped.
 
 ### S-CLEAR-1 — empty clears override
 - Given a pane with `customLabel="Backend"`.

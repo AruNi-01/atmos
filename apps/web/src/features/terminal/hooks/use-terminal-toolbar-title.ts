@@ -122,9 +122,14 @@ export function useTerminalToolbarTitle(options: {
     const wantCwd = keepCwd !== false;
 
     const showAgent = wantAgent && !!auto.toolbarAgent;
-    // Agent wins over CWD: only show CWD when no agent suffix is shown (mutually exclusive).
+    // Agent wins over CWD: only show a suffix when no agent suffix is shown (mutually exclusive).
+    // "Keep CWD" preserves the dynamic CWD/command title — shorten paths, keep commands as-is.
     const cwdSuffix =
-      !showAgent && wantCwd && isPathLikeTitle(mergedDynamic) ? shortenPath(mergedDynamic!) : undefined;
+      !showAgent && wantCwd && mergedDynamic
+        ? isPathLikeTitle(mergedDynamic)
+          ? shortenPath(mergedDynamic)
+          : mergedDynamic
+        : undefined;
 
     const displayTitle = [
       custom,

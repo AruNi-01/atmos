@@ -425,6 +425,7 @@ function TerminalExtraTab({
         <button
           type="button"
           aria-hidden
+          tabIndex={-1}
           className="fixed size-0 pointer-events-none"
           style={{ left: menuPos?.x ?? -9999, top: menuPos?.y ?? -9999 }}
         />
