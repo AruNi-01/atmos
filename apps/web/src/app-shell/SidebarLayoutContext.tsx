@@ -10,11 +10,15 @@ type SidebarLayoutContextValue = {
   isRightCollapsed: boolean;
   showRightSidebar: boolean;
   leftSidebarSize: number;
+  liveLeftSidebarSize: number;
+  isLeftSidebarDragging: boolean;
   requestedLeftSidebarSize: number | null;
   setIsLeftCollapsed: (collapsed: boolean) => void;
   setIsRightCollapsed: (collapsed: boolean) => void;
   setShowRightSidebar: (show: boolean) => void;
   setLeftSidebarSize: (size: number) => void;
+  setLiveLeftSidebarSize: (size: number) => void;
+  setIsLeftSidebarDragging: (dragging: boolean) => void;
   setRequestedLeftSidebarSize: (size: number | null) => void;
   setToggleLeftSidebar: (toggle: ToggleFn | null) => void;
   setToggleRightSidebar: (toggle: ToggleFn | null) => void;
@@ -30,6 +34,8 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
   const [isRightCollapsed, setIsRightCollapsed] = React.useState(false);
   const [showRightSidebar, setShowRightSidebar] = React.useState(false);
   const [leftSidebarSize, setLeftSidebarSize] = React.useState(DEFAULT_LEFT_SIDEBAR_SIZE);
+  const [liveLeftSidebarSize, setLiveLeftSidebarSize] = React.useState(DEFAULT_LEFT_SIDEBAR_SIZE);
+  const [isLeftSidebarDragging, setIsLeftSidebarDragging] = React.useState(false);
   const [requestedLeftSidebarSize, setRequestedLeftSidebarSize] = React.useState<number | null>(null);
   const [toggleLeftSidebarImpl, setToggleLeftSidebar] = React.useState<ToggleFn | null>(null);
   const [toggleRightSidebarImpl, setToggleRightSidebar] = React.useState<ToggleFn | null>(null);
@@ -46,11 +52,15 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
       isRightCollapsed,
       showRightSidebar,
       leftSidebarSize,
+      liveLeftSidebarSize,
+      isLeftSidebarDragging,
       requestedLeftSidebarSize,
       setIsLeftCollapsed,
       setIsRightCollapsed,
       setShowRightSidebar,
       setLeftSidebarSize,
+      setLiveLeftSidebarSize,
+      setIsLeftSidebarDragging,
       setRequestedLeftSidebarSize,
       setToggleLeftSidebar: setLeftSidebarToggle,
       setToggleRightSidebar: setRightSidebarToggle,
@@ -63,6 +73,8 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
       isRightCollapsed,
       showRightSidebar,
       leftSidebarSize,
+      liveLeftSidebarSize,
+      isLeftSidebarDragging,
       requestedLeftSidebarSize,
       setLeftSidebarToggle,
       setRightSidebarToggle,

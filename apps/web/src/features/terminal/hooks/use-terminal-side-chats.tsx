@@ -6,9 +6,10 @@ import { toastManager } from "@workspace/ui";
 
 import { fsApi, terminalSideChatApi, type TerminalSideContextCaptureResponse } from "@/api/ws-api";
 import {
-  buildInteractiveAgentCommand,
+  buildInteractiveAgentRunPlan,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
+import { toPendingTerminalRun, deliverPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
 import { useTerminalSideChatSettingsStore } from "@/features/settings/store/terminal-side-chat-settings-store";
 import { TerminalSideChatDots } from "@/features/terminal/components/TerminalSideChatDots";
 import { TerminalSideChatLayer } from "@/features/terminal/components/TerminalSideChatLayer";
@@ -145,12 +146,16 @@ export function useTerminalSideChats({
           userPrompt,
           workspaceId,
         });
-        const initialCommand = `${buildInteractiveAgentCommand({
+        const plan = buildInteractiveAgentRunPlan({
           agentId: agent.id,
           launchCommand: agent.command,
           prompt: sidePrompt,
           runConfig,
-        })}\r`;
+        });
+        const pendingInitialRun = toPendingTerminalRun(plan.launchCommand, {
+          agentId: agent.id,
+          tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
+        });
         const record: LocalSideChatRecord = {
           side_chat_id: sideChatId,
           workspace_id: workspaceId,
@@ -172,7 +177,7 @@ export function useTerminalSideChats({
           status: "open",
           agent,
           hasSentInitialCommand: false,
-          initialCommand,
+          pendingInitialRun,
           isNew: true,
           sessionId: crypto.randomUUID(),
         };
@@ -236,11 +241,14 @@ export function useTerminalSideChats({
         void showSideChat(sideChatId);
       }}
       onReady={(record) => {
-        if (record.initialCommand && !record.hasSentInitialCommand) {
-          terminalRefs.current.get(record.side_chat_id)?.sendText(record.initialCommand);
+        if (record.pendingInitialRun && !record.hasSentInitialCommand) {
+          const terminalRef = terminalRefs.current.get(record.side_chat_id);
+          if (terminalRef) {
+            deliverPendingTerminalRun(terminalRef, record.pendingInitialRun);
+          }
           updateLocalRecord(record.side_chat_id, {
             hasSentInitialCommand: true,
-            initialCommand: undefined,
+            pendingInitialRun: undefined,
             isNew: false,
           });
         } else if (record.isNew) {
@@ -249,7 +257,7 @@ export function useTerminalSideChats({
         void persistRecord({
           ...record,
           hasSentInitialCommand: true,
-          initialCommand: undefined,
+          pendingInitialRun: undefined,
           isNew: false,
           status: "open",
         });

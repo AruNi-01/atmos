@@ -171,7 +171,9 @@
       "closeProjectWikiTab": "Close Project Wiki tab",
       "codeReview": "Code Review",
       "codeReviewTerminal": "Code Review Terminal",
-      "closeCodeReviewTab": "Close Code Review tab"
+      "closeCodeReviewTab": "Close Code Review tab",
+      "renameTab": "Rename Tab",
+      "renameTabPlaceholder": "Enter a tab name…"
     },
     "footer": {
       "openOnCanvasLabel": "Open on canvas",
@@ -4688,15 +4690,43 @@
     },
     "headerLayoutSection": {
       "title": "Header layout",
-      "description": "Choose which workspace utilities appear to the left of global search.",
+      "description": "Choose which header buttons are shown. Hidden buttons are fully removed and skip their background data loading.",
       "enabledCount": "{count} enabled",
       "hidden": "Hidden",
+      "quickOpenTitle": "Quick Open button",
+      "quickOpenDescription": "Show the button that opens the current project or workspace in Finder or an external app.",
+      "gitToolbarTitle": "Git branch toolbar",
+      "gitToolbarDescription": "Show the current/target branch controls and pull request status. Hiding this stops branch and PR lookups.",
+      "globalSearchTitle": "Global search button",
+      "globalSearchDescription": "Show the search box that opens global search. The ⌘K shortcut still works when hidden.",
       "summaryButtonTitle": "Workspace summary button",
-      "summaryButtonDescription": "Show one compact icon button before global search with project, task, and commit shortcuts.",
+      "summaryButtonDescription": "Show one compact icon button with project, task, and commit shortcuts.",
       "taskTitle": "TASK section",
       "taskDescription": "Show task counts in the summary popover and expose the full task panel as a nested popover.",
       "commitTitle": "Commit & Push section",
-      "commitDescription": "Show repository change status and expose the shared Commit & Push controls as a nested popover."
+      "commitDescription": "Show repository change status and expose the shared Commit & Push controls as a nested popover.",
+      "remoteAccessTitle": "Remote Access button",
+      "remoteAccessDescription": "Show the Atmos Computer and tunnel connector controls. Hiding this stops tunnel status polling.",
+      "appshotTitle": "Appshot button",
+      "appshotDescription": "Show the Appshot screen capture button in the header."
+    },
+    "rightSidebarLayoutSection": {
+      "title": "Right sidebar tabs",
+      "description": "Choose which right sidebar tabs are shown. Hidden tabs are fully removed and skip their background data loading.",
+      "enabledCount": "{count} enabled",
+      "hidden": "Hidden",
+      "changesTitle": "Changes",
+      "changesDescription": "Review staged, unstaged, and branch changes plus the commit history.",
+      "reviewTitle": "Review",
+      "reviewDescription": "Run the built-in code review over the current changes.",
+      "browserTitle": "Browser",
+      "browserDescription": "Show the in-app preview browser for running dev servers.",
+      "runTitle": "Run",
+      "runDescription": "Start and monitor project run scripts.",
+      "prTitle": "Pull Requests",
+      "prDescription": "Browse open and closed pull requests. Hiding this stops PR lookups.",
+      "actionsTitle": "Actions",
+      "actionsDescription": "Browse GitHub Actions workflow runs. Hiding this stops workflow lookups."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",
@@ -5248,7 +5278,11 @@
         "nextPanel": "Next Panel",
         "maximizeTerminal": "Maximize Terminal",
         "restoreTerminal": "Restore Terminal",
-        "closeTerminal": "Close Terminal"
+        "closeTerminal": "Close Terminal",
+        "renameTitle": "Rename Title",
+        "renamePlaceholder": "Enter a name…",
+        "keepAgentName": "Keep Agent Name",
+        "keepCwd": "Keep CWD"
       },
       "canvasPins": {
         "invalidTerminal": "This terminal cannot be pinned until the session is fully attached.",

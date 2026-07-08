@@ -40,6 +40,11 @@ import { TerminalGridCloseConfirmDialog } from "./terminal-grid-close-confirm-di
 import { TerminalGridEmptyState, TerminalGridLoadingState } from "./terminal-grid-states";
 import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pins";
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
+import {
+  toPendingTerminalRun,
+  useTerminalAgentTuiFollowUp,
+  type PendingTerminalRun,
+} from "../hooks/use-terminal-agent-tui-follow-up";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -55,8 +60,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   const agentInputOverlayRefsMap = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
-  // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
-  const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
+  // Pending runs to deliver when terminal session becomes ready (createAndRunTerminal flow)
+  const pendingRunsRef = React.useRef<Map<string, PendingTerminalRun>>(new Map());
   // Track panes whose session has already become ready, so we know whether
   // to call sendText directly or queue a pending command for onSessionReady.
   const readyPanesRef = React.useRef<Set<string>>(new Set());
@@ -70,6 +75,35 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const contextSplitSubmenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
   const lastFocusedElementRef = React.useRef<HTMLElement | null>(null);
+  const { deliverPendingRun } = useTerminalAgentTuiFollowUp(terminalRefsMap);
+
+  const queuePendingRun = useCallback(
+    (
+      paneId: string,
+      command: string,
+      options?: { agentId?: string; tuiFollowUpPrompt?: string; execute?: boolean },
+    ) => {
+      const run = toPendingTerminalRun(command, {
+        agentId: options?.agentId,
+        tuiFollowUpPrompt: options?.tuiFollowUpPrompt,
+      });
+      pendingRunsRef.current.set(
+        paneId,
+        options?.execute === false ? { ...run, execute: false } : run,
+      );
+    },
+    [],
+  );
+
+  const deliverPendingRunForPane = useCallback(
+    (paneId: string) => {
+      const run = pendingRunsRef.current.get(paneId);
+      if (!run) return;
+      pendingRunsRef.current.delete(paneId);
+      deliverPendingRun(paneId, run);
+    },
+    [deliverPendingRun],
+  );
 
   const isProjectWiki = scope === "project-wiki";
   const isCodeReview = scope === "code-review";
@@ -106,6 +140,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     setDynamicTitle,
     setPaneAgent,
     markPaneAttached,
+    setPaneCustomLabel,
+    setPaneTitleFlags,
     getProjectWikiPanes,
     getProjectWikiLayout,
     setProjectWikiLayout,
@@ -333,13 +369,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   React.useImperativeHandle(ref, () => ({
     addTerminal: (label?: string, agent?: TerminalPaneAgent) => addTerminal(label, agent),
-    createAndRunTerminal: async ({ label, command, agent }) => {
+    createAndRunTerminal: async ({ label, command, agent, agentId, tuiFollowUpPrompt }) => {
+      const runOptions = { agentId: agent?.id ?? agentId, tuiFollowUpPrompt };
       // If there's exactly one fresh default pane (no agent, no pending command),
       // reuse it directly instead of creating a second terminal window.
       const currentPanes = Object.entries(panes);
       if (currentPanes.length === 1) {
         const [existingId, existingPane] = currentPanes[0];
-        if (!existingPane.agent && !pendingCommandsRef.current.has(existingId)) {
+        if (!existingPane.agent && !pendingRunsRef.current.has(existingId)) {
           if (agent) {
             setPaneAgentForCurrentGrid(existingId, agent);
           }
@@ -348,33 +385,34 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           // input-ready. Otherwise the websocket is still attaching and the
           // input would be silently dropped — queue it for onSessionReady.
           if (termRef && readyPanesRef.current.has(existingId)) {
-            termRef.sendText(command + "\r");
+            deliverPendingRun(existingId, toPendingTerminalRun(command, runOptions));
           } else {
-            pendingCommandsRef.current.set(existingId, command + "\r");
+            queuePendingRun(existingId, command, runOptions);
           }
           return;
         }
       }
       const paneId = addTerminal(label, agent);
-      pendingCommandsRef.current.set(paneId, command + "\r");
+      queuePendingRun(paneId, command, runOptions);
     },
-    createOrFocusAndRunTerminal: async ({ label, command, agent }) => {
+    createOrFocusAndRunTerminal: async ({ label, command, agent, agentId, tuiFollowUpPrompt }) => {
+      const runOptions = { agentId: agent?.id ?? agentId, tuiFollowUpPrompt };
       const existingPaneId = getPaneIdByLabelOrWindowName(label);
-      const cmd = command.trim() + "\r";
       if (existingPaneId) {
         if (agent && !panes[existingPaneId]?.agent) {
           setPaneAgentForCurrentGrid(existingPaneId, agent);
         }
         const termRef = terminalRefsMap.current.get(existingPaneId);
-        if (termRef) {
-          termRef.sendText(cmd);
+        const run = toPendingTerminalRun(command, runOptions);
+        if (termRef && readyPanesRef.current.has(existingPaneId)) {
+          deliverPendingRun(existingPaneId, run);
         } else {
-          pendingCommandsRef.current.set(existingPaneId, cmd);
+          pendingRunsRef.current.set(existingPaneId, run);
         }
         return;
       }
       const paneId = addTerminal(label, agent);
-      pendingCommandsRef.current.set(paneId, cmd);
+      queuePendingRun(paneId, command, runOptions);
     },
     removeTerminalByTmuxWindowName: (tmuxWindowName: string) => {
       const paneId = getPaneId(workspaceId, tmuxWindowName);
@@ -401,7 +439,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     prefillTerminal: ({ label, command, agent }) => {
       const paneId = addTerminal(label, agent);
       // Pre-fill without \r so the command is typed but not executed
-      pendingCommandsRef.current.set(paneId, command);
+      queuePendingRun(paneId, command, { execute: false });
     },
     destroyAllTerminals: () => {
       for (const terminalRef of terminalRefsMap.current.values()) {
@@ -567,7 +605,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       rememberLastSplitAgent(agent.id);
       const newPaneId = splitTerminal(id, direction, agent);
       if (!newPaneId) return;
-      pendingCommandsRef.current.set(newPaneId, command.trim() + "\r");
+      pendingRunsRef.current.set(newPaneId, toPendingTerminalRun(command.trim()));
       setSplitMenuKey(null);
     },
     [rememberLastSplitAgent, splitTerminal],
@@ -725,6 +763,48 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     : null;
   const isFocusedPanePinned = focusedPanePinKey ? pinnedPaneKeys.has(focusedPanePinKey) : false;
 
+  // Custom naming (Rename Title / Keep Agent Name / Keep CWD) applies only to the
+  // main workspace terminal grid — not the Project Wiki / Code Review scopes.
+  const isDefaultScope = !isCodeReview && !isProjectWiki;
+  const canRenameFocusedPane = isDefaultScope && !!focusedPane;
+
+  const handleRenamePaneTitle = useCallback(
+    (value: string) => {
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId || !isDefaultScope) return;
+      setPaneCustomLabel(workspaceId, focusedPaneId, value, terminalTabId ?? FIXED_TERMINAL_TAB_VALUE);
+    },
+    [getFocusedPaneId, isDefaultScope, setPaneCustomLabel, workspaceId, terminalTabId],
+  );
+
+  const handleToggleKeepAgentName = useCallback(
+    (next: boolean) => {
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId || !isDefaultScope) return;
+      setPaneTitleFlags(
+        workspaceId,
+        focusedPaneId,
+        { keepAgentName: next },
+        terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
+      );
+    },
+    [getFocusedPaneId, isDefaultScope, setPaneTitleFlags, workspaceId, terminalTabId],
+  );
+
+  const handleToggleKeepCwd = useCallback(
+    (next: boolean) => {
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId || !isDefaultScope) return;
+      setPaneTitleFlags(
+        workspaceId,
+        focusedPaneId,
+        { keepCwd: next },
+        terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
+      );
+    },
+    [getFocusedPaneId, isDefaultScope, setPaneTitleFlags, workspaceId, terminalTabId],
+  );
+
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
@@ -761,7 +841,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           terminalRefsMap={terminalRefsMap}
           agentInputOverlayRefsMap={agentInputOverlayRefsMap}
           readyPanesRef={readyPanesRef}
-          pendingCommandsRef={pendingCommandsRef}
+          pendingRunsRef={pendingRunsRef}
+          deliverPendingRunForPane={deliverPendingRunForPane}
           markPaneAttached={markPaneAttached}
         />
       );
@@ -797,7 +878,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         terminalRefsMap={terminalRefsMap}
         agentInputOverlayRefsMap={agentInputOverlayRefsMap}
         readyPanesRef={readyPanesRef}
-        pendingCommandsRef={pendingCommandsRef}
+        pendingRunsRef={pendingRunsRef}
+        deliverPendingRunForPane={deliverPendingRunForPane}
         setDynamicTitle={setDynamicTitleForScope}
         setPaneAgent={setPaneAgentForScope}
         markPaneAttached={isCodeReview ? markCodeReviewPaneAttached : markProjectWikiPaneAttached}
@@ -832,6 +914,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     isProjectContext,
     pinnedPaneKeys,
     pinPaneToCanvas,
+    deliverPendingRunForPane,
+    pendingRunsRef,
   ]);
 
   // Wait for workspace to be ready before rendering any Terminal components
@@ -885,6 +969,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       quickOpenAgents={quickOpenAgents}
       isFocusedPanePinned={isFocusedPanePinned}
       isAnyPaneMaximized={!!maximizedId}
+      canRenamePane={canRenameFocusedPane}
+      paneCustomLabel={focusedPane?.customLabel ?? ""}
+      paneKeepAgentName={focusedPane?.keepAgentName ?? true}
+      paneKeepCwd={focusedPane?.keepCwd ?? true}
+      onRenamePaneTitle={handleRenamePaneTitle}
+      onToggleKeepAgentName={handleToggleKeepAgentName}
+      onToggleKeepCwd={handleToggleKeepCwd}
       onOpenChange={(open) => {
         if (!open) {
           setContextMenu(null);

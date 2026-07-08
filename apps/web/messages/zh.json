@@ -171,7 +171,9 @@
       "closeProjectWikiTab": "关闭项目 Wiki 标签页",
       "codeReview": "代码评审",
       "codeReviewTerminal": "代码评审终端",
-      "closeCodeReviewTab": "关闭代码评审标签页"
+      "closeCodeReviewTab": "关闭代码评审标签页",
+      "renameTab": "重命名标签页",
+      "renameTabPlaceholder": "输入标签页名称…"
     },
     "footer": {
       "openOnCanvasLabel": "在画布中打开",
@@ -4688,15 +4690,43 @@
     },
     "headerLayoutSection": {
       "title": "顶部栏布局",
-      "description": "选择哪些工作区工具显示在全局搜索左侧。",
+      "description": "选择显示哪些顶部栏按钮。隐藏的按钮会被完全移除，并跳过其后台数据加载。",
       "enabledCount": "已启用 {count} 项",
       "hidden": "已隐藏",
+      "quickOpenTitle": "快速打开按钮",
+      "quickOpenDescription": "显示用于在 Finder 或外部应用中打开当前项目或工作区的按钮。",
+      "gitToolbarTitle": "Git 分支工具栏",
+      "gitToolbarDescription": "显示当前分支/目标分支控件与拉取请求状态。隐藏后将停止分支和 PR 查询。",
+      "globalSearchTitle": "全局搜索按钮",
+      "globalSearchDescription": "显示打开全局搜索的搜索框。隐藏后仍可使用 ⌘K 快捷键。",
       "summaryButtonTitle": "工作区摘要按钮",
-      "summaryButtonDescription": "在全局搜索前显示一个紧凑图标按钮，提供项目、任务和提交快捷入口。",
+      "summaryButtonDescription": "显示一个紧凑图标按钮，提供项目、任务和提交快捷入口。",
       "taskTitle": "TASK 区块",
       "taskDescription": "在摘要弹层中显示任务计数，并通过嵌套弹层展示完整任务面板。",
       "commitTitle": "Commit & Push 区块",
-      "commitDescription": "显示仓库变更状态，并通过嵌套弹层展示共享的 Commit & Push 控件。"
+      "commitDescription": "显示仓库变更状态，并通过嵌套弹层展示共享的 Commit & Push 控件。",
+      "remoteAccessTitle": "远程访问按钮",
+      "remoteAccessDescription": "显示 Atmos Computer 与隧道连接器控件。隐藏后将停止隧道状态轮询。",
+      "appshotTitle": "Appshot 按钮",
+      "appshotDescription": "在顶部栏显示 Appshot 截屏按钮。"
+    },
+    "rightSidebarLayoutSection": {
+      "title": "右侧栏标签页",
+      "description": "选择显示哪些右侧栏标签页。隐藏的标签页会被完全移除，并跳过其后台数据加载。",
+      "enabledCount": "已启用 {count} 项",
+      "hidden": "已隐藏",
+      "changesTitle": "变更",
+      "changesDescription": "查看已暂存、未暂存和分支变更以及提交历史。",
+      "reviewTitle": "评审",
+      "reviewDescription": "对当前变更运行内置代码评审。",
+      "browserTitle": "浏览器",
+      "browserDescription": "显示用于运行开发服务器的应用内预览浏览器。",
+      "runTitle": "运行",
+      "runDescription": "启动并监控项目运行脚本。",
+      "prTitle": "拉取请求",
+      "prDescription": "浏览打开和已关闭的拉取请求。隐藏后将停止 PR 查询。",
+      "actionsTitle": "操作",
+      "actionsDescription": "浏览 GitHub Actions 工作流运行记录。隐藏后将停止工作流查询。"
     },
     "agentHookStatusCard": {
       "title": "Agent Hook 状态",
@@ -5248,7 +5278,11 @@
         "nextPanel": "下一个面板",
         "maximizeTerminal": "最大化终端",
         "restoreTerminal": "还原终端",
-        "closeTerminal": "关闭终端"
+        "closeTerminal": "关闭终端",
+        "renameTitle": "重命名标题",
+        "renamePlaceholder": "输入名称…",
+        "keepAgentName": "保留 Agent 名称",
+        "keepCwd": "保留当前目录"
       },
       "canvasPins": {
         "invalidTerminal": "该终端在会话完全附加之前无法固定到 Canvas。",

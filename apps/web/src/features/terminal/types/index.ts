@@ -123,6 +123,23 @@ export interface TerminalPaneProps {
    * This is transient and NOT persisted to backend — only used for tab display.
    */
   dynamicTitle?: string;
+  /**
+   * User custom display name. Highest-priority display source for the pane toolbar.
+   * Empty/undefined means no override (fall back to auto title logic). Persisted.
+   * NEVER used as the tmux window name / uniqueness key — display only.
+   */
+  customLabel?: string;
+  /**
+   * When a customLabel is set, also show the detected agent icon + label after it.
+   * `undefined` is treated as `true` (default on). Agent wins over CWD. Persisted.
+   */
+  keepAgentName?: boolean;
+  /**
+   * When a customLabel is set and no agent suffix is shown, also show the dynamic
+   * CWD/command title after it. `undefined` is treated as `true` (default on).
+   * Suppressed whenever the agent suffix is shown (mutually exclusive). Persisted.
+   */
+  keepCwd?: boolean;
 }
 
 export interface TerminalMosaicState {

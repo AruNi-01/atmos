@@ -21,6 +21,7 @@ import { TerminalTitleWithAgent } from "@/features/terminal/components/terminal-
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
 import { useTerminalSideChats } from "@/features/terminal/hooks/use-terminal-side-chats";
+import { deliverPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
 import {
   isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
@@ -104,7 +105,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
-  const consumePendingTerminalCommand = useCanvasRuntimeStore((state) => state.consumePendingTerminalCommand);
+  const consumePendingTerminalRun = useCanvasRuntimeStore((state) => state.consumePendingTerminalRun);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
   const removeRenderedShapeId = useCanvasRuntimeStore((state) => state.removeRenderedShapeId);
@@ -196,11 +197,11 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const handleSessionReady = React.useCallback(() => {
     markAttached();
     setIsTerminalReady(true);
-    const pendingCommand = consumePendingTerminalCommand(shape.id);
-    if (pendingCommand) {
-      terminalApiRef.current?.sendText(pendingCommand);
+    const pendingRun = consumePendingTerminalRun(shape.id);
+    if (pendingRun && terminalApiRef.current) {
+      deliverPendingTerminalRun(terminalApiRef.current, pendingRun);
     }
-  }, [consumePendingTerminalCommand, markAttached, shape.id]);
+  }, [consumePendingTerminalRun, markAttached, shape.id]);
 
   const focusTerminal = React.useCallback(() => {
     terminalApiRef.current?.focus();
@@ -553,6 +554,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             <TerminalAgentInputOverlay
               ref={agentInputOverlayRef}
               activeProjectId={shape.props.contextScope === "project" ? shape.props.workspaceId : null}
+              agent={agentForSubmit ?? null}
               getTerminalCursorClientPoint={() => terminalApiRef.current?.getCursorClientPoint() ?? null}
               isTerminalReady={isTerminalReady}
               localPath={shape.props.localPath || null}

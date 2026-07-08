@@ -51,7 +51,7 @@ import { CodeReviewDialog } from "@/features/code-review";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
+import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
@@ -77,6 +77,7 @@ import {
   usePendingNamedTerminalCommand,
   useReloadOpenFilesWhenReady,
   useTerminalTabMountLifecycle,
+  type PendingNamedTerminalRun,
 } from "@/app-shell/center-stage-support";
 import { useCenterStageTabGroups } from "@/app-shell/use-center-stage-tab-groups";
 import { useCenterStageTerminalAgents } from "@/app-shell/use-center-stage-terminal-agents";
@@ -105,7 +106,8 @@ const CenterStage: React.FC = () => {
   const [mountedTerminalTabsByContext, setMountedTerminalTabsByContext] = React.useState<Record<string, string[]>>({});
   const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
   const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
-  const [projectWikiPendingCommand, setProjectWikiPendingCommand] = React.useState<string | null>(null);
+  const [projectWikiPendingCommand, setProjectWikiPendingCommand] =
+    React.useState<PendingNamedTerminalRun | null>(null);
   const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
   const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
@@ -120,7 +122,8 @@ const CenterStage: React.FC = () => {
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
-  const [codeReviewPendingCommand, setCodeReviewPendingCommand] = React.useState<string | null>(null);
+  const [codeReviewPendingCommand, setCodeReviewPendingCommand] =
+    React.useState<PendingNamedTerminalRun | null>(null);
   const [codeReviewCloseConfirmOpen, setCodeReviewCloseConfirmOpen] = React.useState(false);
   // codeReviewDialogOpen is managed via useDialogStore for cross-component access
   const pendingWorkspaceAgentRun = useWorkspaceCreationStore((s) => s.pendingAgentRun);
@@ -136,6 +139,7 @@ const CenterStage: React.FC = () => {
     closeTerminalTab,
     removeTerminal,
     setActiveTerminalTab,
+    setTabCustomTitle,
     primeWorkspace,
     evictWorkspaceRuntime,
   } = useTerminalStore(
@@ -147,6 +151,7 @@ const CenterStage: React.FC = () => {
       closeTerminalTab: state.closeTerminalTab,
       removeTerminal: state.removeTerminal,
       setActiveTerminalTab: state.setActiveTerminalTab,
+      setTabCustomTitle: state.setTabCustomTitle,
       primeWorkspace: state.primeWorkspace,
       evictWorkspaceRuntime: state.evictWorkspaceRuntime,
     }))
@@ -555,14 +560,18 @@ const CenterStage: React.FC = () => {
     if (!selectedAgent) return;
 
     const prompt = pending.prompt.trim();
-    const command =
-      pending.command?.trim() ||
-      buildInteractiveAgentCommand({
-        agentId: selectedAgent.agent.id,
-        launchCommand: selectedAgent.command.trim(),
-        prompt,
-        runConfig: pending.agentRunConfig,
-      });
+    const plan =
+      pending.command?.trim()
+        ? {
+            launchCommand: pending.command.trim(),
+            tuiFollowUpPrompt: undefined,
+          }
+        : buildInteractiveAgentRunPlan({
+            agentId: selectedAgent.agent.id,
+            launchCommand: selectedAgent.command.trim(),
+            prompt,
+            runConfig: pending.agentRunConfig,
+          });
 
     const targetTerminalTabId = ensureRunnableTerminalTab();
     if (!targetTerminalTabId) return;
@@ -572,7 +581,8 @@ const CenterStage: React.FC = () => {
     runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
       void grid.createAndRunTerminal({
         label: selectedAgent.agent.label,
-        command,
+        command: plan.launchCommand,
+        tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
         agent: selectedAgent.agent,
       });
     }, 40);
@@ -637,7 +647,7 @@ const CenterStage: React.FC = () => {
       setActiveTerminalTab(effectiveContextId, nextTab.id);
       setUrlParams({ tab: nextTab.id, wikiPage: null });
 
-      const command = buildInteractiveAgentCommand({
+      const plan = buildInteractiveAgentRunPlan({
         agentId: request.agent.id,
         launchCommand: request.agent.launchCommand.trim(),
         prompt: request.prompt,
@@ -649,7 +659,8 @@ const CenterStage: React.FC = () => {
         (grid) => {
           void grid.createAndRunTerminal({
             label: request.terminalPaneLabel,
-            command,
+            command: plan.launchCommand,
+            tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
             agent: {
               id: request.agent.id,
               label: request.agent.label,
@@ -688,6 +699,11 @@ const CenterStage: React.FC = () => {
     setActiveFile(null, effectiveContextId);
     runWhenTerminalGridReady(nextTab.id, (grid) => grid.focusActivePane());
   }, [effectiveContextId, createTerminalTab, runWhenTerminalGridReady, setActiveFile, setActiveTerminalTab, setUrlParams]);
+
+  const handleRenameTerminalCenterTab = React.useCallback((tabId: string, title: string) => {
+    if (!effectiveContextId) return;
+    setTabCustomTitle(effectiveContextId, tabId, title);
+  }, [effectiveContextId, setTabCustomTitle]);
 
   const cleanupCanvasTerminalsForClosedTerminal = React.useCallback(async ({
     contextScope,
@@ -1113,6 +1129,7 @@ const CenterStage: React.FC = () => {
           handleCloseFile={handleCloseFile}
           handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
+          handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
           handleTabGroupDragEnd={handleTabGroupDragEnd}
           pinFile={pinFile}
           setActiveFile={setActiveFile}
@@ -1196,7 +1213,7 @@ const CenterStage: React.FC = () => {
           onStartTerminalMode={(command) => {
             if (!effectiveContextId) return;
             codeReviewUserTriggeredRef.current = true;
-            setCodeReviewPendingCommand(command);
+            setCodeReviewPendingCommand({ command });
             setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
             setFixedTab("code-review");
           }}
@@ -1206,7 +1223,7 @@ const CenterStage: React.FC = () => {
               await systemApi.killCodeReviewWindow(effectiveContextId);
               codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
               codeReviewUserTriggeredRef.current = true;
-              setCodeReviewPendingCommand(command);
+              setCodeReviewPendingCommand({ command });
               setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
               setFixedTab("code-review");
               toastManager.add({

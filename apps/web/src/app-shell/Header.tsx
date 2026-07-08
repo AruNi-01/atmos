@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState, useQueryStates } from "nuqs";
 import { useTheme } from "next-themes";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -32,6 +32,7 @@ import { DeleteProjectDialog } from '@/features/project/components/DeleteProject
 import { SkillsModal } from '@/features/skills';
 import { useAgentChatLayoutStore } from '@/features/agent/store/agent-chat-layout-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
@@ -60,7 +61,7 @@ import { useHeaderHotkeys } from './use-header-hotkeys';
 
 const Header: React.FC = () => {
   const pathname = usePathname();
-  const router = useRouter();
+
   const searchParams = useSearchParams();
   const { setTheme, theme } = useTheme();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
@@ -81,6 +82,13 @@ const Header: React.FC = () => {
   useEffect(() => {
     void loadExperimentSettings();
   }, [loadExperimentSettings]);
+  const showHeaderQuickOpen = useLayoutSettingsStore((s) => s.showHeaderQuickOpen);
+  const showHeaderGitToolbar = useLayoutSettingsStore((s) => s.showHeaderGitToolbar);
+  const showHeaderRemoteAccess = useLayoutSettingsStore((s) => s.showHeaderRemoteAccess);
+  const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
+  useEffect(() => {
+    void loadLayoutSettings();
+  }, [loadLayoutSettings]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
@@ -94,8 +102,8 @@ const Header: React.FC = () => {
     toggleFullScreen,
   } = useHeaderFullscreen();
   const refreshCurrentRoute = useCallback(() => {
-    router.refresh();
-  }, [router]);
+    window.location.reload();
+  }, []);
   const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
   const {
     currentBranch,
@@ -122,6 +130,7 @@ const Header: React.FC = () => {
     repo: githubRepo ?? undefined,
     branch: currentBranch ?? undefined,
     state: 'all',
+    enabled: showHeaderGitToolbar,
   });
   // Find the most recent PR (highest number) whose head branch matches current branch
   const currentBranchPR = useMemo(() => {
@@ -202,13 +211,13 @@ const Header: React.FC = () => {
     openInBrowser,
     refreshStatus: refreshDesktopWebStatus,
     status: desktopWebStatus,
-  } = useDesktopWebLauncher(pathname, desktopWebSearch);
+  } = useDesktopWebLauncher(pathname, desktopWebSearch, showHeaderRemoteAccess);
 
   const {
     statusMap: tunnelConnectorStatusMap,
     refreshStatus: refreshTunnelConnectorStatus,
     renew: renewTunnelConnector,
-  } = useTunnelConnector();
+  } = useTunnelConnector(showHeaderRemoteAccess);
   // Collect all active (Running) tunnels for display in the header.
   const activeTunnelConnectors = useMemo(() =>
     Object.values(tunnelConnectorStatusMap).filter(
@@ -295,7 +304,7 @@ const Header: React.FC = () => {
   // Fetch available branches when project/workspace changes
   useEffect(() => {
     const effectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
-    if (effectivePath && !isSettingUp) {
+    if (showHeaderGitToolbar && effectivePath && !isSettingUp) {
       const fetchBranches = async () => {
         setIsLoadingBranches(true);
         try {
@@ -311,7 +320,7 @@ const Header: React.FC = () => {
     } else {
       setAvailableBranches([]);
     }
-  }, [currentProject?.mainFilePath, currentWorkspace?.localPath, isSettingUp]);
+  }, [currentProject?.mainFilePath, currentWorkspace?.localPath, isSettingUp, showHeaderGitToolbar]);
 
   // Sync target branch from project to git info store
   useEffect(() => {
@@ -537,7 +546,7 @@ const Header: React.FC = () => {
           </div>
 
           <div className="desktop-no-drag pl-2">
-            {(currentWorkspace || currentProject) && (
+            {showHeaderQuickOpen && (currentWorkspace || currentProject) && (
               <QuickOpen
                 workspace={currentWorkspace}
                 path={!currentWorkspace ? currentProject?.mainFilePath : null}
@@ -554,34 +563,36 @@ const Header: React.FC = () => {
           )}
         </div>
 
-        <HeaderGitContext
-          branchSyncState={branchSyncState}
-          currentBranchPR={currentBranchPR}
-          currentProject={currentProject}
-          currentWorkspace={currentWorkspace}
-          displayCurrentBranch={displayCurrentBranch}
-          displayTargetBranch={displayTargetBranch}
-          editedCurrentBranch={editedCurrentBranch}
-          filteredBranches={filteredBranches}
-          hasUncommittedChanges={hasUncommittedChanges}
-          hasUnpushedCommits={hasUnpushedCommits}
-          isEditingCurrentBranch={isEditingCurrentBranch}
-          isLoadingBranches={isLoadingBranches}
-          isTargetBranchOpen={isTargetBranchOpen}
-          onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-          onOpenPr={(prNumber) => setModalParams({ rsPr: prNumber })}
-          onRefreshChangedFiles={refreshChangedFiles}
-          onSaveCurrentBranch={handleSaveCurrentBranch}
-          onSetTargetBranch={setTargetBranch}
-          prIconRef={prIconRef}
-          setEditedCurrentBranch={setEditedCurrentBranch}
-          setIsEditingCurrentBranch={setIsEditingCurrentBranch}
-          setIsTargetBranchOpen={setIsTargetBranchOpen}
-          setTargetBranchFilter={setTargetBranchFilter}
-          targetBranchFilter={targetBranchFilter}
-          uncommittedCount={uncommittedCount}
-          unpushedCount={unpushedCount}
-        />
+        {showHeaderGitToolbar && (
+          <HeaderGitContext
+            branchSyncState={branchSyncState}
+            currentBranchPR={currentBranchPR}
+            currentProject={currentProject}
+            currentWorkspace={currentWorkspace}
+            displayCurrentBranch={displayCurrentBranch}
+            displayTargetBranch={displayTargetBranch}
+            editedCurrentBranch={editedCurrentBranch}
+            filteredBranches={filteredBranches}
+            hasUncommittedChanges={hasUncommittedChanges}
+            hasUnpushedCommits={hasUnpushedCommits}
+            isEditingCurrentBranch={isEditingCurrentBranch}
+            isLoadingBranches={isLoadingBranches}
+            isTargetBranchOpen={isTargetBranchOpen}
+            onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
+            onOpenPr={(prNumber) => setModalParams({ rsPr: prNumber })}
+            onRefreshChangedFiles={refreshChangedFiles}
+            onSaveCurrentBranch={handleSaveCurrentBranch}
+            onSetTargetBranch={setTargetBranch}
+            prIconRef={prIconRef}
+            setEditedCurrentBranch={setEditedCurrentBranch}
+            setIsEditingCurrentBranch={setIsEditingCurrentBranch}
+            setIsTargetBranchOpen={setIsTargetBranchOpen}
+            setTargetBranchFilter={setTargetBranchFilter}
+            targetBranchFilter={targetBranchFilter}
+            uncommittedCount={uncommittedCount}
+            unpushedCount={unpushedCount}
+          />
+        )}
 
         <HeaderActionControls
           actionMenuFocusRef={actionMenuFocusRef}

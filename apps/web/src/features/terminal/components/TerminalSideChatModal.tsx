@@ -347,6 +347,7 @@ export function TerminalSideChatModal({
                   getTerminalCursorClientPoint={() =>
                     terminalRefs.current.get(record.side_chat_id)?.getCursorClientPoint() ?? null
                   }
+                  agent={record.agent}
                   isTerminalReady={readySideChatIds.has(record.side_chat_id)}
                   localPath={localPath}
                   onInteraction={onInteraction}

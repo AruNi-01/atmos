@@ -289,6 +289,12 @@ export function useCenterStageTabScrollEffects({
   }, [activeValue, effectiveContextId, openFilesCount, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabsCount, scrollableTabsRef]);
 }
 
+export type PendingNamedTerminalRun = {
+  command: string;
+  tuiFollowUpPrompt?: string;
+  agentId?: string;
+};
+
 export function usePendingNamedTerminalCommand({
   activeTabValue,
   activeValue,
@@ -303,8 +309,8 @@ export function usePendingNamedTerminalCommand({
   activeTabValue: string;
   activeValue: string;
   effectiveContextId: string | null | undefined;
-  pendingCommand: string | null;
-  setPendingCommand: React.Dispatch<React.SetStateAction<string | null>>;
+  pendingCommand: PendingNamedTerminalRun | null;
+  setPendingCommand: React.Dispatch<React.SetStateAction<PendingNamedTerminalRun | null>>;
   tabVisible: boolean;
   terminalGridRef: TerminalGridRef;
   terminalLabel: string;
@@ -313,11 +319,13 @@ export function usePendingNamedTerminalCommand({
   React.useEffect(() => {
     if (!pendingCommand || !effectiveContextId || !tabVisible || activeValue !== activeTabValue) return;
 
-    const cmd = pendingCommand;
+    const run = pendingCommand;
     setPendingCommand(null);
     terminalGridRef.current?.createOrFocusAndRunTerminal({
       label: terminalLabel,
-      command: cmd,
+      command: run.command,
+      agentId: run.agentId,
+      tuiFollowUpPrompt: run.tuiFollowUpPrompt,
     });
 
     const timer = setTimeout(() => {

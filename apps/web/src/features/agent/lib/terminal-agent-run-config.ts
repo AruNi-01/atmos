@@ -2,9 +2,11 @@ import { shellQuote } from "@/shared/lib/shell-quote";
 import {
   TERMINAL_AGENT_DEFINITIONS,
   type TerminalAgentDefinition,
+  type TerminalAgentPromptStrategy,
   type TerminalAgentReasoningMode as TerminalAgentReasoningCapabilityMode,
   type TerminalAgentReasoningSupport,
 } from "@/features/agent/lib/terminal-agent-definitions";
+import { agentNeedsTuiFollowUp } from "@/features/agent/lib/terminal-agent-tui-follow-up";
 
 export type TerminalAgentReasoningMode = Exclude<
   TerminalAgentReasoningCapabilityMode,
@@ -201,42 +203,149 @@ export function buildRunConfigSummary(
   return parts.join(" · ");
 }
 
-export function buildInteractiveAgentCommand(args: {
+function resolveInteractivePromptStrategy(
+  definition: TerminalAgentDefinition | undefined,
+): TerminalAgentPromptStrategy {
+  if (definition?.useEcho) {
+    return "stdin";
+  }
+  return definition?.promptStrategy ?? "arg";
+}
+
+function interactivePromptFlagSuffix(
+  definition: TerminalAgentDefinition,
+): string | null {
+  const automationParams = definition.params.trim();
+  const interactiveParams = definition.interactiveParams ?? "";
+  if (!automationParams || automationParams === interactiveParams.trim()) {
+    return null;
+  }
+  if (interactiveParams && automationParams.startsWith(interactiveParams)) {
+    const suffix = automationParams.slice(interactiveParams.length).trim();
+    return suffix || null;
+  }
+  return automationParams;
+}
+
+export function buildPipedAgentTerminalInput(
+  agentId: string,
+  command: string,
+  text: string,
+): string | null {
+  const definition = terminalAgentDefinitionById(agentId);
+  if (!definition?.useEcho) {
+    return null;
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const interactiveParams = definition.interactiveParams ?? "";
+  const baseCommand = [command.trim(), interactiveParams].filter(Boolean).join(" ");
+  return `echo ${shellQuote(trimmed)} | ${baseCommand}`;
+}
+
+export interface TerminalAgentRunPlan {
+  launchCommand: string;
+  tuiFollowUpPrompt?: string;
+}
+
+export type TerminalAgentRunMode = "interactive" | "headless";
+
+export function buildInteractiveAgentRunPlan(args: {
   agentId: string;
   launchCommand: string;
   prompt: string;
   runConfig?: TerminalAgentRunConfigInput | null;
-}): string {
+  mode?: TerminalAgentRunMode;
+}): TerminalAgentRunPlan {
+  const mode = args.mode ?? "interactive";
   const definition = TERMINAL_AGENT_DEFINITIONS.find((item) => item.id === args.agentId);
-  const strategy = definition?.promptStrategy ?? "arg";
+  const strategy =
+    mode === "headless"
+      ? (definition?.promptStrategy ?? "arg")
+      : resolveInteractivePromptStrategy(definition);
   const structuredArgs = buildStructuredRunConfigArgs(args.agentId, args.runConfig);
   const baseCommand = [args.launchCommand.trim(), ...structuredArgs.map((item) => shellQuote(item))]
     .filter(Boolean)
     .join(" ");
   const prompt = args.prompt.trim();
   if (!prompt) {
-    return baseCommand;
+    return { launchCommand: baseCommand };
   }
+
+  if (mode === "interactive" && agentNeedsTuiFollowUp(args.agentId, prompt)) {
+    return {
+      launchCommand: baseCommand,
+      tuiFollowUpPrompt: prompt,
+    };
+  }
+
   const quotedPrompt = shellQuote(prompt);
   if (strategy === "stdin") {
-    return `echo ${quotedPrompt} | ${baseCommand}`;
+    return {
+      launchCommand: `echo ${quotedPrompt} | ${baseCommand}`,
+    };
   }
   if (args.agentId === "opencode") {
-    return `${baseCommand} --prompt ${quotedPrompt}`;
+    return {
+      launchCommand: `${baseCommand} --prompt ${quotedPrompt}`,
+    };
   }
   if (args.agentId === "antigravity") {
-    return `${baseCommand} --prompt-interactive ${quotedPrompt}`;
+    return {
+      launchCommand: `${baseCommand} --prompt-interactive ${quotedPrompt}`,
+    };
   }
   if (strategy === "prompt_flag" && definition) {
+    if (mode === "interactive" && args.agentId === "pi") {
+      return {
+        launchCommand: `${baseCommand} ${quotedPrompt}`,
+      };
+    }
     const promptFlag = promptFlagForInteractiveCommand(definition);
     if (promptFlag) {
       const flagPrefix = commandContainsToken(args.launchCommand, promptFlag)
         ? ""
         : ` ${shellQuote(promptFlag)}`;
-      return `${baseCommand}${flagPrefix} ${quotedPrompt}`;
+      return {
+        launchCommand: `${baseCommand}${flagPrefix} ${quotedPrompt}`,
+      };
+    }
+    const promptFlagSuffix =
+      mode === "interactive" ? interactivePromptFlagSuffix(definition) : definition.params;
+    if (mode === "interactive" && promptFlagSuffix) {
+      const promptedBaseCommand = [baseCommand, promptFlagSuffix].filter(Boolean).join(" ");
+      return {
+        launchCommand: `${promptedBaseCommand} ${quotedPrompt}`,
+      };
+    }
+    if (definition.params?.trim()) {
+      const promptedBaseCommand = [
+        definition.cmd,
+        definition.params,
+        ...structuredArgs.map((item) => shellQuote(item)),
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return {
+        launchCommand: `${promptedBaseCommand} ${quotedPrompt}`,
+      };
     }
   }
-  return `${baseCommand} ${quotedPrompt}`;
+  return {
+    launchCommand: `${baseCommand} ${quotedPrompt}`,
+  };
+}
+
+export function buildInteractiveAgentCommand(args: {
+  agentId: string;
+  launchCommand: string;
+  prompt: string;
+  runConfig?: TerminalAgentRunConfigInput | null;
+  mode?: TerminalAgentRunMode;
+}): string {
+  return buildInteractiveAgentRunPlan(args).launchCommand;
 }
 
 function promptFlagForInteractiveCommand(definition: TerminalAgentDefinition): string | null {

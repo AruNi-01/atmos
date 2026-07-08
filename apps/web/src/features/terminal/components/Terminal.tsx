@@ -65,6 +65,8 @@ export interface TerminalRef {
   sendEnter: () => void;
   getCursorClientPoint: () => { x: number; y: number } | null;
   scrollToBottom: () => void;
+  /** Subscribe to decoded PTY output for agent readiness heuristics. */
+  subscribeOutput: (listener: (data: string) => void) => () => void;
   /** Paste clipboard content into the terminal */
   paste: () => Promise<void>;
   /** Destroy the terminal session (kills tmux window) */
@@ -153,6 +155,7 @@ const Terminal = ({
   const scaledTerminalFontSize = Math.max(2, terminalFont.size * appliedTerminalScale);
   const normalizedTerminalScaleRef = useRef(normalizedTerminalScale);
   const appliedTerminalScaleRef = useRef(appliedTerminalScale);
+  const outputListenersRef = useRef(new Set<(data: string) => void>());
   const {
     resetInputReady,
     scheduleInputReady,
@@ -233,6 +236,9 @@ const Terminal = ({
         : outputTextDecoderRef.current.decode(data, { stream: true });
     if (text) {
       onData?.(text); // Forward decoded text for parent features (e.g. URL detection)
+      for (const listener of outputListenersRef.current) {
+        listener(text);
+      }
     }
   }, [onData, scheduleInputReady, status]);
 
@@ -444,6 +450,12 @@ const Terminal = ({
           lines.push(buf.getLine(i)?.translateToString(true) ?? "");
         }
         return lines.join("\n");
+      },
+      subscribeOutput: (listener: (data: string) => void) => {
+        outputListenersRef.current.add(listener);
+        return () => {
+          outputListenersRef.current.delete(listener);
+        };
       },
     }),
     [sendDestroy, disconnect, sendInput, sendEnter, getCursorClientPoint]

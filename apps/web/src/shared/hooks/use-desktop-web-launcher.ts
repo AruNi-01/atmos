@@ -47,8 +47,9 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function useDesktopWebLauncher(pathname: string, search: string) {
+export function useDesktopWebLauncher(pathname: string, search: string, enabled = true) {
   const isDesktopRuntime = useMemo(() => isTauriRuntime(), []);
+  const isActive = isDesktopRuntime && enabled;
   const [status, setStatus] = useState<DesktopWebStatus>(
     isDesktopRuntime ? "checking" : "unavailable",
   );
@@ -115,12 +116,12 @@ export function useDesktopWebLauncher(pathname: string, search: string) {
   }, [checkDesktopWeb, isDesktopRuntime]);
 
   useEffect(() => {
-    if (!isDesktopRuntime) {
+    if (!isActive) {
       return;
     }
 
     void refreshStatus();
-  }, [isDesktopRuntime, refreshStatus]);
+  }, [isActive, refreshStatus]);
 
   return {
     browserUrl,

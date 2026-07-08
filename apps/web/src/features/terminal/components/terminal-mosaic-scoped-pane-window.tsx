@@ -27,6 +27,7 @@ import {
 } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
+import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import { TerminalPaneAgentStatus } from "./terminal-mosaic-workspace-pane-window";
 import {
@@ -74,7 +75,8 @@ type ScopedPaneWindowProps = {
   terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>;
   agentInputOverlayRefsMap: React.MutableRefObject<Map<string, TerminalAgentInputOverlayHandle>>;
   readyPanesRef: React.MutableRefObject<Set<string>>;
-  pendingCommandsRef: React.MutableRefObject<Map<string, string>>;
+  pendingRunsRef: React.MutableRefObject<Map<string, PendingTerminalRun>>;
+  deliverPendingRunForPane: (paneId: string) => void;
   setDynamicTitle: (workspaceId: string, paneId: string, title: string) => void;
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markPaneAttached: (workspaceId: string, paneId: string) => void;
@@ -109,7 +111,8 @@ export function TerminalMosaicScopedPaneWindow({
   terminalRefsMap,
   agentInputOverlayRefsMap,
   readyPanesRef,
-  pendingCommandsRef,
+  pendingRunsRef,
+  deliverPendingRunForPane,
   setDynamicTitle,
   setPaneAgent,
   markPaneAttached,
@@ -386,10 +389,8 @@ export function TerminalMosaicScopedPaneWindow({
             readyPanesRef.current.add(id);
             setIsTerminalReady(true);
             markPaneAttached(workspaceId, id);
-            const cmd = pendingCommandsRef.current.get(id);
-            if (cmd) {
-              pendingCommandsRef.current.delete(id);
-              terminalRefsMap.current.get(id)?.sendText(cmd);
+            if (pendingRunsRef.current.has(id)) {
+              deliverPendingRunForPane(id);
             }
           }}
           onSessionClose={() => {
@@ -410,6 +411,7 @@ export function TerminalMosaicScopedPaneWindow({
             }
           }}
           activeProjectId={activeProject?.id ?? null}
+          agent={agentForSubmit ?? null}
           getTerminalCursorClientPoint={() =>
             terminalRefsMap.current.get(id)?.getCursorClientPoint() ?? null
           }

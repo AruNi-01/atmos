@@ -6,6 +6,7 @@ import { useWikiContext } from "@/features/wiki/store/use-wiki-store";
 import { WikiSetup } from "./WikiSetup";
 import { WikiViewer } from "./WikiViewer";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
+import type { WikiTerminalRun } from "./AgentSelect";
 
 interface WikiTabProps {
   contextId: string;
@@ -16,9 +17,9 @@ interface WikiTabProps {
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal: () => void;
   /** Switch to Project Wiki tab and run the given command in its terminal */
-  onSwitchToProjectWikiAndRun?: (command: string) => void;
+  onSwitchToProjectWikiAndRun?: (run: WikiTerminalRun) => void;
   /** Kill existing Project Wiki window, remount terminal, then run command (for replace flow) */
-  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
+  onProjectWikiReplaceAndRun?: (run: WikiTerminalRun) => Promise<void>;
   /** Current wiki page from URL (e.g. "overview/index") */
   wikiPage?: string;
   /** Called when wiki page changes — syncs to URL */

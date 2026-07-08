@@ -5,13 +5,14 @@ import type {
 } from "@/api/ws-api";
 import type { TerminalPaneAgent } from "@/features/terminal/types";
 import type { TerminalPromptContext } from "./terminal-ai-context-protocol";
+import type { PendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
 
 export type SourceSurfaceKind = "terminal_pane" | "canvas_terminal";
 
 export type LocalSideChatRecord = TerminalSideChatRecord & {
   agent?: TerminalPaneAgent;
   hasSentInitialCommand?: boolean;
-  initialCommand?: string;
+  pendingInitialRun?: PendingTerminalRun;
   isNew: boolean;
   sessionId: string;
 };
@@ -70,7 +71,7 @@ export function mergeSideChatRecords(
       ...record,
       agent: currentRecord.agent ?? record.agent,
       hasSentInitialCommand: currentRecord.hasSentInitialCommand,
-      initialCommand: currentRecord.initialCommand,
+      pendingInitialRun: currentRecord.pendingInitialRun,
       isNew: currentRecord.isNew,
       sessionId: currentRecord.sessionId,
     };

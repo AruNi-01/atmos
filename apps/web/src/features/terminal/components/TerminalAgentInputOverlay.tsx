@@ -7,6 +7,7 @@ import { Bot } from "lucide-react";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
+  buildPipedAgentTerminalInput,
   sanitizeRunConfig,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
@@ -66,6 +67,7 @@ import "./TerminalAgentInputOverlay.css";
 
 interface TerminalAgentInputOverlayProps {
   activeProjectId?: string | null;
+  agent?: TerminalPaneAgent | null;
   getSideChatFlyTargetClientPoint?: () => { x: number; y: number } | null;
   getTerminalCursorClientPoint?: () => { x: number; y: number } | null;
   isTerminalReady?: boolean;
@@ -98,6 +100,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   TerminalAgentInputOverlayProps
 >(function TerminalAgentInputOverlay({
   activeProjectId,
+  agent,
   getSideChatFlyTargetClientPoint,
   getTerminalCursorClientPoint,
   isTerminalReady = true,
@@ -599,6 +602,21 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       if (!trimmedExpandedText) return;
       const flyingText = stripResolvedTerminalAiProtocolTokens(rawText, promptContexts) || rawText;
       launchFlyingMessage(flyingText);
+      const pipedInput =
+        agent && trimmedExpandedText
+          ? buildPipedAgentTerminalInput(agent.id, agent.command, trimmedExpandedText)
+          : null;
+      if (pipedInput) {
+        onSendText(`${pipedInput}\r`);
+        setIsOpen(true);
+        setIsSendAnimating(true);
+        composerRef.current?.clear();
+        clearAttachments();
+        setPromptContexts([]);
+        setMentionPopover(null);
+        setSlashPopover(null);
+        return;
+      }
       const isMultiLine = trimmedExpandedText.includes("\n");
       if (submitMode === "bracketed-paste-enter") {
         onSendText(wrapBracketedPaste(trimmedExpandedText));
@@ -629,6 +647,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       setIsSending(false);
     }
   }, [
+    agent,
     attachments,
     clearAttachments,
     isSendAnimating,

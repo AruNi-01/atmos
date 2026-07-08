@@ -1425,9 +1425,9 @@ mod tests {
             ),
             (
                 "amp",
-                PromptStrategy::Arg,
+                PromptStrategy::Stdin,
                 vec!["--dangerously-allow-all", "--execute"],
-                PromptDelivery::Arg,
+                PromptDelivery::Stdin,
                 StdoutParser::Plain,
             ),
             (
