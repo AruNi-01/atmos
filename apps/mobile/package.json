@@ -45,14 +45,14 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
-    "typescript": "~6.0.3"
+    "typescript": "6.0.3"
   },
   "scripts": {
     "start": "expo start --dev-client --scheme atmos",
     "android": "./script/build_and_run.sh run-android",
     "ios": "./script/build_and_run.sh run-ios",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit"
   },
   "private": true
 }

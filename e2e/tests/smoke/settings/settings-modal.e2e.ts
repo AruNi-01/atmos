@@ -29,7 +29,7 @@ test.describe("smoke settings", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page, "zh");
+    const contextUrl = await buildProjectWorkspaceDeepLink(page);
     const settingsUrl = withSearchParams(contextUrl, {
       settingsModal: "true",
       activeSettingTab: "shortcuts",
@@ -39,7 +39,7 @@ test.describe("smoke settings", () => {
     await gotoContextRoute(page, settingsUrl);
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/zh/project");
+      .toBe("/project");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
       .toBe("shortcuts");
@@ -59,7 +59,7 @@ test.describe("smoke settings", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page, "zh");
+    const contextUrl = await buildProjectWorkspaceDeepLink(page);
     const settingsDialog = page.getByRole("dialog");
 
     for (const activeSettingTab of ["layout", "atmos-computer", "about"] as const) {
@@ -73,7 +73,7 @@ test.describe("smoke settings", () => {
       );
       await expect
         .poll(async () => normalizePathname(new URL(page.url()).pathname))
-        .toBe("/zh/project");
+        .toBe("/project");
       await expect
         .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
         .toBe("true");

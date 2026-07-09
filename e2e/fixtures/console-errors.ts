@@ -3,6 +3,10 @@ import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
 const allowedConsoleErrorPatterns = [
   /favicon\.ico/i,
   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  // Setup / remote onboarding probes the relay proxy before credentials exist.
+  /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  /\[response\.409\] .*\/v1\/tenants\b/i,
   /Encountered a script tag while rendering React component/i,
   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
   /\[console\.error\] Error: WebSocket not connected\b/i,

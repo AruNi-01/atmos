@@ -2,15 +2,13 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
+    "noUncheckedSideEffectImports": true,
+    "libReplacement": false,
+    "stableTypeOrdering": true,
+    "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@atmos/resources/*": [
-        "../../resources/*"
-      ]
+      "@/*": ["./src/*"],
+      "@atmos/resources/*": ["../../resources/*"]
     }
   },
   "include": [

@@ -116,6 +116,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-004** | Architecture Review | `specs/APP/QUALITY-004_architecture-review/` (`TECH.md`, `TEST.md`) |
+| **QUALITY-005** | TypeScript 7 Upgrade | `specs/APP/QUALITY-005_typescript-7-upgrade/` (`TECH.md`, `TEST.md`) |
 
 ### Landing
 

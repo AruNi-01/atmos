@@ -171,11 +171,15 @@ just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
 just dev-mobile         # Start Expo mobile dev server
 just dev-desktop        # Desktop (rebuilds web static + prepare-sidecar + tauri dev --no-watch)
+just typecheck          # Native TypeScript 7 typecheck (QUALITY-005)
+just typecheck-bench    # Typecheck wall time vs QUALITY-005 baseline
 just test               # Run all tests
 just test-e2e-smoke     # Run fast Playwright smoke tests
 just test-e2e           # Run all Playwright E2E tests
 just lint               # Run all linters
 ```
+
+TypeScript note: `@typescript/native` (TS 7 `tsc`) is installed alongside `typescript@6` (eslint API). See [packages/config/AGENTS.md](packages/config/AGENTS.md).
 
 For a fresh iOS/Android mobile environment, follow [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md) before running native dev builds.
 
