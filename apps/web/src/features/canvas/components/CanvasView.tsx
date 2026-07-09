@@ -103,6 +103,7 @@ import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-l
 import type { ResolvedAgentFixLaunchRequest } from "@/features/agent-fix/types";
 import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
 import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
+import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
 import { toPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
 import {
   createRelatedCanvasTerminalShape,
@@ -588,10 +589,19 @@ export const CanvasView: React.FC = () => {
 
   const handleRunAgentFixInCanvasTerminal = React.useCallback(
     async (request: ResolvedAgentFixLaunchRequest) => {
+      const source = resolveCanvasTerminalSource({
+        contextId: request.context.contextId,
+        scope: request.context.scope,
+      });
+      const launchPrompt = await resolveAgentFixLaunchPrompt(
+        request.prompt,
+        source?.sourceContext.localPath,
+      );
+
       const plan = buildInteractiveAgentRunPlan({
         agentId: request.agent.id,
         launchCommand: request.agent.launchCommand.trim(),
-        prompt: request.prompt,
+        prompt: launchPrompt,
         runConfig: request.runConfig,
       });
 
@@ -608,7 +618,7 @@ export const CanvasView: React.FC = () => {
         requestedContext: request.context,
       });
     },
-    [createAndRunCanvasTerminal],
+    [createAndRunCanvasTerminal, resolveCanvasTerminalSource],
   );
 
   const handleRunReviewFixInCanvasTerminal = React.useCallback(

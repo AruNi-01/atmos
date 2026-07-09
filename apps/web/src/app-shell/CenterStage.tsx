@@ -52,6 +52,7 @@ import { useReviewSnapshotStore } from "@/features/code-review/store/review-snap
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
+import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
@@ -636,6 +637,13 @@ const CenterStage: React.FC = () => {
         setActiveFile(null, effectiveContextId);
       }
 
+      const { currentProject: fixProject, currentWorkspace: fixWorkspace } =
+        resolveCenterStageProjectContext(projects, effectiveContextId);
+      const launchPrompt = await resolveAgentFixLaunchPrompt(
+        request.prompt,
+        fixWorkspace?.localPath || fixProject?.mainFilePath,
+      );
+
       const nextTab = createTerminalTab(effectiveContextId, {
         title: request.terminalTabTitle,
       });
@@ -645,7 +653,7 @@ const CenterStage: React.FC = () => {
       const plan = buildInteractiveAgentRunPlan({
         agentId: request.agent.id,
         launchCommand: request.agent.launchCommand.trim(),
-        prompt: request.prompt,
+        prompt: launchPrompt,
         runConfig: request.runConfig,
       });
 
@@ -672,6 +680,7 @@ const CenterStage: React.FC = () => {
       createTerminalTab,
       currentView,
       effectiveContextId,
+      projects,
       runWhenTerminalGridReady,
       setActiveFile,
       setActiveTerminalTab,
