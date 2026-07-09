@@ -350,11 +350,14 @@ gh run list --workflow release-desktop.yml --limit 5
 gh release view desktop-2026.7.2
 ```
 
-For stable desktop releases, also verify Homebrew tap sync when relevant:
+For stable desktop releases, also verify Homebrew tap sync and R2 sync when relevant:
 
 ```bash
 gh run list --workflow sync-homebrew-tap.yml --limit 5
+gh run list --workflow sync-r2.yml --limit 5
 ```
+
+`sync-r2.yml` listens for `workflow_run` completion of the Desktop / CLI / Local Runtime release workflows, not only `release: published`. Release jobs publish with `GITHUB_TOKEN`, which does not re-trigger same-repo `on: release` workflows, so the `workflow_run` path is the reliable automatic sync.
 
 ---
 

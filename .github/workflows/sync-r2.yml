@@ -1,8 +1,18 @@
 name: Sync Releases to Cloudflare R2
 
+# NOTE: release workflows publish with GITHUB_TOKEN, which does not re-trigger
+# `on: release` in the same repo. Keep `workflow_run` as the reliable path for
+# tag-push releases (same pattern as sync-homebrew-tap.yml).
 on:
   release:
     types: [published]
+  workflow_run:
+    workflows:
+      - Desktop CI & Release
+      - CLI Release
+      - Local Runtime Release
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       release_tag:
@@ -18,7 +28,86 @@ env:
   R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
 jobs:
+  resolve-release:
+    name: Resolve release tag
+    # Allow explicit dispatch, release events, and successful tag-push release
+    # workflows. Prerelease filtering for asset sync happens in the resolve step.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       (startsWith(github.event.workflow_run.head_branch, 'desktop-') ||
+        startsWith(github.event.workflow_run.head_branch, 'cli-') ||
+        startsWith(github.event.workflow_run.head_branch, 'local-web-runtime-')))
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      skip_assets: ${{ steps.resolve.outputs.skip_assets }}
+    steps:
+      - name: Resolve release tag
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+            if [ -z "$TAG" ]; then
+              echo "release_tag is required when running manually." >&2
+              exit 1
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+
+          SKIP_ASSETS=false
+          if [[ ! "$TAG" =~ ^(desktop|cli|local-web-runtime)-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_run" ]; then
+              echo "Unsupported release tag: $TAG" >&2
+              exit 1
+            fi
+            # Unknown release tags still refresh install scripts, but skip assets.
+            echo "Unsupported release tag for asset sync: $TAG; install scripts only."
+            SKIP_ASSETS=true
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "skip_assets=$SKIP_ASSETS" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          case "$TAG" in
+            desktop-*) VERSION="${TAG#desktop-}" ;;
+            cli-*) VERSION="${TAG#cli-}" ;;
+            local-web-runtime-*) VERSION="${TAG#local-web-runtime-}" ;;
+          esac
+
+          if [ "${{ github.event_name }}" = "release" ] && [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            SKIP_ASSETS=true
+          fi
+          if [[ "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
+            SKIP_ASSETS=true
+          fi
+
+          # workflow_dispatch opts in explicitly, but R2 latest paths only accept
+          # stable calendar versions. Fail loudly instead of silently no-op'ing.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$SKIP_ASSETS" = "true" ]; then
+            echo "R2 sync only accepts stable calendar tags for asset upload. Got: $TAG" >&2
+            exit 1
+          fi
+
+          if [ "$SKIP_ASSETS" = "true" ]; then
+            echo "Detected prerelease $TAG; install scripts will sync, assets will be skipped."
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "skip_assets=$SKIP_ASSETS" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag=$TAG skip_assets=$SKIP_ASSETS"
+
   sync-install-scripts:
+    needs: resolve-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -55,25 +144,17 @@ jobs:
           echo "Successfully uploaded install-local-web-runtime.sh"
 
   sync-cli:
-    if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'cli-')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'cli-'))
+    needs: resolve-release
+    if: >
+      needs.resolve-release.outputs.skip_assets != 'true' &&
+      startsWith(needs.resolve-release.outputs.tag, 'cli-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Check if release is stable
-        if: github.event_name == 'release'
-        run: |
-          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
-            exit 1
-          fi
-          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
-
       - name: Download release assets
         env:
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -85,7 +166,7 @@ jobs:
 
       - name: Generate CLI update manifest
         env:
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/manifest
@@ -144,7 +225,7 @@ jobs:
       - name: Upload to Cloudflare R2
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           set -euo pipefail
           echo "Uploading CLI assets to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
@@ -160,7 +241,7 @@ jobs:
       - name: Upload to latest path
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -197,7 +278,8 @@ jobs:
             echo "This is the latest stable CLI release, updating latest path..."
             for file in /tmp/assets/atmos-cli-*.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/cli/latest/$(basename "$file") \
-                --endpoint-url $AWS_ENDPOINT_URL
+                --endpoint-url $AWS_ENDPOINT_URL \
+                --cache-control "public, max-age=60"
             done
             aws s3 cp /tmp/manifest/latest.json s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/cli/latest.json \
               --endpoint-url $AWS_ENDPOINT_URL \
@@ -209,25 +291,17 @@ jobs:
           fi
 
   sync-desktop:
-    if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'desktop-')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'desktop-'))
+    needs: resolve-release
+    if: >
+      needs.resolve-release.outputs.skip_assets != 'true' &&
+      startsWith(needs.resolve-release.outputs.tag, 'desktop-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Check if release is stable
-        if: github.event_name == 'release'
-        run: |
-          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
-            exit 1
-          fi
-          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
-
       - name: Download release assets
         env:
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
@@ -251,7 +325,7 @@ jobs:
       - name: Upload to Cloudflare R2
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
@@ -270,7 +344,7 @@ jobs:
       - name: Upload to latest path
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           echo "Checking if this is the latest desktop release..."
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c 'import json,re,sys; prefix="desktop-"; candidates=[(tuple(map(int, tag[len(prefix):].split("."))), tag) for release in json.load(sys.stdin) for tag in [str(release.get("tag_name") or "")] if not release.get("draft") and not release.get("prerelease") and tag.startswith(prefix) and re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", tag[len(prefix):])]; print(max(candidates)[1] if candidates else "")')
@@ -282,7 +356,8 @@ jobs:
             echo "This is the latest stable desktop release, updating latest path..."
             for file in /tmp/assets/*.app.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
-                --endpoint-url $AWS_ENDPOINT_URL || {
+                --endpoint-url $AWS_ENDPOINT_URL \
+                --cache-control "public, max-age=60" || {
                 echo "Failed to copy $file to latest"
                 exit 1
               }
@@ -293,25 +368,17 @@ jobs:
           fi
 
   sync-local-web-runtime:
-    if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-web-runtime-')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-web-runtime-'))
+    needs: resolve-release
+    if: >
+      needs.resolve-release.outputs.skip_assets != 'true' &&
+      startsWith(needs.resolve-release.outputs.tag, 'local-web-runtime-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Check if release is stable
-        if: github.event_name == 'release'
-        run: |
-          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
-            exit 1
-          fi
-          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
-
       - name: Download release assets
         env:
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if [[ ! "$TAG" =~ ^local-web-runtime-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
@@ -335,7 +402,7 @@ jobs:
       - name: Upload to Cloudflare R2
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
@@ -354,7 +421,7 @@ jobs:
       - name: Upload to latest path
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           echo "Checking if this is the latest local web runtime release..."
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c 'import json,re,sys; prefix="local-web-runtime-"; candidates=[(tuple(map(int, tag[len(prefix):].split("."))), tag) for release in json.load(sys.stdin) for tag in [str(release.get("tag_name") or "")] if not release.get("draft") and not release.get("prerelease") and tag.startswith(prefix) and re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", tag[len(prefix):])]; print(max(candidates)[1] if candidates else "")')
@@ -366,7 +433,8 @@ jobs:
             echo "This is the latest stable local web runtime release, updating latest path..."
             for file in /tmp/assets/*.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-web-runtime/latest/$(basename "$file") \
-                --endpoint-url $AWS_ENDPOINT_URL || {
+                --endpoint-url $AWS_ENDPOINT_URL \
+                --cache-control "public, max-age=60" || {
                 echo "Failed to copy $file to latest"
                 exit 1
               }
@@ -374,4 +442,128 @@ jobs:
             echo "Successfully updated latest files"
           else
             echo "This is not the latest stable local web runtime release, skipping latest path update"
+          fi
+
+  purge-cdn-cache:
+    name: Purge install.atmos.land CDN cache
+    needs:
+      - resolve-release
+      - sync-cli
+      - sync-desktop
+      - sync-local-web-runtime
+    if: >
+      always() &&
+      needs.resolve-release.result == 'success' &&
+      needs.resolve-release.outputs.skip_assets != 'true' &&
+      (needs.sync-cli.result == 'success' ||
+       needs.sync-desktop.result == 'success' ||
+       needs.sync-local-web-runtime.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge latest download URLs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
+          PUBLIC_DOWNLOAD_BASE_URL: ${{ env.PUBLIC_DOWNLOAD_BASE_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "CLOUDFLARE_API_TOKEN is not configured; skipping CDN purge."
+            exit 0
+          fi
+
+          ZONE_ID=$(
+            curl -fsSL "https://api.cloudflare.com/client/v4/zones?name=atmos.land" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+            | python3 -c 'import json,sys; result=json.load(sys.stdin).get("result") or []; print(result[0]["id"] if result else "")'
+          )
+
+          if [ -z "$ZONE_ID" ]; then
+            echo "Could not resolve Cloudflare zone for atmos.land; skipping CDN purge."
+            exit 0
+          fi
+
+          FILES=()
+          case "$TAG" in
+            desktop-*)
+              FILES+=(
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_aarch64.app.tar.gz"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_x64.app.tar.gz"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_aarch64.app.tar.gz"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_x64.app.tar.gz"
+              )
+              ;;
+            cli-*)
+              FILES+=(
+                "${PUBLIC_DOWNLOAD_BASE_URL}/cli/latest.json"
+              )
+              for target in \
+                aarch64-apple-darwin \
+                x86_64-apple-darwin \
+                x86_64-unknown-linux-gnu \
+                x86_64-pc-windows-msvc
+              do
+                FILES+=(
+                  "${PUBLIC_DOWNLOAD_BASE_URL}/cli/latest/atmos-cli-${target}.tar.gz"
+                  "${PUBLIC_DOWNLOAD_BASE_URL}/cli/${TAG}/atmos-cli-${target}.tar.gz"
+                )
+              done
+              ;;
+            local-web-runtime-*)
+              for target in \
+                aarch64-apple-darwin \
+                x86_64-apple-darwin \
+                x86_64-unknown-linux-gnu
+              do
+                FILES+=(
+                  "${PUBLIC_DOWNLOAD_BASE_URL}/local-web-runtime/latest/atmos-local-runtime-${target}.tar.gz"
+                  "${PUBLIC_DOWNLOAD_BASE_URL}/local-web-runtime/${TAG}/atmos-local-runtime-${target}.tar.gz"
+                )
+              done
+              ;;
+            *)
+              echo "No CDN purge mapping for tag: $TAG"
+              exit 0
+              ;;
+          esac
+
+          # Soft-fail: R2 upload already succeeded. CDN purge needs Cache Purge
+          # permission on CLOUDFLARE_API_TOKEN and should not fail the sync.
+          if ! python3 - "$ZONE_ID" "${FILES[@]}" <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+
+          zone_id = sys.argv[1]
+          files = sys.argv[2:]
+          token = os.environ["CLOUDFLARE_API_TOKEN"]
+          payload = json.dumps({"files": files}).encode("utf-8")
+          request = urllib.request.Request(
+              f"https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache",
+              data=payload,
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request) as response:
+                  body = json.load(response)
+          except urllib.error.HTTPError as exc:
+              detail = exc.read().decode("utf-8", errors="replace")
+              raise SystemExit(f"CDN purge HTTP {exc.code}: {detail}") from exc
+          if not body.get("success"):
+              raise SystemExit(f"CDN purge failed: {body}")
+          print("Purged CDN cache for:")
+          for file in files:
+              print(f"  - {file}")
+          PY
+          then
+            echo "CDN purge failed; R2 objects are updated but edge cache may be stale briefly."
+            exit 0
           fi
