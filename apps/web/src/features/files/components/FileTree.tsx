@@ -254,7 +254,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
   }, [editorContextId, onOpenFile, pinFile]);
 
   const selectedItem = menuState
-    ? initialItemsMap.get(menuState.itemPath) || lazyItemsMap.get(menuState.itemPath) || null
+    ? initialItemsMap.get(menuState.itemPath) ||
+      lazyItemsMap.get(menuState.itemPath) ||
+      buildFallbackFileTreeItem(menuState.itemPath, knownItemsRef.current.items)
     : null;
 
   const relativePath = selectedItem && rootPath

@@ -82,9 +82,13 @@ export function buildFallbackFileTreeItem(
   if (knownItem) return knownItem;
 
   const descendantPrefix = itemPath.endsWith('/') ? itemPath : `${itemPath}/`;
-  const hasKnownDescendant = Array.from(knownItems.keys()).some((knownPath) =>
-    knownPath.startsWith(descendantPrefix),
-  );
+  let hasKnownDescendant = false;
+  for (const knownPath of knownItems.keys()) {
+    if (knownPath.startsWith(descendantPrefix)) {
+      hasKnownDescendant = true;
+      break;
+    }
+  }
 
   return {
     id: itemPath,
