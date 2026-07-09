@@ -9,6 +9,12 @@ import type { TerminalPaneAgent } from "@/features/terminal/types";
 
 const TUI_FOLLOW_UP_SUBMIT_DELAY_MS = 80;
 
+// Long single-line commands typed as raw keystrokes get partially dropped by
+// interactive shells (ZLE per-key processing, plugin hooks); bracketed paste
+// delivers them as one block. Threshold stays below the macOS canonical-mode
+// TTY line limit (1024 bytes).
+const LAUNCH_PASTE_THRESHOLD = 1000;
+
 export type PendingTerminalRun = {
   launch: string;
   /** When false, type launch text without executing it. Defaults to true. */
@@ -88,17 +94,51 @@ export function deliverTerminalAgentLaunch(
   terminalRef: TerminalRef,
   launch: string,
   execute = true,
-) {
-  terminalRef.sendText(execute ? `${launch}\r` : launch);
+  onSubmitted?: () => void,
+): () => void {
+  const trimmed = launch.trimEnd();
+  if (!trimmed) return () => {};
+
+  const hasMultiline = /[\r\n]/.test(trimmed);
+  const isLong = trimmed.length > LAUNCH_PASTE_THRESHOLD;
+  if (!hasMultiline && !isLong) {
+    terminalRef.sendText(execute ? `${trimmed}\r` : trimmed);
+    if (execute) onSubmitted?.();
+    return () => {};
+  }
+
+  // Multiline or long shell launches (e.g. Agent Fix prompts with diff hunks)
+  // must use bracketed paste: embedded newlines would be treated as Enter, and
+  // long raw keystroke streams get partially dropped by interactive shells
+  // (ZLE/plugin per-key processing). Paste + Enter go in one write so
+  // remount/cleanup cannot cancel a pending timer and leave an empty prompt.
+  terminalRef.sendText(
+    execute ? `${wrapBracketedPaste(trimmed)}\r` : wrapBracketedPaste(trimmed),
+  );
+  if (execute) onSubmitted?.();
+  return () => {};
 }
 
 export function deliverPendingTerminalRun(
   terminalRef: TerminalRef,
   run: PendingTerminalRun,
 ): () => void {
-  deliverTerminalAgentLaunch(terminalRef, run.launch, run.execute !== false);
-  if (!run.tuiFollowUp) {
-    return () => {};
-  }
-  return startAgentTuiFollowUp(terminalRef, run.tuiFollowUp.agentId, run.tuiFollowUp.prompt);
+  let clearFollowUp = () => {};
+  deliverTerminalAgentLaunch(
+    terminalRef,
+    run.launch,
+    run.execute !== false,
+    run.tuiFollowUp
+      ? () => {
+          clearFollowUp = startAgentTuiFollowUp(
+            terminalRef,
+            run.tuiFollowUp!.agentId,
+            run.tuiFollowUp!.prompt,
+          );
+        }
+      : undefined,
+  );
+  return () => {
+    clearFollowUp();
+  };
 }

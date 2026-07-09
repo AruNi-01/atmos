@@ -74,6 +74,32 @@ export function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> 
   return map;
 }
 
+export function buildFallbackFileTreeItem(
+  itemPath: string,
+  knownItems: Map<string, FileTreeItem> = new Map(),
+): FileTreeItem {
+  const knownItem = knownItems.get(itemPath);
+  if (knownItem) return knownItem;
+
+  const descendantPrefix = itemPath.endsWith('/') ? itemPath : `${itemPath}/`;
+  let hasKnownDescendant = false;
+  for (const knownPath of knownItems.keys()) {
+    if (knownPath.startsWith(descendantPrefix)) {
+      hasKnownDescendant = true;
+      break;
+    }
+  }
+
+  return {
+    id: itemPath,
+    name: getBaseName(itemPath),
+    path: itemPath,
+    isDir: hasKnownDescendant,
+    isSymlink: false,
+    isIgnored: false,
+  };
+}
+
 export function getParentPath(path: string): string {
   const parts = path.split('/');
   parts.pop();

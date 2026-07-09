@@ -66,7 +66,8 @@ export class SafeClipboardProvider implements IClipboardProvider {
 }
 
 export function wrapBracketedPaste(text: string): string {
-  const normalised = text.replace(/\r?\n/g, "\r");
+  // Strip ESC so an embedded `\x1b[201~` (or any CSI) cannot end paste mode early.
+  const normalised = text.replace(/\x1b/g, "").replace(/\r?\n/g, "\r");
   return `\x1b[200~${normalised}\x1b[201~`;
 }
 

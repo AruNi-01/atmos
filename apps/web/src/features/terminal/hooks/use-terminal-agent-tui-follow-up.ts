@@ -35,9 +35,7 @@ export function useTerminalAgentTuiFollowUp(
       const terminalRef = terminalRefsMap.current.get(paneId);
       if (!terminalRef) return;
       const cleanup = deliverPendingTerminalRun(terminalRef, run);
-      if (run.tuiFollowUp) {
-        cleanupByPaneRef.current.set(paneId, cleanup);
-      }
+      cleanupByPaneRef.current.set(paneId, cleanup);
     },
     [clearFollowUp, terminalRefsMap],
   );

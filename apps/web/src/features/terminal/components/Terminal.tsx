@@ -82,6 +82,22 @@ const INITIAL_CONNECT_STABLE_FRAMES = 2;
 const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
 const CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS = 300;
 
+function fitTerminalPreservingScroll(term: XTerm, fit: FitAddon) {
+  const before = term.buffer.active;
+  const wasAtBottom = before.viewportY >= before.baseY;
+  const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
+
+  fit.fit();
+
+  if (wasAtBottom) {
+    jumpXtermToBottom(term);
+    return;
+  }
+
+  const after = term.buffer.active;
+  term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
+}
+
 const Terminal = ({
   sessionId,
   workspaceId,
@@ -174,6 +190,8 @@ const Terminal = ({
     setSearchStats,
     terminalSearchInputId,
   } = useTerminalSearch({ isDark, searchAddonRef, terminalRef });
+  // SearchAddon selects matches for highlighting; suppress the selection toolbar while find is open.
+  const isSearchVisibleRef = useRef(isSearchVisible);
   const {
     handleResolvedLinkRef,
     handleTerminalLinkRef,
@@ -249,8 +267,8 @@ const Terminal = ({
 
     // Re-fit before sending the post-connect size so full-screen TUIs see the
     // browser's current grid, not the constructor's default 80x24 grid.
-    fitAddonRef.current?.fit();
-    if (terminalRef.current) {
+    if (terminalRef.current && fitAddonRef.current) {
+      fitTerminalPreservingScroll(terminalRef.current, fitAddonRef.current);
       sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
     }
     scheduleInputReadyFallback();
@@ -330,6 +348,14 @@ const Terminal = ({
     setSelectionSnapshot(snapshot);
     onSelectionSnapshotChangeRef.current?.(snapshot);
   }, []);
+
+  // SearchAddon selects matches for highlighting; suppress the selection toolbar while find is open.
+  useEffect(() => {
+    isSearchVisibleRef.current = isSearchVisible;
+    if (isSearchVisible) {
+      setCurrentSelectionSnapshot(null);
+    }
+  }, [isSearchVisible, setCurrentSelectionSnapshot]);
 
   const getCursorClientPoint = useCallback(() => {
     const terminal = terminalRef.current;
@@ -505,7 +531,7 @@ const Terminal = ({
       if (!isTerminalContainerVisible(containerRef.current)) {
         return;
       }
-      fit.fit();
+      fitTerminalPreservingScroll(terminal, fit);
       sendResizeRef.current({ cols: terminal.cols, rows: terminal.rows });
     });
 
@@ -599,6 +625,10 @@ const Terminal = ({
 
     const emitCurrentSelectionSnapshot = () => {
       if (cancelled) return;
+      if (isSearchVisibleRef.current) {
+        setCurrentSelectionSnapshot(null);
+        return;
+      }
       setCurrentSelectionSnapshot(readCurrentSelectionSnapshot());
     };
 
@@ -905,7 +935,7 @@ const Terminal = ({
       // Skip when terminal container is hidden (e.g. tab not visible)
       if (!isTerminalContainerVisible(containerRef.current)) return;
 
-      fit.fit();
+      fitTerminalPreservingScroll(term, fit);
       connectWhenVisible();
     };
     const scheduleResizeFit = () => {
