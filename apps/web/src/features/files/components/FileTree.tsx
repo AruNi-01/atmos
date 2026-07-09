@@ -11,6 +11,7 @@ import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { clientPointToLocalElementPoint } from '@/shared/lib/dom-position';
 import {
+  buildFallbackFileTreeItem,
   buildDuplicateName,
   buildItemsMap,
   getBaseName,
@@ -84,10 +85,20 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealRequestIdRef = React.useRef(0);
+  const knownItemsRef = React.useRef<{
+    rootPath: string | null;
+    items: Map<string, FileTreeItem>;
+  }>({ rootPath: null, items: new Map() });
 
   const initialItemsMap = useMemo(() => buildItemsMap(data), [data]);
   const [lazyItemsMap, setLazyItemsMap] = useState<Map<string, FileTreeItem>>(new Map());
   const rootItemIds = useMemo(() => data.map((node) => node.path), [data]);
+
+  if (knownItemsRef.current.rootPath !== rootPath) {
+    knownItemsRef.current = { rootPath, items: new Map() };
+  }
+  initialItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
+  lazyItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
 
   useEffect(() => {
     // Reset lazily-loaded entries only when the project root itself
@@ -162,14 +173,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           };
         }
         const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
-        return item || {
-          id: itemId,
-          name: itemId,
-          path: itemId,
-          isDir: false,
-          isSymlink: false,
-          isIgnored: false,
-        };
+        return item || buildFallbackFileTreeItem(itemId, knownItemsRef.current.items);
       },
       getChildren: async (itemId: string): Promise<string[]> => {
         if (itemId === 'root') return rootItemIds;
@@ -324,7 +328,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       setIsMutating(false);
       setMenuState(null);
     }
-  }, [handleRefresh, selectedItem]);
+  }, [handleRefresh, selectedItem, t]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedItem) return;
@@ -350,7 +354,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     } finally {
       setIsMutating(false);
     }
-  }, [closeFilesByPrefix, closeOverlays, editorContextId, handleRefresh, selectedItem]);
+  }, [closeFilesByPrefix, closeOverlays, editorContextId, handleRefresh, selectedItem, t]);
 
   const submitPanel = useCallback(async () => {
     if (!panelState) return;
@@ -418,6 +422,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     panelName,
     panelState,
     replaceOpenFilePath,
+    t,
   ]);
 
   const applyRenameSelection = React.useCallback((input: HTMLInputElement | null) => {
