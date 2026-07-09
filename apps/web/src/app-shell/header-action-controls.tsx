@@ -48,7 +48,7 @@ import {
   Languages,
   PanelRightClose,
   PanelRightOpen,
-  RotateCw,
+  RotateCcw,
   Settings,
   SunMoon,
 } from "lucide-react";
@@ -377,7 +377,7 @@ function AtmosComputerPopoverContent({
         </p>
         <div className="mt-3 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1 cursor-pointer" onClick={() => void refreshComputers()}>
-            <RotateCw className="mr-1.5 size-3.5" />
+            <RotateCcw className="mr-1.5 size-3.5" />
             {t("remoteAccess.refresh")}
           </Button>
           <Button size="sm" className="flex-1 cursor-pointer" onClick={onOpenSettings}>
@@ -406,7 +406,7 @@ function AtmosComputerPopoverContent({
           onClick={() => void refreshComputers()}
           className="h-7 cursor-pointer px-2 text-xs"
         >
-          <RotateCw className={cn("mr-1.5 size-3.5", isRefreshing && "animate-spin")} />
+          <RotateCcw className={cn("mr-1.5 size-3.5", isRefreshing && "animate-spin-reverse")} />
           {t("remoteAccess.refresh")}
         </Button>
       </div>
