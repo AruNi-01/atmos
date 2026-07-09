@@ -309,6 +309,14 @@ lint:
     bun lint
     cargo clippy --workspace
 
+# TypeScript 7 native typecheck across workspaces (QUALITY-005)
+typecheck:
+    bun run typecheck
+
+# Typecheck wall-time vs QUALITY-005 baseline
+typecheck-bench:
+    bun run typecheck:bench
+
 # 格式化所有代码
 fmt:
     bun run prettier --write .
@@ -449,6 +457,7 @@ alias t := test
 alias te := test-e2e
 alias tes := test-e2e-smoke
 alias ta := test-api
+alias tc := typecheck
 alias l := lint
 alias f := fmt
 alias c := clean

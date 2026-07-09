@@ -12,6 +12,8 @@ test.describe("smoke app shell preferences menu", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
+    const pathnameBefore = new URL(page.url()).pathname;
+
     await openActionMenu(page);
     await page.getByText("Theme", { exact: true }).click();
     await page.getByText(/Light/).click();
@@ -29,8 +31,14 @@ test.describe("smoke app shell preferences menu", () => {
     await expect
       .poll(async () => page.locator("html").getAttribute("lang"))
       .toBe("zh");
+    // APP-028: runtime locale must not navigate to /zh/...
     await expect
-      .poll(async () => new URL(page.url()).pathname.startsWith("/zh"))
-      .toBe(true);
+      .poll(async () => new URL(page.url()).pathname)
+      .toBe(pathnameBefore);
+    await expect
+      .poll(async () =>
+        page.evaluate(() => window.localStorage.getItem("atmos:v1:global:locale")),
+      )
+      .toBe("zh");
   });
 });

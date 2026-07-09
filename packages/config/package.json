@@ -3,10 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "exports": {
-    "./typescript/nextjs": "./typescript/nextjs.json"
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/nextjs": "./typescript/nextjs.json",
+    "./typescript/react": "./typescript/react.json",
+    "./typescript/react-native": "./typescript/react-native.json",
+    "./typescript/workers": "./typescript/workers.json"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "typescript": "^5"
+    "typescript": "6.0.3"
   }
 }

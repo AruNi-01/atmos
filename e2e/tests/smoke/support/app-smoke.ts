@@ -2,15 +2,20 @@ import type { Page } from "@playwright/test";
 import { apiPort, repoRoot } from "../../../fixtures/app-server";
 import { expect } from "../../../fixtures/test";
 
+/** Runtime workbench locales (APP-028). Not URL prefixes. */
 export const locales = ["en", "zh"] as const;
+export type WorkbenchLocale = (typeof locales)[number];
+
+const WORKBENCH_LOCALE_STORAGE_KEY = "atmos:v1:global:locale";
 const configuredSeedProjectPath = process.env.E2E_SEED_PROJECT_PATH?.trim();
 
 type ProjectRecord = { guid: string; main_file_path?: string | null; name?: string | null };
 type WorkspaceRecord = { guid: string; is_archived?: boolean | null };
 type SmokeProjectSeed = { projectGuid: string; workspaceGuid: string };
 
+/** Unprefixed workbench routes after APP-028 removed `[locale]` segments. */
 export const routes = [
-  "",
+  "/",
   "/setup",
   "/agents",
   "/automations",
@@ -25,23 +30,50 @@ export function normalizePathname(pathname: string): string {
 
 let smokeProjectSeed: Promise<SmokeProjectSeed> | null = null;
 
+/**
+ * Seed runtime locale before the first document load (APP-028).
+ * Workbench language is localStorage-backed, not `/zh/...` routes.
+ */
+export async function seedWorkbenchLocale(
+  page: Page,
+  locale: WorkbenchLocale,
+): Promise<void> {
+  await page.addInitScript(
+    ({ key, value }) => {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        // Ignore quota / private-mode failures in smoke.
+      }
+    },
+    { key: WORKBENCH_LOCALE_STORAGE_KEY, value: locale },
+  );
+}
+
 export async function expectHealthyRoute(
   page: Page,
-  locale: (typeof locales)[number],
   route: (typeof routes)[number],
+  options?: { locale?: WorkbenchLocale },
 ): Promise<void> {
-  const response = await page.goto(`/${locale}${route}`, {
+  const expectedLocale = options?.locale ?? "en";
+  // Always seed before navigation so a prior zh preference cannot leak into
+  // default-en route boots (APP-028 persists locale in localStorage).
+  await seedWorkbenchLocale(page, expectedLocale);
+
+  const response = await page.goto(route, {
     waitUntil: "domcontentloaded",
   });
 
-  expect(response, `missing navigation response for /${locale}${route}`).not.toBeNull();
-  expect(response!.status(), `unexpected status for /${locale}${route}`).toBeLessThan(500);
-
-  await expect
-    .poll(async () => page.locator("html").getAttribute("lang"))
-    .toBe(locale);
+  expect(response, `missing navigation response for ${route}`).not.toBeNull();
+  expect(response!.status(), `unexpected status for ${route}`).toBeLessThan(500);
 
   await expect(page.locator("body")).toBeVisible();
+  await expect
+    .poll(async () => page.locator("html").getAttribute("lang"), {
+      timeout: 30_000,
+    })
+    .toBe(expectedLocale);
+
   await page.waitForTimeout(500);
 }
 
@@ -86,14 +118,59 @@ export async function stubComputerClientSettingsApi(page: Page): Promise<void> {
   });
 }
 
-export async function connectLocalComputer(page: Page): Promise<void> {
-  await expectHealthyRoute(page, "en", "");
+/** Keep setup/onboarding smoke offline from the public relay. */
+export async function stubOnboardingRelayNetwork(page: Page): Promise<void> {
+  await stubComputerClientSettingsApi(page);
 
-  const searchButton = page.getByRole("button", { name: /Search/ });
+  await page.route("**/api/system/computer/relay", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: true,
+        data: { status: 201, body: JSON.stringify({ ok: true }) },
+      }),
+    });
+  });
+
+  await page.route("**/v1/tenants**", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+}
+
+export async function connectLocalComputer(
+  page: Page,
+  options?: { locale?: WorkbenchLocale },
+): Promise<void> {
+  const locale = options?.locale ?? "en";
+  if (locale !== "en") {
+    await seedWorkbenchLocale(page, locale);
+  }
+  await expectHealthyRoute(page, "/", { locale });
+
+  const searchButton = page.getByRole("button", {
+    name: locale === "zh" ? /搜索|Search/ : /Search/,
+  });
   const connectButton = page
     .locator("main")
     .first()
-    .getByRole("button", { name: "Connect" });
+    .getByRole("button", { name: locale === "zh" ? /连接|Connect/ : "Connect" });
 
   if (await searchButton.isVisible().catch(() => false)) {
     await ensureProjectWorkspaceSeed(page);
@@ -119,16 +196,13 @@ export async function connectLocalComputer(page: Page): Promise<void> {
   await ensureProjectWorkspaceSeed(page);
 }
 
-export async function buildProjectWorkspaceDeepLink(
-  page: Page,
-  locale: (typeof locales)[number],
-): Promise<string> {
+export async function buildProjectWorkspaceDeepLink(page: Page): Promise<string> {
   const origin = new URL(page.url()).origin;
   const target = await ensureProjectWorkspaceSeed(page);
 
-  const targetUrl = new URL(`/${locale}/project`, origin);
+  const targetUrl = new URL(`/project`, origin);
   targetUrl.searchParams.set("id", target.projectGuid);
-  targetUrl.searchParams.set("pvUrl", `${origin}/${locale}/workspace?id=${target.workspaceGuid}`);
+  targetUrl.searchParams.set("pvUrl", `${origin}/workspace?id=${target.workspaceGuid}`);
   targetUrl.searchParams.set("activeSettingTab", "shortcuts");
   targetUrl.searchParams.set("lsTab", "files");
   return targetUrl.toString();
@@ -161,7 +235,12 @@ export async function getRightSidebar(page: Page) {
   return asides.nth(resolvedCount - 1);
 }
 
-export async function gotoContextRoute(page: Page, url: string): Promise<void> {
+export async function gotoContextRoute(
+  page: Page,
+  url: string,
+  options?: { locale?: WorkbenchLocale },
+): Promise<void> {
+  const expectedLocale = options?.locale ?? "en";
   const response = await page.goto(url, {
     waitUntil: "domcontentloaded",
   });
@@ -169,7 +248,7 @@ export async function gotoContextRoute(page: Page, url: string): Promise<void> {
   expect(response!.status(), `unexpected status for ${url}`).toBeLessThan(500);
   await expect
     .poll(async () => page.locator("html").getAttribute("lang"))
-    .toBe("zh");
+    .toBe(expectedLocale);
   const rightSidebar = await getRightSidebar(page);
   await expect(rightSidebar).toBeVisible();
   await page.waitForTimeout(400);

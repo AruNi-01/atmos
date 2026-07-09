@@ -8,7 +8,8 @@
     "deploy:pages": "node ../../scripts/pages/deploy-pages-docs.mjs",
     "dev": "next dev",
     "start": "next start",
-    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "types:check": "fumadocs-mdx && next typegen && bun ../../scripts/run-tsc7.ts --noEmit",
+    "typecheck": "fumadocs-mdx && next typegen && bun ../../scripts/run-tsc7.ts --noEmit",
     "postinstall": "fumadocs-mdx",
     "lint": "eslint"
   },
@@ -19,8 +20,8 @@
     "fumadocs-ui": "16.8.12",
     "lucide-react": "^0.562.0",
     "next": "16.2.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
@@ -33,6 +34,6 @@
     "eslint-config-next": "16.2.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.3.0",
-    "typescript": "^5.9.3"
+    "typescript": "6.0.3"
   }
 }

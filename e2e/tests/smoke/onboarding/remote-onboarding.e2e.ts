@@ -1,11 +1,12 @@
 import { expect, test } from "../../../fixtures/test";
-import { expectHealthyRoute } from "../support/app-smoke";
+import { expectHealthyRoute, stubOnboardingRelayNetwork } from "../support/app-smoke";
 
 test.describe("smoke onboarding remote", () => {
   test("@smoke shows remote onboarding fields without writing settings", async ({
     page,
   }) => {
-    await expectHealthyRoute(page, "en", "/setup");
+    await stubOnboardingRelayNetwork(page);
+    await expectHealthyRoute(page, "/setup");
 
     const remoteTab = page.getByRole("tab", { name: /Remote/i });
 

@@ -19,12 +19,12 @@
     "report": "playwright show-report reports/html",
     "install:browsers": "playwright install chromium",
     "install:browsers:with-deps": "playwright install --with-deps chromium",
-    "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "lint": "bun ../scripts/run-tsc7.ts --noEmit",
+    "typecheck": "bun ../scripts/run-tsc7.ts --noEmit"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/node": "^20.19.27",
-    "typescript": "^5.9.3"
+    "typescript": "6.0.3"
   }
 }

@@ -13,7 +13,7 @@ test.describe("smoke project", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page, "zh");
+    const contextUrl = await buildProjectWorkspaceDeepLink(page);
     const projectUrl = withSearchParams(contextUrl, {
       activeSettingTab: null,
     });
@@ -21,7 +21,7 @@ test.describe("smoke project", () => {
     await gotoContextRoute(page, projectUrl);
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/zh/project");
+      .toBe("/project");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("id"))
       .toBeTruthy();
@@ -32,7 +32,7 @@ test.describe("smoke project", () => {
         const parsed = new URL(pvUrl);
         return `${normalizePathname(parsed.pathname)}:${parsed.searchParams.has("id")}`;
       })
-      .toBe("/zh/workspace:true");
+      .toBe("/workspace:true");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("files");
@@ -44,7 +44,7 @@ test.describe("smoke project", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page, "zh");
+    const contextUrl = await buildProjectWorkspaceDeepLink(page);
     const projectUrl = withSearchParams(contextUrl, {
       activeSettingTab: null,
       rsTab: "files",
@@ -53,7 +53,7 @@ test.describe("smoke project", () => {
     await gotoContextRoute(page, withSearchParams(projectUrl, { lsTab: "projects" }));
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/zh/project");
+      .toBe("/project");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("projects");

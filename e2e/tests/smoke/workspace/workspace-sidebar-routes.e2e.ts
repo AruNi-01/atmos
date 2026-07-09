@@ -15,23 +15,27 @@ test.describe("smoke workspace", () => {
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
-    await connectLocalComputer(page);
+    await connectLocalComputer(page, { locale: "zh" });
 
-    await expectHealthyRoute(page, "zh", "");
+    await expectHealthyRoute(page, "/", { locale: "zh" });
     await expect(page.getByRole("button", { name: /搜索|Search/ })).toBeVisible({
       timeout: 45_000,
     });
 
-    const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page, "zh"), {
+    const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
       activeSettingTab: null,
     });
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "files" }));
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "files" }), {
+      locale: "zh",
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
       .toBe("files");
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "changes" }));
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "changes" }), {
+      locale: "zh",
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab") ?? "changes")
       .toBe("changes");
@@ -39,7 +43,9 @@ test.describe("smoke workspace", () => {
     await changesSidebar.getByRole("tab", { name: "提交" }).click();
     await expect(changesSidebar.getByRole("tab", { name: "提交" })).toBeVisible();
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "review" }));
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "review" }), {
+      locale: "zh",
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
       .toBe("review");
@@ -47,6 +53,7 @@ test.describe("smoke workspace", () => {
     await gotoContextRoute(
       page,
       withSearchParams(contextUrl, { rsTab: "browser", pvView: "desktop" }),
+      { locale: "zh" },
     );
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
@@ -58,17 +65,22 @@ test.describe("smoke workspace", () => {
     await gotoContextRoute(
       page,
       withSearchParams(contextUrl, { rsTab: "browser", pvView: "mobile" }),
+      { locale: "zh" },
     );
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("pvView"))
       .toBe("mobile");
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "run" }));
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "run" }), {
+      locale: "zh",
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
       .toBe("run");
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "pr" }));
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "pr" }), {
+      locale: "zh",
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
       .toBe("pr");
@@ -79,7 +91,9 @@ test.describe("smoke workspace", () => {
       await expect(closedPrTab).toBeVisible();
     }
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "actions" }));
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "actions" }), {
+      locale: "zh",
+    });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
       .toBe("actions");
@@ -89,9 +103,9 @@ test.describe("smoke workspace", () => {
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
-    await connectLocalComputer(page);
+    await connectLocalComputer(page, { locale: "zh" });
 
-    const contextUrl = await buildProjectWorkspaceDeepLink(page, "zh");
+    const contextUrl = await buildProjectWorkspaceDeepLink(page);
     const workspaceUrl = new URL(contextUrl).searchParams.get("pvUrl");
     expect(workspaceUrl, "missing workspace url in project deep link").toBeTruthy();
 
@@ -108,7 +122,7 @@ test.describe("smoke workspace", () => {
     expect(firstResponse!.status(), `unexpected status for ${projectsRoute}`).toBeLessThan(500);
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
-      .toBe("/zh/workspace");
+      .toBe("/workspace");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("id") ?? "")
       .not.toBe("");
@@ -160,7 +174,7 @@ test.describe("smoke workspace", () => {
 
     const settingsDialog = page.getByRole("dialog");
     await expect(settingsDialog).toBeVisible();
-    await settingsDialog.getByRole("button", { name: /close/i }).click();
+    await settingsDialog.getByRole("button", { name: /close|关闭/i }).click();
     await expect(settingsDialog).toBeHidden();
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("settingsModal") ?? "false")

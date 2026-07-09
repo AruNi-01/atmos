@@ -8,7 +8,11 @@
     "types": ["node", "@playwright/test"],
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noUncheckedSideEffectImports": true,
+    "libReplacement": false,
+    "stableTypeOrdering": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "playwright.config.ts",

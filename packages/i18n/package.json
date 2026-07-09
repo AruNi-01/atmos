@@ -12,18 +12,18 @@
     "./middleware": "./src/middleware.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit"
   },
   "dependencies": {
     "next-intl": "^4.7.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "typescript": "6.0.3",
     "@types/react": "^19",
     "react": "^19"
   },
   "peerDependencies": {
     "react": "^18 || ^19",
-    "next": ">=15"
+    "next": "16.2.0"
   }
 }
