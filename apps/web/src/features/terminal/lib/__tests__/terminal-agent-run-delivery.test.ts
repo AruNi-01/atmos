@@ -62,27 +62,34 @@ describe("deliverTerminalAgentLaunch", () => {
     ]);
   });
 
-  it("uses bracketed paste and Enter for multiline launches", () => {
+  it("submits multiline launches as one bracketed-paste write plus Enter", () => {
     const { terminalRef, calls } = createTerminalRefMock();
     const launch = "agent --yolo 'line one\n```diff\n+ new\n```'";
+    const submitted: string[] = [];
+
+    deliverTerminalAgentLaunch(terminalRef, launch, true, () => {
+      submitted.push("submitted");
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "sendText",
+        value: "\x1b[200~agent --yolo 'line one\r```diff\r+ new\r```'\x1b[201~\r",
+      },
+    ]);
+    expect(submitted).toEqual(["submitted"]);
+  });
+
+  it("submits long single-line launches via bracketed paste plus Enter", () => {
+    const { terminalRef, calls } = createTerminalRefMock();
+    const prompt = "x".repeat(2000);
+    const launch = `agent --yolo '${prompt}'`;
 
     deliverTerminalAgentLaunch(terminalRef, launch);
 
-    expect(calls[0]?.method).toBe("sendText");
-    expect(calls[0]?.value).toBe(
-      "\x1b[200~agent --yolo 'line one\r```diff\r+ new\r```'\x1b[201~",
-    );
-    expect(calls.length).toBe(1);
-
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(calls).toEqual([
-          { method: "sendText", value: calls[0]?.value },
-          { method: "sendEnter" },
-        ]);
-        resolve();
-      }, 100);
-    });
+    expect(calls).toEqual([
+      { method: "sendText", value: `\x1b[200~${launch}\x1b[201~\r` },
+    ]);
   });
 
   it("prefills multiline launches with bracketed paste and no Enter", () => {
@@ -96,70 +103,6 @@ describe("deliverTerminalAgentLaunch", () => {
         value: "\x1b[200~echo 'a\rb'\x1b[201~",
       },
     ]);
-  });
-
-  it("defers onSubmitted until after multiline launch Enter", () => {
-    const { terminalRef, calls } = createTerminalRefMock();
-    const submittedAt: number[] = [];
-
-    deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'a\nb'", true, () => {
-      submittedAt.push(calls.length);
-    });
-
-    expect(submittedAt).toEqual([]);
-    expect(calls).toHaveLength(1);
-
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(calls.map((call) => call.method)).toEqual(["sendText", "sendEnter"]);
-        expect(submittedAt).toEqual([2]);
-        resolve();
-      }, 100);
-    });
-  });
-
-  it("aborts an unsubmitted multiline paste only when superseded", () => {
-    const { terminalRef, calls } = createTerminalRefMock();
-
-    const cleanup = deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'a\nb'");
-    cleanup();
-
-    // Passive cleanup still submits so remount/teardown cannot strand the paste.
-    expect(calls).toEqual([
-      {
-        method: "sendText",
-        value: "\x1b[200~agent --yolo 'a\rb'\x1b[201~",
-      },
-      { method: "sendEnter" },
-    ]);
-
-    const superseded = deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'c\nd'");
-    superseded({ abortUnsubmitted: true });
-
-    expect(calls).toEqual([
-      {
-        method: "sendText",
-        value: "\x1b[200~agent --yolo 'a\rb'\x1b[201~",
-      },
-      { method: "sendEnter" },
-      {
-        method: "sendText",
-        value: "\x1b[200~agent --yolo 'c\rd'\x1b[201~",
-      },
-      { method: "sendText", value: "\x03" },
-    ]);
-
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(calls.map((call) => call.method)).toEqual([
-          "sendText",
-          "sendEnter",
-          "sendText",
-          "sendText",
-        ]);
-        resolve();
-      }, 100);
-    });
   });
 });
 

@@ -12,24 +12,18 @@ export { toPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run
 export function useTerminalAgentTuiFollowUp(
   terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>,
 ) {
-  const cleanupByPaneRef = useRef<
-    Map<string, (options?: { abortUnsubmitted?: boolean }) => void>
-  >(new Map());
+  const cleanupByPaneRef = useRef<Map<string, () => void>>(new Map());
 
-  const clearFollowUp = useCallback((
-    paneId: string,
-    options?: { abortUnsubmitted?: boolean },
-  ) => {
+  const clearFollowUp = useCallback((paneId: string) => {
     const cleanup = cleanupByPaneRef.current.get(paneId);
     if (!cleanup) return;
-    cleanup(options);
+    cleanup();
     cleanupByPaneRef.current.delete(paneId);
   }, []);
 
   useEffect(() => {
     return () => {
       for (const paneId of [...cleanupByPaneRef.current.keys()]) {
-        // Passive teardown: cancel timers only. Do not Ctrl-C in-flight pastes.
         clearFollowUp(paneId);
       }
     };
@@ -37,8 +31,7 @@ export function useTerminalAgentTuiFollowUp(
 
   const deliverPendingRun = useCallback(
     (paneId: string, run: PendingTerminalRun) => {
-      // A newer run is replacing this pane's pending launch — abort orphaned paste.
-      clearFollowUp(paneId, { abortUnsubmitted: true });
+      clearFollowUp(paneId);
       const terminalRef = terminalRefsMap.current.get(paneId);
       if (!terminalRef) return;
       const cleanup = deliverPendingTerminalRun(terminalRef, run);
