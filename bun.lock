@@ -275,7 +275,7 @@
         "typescript": "6.0.3",
       },
       "peerDependencies": {
-        "next": ">=15",
+        "next": "16.2.0",
         "react": "^18 || ^19",
       },
     },
@@ -380,6 +380,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "lightningcss": "1.30.1",
+    "next": "16.2.0",
     "tailwindcss": "4.3.0",
   },
   "catalog": {
