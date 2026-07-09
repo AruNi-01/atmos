@@ -118,23 +118,45 @@ describe("deliverTerminalAgentLaunch", () => {
     });
   });
 
-  it("aborts an unsubmitted multiline paste when cleanup runs", () => {
+  it("aborts an unsubmitted multiline paste only when superseded", () => {
     const { terminalRef, calls } = createTerminalRefMock();
 
     const cleanup = deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'a\nb'");
     cleanup();
+
+    // Passive cleanup still submits so remount/teardown cannot strand the paste.
+    expect(calls).toEqual([
+      {
+        method: "sendText",
+        value: "\x1b[200~agent --yolo 'a\rb'\x1b[201~",
+      },
+      { method: "sendEnter" },
+    ]);
+
+    const superseded = deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'c\nd'");
+    superseded({ abortUnsubmitted: true });
 
     expect(calls).toEqual([
       {
         method: "sendText",
         value: "\x1b[200~agent --yolo 'a\rb'\x1b[201~",
       },
+      { method: "sendEnter" },
+      {
+        method: "sendText",
+        value: "\x1b[200~agent --yolo 'c\rd'\x1b[201~",
+      },
       { method: "sendText", value: "\x03" },
     ]);
 
     return new Promise<void>((resolve) => {
       setTimeout(() => {
-        expect(calls.map((call) => call.method)).toEqual(["sendText", "sendText"]);
+        expect(calls.map((call) => call.method)).toEqual([
+          "sendText",
+          "sendEnter",
+          "sendText",
+          "sendText",
+        ]);
         resolve();
       }, 100);
     });

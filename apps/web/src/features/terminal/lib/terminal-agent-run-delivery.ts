@@ -89,7 +89,7 @@ export function deliverTerminalAgentLaunch(
   launch: string,
   execute = true,
   onSubmitted?: () => void,
-): () => void {
+): (options?: { abortUnsubmitted?: boolean }) => void {
   const trimmed = launch.trimEnd();
   if (!trimmed) return () => {};
 
@@ -106,25 +106,31 @@ export function deliverTerminalAgentLaunch(
   if (!execute) return () => {};
 
   let submitted = false;
-  const timer = setTimeout(() => {
+  const submit = () => {
+    if (submitted) return;
     submitted = true;
     terminalRef.sendEnter();
     onSubmitted?.();
-  }, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
-  return () => {
+  };
+  const timer = setTimeout(submit, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
+  return (options) => {
     clearTimeout(timer);
-    // A newer delivery cancelled this run after paste but before Enter — discard
-    // the orphaned edit-buffer text so the next launch is not concatenated.
-    if (!submitted) {
+    if (submitted) return;
+    if (options?.abortUnsubmitted) {
+      // A newer run is replacing this paste — discard the orphaned edit buffer.
       terminalRef.sendText("\x03");
+      return;
     }
+    // Passive cleanup (hook remount / tab teardown): still submit so the paste is
+    // not stranded without Enter after the timer is cleared.
+    submit();
   };
 }
 
 export function deliverPendingTerminalRun(
   terminalRef: TerminalRef,
   run: PendingTerminalRun,
-): () => void {
+): (options?: { abortUnsubmitted?: boolean }) => void {
   let clearFollowUp = () => {};
   const clearLaunch = deliverTerminalAgentLaunch(
     terminalRef,
@@ -140,8 +146,8 @@ export function deliverPendingTerminalRun(
         }
       : undefined,
   );
-  return () => {
-    clearLaunch();
+  return (options) => {
+    clearLaunch(options);
     clearFollowUp();
   };
 }
