@@ -88,17 +88,60 @@ export function deliverTerminalAgentLaunch(
   terminalRef: TerminalRef,
   launch: string,
   execute = true,
-) {
-  terminalRef.sendText(execute ? `${launch}\r` : launch);
+  onSubmitted?: () => void,
+): () => void {
+  const trimmed = launch.trimEnd();
+  if (!trimmed) return () => {};
+
+  const hasMultiline = /[\r\n]/.test(trimmed);
+  if (!hasMultiline) {
+    terminalRef.sendText(execute ? `${trimmed}\r` : trimmed);
+    if (execute) onSubmitted?.();
+    return () => {};
+  }
+
+  // Multiline shell launches (e.g. Agent Fix prompts with diff hunks) must use
+  // bracketed paste so embedded newlines are not treated as Enter by the shell.
+  terminalRef.sendText(wrapBracketedPaste(trimmed));
+  if (!execute) return () => {};
+
+  let submitted = false;
+  const timer = setTimeout(() => {
+    submitted = true;
+    terminalRef.sendEnter();
+    onSubmitted?.();
+  }, TUI_FOLLOW_UP_SUBMIT_DELAY_MS);
+  return () => {
+    clearTimeout(timer);
+    // A newer delivery cancelled this run after paste but before Enter — discard
+    // the orphaned edit-buffer text so the next launch is not concatenated.
+    if (!submitted) {
+      terminalRef.sendText("\x03");
+    }
+  };
 }
 
 export function deliverPendingTerminalRun(
   terminalRef: TerminalRef,
   run: PendingTerminalRun,
 ): () => void {
-  deliverTerminalAgentLaunch(terminalRef, run.launch, run.execute !== false);
-  if (!run.tuiFollowUp) {
-    return () => {};
-  }
-  return startAgentTuiFollowUp(terminalRef, run.tuiFollowUp.agentId, run.tuiFollowUp.prompt);
+  let clearFollowUp = () => {};
+  const clearLaunch = deliverTerminalAgentLaunch(
+    terminalRef,
+    run.launch,
+    run.execute !== false,
+    run.tuiFollowUp
+      ? () => {
+          clearFollowUp = startAgentTuiFollowUp(
+            terminalRef,
+            run.tuiFollowUp!.agentId,
+            run.tuiFollowUp!.prompt,
+          );
+        }
+      : undefined,
+  );
+  return () => {
+    clearLaunch();
+    clearFollowUp();
+  };
 }

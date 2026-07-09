@@ -2,7 +2,11 @@
 import { describe, expect, it } from "bun:test";
 
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
-import { sendTuiFollowUpPrompt } from "@/features/terminal/lib/terminal-agent-run-delivery";
+import {
+  deliverTerminalAgentLaunch,
+  sendTuiFollowUpPrompt,
+} from "@/features/terminal/lib/terminal-agent-run-delivery";
+import { wrapBracketedPaste } from "@/features/terminal/lib/terminal-runtime-utils";
 
 function createTerminalRefMock() {
   const calls: Array<{ method: "sendText" | "sendEnter"; value?: string }> = [];
@@ -44,5 +48,103 @@ describe("sendTuiFollowUpPrompt", () => {
         resolve();
       }, 100);
     });
+  });
+});
+
+describe("deliverTerminalAgentLaunch", () => {
+  it("submits single-line launches with a trailing carriage return", () => {
+    const { terminalRef, calls } = createTerminalRefMock();
+
+    deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'fix this'");
+
+    expect(calls).toEqual([
+      { method: "sendText", value: "agent --yolo 'fix this'\r" },
+    ]);
+  });
+
+  it("uses bracketed paste and Enter for multiline launches", () => {
+    const { terminalRef, calls } = createTerminalRefMock();
+    const launch = "agent --yolo 'line one\n```diff\n+ new\n```'";
+
+    deliverTerminalAgentLaunch(terminalRef, launch);
+
+    expect(calls[0]?.method).toBe("sendText");
+    expect(calls[0]?.value).toBe(
+      "\x1b[200~agent --yolo 'line one\r```diff\r+ new\r```'\x1b[201~",
+    );
+    expect(calls.length).toBe(1);
+
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(calls).toEqual([
+          { method: "sendText", value: calls[0]?.value },
+          { method: "sendEnter" },
+        ]);
+        resolve();
+      }, 100);
+    });
+  });
+
+  it("prefills multiline launches with bracketed paste and no Enter", () => {
+    const { terminalRef, calls } = createTerminalRefMock();
+
+    deliverTerminalAgentLaunch(terminalRef, "echo 'a\nb'", false);
+
+    expect(calls).toEqual([
+      {
+        method: "sendText",
+        value: "\x1b[200~echo 'a\rb'\x1b[201~",
+      },
+    ]);
+  });
+
+  it("defers onSubmitted until after multiline launch Enter", () => {
+    const { terminalRef, calls } = createTerminalRefMock();
+    const submittedAt: number[] = [];
+
+    deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'a\nb'", true, () => {
+      submittedAt.push(calls.length);
+    });
+
+    expect(submittedAt).toEqual([]);
+    expect(calls).toHaveLength(1);
+
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(calls.map((call) => call.method)).toEqual(["sendText", "sendEnter"]);
+        expect(submittedAt).toEqual([2]);
+        resolve();
+      }, 100);
+    });
+  });
+
+  it("aborts an unsubmitted multiline paste when cleanup runs", () => {
+    const { terminalRef, calls } = createTerminalRefMock();
+
+    const cleanup = deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'a\nb'");
+    cleanup();
+
+    expect(calls).toEqual([
+      {
+        method: "sendText",
+        value: "\x1b[200~agent --yolo 'a\rb'\x1b[201~",
+      },
+      { method: "sendText", value: "\x03" },
+    ]);
+
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(calls.map((call) => call.method)).toEqual(["sendText", "sendText"]);
+        resolve();
+      }, 100);
+    });
+  });
+});
+
+describe("wrapBracketedPaste", () => {
+  it("strips ESC bytes so paste mode cannot end early", () => {
+    expect(wrapBracketedPaste("before\x1b[201~after")).toBe(
+      "\x1b[200~before[201~after\x1b[201~",
+    );
   });
 });

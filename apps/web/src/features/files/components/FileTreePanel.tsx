@@ -98,6 +98,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
       )}
       <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-1.5">
         <FileTree
+          key={effectiveRootPath}
           data={effectiveData}
           rootPath={effectiveRootPath}
           isLoading={effectiveIsLoading}
