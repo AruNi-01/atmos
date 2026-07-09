@@ -63,6 +63,7 @@ export function useTerminalSearch({
     setSearchHasMatch(null);
     setSearchStats({ current: 0, total: 0 });
     searchAddonRef.current?.clearDecorations();
+    terminalRef.current?.clearSelection();
     terminalRef.current?.focus();
   }, [searchAddonRef, terminalRef]);
 
