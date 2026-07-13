@@ -494,8 +494,8 @@ All 7 extended domains received query options + hooks:
 | Automations | `features/automations/lib/automations-query-options.ts` | `features/automations/hooks/use-automations-query.ts` | `features/automations/hooks/use-automations.ts` — removed useState, uses `useAutomationListQuery` + `useAutomationAgentCapabilitiesQuery`; upsert/remove via `setQueryData` |
 | GitHub PR | `features/github/lib/github-query-options.ts` | `features/github/hooks/use-github-pr-query.ts` | `features/github/hooks/use-github.ts` — `useGithubPRList` migrated to `useBranchPrListQuery` |
 | Review sessions | `features/code-review/lib/review-query-options.ts` | `features/code-review/hooks/use-review-sessions-query.ts` | `use-review-context` uses `useReviewSessionsQuery`; `loadSessions` invalidates Query; createSession patches cache; comments + sessionDisplay remain local/Zustand |
-| Local services / models | `features/local-services/lib/local-services-query-options.ts`, `local-model-query-options.ts` | `features/local-services/hooks/use-local-services-query.ts`, `use-local-model-query.ts` | Hook created; Zustand store migration is planned |
-| Agent registry | `features/agent/lib/agent-registry-query-options.ts` | `features/agent/hooks/use-agent-registry-query.ts` | Hook created; `use-agent-manager` migration is planned |
+| Local services / models | `features/local-services/lib/local-services-query-options.ts`, `local-model-query-options.ts` | `features/local-services/hooks/use-local-services-query.ts`, `use-local-model-query.ts` | Footer/preview panels use Query; Zustand scopes store removed |
+| Agent registry | `features/agent/lib/agent-registry-query-options.ts` | `features/agent/hooks/use-agent-registry-query.ts` | `use-agent-manager` uses registry + custom-agent Query hooks |
 
 **Event bridge extensions** (`providers/app/server-state-event-bridge.tsx`):
 - `token_usage_updated` → `invalidateTokenUsageQueries`
