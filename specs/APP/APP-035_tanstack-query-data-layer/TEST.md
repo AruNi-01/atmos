@@ -509,10 +509,10 @@ All 7 extended domains received query options + hooks:
 ### Gaps and deferred work
 
 - **ACP sessions** — explicitly deferred; multi-root infinite pagination needs a dedicated design pass.
-- **Git / Files** — not yet migrated; `useGitStore`, `useFileTreeStore` remain legacy owners.
-- **Project CRUD mutations** — bootstrap query is complete; workspace CRUD mutations and progress events are planned.
-- **github-pr-cache.ts** — module-level Map is not yet retired; retirement is blocked until every PR-list consumer uses the same key factory.
-- **use-review-context comments** — comments stay in local useState for optimistic create/reply merge; sessions list is Query-owned by the primary consumer.
-- **Local-services Zustand stores** — query hooks exist; `useLocalServicesStore` store migration planned.
-- **Agent manager** — `use-agent-manager` migration planned; hooks exist.
-- **S3–S14, S18–S33** — integration/component/E2E tests and agent-browser exploratory evidence remain for the `atmos-specs-test-run` pass.
+- **Git fileDiff** — status/changedFiles/branches Query-owned; per-file diff content still imperative in DiffViewer (optimization).
+- **GlobalSearch content search** — tree Query-owned; debounced `searchContent` remains imperative (volatile query).
+- **Review comments** — sessions list Query-owned; comment list + optimistic merge remain local in `use-review-context`.
+- **Canvas / Agent Hooks / Terminal layout** — deferred per TECH.
+- **Streams / editor buffers / connection bootstrap / APP-034 terminal DOM** — excluded per TECH.
+- **S2, S5–S6, S14–S15, S18–S23, S25, S28–S31, S33** — remaining planned/not_run scenarios documented in the status table above.
+- **E2E / agent-browser** — not_run in cloud agent (no stateful two-computer / Tauri fixture).
