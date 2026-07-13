@@ -438,7 +438,7 @@ export const apiOperationInventory = [
 ### Transport invariants
 
 - Existing functions in `apps/web/src/api/rest-api.ts`, `apps/web/src/api/relay.ts`, `apps/web/src/api/ws-api.ts`, and `apps/web/src/api/ws/*` remain transport adapters.
-- `wsRequest()` remains the request/response primitive and may wait for an in-progress connection. Query hooks still use `enabled: connectionState === "connected"` to prevent speculative requests.
+- `wsRequest()` remains the request/response primitive and may wait for an in-progress connection. WS-backed Query hooks use `enabled: connectionState === "connected"`; REST-backed Computer queries instead use runtime/HTTP-target readiness and may run before the main WebSocket connects.
 - No new REST endpoint or WebSocket action is introduced by APP-035.
 - Direct feature-level `fetch`, `send`, or `wsRequest` calls should be consolidated into the existing domain API module when that domain migrates.
 - Name collisions such as REST `agentApi` and WS `agentApi` should be resolved during that domain's migration with explicit aliases; this is a client naming cleanup, not a protocol change.

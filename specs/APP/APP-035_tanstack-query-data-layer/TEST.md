@@ -34,7 +34,7 @@ Every Must Have has a normal path and an edge/failure path.
 | M3 Mutation freshness | S5 | S6 |
 | M4 WebSocket push integration | S7 | S8 |
 | M5 Connection/identity isolation | S9 | S10, S11 |
-| M6 Reconnect/retry safety | S12 | S13 |
+| M6 Reconnect/retry safety | S12, S32 | S13 |
 | M7 Consistent user feedback | S20 | S21, S29 |
 | M8 Incremental migration/no regression | S14, S15 | S22, S23, S30, S31 |
 | M9 Transport preservation | S2 | S16 |
@@ -68,8 +68,8 @@ All statuses remain `planned` until `atmos-specs-test-run` implements and execut
 | S17 | Bun unit | `bun test` | `bun test apps/web/src/api/query/api-operation-inventory.test.ts` | typed `apiOperationInventory` + affected module export fixture | every migrated export has class/owner/phase; missing/duplicate/invalid rows fail | planned |
 | S18 | Bun unit (optional N1) | `bun test` | `bun test apps/web/src/api/query apps/mobile/src/providers` | equivalent Computer/Relay identities | web/mobile keys follow documented identity principles without sharing secrets | planned |
 | S19 | Instrumented E2E/exploratory | Playwright + agent-browser | APP-035 pilot baseline method in Coverage Status | cold navigation, warm revisit, concurrent consumers | before/after request count and loading-transition evidence recorded | planned |
-| S20 | Bun component | `bun test` | `bun test apps/web/src/features/settings apps/web/src/app-shell apps/web/src/shared/hooks` | happy-dom system/settings/usage components + initial/empty/success fixtures | initial loading, empty, ready, and mutation-pending states are visibly distinct | planned |
-| S21 | Bun component | `bun test` | `bun test apps/web/src/features/settings apps/web/src/app-shell apps/web/src/shared/hooks` | system/settings/usage cached data + slow/failing refresh | prior data stays visible; refresh/error/retry affordances are accessible; no success toast duplication | planned |
+| S20 | Bun component | `bun test` | `bun test apps/web/src/features/settings apps/web/src/features/atmos-computer apps/web/src/app-shell apps/web/src/shared/hooks apps/web/src/providers/app` | happy-dom system/settings/usage components + initial/empty/success fixtures | initial loading, empty, ready, and mutation-pending states are visibly distinct | planned |
+| S21 | Bun component | `bun test` | `bun test apps/web/src/features/settings apps/web/src/features/atmos-computer apps/web/src/app-shell apps/web/src/shared/hooks apps/web/src/providers/app` | system/settings/usage cached data + slow/failing refresh | prior data stays visible; refresh/error/retry affordances are accessible; no success toast duplication | planned |
 | S22 | E2E | Playwright | `just test-e2e -- tests/specs/APP-035_tanstack-query-data-layer.e2e.ts` | two distinguishable target fixtures | switch shows only target B identity/data; no console/page errors | planned |
 | S23 | E2E + Desktop smoke | Playwright / GUI smoke | `just test-e2e -- tests/specs/APP-035_tanstack-query-data-layer.e2e.ts`; Desktop command from repo guide | `e2e/fixtures/query-relay.ts` existing-route stubs + Tauri runtime | existing target resolution and pilot reads work in Relay/Desktop; gaps are explicit | planned |
 | S24 | Bun integration | `bun test` | `bun test apps/web/src/features/settings` | settings bootstrap request delayed across successful mutation | late bootstrap response preserves newer mutated section and fills untouched sections | planned |
@@ -77,9 +77,10 @@ All statuses remain `planned` until `atmos-specs-test-run` implements and execut
 | S26 | Bun integration | `bun test` | `bun test apps/web/src/features/connection apps/web/src/api/query` | logout, display-name-only edit, selected-target edit, Relay session token rotation | logout clears; non-identity edit does not bump auth; session rotation changes Computer scope | planned |
 | S27 | Bun table test | `bun test` | `bun test apps/web/src/providers/app/server-state-event-bridge.test.ts` | every migrated event policy row | complete events patch; partial events invalidate; streams stay local; one subscription/domain | planned |
 | S28 | Instrumented regression | Bun + Playwright | `bun test apps/web/src/api/query/baseline-budget.test.ts`; APP-035 E2E `@baseline` journey | recorded pre-cutover baseline + post-cutover counters/timeline | regression fixture fails on duplicate-count increase, warm empty flash, stale target, or missing evidence | planned |
-| S29 | Bun component | `bun test` | `bun test apps/web/src/features/settings apps/web/src/app-shell apps/web/src/shared/hooks` | first request rejects with no prior data, then retry succeeds | actionable error and retry render; successful retry reaches ready state | planned |
+| S29 | Bun component | `bun test` | `bun test apps/web/src/features/settings apps/web/src/features/atmos-computer apps/web/src/app-shell apps/web/src/shared/hooks apps/web/src/providers/app` | each applicable pilot surface rejects first request with no prior data, then retry succeeds | actionable error and retry render; successful retry reaches ready state | planned |
 | S30 | Bun integration | `bun test` | `bun test apps/web/src/app-shell/bootstrap/legacy-server-state-reset.test.ts` | populated Git/wiki/local-service/review/GitHub/welcome/diagnostic legacy caches | target transition clears every registered legacy snapshot but preserves excluded client/runtime state | planned |
 | S31 | Bun source contract | `bun test` | `bun test apps/web/src/api/query/ownership-cutover.test.ts` | typed inventory status + migrated consumer import graph | compatibility/cutover consumers read exactly one owner; no Query↔legacy snapshot mirroring | planned |
+| S32 | Bun integration | `bun test` | `bun test apps/web/src/api/query apps/web/src/shared/hooks apps/web/src/features/atmos-computer` | runtime-ready local/Relay HTTP target while main WS is connecting/disconnected | REST system query runs once; equivalent WS query remains disabled | planned |
 
 ## Scenarios
 
@@ -310,10 +311,10 @@ All statuses remain `planned` until `atmos-specs-test-run` implements and execut
 ### S29 — First-load failure provides actionable recovery
 
 - **Level:** Bun component
-- **Given:** a pilot surface with no cached data whose first request rejects.
-- **When:** the error renders and the user activates retry after the fixture becomes healthy.
-- **Then:** an accessible actionable error replaces initial loading, retry issues one request, and the surface reaches ready state.
-- **Signals:** error text/role, retry control, request count, final ready content.
+- **Given:** each applicable system diagnostics, settings, and usage surface has no cached data and its first request rejects.
+- **When:** each error renders and the user activates retry after its fixture becomes healthy.
+- **Then:** every applicable surface replaces initial loading with an accessible actionable error, retry issues one request, and the surface reaches ready state.
+- **Signals:** per-domain error text/role, retry control, request count, and final ready content.
 
 ### S30 — Compatibility reset clears unmigrated server snapshots
 
@@ -330,6 +331,14 @@ All statuses remain `planned` until `atmos-specs-test-run` implements and execut
 - **When:** `ownership-cutover.test.ts` scans their imports/declared owners.
 - **Then:** each consumer depends on either its legacy owner or Query options/hooks, never both; no code mirrors Query data into a legacy snapshot store.
 - **Signals:** one owner per consumer and zero prohibited cross-owner imports/sync adapters.
+
+### S32 — REST system reads do not wait for the main WebSocket
+
+- **Level:** Bun integration
+- **Given:** a resolvable local HTTP runtime or complete Relay gateway session while the main WebSocket is `connecting` or `disconnected`.
+- **When:** a REST-backed system query and a WS-backed settings query evaluate their enablement.
+- **Then:** the system query runs once through the existing REST client while the WS query remains disabled until `connected`.
+- **Signals:** REST request count `1`, WS request count `0`, and distinct `restComputerQueryEnabled` / `wsComputerQueryEnabled` results.
 
 ## Performance & load budgets
 
@@ -371,7 +380,7 @@ The test-run agent must load the installed Agent Browser instructions or run `ag
 - [ ] Every M1–M11 row has passing happy-path and edge/failure coverage at its declared level.
 - [ ] S3 proves exact concurrent-request deduplication.
 - [ ] S5–S8 prove mutation and event freshness without duplicate cache ownership.
-- [ ] S9–S13 and S25–S26 prove target/auth/session isolation and bounded reconnect behavior.
+- [ ] S9–S13, S25–S26, and S32 prove target/auth/session isolation, transport-specific readiness, and bounded reconnect behavior.
 - [ ] S20–S21 and S29 prove all M7 user-visible states, including first-load failure/retry, with executable component assertions.
 - [ ] S24 proves settings bootstrap stale-response parity before `settingsBootstrapCache` removal.
 - [ ] S27 covers every event enabled in `ServerStateEventBridge`.
