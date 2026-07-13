@@ -43,7 +43,7 @@
 
 ### Must Have
 
-- **M1 — Explicit server-state boundary.** Every migrated operation is classified as a cacheable query, mutation, notification event, stream, or client-owned state. TanStack Query is the default for cacheable server snapshots and their mutations, not for every callable API operation.
+- **M1 — Explicit server-state boundary.** Every migrated operation is classified as a cacheable query, mutation, notification event, stream, or client-owned state. Every cacheable server snapshot uses TanStack Query after its domain cuts over, including data returned by WebSocket request/response actions; transport type is not an exemption. Any deferred read requires an explicit inventory rationale.
 - **M2 — Consistent cached-read experience.** Equivalent concurrent reads share one in-flight request. Recently successful data remains available during ordinary background refresh unless the product workflow requires an explicit blocking state.
 - **M3 — Mutation freshness.** A successful mutation updates or invalidates every affected cached snapshot. Failed optimistic mutations restore the last authoritative state and expose a recoverable error.
 - **M4 — WebSocket push integration.** Existing WebSocket notifications continue to deliver real-time signals. Relevant events update or invalidate cached snapshots; event streams are not replaced with HTTP polling.
@@ -89,6 +89,7 @@
 - Choose the hybrid direction from `BRAINSTORM.md`: Query owns cacheable server snapshots; Zustand and local React state retain client state and orchestration.
 - Use an incremental domain rollout rather than a big-bang wrapper migration.
 - Include both REST and WebSocket request/response snapshots; transport type alone does not determine server-state ownership.
+- Treat idempotent WebSocket data-fetch actions as Query reads across all included domains; components and stores do not keep calling them as independent imperative fetches after cutover.
 - Remove or isolate old-target server snapshots on target or identity change. Fast return to an old target is secondary to correctness in v1.
 - Preserve WebSocket notifications and streams. Query consumes their freshness signals but does not replace them.
 - Allow optimistic mutations only when rollback behavior is deterministic; otherwise retain current data and refetch authoritatively after success.
@@ -125,4 +126,4 @@ stateDiagram-v2
 - **Phase 2 — Shared bootstrap and settings:** replace duplicated single-flight/settings caches and standardize mutation freshness.
 - **Phase 3 — Core workspace data:** migrate Project/Workspace, Git, and filesystem snapshots domain by domain.
 - **Phase 4 — Extended features:** migrate GitHub, reviews, skills, automations, usage, local models/services, and remaining eligible reads.
-- **Phase 5 — Cleanup and measurement:** remove superseded caches, close inventory gaps, compare representative UX baselines, and document intentionally deferred operations. APP-035 is complete only when all included domains have reached cutover/cleanup and M1–M11 are verified; explicitly deferred and excluded operations do not block completion.
+- **Phase 5 — Cleanup and measurement:** remove superseded caches, close inventory gaps, compare representative UX baselines, and document intentionally deferred operations. APP-035 is complete only when all included domains have reached cutover/cleanup, every included REST and WebSocket snapshot read is Query-owned, and M1–M11 are verified; explicitly deferred and excluded operations do not block completion.

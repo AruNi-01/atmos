@@ -439,6 +439,9 @@ export const apiOperationInventory = [
 
 - Existing functions in `apps/web/src/api/rest-api.ts`, `apps/web/src/api/relay.ts`, `apps/web/src/api/ws-api.ts`, and `apps/web/src/api/ws/*` remain transport adapters.
 - `wsRequest()` remains the request/response primitive and may wait for an in-progress connection. WS-backed Query hooks use `enabled: connectionState === "connected"`; REST-backed Computer queries instead use runtime/HTTP-target readiness and may run before the main WebSocket connects.
+- Every idempotent WebSocket action that returns a server snapshot is classified as a Query and consumed through shared query options after its domain cutover. This applies to Project/Workspace bootstrap, Git/filesystem reads, settings, GitHub, review, skills, automations, usage, local models/services, Agent registry, and other included WS domains.
+- After cutover, React consumers use the domain query hook and imperative consumers use the same options through `fetchQuery()` / `ensureQueryData()`. They must not call `wsRequest()` or `useWebSocketStore.send()` independently for the same read.
+- Exceptions are limited to connection bootstrap, commands/mutations, notifications, and long-lived/chunked streams. Each deferred WS read must carry a rationale and owner in `apiOperationInventory`.
 - No new REST endpoint or WebSocket action is introduced by APP-035.
 - Direct feature-level `fetch`, `send`, or `wsRequest` calls should be consolidated into the existing domain API module when that domain migrates.
 - Name collisions such as REST `agentApi` and WS `agentApi` should be resolved during that domain's migration with explicit aliases; this is a client naming cleanup, not a protocol change.
@@ -472,6 +475,8 @@ The typed inventory expands each grouped row to individual exported operations b
 | OS open commands and Preview Next routes | Command/local HTTP | API helpers | Existing owners unless separately justified | Explicit command | Excluded | excluded |
 
 Before a domain moves from `planned` to `complete`, its implementation review must enumerate every exported operation in that domain and assign one row/classification. Unused operations may remain deferred; they must not receive empty Query wrappers for coverage statistics.
+
+A domain cannot reach `cutover` while any included WebSocket snapshot read still has a feature/store-local `useState`/Zustand cache or direct imperative request path. The typed inventory test is the enforcement point.
 
 ## Pilot design
 

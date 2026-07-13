@@ -29,7 +29,7 @@ Every Must Have has a normal path and an edge/failure path.
 
 | PRD item | Happy-path scenarios | Edge/failure scenarios |
 |----------|----------------------|------------------------|
-| M1 Explicit server-state boundary | S1 | S2 |
+| M1 Explicit server-state boundary | S1, S33 | S2 |
 | M2 Consistent cached reads | S3 | S4 |
 | M3 Mutation freshness | S5 | S6 |
 | M4 WebSocket push integration | S7 | S8 |
@@ -81,6 +81,7 @@ All statuses remain `planned` until `atmos-specs-test-run` implements and execut
 | S30 | Bun integration | `bun test` | `bun test apps/web/src/app-shell/bootstrap/legacy-server-state-reset.test.ts` | populated Git/wiki/local-service/review/GitHub/welcome/diagnostic legacy caches | target transition clears every registered legacy snapshot but preserves excluded client/runtime state | planned |
 | S31 | Bun source contract | `bun test` | `bun test apps/web/src/api/query/ownership-cutover.test.ts` | typed inventory status + migrated consumer import graph | compatibility/cutover consumers read exactly one owner; no Query↔legacy snapshot mirroring | planned |
 | S32 | Bun integration | `bun test` | `bun test apps/web/src/api/query apps/web/src/shared/hooks apps/web/src/features/atmos-computer` | runtime-ready local/Relay HTTP target while main WS is connecting/disconnected | REST system query runs once; equivalent WS query remains disabled | planned |
+| S33 | Bun source contract | `bun test` | `bun test apps/web/src/api/query/websocket-query-coverage.test.ts` | typed WS action inventory + migrated consumer import graph | every included WS snapshot read has a key/options owner and no direct feature/store request path | planned |
 
 ## Scenarios
 
@@ -340,6 +341,14 @@ All statuses remain `planned` until `atmos-specs-test-run` implements and execut
 - **Then:** the system query runs once through the existing REST client while the WS query remains disabled until `connected`.
 - **Signals:** REST request count `1`, WS request count `0`, and distinct `restComputerQueryEnabled` / `wsComputerQueryEnabled` results.
 
+### S33 — Every included WebSocket snapshot read is Query-owned
+
+- **Level:** Bun source contract
+- **Given:** the typed inventory of WebSocket actions and the consumer import graph for a domain marked `cutover` or `cleaned`.
+- **When:** `websocket-query-coverage.test.ts` classifies all idempotent request/response reads and scans their consumers.
+- **Then:** every included WS snapshot read names a query key/options owner, React consumers use its query hook, imperative consumers use the same options through QueryClient, and no feature/store keeps a parallel direct request/cache path.
+- **Signals:** zero unowned WS reads, zero prohibited direct `wsRequest`/`send` consumers, and an explicit rationale for every deferred read.
+
 ## Performance & load budgets
 
 - Two or more concurrent consumers of one key issue exactly one underlying request.
@@ -379,6 +388,7 @@ The test-run agent must load the installed Agent Browser instructions or run `ag
 
 - [ ] Every M1–M11 row has passing happy-path and edge/failure coverage at its declared level.
 - [ ] S3 proves exact concurrent-request deduplication.
+- [ ] S33 proves every included WebSocket request/response snapshot read is Query-owned after domain cutover.
 - [ ] S5–S8 prove mutation and event freshness without duplicate cache ownership.
 - [ ] S9–S13, S25–S26, and S32 prove target/auth/session isolation, transport-specific readiness, and bounded reconnect behavior.
 - [ ] S20–S21 and S29 prove all M7 user-visible states, including first-load failure/retry, with executable component assertions.
