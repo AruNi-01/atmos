@@ -2,17 +2,26 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   agentApi,
-  type RegistryAgent,
   type CustomAgent,
 } from "@/api/ws-api";
 import { toastManager } from "@workspace/ui";
+import {
+  useAgentRegistryListQuery,
+  useCustomAgentListQuery,
+  useInvalidateAgentRegistry,
+} from "@/features/agent/hooks/use-agent-registry-query";
 
 export function useAgentManager(query: string) {
   const t = useTranslations("agent.manager");
-  const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
-  const [customAgents, setCustomAgents] = React.useState<CustomAgent[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [refreshing, setRefreshing] = React.useState(false);
+  const registryQuery = useAgentRegistryListQuery();
+  const customQuery = useCustomAgentListQuery();
+  const invalidateRegistry = useInvalidateAgentRegistry();
+
+  const registryAgents = registryQuery.data?.agents ?? [];
+  const customAgents = customQuery.data?.agents ?? [];
+  const loading = registryQuery.isLoading || customQuery.isLoading;
+  const refreshing = (registryQuery.isFetching || customQuery.isFetching) && !loading;
+
   const [installingRegistryIds, setInstallingRegistryIds] = React.useState<Set<string>>(() => new Set());
   const [removingRegistryId, setRemovingRegistryId] = React.useState<string | null>(null);
   const [removingCustomName, setRemovingCustomName] = React.useState<string | null>(null);
@@ -45,41 +54,25 @@ export function useAgentManager(query: string) {
     });
   }, []);
 
-  const loadData = React.useCallback(async (forceRefresh = false) => {
-    try {
-      const [registry, custom] = await Promise.all([
-        agentApi.listRegistry(forceRefresh),
-        agentApi.listCustomAgents(),
-      ]);
-      setRegistryAgents(registry.agents);
-      setCustomAgents(custom.agents);
-    } catch (error) {
-      toastManager.add({
-        title: t("toasts.loadFailed.title"),
-        description: error instanceof Error ? error.message : t("unknownError"),
-        type: "error",
-      });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  /** Invalidate registry queries after a mutation. Used by AgentManagerView for custom-agent save. */
+  const loadData = React.useCallback(async (_forceRefresh?: boolean) => {
+    invalidateRegistry();
+  }, [invalidateRegistry]);
 
   const normalizedQuery = React.useMemo(() => query.trim().toLowerCase(), [query]);
 
-  const matchesQuery = React.useCallback((item: RegistryAgent) => {
-    if (!normalizedQuery) return true;
-    return (
-      item.name.toLowerCase().includes(normalizedQuery) ||
-      item.id.toLowerCase().includes(normalizedQuery) ||
-      item.description.toLowerCase().includes(normalizedQuery) ||
-      item.version.toLowerCase().includes(normalizedQuery)
-    );
-  }, [normalizedQuery]);
+  const matchesQuery = React.useCallback(
+    (item: { name: string; id: string; description: string; version: string }) => {
+      if (!normalizedQuery) return true;
+      return (
+        item.name.toLowerCase().includes(normalizedQuery) ||
+        item.id.toLowerCase().includes(normalizedQuery) ||
+        item.description.toLowerCase().includes(normalizedQuery) ||
+        item.version.toLowerCase().includes(normalizedQuery)
+      );
+    },
+    [normalizedQuery],
+  );
 
   const filteredRegistry = React.useMemo(() => {
     return registryAgents
@@ -127,7 +120,7 @@ export function useAgentManager(query: string) {
         description: result.message,
         type: "success",
       });
-      await loadData();
+      invalidateRegistry();
       clearRegistryInstalling(registryId);
     } catch (error) {
       toastManager.add({
@@ -146,9 +139,8 @@ export function useAgentManager(query: string) {
     await handleInstallRegistry(registryId, true);
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData(true);
+  const handleRefresh = () => {
+    invalidateRegistry();
   };
 
   const handleRemoveRegistry = async (registryId: string) => {
@@ -161,7 +153,7 @@ export function useAgentManager(query: string) {
         description: result.message,
         type: "success",
       });
-      await loadData();
+      invalidateRegistry();
     } catch (error) {
       toastManager.add({
         title: t("toasts.removeFailed.title"),
@@ -183,7 +175,7 @@ export function useAgentManager(query: string) {
         description: t("toasts.customRemoved.description", { name }),
         type: "success",
       });
-      await loadData();
+      invalidateRegistry();
     } catch (error) {
       toastManager.add({
         title: t("toasts.customRemoveFailed.title"),

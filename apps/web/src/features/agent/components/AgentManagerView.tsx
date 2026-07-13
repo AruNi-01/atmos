@@ -175,7 +175,7 @@ export const AgentManagerView: React.FC = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => void mgr.handleRefresh()}
+                    onClick={() => mgr.handleRefresh()}
                     disabled={mgr.refreshing}
                     className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
                     title={t("manager.refreshRegistry")}
