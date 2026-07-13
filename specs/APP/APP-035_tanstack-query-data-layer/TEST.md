@@ -426,39 +426,52 @@ If the Tauri runtime or two-Computer Relay fixture is unavailable, record the sc
 
 ## Coverage Status
 
-> Updated by APP-035 Part A + B implementation pass. Exact commands, scenario claims, and remaining gaps below.
+> Updated by APP-035 Part A + B implementation pass and `atmos-specs-test-run`. Exact commands, scenario claims, and remaining gaps below.
 
 ### Run date: 2026-07-13
 
 ### Commands available to claim coverage
 
 ```bash
-bun test apps/web/src/api/query/__tests__/api-operation-inventory.test.ts
+bun test apps/web/src/api/query/__tests__/
 bun --filter web typecheck
 ```
 
-### Scenario status after Part A + B implementation
+### Scenario status after Part A + B implementation + test-run pass
 
 | Scenario | Status | Notes |
 |----------|--------|-------|
-| S1 | **claimed** | `api-operation-inventory.ts` classifies every pilot/extended/deferred/excluded operation with key roots; test file validates. |
+| S1 | ✅ **covered** | `api-operation-inventory.ts` classifies every pilot/extended/deferred/excluded operation with key roots; `api-operation-inventory.test.ts` validates 8 invariants. |
 | S2 | planned | Transport-boundary static audit test not yet written. |
-| S3 | planned | Deduplication integration test not yet written. |
-| S4 | planned | Background-refresh retention test not yet written. |
-| S5 | planned | Mutation consumer-convergence test not yet written. |
+| S3 | ✅ **covered** | `query-deduplication.test.ts::S3 — concurrent equivalent reads deduplicate` — three tests prove two/three concurrent `fetchQuery` calls with the same key issue one underlying `queryFn` execution. |
+| S4 | ✅ **covered** | `query-deduplication.test.ts::S4 — background refresh retains useful data` — four tests prove failed/successful refresh behavior and invalidation-without-clear semantics. |
+| S5 | planned | Mutation consumer-convergence test not yet written (requires live WS mock for `useMutation` + two observers). |
 | S6 | planned | Optimistic rollback test not yet written. |
-| S7 | planned | `usage_overview_updated` event-bridge patch test not yet written. |
-| S8 | planned | Partial-event / stream-chunk isolation test not yet written. |
-| S9–S13 | planned | Connection isolation and reconnect tests not yet written. |
-| S14 | planned | Domain-cutover ownership audit not yet written. |
-| S15 | planned | Playwright E2E journey not yet written. |
-| S16 | **claimed** | `bun --filter web typecheck` passes with no errors on all new query modules. |
-| S17 | **claimed** | `api-operation-inventory.test.ts` covers: no-duplicate pairs, required fields, query-without-key-root, event-without-invalidatedBy, deferred/excluded-without-rationale, stream-not-query, phase/status consistency, required-domain coverage. |
+| S7 | ✅ **covered** | `event-bridge-policy.test.ts::S7 — usage_overview_updated patches cache` (5 tests: complete → setQueryData, partial → rejected, null → rejected, scoped, no-fetch signal). `usage-query-events.test.ts` covers `isUsageOverviewResponse` + `applyUsageOverviewUpdated`. Subscriber count helpers (`getUsageOverviewBridgeSubscriberCount` etc.) validated as exported + non-negative. |
+| S8 | ✅ **covered** | `event-bridge-policy.test.ts::S8 — automation_definition_updated invalidates only automationList` — 3 tests: definition event ↛ run keys; run event ↛ list key; stream chunk leaves snapshot intact. |
+| S9 | ✅ **covered** | `connection-isolation.test.ts::S9 — target switch isolates Computer data` — 6 tests: distinct keys by epoch, distinct keys by instance id, A data not readable under B, all-computer root removal clears every A entry, relay-root isolation, extended-domain keys scoped under computer root. |
+| S10 | ✅ **covered** | `query-identity-lifecycle.test.ts` — identity-bearing credential change bumps `relayAuthRevision` and removes relay + computer caches; identical relay session is a no-op. |
+| S11 | ✅ **covered** | `connection-isolation.test.ts::S11 — late response from the previous target is ignored` — 3 tests: cancelled query result cannot populate B key; A data removed before B reads; all A keys structurally distinct from B keys. |
+| S12 | ✅ **covered** | `reconnect-invalidation.test.ts` — `invalidateAfterComputerReconnect` marks all registered roots stale while preserving cached data. |
+| S13 | ✅ **covered** | `computer-query-options.test.ts` — `wsComputerQueryEnabled` returns `false` for `disconnected`/`reconnecting`/`connecting`; `wsQueryOptions.retry` is `false` while disconnected. |
+| S14 | planned | Domain-cutover ownership audit (source scan) not yet written. |
+| S15 | not_run | Playwright E2E: no stateful test server available in cloud agent environment. |
+| S16 | ✅ **covered** | `bun --filter web typecheck` passes with no errors on all new query modules. |
+| S17 | ✅ **covered** | `api-operation-inventory.test.ts` — 8 invariant tests: no-duplicate pairs, required fields, query-without-key-root, event-without-invalidatedBy or queryKeyRoot, deferred/excluded-without-rationale, stream-not-query, phase/status consistency, required-domain coverage. |
 | S18 | planned | Optional N1 web/mobile key-convention test not yet written. |
-| S19 | planned | Instrumented baseline not yet recorded. |
-| S20–S21 | planned | Component visible-state tests not yet written. |
-| S22–S23 | planned | Two-target E2E and Desktop/Relay smoke not yet run. |
-| S24–S33 | planned | Remaining integration / static-contract tests not yet written. |
+| S19 | not_run | Instrumented E2E baseline requires live app; not available in cloud agent environment. |
+| S20–S21 | planned | Component visible-state tests (happy-dom) not yet written. |
+| S22–S23 | not_run | Two-target E2E and Desktop/Relay smoke: no two-computer fixture or Tauri runtime available. |
+| S24 | ✅ **covered** | `settings-bootstrap-race.test.ts` — 5 tests: `cancelQueries` before mutation prevents stale overwrite; `invalidateQueries` triggers fresh fetch; updater-function version-aware merge; untouched sections filled from bootstrap; `cancelQueries` + `setQueryData` pattern validated. |
+| S25 | planned | `QueryFocusBridge` component test (happy-dom) not yet written; focus/online manager wiring without WS reconnect needs React mount. |
+| S26 | ✅ **covered** | `query-identity-lifecycle.test.ts` — logout clears relay + computer queries; display-name noop does not bump auth revision; session rotation bumps session revision and clears computer keys. |
+| S27 | ✅ **covered** | `event-bridge-policy.test.ts::S27 — every migrated event follows its declared cache policy` — 6 tests covering all 5 registered events: `token_usage_updated` (tokenUsage root prefix), `local_model_state_changed` (localModelList), `automation_definition_updated` (automationList), `automation_run_updated` (run prefix), `usage_overview_updated` (setQueryData, not invalidate), cross-domain contamination guard. |
+| S28 | planned | Instrumented baseline budget test not yet written; requires pre-cutover evidence record. |
+| S29 | planned | First-load failure/retry component test not yet written. |
+| S30 | planned | `resetLegacyServerStateForConnectionChange` test requires mocking multiple dynamic store imports; not written in this pass. |
+| S31 | planned | Source-contract scan of consumer import graph not yet automated. |
+| S32 | ✅ **covered** | `computer-query-options.test.ts` — `restComputerQueryEnabled` requires `runtimeReady` (not WS connection); `wsComputerQueryEnabled` requires `connected` state; `restComputerQueryOptions` and `wsQueryOptions` factories compose the flags. |
+| S33 | planned | WS-coverage source contract test not yet written. |
 
 ### Part A — Operation inventory (M10)
 
