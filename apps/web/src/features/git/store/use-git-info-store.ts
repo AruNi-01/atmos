@@ -1,64 +1,42 @@
 'use client';
 
 import { create } from 'zustand';
-import { gitApi, GitStatusResponse, wsProjectApi } from '@/api/ws-api';
+import { wsProjectApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { createTranslator } from 'next-intl';
 import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
 import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import {
+  getAtmosWebQueryClient,
+} from '@/providers/app/query-client';
+import { getComputerQueryScope } from '@/api/query/query-scope';
+import { gitStatusQueryOptions } from '@/features/git/lib/git-query-options';
 
 /**
- * Git info store for sharing git-related state between components.
- * This store manages:
- * - Current workspace's git status (uncommitted/unpushed changes)
- * - Current branch name (from workspace)
- * - Target branch (from project, for merge/PR)
+ * Git orchestration store — context, target branch, and project linkage.
+ *
+ * APP-035: Git status snapshot fields (currentBranch, hasUncommittedChanges, etc.)
+ * have been removed. Components should use `useGitStatusQuery(repoPath)` instead.
  */
 
 export interface GitInfoState {
-  // Current workspace info
+  // Context orchestration
   currentProjectId: string | null;
   currentWorkspaceId: string | null;
   currentProjectPath: string | null;
-  
-  // Git status
-  currentBranch: string | null;
+
+  // User-configured target branch (project-level, not snapshot)
   targetBranch: string | null;
-  hasUncommittedChanges: boolean;
-  hasMergeConflicts: boolean;
-  hasUnpushedCommits: boolean;
-  uncommittedCount: number;
-  unpushedCount: number;
-  upstreamBehindCount: number | null;
-  defaultBranch: string | null;
-  defaultBranchAhead: number | null;
-  defaultBranchBehind: number | null;
-  githubOwner: string | null;
-  githubRepo: string | null;
-  
-  // Loading states
-  isLoadingStatus: boolean;
-  lastStatusFetch: number | null;
 }
 
 export interface GitInfoActions {
-  // Set current context
-  setCurrentContext: (projectId: string | null, workspaceId: string | null, projectPath: string | null) => void;
-  
-  // Set target branch (saved to project)
+  setCurrentContext: (
+    projectId: string | null,
+    workspaceId: string | null,
+    projectPath: string | null,
+  ) => void;
   setTargetBranch: (projectId: string, targetBranch: string | null) => Promise<void>;
-  
-  // Fetch git status for current path
-  fetchGitStatus: (path: string) => Promise<GitStatusResponse | null>;
-  
-  // Refresh git status for current context
-  refreshGitStatus: () => Promise<void>;
-  
-  // Update current branch (display only, actual branch change requires git commands)
-  updateCurrentBranch: (branch: string) => void;
-  
-  // Reset state
   reset: () => void;
 }
 
@@ -74,14 +52,7 @@ function gitInfoT(
     | 'targetBranchSet'
     | 'targetBranchCleared'
     | 'errorTitle'
-    | 'failedToUpdateTargetBranch'
-    | 'couldNotVerifyStatus'
-    | 'uncommittedChanges'
-    | 'unpushedCommits'
-    | 'issuesJoiner'
-    | 'archiveOperation'
-    | 'deleteOperation'
-    | 'cannotProceed',
+    | 'failedToUpdateTargetBranch',
   values?: Record<string, string | number>,
 ): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
@@ -100,21 +71,7 @@ const initialState: GitInfoState = {
   currentProjectId: null,
   currentWorkspaceId: null,
   currentProjectPath: null,
-  currentBranch: null,
   targetBranch: null,
-  hasUncommittedChanges: false,
-  hasMergeConflicts: false,
-  hasUnpushedCommits: false,
-  uncommittedCount: 0,
-  unpushedCount: 0,
-  upstreamBehindCount: null,
-  defaultBranch: null,
-  defaultBranchAhead: null,
-  defaultBranchBehind: null,
-  githubOwner: null,
-  githubRepo: null,
-  isLoadingStatus: false,
-  lastStatusFetch: null,
 };
 
 export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
@@ -129,7 +86,6 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
       ) {
         return state;
       }
-
       return {
         currentProjectId: projectId,
         currentWorkspaceId: workspaceId,
@@ -159,48 +115,6 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
     }
   },
 
-  fetchGitStatus: async (path: string): Promise<GitStatusResponse | null> => {
-    if (!path) return null;
-
-    set({ isLoadingStatus: true });
-
-    try {
-      const status = await gitApi.getStatus(path);
-      set({
-        currentBranch: status.current_branch,
-        hasUncommittedChanges: status.has_uncommitted_changes,
-        hasMergeConflicts: status.has_merge_conflicts,
-        hasUnpushedCommits: status.has_unpushed_commits,
-        uncommittedCount: status.uncommitted_count,
-        unpushedCount: status.unpushed_count,
-        upstreamBehindCount: status.upstream_behind_count,
-        defaultBranch: status.default_branch,
-        defaultBranchAhead: status.default_branch_ahead,
-        defaultBranchBehind: status.default_branch_behind,
-        githubOwner: status.github_owner,
-        githubRepo: status.github_repo,
-        lastStatusFetch: Date.now(),
-        isLoadingStatus: false,
-      });
-      return status;
-    } catch (error) {
-      console.error('[GitInfoStore] Failed to fetch git status:', error);
-      set({ isLoadingStatus: false });
-      return null;
-    }
-  },
-
-  refreshGitStatus: async () => {
-    const { currentProjectPath, fetchGitStatus } = get();
-    if (currentProjectPath) {
-      await fetchGitStatus(currentProjectPath);
-    }
-  },
-
-  updateCurrentBranch: (branch: string) => {
-    set({ currentBranch: branch });
-  },
-
   reset: () => {
     set(initialState);
   },
@@ -208,52 +122,53 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
 
 /**
  * Hook to check git status before archive/delete operations.
- * Returns a function that checks for uncommitted/unpushed changes.
+ * Uses the Query cache (fetchQuery) so the result benefits from caching.
  */
 export function useGitStatusCheck() {
-  const { fetchGitStatus } = useGitInfoStore();
-
   const checkBeforeOperation = async (
     path: string,
-    operation: 'archive' | 'delete'
+    operation: 'archive' | 'delete',
   ): Promise<{ canProceed: boolean; message?: string }> => {
+    const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const translator: any = createTranslator({
+      locale,
+      messages: locale === 'zh' ? zhMessages : enMessages,
+      namespace: 'git.infoStore',
+    });
+    const t = (key: string, values?: Record<string, string | number>) =>
+      translator(key, values) as string;
+
     try {
-      const status = await fetchGitStatus(path);
-      
-      if (!status) {
-        // Could not fetch status, allow proceeding with warning
-        return {
-          canProceed: true,
-          message: gitInfoT('couldNotVerifyStatus'),
-        };
-      }
+      const client = getAtmosWebQueryClient();
+      const scope = getComputerQueryScope();
+      const status = await client.fetchQuery(
+        gitStatusQueryOptions(scope, "connected", path),
+      );
 
       const issues: string[] = [];
-
       if (status.has_uncommitted_changes) {
-        issues.push(gitInfoT('uncommittedChanges', { count: status.uncommitted_count }));
+        issues.push(t('uncommittedChanges', { count: status.uncommitted_count }));
       }
-
       if (status.has_unpushed_commits) {
-        issues.push(gitInfoT('unpushedCommits', { count: status.unpushed_count }));
+        issues.push(t('unpushedCommits', { count: status.unpushed_count }));
       }
-
       if (issues.length > 0) {
         return {
           canProceed: false,
-          message: gitInfoT('cannotProceed', {
-            operation: operation === 'archive' ? gitInfoT('archiveOperation') : gitInfoT('deleteOperation'),
-            issues: issues.join(gitInfoT('issuesJoiner')),
+          message: t('cannotProceed', {
+            operation:
+              operation === 'archive' ? t('archiveOperation') : t('deleteOperation'),
+            issues: issues.join(t('issuesJoiner')),
           }),
         };
       }
-
       return { canProceed: true };
     } catch (error) {
       console.error('[useGitStatusCheck] Error checking git status:', error);
       return {
         canProceed: true,
-        message: gitInfoT('couldNotVerifyStatus'),
+        message: translator('couldNotVerifyStatus' as never),
       };
     }
   };

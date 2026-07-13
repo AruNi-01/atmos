@@ -23,6 +23,9 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
     import("@/features/welcome/lib/welcome-page-helpers"),
   ]);
 
+  // Git snapshots (status, changedFiles, fileDiff, branches) are now owned by
+  // TanStack Query and cleared via Computer-scope key removal in target-lifecycle.
+  // Only the orchestration slice (currentRepoPath, compareMode) needs a manual reset.
   useGitStore.getState().resetForConnectionChange();
   useWikiStore.getState().resetForConnectionChange();
   useLocalServicesStore.getState().resetForConnectionChange();
