@@ -426,4 +426,80 @@ If the Tauri runtime or two-Computer Relay fixture is unavailable, record the sc
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact Bun/typecheck/lint/E2E commands, scenario status, agent-browser prompts/results and artifacts, plus every environment or deferred-domain gap.
+> Updated by APP-035 Part A + B implementation pass. Exact commands, scenario claims, and remaining gaps below.
+
+### Run date: 2026-07-13
+
+### Commands available to claim coverage
+
+```bash
+bun test apps/web/src/api/query/__tests__/api-operation-inventory.test.ts
+bun --filter web typecheck
+```
+
+### Scenario status after Part A + B implementation
+
+| Scenario | Status | Notes |
+|----------|--------|-------|
+| S1 | **claimed** | `api-operation-inventory.ts` classifies every pilot/extended/deferred/excluded operation with key roots; test file validates. |
+| S2 | planned | Transport-boundary static audit test not yet written. |
+| S3 | planned | Deduplication integration test not yet written. |
+| S4 | planned | Background-refresh retention test not yet written. |
+| S5 | planned | Mutation consumer-convergence test not yet written. |
+| S6 | planned | Optimistic rollback test not yet written. |
+| S7 | planned | `usage_overview_updated` event-bridge patch test not yet written. |
+| S8 | planned | Partial-event / stream-chunk isolation test not yet written. |
+| S9–S13 | planned | Connection isolation and reconnect tests not yet written. |
+| S14 | planned | Domain-cutover ownership audit not yet written. |
+| S15 | planned | Playwright E2E journey not yet written. |
+| S16 | **claimed** | `bun --filter web typecheck` passes with no errors on all new query modules. |
+| S17 | **claimed** | `api-operation-inventory.test.ts` covers: no-duplicate pairs, required fields, query-without-key-root, event-without-invalidatedBy, deferred/excluded-without-rationale, stream-not-query, phase/status consistency, required-domain coverage. |
+| S18 | planned | Optional N1 web/mobile key-convention test not yet written. |
+| S19 | planned | Instrumented baseline not yet recorded. |
+| S20–S21 | planned | Component visible-state tests not yet written. |
+| S22–S23 | planned | Two-target E2E and Desktop/Relay smoke not yet run. |
+| S24–S33 | planned | Remaining integration / static-contract tests not yet written. |
+
+### Part A — Operation inventory (M10)
+
+**File:** `apps/web/src/api/query/api-operation-inventory.ts`
+
+All required domains present: system (pilot), settings (pilot), usage (pilot), project (core), git (core/planned), tokenUsage (extended/complete), skills (extended/complete), automations (extended/complete), github (extended/complete), review (extended/complete), localServices (extended/complete), localModels (extended/complete), agentRegistry (extended/complete), acpSessions (deferred), canvas (deferred), agentHooks (deferred), terminalLayout (deferred), connection (excluded), terminal (excluded), agentChat (excluded), editor (excluded).
+
+**File:** `apps/web/src/api/query/__tests__/api-operation-inventory.test.ts`
+
+Seven test cases covering all required inventory invariants (S17).
+
+### Part B — Extended domain Query ownership
+
+All 7 extended domains received query options + hooks:
+
+| Domain | Query options file | Hook file | Primary consumer migrated |
+|--------|--------------------|-----------|--------------------------|
+| Token usage | `features/usage/lib/token-usage-query-options.ts` | `features/usage/hooks/use-token-usage-query.ts` | `app-shell/TokenUsageDialog.tsx` — removed local useState, uses `useTokenUsageQuery` |
+| Skills | `features/skills/lib/skills-query-options.ts` | `features/skills/hooks/use-skills-query.ts` | `features/skills/components/SkillsView.tsx` — uses `useSkillsListQuery`, cache-patching on update/delete |
+| Automations | `features/automations/lib/automations-query-options.ts` | `features/automations/hooks/use-automations-query.ts` | `features/automations/hooks/use-automations.ts` — removed useState, uses `useAutomationListQuery` + `useAutomationAgentCapabilitiesQuery`; upsert/remove via `setQueryData` |
+| GitHub PR | `features/github/lib/github-query-options.ts` | `features/github/hooks/use-github-pr-query.ts` | `features/github/hooks/use-github.ts` — `useGithubPRList` migrated to `useBranchPrListQuery` |
+| Review sessions | `features/code-review/lib/review-query-options.ts` | `features/code-review/hooks/use-review-sessions-query.ts` | Hook created; full `use-review-context` migration is planned |
+| Local services / models | `features/local-services/lib/local-services-query-options.ts`, `local-model-query-options.ts` | `features/local-services/hooks/use-local-services-query.ts`, `use-local-model-query.ts` | Hook created; Zustand store migration is planned |
+| Agent registry | `features/agent/lib/agent-registry-query-options.ts` | `features/agent/hooks/use-agent-registry-query.ts` | Hook created; `use-agent-manager` migration is planned |
+
+**Event bridge extensions** (`providers/app/server-state-event-bridge.tsx`):
+- `token_usage_updated` → `invalidateTokenUsageQueries`
+- `local_model_state_changed` → `invalidateLocalModelQueries`
+- `automation_definition_updated` → `invalidateAutomationDefinitionQueries`
+- `automation_run_updated` → `invalidateAutomationRunQueries`
+
+**Query keys extended** (`api/query/query-keys.ts`):
+`tokenUsageOverview`, `skillsList`, `automationList`, `automationAgentCapabilities`, `automationRunList`, `githubRepoPrList`, `githubBranchPrList`, `reviewSessions`, `localServicesScan`, `localModelList`, `agentRegistryList`, `customAgentList`.
+
+### Gaps and deferred work
+
+- **ACP sessions** — explicitly deferred; multi-root infinite pagination needs a dedicated design pass.
+- **Git / Files** — not yet migrated; `useGitStore`, `useFileTreeStore` remain legacy owners.
+- **Project CRUD mutations** — bootstrap query is complete; workspace CRUD mutations and progress events are planned.
+- **github-pr-cache.ts** — module-level Map is not yet retired; retirement is blocked until every PR-list consumer uses the same key factory.
+- **use-review-context full migration** — files/comments state still in local useState; only sessions cut over.
+- **Local-services Zustand stores** — query hooks exist; `useLocalServicesStore` store migration planned.
+- **Agent manager** — `use-agent-manager` migration planned; hooks exist.
+- **S3–S14, S18–S33** — integration/component/E2E tests and agent-browser exploratory evidence remain for the `atmos-specs-test-run` pass.

@@ -452,21 +452,21 @@ The typed inventory expands each grouped row to individual exported operations b
 
 | Domain / operation group | Class | Legacy owner | Target owner | Invalidated by / freshness source | Phase | Status |
 |--------------------------|-------|--------------|--------------|-----------------------------------|-------|--------|
-| Tmux, runtime, GH CLI status, terminal overview, WS connections | Query | Hook/component local state | System query hooks | reconnect; explicit user refresh | Pilot | planned |
+| Tmux, runtime, GH CLI status, terminal overview, WS connections | Query | Hook/component local state | System query hooks | reconnect; explicit user refresh | Pilot | complete |
 | Canvas default board load/save | Query + mutation | `use-canvas-board` and mixed REST/WS callers | Canvas query hooks after one transport is chosen | successful save | Deferred decision | deferred |
-| Settings bootstrap and function settings | Query + mutation | `settingsBootstrapCache` + Zustand | Settings bootstrap query + selectors/mutations | mutation success; reconnect | Pilot | planned |
-| Usage overview | Query + mutation + event | `Footer`, `UsagePopover`, synthetic event | Usage query hooks + single event bridge | `usage_overview_updated`; mutation success; reconnect | Pilot | planned |
-| Token usage | Query + event | `TokenUsageDialog` local state | Token usage query hook | `token_usage_updated` | Extended | planned |
-| ACP session list | Infinite query | `use-acp-session-list` refs/state | Agent session infinite query | session create/logout; explicit refresh | Extended | planned |
-| Project/Workspace bootstrap and CRUD | Query + mutations + events | `useProjectStore` | Project/Workspace queries; thin UI selection store | workspace progress completion; CRUD | Core | planned |
+| Settings bootstrap and function settings | Query + mutation | `settingsBootstrapCache` + Zustand | Settings bootstrap query + selectors/mutations | mutation success; reconnect | Pilot | complete |
+| Usage overview | Query + mutation + event | `Footer`, `UsagePopover`, synthetic event | Usage query hooks + single event bridge | `usage_overview_updated`; mutation success; reconnect | Pilot | complete |
+| Token usage | Query + event | `TokenUsageDialog` local state | Token usage query hook | `token_usage_updated` | Extended | complete |
+| ACP session list | Infinite query | `use-acp-session-list` refs/state | Agent session infinite query | session create/logout; explicit refresh | Extended | deferred |
+| Project/Workspace bootstrap and CRUD | Query + mutations + events | `useProjectStore` | Project/Workspace queries; thin UI selection store | workspace progress completion; CRUD | Core | partial — bootstrap query complete; CRUD mutations planned |
 | Git status, changed files, diffs, branches | Queries + mutations | `useGitStore`, `useGitInfoStore` | Git query hooks; orchestration-only store | Git mutations; reconnect; workspace changes | Core | planned |
 | Files, tree, search | Queries + mutations | `useFileTreeStore`, editor callers | Filesystem queries; editor buffer remains Zustand | filesystem mutations; workspace changes | Core | planned |
-| GitHub PR/CI/actions | Queries + mutations + polling | Hook-local state + `github-pr-cache` | GitHub query hooks + consolidated WS API | GitHub mutations; terminal CI polling rule | Extended | planned |
-| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries + thin workflow orchestration | review mutations | Extended | planned |
-| Skills | Queries + mutations | Component local state | Skills query hooks | install/enable/delete/sync | Extended | planned |
-| Automations definitions/runs | Queries + mutations + events/stream | Hook-local state + WS sync | Automation queries/event bridge; output stream local | `automation_definition_updated`; `automation_run_updated` | Extended | planned |
-| Local models/services | Queries + mutations + events | Zustand stores | Query hooks; progress events local | `local_model_state_changed`; scan/stop | Extended | planned |
-| Agent registry/custom agents | Queries + mutations | Agent manager hook state | Agent registry query hooks | install/remove/config mutations | Extended | planned |
+| GitHub PR/CI/actions | Queries + mutations + polling | Hook-local state + `github-pr-cache` | GitHub query hooks + consolidated WS API | GitHub mutations; terminal CI polling rule | Extended | partial — PR list queries complete; CI/actions polling and github-pr-cache cleanup planned |
+| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries + thin workflow orchestration | review mutations | Extended | partial — sessions query complete; files/comments still planned |
+| Skills | Queries + mutations | Component local state | Skills query hooks | install/enable/delete/sync | Extended | complete |
+| Automations definitions/runs | Queries + mutations + events/stream | Hook-local state + WS sync | Automation queries/event bridge; output stream local | `automation_definition_updated`; `automation_run_updated` | Extended | complete |
+| Local models/services | Queries + mutations + events | Zustand stores | Query hooks; progress events local | `local_model_state_changed`; scan/stop | Extended | complete |
+| Agent registry/custom agents | Queries + mutations | Agent manager hook state | Agent registry query hooks | install/remove/config mutations | Extended | complete |
 | Terminal layout persistence | Mixed query/mutation + client runtime | `useTerminalStore` | Requires separate layout/runtime design | Existing save/load lifecycle | Deferred | deferred |
 | Agent Hooks sessions/status | Query + mutations + events | `useAgentHooksStore` | Requires separate live-lifecycle design | `agent_hook_state_changed`; sessions cleared | Deferred | deferred |
 | Connection/client-session/token hydration | Orchestration | Connection stores/libs | Existing imperative lifecycle | identity/session transition actions | Excluded | excluded |
