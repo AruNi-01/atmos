@@ -61,6 +61,7 @@ describe("queryKeys", () => {
       3,
       "tokenUsage",
       "overview",
+      { year: null, since: null, until: null, clients: null, groupBy: null },
     ]);
     expect(queryKeys.computer.projectBootstrap(scope)).toEqual([
       "atmos",
@@ -88,6 +89,30 @@ describe("queryKeys", () => {
       3,
       "files",
       "/root",
+    ]);
+    expect(queryKeys.computer.filesRoot(scope)).toEqual([
+      "atmos", "computer", "local", 2, 3, "files",
+    ]);
+    expect(queryKeys.computer.fileTree(scope, "/root", false)).toEqual([
+      "atmos", "computer", "local", 2, 3, "files", "/root", "tree", { showHidden: false },
+    ]);
+    expect(queryKeys.computer.fileTree(scope, "/root", true)).toEqual([
+      "atmos", "computer", "local", 2, 3, "files", "/root", "tree", { showHidden: true },
+    ]);
+    expect(queryKeys.computer.listDir(scope, "/dir")).toEqual([
+      "atmos", "computer", "local", 2, 3, "files", "/dir", "dir",
+      { dirsOnly: true, showHidden: false },
+    ]);
+    expect(queryKeys.computer.readFile(scope, "/path/to/file.ts")).toEqual([
+      "atmos", "computer", "local", 2, 3, "files", "/path/to/file.ts", "content",
+    ]);
+    expect(queryKeys.computer.searchContent(scope, "/root", "hello")).toEqual([
+      "atmos", "computer", "local", 2, 3, "files", "/root", "search", "content",
+      { query: "hello", maxResults: 50, caseSensitive: false },
+    ]);
+    expect(queryKeys.computer.searchDirs(scope, "/root", "src")).toEqual([
+      "atmos", "computer", "local", 2, 3, "files", "/root", "search", "dirs",
+      { query: "src", maxResults: 50, maxDepth: 4 },
     ]);
   });
 

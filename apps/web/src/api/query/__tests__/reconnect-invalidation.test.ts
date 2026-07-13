@@ -14,12 +14,14 @@ const scope: ComputerQueryScope = {
 };
 
 describe("reconnect-invalidation", () => {
-  test("reconnectInvalidationKeys covers system, settings, usage, and project bootstrap roots", () => {
+  test("reconnectInvalidationKeys covers system, settings, usage, project bootstrap, files, and git roots", () => {
     expect(reconnectInvalidationKeys(scope)).toEqual([
       queryKeys.computer.system(scope),
       queryKeys.computer.settingsBootstrap(scope),
       queryKeys.computer.usageOverview(scope),
       queryKeys.computer.projectBootstrap(scope),
+      queryKeys.computer.filesRoot(scope),
+      queryKeys.computer.gitAll(scope),
     ]);
   });
 

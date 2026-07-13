@@ -23,6 +23,7 @@ import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folde
 import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
+import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
@@ -137,8 +138,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (settingsModalOpen) setSettingsOpen(false);
   }, [settingsModalOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
-  const fileTreeData = useFileTreeStore((s) => s.data);
   const fileTreeRootPath = useFileTreeStore((s) => s.rootPath);
+  const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
+  const fileTreeQuery = useFileTreeQuery(fileTreeRootPath, fileTreeShowHidden);
+  const fileTreeData = fileTreeQuery.data?.tree ?? [];
   const editorViewRef = useRef<EditorView | null>(null);
 
   // Get relative path for breadcrumbs (strict root boundary + longest project prefix)

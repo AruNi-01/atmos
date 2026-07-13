@@ -11,6 +11,9 @@ export function reconnectInvalidationKeys(scope: ComputerQueryScope): QueryKey[]
     queryKeys.computer.settingsBootstrap(scope),
     queryKeys.computer.usageOverview(scope),
     queryKeys.computer.projectBootstrap(scope),
+    queryKeys.computer.filesRoot(scope),
+    // Git: invalidate all repos via prefix — individual repo paths are unknown at reconnect time.
+    queryKeys.computer.gitAll(scope),
   ];
 }
 
