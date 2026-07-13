@@ -5,7 +5,7 @@
 ## Context
 
 - **Problem:** The web app loads and refreshes server-backed data through a mix of feature-local state, Zustand stores, manual caches, polling, and imperative refresh functions. Users can encounter avoidable loading flashes, stale panels after mutations, inconsistent recovery from errors, and unsafe transitions between Atmos Computers.
-- **Why now:** Server-backed surfaces have expanded across local browser, Desktop, and Relay modes. The mobile app already demonstrates TanStack Query with WebSocket-backed reads, while the web app still carries duplicated cache and race-control behavior.
+- **Why now:** The requested UX initiative is supported by a current-code audit, not by a measured production incident: server-backed surfaces have expanded across local browser, Desktop, and Relay modes, while the web app carries duplicated cache and race-control behavior. The mobile app already demonstrates TanStack Query with WebSocket-backed reads.
 - **Product direction:** Adopt TanStack Query as the default owner of cacheable server-state snapshots and mutations in `apps/web`. Keep Zustand for client-owned state and complex orchestration, and keep long-lived WebSocket streams outside Query.
 - **Related specs:** [APP-001 Atmos Core](../APP-001_atmos-core/PRD.md), [APP-016 Atmos Computer](../APP-016_atmos-computer/PRD.md), [APP-025 Mobile App](../APP-025_mobile-app/PRD.md), and [APP-034 Terminal Workspace Caching](../APP-034_terminal_caching/PRD.md).
 
@@ -52,13 +52,13 @@
 - **M7 — Consistent user feedback.** Migrated surfaces expose predictable initial-loading, background-refresh, mutation-pending, empty, error, and retry states. Existing inline-feedback conventions remain in force.
 - **M8 — Incremental migration without functional regression.** Local browser, Desktop, and Relay workflows remain supported after every migration phase. A domain has one declared server-state owner before its legacy cache or store slice is removed.
 - **M9 — Transport preservation.** The migration reuses existing REST and WebSocket API clients. It adds no duplicate REST endpoint solely to make a query hook easier to implement.
-- **M10 — Auditable coverage.** The spec maintains a domain migration matrix showing included operations, excluded operations, legacy owners, new owners, event invalidation sources, and rollout status.
+- **M10 — Auditable coverage.** Every API domain entering migration has a reviewable record of what moved, what remains deferred or excluded, and whether duplicate server-state ownership has been removed.
+- **M11 — Measured rollout.** Before each user-visible domain cutover, a representative journey records current request and loading behavior; the same journey is checked after cutover for deduplication, continuity, freshness, and regressions.
 
 ### Nice to Have
 
 - **N1 — Cross-app convention alignment.** Web and mobile use compatible terminology and key-scoping principles where they access the same Atmos Computer data, without requiring a shared runtime package.
 - **N2 — Development diagnostics.** Development builds can inspect query state and invalidation behavior without exposing sensitive payloads or adding production UI.
-- **N3 — Measured migration baselines.** Representative journeys record request counts and visible loading transitions before and after migration.
 
 ## Out of Scope
 
@@ -93,20 +93,36 @@
 - Preserve WebSocket notifications and streams. Query consumes their freshness signals but does not replace them.
 - Allow optimistic mutations only when rollback behavior is deterministic; otherwise retain current data and refetch authoritatively after success.
 
+### User-visible server-state lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> InitialLoading: no cached snapshot
+    InitialLoading --> Ready: request succeeds
+    InitialLoading --> ActionableError: request fails
+    Ready --> Refreshing: stale / event invalidation / reconnect
+    Refreshing --> Ready: refresh succeeds
+    Refreshing --> StaleWithError: refresh fails, prior data retained
+    StaleWithError --> Refreshing: user retries
+    ActionableError --> InitialLoading: user retries
+    Ready --> TargetChanging: Computer or identity changes
+    TargetChanging --> InitialLoading: old snapshots removed
+```
+
 ## Risks & Open Questions
 
 - **Risk — temporary dual ownership:** A migration phase can create two caches for the same snapshot and produce races. Each domain needs an explicit cutover point.
 - **Risk — unfamiliar background refresh:** Users may interpret retained data as final. Migrated surfaces must distinguish refresh activity when it matters to the action being taken.
 - **Risk — broad scope:** Project, Git, filesystem, review, settings, and automation stores encode different orchestration semantics. The rollout must not treat them as mechanical hook conversions.
 - **Risk — target-switch expectations:** Removing old-target snapshots favors safety but can make returning to a Computer less instant until it refetches.
-- **Open for review:** Which three surfaces should be used for the initial user-experience baseline: Project/Workspace bootstrap, Git status, settings, system diagnostics, or Canvas?
-- **Open for review:** Is development-only Query Devtools desired, or should diagnostics remain test/log based?
-- **Open for review:** Should a later phase share key factories with mobile, or only document aligned conventions?
+- **Baseline assumption for review:** The pilot measures system diagnostics, settings bootstrap, and usage overview; Project/Workspace and Git receive their own baseline before later cutovers.
+- **Diagnostics assumption for review:** Initial implementation uses tests and logs only; Query Devtools remain a later Nice to Have.
+- **Cross-app assumption for review:** Web and mobile align conventions only; shared key factories require a separate justification.
 
 ## Milestones
 
-- **Phase 1 — Foundation and pilot:** establish the server-state contract, connection isolation, provider lifecycle, and low-coupling pilot surfaces.
+- **Phase 1 — Foundation and pilot:** establish the server-state contract, connection isolation, and low-coupling pilot surfaces. This is the first releasable milestone, not completion of APP-035.
 - **Phase 2 — Shared bootstrap and settings:** replace duplicated single-flight/settings caches and standardize mutation freshness.
 - **Phase 3 — Core workspace data:** migrate Project/Workspace, Git, and filesystem snapshots domain by domain.
 - **Phase 4 — Extended features:** migrate GitHub, reviews, skills, automations, usage, local models/services, and remaining eligible reads.
-- **Phase 5 — Cleanup and measurement:** remove superseded caches, close inventory gaps, compare representative UX baselines, and document intentionally deferred operations.
+- **Phase 5 — Cleanup and measurement:** remove superseded caches, close inventory gaps, compare representative UX baselines, and document intentionally deferred operations. APP-035 is complete only when all included domains have reached cutover/cleanup and M1–M11 are verified; explicitly deferred and excluded operations do not block completion.

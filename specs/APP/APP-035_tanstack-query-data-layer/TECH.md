@@ -1,6 +1,6 @@
 # TECH · APP-035: TanStack Query Data Layer
 
-> Technical Design · HOW. Implements [PRD APP-035](./PRD.md) M1–M10 and defines an incremental server-state migration for `apps/web`.
+> Technical Design · HOW. Implements [PRD APP-035](./PRD.md) M1–M11 and defines an incremental server-state migration for `apps/web`.
 
 ## Scope summary
 
@@ -15,7 +15,7 @@ This design changes no Rust crate, database schema, API route, or WebSocket acti
 | Coverage | Migrate cacheable server state, not every API function | Query models snapshots and mutations; streams and client state need different ownership |
 | Transport | Support REST and WebSocket request/response query functions | Cache semantics do not depend on HTTP |
 | Rollout | Foundation → pilot → domain migrations → cleanup | Prevents a long-lived big-bang branch and isolates regressions |
-| Cache identity | Computer root uses active instance id plus connection epoch; Relay root uses normalized URL plus auth revision | Prevents cross-target and cross-credential reuse without putting secrets in keys |
+| Cache identity | Computer root uses active instance id, connection epoch, and Relay session revision; Relay control-plane root uses normalized URL plus auth revision | Prevents cross-target, cross-session, and cross-credential reuse without putting secrets in keys |
 | Target switch | Cancel and remove all Computer-scoped queries before loading the new target | Correctness and privacy take priority over instant return to an old target |
 | Reconnect | Keep same-target cache, then selectively invalidate stale domains after reconnect | Avoids empty flashes and blanket refetch storms |
 | Push events | Patch cache only when an event carries a complete authoritative value; otherwise invalidate | Prevents partial payloads from becoming false snapshots |
@@ -118,6 +118,7 @@ Introduce connection-scope values without including credentials:
 interface ComputerQueryScope {
   activeInstanceId: ConnectionInstanceId;
   connectionEpoch: number;
+  relaySessionRevision: number;
 }
 
 interface RelayQueryScope {
@@ -129,10 +130,12 @@ interface RelayQueryScope {
 Changes:
 
 - Extend `apps/web/src/features/connection/store/connection-store.ts` with `connectionEpoch` and `bumpConnectionEpoch()`.
-- Extend `apps/web/src/features/connection/lib/atmos-computer-store.ts` with in-memory `relayAuthRevision` and `bumpRelayAuthRevision()`.
+- Extend `apps/web/src/features/connection/lib/atmos-computer-store.ts` with in-memory `relayAuthRevision`, `relaySessionRevision`, and their bump actions.
 - Increment `relayAuthRevision` when access token, Relay URL, or Relay secret changes identity-bearing request credentials. Do not increment for display-name or selected-computer changes.
+- Increment `relaySessionRevision` whenever `relayGatewayHttpBase` or `relayClientToken` changes, including session hydration and same-Computer Relay re-registration. Never put either value in a key.
 - Increment `connectionEpoch` only for an intentional target/identity transition, not a transient reconnect to the same target.
-- Remove `useProjectStore.connectionEpoch` after the Project migration. During compatibility, derive its reset from the centralized epoch and never use it as a query-key source.
+- The centralized `connectionEpoch` is the only writer for Query scope. Existing `useProjectStore.connectionEpoch` remains a private stale-response guard during compatibility, is never used in a Query key, and is removed after Project migration.
+- A `relaySessionRevision` change cancels/removes the previous active Computer root before system HTTP reads resume. This intentionally sacrifices same-session cache retention when gateway credentials rotate.
 
 ### `apps/web/src/api/query/query-keys.ts`
 
@@ -142,7 +145,13 @@ All key factories return readonly tuples:
 const queryKeys = {
   computer: {
     root: (scope: ComputerQueryScope) =>
-      ["atmos", "computer", scope.activeInstanceId, scope.connectionEpoch] as const,
+      [
+        "atmos",
+        "computer",
+        scope.activeInstanceId,
+        scope.connectionEpoch,
+        scope.relaySessionRevision,
+      ] as const,
     system: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "system"] as const,
     settingsBootstrap: (scope: ComputerQueryScope) =>
@@ -188,11 +197,24 @@ Update `prepareConnectionTargetChange()`:
 5. Increment centralized `connectionEpoch`.
 6. Run the remaining client-store resets and restore per-instance editor preferences.
 
+Capture the old scope before calling `bootstrapActiveInstance()`, which synchronizes the new target in current code. `ConnectionBootstrapper.tsx`, `app-connection-bootstrap.ts`, and `hosted-connection-actions.ts` continue to enter through this lifecycle rather than reproducing cleanup.
+
 Credential reset/logout additionally:
 
 1. Increment `relayAuthRevision`.
 2. Remove all `["atmos", "relay"]` queries.
 3. Remove all Computer queries and reconnect through the existing connection flow.
+
+Concrete identity/session integration points:
+
+- `apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx`
+- `apps/web/src/features/welcome/components/HostedWelcomeGate.tsx`
+- `apps/web/src/features/connection/lib/sync-computer-client-settings.ts`
+- `apps/web/src/features/connection/lib/hydrate-relay-session.ts`
+- `apps/web/src/features/connection/lib/hosted-connection-actions.ts`
+- `useAtmosComputerStore.resetRelaySession()`
+
+Credential setters must call one shared identity-transition action rather than relying on every component to remember cache cleanup. Relay session hydration must call one atomic session setter for WebSocket URL, gateway base, and client token so `relaySessionRevision` changes once per accepted session.
 
 Transient same-target reconnect:
 
@@ -200,15 +222,51 @@ Transient same-target reconnect:
 - On `connected`, invalidate only registered reconnect-sensitive domain roots.
 - Active queries refetch; inactive queries remain stale until next use.
 
+When Relay gateway credentials rotate during that reconnect, treat it as a session transition: bump `relaySessionRevision`, remove the previous Computer root, and load under the new root.
+
 Replace `reloadActiveConnectionData()` with domain invalidation or `ensureQueryData()` once Project bootstrap is migrated. Keep a compatibility call only while `useProjectStore` remains the owner.
+
+### `apps/web/src/app-shell/bootstrap/legacy-server-state-reset.ts`
+
+M5 applies before every domain has migrated. Add an explicit compatibility reset registry for legacy Computer-scoped snapshots that current target cleanup misses, including `useGitStore`, `useWikiStore`, `useLocalServicesStore`, review snapshots, and server-backed settings caches. Add narrow `resetForConnectionChange()` actions where absent.
+
+- Call this registry from `prepareConnectionTargetChange()` after query cancellation and before the new target renders.
+- Never reset `useTerminalCacheStore`, retained terminal runtimes, per-instance UI preferences, or unsaved editor buffers except where existing target-switch behavior already requires it.
+- Remove each legacy reset entry when that domain reaches Query cutover.
+- A domain cannot claim M8 compatibility while its old snapshot can survive a target switch.
+
+### `apps/web/src/api/query/reconnect-invalidation.ts`
+
+Define the reconnect-sensitive root registry:
+
+```ts
+export function reconnectInvalidationKeys(scope: ComputerQueryScope): QueryKey[];
+export async function invalidateAfterComputerReconnect(
+  client: QueryClient,
+  scope: ComputerQueryScope,
+): Promise<void>;
+```
+
+Initial roots: system diagnostics, settings bootstrap, and usage overview. Add Project/Workspace, Git, files, and extended domains only at their cutover. The function invalidates each root once, with `refetchType: "active"`.
 
 ### `apps/web/src/providers/app/websocket-provider.tsx`
 
 - Keep WebSocket connection ownership and existing notification subscriptions.
-- Add one reconnect bridge that detects transition into `connected` and invalidates registered reconnect-sensitive query roots once.
+- Add one reconnect bridge that detects a transition from a non-connected state into `connected` and calls `invalidateAfterComputerReconnect()` once for the current scope.
 - Remove imperative `useProjectStore.fetchProjects()` only after Project bootstrap cutover.
 - Remove imperative settings loads only after each settings domain has a Query owner.
 - Keep `useAgentHooksStore.init()` until Agent Hooks receives a separate design; it is deferred in this spec.
+
+`QueryFocusBridge` only updates TanStack `focusManager` / `onlineManager`; it never calls `connect()`. `WebSocketProvider` retains the sole visibility/online reconnect listener, eliminating duplicate connection attempts.
+
+### `apps/web/src/providers/app/server-state-event-bridge.tsx`
+
+Mount one bridge beside `WebSocketProvider` for domains that have cut over. It composes idempotent feature-local subscription functions and owns their cleanup.
+
+- Pilot: move `usage_overview_updated` ownership out of `UsagePopover.tsx` and `Footer.tsx` into the bridge.
+- Later domain cutovers remove equivalent component-level subscriptions before enabling the domain bridge.
+- Stream/chunk listeners may remain with their workflow owner and are not registered as snapshot bridges.
+- A test asserts that mounting multiple consumers does not increase domain subscription count.
 
 ### `apps/web/src/app-shell/bootstrap/DesktopStartupPrefetchBootstrap.tsx`
 
@@ -315,7 +373,22 @@ interface ApiMigrationEntry {
 }
 ```
 
-These fields define the review matrix; they do not need a runtime registry unless implementation shows value. The committed inventory can remain a table in this document and be updated during rollout.
+These fields define both the human-readable matrix and the typed development/test inventory below. Production UI never reads the inventory.
+
+### `apps/web/src/api/query/api-operation-inventory.ts`
+
+For M10/M11, commit a typed development/test inventory rather than relying on Markdown parsing:
+
+```ts
+export const apiOperationInventory = [
+  // one entry per exported operation in a domain before that domain cuts over
+] as const satisfies readonly ApiMigrationEntry[];
+```
+
+- The module has no side effects and is not imported by production UI.
+- Inventory tests reject duplicate operation ids, missing owner/classification/phase fields, Query entries without a key root, and event-driven entries without `invalidatedBy`.
+- Each migration PR enumerates all exports in its affected API modules. The inventory is not required to auto-discover future exports across the entire app; code review and the domain test fixture update it when a module changes.
+- Baseline evidence for M11 is recorded in `TEST.md` Coverage Status or the domain's implementation log before and after cutover.
 
 ### Transport invariants
 
@@ -327,28 +400,31 @@ These fields define the review matrix; they do not need a runtime registry unles
 
 ## Migration matrix
 
-| Domain / representative operations | Class | Current owner | Target owner | Phase |
-|------------------------------------|-------|---------------|--------------|-------|
-| Tmux, runtime, GH CLI status, terminal overview, WS connections | Query | Hook/component local state | System query hooks | Pilot |
-| Canvas default board load/save | Query + mutation | `use-canvas-board` and mixed REST/WS callers | Canvas query hooks after one transport is chosen | Pilot candidate; decision required |
-| Settings bootstrap and function settings | Query + mutation | `settingsBootstrapCache` + Zustand | Settings bootstrap query + section selectors/mutations | Pilot |
-| Usage overview and token usage | Query + mutation + events | Component local state + synthetic events | Usage query hooks + event bridge | Pilot |
-| ACP session list | Infinite query | `use-acp-session-list` refs/state | Agent session infinite query | Pilot |
-| Project/Workspace bootstrap and CRUD | Query + mutations + events | `useProjectStore` | Project/Workspace queries; thin UI selection store | Core domain |
-| Git status, changed files, diffs, branches | Queries + mutations | `useGitStore`, `useGitInfoStore` | Git query hooks; orchestration only in store | Core domain |
-| Files, tree, search | Queries + mutations | `useFileTreeStore`, editor callers | Filesystem queries; editor buffer remains Zustand | Core domain |
-| GitHub PR/CI/actions | Queries + mutations + polling | Hook-local state + `github-pr-cache` | GitHub query hooks and consolidated WS API module | Extended |
-| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries plus thin workflow orchestration | Extended |
-| Skills | Queries + mutations | Component local state | Skills query hooks | Extended |
-| Automations definitions/runs | Queries + mutations + events/stream | Hook-local state + WS sync | Automation queries/event bridge; output stream stays local | Extended |
-| Local models/services | Queries + mutations + events | Zustand stores | Query hooks; progress event handling remains local | Extended |
-| Agent registry/custom agents | Queries + mutations | Agent manager hook state | Agent registry query hooks | Extended |
-| Terminal layout persistence | Query + mutations mixed with client runtime | `useTerminalStore` | Deferred until layout/runtime separation is designed | Deferred |
-| Agent Hooks sessions/status | Query + mutations + events | `useAgentHooksStore` | Deferred; live hook lifecycle remains one owner | Deferred |
-| Connection/client-session/token hydration | Orchestration | Connection stores/libs | Existing imperative lifecycle | Excluded |
-| Terminal PTY, Agent Chat, output chunks | Streams | Dedicated sockets/event buffers | Existing owners | Excluded |
-| Editor buffers, layout, navigation, terminal DOM cache | Client state | Zustand/React/DOM | Existing owners | Excluded |
-| OS open commands and Preview Next routes | Command/local HTTP | API helpers | Existing owners unless separately justified | Excluded |
+The typed inventory expands each grouped row to individual exported operations before cutover.
+
+| Domain / operation group | Class | Legacy owner | Target owner | Invalidated by / freshness source | Phase | Status |
+|--------------------------|-------|--------------|--------------|-----------------------------------|-------|--------|
+| Tmux, runtime, GH CLI status, terminal overview, WS connections | Query | Hook/component local state | System query hooks | reconnect; explicit user refresh | Pilot | planned |
+| Canvas default board load/save | Query + mutation | `use-canvas-board` and mixed REST/WS callers | Canvas query hooks after one transport is chosen | successful save | Deferred decision | deferred |
+| Settings bootstrap and function settings | Query + mutation | `settingsBootstrapCache` + Zustand | Settings bootstrap query + selectors/mutations | mutation success; reconnect | Pilot | planned |
+| Usage overview | Query + mutation + event | `Footer`, `UsagePopover`, synthetic event | Usage query hooks + single event bridge | `usage_overview_updated`; mutation success; reconnect | Pilot | planned |
+| Token usage | Query + event | `TokenUsageDialog` local state | Token usage query hook | `token_usage_updated` | Extended | planned |
+| ACP session list | Infinite query | `use-acp-session-list` refs/state | Agent session infinite query | session create/logout; explicit refresh | Extended | planned |
+| Project/Workspace bootstrap and CRUD | Query + mutations + events | `useProjectStore` | Project/Workspace queries; thin UI selection store | workspace progress completion; CRUD | Core | planned |
+| Git status, changed files, diffs, branches | Queries + mutations | `useGitStore`, `useGitInfoStore` | Git query hooks; orchestration-only store | Git mutations; reconnect; workspace changes | Core | planned |
+| Files, tree, search | Queries + mutations | `useFileTreeStore`, editor callers | Filesystem queries; editor buffer remains Zustand | filesystem mutations; workspace changes | Core | planned |
+| GitHub PR/CI/actions | Queries + mutations + polling | Hook-local state + `github-pr-cache` | GitHub query hooks + consolidated WS API | GitHub mutations; terminal CI polling rule | Extended | planned |
+| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries + thin workflow orchestration | review mutations | Extended | planned |
+| Skills | Queries + mutations | Component local state | Skills query hooks | install/enable/delete/sync | Extended | planned |
+| Automations definitions/runs | Queries + mutations + events/stream | Hook-local state + WS sync | Automation queries/event bridge; output stream local | `automation_definition_updated`; `automation_run_updated` | Extended | planned |
+| Local models/services | Queries + mutations + events | Zustand stores | Query hooks; progress events local | `local_model_state_changed`; scan/stop | Extended | planned |
+| Agent registry/custom agents | Queries + mutations | Agent manager hook state | Agent registry query hooks | install/remove/config mutations | Extended | planned |
+| Terminal layout persistence | Mixed query/mutation + client runtime | `useTerminalStore` | Requires separate layout/runtime design | Existing save/load lifecycle | Deferred | deferred |
+| Agent Hooks sessions/status | Query + mutations + events | `useAgentHooksStore` | Requires separate live-lifecycle design | `agent_hook_state_changed`; sessions cleared | Deferred | deferred |
+| Connection/client-session/token hydration | Orchestration | Connection stores/libs | Existing imperative lifecycle | identity/session transition actions | Excluded | excluded |
+| Terminal PTY, Agent Chat, output chunks | Streams | Dedicated sockets/event buffers | Existing owners | Dedicated transport events | Excluded | excluded |
+| Editor buffers, layout, navigation, terminal DOM cache | Client state | Zustand/React/DOM | Existing owners | Client actions | Excluded | excluded |
+| OS open commands and Preview Next routes | Command/local HTTP | API helpers | Existing owners unless separately justified | Explicit command | Excluded | excluded |
 
 Before a domain moves from `planned` to `complete`, its implementation review must enumerate every exported operation in that domain and assign one row/classification. Unused operations may remain deferred; they must not receive empty Query wrappers for coverage statistics.
 
@@ -375,6 +451,8 @@ Each domain uses four states:
 4. **Cleaned:** old snapshot fields, caches, timers, stale-response ids, and duplicate event emissions are removed.
 
 Merge rule: a consumer must switch atomically from legacy data to Query data. Compatibility code may duplicate transport adapters, but it may not mirror or synchronize two caches.
+
+During the pilot, Project prefetch remains entirely legacy-owned. The provider foundation does not create a Project Query, so `WebSocketProvider`, `DesktopStartupPrefetchBootstrap`, and `reloadActiveConnectionData()` cannot duplicate a Query request. All three switch atomically in the Project cutover commit.
 
 Examples:
 
@@ -445,9 +523,9 @@ No feature flag is required for the inert provider foundation. Domain cutovers s
 - Uses the current Next.js/React web stack and existing API clients.
 - No minimum server version change and no external service dependency.
 
-## Review questions
+## Assumptions for review
 
-- [ ] Confirm the pilot surfaces: system status + settings bootstrap + usage overview, with Canvas deferred pending transport consolidation.
-- [ ] Confirm safety-first target switching: remove all old Computer snapshots rather than retain inactive per-Computer caches.
-- [ ] Decide whether N2 Query Devtools should be added later as a development-only dependency.
-- [ ] Decide whether web/mobile should eventually share key factories or only aligned conventions.
+- Pilot surfaces are system status, settings bootstrap, and usage overview; Canvas waits for transport consolidation.
+- Target and identity changes remove old Computer snapshots; inactive per-Computer cache retention is not part of v1.
+- Query Devtools are not added initially.
+- Web/mobile align conventions only; shared key factories require a later decision.
