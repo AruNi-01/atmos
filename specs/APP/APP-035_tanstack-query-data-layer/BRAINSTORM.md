@@ -21,8 +21,8 @@ The user-facing goal is therefore not framework coverage by itself. It is predic
 - **Primary:** make server-backed screens feel faster and more consistent by reusing cached data, retaining useful previous data during refresh, and deduplicating concurrent reads.
 - Standardize loading, error, retry, refresh, pagination, and mutation-invalidation behavior.
 - Make cache ownership explicit across local browser, Desktop, and Relay-connected Atmos Computers.
-- Let WebSocket events update or invalidate cached snapshots without replacing event streams with polling.
-- Remove bespoke caches and stale-response guards where TanStack Query provides equivalent behavior.
+- If TanStack Query is adopted, let WebSocket events update or invalidate cached snapshots without replacing event streams with polling.
+- Retire bespoke caches and stale-response guards only where the selected approach provides equivalent behavior.
 - Preserve transport rules: interactive workflows stay WebSocket-first, and no duplicate REST endpoints are added for migration convenience.
 - Establish an incremental path that can be verified feature by feature.
 
@@ -33,6 +33,7 @@ The user-facing goal is therefore not framework coverage by itself. It is predic
 - Can mutations leave another panel showing stale data until a manual refresh?
 - Are retry and error states inconsistent or hidden behind console logging and one-off toasts?
 - Can changing the active Atmos Computer expose cached data from the previous connection?
+- Does the current target-switch lifecycle reset every server-state owner consistently, or only selected stores?
 - Do reconnects trigger too much refetching, or fail to refresh data that became stale while disconnected?
 
 These are plausible findings from the current implementation patterns, not measured production incidents. Baselines should be gathered before setting success thresholds.
@@ -119,6 +120,22 @@ Create query/mutation hooks for every exported API operation in one rollout, inc
 
 **Unknown:** whether any practical benefit justifies the migration and review risk.
 
+### Option E — Harden existing patterns without TanStack Query
+
+Keep TanStack Query out of the web app. Standardize the current Zustand, hook, and module-cache patterns around shared ownership, result-state, deduplication, and connection-reset conventions.
+
+**Possible shapes**
+
+- Publish a server-state store contract with consistent pending/error/refresh behavior.
+- Extract reusable single-flight and target-scoped cache helpers from existing implementations.
+- Audit target-switch resets and mutation-driven refresh without introducing a new runtime dependency.
+
+**Pros:** smallest architectural change; preserves imperative store consumers and existing workflow orchestration; avoids a dual-cache migration.
+
+**Cons:** continues web/mobile data-layer divergence; retains more custom cache machinery; does not realize the original APP-001 Query direction.
+
+**Unknown:** whether shared conventions alone can reduce enough boilerplate and user-visible inconsistency.
+
 ## Key forks in the road
 
 - **Framework coverage vs. user outcome:** migrate every callable operation vs. migrate cacheable server state — decide in PRD.
@@ -144,16 +161,17 @@ Create query/mutation hooks for every exported API operation in one rollout, inc
 
 ## Open questions
 
-- [ ] Which concrete user complaints or telemetry triggered this request: loading flashes, stale data, duplicate calls, error handling, or developer maintainability?
-- [ ] Is v1 limited to `apps/web`, or should web and mobile share query-key conventions or utilities?
-- [ ] Which three high-traffic screens should establish the before/after UX baseline?
-- [ ] Should previously visited computer caches survive target switches in memory, or always be removed?
-- [ ] Are any server snapshots sensitive enough to require immediate cache removal on logout/token change?
-- [ ] Which current Zustand stores are relied on outside React render paths?
-- [ ] Which mutations require optimistic feedback to meet existing UX expectations?
-- [ ] Should query devtools be development-only, or omitted entirely?
-- [ ] What measured signals define success: duplicate request count, back-navigation loading flashes, stale-view bugs, or time to usable data?
-- [ ] Which existing manual caches have behavior that must be preserved rather than replaced?
+- [ ] **PRD:** Which concrete user complaints or telemetry triggered this request: loading flashes, stale data, duplicate calls, error handling, or developer maintainability?
+- [ ] **PRD:** Is v1 limited to `apps/web`, or should web and mobile share behavior expectations?
+- [ ] **PRD:** Which three high-traffic screens should establish the before/after UX baseline?
+- [ ] **PRD / TECH:** Should previously visited computer caches survive target switches in memory, or always be removed?
+- [ ] **PRD / TECH:** Are any server snapshots sensitive enough to require immediate cache removal on logout/token change?
+- [ ] **TECH:** Which current Zustand stores are relied on outside React render paths?
+- [ ] **PRD / TECH:** Which mutations require optimistic feedback to meet existing UX expectations?
+- [ ] **TECH:** If Query is selected, should web and mobile share query-key conventions or utilities?
+- [ ] **TECH:** Should query devtools be development-only, or omitted entirely?
+- [ ] **PRD:** What measured signals define success: duplicate request count, back-navigation loading flashes, stale-view bugs, or time to usable data?
+- [ ] **TECH:** Which existing manual caches have behavior that must be preserved rather than replaced?
 
 ## Suggested discovery before PRD
 
@@ -168,6 +186,7 @@ Create query/mutation hooks for every exported API operation in one rollout, inc
 - Existing web transport and API boundaries: `apps/web/src/api/rest-api.ts`, `apps/web/src/api/ws-api.ts`, `apps/web/src/api/ws/`
 - Existing connection lifecycle: `apps/web/src/features/connection/hooks/use-websocket.ts`, `apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts`
 - Existing server-state stores and caches: `apps/web/src/features/project/store/use-project-store.ts`, `apps/web/src/features/git/store/use-git-store.ts`, `apps/web/src/api/ws/settings-bootstrap-cache.ts`
+- Target-switch audit example: compare the stores reset by `connection-target-lifecycle.ts` with snapshots retained by `use-git-store.ts`
 - Web provider boundary: `apps/web/src/app/layout.tsx`, `apps/web/src/providers/`
 - Mobile precedent: `apps/mobile/src/providers/query-client.ts`, `apps/mobile/src/providers/AppProviders.tsx`
 - Original design intent: [`APP-001 Atmos Core`](../APP-001_atmos-core/TECH.md)
