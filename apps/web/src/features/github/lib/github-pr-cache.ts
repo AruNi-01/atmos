@@ -130,6 +130,12 @@ export function clearCachedBranchPrs(params: {
   branchPrCache.delete(branchPrCacheKey(params.owner, params.repo, params.branch, params.state));
 }
 
+/** Clear all module-level PR caches on Computer target switch (APP-035). */
+export function clearAllCachedPrs(): void {
+  repoPrCache.clear();
+  branchPrCache.clear();
+}
+
 export function getRepoPrSeedForBranch(params: {
   owner: string;
   repo: string;

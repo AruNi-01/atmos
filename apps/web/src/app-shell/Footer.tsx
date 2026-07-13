@@ -12,9 +12,10 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
-import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
-import { usageWsApi, type UsageOverviewResponse } from '@/api/ws-api';
+import type { WsConnectionInfo } from '@/api/rest-api';
 import { buildUsageCarouselItems } from '@/features/usage/lib/usage-display';
+import { useUsageOverviewQuery } from '@/features/usage/hooks/use-usage-overview-query';
+import { useWsConnectionsQuery } from '@/features/system/hooks/use-system-status-queries';
 import {
   useAgentHooksStore,
   type AgentHookSession,
@@ -442,11 +443,18 @@ const Footer: React.FC = () => {
   const showUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
   const showAgentStatus = useLayoutSettingsStore((s) => s.showAgentStatus);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
-  const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
-  const [usageOverview, setUsageOverview] = useState<UsageOverviewResponse | null>(null);
+  const usageQuery = useUsageOverviewQuery({
+    enabled: connectionState === 'connected' && showUsageCarousel,
+  });
+  const usageOverview = usageQuery.data ?? null;
+  const [connectionsEnabled, setConnectionsEnabled] = useState(false);
+  const wsConnectionsQuery = useWsConnectionsQuery({
+    enabled: connectionState === 'connected' && showWsConnection && connectionsEnabled,
+  });
+  const connections: WsConnectionInfo[] = wsConnectionsQuery.data?.connections ?? [];
+  const loading = wsConnectionsQuery.isFetching;
   const [usageIndex, setUsageIndex] = useState(0);
   const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const resolveContextName = useContextNameResolver();
 
@@ -470,31 +478,6 @@ const Footer: React.FC = () => {
   }, [loadExperimentSettings, loadLayoutSettings]);
 
   useEffect(() => {
-    if (connectionState !== 'connected') return;
-
-    let cancelled = false;
-    usageWsApi.getOverview(false)
-      .then((overview) => {
-        if (!cancelled) setUsageOverview(overview);
-      })
-      .catch(() => {
-        if (!cancelled) setUsageOverview(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [connectionState]);
-
-  useEffect(() => {
-    return useWebSocketStore
-      .getState()
-      .onEvent("usage_overview_updated", (data: unknown) => {
-        setUsageOverview(data as UsageOverviewResponse);
-      });
-  }, []);
-
-  useEffect(() => {
     setUsageIndex(0);
   }, [usageCarouselItems.length]);
 
@@ -507,17 +490,9 @@ const Footer: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [isUsageCarouselHovered, usageCarouselItems.length]);
 
-  const fetchConnections = useCallback(async () => {
+  const fetchConnections = useCallback(() => {
     if (connectionState !== 'connected') return;
-    setLoading(true);
-    try {
-      const data = await systemApi.getWsConnections();
-      setConnections(data.connections);
-    } catch {
-      setConnections([]);
-    } finally {
-      setLoading(false);
-    }
+    setConnectionsEnabled(true);
   }, [connectionState]);
 
   const statusColors: Record<typeof connectionState, string> = {

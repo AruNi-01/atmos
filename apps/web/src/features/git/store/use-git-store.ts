@@ -177,6 +177,8 @@ interface GitStore {
   compareAgainstRef: (baseRef: string) => Promise<void>;
   compareWorktreeChanges: () => Promise<void>;
   resetCompareMode: () => void;
+  /** Clear Computer-scoped git snapshots on target switch (APP-035). */
+  resetForConnectionChange: () => void;
   selectFile: (filePath: string | null) => void;
   commitChanges: (message: string) => Promise<void>;
   pushChanges: () => Promise<void>;
@@ -776,5 +778,25 @@ export const useGitStore = create<GitStore>((set, get) => ({
       isLoading: false,
     });
     useGitInfoStore.setState({ isLoadingStatus: false });
+  },
+
+  resetForConnectionChange: () => {
+    invalidateGitRefreshRequests();
+    set({
+      currentRepoPath: null,
+      gitStatus: null,
+      stagedFiles: [],
+      unstagedFiles: [],
+      untrackedFiles: [],
+      compareFiles: [],
+      compareRef: null,
+      compareMode: 'branch',
+      compareBaseRef: null,
+      totalAdditions: 0,
+      totalDeletions: 0,
+      isBranchPublished: true,
+      isLoading: false,
+      selectedFilePath: null,
+    });
   },
 }));

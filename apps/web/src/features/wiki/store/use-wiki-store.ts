@@ -42,6 +42,8 @@ interface WikiStore {
   loadPage: (contextId: string, effectivePath: string, filePath: string) => Promise<void>;
   setActivePage: (contextId: string, pageId: string) => void;
   resetContext: (contextId: string) => void;
+  /** Clear all wiki context snapshots on Computer target switch (APP-035). */
+  resetForConnectionChange: () => void;
 }
 
 const getDefaultState = (): WikiContextState => ({
@@ -345,6 +347,12 @@ export const useWikiStore = create<WikiStore>()((set) => ({
       delete next[contextId];
       return { contextStates: next };
     });
+  },
+
+  resetForConnectionChange: () => {
+    _loadCatalogId += 1;
+    _loadPageId += 1;
+    set({ contextStates: {} });
   },
 }));
 

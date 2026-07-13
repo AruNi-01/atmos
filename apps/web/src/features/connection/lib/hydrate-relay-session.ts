@@ -16,6 +16,10 @@
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import { useConnectionStore } from '@/features/connection/store/connection-store';
+import {
+  applyRelaySessionTransport,
+  resetRelaySessionForQuery,
+} from '@/features/connection/lib/query-identity-lifecycle';
 
 interface ClientSession {
   version: number;
@@ -149,7 +153,7 @@ export async function hydrateRelaySessionFromDisk(opts?: {
     store.setLocalServerId(localServerId);
   }
   if (localServerId && session.server_id === localServerId) {
-    store.resetRelaySession();
+    await resetRelaySessionForQuery();
     store.setConnectionMode('local');
     await clearRelayClientSession(base, headers);
     useConnectionStore.getState().syncActiveInstanceFromComputer();
@@ -157,9 +161,11 @@ export async function hydrateRelaySessionFromDisk(opts?: {
   }
 
   store.setSelectedServerId(session.server_id);
-  store.setRelayWebSocketUrl(wsUrl);
-  store.setRelayGatewayHttpBase(session.api_base_url);
-  store.setRelayClientToken(session.gateway_token);
+  await applyRelaySessionTransport({
+    relayWebSocketUrl: wsUrl,
+    relayGatewayHttpBase: session.api_base_url,
+    relayClientToken: session.gateway_token,
+  });
   store.setConnectionMode('relay');
   // Mirror onto the active connection instance so downstream code reading
   // `useConnectionStore` sees the relay target immediately.

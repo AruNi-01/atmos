@@ -5,12 +5,14 @@ import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { defaultLocale } from "@atmos/i18n/config";
 import { ThemeProvider } from "@/providers/app/theme-provider";
+import { QueryProvider } from "@/providers/app/query-provider";
 import { WebSocketProvider } from "@/providers/app/websocket-provider";
 import { DesktopStartupPrefetchBootstrap } from "@/app-shell/bootstrap/DesktopStartupPrefetchBootstrap";
 import { TmuxCheckProvider } from "@/providers/app/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-bridge";
 import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
+import { ServerStateEventBridge } from "@/providers/app/server-state-event-bridge";
 import {
   AgentToastProvider,
   AnchoredToastProvider,
@@ -72,21 +74,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           >
             <DesktopExternalUrlBridge />
             <WorkbenchIntlProvider initialLocale={defaultLocale}>
-              <UpdateNotification />
-              <WebSocketProvider>
-                <DesktopStartupPrefetchBootstrap />
-                <TmuxCheckProvider>
-                  <ToastProvider position="bottom-right">
-                    <AgentToastProvider>
-                      <AnchoredToastProvider>
-                        <TooltipProvider>
-                          {children}
-                        </TooltipProvider>
-                      </AnchoredToastProvider>
-                    </AgentToastProvider>
-                  </ToastProvider>
-                </TmuxCheckProvider>
-              </WebSocketProvider>
+              <QueryProvider>
+                <UpdateNotification />
+                <WebSocketProvider>
+                  <ServerStateEventBridge />
+                  <DesktopStartupPrefetchBootstrap />
+                  <TmuxCheckProvider>
+                    <ToastProvider position="bottom-right">
+                      <AgentToastProvider>
+                        <AnchoredToastProvider>
+                          <TooltipProvider>
+                            {children}
+                          </TooltipProvider>
+                        </AnchoredToastProvider>
+                      </AgentToastProvider>
+                    </ToastProvider>
+                  </TmuxCheckProvider>
+                </WebSocketProvider>
+              </QueryProvider>
             </WorkbenchIntlProvider>
           </ThemeProvider>
         </NuqsAdapter>

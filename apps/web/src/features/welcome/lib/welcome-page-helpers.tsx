@@ -12,6 +12,7 @@ import type { ComposerAttachment } from "@/features/welcome/components/Attachmen
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
 import {
+  clearAllCachedPrs,
   clearCachedRepoPrs,
   getCachedRepoPrs,
   setCachedRepoPrs,
@@ -62,6 +63,13 @@ export const issueListCache = new Map<
   string,
   { expiresAt: number; issues: GithubIssuePayload[] }
 >();
+
+/** Clear welcome GitHub list caches on Computer target switch (APP-035). */
+export function clearWelcomeGithubCaches(): void {
+  issueListCache.clear();
+  clearAllCachedPrs();
+}
+
 export const prListCache = {
   get(cacheKey: string): { expiresAt: number; prs: GithubPrPayload[] } | undefined {
     const [owner, repo] = cacheKey.split("/");

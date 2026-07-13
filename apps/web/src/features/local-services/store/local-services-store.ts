@@ -23,6 +23,8 @@ interface LocalServicesStore {
   scopes: Record<string, ScopeState>;
   scan: (request: LocalServicesScanRequest) => Promise<LocalServicesScanResponse | null>;
   clear: (key: string) => void;
+  /** Clear all scanned scopes on Computer target switch (APP-035). */
+  resetForConnectionChange: () => void;
 }
 
 let cachedLocalServicesStoreLocale: "en" | "zh" | null = null;
@@ -111,5 +113,9 @@ export const useLocalServicesStore = create<LocalServicesStore>((set, get) => ({
       delete next[key];
       return { scopes: next };
     });
+  },
+
+  resetForConnectionChange: () => {
+    set({ scopes: {} });
   },
 }));

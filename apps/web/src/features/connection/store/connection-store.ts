@@ -14,7 +14,10 @@ import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-
 
 interface ConnectionStoreState {
   activeInstanceId: ConnectionInstanceId;
+  /** Bumped only on intentional Computer/target identity transitions (APP-035). */
+  connectionEpoch: number;
   setActiveInstanceId: (id: ConnectionInstanceId) => void;
+  bumpConnectionEpoch: () => number;
   syncActiveInstanceFromComputer: () => void;
 }
 
@@ -22,10 +25,17 @@ export const useConnectionStore = create<ConnectionStoreState>((set, get) => ({
   activeInstanceId: parseConnectionInstanceId(
     typeof window !== 'undefined' ? readActiveInstanceIdRaw() : null,
   ),
+  connectionEpoch: 0,
 
   setActiveInstanceId: id => {
     writeActiveInstanceIdRaw(id);
     set({ activeInstanceId: id });
+  },
+
+  bumpConnectionEpoch: () => {
+    const next = get().connectionEpoch + 1;
+    set({ connectionEpoch: next });
+    return next;
   },
 
   syncActiveInstanceFromComputer: () => {

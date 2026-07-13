@@ -46,7 +46,7 @@ import {
   type UsageAggregateResponse,
   type UsageOverviewResponse,
 } from "@/api/ws-api";
-import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useUsageOverviewCache, useUsageOverviewQuery } from "@/features/usage/hooks/use-usage-overview-query";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useUsageProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
 import {
@@ -114,7 +114,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
-  const [overview, setOverview] = useState<UsageOverviewResponse | null>(null);
+  const usageQuery = useUsageOverviewQuery({ enabled: open || embedded });
+  const { setOverview: writeOverviewCache } = useUsageOverviewCache();
+  const overview = usageQuery.data ?? null;
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -163,14 +165,14 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     try {
       const next = await usageWsApi.getOverview(refresh, providerId);
-      setOverview(next);
+      writeOverviewCache(next);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : loadOverviewErrorTextRef.current);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [overview]);
+  }, [overview, writeOverviewCache]);
 
   const toggleProviderSwitch = useCallback(async (providerId: string, enabled: boolean) => {
     setSwitchingProviderId(providerId);
@@ -178,13 +180,13 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     try {
       const next = await usageWsApi.setProviderSwitch(providerId, enabled);
-      setOverview(next);
+      writeOverviewCache(next);
     } catch (switchError) {
       setError(switchError instanceof Error ? switchError.message : t("errors.updateProviderSwitch"));
     } finally {
       setSwitchingProviderId(null);
     }
-  }, [t]);
+  }, [t, writeOverviewCache]);
 
   const toggleAllProvidersSwitch = useCallback(async (enabled: boolean) => {
     setSwitchingProviderId(ALL_PROVIDER_SWITCH_ID);
@@ -192,7 +194,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     try {
       const next = await usageWsApi.setAllProvidersSwitch(enabled);
-      setOverview(next);
+      writeOverviewCache(next);
     } catch (switchError) {
       setError(
         switchError instanceof Error ? switchError.message : t("errors.updateAllProviderSwitches")
@@ -200,7 +202,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     } finally {
       setSwitchingProviderId(null);
     }
-  }, [t]);
+  }, [t, writeOverviewCache]);
 
   const addProviderApiKey = useCallback(
     async (providerId: string, region: string, apiKey: string) => {
@@ -209,14 +211,14 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
       try {
         const next = await usageWsApi.addProviderApiKey(providerId, region || null, apiKey);
-        setOverview(next);
+        writeOverviewCache(next);
       } catch (addError) {
         setError(addError instanceof Error ? addError.message : t("errors.addApiKey"));
       } finally {
         setSavingManualSetupProviderId(null);
       }
     },
-    [t]
+    [t, writeOverviewCache]
   );
 
   const deleteProviderApiKey = useCallback(
@@ -226,14 +228,14 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
       try {
         const next = await usageWsApi.deleteProviderApiKey(providerId, keyId);
-        setOverview(next);
+        writeOverviewCache(next);
       } catch (deleteError) {
         setError(deleteError instanceof Error ? deleteError.message : t("errors.deleteApiKey"));
       } finally {
         setDeletingKeyId(null);
       }
     },
-    [t]
+    [t, writeOverviewCache]
   );
 
   useEffect(() => {
@@ -254,15 +256,14 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   }, [open, overview, loadOverview]);
 
   useEffect(() => {
-    return useWebSocketStore
-      .getState()
-      .onEvent("usage_overview_updated", (data: unknown) => {
-        setOverview(data as UsageOverviewResponse);
-        setError(null);
-        setIsRefreshing(false);
-        setIsLoading(false);
-      });
-  }, []);
+    if (usageQuery.isError && !overview) {
+      setError(
+        usageQuery.error instanceof Error
+          ? usageQuery.error.message
+          : loadOverviewErrorTextRef.current,
+      );
+    }
+  }, [usageQuery.isError, usageQuery.error, overview]);
 
   useEffect(() => {
     if (!open || !overview?.auto_refresh.interval_minutes) return;
@@ -472,7 +473,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     try {
       const next = await usageWsApi.setAutoRefresh(nextValue ? Number(nextValue) : null);
-      setOverview(next);
+      writeOverviewCache(next);
       setIsAutoRefreshPopoverOpen(false);
     } catch (updateError) {
       setError(
@@ -481,7 +482,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     } finally {
       setIsUpdatingAutoRefresh(false);
     }
-  }, [t]);
+  }, [t, writeOverviewCache]);
 
   const toggleFooterCarouselProvider = useCallback(async (providerId: string, enabled: boolean) => {
     setSwitchingFooterCarouselProviderId(providerId);
@@ -489,7 +490,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     try {
       const next = await usageWsApi.setProviderFooterCarousel(providerId, enabled);
-      setOverview(next);
+      writeOverviewCache(next);
     } catch (toggleError) {
       setError(
         toggleError instanceof Error ? toggleError.message : t("errors.updateFooterCarousel")
@@ -497,7 +498,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     } finally {
       setSwitchingFooterCarouselProviderId(null);
     }
-  }, [t]);
+  }, [t, writeOverviewCache]);
 
   const PanelShell: React.ElementType = embedded ? "div" : PopoverContent;
   const panelShellProps = embedded

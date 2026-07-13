@@ -59,6 +59,7 @@ import {
   saveComputerClientSettingsToDisk,
   type ComputerClientSettingsSaveLocation,
 } from '@/features/connection/lib/sync-computer-client-settings';
+import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
 import { AppShellLoading } from '@/app-shell/AppShellLoading';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
@@ -233,10 +234,7 @@ function HostedConnectionOnboarding({
     selectedServerId,
     connectionMode,
     relayWebSocketUrl,
-    setAccessToken,
     setComputers,
-    setRelayUrl,
-    setRelaySecretKey,
   } = useAtmosComputerStore();
 
   const [activeTab, setActiveTab] = useState<'local' | 'remote'>(defaultTab);
@@ -348,9 +346,11 @@ function HostedConnectionOnboarding({
     setBusyAction('save-token');
     try {
       await ensureHostedAccessTokenReady(nextRelayUrl, token, nextRelaySecret);
-      setRelayUrl(nextRelayUrl);
-      setRelaySecretKey(nextRelaySecret);
-      setAccessToken(token);
+      await applyIdentityBearingComputerSettings({
+        relayUrl: nextRelayUrl,
+        relaySecretKey: nextRelaySecret,
+        accessToken: token,
+      });
       const saveResult = await saveComputerClientSettings(
         token,
         nextRelayUrl,
@@ -382,9 +382,11 @@ function HostedConnectionOnboarding({
     setBusyAction('generate-token');
     try {
       await ensureHostedAccessTokenReady(nextRelayUrl, token, nextRelaySecret);
-      setRelayUrl(nextRelayUrl);
-      setRelaySecretKey(nextRelaySecret);
-      setAccessToken(token);
+      await applyIdentityBearingComputerSettings({
+        relayUrl: nextRelayUrl,
+        relaySecretKey: nextRelaySecret,
+        accessToken: token,
+      });
       setTokenDraft(token);
       setGeneratedTokenReveal(token);
       setGeneratedTokenLocation(null);
@@ -466,8 +468,10 @@ function HostedConnectionOnboarding({
     const nextRelaySecret = relaySecretDraft.trim();
     setBusyAction(`connect-${serverId}`);
     try {
-      setRelayUrl(nextRelayUrl);
-      setRelaySecretKey(nextRelaySecret);
+      await applyIdentityBearingComputerSettings({
+        relayUrl: nextRelayUrl,
+        relaySecretKey: nextRelaySecret,
+      });
       const session = await createHostedRemoteSession(
         nextRelayUrl,
         token,
@@ -475,7 +479,7 @@ function HostedConnectionOnboarding({
         nextRelaySecret,
       );
       if (token && token !== accessToken) {
-        setAccessToken(token);
+        await applyIdentityBearingComputerSettings({ accessToken: token });
         void saveComputerClientSettingsToDisk(token, nextRelayUrl, nextRelaySecret);
       }
       await activateHostedRemoteConnection(serverId, session);
