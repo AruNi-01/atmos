@@ -42,6 +42,7 @@ import {
   type OpenFile,
 } from "@/features/editor/store/use-editor-store";
 import { useGitStore } from "@/features/git/store/use-git-store";
+import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 import { ChangesCodeView } from "@/features/diff/components/ChangesCodeView";
 import { DiffViewer } from "@/features/diff/components/DiffViewer";
 import { ReviewCodeView } from "@/features/diff/components/ReviewCodeView";
@@ -551,16 +552,12 @@ function CanvasCenterChangesGroupTab({
   tab: Extract<CanvasCenterTab, { kind: "changes-group" }>;
 }) {
   const contextId = getCanvasContextId(context);
-  const currentRepoPath = useGitStore((state) => state.currentRepoPath);
   const setCurrentRepoPath = useGitStore((state) => state.setCurrentRepoPath);
-  const refreshRepositoryState = useGitStore((state) => state.refreshRepositoryState);
 
   React.useEffect(() => {
     setCurrentRepoPath(tab.repoPath);
-    if (currentRepoPath === tab.repoPath) {
-      void refreshRepositoryState({ fetchRemote: false });
-    }
-  }, [currentRepoPath, refreshRepositoryState, setCurrentRepoPath, tab.repoPath]);
+    void invalidateGitQueries(tab.repoPath);
+  }, [setCurrentRepoPath, tab.repoPath]);
 
   return (
     <ChangesCodeView

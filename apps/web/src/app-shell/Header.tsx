@@ -20,8 +20,9 @@ import {
 } from '@workspace/ui';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useGithubPRList } from '@/features/github/hooks/use-github';
-import { useGitStore } from '@/features/git/store/use-git-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
@@ -73,7 +74,6 @@ const Header: React.FC = () => {
   const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
   const setupProgress = useProjectStore(s => s.setupProgress);
-  const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const { layout, updateLayout, loadLayout } = useAgentChatLayoutStore();
   useEffect(() => { loadLayout(); }, [loadLayout]);
@@ -106,22 +106,17 @@ const Header: React.FC = () => {
     window.location.reload();
   }, []);
   const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
+  const editorRepoPath = useEditorStore(s => s.currentProjectPath);
   const {
-    currentBranch,
     targetBranch,
-    hasUncommittedChanges,
-    hasUnpushedCommits,
-    uncommittedCount,
-    unpushedCount,
-    defaultBranch,
-    defaultBranchAhead,
-    defaultBranchBehind,
     setCurrentContext,
     setTargetBranch,
-    refreshGitStatus,
-    githubOwner,
-    githubRepo,
   } = useGitInfoStore();
+
+  const statusQuery = useGitStatusQuery(editorRepoPath ?? null);
+  const currentBranch = statusQuery.data?.current_branch ?? null;
+  const githubOwner = statusQuery.data?.github_owner ?? null;
+  const githubRepo = statusQuery.data?.github_repo ?? null;
 
   const [, setModalParams] = useQueryStates(rightSidebarModalParams);
 
@@ -173,6 +168,19 @@ const Header: React.FC = () => {
   const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
   const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
   const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
+
+  const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
+  const hasUncommittedChanges = statusQuery.data?.has_uncommitted_changes ?? false;
+  const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
+  const uncommittedCount = statusQuery.data?.uncommitted_count ?? 0;
+  const unpushedCount = statusQuery.data?.unpushed_count ?? 0;
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const defaultBranchAhead = statusQuery.data?.default_branch_ahead ?? null;
+  const defaultBranchBehind = statusQuery.data?.default_branch_behind ?? null;
+
+  const refreshGitStatus = useCallback(async () => {
+    if (headerRepoPath) await invalidateGitQueries(headerRepoPath);
+  }, [headerRepoPath]);
 
   // Editable state for target branch
 
@@ -580,7 +588,7 @@ const Header: React.FC = () => {
             isTargetBranchOpen={isTargetBranchOpen}
             onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
             onOpenPr={(prNumber) => setModalParams({ rsPr: prNumber })}
-            onRefreshChangedFiles={refreshChangedFiles}
+            onRefreshChangedFiles={refreshGitStatus}
             onSaveCurrentBranch={handleSaveCurrentBranch}
             onSetTargetBranch={setTargetBranch}
             prIconRef={prIconRef}

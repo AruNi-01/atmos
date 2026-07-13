@@ -21,7 +21,7 @@ import {
 } from '@workspace/ui';
 import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
 import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
-import { useGitStore } from '@/features/git/store/use-git-store';
+import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
 import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
@@ -68,8 +68,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const projects = useProjects();
-  const refreshChangedFiles = useGitStore((s) => s.refreshChangedFiles);
-  const refreshGitStatus = useGitStore((s) => s.refreshGitStatus);
   const {
     autoSave,
     lineWrap,
@@ -118,14 +116,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const handleGitGutterStateChanged = useCallback(
     async (kind: 'stage' | 'restore') => {
-      await refreshChangedFiles();
-      await refreshGitStatus();
+      if (currentProjectPath) {
+        await invalidateGitQueries(currentProjectPath);
+      }
       setGitDiffRefreshNonce((n) => n + 1);
       if (kind === 'restore') {
         await reloadFileContent(file.path, editorContextId || undefined);
       }
     },
-    [refreshChangedFiles, refreshGitStatus, reloadFileContent, file.path, editorContextId],
+    [currentProjectPath, reloadFileContent, file.path, editorContextId],
   );
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {

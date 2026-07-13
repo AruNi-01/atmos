@@ -6,6 +6,7 @@ import { getFileIconProps, Loader2, toastManager } from "@workspace/ui";
 import { useTheme } from "next-themes";
 import { fsApi } from "@/api/ws-api";
 import { useGitStore } from "@/features/git/store/use-git-store";
+import { useGitChangedFilesQuery, invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 
 const CONFLICT_STATUSES = new Set([
   "DD",
@@ -86,14 +87,10 @@ function ConflictFileRenderer({
 
 export function GitConflictResolver() {
   const { resolvedTheme } = useTheme();
-  const {
-    currentRepoPath,
-    stagedFiles,
-    unstagedFiles,
-    stageFiles,
-    refreshChangedFiles,
-    refreshGitStatus,
-  } = useGitStore();
+  const { currentRepoPath, stageFiles } = useGitStore();
+  const worktreeQuery = useGitChangedFilesQuery(currentRepoPath);
+  const stagedFiles = worktreeQuery.data?.staged_files ?? [];
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
 
   const conflictedFilePaths = useMemo(() => {
     const paths = new Set<string>();
@@ -172,7 +169,9 @@ export function GitConflictResolver() {
           const absolutePath = toAbsolutePath(currentRepoPath, relativePath);
           await fsApi.writeFile(absolutePath, resolvedFile.contents);
           await stageFiles([relativePath]);
-          await Promise.all([refreshChangedFiles(), refreshGitStatus()]);
+          if (currentRepoPath) {
+            await invalidateGitQueries(currentRepoPath);
+          }
         } catch (error) {
           const description =
             error instanceof Error ? error.message : "Failed to write resolved content";
@@ -190,7 +189,7 @@ export function GitConflictResolver() {
         }
       })();
     },
-    [currentRepoPath, refreshChangedFiles, refreshGitStatus],
+    [currentRepoPath, stageFiles],
   );
 
   if (!currentRepoPath) {

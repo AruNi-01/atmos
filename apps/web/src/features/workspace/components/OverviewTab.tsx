@@ -64,7 +64,7 @@ import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
-import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { useGithubPRList, useGithubActionsList } from '@/features/github/hooks/use-github';
 import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/features/github/components/ActionsPanel';
 import { fsApi, type GithubIssuePayload } from '@/api/ws-api';
@@ -265,7 +265,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     saveNote,
   } = useWorkspaceContext(contextId);
 
-  const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
+  const statusQuery = useGitStatusQuery(projectPath ?? null);
+  const githubOwner = statusQuery.data?.github_owner ?? null;
+  const githubRepo = statusQuery.data?.github_repo ?? null;
+  const currentBranch = statusQuery.data?.current_branch ?? null;
 
   const effectiveGitBranch = propGitBranch || currentBranch || 'main';
   const { data: prs, loading: prsLoading, refresh: refreshPRs } = useGithubPRList({

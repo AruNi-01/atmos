@@ -16,6 +16,9 @@ import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
 import { Loader2, toastManager } from '@workspace/ui';
 import { useGitStore } from '@/features/git/store/use-git-store';
+import { useGitChangedFilesQuery, GIT_WORKTREE_PARAMS } from '@/features/git/hooks/use-git-changed-files-query';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { computeCompareParams } from '@/features/git/lib/git-query-options';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
 import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
@@ -138,15 +141,24 @@ export const DiffViewer = ({
       : null,
   );
 
-  const {
-    stagedFiles,
-    unstagedFiles,
-    untrackedFiles,
-    compareFiles,
-    compareRef,
-    compareMode,
-    compareBaseRef,
-  } = useGitStore();
+  const compareMode = useGitStore((s) => s.compareMode);
+  const compareBaseRef = useGitStore((s) => s.compareBaseRef);
+
+  const statusQuery = useGitStatusQuery(repoPath);
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const compareParams = computeCompareParams(compareMode, defaultBranch, compareBaseRef);
+
+  const worktreeQuery = useGitChangedFilesQuery(repoPath, GIT_WORKTREE_PARAMS);
+  const compareQuery = useGitChangedFilesQuery(
+    compareMode !== 'worktree' ? repoPath : null,
+    compareParams,
+  );
+
+  const stagedFiles = worktreeQuery.data?.staged_files ?? [];
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? [];
+  const compareFiles = compareQuery.data?.staged_files ?? [];
+  const compareRef = compareQuery.data?.compare_ref ?? null;
 
   useEffect(() => {
     void loadDiffSettings();

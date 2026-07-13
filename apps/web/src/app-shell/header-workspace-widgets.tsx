@@ -17,7 +17,7 @@ import {
 } from '@/features/workspace/components/TaskListPanel';
 import { useWorkspaceContextStore } from '@/features/workspace/hooks/use-workspace-context';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { CommitActionsContainer } from '@/app-shell/sidebar/CommitActionsContainer';
 import { useTranslations } from "next-intl";
 
@@ -173,13 +173,12 @@ export function HeaderWorkspaceSummaryButton({
   const t = useTranslations("header");
   const showTask = useLayoutSettingsStore((state) => state.showHeaderSummaryTask);
   const showCommit = useLayoutSettingsStore((state) => state.showHeaderSummaryCommit);
-  const {
-    hasMergeConflicts,
-    hasUncommittedChanges,
-    hasUnpushedCommits,
-    uncommittedCount,
-    unpushedCount,
-  } = useGitInfoStore();
+  const statusQuery = useGitStatusQuery(effectivePath ?? null);
+  const hasMergeConflicts = statusQuery.data?.has_merge_conflicts ?? false;
+  const hasUncommittedChanges = statusQuery.data?.has_uncommitted_changes ?? false;
+  const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
+  const uncommittedCount = statusQuery.data?.uncommitted_count ?? 0;
+  const unpushedCount = statusQuery.data?.unpushed_count ?? 0;
   const {
     tasks,
     tasksLoading,

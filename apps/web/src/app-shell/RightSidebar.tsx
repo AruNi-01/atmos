@@ -9,6 +9,9 @@ import React, {
 } from "react";
 import { useTranslations } from "next-intl";
 import { useGitStore } from "@/features/git/store/use-git-store";
+import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { computeCompareParams } from "@/features/git/lib/git-query-options";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -44,7 +47,6 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import dynamic from "next/dynamic";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
@@ -226,13 +228,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   }, [workspaceId, projectIdFromUrl]);
 
   const {
-    stagedFiles,
-    unstagedFiles,
-    untrackedFiles,
-    compareFiles,
-    compareRef,
+    compareMode,
+    compareBaseRef,
     setCurrentRepoPath,
-    refreshRepositoryState,
     stageFiles,
     unstageFiles,
     discardUnstagedChanges,
@@ -246,9 +244,25 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
-    isLoading,
-    gitStatus,
+    isLoading: isMutating,
   } = useGitStore();
+
+  const worktreeQuery = useGitChangedFilesQuery(currentProjectPath, GIT_WORKTREE_PARAMS);
+  const statusQuery = useGitStatusQuery(currentProjectPath);
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const compareParams = computeCompareParams(compareMode, defaultBranch, compareBaseRef);
+  const compareQuery = useGitChangedFilesQuery(
+    compareMode !== 'worktree' ? currentProjectPath : null,
+    compareParams,
+  );
+
+  const stagedFiles = worktreeQuery.data?.staged_files ?? [];
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? [];
+  const compareFiles = compareQuery.data?.staged_files ?? [];
+  const compareRef = compareQuery.data?.compare_ref ?? null;
+  const gitStatus = statusQuery.data ?? null;
+  const isLoading = isMutating || worktreeQuery.isFetching || compareQuery.isFetching;
 
   const [{ rsTab: activeTab }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
@@ -286,7 +300,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     closed: false,
   });
 
-  const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
+  const githubOwner = statusQuery.data?.github_owner ?? null;
+  const githubRepo = statusQuery.data?.github_repo ?? null;
+  const currentBranch = statusQuery.data?.current_branch ?? null;
 
   useEffect(() => {
     if (isSettingUp) {
@@ -342,10 +358,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
   useEffect(() => {
     resetCompareMode();
-    if (hasWorkingContext) {
-      void refreshRepositoryState({ fetchRemote: true });
+    if (hasWorkingContext && currentProjectPath) {
+      void invalidateGitQueries(currentProjectPath);
     }
-  }, [changesScopeKey, hasWorkingContext, refreshRepositoryState, resetCompareMode]);
+  }, [changesScopeKey, hasWorkingContext, currentProjectPath, resetCompareMode]);
   const setChangesScopeMenuOpen = useCallback(
     (open: boolean) => {
       setChangesScopeState((current) => ({
@@ -402,13 +418,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
       if (scope === "branch") {
         resetCompareMode();
-        void refreshRepositoryState({ fetchRemote: true });
+        if (currentProjectPath) void invalidateGitQueries(currentProjectPath);
         return;
       }
 
       void compareWorktreeChanges();
     },
-    [changesScopeKey, compareWorktreeChanges, refreshRepositoryState, resetCompareMode],
+    [changesScopeKey, compareWorktreeChanges, currentProjectPath, resetCompareMode],
   );
 
   const handleSelectCommitScope = useCallback(
@@ -437,15 +453,35 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
 
     resetCompareMode();
-    await refreshRepositoryState({ fetchRemote: true });
+    if (currentProjectPath) await invalidateGitQueries(currentProjectPath);
   }, [
     changesScope,
     compareAgainstRef,
     compareWorktreeChanges,
-    refreshRepositoryState,
+    currentProjectPath,
     resetCompareMode,
     selectedCommitHash,
   ]);
+
+  const stageAllUnstagedFn = useCallback(async () => {
+    await stageAllUnstaged(unstagedFiles.map((f) => f.path));
+  }, [stageAllUnstaged, unstagedFiles]);
+
+  const stageAllUntrackedFn = useCallback(async () => {
+    await stageAllUntracked(untrackedFiles.map((f) => f.path));
+  }, [stageAllUntracked, untrackedFiles]);
+
+  const unstageAllFn = useCallback(async () => {
+    await unstageAll(stagedFiles.map((f) => f.path));
+  }, [unstageAll, stagedFiles]);
+
+  const discardAllUnstagedFn = useCallback(async () => {
+    await discardAllUnstaged(unstagedFiles.map((f) => f.path));
+  }, [discardAllUnstaged, unstagedFiles]);
+
+  const discardAllUntrackedFn = useCallback(async () => {
+    await discardAllUntracked(untrackedFiles.map((f) => f.path));
+  }, [discardAllUntracked, untrackedFiles]);
 
   const renderNoContextMessage = (
     <div className="flex h-full flex-col items-center justify-center text-muted-foreground/50">
@@ -653,7 +689,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           viewMode={changesFileViewMode}
                           hideHeader
                           onUnstage={unstageFiles}
-                          onUnstageAll={unstageAll}
+                          onUnstageAll={unstageAllFn}
                         />
                       ) : (
                         <>
@@ -666,8 +702,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             hideHeader
                             onStage={stageFiles}
                             onDiscard={discardUnstagedChanges}
-                            onStageAll={stageAllUnstaged}
-                            onDiscardAll={discardAllUnstaged}
+                            onStageAll={stageAllUnstagedFn}
+                            onDiscardAll={discardAllUnstagedFn}
                           />
                           <ChangeSection
                             kind="untracked"
@@ -678,8 +714,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             hideHeader
                             onStage={stageFiles}
                             onDiscard={discardUntrackedFiles}
-                            onStageAll={stageAllUntracked}
-                            onDiscardAll={discardAllUntracked}
+                            onStageAll={stageAllUntrackedFn}
+                            onDiscardAll={discardAllUntrackedFn}
                           />
                         </>
                       )
@@ -912,7 +948,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           activePrNumber={activePrNumber}
           onClosePr={() => setModalParams({ rsPr: null })}
           onPrMerged={() => {
-            void refreshRepositoryState({ fetchRemote: true });
+            if (currentProjectPath) void invalidateGitQueries(currentProjectPath);
           }}
           activeRunId={activeRunId}
           activeActionRun={activeActionRun}

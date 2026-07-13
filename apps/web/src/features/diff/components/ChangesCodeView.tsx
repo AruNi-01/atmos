@@ -9,6 +9,9 @@ import { useTheme } from 'next-themes';
 import { Loader2 } from 'lucide-react';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
+import { useGitChangedFilesQuery, GIT_WORKTREE_PARAMS } from '@/features/git/hooks/use-git-changed-files-query';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { computeCompareParams } from '@/features/git/lib/git-query-options';
 import { useEditorStore, type FileNavigationTarget } from '@/features/editor/store/use-editor-store';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
@@ -74,14 +77,26 @@ export function ChangesCodeView({
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
-  const compareRef = useGitStore((s) => s.compareRef);
+  const compareMode = useGitStore((s) => s.compareMode);
   const compareBaseRef = useGitStore((s) => s.compareBaseRef);
   const effectiveGroupKind =
     groupKind === 'compared' && compareBaseRef ? 'commit' : groupKind;
-  const stagedFiles = useGitStore((s) => s.stagedFiles);
-  const unstagedFiles = useGitStore((s) => s.unstagedFiles);
-  const untrackedFiles = useGitStore((s) => s.untrackedFiles);
-  const compareFiles = useGitStore((s) => s.compareFiles);
+
+  const statusQuery = useGitStatusQuery(repoPath);
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const compareParams = computeCompareParams(compareMode, defaultBranch, compareBaseRef);
+
+  const worktreeQuery = useGitChangedFilesQuery(repoPath, GIT_WORKTREE_PARAMS);
+  const compareQuery = useGitChangedFilesQuery(
+    compareMode !== 'worktree' ? repoPath : null,
+    compareParams,
+  );
+
+  const stagedFiles = worktreeQuery.data?.staged_files ?? [];
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? [];
+  const compareFiles = compareQuery.data?.staged_files ?? [];
+  const compareRef = compareQuery.data?.compare_ref ?? null;
 
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const setDiffGroupActiveFile = useEditorStore((s) => s.setDiffGroupActiveFile);
@@ -166,14 +181,7 @@ export function ChangesCodeView({
         compareRef,
       }),
     );
-  }, [
-    groupKind,
-    stagedFiles,
-    unstagedFiles,
-    untrackedFiles,
-    compareFiles,
-    compareRef,
-  ]);
+  }, [groupKind, stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef]);
 
   const totalStats = useMemo(
     () => ({

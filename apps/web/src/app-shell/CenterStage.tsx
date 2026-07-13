@@ -38,7 +38,7 @@ import {
 } from "@/shared/stores/use-ui-pref-hooks";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
-import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { canvasApi, systemApi } from "@/api/rest-api";
 import {
   PROJECT_WIKI_WINDOW_NAME,
@@ -292,7 +292,9 @@ const CenterStage: React.FC = () => {
   const setCodeReviewDialogOpen = useDialogStore(s => s.setCodeReviewDialogOpen);
   const projects = useProjects();
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
-  const { currentBranch } = useGitInfoStore();
+  const centerStageRepoPath = useGitStore((s) => s.currentRepoPath);
+  const statusQuery = useGitStatusQuery(centerStageRepoPath);
+  const currentBranch = statusQuery.data?.current_branch ?? null;
 
   const handleCloseFile = React.useCallback((file: OpenFile) => {
     if (file.isDirty) {
@@ -1014,7 +1016,7 @@ const CenterStage: React.FC = () => {
     openFiles,
   });
 
-  const { currentRepoPath } = useGitStore();
+  const currentRepoPath = centerStageRepoPath;
   const sessionDisplay = useReviewSnapshotStore((s) => s.sessionDisplay);
 
   const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {

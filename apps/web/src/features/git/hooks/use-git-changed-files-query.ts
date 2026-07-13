@@ -8,6 +8,9 @@ import {
   GIT_WORKTREE_PARAMS,
   type GitCompareParams,
 } from "@/features/git/lib/git-query-options";
+
+export { GIT_WORKTREE_PARAMS };
+export type { GitCompareParams };
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import { queryKeys } from "@/api/query/query-keys";
 import type { GitChangedFilesResponse } from "@/api/ws-api";
