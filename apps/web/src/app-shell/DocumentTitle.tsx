@@ -3,16 +3,16 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useContextParams } from "@/shared/hooks/use-context-params";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 
 /**
  * Client-side document title updater.
- * Reads project/workspace names from the store and sets document.title accordingly.
+ * Reads project/workspace names from the query cache and sets document.title accordingly.
  * Renders nothing — purely a side-effect component.
  */
 export function DocumentTitle() {
   const { workspaceId, projectId, currentView, skillId } = useContextParams();
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const t = useTranslations("appShell.documentTitle");
 
   const derivedTitle = (() => {

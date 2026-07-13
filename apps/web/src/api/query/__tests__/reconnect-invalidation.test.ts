@@ -14,11 +14,12 @@ const scope: ComputerQueryScope = {
 };
 
 describe("reconnect-invalidation", () => {
-  test("reconnectInvalidationKeys covers system, settings, and usage roots", () => {
+  test("reconnectInvalidationKeys covers system, settings, usage, and project bootstrap roots", () => {
     expect(reconnectInvalidationKeys(scope)).toEqual([
       queryKeys.computer.system(scope),
       queryKeys.computer.settingsBootstrap(scope),
       queryKeys.computer.usageOverview(scope),
+      queryKeys.computer.projectBootstrap(scope),
     ]);
   });
 

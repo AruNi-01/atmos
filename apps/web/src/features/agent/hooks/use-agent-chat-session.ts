@@ -6,7 +6,7 @@ import { useQueryState } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { agentChatParams } from "@/shared/lib/nuqs/searchParams";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import {
   getAgentPromptQueueKey,
   useDialogStore,
@@ -124,8 +124,7 @@ export function useAgentChatSession({
   const planByContextRef = useRef<Record<string, AgentPlan | null>>({});
   const sessionTitleByContextRef = useRef<Record<string, string | null>>({});
   const sessionTitleSourceByContextRef = useRef<Record<string, string | null>>({});
-  const projects = useProjectStore(s => s.projects);
-  const fetchProjects = useProjectStore(s => s.fetchProjects);
+  const projects = useProjects();
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
   const autoStartHandledRef = useRef(false);
@@ -141,11 +140,7 @@ export function useAgentChatSession({
   // ---------------------------------------------------------------------------
   // Fetch projects when panel opens
   // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (isPanelOpen && projects.length === 0) {
-      fetchProjects();
-    }
-  }, [isPanelOpen, projects.length, fetchProjects]);
+  // Projects are now loaded by the TanStack Query bootstrap; no manual fetch needed.
 
   const localPath = React.useMemo(
     () => resolveAgentChatLocalPath(projects, effectiveContextId),

@@ -30,6 +30,7 @@ import type { FixedTab } from "@/shared/lib/nuqs/searchParams";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import {
   clearLastPinnedTerminal,
   readCenterStageLastTab,
@@ -289,7 +290,7 @@ const CenterStage: React.FC = () => {
   const setCreateProjectOpen = useDialogStore(s => s.setCreateProjectOpen);
   const isCodeReviewDialogOpen = useDialogStore(s => s.isCodeReviewDialogOpen);
   const setCodeReviewDialogOpen = useDialogStore(s => s.setCodeReviewDialogOpen);
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
   const { currentBranch } = useGitInfoStore();
 

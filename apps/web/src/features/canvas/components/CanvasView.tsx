@@ -98,7 +98,7 @@ import {
   CanvasTerminalShapeUtil,
 } from "./CanvasTerminalCard";
 import { CanvasWidgetShapeUtil } from "./CanvasWidgetCard";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
 import type { ResolvedAgentFixLaunchRequest } from "@/features/agent-fix/types";
 import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
@@ -226,7 +226,7 @@ export const CanvasView: React.FC = () => {
   );
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
-  const projects = useProjectStore((state) => state.projects);
+  const projects = useProjects();
   const createTerminalTabWithInitialPane = useTerminalStore((state) => state.createTerminalTabWithInitialPane);
   /**
    * When `false`, tldraw's built-in StylePanel is force-hidden via

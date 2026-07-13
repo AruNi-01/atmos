@@ -63,6 +63,7 @@ import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useGithubPRList, useGithubActionsList } from '@/features/github/hooks/use-github';
 import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/features/github/components/ActionsPanel';
@@ -243,7 +244,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
   const updateWorkspaceWorkflowStatus = useProjectStore(s => s.updateWorkspaceWorkflowStatus);
   const updateWorkspaceLabels = useProjectStore(s => s.updateWorkspaceLabels);
-  const workspaceLabels = useProjectStore(s => s.workspaceLabels);
+  const workspaceLabels = useWorkspaceLabels();
   const createWorkspaceLabel = useProjectStore(s => s.createWorkspaceLabel);
   const updateWorkspaceLabel = useProjectStore(s => s.updateWorkspaceLabel);
   const {

@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import { ensureProjectBootstrap } from '@/features/project/hooks/use-project-bootstrap-query';
 
 const PROJECT_PREFETCH_IDLE_TIMEOUT_MS = 12_000;
 const DESKTOP_STARTUP_PREFETCH_TIMEOUT_MS = 30_000;
@@ -43,33 +43,6 @@ function getDesktopStartupPrefetchSnapshot() {
 
 function getDesktopStartupPrefetchServerSnapshot() {
   return 'settled' as const;
-}
-
-function waitForProjectIdle(timeoutMs = PROJECT_PREFETCH_IDLE_TIMEOUT_MS): Promise<void> {
-  if (!useProjectStore.getState().isLoading) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve) => {
-    let settled = false;
-    let unsubscribe: (() => void) | null = null;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      if (unsubscribe) {
-        unsubscribe();
-      }
-      window.clearTimeout(timeout);
-      resolve();
-    };
-
-    const timeout = window.setTimeout(finish, timeoutMs);
-    unsubscribe = useProjectStore.subscribe((state) => {
-      if (!state.isLoading) {
-        finish();
-      }
-    });
-  });
 }
 
 function waitForWebSocketConnected(): Promise<void> {
@@ -119,19 +92,7 @@ export function runDesktopStartupPrefetch(): Promise<void> {
   if (!desktopStartupPrefetchPromise) {
     desktopStartupPrefetchPromise = (async () => {
       await waitForWebSocketConnected();
-
-      const { projects, isLoading, fetchProjects } = useProjectStore.getState();
-      if (projects.length > 0) {
-        return;
-      }
-
-      if (isLoading) {
-        await waitForProjectIdle();
-        return;
-      }
-
-      await fetchProjects();
-      await waitForProjectIdle();
+      await ensureProjectBootstrap();
     })().catch((err) => {
       desktopStartupPrefetchPromise = null;
       throw err;
@@ -171,7 +132,7 @@ function startDesktopStartupPrefetchLoading() {
   }
 
   setDesktopStartupPrefetchStatus('loading');
-  void waitForDesktopStartupPrefetch().finally(() => {
+  void waitForDesktopStartupPrefetch(PROJECT_PREFETCH_IDLE_TIMEOUT_MS).finally(() => {
     setDesktopStartupPrefetchStatus('settled');
   });
 }

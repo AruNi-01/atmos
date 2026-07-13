@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import {
   Check,
   Button,
@@ -162,7 +163,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
   const contextId = workspaceId || projectIdFromUrl;
   const filePath = (contextId && getActiveFilePath(contextId)) || "";
-  const projects = useProjectStore((s) => s.projects);
+  const projects = useProjects();
   // Layout settings
   const projectFilesSide = useLayoutSettingsStore((s) => s.projectFilesSide);
   const rsShowChanges = useLayoutSettingsStore((s) => s.rsShowChanges);

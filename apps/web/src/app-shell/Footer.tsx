@@ -28,7 +28,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookStatusIndicator';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { LayoutDashboard, X } from 'lucide-react';
 import { ProviderGlyph } from '@/app-shell/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
@@ -200,7 +200,7 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
 }
 
 function useContextDisplayNameResolver() {
-  const projects = useProjectStore((s) => s.projects);
+  const projects = useProjects();
   const t = useTranslations("appShell");
   return useCallback((contextKey: string): string => {
     if (contextKey === "unknown") return t("footer.unknownProject");
@@ -218,7 +218,7 @@ function useContextDisplayNameResolver() {
 }
 
 function useContextNameResolver() {
-  const projects = useProjectStore((s) => s.projects);
+  const projects = useProjects();
   return useCallback(
     (contextId: string | null | undefined) =>
       resolveAgentHookContextNames(contextId, null, projects),
@@ -253,7 +253,7 @@ export function AgentStatusPopoverContent({
   const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
   const router = useAppRouter();
-  const projects = useProjectStore((s) => s.projects);
+  const projects = useProjects();
 
   const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
   const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);

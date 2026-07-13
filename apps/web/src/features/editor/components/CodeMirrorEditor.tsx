@@ -35,7 +35,7 @@ import { useQueryState } from 'nuqs';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { parseReviewReportMetadata } from '@/features/code-review/lib/review-report-frontmatter';
 import { ReviewReportMetadataCard } from '@/features/code-review/components/ReviewReportMetadataCard';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/features/files/components/FileTree';
 import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
@@ -66,7 +66,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     editorContextId ? state.navigationTargets[editorContextId]?.[file.path] ?? null : null
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
-  const { projects } = useProjectStore();
+  const projects = useProjects();
   const refreshChangedFiles = useGitStore((s) => s.refreshChangedFiles);
   const refreshGitStatus = useGitStore((s) => s.refreshGitStatus);
   const {

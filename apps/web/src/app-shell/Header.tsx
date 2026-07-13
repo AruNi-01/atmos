@@ -23,6 +23,7 @@ import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useGithubPRList } from '@/features/github/hooks/use-github';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
@@ -69,7 +70,7 @@ const Header: React.FC = () => {
   const [, setAgentChatOpen] = useAgentChatUrl();
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
 
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
@@ -249,7 +250,6 @@ const Header: React.FC = () => {
   } | null>(null);
 
   const deleteProject = useProjectStore(s => s.deleteProject);
-  const fetchProjects = useProjectStore(s => s.fetchProjects);
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
 
   useHeaderHotkeys({
@@ -658,13 +658,6 @@ const Header: React.FC = () => {
               try {
                 await wsWorkspaceApi.delete(deleteWorkspaceDialog.workspaceId);
                 deleteWorkspaceDialog.onDeleted?.();
-                // Also update local state if workspace exists in projects
-                const projectId = projects.find(p =>
-                  p.workspaces.some(w => w.id === deleteWorkspaceDialog.workspaceId)
-                )?.id;
-                if (projectId) {
-                  await fetchProjects();
-                }
               } catch (error) {
                 console.error('Failed to delete workspace:', error);
               }

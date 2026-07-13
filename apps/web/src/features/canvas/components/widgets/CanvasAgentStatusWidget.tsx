@@ -5,7 +5,7 @@ import { useEditor, useValue } from "tldraw";
 
 import { AgentStatusPopoverContent } from "@/app-shell/Footer";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
 import {
   navigateToAgentHookSessionPane,
@@ -35,7 +35,7 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
   const source = shape.props.source as CanvasAgentStatusWidgetSource;
   const editor = useEditor();
   const router = useAppRouter();
-  const projects = useProjectStore((state) => state.projects);
+  const projects = useProjects();
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
   const setFocusPulseShapeIds = useCanvasRuntimeStore((state) => state.setFocusPulseShapeIds);

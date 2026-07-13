@@ -5,7 +5,7 @@ import { useEditor } from "tldraw";
 
 import { OverviewTab } from "@/features/workspace/components/OverviewTab";
 import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useCanvasWidgetHost } from "@/features/canvas/components/CanvasWidgetHost";
 import {
   getCanvasContextId,
@@ -15,7 +15,7 @@ import {
 export function CanvasContextOverview({ context }: { context: CanvasContextRef }) {
   const editor = useEditor();
   const host = useCanvasWidgetHost();
-  const projects = useProjectStore((state) => state.projects);
+  const projects = useProjects();
   const currentBranch = useGitInfoStore((state) => state.currentBranch);
   const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
   const contextId = getCanvasContextId(context);

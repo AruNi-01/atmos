@@ -28,6 +28,11 @@ import {
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { useProjectStore } from "@/features/project/store/use-project-store";
+import {
+  useProjects,
+  useWorkspaceLabels,
+  useProjectBootstrapQuery,
+} from "@/features/project/hooks/use-project-bootstrap-query";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -93,12 +98,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const [isMounted, setIsMounted] = React.useState(false);
   const router = useAppRouter();
   const selectedProjectIdFromLauncher = useDialogStore((s) => s.selectedProjectId);
-  const projects = useProjectStore((s) => s.projects);
-  const isInitialProjectsLoading = useProjectStore(
-    (s) => s.isLoading && s.projects.length === 0,
-  );
+  const projects = useProjects();
+  const workspaceLabels = useWorkspaceLabels();
+  const bootstrapQuery = useProjectBootstrapQuery();
+  const isInitialProjectsLoading = bootstrapQuery.isPending && !bootstrapQuery.data;
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
-  const workspaceLabels = useProjectStore((s) => s.workspaceLabels);
   const createWorkspaceLabel = useProjectStore((s) => s.createWorkspaceLabel);
   const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
   const showOpening = useWorkspaceCreationStore((s) => s.showOpening);

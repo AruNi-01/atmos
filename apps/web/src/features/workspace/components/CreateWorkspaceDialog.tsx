@@ -17,6 +17,10 @@ import {
 import type { RepoContext } from '@/features/workspace/components/CreateWorkspaceDialogTypes';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import {
+  useProjects,
+  useWorkspaceLabels,
+} from '@/features/project/hooks/use-project-bootstrap-query';
+import {
   gitApi,
   llmProvidersApi,
   type GithubIssuePayload,
@@ -64,7 +68,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 }: CreateWorkspaceDialogProps) => {
   const t = useTranslations('Workspace.components');
   const router = useAppRouter();
-  const projects = useProjectStore((s) => s.projects);
+  const projects = useProjects();
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
   const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
   const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
@@ -119,7 +123,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   );
   const [selectedLabels, setSelectedLabels] = useState<WorkspaceLabel[]>([]);
 
-  const workspaceLabels = useProjectStore(s => s.workspaceLabels);
+  const workspaceLabels = useWorkspaceLabels();
   const createWorkspaceLabel = useProjectStore(s => s.createWorkspaceLabel);
 
   const nameTouchedRef = useRef(false);

@@ -5,6 +5,10 @@ import { wsWorkspaceApi, type WorkspaceLabelModel } from '@/api/ws-api';
 import type { WorkspaceLabel } from '@/shared/types/domain';
 import { waitForConnection } from './project-store-connection';
 import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
+import {
+  invalidateProjectBootstrap,
+  patchProjectBootstrapSnapshot,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 
 type WorkspaceLabelSource = 'manual' | 'gitHub_issue' | 'gitHub_pr';
 
@@ -30,25 +34,28 @@ function mapWorkspaceLabelModel(label: WorkspaceLabelModel): WorkspaceLabel {
 }
 
 export function createProjectStoreLabelActions(
-  set: ProjectStoreSet,
-  get: ProjectStoreGet,
+  _set: ProjectStoreSet,
+  _get: ProjectStoreGet,
 ): ProjectStoreLabelActions {
   return {
     fetchWorkspaceLabels: async (deletedOnly: boolean = false) => {
       await waitForConnection();
       const labels = await wsWorkspaceApi.listLabels(deletedOnly);
-      set({
-        workspaceLabels: labels.map((label) => mapWorkspaceLabelModel(label)),
-      });
+      const mappedLabels = labels.map((label) => mapWorkspaceLabelModel(label));
+      patchProjectBootstrapSnapshot((current) => ({
+        ...current,
+        workspaceLabels: mappedLabels,
+      }));
     },
 
     createWorkspaceLabel: async ({ name, color, source = 'manual' }) => {
       await waitForConnection();
       const label = await wsWorkspaceApi.createLabel({ name, color, source });
       const mappedLabel = mapWorkspaceLabelModel(label);
-      set((state) => ({
+      patchProjectBootstrapSnapshot((current) => ({
+        ...current,
         workspaceLabels: [
-          ...state.workspaceLabels.filter((existing) => existing.id !== mappedLabel.id),
+          ...current.workspaceLabels.filter((existing) => existing.id !== mappedLabel.id),
           mappedLabel,
         ].sort((a, b) => a.name.localeCompare(b.name)),
       }));
@@ -59,11 +66,12 @@ export function createProjectStoreLabelActions(
       await waitForConnection();
       const label = await wsWorkspaceApi.updateLabel(labelId, { name, color });
       const mappedLabel = mapWorkspaceLabelModel(label);
-      set((state) => ({
-        workspaceLabels: state.workspaceLabels
+      patchProjectBootstrapSnapshot((current) => ({
+        ...current,
+        workspaceLabels: current.workspaceLabels
           .map((existing) => (existing.id === mappedLabel.id ? mappedLabel : existing))
           .sort((a, b) => a.name.localeCompare(b.name)),
-        projects: state.projects.map((project) => ({
+        projects: current.projects.map((project) => ({
           ...project,
           workspaces: project.workspaces.map((workspace) => ({
             ...workspace,
@@ -79,16 +87,17 @@ export function createProjectStoreLabelActions(
     deleteWorkspaceLabel: async (labelId: string) => {
       await waitForConnection();
       await wsWorkspaceApi.deleteLabel(labelId);
-      set((state) => ({
-        workspaceLabels: state.workspaceLabels.filter((label) => label.id !== labelId),
+      patchProjectBootstrapSnapshot((current) => ({
+        ...current,
+        workspaceLabels: current.workspaceLabels.filter((label) => label.id !== labelId),
       }));
     },
 
     restoreWorkspaceLabel: async (labelId: string) => {
       await waitForConnection();
       await wsWorkspaceApi.restoreLabel(labelId);
-      // Refetch labels so the restored entry has its full data (name, color, source).
-      await get().fetchWorkspaceLabels();
+      // Invalidate to refetch full label list with the restored entry's data.
+      await invalidateProjectBootstrap();
     },
 
     updateWorkspaceLabels: async (
@@ -100,8 +109,9 @@ export function createProjectStoreLabelActions(
         await waitForConnection();
         await wsWorkspaceApi.updateLabels(workspaceId, labels.map((label) => label.id));
 
-        set((state) => ({
-          projects: state.projects.map((project) =>
+        patchProjectBootstrapSnapshot((current) => ({
+          ...current,
+          projects: current.projects.map((project) =>
             project.id === projectId
               ? {
                   ...project,
@@ -128,8 +138,9 @@ export function createProjectStoreLabelActions(
         await waitForConnection();
         await wsWorkspaceApi.markVisited(workspaceId);
         const visitedAt = new Date().toISOString();
-        set((state) => ({
-          projects: state.projects.map((project) => ({
+        patchProjectBootstrapSnapshot((current) => ({
+          ...current,
+          projects: current.projects.map((project) => ({
             ...project,
             workspaces: project.workspaces.map((workspace) =>
               workspace.id === workspaceId

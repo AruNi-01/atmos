@@ -16,7 +16,10 @@ import {
   Loader2,
 } from '@workspace/ui';
 import { wsWorkspaceApi, ArchivedWorkspace } from '@/api/ws-api';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import {
+  useProjects,
+  invalidateProjectBootstrap,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 import { formatRelativeTime } from '@atmos/shared';
 
 interface ArchivedWorkspacesModalProps {
@@ -37,8 +40,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
-  const fetchProjects = useProjectStore(s => s.fetchProjects);
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
 
   const loadArchivedWorkspaces = useCallback(async () => {
     setIsLoading(true);
@@ -63,7 +65,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
     try {
       await wsWorkspaceApi.unarchive(workspace.guid);
       setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
-      await fetchProjects();
+      await invalidateProjectBootstrap();
     } catch (error) {
       console.error('Failed to restore workspace:', error);
     } finally {

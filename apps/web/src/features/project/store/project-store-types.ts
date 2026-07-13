@@ -9,12 +9,9 @@ import type {
 import type { WorkspaceSetupProgress } from "./project-store-setup-progress";
 
 export interface ProjectStore {
-  projects: Project[];
-  workspaceLabels: WorkspaceLabel[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
   hasLoadedProjects: boolean;
-  connectionEpoch: number;
 
   fetchProjects: () => Promise<void>;
   ensureWorkspaceVisible: (workspaceId: string) => Promise<boolean>;

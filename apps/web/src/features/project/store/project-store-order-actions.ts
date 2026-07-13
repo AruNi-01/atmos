@@ -6,20 +6,25 @@ import type { Project, Workspace } from '@/shared/types/domain';
 import { waitForConnection } from './project-store-connection';
 import { sortWorkspaces } from './project-store-mappers';
 import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
+import {
+  invalidateProjectBootstrap,
+  patchProjectBootstrapSnapshot,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 
 type ProjectStorePinOrderActions = Pick<ProjectStore, 'updateWorkspacePinOrder'>;
 type ProjectStoreReorderActions = Pick<ProjectStore, 'reorderProjects' | 'reorderWorkspaces'>;
 
 export function createProjectStorePinOrderActions(
-  set: ProjectStoreSet,
+  _set: ProjectStoreSet,
 ): ProjectStorePinOrderActions {
   return {
     updateWorkspacePinOrder: async (orderedWorkspaceIds) => {
       const orderById = new Map(orderedWorkspaceIds.map((id, index) => [id, index]));
 
       // Optimistic update first
-      set((state) => ({
-        projects: state.projects.map((project) => ({
+      patchProjectBootstrapSnapshot((current) => ({
+        ...current,
+        projects: current.projects.map((project) => ({
           ...project,
           workspaces: sortWorkspaces(
             project.workspaces.map((workspace) => {
@@ -41,18 +46,20 @@ export function createProjectStorePinOrderActions(
 }
 
 export function createProjectStoreReorderActions(
-  set: ProjectStoreSet,
-  get: ProjectStoreGet,
+  _set: ProjectStoreSet,
+  _get: ProjectStoreGet,
 ): ProjectStoreReorderActions {
   return {
     reorderProjects: async (newOrder: Project[]) => {
       try {
         await waitForConnection();
 
-        // Optimistically update state
-        set({ projects: newOrder });
+        // Optimistic update
+        patchProjectBootstrapSnapshot((current) => ({
+          ...current,
+          projects: newOrder,
+        }));
 
-        // Batch update all project orders in the backend
         await Promise.all(
           newOrder.map((project, index) => wsProjectApi.updateOrder(project.id, index)),
         );
@@ -69,8 +76,8 @@ export function createProjectStoreReorderActions(
           description: 'Failed to save project order',
           type: 'error',
         });
-        // Revert to original order on error
-        get().fetchProjects();
+        // Revert by re-fetching from server
+        await invalidateProjectBootstrap();
       }
     },
 
@@ -78,14 +85,14 @@ export function createProjectStoreReorderActions(
       try {
         await waitForConnection();
 
-        // Optimistically update state
-        set((state) => ({
-          projects: state.projects.map((project) =>
+        // Optimistic update
+        patchProjectBootstrapSnapshot((current) => ({
+          ...current,
+          projects: current.projects.map((project) =>
             project.id === projectId ? { ...project, workspaces: newOrder } : project,
           ),
         }));
 
-        // Batch update all workspace orders in the backend
         await Promise.all(
           newOrder.map((workspace, index) =>
             wsWorkspaceApi.updateOrder(workspace.id, index),
@@ -104,8 +111,8 @@ export function createProjectStoreReorderActions(
           description: 'Failed to save workspace order',
           type: 'error',
         });
-        // Revert to original order on error
-        get().fetchProjects();
+        // Revert by re-fetching from server
+        await invalidateProjectBootstrap();
       }
     },
   };

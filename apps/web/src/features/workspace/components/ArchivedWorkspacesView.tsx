@@ -23,6 +23,10 @@ import { ArchivedWorkspace, wsWorkspaceApi } from '@/api/ws-api';
 import { useQueryState } from "nuqs";
 import { workspacesParams } from "@/shared/lib/nuqs/searchParams";
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import {
+  useProjects,
+  invalidateProjectBootstrap,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 import { formatRelativeTime } from '@atmos/shared';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
 import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
@@ -66,9 +70,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
 
-  // We might want to refresh the project list after restore/delete operations
-  const fetchProjects = useProjectStore(s => s.fetchProjects);
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const deleteProject = useProjectStore(s => s.deleteProject);
   const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
   const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
@@ -112,7 +114,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
     try {
       await wsWorkspaceApi.unarchive(workspace.guid);
       setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
-      await fetchProjects(); // Refresh sidebar
+      await invalidateProjectBootstrap();
     } catch (error) {
       console.error('Failed to restore workspace:', error);
       toastManager.add({

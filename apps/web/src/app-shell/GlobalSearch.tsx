@@ -13,6 +13,7 @@ import {
 } from '@workspace/ui';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
@@ -128,7 +129,7 @@ export function GlobalSearch() {
   const setCreateWorkspaceOpen = useDialogStore(s => s.setCreateWorkspaceOpen);
   const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
 
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const quickAddWorkspace = useProjectStore(s => s.quickAddWorkspace);
   const setupProgress = useProjectStore(s => s.setupProgress);
   const openFile = useEditorStore(s => s.openFile);

@@ -11,6 +11,11 @@ import { cn, Tabs, TabsPanel } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import type { Project } from '@/shared/types/domain';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import {
+  useProjects,
+  useWorkspaceLabels,
+  useProjectBootstrapQuery,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
@@ -67,9 +72,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const storage = useAppStorage();
     const router = useAppRouter();
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
+    const projects = useProjects();
+    const workspaceLabels = useWorkspaceLabels();
+    const bootstrapQuery = useProjectBootstrapQuery();
+    const isLoading = bootstrapQuery.isPending || bootstrapQuery.isFetching;
+    const hasLoadedProjects = !!bootstrapQuery.data;
+
     const {
-        projects,
-        fetchProjects,
         deleteProject,
         updateProject,
         deleteWorkspace,
@@ -81,7 +90,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         updateWorkspaceName,
         updateWorkspaceWorkflowStatus,
         updateWorkspacePriority,
-        workspaceLabels,
         createWorkspaceLabel,
         updateWorkspaceLabel,
         updateWorkspaceLabels,
@@ -89,12 +97,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         reorderProjects,
         reorderWorkspaces,
         setupProgress,
-        isLoading,
-        hasLoadedProjects,
     } = useProjectStore(
         useShallow(s => ({
-            projects: s.projects,
-            fetchProjects: s.fetchProjects,
             deleteProject: s.deleteProject,
             updateProject: s.updateProject,
             deleteWorkspace: s.deleteWorkspace,
@@ -106,7 +110,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             updateWorkspaceName: s.updateWorkspaceName,
             updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
             updateWorkspacePriority: s.updateWorkspacePriority,
-            workspaceLabels: s.workspaceLabels,
             createWorkspaceLabel: s.createWorkspaceLabel,
             updateWorkspaceLabel: s.updateWorkspaceLabel,
             updateWorkspaceLabels: s.updateWorkspaceLabels,
@@ -114,8 +117,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
             setupProgress: s.setupProgress,
-            isLoading: s.isLoading,
-            hasLoadedProjects: s.hasLoadedProjects,
         }))
     );
 
@@ -171,9 +172,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setSelectedProjectId
     } = useDialogStore();
 
-    useEffect(() => {
-        fetchProjects();
-    }, [fetchProjects]);
+    // Projects are now loaded by the TanStack Query bootstrap — no manual fetch needed.
 
     useEffect(() => {
         useFunctionSettingsStore.getState().load()
@@ -788,7 +787,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         onArchiveWorkspace={archiveWorkspace}
                         onDeleteWorkspace={async (projectId, workspaceId) => {
                             await deleteWorkspace(projectId, workspaceId);
-                            await fetchProjects();
                         }}
                     />
 
@@ -845,7 +843,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     onCreateLabel={createWorkspaceLabel}
                     onDeleteWorkspace={async (projectId, workspaceId) => {
                         await deleteWorkspace(projectId, workspaceId);
-                        await fetchProjects();
                     }}
                     onFiltersChange={setKanbanFilters}
                     onGroupingModeChange={setGroupingMode}

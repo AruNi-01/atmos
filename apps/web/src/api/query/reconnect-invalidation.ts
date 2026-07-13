@@ -10,6 +10,7 @@ export function reconnectInvalidationKeys(scope: ComputerQueryScope): QueryKey[]
     queryKeys.computer.system(scope),
     queryKeys.computer.settingsBootstrap(scope),
     queryKeys.computer.usageOverview(scope),
+    queryKeys.computer.projectBootstrap(scope),
   ];
 }
 

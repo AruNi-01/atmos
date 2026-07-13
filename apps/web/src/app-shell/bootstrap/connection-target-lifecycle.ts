@@ -56,6 +56,8 @@ export async function prepareConnectionTargetChange(): Promise<void> {
 
 /** Call after the new WS target is connected. */
 export async function reloadActiveConnectionData(): Promise<void> {
-  const { useProjectStore } = await import('@/features/project/store/use-project-store');
-  await useProjectStore.getState().fetchProjects();
+  const { invalidateProjectBootstrap } = await import(
+    '@/features/project/hooks/use-project-bootstrap-query'
+  );
+  await invalidateProjectBootstrap();
 }

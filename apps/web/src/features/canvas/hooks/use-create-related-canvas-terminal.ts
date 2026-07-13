@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useEditor, type TLShapeId } from "tldraw";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
@@ -30,7 +30,7 @@ export type CreateRelatedCanvasTerminalResult =
 export function useCreateRelatedCanvasTerminal(shape: CanvasTerminalShape) {
   const editor = useEditor();
   const router = useAppRouter();
-  const projects = useProjectStore((state) => state.projects);
+  const projects = useProjects();
   const createTerminalTabWithInitialPane = useTerminalStore((state) => state.createTerminalTabWithInitialPane);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);

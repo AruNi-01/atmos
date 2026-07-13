@@ -12,8 +12,8 @@ import {
   subscribeToWorkspaceDeleteProgress,
   subscribeToWorkspaceGitignoreSyncFailed,
   subscribeToWorkspaceSetupProgress,
-  useProjectStore,
 } from '@/features/project/store/use-project-store';
+import { ensureProjectBootstrap } from '@/features/project/hooks/use-project-bootstrap-query';
 import { getAtmosWebQueryClient } from '@/providers/app/query-client';
 import { getComputerQueryScope } from '@/api/query/query-scope';
 import { invalidateAfterComputerReconnect } from '@/api/query/reconnect-invalidation';
@@ -96,10 +96,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       useAgentHooksStore.getState().init();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
-      const { projects, isLoading } = useProjectStore.getState();
-      if (projects.length === 0 && !isLoading) {
-        void useProjectStore.getState().fetchProjects();
-      }
+      // Project bootstrap is now Query-owned; reconnect invalidation handles refresh.
+      void ensureProjectBootstrap().catch(() => undefined);
     }
   }, [connectionState]);
 

@@ -33,7 +33,8 @@ import {
   ACP_SESSION_LIST_PAGE_LIMIT,
   useAcpSessionList,
 } from "@/features/agent/hooks/use-acp-session-list";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useConnectionStore } from "@/features/connection/store/connection-store";
 import type { Workspace } from "@/shared/types/domain";
 
 interface RegistryAgentInfo {
@@ -105,9 +106,8 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
 
   const [registryAgents, setRegistryAgents] = useState<RegistryAgentInfo[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
-  const projects = useProjectStore((state) => state.projects);
-  const fetchProjects = useProjectStore((state) => state.fetchProjects);
-  const projectConnectionEpoch = useProjectStore((state) => state.connectionEpoch);
+  const projects = useProjects();
+  const projectConnectionEpoch = useConnectionStore((state) => state.connectionEpoch);
   const requestedProjectEpochRef = useRef<number | null>(null);
   const defaultedWorkspaceProjectIdRef = useRef<string | null>(null);
   const allSessionContextLabel = t("sessionContext.all");
@@ -147,8 +147,8 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   useEffect(() => {
     if (requestedProjectEpochRef.current === projectConnectionEpoch) return;
     requestedProjectEpochRef.current = projectConnectionEpoch;
-    void fetchProjects();
-  }, [fetchProjects, projectConnectionEpoch]);
+    // Projects are now Query-owned; connection epoch change triggers reconnect invalidation.
+  }, [projectConnectionEpoch]);
 
   const sessionContextOptions = useMemo<SessionContextOption[]>(() => {
     const options: SessionContextOption[] = [

@@ -17,7 +17,10 @@ import {
   TooltipTrigger
 } from "@workspace/ui";
 import { Workspace } from '@/shared/types/domain';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import {
+  useProjects,
+  useProjectsLoading,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { useQueryState } from "nuqs";
 import { workspacesParams } from "@/shared/lib/nuqs/searchParams";
@@ -103,8 +106,8 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   const locale = useLocale();
   const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
   const router = useAppRouter();
-  const projects = useProjectStore(s => s.projects);
-  const isStoreLoading = useProjectStore(s => s.isLoading);
+  const projects = useProjects();
+  const isStoreLoading = useProjectsLoading();
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<EnrichedWorkspace[]>([]);
   const [isLoadingArchived, setIsLoadingArchived] = useState(true);
