@@ -10,7 +10,7 @@ import {
   startOfYear,
 } from "date-fns";
 
-import type { DailyTokenUsageResponse } from "@/api/rest-api";
+import type { DailyTokenUsageResponse } from "@/api/ws/token-usage-api";
 import type { ChartConfig } from "@/shared/components/ui/chart";
 
 export type Resolution = "month" | "day";

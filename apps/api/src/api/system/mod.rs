@@ -5,7 +5,7 @@ mod debug_log;
 mod diagnostics;
 mod files;
 mod handlers;
-mod skills;
+pub(crate) mod skills;
 
 use axum::{
     routing::{get, post},
@@ -50,12 +50,6 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/terminal-overview", get(handlers::get_terminal_overview))
         .route("/terminal-cleanup", post(handlers::cleanup_terminals))
-        .route("/sync-skills", post(handlers::sync_skills))
-        .route("/review-skills", get(handlers::list_review_skills))
-        .route(
-            "/review-skills/scaffold",
-            post(handlers::scaffold_review_skill),
-        )
         .route("/cli-version-check", get(cli::check_cli_version))
         .route("/cli-install", post(cli::install_cli))
         .route("/ws-connections", get(handlers::list_ws_connections))

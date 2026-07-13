@@ -3,9 +3,10 @@ use serde_json::{json, Value};
 use core_service::{Result, ServiceError};
 
 use super::{
-    UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
-    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
-    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WsMessageService,
+    TokenUsageOverviewRequest, UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest,
+    UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest, UsageOverviewRequest,
+    UsageProviderFooterCarouselRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WsMessageService,
 };
 
 impl WsMessageService {
@@ -83,6 +84,27 @@ impl WsMessageService {
             .usage_service
             .delete_provider_api_key(&req.provider_id, &req.key_id)
             .await;
+        Ok(json!(overview))
+    }
+
+    pub(super) async fn handle_token_usage_overview_get(
+        &self,
+        req: TokenUsageOverviewRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .token_usage_service
+            .get_overview(
+                token_usage::TokenUsageQuery {
+                    clients: req.clients.filter(|clients| !clients.is_empty()),
+                    since: req.since,
+                    until: req.until,
+                    year: req.year,
+                    group_by: req.group_by.unwrap_or_default(),
+                },
+                req.refresh,
+            )
+            .await
+            .map_err(|error| ServiceError::Processing(error.to_string()))?;
         Ok(json!(overview))
     }
 

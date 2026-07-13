@@ -270,35 +270,6 @@ async function ensureProjectWorkspaceSeed(page: Page): Promise<SmokeProjectSeed>
 function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
   return page.evaluate(
     async ({ apiPort, repoRoot, seedProjectPath }) => {
-      type ApiResponse<T> = { success: boolean; data: T };
-
-      const apiBase = `http://127.0.0.1:${apiPort}`;
-
-      async function parseApiResponse<T>(response: Response, message: string): Promise<ApiResponse<T>> {
-        if (!response.ok) {
-          throw new Error(`${message}: ${response.status}`);
-        }
-        return (await response.json()) as ApiResponse<T>;
-      }
-
-      async function listProjects(): Promise<ProjectRecord[]> {
-        const payload = await parseApiResponse<ProjectRecord[]>(
-          await fetch(`${apiBase}/api/project`),
-          "failed to load projects for deep-link smoke",
-        );
-        if (!payload.success) {
-          throw new Error("project API returned unsuccessful response");
-        }
-        return payload.data;
-      }
-
-      async function listWorkspaces(projectGuid: string): Promise<WorkspaceRecord[]> {
-        const response = await fetch(`${apiBase}/api/workspace/project/${projectGuid}`);
-        if (!response.ok) return [];
-        const payload = (await response.json()) as ApiResponse<WorkspaceRecord[]>;
-        return payload.success ? payload.data : [];
-      }
-
       async function wsRequest<T>(action: string, data: unknown): Promise<T> {
         return await new Promise<T>((resolve, reject) => {
           const requestId = crypto.randomUUID();
@@ -355,6 +326,21 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
         });
       }
 
+      async function listProjects(): Promise<ProjectRecord[]> {
+        return await wsRequest<ProjectRecord[]>("project_list", {});
+      }
+
+      async function listWorkspaces(projectGuid: string): Promise<WorkspaceRecord[]> {
+        try {
+          return await wsRequest<WorkspaceRecord[]>("workspace_list", {
+            project_guid: projectGuid,
+            include_issue_only: false,
+          });
+        } catch {
+          return [];
+        }
+      }
+
       let projects = await listProjects();
       const candidateProjectPaths = [seedProjectPath, repoRoot].filter(
         (value): value is string => Boolean(value),
@@ -371,25 +357,12 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
 
       if (!targetProject) {
         const createProjectPath = candidateProjectPaths[0] ?? repoRoot;
-        const createPayload = await parseApiResponse<ProjectRecord>(
-          await fetch(`${apiBase}/api/project`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              name: "Atmos E2E",
-              main_file_path: createProjectPath,
-              sidebar_order: 0,
-              border_color: null,
-            }),
-          }),
-          "failed to create project for deep-link smoke",
-        );
-        if (!createPayload.success) {
-          throw new Error("project create API returned unsuccessful response");
-        }
-        targetProject = createPayload.data;
+        targetProject = await wsRequest<ProjectRecord>("project_create", {
+          name: "Atmos E2E",
+          main_file_path: createProjectPath,
+          sidebar_order: 0,
+          border_color: null,
+        });
       }
 
       let workspaces = await listWorkspaces(targetProject.guid);

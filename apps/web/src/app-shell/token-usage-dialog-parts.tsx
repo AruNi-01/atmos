@@ -26,7 +26,7 @@ import {
 } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
-import type { TokenUsageOverviewResponse } from "@/api/rest-api";
+import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import {
   HEATMAP_DAY_LABEL_WIDTH,
   formatCompactNumber,

@@ -144,4 +144,20 @@ export const skillsApi = {
   syncSystemSkills: async (): Promise<{ initiated: boolean }> => {
     return wsRequest<{ initiated: boolean }>("skills_system_sync");
   },
+
+  /**
+   * List code review skills scanned from ~/.atmos/skills/.system/code_review_skills
+   */
+  listReviewSkills: async (): Promise<{
+    skills: { id: string; label: string; badge: string; description: string; bestFor: string }[];
+  }> => {
+    return wsRequest("review_skills_list");
+  },
+
+  /**
+   * Scaffold a custom review skill directory and return its id/path
+   */
+  scaffoldReviewSkill: async (): Promise<{ id: string; path: string; needs_sync: boolean }> => {
+    return wsRequest("review_skills_scaffold");
+  },
 };

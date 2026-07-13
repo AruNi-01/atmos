@@ -423,6 +423,25 @@ impl WsMessageService {
         }
     }
 
+    pub(super) async fn handle_review_skills_list(&self) -> Result<Value> {
+        let skills = crate::api::system::skills::scan_review_skills().await;
+        Ok(json!({ "skills": skills }))
+    }
+
+    pub(super) async fn handle_review_skills_scaffold(&self) -> Result<Value> {
+        let result = crate::api::system::skills::scaffold_review_skill()
+            .await
+            .map_err(ServiceError::Processing)?;
+
+        Self::invalidate_skills_cache();
+
+        Ok(json!({
+            "id": result.id,
+            "path": result.path.to_string_lossy(),
+            "needs_sync": result.needs_sync,
+        }))
+    }
+
     pub(super) async fn handle_skills_system_sync(&self) -> Result<Value> {
         tokio::task::spawn_blocking(move || {
             let report = infra::utils::system_skill_sync::sync_system_skills_with_report();

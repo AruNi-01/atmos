@@ -19,7 +19,6 @@ import {
 import { Terminal, Bot, Loader2, AlertTriangle, Plus } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "@/features/wiki/components/AgentSelect";
 import { skillsApi, agentApi, reviewWsApi } from "@/api/ws-api";
-import { systemApi } from "@/api/rest-api";
 import type { RegistryAgent, CustomAgent, ReviewTarget } from "@/api/ws-api";
 import { cn } from "@/shared/lib/utils";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -152,7 +151,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const refreshSkillsList = useCallback(async (): Promise<CodeReviewSkill[]> => {
     setLoadingSkillsList(true);
     try {
-      const { skills } = await systemApi.listReviewSkills();
+      const { skills } = await skillsApi.listReviewSkills();
       if (skills.length > 0) {
         const mapped: CodeReviewSkill[] = skills.map((s) => ({
           id: s.id as CodeReviewSkillId,
@@ -416,7 +415,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     if (isCreatingSkill) return;
     setIsCreatingSkill(true);
     try {
-      const result = await systemApi.scaffoldReviewSkill();
+      const result = await skillsApi.scaffoldReviewSkill();
 
       // Navigate to the Skills detail page for the newly created skill. The backend
       // scanner exposes `~/.atmos/skills/.system/code_review_skills/<id>` as a

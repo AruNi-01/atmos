@@ -3,7 +3,7 @@
 import * as React from "react";
 import { create } from "zustand";
 import { useTranslations } from "next-intl";
-import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import { wsRequest } from "@/api/ws/request";
 
 export type PushServerType = "ntfy" | "bark" | "gotify" | "custom_webhook";
 
@@ -61,11 +61,6 @@ interface NotificationSettingsStore {
 
 export type NotificationSettingsFieldUpdater = NotificationSettingsStore["updateField"];
 
-async function getBase(): Promise<string> {
-  const config = await getRuntimeApiConfig();
-  return httpBase(config);
-}
-
 type NotificationSettingsStoreTranslator = ReturnType<typeof useTranslations>;
 
 let notificationSettingsTranslator: NotificationSettingsStoreTranslator | null = null;
@@ -91,12 +86,10 @@ const notificationSettingsStore = create<NotificationSettingsStore>(
     loadSettings: async () => {
       set({ isLoading: true });
       try {
-        const base = await getBase();
-        const res = await fetch(`${base}/hooks/notification/settings`);
-        if (res.ok) {
-          const data = await res.json();
-          set({ settings: { ...DEFAULT_SETTINGS, ...data } });
-        }
+        const data = await wsRequest<Partial<NotificationSettings>>(
+          "notification_settings_get"
+        );
+        set({ settings: { ...DEFAULT_SETTINGS, ...data } });
       } catch {
         // use defaults
       } finally {
@@ -109,17 +102,9 @@ const notificationSettingsStore = create<NotificationSettingsStore>(
       const versionAtStart = get()._version + 1;
       set({ settings, isSaving: true, _version: versionAtStart });
       try {
-        const base = await getBase();
-        const res = await fetch(`${base}/hooks/notification/settings`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(settings),
+        await wsRequest<{ ok: boolean }>("notification_settings_update", {
+          settings,
         });
-        if (!res.ok) {
-          set((s) =>
-            s._version === versionAtStart ? { settings: prev } : {}
-          );
-        }
       } catch {
         set((s) =>
           s._version === versionAtStart ? { settings: prev } : {}
@@ -165,13 +150,10 @@ const notificationSettingsStore = create<NotificationSettingsStore>(
 
     testPushServer: async (index: number) => {
       try {
-        const base = await getBase();
-        const res = await fetch(`${base}/hooks/notification/test`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ server_index: index }),
-        });
-        return await res.json();
+        return await wsRequest<{ ok: boolean; error?: string }>(
+          "notification_test_push",
+          { server_index: index }
+        );
       } catch (e) {
         return {
           ok: false,

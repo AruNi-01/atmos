@@ -36,7 +36,6 @@ apps/api/
 │   │   ├── agent/
 │   │   ├── project/
 │   │   ├── system/
-│   │   ├── token_usage/
 │   │   └── test/
 │   ├── middleware/          # Loopback token (optional), destructive routes
 │   └── config/
@@ -75,8 +74,12 @@ On successful `TcpListener::bind`:
 
 ### REST
 
-- Exception paths: bootstrap, settings persistence, review/canvas agent invoke, diagnostics.
-- Do not duplicate WS-capable flows as new REST APIs without justification.
+- REST is allowed only for four categories; anything else goes through WS:
+  1. **Non-browser clients** — CLI (`/api/review/*`, canvas invoke), external agent webhooks (`/hooks/*`).
+  2. **Binary / streaming payloads** — file serving (`/api/system/file`), attachment upload.
+  3. **Pre-connection bootstrap** — data needed before a WS connection exists (`/healthz`, `/api/system/computer*`, client-session).
+  4. **Diagnostics / destructive ops** — tmux cleanup, process kill, relay register.
+- Do not duplicate WS-capable flows as new REST APIs. When adding a REST route, state in the PR/spec why it cannot be a WS action.
 
 ---
 

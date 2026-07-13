@@ -68,6 +68,7 @@ export type WsAction =
   | "usage_add_provider_api_key"
   | "usage_delete_provider_api_key"
   | "usage_set_auto_refresh"
+  | "token_usage_overview_get"
   // Project 操作
   | "project_workspace_bootstrap"
   | "project_list"
@@ -142,6 +143,8 @@ export type WsAction =
   | "git_commit_skill_system_status"
   | "sync_single_system_skill"
   | "skills_system_sync"
+  | "review_skills_list"
+  | "review_skills_scaffold"
   // Function settings
   | "settings_bootstrap_get"
   | "function_settings_get"

@@ -158,6 +158,22 @@ pub struct UsageAutoRefreshRequest {
     pub interval_minutes: Option<u64>,
 }
 
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TokenUsageOverviewRequest {
+    #[serde(default)]
+    pub refresh: bool,
+    #[serde(default)]
+    pub since: Option<String>,
+    #[serde(default)]
+    pub until: Option<String>,
+    #[serde(default)]
+    pub year: Option<String>,
+    #[serde(default)]
+    pub group_by: Option<token_usage::TokenUsageGroupBy>,
+    #[serde(default)]
+    pub clients: Option<Vec<String>>,
+}
+
 /// 操作类型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -265,6 +281,8 @@ pub enum WsAction {
     UsageDeleteProviderApiKey,
     /// 更新 ALL usage 的自动刷新周期
     UsageSetAutoRefresh,
+    /// 获取本地 token usage 概览
+    TokenUsageOverviewGet,
 
     // ===== Project 操作 =====
     /// 获取项目/标签/工作区启动数据
@@ -425,6 +443,10 @@ pub enum WsAction {
     SyncSingleSystemSkill,
     /// 手动触发同步所有系统 skills
     SkillsSystemSync,
+    /// 列出 code review skills（系统目录扫描）
+    ReviewSkillsList,
+    /// 脚手架创建自定义 code review skill
+    ReviewSkillsScaffold,
 
     // ===== Agent 操作 =====
     /// 获取 Agent 管理状态

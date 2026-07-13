@@ -6,7 +6,6 @@ pub mod project;
 pub mod review;
 pub mod system;
 pub mod test;
-pub mod token_usage;
 pub mod workspace;
 pub mod ws;
 
@@ -23,7 +22,6 @@ pub fn routes() -> Router<AppState> {
         .nest("/api/workspace", workspace::routes())
         .nest("/api/system", system::routes())
         .nest("/api/agent", agent::routes())
-        .nest("/api/token-usage", token_usage::routes())
         .nest("/hooks", hooks::routes())
         .nest("/ws", ws::routes())
 }

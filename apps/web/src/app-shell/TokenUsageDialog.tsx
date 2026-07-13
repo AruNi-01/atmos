@@ -46,7 +46,7 @@ import {
   tokenUsageApi,
   type TokenUsageOverviewResponse,
   type TokenUsageUpdateResponse,
-} from "@/api/rest-api";
+} from "@/api/ws/token-usage-api";
 import {
   ChartContainer,
   ChartLegend,

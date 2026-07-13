@@ -6,6 +6,51 @@ use llm::{
 };
 
 impl WsMessageService {
+    pub(super) fn handle_notification_settings_get(&self) -> Result<Value> {
+        let settings = self.notification_service.get_settings();
+        serde_json::to_value(settings).map_err(|e| {
+            ServiceError::Processing(format!("Failed to serialize notification settings: {e}"))
+        })
+    }
+
+    pub(super) fn handle_notification_settings_update(
+        &self,
+        req: NotificationSettingsUpdateRequest,
+    ) -> Result<Value> {
+        let settings: core_service::service::notification::NotificationSettings =
+            serde_json::from_value(req.settings).map_err(|e| {
+                ServiceError::Validation(format!("Invalid notification settings: {e}"))
+            })?;
+        self.notification_service
+            .update_settings(settings)
+            .map_err(ServiceError::Processing)?;
+        Ok(json!({ "ok": true }))
+    }
+
+    pub(super) async fn handle_notification_test_push(
+        &self,
+        req: NotificationTestPushRequest,
+    ) -> Result<Value> {
+        let settings = self.notification_service.get_settings();
+        let Some(server) = settings.push_servers.get(req.server_index) else {
+            return Err(ServiceError::Validation("Invalid server index".to_string()));
+        };
+
+        let test_payload = core_service::service::notification::NotificationPayload {
+            title: "Atmos Test Notification".to_string(),
+            body: "This is a test notification from Atmos.".to_string(),
+            tool: "test".to_string(),
+            state: "test".to_string(),
+            session_id: "test".to_string(),
+            project_path: None,
+        };
+
+        match self.notification_service.test_push(server, &test_payload).await {
+            Ok(()) => Ok(json!({ "ok": true })),
+            Err(e) => Ok(json!({ "ok": false, "error": e })),
+        }
+    }
+
     fn read_function_settings() -> Result<Value> {
         let path = function_settings_path();
         if path.exists() {

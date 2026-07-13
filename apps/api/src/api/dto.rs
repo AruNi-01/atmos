@@ -32,14 +32,6 @@ pub struct MessageResponse {
     pub message: &'static str,
 }
 
-/// Response wrapper for git validation.
-#[derive(Debug, Serialize)]
-pub struct GitValidationResponse {
-    pub is_valid: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-}
-
 /// Response for terminal layout queries.
 #[derive(Debug, Serialize)]
 pub struct TerminalLayoutResponse {

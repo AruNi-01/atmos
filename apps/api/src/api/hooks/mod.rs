@@ -2,11 +2,10 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{delete, get, post},
     Json, Router,
 };
 use core_service::service::agent_hooks::AtmosContext;
-use core_service::service::notification::NotificationSettings;
 use serde_json::Value;
 
 use crate::app_state::AppState;
@@ -65,9 +64,6 @@ pub fn routes() -> Router<AppState> {
             post(force_session_idle),
         )
         .route("/sessions/{session_id}", delete(remove_hook_session))
-        .route("/notification/settings", get(get_notification_settings))
-        .route("/notification/settings", put(update_notification_settings))
-        .route("/notification/test", post(test_push_notification))
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
@@ -248,69 +244,6 @@ async fn remove_hook_session(
                 "error": "Agent hook session not found"
             })),
         )
-    }
-}
-
-async fn get_notification_settings(State(state): State<AppState>) -> Json<Value> {
-    let settings = state.notification_service.get_settings();
-    Json(serde_json::to_value(settings).unwrap_or_default())
-}
-
-async fn update_notification_settings(
-    State(state): State<AppState>,
-    Json(settings): Json<NotificationSettings>,
-) -> Json<Value> {
-    match state.notification_service.update_settings(settings) {
-        Ok(()) => Json(serde_json::json!({ "ok": true })),
-        Err(e) => Json(serde_json::json!({ "ok": false, "error": e })),
-    }
-}
-
-async fn test_push_notification(
-    State(state): State<AppState>,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
-    let Some(raw) = payload.get("server_index") else {
-        return Json(serde_json::json!({
-            "ok": false,
-            "error": "server_index is required",
-        }));
-    };
-    let Some(idx_u64) = raw.as_u64() else {
-        return Json(serde_json::json!({
-            "ok": false,
-            "error": "server_index must be a non-negative integer",
-        }));
-    };
-    let Ok(server_index) = usize::try_from(idx_u64) else {
-        return Json(serde_json::json!({
-            "ok": false,
-            "error": "server_index is out of range",
-        }));
-    };
-
-    let settings = state.notification_service.get_settings();
-    if server_index >= settings.push_servers.len() {
-        return Json(serde_json::json!({ "ok": false, "error": "Invalid server index" }));
-    }
-
-    let test_payload = core_service::service::notification::NotificationPayload {
-        title: "Atmos Test Notification".to_string(),
-        body: "This is a test notification from Atmos.".to_string(),
-        tool: "test".to_string(),
-        state: "test".to_string(),
-        session_id: "test".to_string(),
-        project_path: None,
-    };
-
-    let server = &settings.push_servers[server_index];
-    match state
-        .notification_service
-        .test_push(server, &test_payload)
-        .await
-    {
-        Ok(()) => Json(serde_json::json!({ "ok": true })),
-        Err(e) => Json(serde_json::json!({ "ok": false, "error": e })),
     }
 }
 

@@ -14,8 +14,6 @@ use crate::error::ApiError;
 use crate::{app_state::AppState, error::ApiResult};
 
 use super::diagnostics;
-use super::skills;
-
 #[derive(Deserialize)]
 pub struct KillTmuxSessionPayload {
     pub session_name: String,
@@ -771,77 +769,3 @@ pub async fn list_ws_connections(
     }))))
 }
 
-/// GET /api/system/review-skills
-pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
-    let skills = skills::scan_review_skills().await;
-    Ok(Json(ApiResponse::success(json!({ "skills": skills }))))
-}
-
-/// POST /api/system/review-skills/scaffold
-///
-/// Create a scaffolded custom review skill under
-/// `~/.atmos/skills/.system/code_review_skills/`. Returns the new skill id / path
-/// so the client can refresh its list and preselect the new skill.
-pub async fn scaffold_review_skill() -> ApiResult<Json<ApiResponse<Value>>> {
-    let result = skills::scaffold_review_skill()
-        .await
-        .map_err(ApiError::InternalError)?;
-
-    invalidate_skills_cache();
-
-    Ok(Json(ApiResponse::success(json!({
-        "id": result.id,
-        "path": result.path.to_string_lossy(),
-        "needs_sync": result.needs_sync,
-    }))))
-}
-
-/// POST /api/system/sync-skills
-pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
-    let report = tokio::task::spawn_blocking(|| {
-        infra::utils::system_skill_sync::sync_system_skills_with_report()
-    })
-    .await
-    .map_err(|e| ApiError::InternalError(format!("Task join error: {}", e)))?;
-
-    let completed = report.missing_skills.is_empty();
-    let message = if completed {
-        "System skill sync completed"
-    } else {
-        "System skill sync completed with missing skills"
-    };
-
-    tracing::info!(
-        "System skill sync result: completed={}, versions={:?}, missing={:?}",
-        completed,
-        report.versions,
-        report.missing_skills
-    );
-
-    invalidate_skills_cache();
-
-    Ok(Json(ApiResponse {
-        success: completed,
-        data: Some(json!({
-            "initiated": true,
-            "completed": completed,
-            "message": message,
-            "versions": report.versions,
-            "missingSkills": report.missing_skills
-        })),
-        error: if completed {
-            None
-        } else {
-            Some("One or more system skills could not be synced".to_string())
-        },
-    }))
-}
-
-/// Best-effort invalidation of the skills disk cache after mutations.
-fn invalidate_skills_cache() {
-    if let Ok(cache) = infra::utils::disk_cache::DiskCache::new() {
-        if let Err(e) = cache.remove_feature("skills") {
-            tracing::warn!(error = %e, "failed to invalidate skills disk cache");
-        }
-    }
-}

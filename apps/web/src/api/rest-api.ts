@@ -312,104 +312,6 @@ export interface WsConnectionInfo {
   idle_secs: number;
 }
 
-export type TokenUsageGroupBy =
-  | 'model'
-  | 'client_model'
-  | 'client_provider_model';
-
-export interface TokenUsageQueryResponse {
-  clients?: string[] | null;
-  since?: string | null;
-  until?: string | null;
-  year?: string | null;
-  group_by: TokenUsageGroupBy;
-}
-
-export interface TokenBreakdownResponse {
-  input_tokens: number;
-  output_tokens: number;
-  cache_read_tokens: number;
-  cache_write_tokens: number;
-  reasoning_tokens: number;
-  total_tokens: number;
-}
-
-export interface TokenUsageSummaryResponse {
-  total_tokens: number;
-  total_cost_usd: number | null;
-  total_messages: number;
-  active_days: number;
-  range_start: string | null;
-  range_end: string | null;
-  processing_time_ms: number;
-}
-
-export interface ClientTokenUsageResponse {
-  client_id: string;
-  total_tokens: number;
-  total_cost_usd: number | null;
-  message_count: number;
-  model_count: number;
-}
-
-export interface ModelTokenUsageResponse {
-  client_id: string;
-  provider_id: string;
-  model_id: string;
-  input_tokens: number;
-  output_tokens: number;
-  cache_read_tokens: number;
-  cache_write_tokens: number;
-  reasoning_tokens: number;
-  total_tokens: number;
-  cost_usd: number | null;
-  message_count: number;
-}
-
-export interface DailyClientTokenUsageResponse {
-  client_id: string;
-  model_id: string;
-  provider_id: string;
-  breakdown: TokenBreakdownResponse;
-  total_tokens: number;
-  cost_usd: number | null;
-  message_count: number;
-}
-
-export interface DailyTokenUsageResponse {
-  date: string;
-  breakdown: TokenBreakdownResponse;
-  total_tokens: number;
-  total_cost_usd: number | null;
-  message_count: number;
-  by_client: DailyClientTokenUsageResponse[];
-}
-
-export interface MonthlyTokenUsageResponse {
-  month: string;
-  breakdown: TokenBreakdownResponse;
-  total_tokens: number;
-  total_cost_usd: number | null;
-  message_count: number;
-  models: string[];
-}
-
-export interface TokenUsageOverviewResponse {
-  query: TokenUsageQueryResponse;
-  summary: TokenUsageSummaryResponse;
-  by_client: ClientTokenUsageResponse[];
-  by_model: ModelTokenUsageResponse[];
-  by_day: DailyTokenUsageResponse[];
-  by_month: MonthlyTokenUsageResponse[];
-  available_years: string[];
-  generated_at: number;
-  partial_warnings: string[];
-}
-
-export interface TokenUsageUpdateResponse {
-  overview: TokenUsageOverviewResponse;
-}
-
 // ===== System API =====
 
 export const systemApi = {
@@ -614,16 +516,6 @@ export const systemApi = {
 
   getWsConnections: async (): Promise<{ connections: WsConnectionInfo[]; count: number }> => {
     return fetchApi('/api/system/ws-connections');
-  },
-
-  listReviewSkills: async (): Promise<{ skills: { id: string; label: string; badge: string; description: string; bestFor: string }[] }> => {
-    return fetchApi('/api/system/review-skills');
-  },
-
-  scaffoldReviewSkill: async (): Promise<{ id: string; path: string; needs_sync: boolean }> => {
-    return fetchApi('/api/system/review-skills/scaffold', {
-      method: 'POST',
-    });
   },
 };
 
@@ -847,29 +739,6 @@ export const agentApi = {
       throw new Error(json.message || 'Upload failed');
     }
     return json.data;
-  },
-};
-
-export const tokenUsageApi = {
-  getOverview: async (params?: {
-    refresh?: boolean;
-    year?: string | null;
-    since?: string | null;
-    until?: string | null;
-    clients?: string[] | null;
-    groupBy?: TokenUsageGroupBy;
-  }): Promise<TokenUsageOverviewResponse> => {
-    const search = new URLSearchParams();
-    if (params?.refresh) search.set('refresh', 'true');
-    if (params?.year) search.set('year', params.year);
-    if (params?.since) search.set('since', params.since);
-    if (params?.until) search.set('until', params.until);
-    if (params?.clients?.length) search.set('clients', params.clients.join(','));
-    if (params?.groupBy) search.set('group_by', params.groupBy);
-    const qs = search.toString();
-    return fetchApi<TokenUsageOverviewResponse>(
-      `/api/token-usage/overview${qs ? `?${qs}` : ''}`
-    );
   },
 };
 

@@ -38,8 +38,8 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, LocalServicesService, ProjectService,
-    ReviewService, TerminalService, WorkspaceService,
+    AgentService, AgentSessionService, AutomationService, LocalServicesService, NotificationService,
+    ProjectService, ReviewService, TerminalService, WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
@@ -61,6 +61,8 @@ pub struct WsMessageService {
     canvas_service: Arc<CanvasService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
+    notification_service: Arc<NotificationService>,
+    token_usage_service: Arc<token_usage::TokenUsageService>,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
 }
@@ -78,6 +80,8 @@ impl WsMessageService {
         usage_service: Arc<UsageService>,
         canvas_service: Arc<CanvasService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
+        notification_service: Arc<NotificationService>,
+        token_usage_service: Arc<token_usage::TokenUsageService>,
     ) -> Self {
         let local_services_service = Arc::new(LocalServicesService::new(
             Arc::clone(&project_service),
@@ -100,6 +104,8 @@ impl WsMessageService {
             canvas_service,
             canvas_agent_relay,
             local_services_service,
+            notification_service,
+            token_usage_service,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
@@ -254,6 +260,10 @@ impl WsMessageService {
             }
             WsAction::UsageSetAutoRefresh => {
                 self.handle_usage_set_auto_refresh(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TokenUsageOverviewGet => {
+                self.handle_token_usage_overview_get(parse_request(request.data)?)
                     .await
             }
 
@@ -540,6 +550,8 @@ impl WsMessageService {
                     .await
             }
             WsAction::SkillsSystemSync => self.handle_skills_system_sync().await,
+            WsAction::ReviewSkillsList => self.handle_review_skills_list().await,
+            WsAction::ReviewSkillsScaffold => self.handle_review_skills_scaffold().await,
             WsAction::AgentList => self.handle_agent_list().await,
             WsAction::AgentInstall => {
                 self.handle_agent_install(parse_request(request.data)?)
@@ -792,12 +804,15 @@ impl WsMessageService {
                     .await
             }
 
-            // Notification settings are managed via REST endpoints (/hooks/notification/*)
-            WsAction::NotificationSettingsGet
-            | WsAction::NotificationSettingsUpdate
-            | WsAction::NotificationTestPush => Err(ServiceError::Processing(
-                "Notification settings are managed via REST API at /hooks/notification/*".into(),
-            )),
+            // Notification settings
+            WsAction::NotificationSettingsGet => self.handle_notification_settings_get(),
+            WsAction::NotificationSettingsUpdate => {
+                self.handle_notification_settings_update(parse_request(request.data)?)
+            }
+            WsAction::NotificationTestPush => {
+                self.handle_notification_test_push(parse_request(request.data)?)
+                    .await
+            }
 
             // ===== Local Services =====
             WsAction::LocalServicesScan => {

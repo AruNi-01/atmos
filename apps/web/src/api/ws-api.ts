@@ -1009,5 +1009,6 @@ export * from "@/api/ws/skills-api";
 export * from "@/api/ws/review-api";
 export * from "@/api/ws/github-api";
 export * from "@/api/ws/usage-api";
+export * from "@/api/ws/token-usage-api";
 export * from "@/api/ws/local-model-api";
 export * from "@/api/ws/local-services-api";
