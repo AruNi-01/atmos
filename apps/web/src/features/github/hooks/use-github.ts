@@ -1,11 +1,6 @@
 import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import {
-  getCachedBranchPrs,
-  getRepoPrSeedForBranch,
-  setCachedBranchPrs,
-  type BranchPr,
-} from '@/features/github/lib/github-pr-cache';
+import { useBranchPrListQuery } from '@/features/github/hooks/use-github-pr-query';
 
 export interface GithubContext {
   owner?: string;
@@ -13,7 +8,7 @@ export interface GithubContext {
   branch?: string;
 }
 
-// PR 列表
+// PR 列表 — backed by TanStack Query (APP-035 cutover)
 export function useGithubPRList({
   owner,
   repo,
@@ -21,66 +16,31 @@ export function useGithubPRList({
   state,
   emitBranchStatusRefresh = false,
   enabled = true,
-  preferRepoCache = false,
 }: GithubContext & {
   state?: string;
   emitBranchStatusRefresh?: boolean;
   enabled?: boolean;
+  /** @deprecated preferRepoCache is no longer needed; Query cache handles deduplication */
   preferRepoCache?: boolean;
 }) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useBranchPrListQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    state,
+    emitBranchStatusRefresh,
+    enabled: enabled && Boolean(owner && repo && branch),
+  });
 
-  const fetch = useCallback(async (options?: { force?: boolean }) => {
-    if (!enabled || !owner || !repo || !branch) return;
-    if (!options?.force) {
-      const cached = getCachedBranchPrs({ owner, repo, branch, state });
-      if (cached) {
-        setData(cached);
-        return;
-      }
+  const refresh = useCallback(() => {
+    void query.refetch();
+  }, [query]);
 
-      if (preferRepoCache) {
-        const seeded = getRepoPrSeedForBranch({ owner, repo, branch, state });
-        if (seeded) {
-          setCachedBranchPrs({ owner, repo, branch, state }, seeded);
-          setData(seeded);
-          return;
-        }
-      }
-    }
-
-    setLoading(true);
-    try {
-      const result = await send('github_pr_list', {
-        owner,
-        repo,
-        branch,
-        state,
-        emit_branch_status_refresh: emitBranchStatusRefresh,
-      });
-      if (Array.isArray(result)) {
-        setCachedBranchPrs({ owner, repo, branch, state }, result as BranchPr[]);
-      }
-      setData(result);
-    } catch (e) {
-      console.error(e);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, branch, state, send, emitBranchStatusRefresh, enabled, preferRepoCache]);
-
-  useEffect(() => { 
-    if (!enabled) return;
-    fetch(); 
-  }, [enabled, fetch]);
-
-  const refresh = useCallback(() => fetch({ force: true }), [fetch]);
-
-  return { data, loading, refresh };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    refresh,
+  };
 }
 
 // CI 状态（in_progress 时自动轮询）

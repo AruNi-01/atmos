@@ -1,6 +1,6 @@
 "use client";
 
-import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState, ViewTransition } from "react";
 import {
   Button,
   Input,
@@ -11,6 +11,11 @@ import {
 } from "@workspace/ui";
 import { skillsApi, type SkillInfo } from "@/api/ws-api";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { useSkillsListQuery, useInvalidateSkillsList } from "@/features/skills/hooks/use-skills-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { queryKeys } from "@/api/query/query-keys";
+import type { SkillsListResponse } from "@/features/skills/lib/skills-query-options";
 import { useQueryStates } from "nuqs";
 import { skillsParams, type ScopeFilter, type SkillsTab } from "@/shared/lib/nuqs/searchParams";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -49,14 +54,17 @@ export const SkillsView: React.FC = () => {
   const [{ tab: activeTab, filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
   const { skillScope, skillId } = useContextParams();
 
-  const [skills, setSkills] = useState<SkillInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const skillsQuery = useSkillsListQuery();
+  const skills = skillsQuery.data?.skills ?? [];
+  const isLoading = skillsQuery.isLoading;
+  const invalidateSkillsList = useInvalidateSkillsList();
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [showFilter, setShowFilter] = useState(scopeFilter !== "all");
   const [installingSkill, setInstallingSkill] = useState<SkillMarketItem | null>(null);
   const [collapsedMarketCategories, setCollapsedMarketCategories] = useState<Record<string, boolean>>({});
-  const hasLoadedSkillsRef = useRef(false);
 
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
@@ -128,33 +136,16 @@ export const SkillsView: React.FC = () => {
     return countCategoryItems(filteredResourceCategories);
   }, [filteredResourceCategories]);
 
-  const loadSkills = useCallback(async ({ force = false }: { force?: boolean } = {}) => {
-    if (isLoading || (hasLoadedSkillsRef.current && !force)) {
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const result = await skillsApi.list({ forceRefresh: force });
-      setSkills(result.skills || []);
-    } catch (error) {
-      console.error("Failed to load skills:", error);
-    } finally {
-      hasLoadedSkillsRef.current = true;
-      setIsLoading(false);
-    }
-  }, [isLoading]);
-
   const handleSkillUpdated = useCallback((nextSkill: SkillInfo) => {
-    setSkills((current) => current.map((skill) => (skill.id === nextSkill.id ? nextSkill : skill)));
+    queryClient.setQueryData<SkillsListResponse>(
+      queryKeys.computer.skillsList(scope),
+      (prev) =>
+        prev
+          ? { skills: prev.skills.map((s) => (s.id === nextSkill.id ? nextSkill : s)) }
+          : prev,
+    );
     setSelectedSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
-  }, []);
-
-  useEffect(() => {
-    if (!skillId && !hasLoadedSkillsRef.current) {
-      void loadSkills();
-    }
-  }, [loadSkills, skillId]);
+  }, [queryClient, scope]);
 
   useEffect(() => {
     const loadSkillDetail = async () => {
@@ -204,13 +195,18 @@ export const SkillsView: React.FC = () => {
 
   const handleSkillDeleted = useCallback(
     (skillIdToRemove: string) => {
-      setSkills((current) => current.filter((skill) => skill.id !== skillIdToRemove));
+      queryClient.setQueryData<SkillsListResponse>(
+        queryKeys.computer.skillsList(scope),
+        (prev) =>
+          prev ? { skills: prev.skills.filter((s) => s.id !== skillIdToRemove) } : prev,
+      );
       setSelectedSkill((current) => (current?.id === skillIdToRemove ? null : current));
       if (selectedSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
         handleBack();
       }
+      invalidateSkillsList();
     },
-    [handleBack, selectedSkill?.id, skillId],
+    [handleBack, invalidateSkillsList, queryClient, scope, selectedSkill?.id, skillId],
   );
 
   const handleOpenInstalledSkill = (skill: SkillInfo) => {
@@ -320,7 +316,7 @@ export const SkillsView: React.FC = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => void loadSkills({ force: true })}
+                    onClick={() => invalidateSkillsList()}
                     disabled={isLoading}
                     className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
                     title="Refresh Skills"

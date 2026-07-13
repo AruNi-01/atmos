@@ -1,79 +1,104 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { wsRequest } from "@/api/ws/request";
 import type {
-  AutomationAgentCapabilitiesResponse,
-  AutomationAgentCapability,
   AutomationArtifactKind,
   AutomationArtifactResponse,
   AutomationContinueInTerminalResponse,
   AutomationCreateRequest,
   AutomationDetail,
-  AutomationListResponse,
   AutomationRunDetail,
   AutomationRunListResponse,
   AutomationScheduleInput,
   AutomationSchedulePreviewResponse,
   AutomationSummary,
   AutomationUpdateRequest,
+  AutomationListResponse,
 } from "@/features/automations/types";
+import {
+  useAutomationListQuery,
+  useAutomationAgentCapabilitiesQuery,
+} from "@/features/automations/hooks/use-automations-query";
+import {
+  invalidateAutomationDefinitionQueries,
+} from "@/features/automations/lib/automations-query-options";
+import { queryKeys } from "@/api/query/query-keys";
+import { useComputerQueryScope } from "@/api/query/query-scope";
 
 export function useAutomations() {
-  const t = useTranslations("automation.store");
-  const [automations, setAutomations] = React.useState<AutomationSummary[]>([]);
-  const [agents, setAgents] = React.useState<AutomationAgentCapability[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
 
-  const reloadAutomations = React.useCallback(async () => {
-    const automationList = await wsRequest<AutomationListResponse>("automation_list", {
-      include_paused: true,
-    });
-    setAutomations(automationList.automations);
-    return automationList.automations;
-  }, []);
+  const automationListQuery = useAutomationListQuery();
+  const agentCapabilitiesQuery = useAutomationAgentCapabilitiesQuery();
 
-  const reloadAgents = React.useCallback(async () => {
-    const capabilityList = await wsRequest<AutomationAgentCapabilitiesResponse>(
-      "automation_agent_capabilities",
-    );
-    setAgents(capabilityList.agents);
-    return capabilityList.agents;
-  }, []);
+  const automations = automationListQuery.data?.automations ?? [];
+  const agents = agentCapabilitiesQuery.data?.agents ?? [];
+  const loading = (automationListQuery.isLoading || agentCapabilitiesQuery.isLoading);
+  const error =
+    automationListQuery.isError
+      ? (automationListQuery.error instanceof Error
+          ? automationListQuery.error.message
+          : "Failed to load automations")
+      : null;
 
   const reload = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await Promise.all([reloadAutomations(), reloadAgents()]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.loadAutomations"));
-    } finally {
-      setLoading(false);
-    }
-  }, [reloadAgents, reloadAutomations, t]);
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.computer.automationList(scope),
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.computer.automationAgentCapabilities(scope),
+        refetchType: "all",
+      }),
+    ]);
+  }, [queryClient, scope]);
 
-  React.useEffect(() => {
-    void reload();
-  }, [reload]);
+  const reloadAutomations = React.useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.computer.automationList(scope),
+      refetchType: "all",
+    });
+    return queryClient.getQueryData<AutomationListResponse>(queryKeys.computer.automationList(scope))?.automations ?? [];
+  }, [queryClient, scope]);
+
+  const reloadAgents = React.useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.computer.automationAgentCapabilities(scope),
+      refetchType: "all",
+    });
+    return agents;
+  }, [agents, queryClient, scope]);
 
   const upsertAutomation = React.useCallback((automation: AutomationSummary) => {
-    setAutomations((current) => {
-      const index = current.findIndex((item) => item.guid === automation.guid);
-      if (index === -1) {
-        return [automation, ...current];
-      }
-      const next = current.slice();
-      next[index] = automation;
-      return next;
-    });
-  }, []);
+    queryClient.setQueryData<AutomationListResponse>(
+      queryKeys.computer.automationList(scope),
+      (prev) => {
+        if (!prev) return prev;
+        const index = prev.automations.findIndex((item) => item.guid === automation.guid);
+        if (index === -1) {
+          return { ...prev, automations: [automation, ...prev.automations] };
+        }
+        const next = prev.automations.slice();
+        next[index] = automation;
+        return { ...prev, automations: next };
+      },
+    );
+  }, [queryClient, scope]);
 
   const removeAutomation = React.useCallback((automationGuid: string) => {
-    setAutomations((current) => current.filter((automation) => automation.guid !== automationGuid));
-  }, []);
+    queryClient.setQueryData<AutomationListResponse>(
+      queryKeys.computer.automationList(scope),
+      (prev) =>
+        prev
+          ? { ...prev, automations: prev.automations.filter((a) => a.guid !== automationGuid) }
+          : prev,
+    );
+    invalidateAutomationDefinitionQueries(queryClient, scope);
+  }, [queryClient, scope]);
 
   const refreshAutomation = React.useCallback(
     async (automationGuid: string) => {

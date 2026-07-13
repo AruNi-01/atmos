@@ -42,11 +42,7 @@ import {
   cn,
 } from "@workspace/ui";
 
-import {
-  tokenUsageApi,
-  type TokenUsageOverviewResponse,
-  type TokenUsageUpdateResponse,
-} from "@/api/ws/token-usage-api";
+import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import {
   ChartContainer,
   ChartLegend,
@@ -55,8 +51,11 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/shared/components/ui/chart";
-import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
+import { useTokenUsageQuery } from "@/features/usage/hooks/use-token-usage-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { queryKeys } from "@/api/query/query-keys";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import {
@@ -118,24 +117,34 @@ export function TokenUsageDialog({
     (nextOpen: boolean) => {
       if (openProp === undefined) {
         setInternalOpen(nextOpen);
+        if (!nextOpen) {
+          setSelectedYear("");
+        }
       }
       onOpenChange?.(nextOpen);
     },
     [onOpenChange, openProp],
   );
-  const [overview, setOverview] = React.useState<TokenUsageOverviewResponse | null>(null);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [resolution, setResolution] = React.useState<Resolution>("month");
-  const [loading, setLoading] = React.useState(false);
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const [hoveredHeatmapCell, setHoveredHeatmapCell] = React.useState<HeatmapHoverState | null>(null);
   const [chartsReady, setChartsReady] = React.useState(false);
-  const requestRef = React.useRef(0);
-  const { resolvedTheme } = useTheme();
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
   const t = useTranslations("appShell.tokenUsageDialog");
   const locale = useLocale();
-  const onEvent = useWebSocketStore((state) => state.onEvent);
+  const tokenUsageQuery = useTokenUsageQuery(
+    open ? { year: selectedYear || null } : undefined,
+  );
+  const overview: TokenUsageOverviewResponse | null = open ? (tokenUsageQuery.data ?? null) : null;
+  const loading = open && tokenUsageQuery.isLoading && !tokenUsageQuery.data;
+  const refreshing = open && tokenUsageQuery.isFetching && !!tokenUsageQuery.data;
+  const error = open && tokenUsageQuery.isError
+    ? (tokenUsageQuery.error instanceof Error
+        ? tokenUsageQuery.error.message
+        : t("errors.loadOverviewFallback"))
+    : null;
+  const { resolvedTheme } = useTheme();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const isDarkTheme = resolvedTheme !== "light";
   const heatmapPalette = isDarkTheme ? darkHeatmapPalette : lightHeatmapPalette;
@@ -174,48 +183,6 @@ export function TokenUsageDialog({
     [t],
   );
 
-  const loadOverview = React.useCallback(
-    async ({ refresh = false }: { refresh?: boolean } = {}) => {
-      const requestId = requestRef.current + 1;
-      requestRef.current = requestId;
-
-      setError(null);
-      if (refresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      try {
-        const next = await tokenUsageApi.getOverview({
-          refresh,
-        });
-
-        if (requestRef.current !== requestId) {
-          return;
-        }
-
-        React.startTransition(() => {
-          setOverview(next);
-        });
-      } catch (loadError) {
-        if (requestRef.current !== requestId) {
-          return;
-        }
-
-        setError(
-          loadError instanceof Error ? loadError.message : t("errors.loadOverviewFallback"),
-        );
-      } finally {
-        if (requestRef.current === requestId) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    },
-    [t],
-  );
-
   const deferredOverview = React.useDeferredValue(overview);
   const sortedDays = React.useMemo(
     () => sortDailyUsage(deferredOverview?.by_day ?? []),
@@ -226,8 +193,9 @@ export function TokenUsageDialog({
     [deferredOverview?.available_years, sortedDays],
   );
 
+  // Auto-select the latest available year once the first data arrives.
   React.useEffect(() => {
-    if (selectedYear) {
+    if (selectedYear || !overview) {
       return;
     }
 
@@ -235,16 +203,15 @@ export function TokenUsageDialog({
     if (latestYear) {
       setSelectedYear(latestYear);
     }
-  }, [availableYears, selectedYear]);
+  }, [availableYears, overview, selectedYear]);
 
+  // Reset chartsReady when dialog closes or new data first arrives.
   React.useEffect(() => {
     if (!open) {
       setChartsReady(false);
       return;
     }
-
-    void loadOverview();
-  }, [loadOverview, open]);
+  }, [open]);
 
   React.useEffect(() => {
     if (!open || !overview || chartsReady) {
@@ -279,29 +246,6 @@ export function TokenUsageDialog({
       globalThis.clearTimeout(timeoutId);
     };
   }, [chartsReady, open, overview]);
-
-  React.useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    return onEvent("token_usage_updated", (payload: unknown) => {
-      const update = payload as TokenUsageUpdateResponse | null;
-      if (!update?.overview) {
-        return;
-      }
-
-      const eventYear = update.overview.query.year ?? "";
-      if (!eventYear) {
-        React.startTransition(() => {
-          setOverview(update.overview);
-        });
-        return;
-      }
-
-      void loadOverview({ refresh: true });
-    });
-  }, [loadOverview, onEvent, open]);
 
   const heatmapYear = selectedYear || availableYears[availableYears.length - 1] || "";
 
@@ -382,8 +326,11 @@ export function TokenUsageDialog({
     resolution === "month" ? t("resolution.options.month") : t("resolution.options.day");
 
   const handleRefresh = React.useCallback(() => {
-    void loadOverview({ refresh: true });
-  }, [loadOverview]);
+    void queryClient.invalidateQueries({
+      queryKey: [...queryKeys.computer.root(scope), "tokenUsage"],
+      refetchType: "all",
+    });
+  }, [queryClient, scope]);
 
   const showInitialSkeleton = loading && !overview;
   const showDeferredChartSkeleton = !showInitialSkeleton && !!overview && !chartsReady;
