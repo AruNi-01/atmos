@@ -8,17 +8,13 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
   const [
     { useGitStore },
     { useWikiStore },
-    { useLocalServicesStore },
     { useReviewSnapshotStore },
-    { clearAllCachedPrs },
     { invalidateLocalComputerStatusCache },
     { clearWelcomeGithubCaches },
   ] = await Promise.all([
     import("@/features/git/store/use-git-store"),
     import("@/features/wiki/store/use-wiki-store"),
-    import("@/features/local-services/store/local-services-store"),
     import("@/features/code-review/store/review-snapshot-store"),
-    import("@/features/github/lib/github-pr-cache"),
     import("@/features/connection/lib/atmos-computer-local"),
     import("@/features/welcome/lib/welcome-page-helpers"),
   ]);
@@ -28,9 +24,10 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
   // Only the orchestration slice (currentRepoPath, compareMode) needs a manual reset.
   useGitStore.getState().resetForConnectionChange();
   useWikiStore.getState().resetForConnectionChange();
-  useLocalServicesStore.getState().resetForConnectionChange();
+  // Local services scopes are now owned by TanStack Query — cleared via scope key removal.
   useReviewSnapshotStore.getState().clearSnapshot();
-  clearAllCachedPrs();
+  // GitHub PR caches are now owned by TanStack Query — cleared via scope key removal.
   invalidateLocalComputerStatusCache();
+  // Issue list cache is still a module-level Map; PR cache is Query-owned.
   clearWelcomeGithubCaches();
 }

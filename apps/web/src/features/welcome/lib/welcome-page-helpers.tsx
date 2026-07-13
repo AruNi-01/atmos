@@ -11,12 +11,6 @@ import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
-import {
-  clearAllCachedPrs,
-  clearCachedRepoPrs,
-  getCachedRepoPrs,
-  setCachedRepoPrs,
-} from "@/features/github/lib/github-pr-cache";
 
 export interface RepoContext {
   owner: string;
@@ -64,30 +58,14 @@ export const issueListCache = new Map<
   { expiresAt: number; issues: GithubIssuePayload[] }
 >();
 
-/** Clear welcome GitHub list caches on Computer target switch (APP-035). */
+/**
+ * Clear welcome GitHub list caches on Computer target switch (APP-035).
+ * PR data is now owned by TanStack Query and cleared automatically via
+ * Computer-scope key removal — only the issue list Map remains here.
+ */
 export function clearWelcomeGithubCaches(): void {
   issueListCache.clear();
-  clearAllCachedPrs();
 }
-
-export const prListCache = {
-  get(cacheKey: string): { expiresAt: number; prs: GithubPrPayload[] } | undefined {
-    const [owner, repo] = cacheKey.split("/");
-    if (!owner || !repo) return undefined;
-    const prs = getCachedRepoPrs({ owner, repo });
-    return prs ? { expiresAt: Date.now() + ISSUE_CACHE_TTL_MS, prs } : undefined;
-  },
-  set(cacheKey: string, entry: { expiresAt?: number; prs: GithubPrPayload[] }) {
-    const [owner, repo] = cacheKey.split("/");
-    if (!owner || !repo) return;
-    setCachedRepoPrs({ owner, repo }, entry.prs);
-  },
-  delete(cacheKey: string) {
-    const [owner, repo] = cacheKey.split("/");
-    if (!owner || !repo) return;
-    clearCachedRepoPrs({ owner, repo });
-  },
-};
 
 export const WELCOME_HEADLINES: WelcomeHeadline[] = [
   "come_alive",
