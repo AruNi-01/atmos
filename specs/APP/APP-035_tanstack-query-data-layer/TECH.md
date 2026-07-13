@@ -23,6 +23,22 @@ This design changes no Rust crate, database schema, API route, or WebSocket acti
 | Mutations | Optimistic only when rollback is deterministic; otherwise invalidate after success | Avoids speculative state for destructive or multi-step workflows |
 | Persistence | Memory-only Query cache | Avoids stale or sensitive snapshots in browser storage |
 
+## PRD traceability
+
+| Requirement | Technical coverage |
+|-------------|--------------------|
+| M1 | Server-state ownership contract, typed operation inventory, migration matrix |
+| M2 | QueryClient defaults, resource keys, QueryObserver-compatible options, retained-data behavior |
+| M3 | Mutation lifecycle and per-domain invalidation |
+| M4 | `ServerStateEventBridge` and event policy table |
+| M5 | Computer/Relay/session scopes, identity lifecycle, target cleanup, legacy reset registry |
+| M6 | Transport-specific enablement, reconnect invalidation registry, single reconnect owner |
+| M7 | Error/loading/refresh behavior contract |
+| M8 | Compatibility/cutover states, legacy reset safety, rollout plan |
+| M9 | Existing transport adapters and no protocol changes |
+| M10 | Typed operation inventory and migration status matrix |
+| M11 | Per-domain before/after evidence recorded during rollout |
+
 ## Architecture overview
 
 ```mermaid
@@ -182,9 +198,13 @@ Key rules:
 
 Provide shared helpers, not domain-specific mega-hooks:
 
-- `computerQueryEnabled(scope, connectionState)` returns true only for a complete scope and `connected` WebSocket.
-- `wsQueryOptions(...)` applies the Computer key, `enabled`, and connection-aware retry policy around existing API functions.
+- `wsComputerQueryEnabled(scope, connectionState)` returns true only for a complete scope and `connected` WebSocket.
+- `restComputerQueryEnabled(scope, runtimeReady)` requires a resolvable local HTTP target or complete Relay gateway session; it does not wait for the main WebSocket.
+- `wsQueryOptions(...)` applies connected-only enablement and connection-aware retry around existing WS API functions.
+- `restComputerQueryOptions(...)` applies HTTP-target readiness around existing `rest-api.ts` / `relay.ts` functions.
 - Do not hide domain `staleTime`, polling, or invalidation decisions in a generic wrapper.
+
+Pilot system diagnostics use `restComputerQueryOptions`; settings bootstrap and usage overview use `wsQueryOptions`.
 
 ### `apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts`
 
@@ -214,7 +234,25 @@ Concrete identity/session integration points:
 - `apps/web/src/features/connection/lib/hosted-connection-actions.ts`
 - `useAtmosComputerStore.resetRelaySession()`
 
-Credential setters must call one shared identity-transition action rather than relying on every component to remember cache cleanup. Relay session hydration must call one atomic session setter for WebSocket URL, gateway base, and client token so `relaySessionRevision` changes once per accepted session.
+Add `apps/web/src/features/connection/lib/query-identity-lifecycle.ts` with:
+
+```ts
+export async function applyIdentityBearingComputerSettings(
+  patch: Pick<AtmosComputerData, "relayUrl" | "relaySecretKey" | "accessToken">,
+): Promise<void>;
+
+export async function applyRelaySessionTransport(
+  session: {
+    relayWebSocketUrl: string | null;
+    relayGatewayHttpBase: string | null;
+    relayClientToken: string | null;
+  },
+): Promise<void>;
+
+export async function clearQueryStateForLogout(): Promise<void>;
+```
+
+Credential call sites use `applyIdentityBearingComputerSettings()` rather than independent setters. Relay hydration/hosted activation uses `applyRelaySessionTransport()`, backed by a new atomic `useAtmosComputerStore.setRelaySessionTransport()` action, so `relaySessionRevision` changes once per accepted session. Initial hydration with no prior cache may skip cancellation but still establishes the revisions.
 
 Transient same-target reconnect:
 
@@ -229,6 +267,13 @@ Replace `reloadActiveConnectionData()` with domain invalidation or `ensureQueryD
 ### `apps/web/src/app-shell/bootstrap/legacy-server-state-reset.ts`
 
 M5 applies before every domain has migrated. Add an explicit compatibility reset registry for legacy Computer-scoped snapshots that current target cleanup misses, including `useGitStore`, `useWikiStore`, `useLocalServicesStore`, review snapshots, and server-backed settings caches. Add narrow `resetForConnectionChange()` actions where absent.
+
+The initial audit also includes module-level caches outside Zustand:
+
+- `apps/web/src/features/github/lib/github-pr-cache.ts`
+- local diagnostics cache and `invalidateLocalComputerStatusCache()` in `apps/web/src/features/connection/lib/atmos-computer-local.ts`
+- welcome GitHub list caches in `apps/web/src/features/welcome/lib/welcome-page-helpers.tsx`
+- any additional module `Map`, snapshot, in-flight promise, or TTL cache found by the operation inventory
 
 - Call this registry from `prepareConnectionTargetChange()` after query cancellation and before the new target renders.
 - Never reset `useTerminalCacheStore`, retained terminal runtimes, per-instance UI preferences, or unsaved editor buffers except where existing target-switch behavior already requires it.
