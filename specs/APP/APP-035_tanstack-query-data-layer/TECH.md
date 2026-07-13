@@ -462,7 +462,7 @@ The typed inventory expands each grouped row to individual exported operations b
 | Git status, changed files, diffs, branches | Queries + mutations | `useGitStore`, `useGitInfoStore` | Git query hooks; orchestration-only store | Git mutations; reconnect; workspace changes | Core | complete — status/changedFiles/branches Query-owned; fileDiff deferred as imperative |
 | Files, tree, search | Queries + mutations | `useFileTreeStore`, editor callers | Filesystem queries; editor buffer remains Zustand | filesystem mutations; workspace changes | Core | complete — tree Query-owned; editor buffers excluded; volatile search deferred |
 | GitHub PR/CI/actions | Queries + mutations + polling | Hook-local state + `github-pr-cache` | GitHub query hooks + consolidated WS API | GitHub mutations; terminal CI polling rule | Extended | complete — PR list queries own all consumers; `github-pr-cache` Maps removed; `welcome-page-helpers.prListCache` removed; CI/actions polling deferred (no server push event; out of scope for this branch) |
-| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries + thin workflow orchestration | review mutations | Extended | partial — sessions query hook exists; `use-review-context` still holds local sessions state; migration deferred: optimistic comments, WS event subscriptions, and ~15 mutation callbacks all call `loadSessions()` making an atomic cutover non-trivial |
+| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries + thin workflow orchestration | review mutations | Extended | partial — **sessions list Query-owned** by primary consumer `use-review-context` via `useReviewSessionsQuery` (mutations invalidate / create patches cache); nested revision file snapshots travel with the session DTO; **comments remain local `useState`** (optimistic create/reply merge); **`sessionDisplay` stays in `useReviewSnapshotStore`** (UI chrome only). Full comments Query cutover deferred — optimistic UX + ~15 mutation callbacks still orchestrate via `loadComments()` |
 | Skills | Queries + mutations | Component local state | Skills query hooks | install/enable/delete/sync | Extended | complete |
 | Automations definitions/runs | Queries + mutations + events/stream | Hook-local state + WS sync | Automation queries/event bridge; output stream local | `automation_definition_updated`; `automation_run_updated` | Extended | complete |
 | Local models/services | Queries + mutations + events | Zustand stores | Query hooks; progress events local | `local_model_state_changed`; scan/stop | Extended | complete — `LocalServicesPreviewPanel` and `LocalServicesFooterItem` cut over to `useLocalServicesScanQuery`; Zustand store snapshot state removed; `legacy-server-state-reset` entry removed |
@@ -579,3 +579,12 @@ No feature flag is required for the inert provider foundation. Domain cutovers s
 - Target and identity changes remove old Computer snapshots; inactive per-Computer cache retention is not part of v1.
 - Query Devtools are not added initially.
 - Web/mobile align conventions only; shared key factories require a later decision.
+
+## Implementation Delta · Review sessions Query owner (2026-07-13)
+
+- **Done:** `use-review-context` (primary consumer behind `ReviewContextProvider` / `ReviewView`) reads sessions from `useReviewSessionsQuery`. `loadSessions()` invalidates the Query key; createSession optimistically patches via `setQueryData`. Nested revision file snapshots remain on the session DTO (no separate file-list query).
+- **Intentionally dual-path / local:**
+  - Comments: local `useState` + `loadComments()` with optimistic `opt-` merge (not Query).
+  - UI chrome: `useReviewSnapshotStore.sessionDisplay` only (title/revision label for CenterStage tab bar).
+  - Mutation/workflow orchestration (agent runs, finalize, reply, status) stays in the context hook; it refreshes by invalidating sessions / reloading comments.
+- **Not done this pass:** comments Query cutover; review reconnect root registration (same as other extended domains not yet on `reconnectInvalidationKeys`).

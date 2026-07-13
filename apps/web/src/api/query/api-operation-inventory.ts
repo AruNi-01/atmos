@@ -396,7 +396,7 @@ export const apiOperationInventory = [
     operation: "reviewSessionsList",
     transport: "websocket-request",
     classification: "query",
-    legacyOwner: "useReviewContext local useState (sessions)",
+    legacyOwner: "useReviewContext via useReviewSessionsQuery (comments still local useState)",
     queryKeyRoot: "queryKeys.computer.reviewSessions",
     phase: "extended",
     status: "complete",

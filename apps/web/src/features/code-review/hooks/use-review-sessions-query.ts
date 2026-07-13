@@ -21,10 +21,9 @@ export function useInvalidateReviewSessions() {
   const queryClient = useQueryClient();
   const scope = useComputerQueryScope();
 
-  return (target: ReviewTarget) => {
-    void queryClient.invalidateQueries({
+  return (target: ReviewTarget) =>
+    queryClient.invalidateQueries({
       queryKey: reviewSessionsKey(scope, target),
       refetchType: "active",
     });
-  };
 }

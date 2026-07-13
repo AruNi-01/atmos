@@ -493,7 +493,7 @@ All 7 extended domains received query options + hooks:
 | Skills | `features/skills/lib/skills-query-options.ts` | `features/skills/hooks/use-skills-query.ts` | `features/skills/components/SkillsView.tsx` — uses `useSkillsListQuery`, cache-patching on update/delete |
 | Automations | `features/automations/lib/automations-query-options.ts` | `features/automations/hooks/use-automations-query.ts` | `features/automations/hooks/use-automations.ts` — removed useState, uses `useAutomationListQuery` + `useAutomationAgentCapabilitiesQuery`; upsert/remove via `setQueryData` |
 | GitHub PR | `features/github/lib/github-query-options.ts` | `features/github/hooks/use-github-pr-query.ts` | `features/github/hooks/use-github.ts` — `useGithubPRList` migrated to `useBranchPrListQuery` |
-| Review sessions | `features/code-review/lib/review-query-options.ts` | `features/code-review/hooks/use-review-sessions-query.ts` | Hook created; full `use-review-context` migration is planned |
+| Review sessions | `features/code-review/lib/review-query-options.ts` | `features/code-review/hooks/use-review-sessions-query.ts` | `use-review-context` uses `useReviewSessionsQuery`; `loadSessions` invalidates Query; createSession patches cache; comments + sessionDisplay remain local/Zustand |
 | Local services / models | `features/local-services/lib/local-services-query-options.ts`, `local-model-query-options.ts` | `features/local-services/hooks/use-local-services-query.ts`, `use-local-model-query.ts` | Hook created; Zustand store migration is planned |
 | Agent registry | `features/agent/lib/agent-registry-query-options.ts` | `features/agent/hooks/use-agent-registry-query.ts` | Hook created; `use-agent-manager` migration is planned |
 
@@ -512,7 +512,7 @@ All 7 extended domains received query options + hooks:
 - **Git / Files** — not yet migrated; `useGitStore`, `useFileTreeStore` remain legacy owners.
 - **Project CRUD mutations** — bootstrap query is complete; workspace CRUD mutations and progress events are planned.
 - **github-pr-cache.ts** — module-level Map is not yet retired; retirement is blocked until every PR-list consumer uses the same key factory.
-- **use-review-context full migration** — files/comments state still in local useState; only sessions cut over.
+- **use-review-context comments** — comments stay in local useState for optimistic create/reply merge; sessions list is Query-owned by the primary consumer.
 - **Local-services Zustand stores** — query hooks exist; `useLocalServicesStore` store migration planned.
 - **Agent manager** — `use-agent-manager` migration planned; hooks exist.
 - **S3–S14, S18–S33** — integration/component/E2E tests and agent-browser exploratory evidence remain for the `atmos-specs-test-run` pass.
