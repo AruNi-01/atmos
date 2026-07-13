@@ -8,7 +8,7 @@ import { localServicesScanQueryOptions } from "@/features/local-services/lib/loc
 
 export function useLocalServicesScanQuery(
   request: LocalServicesScanRequest,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; refetchInterval?: number | false },
 ) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
@@ -16,5 +16,8 @@ export function useLocalServicesScanQuery(
   return useQuery({
     ...localServicesScanQueryOptions(scope, connectionState, request),
     enabled: options?.enabled ?? true,
+    ...(options?.refetchInterval !== undefined
+      ? { refetchInterval: options.refetchInterval }
+      : {}),
   });
 }

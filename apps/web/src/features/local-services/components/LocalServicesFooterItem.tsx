@@ -15,10 +15,7 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { localServiceOpenUrl } from "@/features/local-services/lib/local-service-url";
 import type { LocalService } from "@/features/local-services/types";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import {
-  localServicesScopeKey,
-  useLocalServicesStore,
-} from "@/features/local-services/store/local-services-store";
+import { useLocalServicesScanQuery } from "@/features/local-services/hooks/use-local-services-query";
 import { LocalServiceList } from "./LocalServiceList";
 
 const FOOTER_REQUEST = {
@@ -30,30 +27,22 @@ export function LocalServicesFooterItem() {
   const [open, setOpen] = React.useState(false);
   const router = useAppRouter();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  const scan = useLocalServicesStore((s) => s.scan);
-  const key = localServicesScopeKey(FOOTER_REQUEST);
-  const scope = useLocalServicesStore((s) => s.scopes[key]);
-  const services = scope?.data?.services ?? [];
-  const loading = scope?.loading ?? false;
-  const error = scope?.error ?? scope?.data?.unavailable?.message ?? null;
+  const query = useLocalServicesScanQuery(FOOTER_REQUEST, {
+    enabled: connectionState === "connected",
+    refetchInterval: 30_000,
+  });
+
+  const services = query.data?.services ?? [];
+  const loading = query.isFetching;
+  const error = query.error
+    ? (query.error instanceof Error ? query.error.message : t("errorFallback"))
+    : (query.data?.unavailable?.message ?? null);
 
   const label = React.useCallback(
     (key: string, values?: Record<string, string | number>) =>
       t(key, values),
     [t]
   );
-
-  const refresh = React.useCallback((force = false) => {
-    if (connectionState !== "connected") return;
-    void scan({ ...FOOTER_REQUEST, force });
-  }, [connectionState, scan]);
-
-  React.useEffect(() => {
-    if (connectionState !== "connected") return;
-    refresh(false);
-    const timer = window.setInterval(() => refresh(false), 30_000);
-    return () => window.clearInterval(timer);
-  }, [connectionState, refresh]);
 
   const handleOpen = React.useCallback((service: LocalService) => {
     const openUrl = localServiceOpenUrl(service);
@@ -107,7 +96,7 @@ export function LocalServicesFooterItem() {
               variant="ghost"
               size="icon"
               className="size-7"
-              onClick={() => refresh(true)}
+              onClick={() => void query.refetch()}
               disabled={loading || connectionState !== "connected"}
               title={label("refresh")}
             >
@@ -127,7 +116,7 @@ export function LocalServicesFooterItem() {
             compact
             emptyLabel={label("emptyLabel")}
             onOpen={handleOpen}
-            onRefresh={() => refresh(true)}
+            onRefresh={() => void query.refetch()}
           />
         </div>
       </PopoverContent>
