@@ -477,7 +477,7 @@ bun --filter web typecheck
 
 **File:** `apps/web/src/api/query/api-operation-inventory.ts`
 
-All required domains present: system (pilot), settings (pilot), usage (pilot), project (core), git (core/planned), tokenUsage (extended/complete), skills (extended/complete), automations (extended/complete), github (extended/complete), review (extended/complete), localServices (extended/complete), localModels (extended/complete), agentRegistry (extended/complete), acpSessions (deferred), canvas (deferred), agentHooks (deferred), terminalLayout (deferred), connection (excluded), terminal (excluded), agentChat (excluded), editor (excluded).
+All required domains present: system (pilot/complete), settings (pilot/complete), usage (pilot/complete), project (core/complete), git (core/complete with fileDiff deferred), files (core/complete with volatile search deferred), tokenUsage (extended/complete), skills (extended/complete), automations (extended/complete), github (extended/complete — PR lists; CI polling deferred), review (extended/partial — sessions complete; comments local), localServices (extended/complete), localModels (extended/complete), agentRegistry (extended/complete), acpSessions (deferred), canvas (deferred), agentHooks (deferred), terminalLayout (deferred), connection (excluded), terminal (excluded), agentChat (excluded), editor (excluded).
 
 **File:** `apps/web/src/api/query/__tests__/api-operation-inventory.test.ts`
 
