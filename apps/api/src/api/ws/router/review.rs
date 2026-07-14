@@ -5,6 +5,7 @@ use core_service::service::review::{
     SetReviewAgentRunStatusInput, SetReviewFileReviewedInput, UpdateReviewCommentStatusInput,
     UpdateReviewMessageInput,
 };
+use futures_util::future::join_all;
 
 impl WsMessageService {
     async fn send_review_notification(&self, event: WsEvent, data: Value) {
@@ -198,6 +199,33 @@ impl WsMessageService {
             .get_file_content(req.file_snapshot_guid)
             .await?;
         Ok(json!(content))
+    }
+
+    pub(super) async fn handle_review_file_content_get_batch(
+        &self,
+        req: ReviewFileContentGetBatchRequest,
+    ) -> Result<Value> {
+        let futures = req.file_snapshot_guids.into_iter().map(|guid| {
+            let review_service = Arc::clone(&self.review_service);
+            async move {
+                let result = review_service.get_file_content(guid.clone()).await;
+                match result {
+                    Ok(content) => ReviewFileContentGetBatchResult {
+                        file_snapshot_guid: guid,
+                        content: Some(json!(content)),
+                        error: None,
+                    },
+                    Err(error) => ReviewFileContentGetBatchResult {
+                        file_snapshot_guid: guid,
+                        content: None,
+                        error: Some(error.to_string()),
+                    },
+                }
+            }
+        });
+        let results = join_all(futures).await;
+
+        Ok(json!(ReviewFileContentGetBatchResponse { results }))
     }
 
     pub(super) async fn handle_review_file_set_reviewed(

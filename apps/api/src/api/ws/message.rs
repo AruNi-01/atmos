@@ -189,6 +189,8 @@ pub enum WsAction {
     FsValidateGitPath,
     /// 读取文件内容
     FsReadFile,
+    /// 批量读取文件内容
+    FsReadFiles,
     /// 写入文件内容
     FsWriteFile,
     /// 创建目录
@@ -223,6 +225,8 @@ pub enum WsAction {
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
     GitGetStatus,
+    /// 批量获取 Git 状态
+    GitGetStatusBatch,
     /// 获取 HEAD 提交 hash
     GitGetHeadCommit,
     /// 获取 base..head 之间的提交数量
@@ -237,6 +241,8 @@ pub enum WsAction {
     GitChangedFiles,
     /// 获取单个文件的 diff
     GitFileDiff,
+    /// 批量获取文件 diff
+    GitFilesDiff,
     /// 将补丁块应用到暂存区（index）
     GitStagePatchChunk,
     /// 逆向应用补丁块到工作区（撤销该块的未暂存改动）
@@ -397,6 +403,8 @@ pub enum WsAction {
     ReviewFileList,
     /// 读取 review file snapshot 内容
     ReviewFileContentGet,
+    /// 批量读取 review file snapshot 内容
+    ReviewFileContentGetBatch,
     /// 更新文件 reviewed 状态
     ReviewFileSetReviewed,
     /// 列出 review comments
@@ -704,7 +712,13 @@ pub struct ProjectDeleteRequest {
 
 #[cfg(test)]
 mod tests {
-    use super::ProjectUpdateRequest;
+    use super::{
+        FsReadFilesRequest, FsReadFilesResponse, FsReadFilesResult, GitFilesDiffRequest,
+        GitFilesDiffResponse, GitFilesDiffResult, GitGetStatusBatchRequest,
+        GitGetStatusBatchResponse, GitGetStatusBatchResult, ProjectUpdateRequest,
+        ReviewFileContentGetBatchRequest, ReviewFileContentGetBatchResponse,
+        ReviewFileContentGetBatchResult, WsAction,
+    };
     use serde_json::json;
 
     #[test]
@@ -731,6 +745,122 @@ mod tests {
         .unwrap();
         assert_eq!(updated.border_color, Some(Some("#ef4444".to_string())));
         assert_eq!(updated.logo_path, Some(Some("/tmp/logo.png".to_string())));
+    }
+
+    #[test]
+    fn batch_action_variants_use_expected_wire_names() {
+        let cases = [
+            (WsAction::GitGetStatusBatch, "git_get_status_batch"),
+            (WsAction::GitFilesDiff, "git_files_diff"),
+            (WsAction::FsReadFiles, "fs_read_files"),
+            (
+                WsAction::ReviewFileContentGetBatch,
+                "review_file_content_get_batch",
+            ),
+        ];
+
+        for (action, wire_name) in cases {
+            assert_eq!(serde_json::to_value(&action).unwrap(), json!(wire_name));
+            assert_eq!(
+                serde_json::from_value::<WsAction>(json!(wire_name)).unwrap(),
+                action
+            );
+        }
+    }
+
+    #[test]
+    fn batch_requests_and_null_results_match_wire_shapes() {
+        let status_request: GitGetStatusBatchRequest =
+            serde_json::from_value(json!({ "paths": ["/repo-a", "/repo-b"] })).unwrap();
+        assert_eq!(status_request.paths, ["/repo-a", "/repo-b"]);
+
+        let diff_request: GitFilesDiffRequest = serde_json::from_value(json!({
+            "path": "/repo",
+            "file_paths": ["a.rs", "b.rs"]
+        }))
+        .unwrap();
+        assert_eq!(diff_request.file_paths, ["a.rs", "b.rs"]);
+        assert_eq!(diff_request.base_branch, None);
+        assert_eq!(diff_request.base_ref, None);
+        assert_eq!(diff_request.commit_ref, None);
+        assert!(!diff_request.against_index);
+
+        let fs_request: FsReadFilesRequest =
+            serde_json::from_value(json!({ "paths": ["/tmp/a"] })).unwrap();
+        assert_eq!(fs_request.paths, ["/tmp/a"]);
+
+        let review_request: ReviewFileContentGetBatchRequest =
+            serde_json::from_value(json!({ "file_snapshot_guids": ["snapshot-1"] })).unwrap();
+        assert_eq!(review_request.file_snapshot_guids, ["snapshot-1"]);
+
+        assert_eq!(
+            serde_json::to_value(GitGetStatusBatchResponse {
+                results: vec![GitGetStatusBatchResult {
+                    path: "/repo-a".into(),
+                    status: None,
+                    error: Some("failed".into()),
+                }],
+            })
+            .unwrap(),
+            json!({
+                "results": [{
+                    "path": "/repo-a",
+                    "status": null,
+                    "error": "failed"
+                }]
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(GitFilesDiffResponse {
+                results: vec![GitFilesDiffResult {
+                    file_path: "a.rs".into(),
+                    diff: None,
+                    error: Some("failed".into()),
+                }],
+            })
+            .unwrap(),
+            json!({
+                "results": [{
+                    "file_path": "a.rs",
+                    "diff": null,
+                    "error": "failed"
+                }]
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(FsReadFilesResponse {
+                results: vec![FsReadFilesResult {
+                    path: "/tmp/a".into(),
+                    file: None,
+                    error: Some("failed".into()),
+                }],
+            })
+            .unwrap(),
+            json!({
+                "results": [{
+                    "path": "/tmp/a",
+                    "file": null,
+                    "error": "failed"
+                }]
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(ReviewFileContentGetBatchResponse {
+                results: vec![ReviewFileContentGetBatchResult {
+                    file_snapshot_guid: "snapshot-1".into(),
+                    content: None,
+                    error: Some("failed".into()),
+                }],
+            })
+            .unwrap(),
+            json!({
+                "results": [{
+                    "file_snapshot_guid": "snapshot-1",
+                    "content": null,
+                    "error": "failed"
+                }]
+            })
+        );
     }
 }
 

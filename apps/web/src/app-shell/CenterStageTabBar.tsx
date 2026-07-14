@@ -127,6 +127,25 @@ export function CenterStageTabBar({
     return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
 
+  // Open files and GitHub PR/Action tabs share one lane, ordered by when each
+  // was opened (no per-type grouping) so tabs appear in natural open order.
+  const orderedSurfaceTabs = React.useMemo<
+    Array<
+      | { type: "file"; openedAt: number; file: OpenFile }
+      | { type: "github"; openedAt: number; tab: GithubCenterTab }
+    >
+  >(() => {
+    const items = [
+      ...openFiles.map(
+        (file) => ({ type: "file" as const, openedAt: file.lastOpenedAt, file }),
+      ),
+      ...githubTabs.map(
+        (tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab }),
+      ),
+    ];
+    return items.sort((left, right) => left.openedAt - right.openedAt);
+  }, [githubTabs, openFiles]);
+
   return (
     <CenterStageTabList>
       <CenterStageOverviewTab
@@ -234,32 +253,32 @@ export function CenterStageTabBar({
           />
         ) : null}
 
-        {githubTabs.map((tab) => (
-          <CenterStageSurfaceContentTab
-            key={tab.value}
-            closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
-            name={tab.label}
-            onClose={() => handleCloseGithubTab(tab.value)}
-            path={`${tab.owner}/${tab.repo}`}
-            tooltip={`${tab.owner}/${tab.repo}`}
-            value={tab.value}
-            variant={tab.kind}
-          />
-        ))}
-
-        {openFiles.map((file) => (
-          <CenterStageOpenFileTab
-            key={file.path}
-            file={file}
-            sessionDisplay={sessionDisplay}
-            onClose={handleCloseFile}
-            onContextMenuRequest={(event, nextFile) => {
-              setActiveFile(nextFile.path, effectiveContextId);
-              setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
-            }}
-            onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
-          />
-        ))}
+        {orderedSurfaceTabs.map((item) =>
+          item.type === "file" ? (
+            <CenterStageOpenFileTab
+              key={item.file.path}
+              file={item.file}
+              sessionDisplay={sessionDisplay}
+              onClose={handleCloseFile}
+              onContextMenuRequest={(event, nextFile) => {
+                setActiveFile(nextFile.path, effectiveContextId);
+                setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
+              }}
+              onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
+            />
+          ) : (
+            <CenterStageSurfaceContentTab
+              key={item.tab.value}
+              closeLabel={t("centerStageTabBar.closeTab", { tab: item.tab.label })}
+              name={item.tab.label}
+              onClose={() => handleCloseGithubTab(item.tab.value)}
+              path={`${item.tab.owner}/${item.tab.repo}`}
+              tooltip={item.tab.description || `${item.tab.owner}/${item.tab.repo}`}
+              value={item.tab.value}
+              variant={item.tab.kind}
+            />
+          ),
+        )}
       </CenterStageScrollableTabs>
 
       <CenterStageStickyTabActions>

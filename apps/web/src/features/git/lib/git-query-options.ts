@@ -8,34 +8,16 @@ import {
 } from "@/api/query/query-keys";
 import { wsQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitChangedFile } from "@/api/ws-api";
+import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse } from "@/api/ws-api";
 
 export type { GitCompareParams, GitFileDiffParams };
 export { GIT_WORKTREE_PARAMS };
+export {
+  EMPTY_CHANGED_FILES,
+  selectCompareChangedFiles,
+} from "@/features/git/lib/git-changed-files-selection";
 
 type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
-
-/**
- * Compare-mode responses put every compared path into staged/unstaged/untracked
- * buckets. Consumers must concatenate when `compare_ref` is present (legacy store behavior).
- */
-export const EMPTY_CHANGED_FILES: GitChangedFile[] = [];
-
-export function selectCompareChangedFiles(
-  response: GitChangedFilesResponse | undefined | null,
-): { files: GitChangedFile[]; compareRef: string | null } {
-  if (!response?.compare_ref) {
-    return { files: EMPTY_CHANGED_FILES, compareRef: null };
-  }
-  return {
-    files: [
-      ...response.staged_files,
-      ...response.unstaged_files,
-      ...response.untracked_files,
-    ],
-    compareRef: response.compare_ref,
-  };
-}
 
 // ── Compare-params helpers ────────────────────────────────────────────────────
 

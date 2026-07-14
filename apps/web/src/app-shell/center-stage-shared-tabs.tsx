@@ -215,7 +215,7 @@ export function CenterStageSurfaceContentTab({
           )}
           <span
             className={cn(
-              "text-[13px] font-medium whitespace-nowrap",
+              "text-[13px] font-medium whitespace-nowrap max-w-[180px] truncate",
               variant === "review-diff" && "text-blue-400",
               variant === "diff-group" && "text-emerald-500",
               variant === "conflict" && "text-amber-500",

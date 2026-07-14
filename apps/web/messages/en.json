@@ -922,7 +922,8 @@
         "diff": "Diff",
         "review": "Review",
         "conflict": "Conflict Resolve",
-        "github": "GitHub"
+        "github": "GitHub",
+        "other": "Tabs"
       }
     },
     "globalSearchParts": {

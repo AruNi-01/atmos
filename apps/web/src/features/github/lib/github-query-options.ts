@@ -43,6 +43,18 @@ export interface GithubPrIdentityParams {
   prNumber: number;
 }
 
+export interface GithubActionsListParams {
+  owner: string;
+  repo: string;
+  branch: string;
+}
+
+export interface GithubActionsDetailParams {
+  owner: string;
+  repo: string;
+  runId: number;
+}
+
 export const GITHUB_PR_TIMELINE_PER_PAGE = 100;
 
 export interface GithubPrTimelinePage {
@@ -202,5 +214,64 @@ export function githubPrTimelineInfiniteQueryOptions(
       lastPage.has_more ? lastPageParam + 1 : undefined,
     staleTime: 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && prNumber),
+  });
+}
+
+export function githubActionsListQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubActionsListParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, branch } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubActionsList(scope, { owner, repo, branch }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queryFn: async (): Promise<any[]> => {
+      const result = await wsRequest("github_actions_list", { owner, repo, branch });
+      return Array.isArray(result) ? result : [];
+    },
+    staleTime: 30_000, // 30s
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
+  });
+}
+
+export function githubActionsDetailQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubActionsDetailParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, runId } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubActionsDetail(scope, { owner, repo, runId }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queryFn: (): Promise<any> =>
+      wsRequest("github_actions_detail", { owner, repo, run_id: runId }),
+    staleTime: 30_000, // 30s
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && runId),
+  });
+}
+
+export function githubCiStatusQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubActionsListParams, // re-use for branch
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, branch } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubCiStatus(scope, { owner, repo, branch }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queryFn: (): Promise<any> =>
+      wsRequest("github_ci_status", { owner, repo, branch }),
+    staleTime: 30_000, // 30s
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
   });
 }

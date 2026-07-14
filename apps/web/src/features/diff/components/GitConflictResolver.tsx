@@ -124,31 +124,58 @@ export function GitConflictResolver() {
     setLoadingPaths(new Set(conflictedFilePaths));
     setErrorByPath({});
 
-    void Promise.all(
-      conflictedFilePaths.map(async (relativePath) => {
-        try {
-          const absolutePath = toAbsolutePath(currentRepoPath, relativePath);
-          const result = await fsApi.readFile(absolutePath);
-          setFiles((prev) => ({
-            ...prev,
-            [relativePath]: {
-              name: relativePath,
-              contents: result.content ?? "",
-            },
-          }));
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Failed to read conflicted file";
-          setErrorByPath((prev) => ({ ...prev, [relativePath]: message }));
-        } finally {
-          setLoadingPaths((prev) => {
-            const next = new Set(prev);
-            next.delete(relativePath);
-            return next;
-          });
-        }
-      }),
+    let active = true;
+    const absolutePaths = conflictedFilePaths.map((relativePath) =>
+      toAbsolutePath(currentRepoPath, relativePath),
     );
+
+    void (async () => {
+      try {
+        const response = await fsApi.readFiles(absolutePaths);
+        if (!active) return;
+
+        const resultByPath = new Map(
+          response.results.map((result) => [result.path, result]),
+        );
+        const loadedFiles: Record<string, FileContents> = {};
+        const errors: Record<string, string> = {};
+
+        for (let index = 0; index < conflictedFilePaths.length; index += 1) {
+          const relativePath = conflictedFilePaths[index];
+          const absolutePath = absolutePaths[index];
+          const result = resultByPath.get(absolutePath);
+          if (result?.file) {
+            loadedFiles[relativePath] = {
+              name: relativePath,
+              contents: result.file.content ?? "",
+            };
+          } else {
+            errors[relativePath] =
+              result?.error ?? "Failed to read conflicted file";
+          }
+        }
+
+        setFiles((prev) => ({ ...prev, ...loadedFiles }));
+        setErrorByPath(errors);
+      } catch (error) {
+        if (!active) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to read conflicted files";
+        setErrorByPath(
+          Object.fromEntries(
+            conflictedFilePaths.map((relativePath) => [relativePath, message]),
+          ),
+        );
+      } finally {
+        if (active) {
+          setLoadingPaths(new Set());
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [conflictedFilePaths, currentRepoPath]);
 
   const handleMergeConflictResolve = useCallback(

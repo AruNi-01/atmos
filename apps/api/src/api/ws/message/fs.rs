@@ -120,12 +120,34 @@ pub struct FsReadFileRequest {
     pub path: String,
 }
 
+/// 批量读取文件请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsReadFilesRequest {
+    pub paths: Vec<String>,
+}
+
 /// 读取文件响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FsReadFileResponse {
     pub path: String,
-    pub content: String,
+    pub exists: bool,
+    pub content: Option<String>,
     pub size: u64,
+    pub is_symlink: bool,
+}
+
+/// 单个批量文件读取结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsReadFilesResult {
+    pub path: String,
+    pub file: Option<FsReadFileResponse>,
+    pub error: Option<String>,
+}
+
+/// 批量文件读取响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsReadFilesResponse {
+    pub results: Vec<FsReadFilesResult>,
 }
 
 /// 写入文件请求

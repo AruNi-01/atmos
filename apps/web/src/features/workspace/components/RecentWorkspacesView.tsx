@@ -28,6 +28,7 @@ import { parseUTCDate, format, isToday, isYesterday, subDays, subWeeks, subMonth
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { motion, AnimatePresence } from "motion/react";
 import { Skeleton } from "@workspace/ui";
+import { buildWorkspaceGitStatusFanOut } from '@/features/workspace/lib/workspace-git-status-batch';
 
 interface EnrichedWorkspace extends Workspace {
   projectName: string;
@@ -184,10 +185,10 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   }, [allWorkspaces, searchQuery]);
 
   // Stable key for triggering git status refetch
-  const workspaceIds = useMemo(() => {
+  const workspaceStatusKey = useMemo(() => {
     return filteredWorkspaces
       .filter(w => w.localPath && !w.isArchivedRemote)
-      .map(w => w.id)
+      .map(w => `${w.id}:${w.localPath}`)
       .sort()
       .join(',');
   }, [filteredWorkspaces]);
@@ -195,44 +196,68 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   // Fetch Git Status for visible/filtered workspaces
   useEffect(() => {
     const toCheck = filteredWorkspaces.filter(w => w.localPath && !w.isArchivedRemote);
+    const { paths, workspaceIdsByPath } =
+      buildWorkspaceGitStatusFanOut(toCheck);
 
     let active = true;
-    const fetchedIds = new Set<string>();
 
     const fetchStatus = async () => {
-      for (const ws of toCheck) {
-        if (!active) break;
-        if (fetchedIds.has(ws.id)) continue;
-        fetchedIds.add(ws.id);
+      if (paths.length === 0) return;
 
-        setGitStatuses(prev => ({ ...prev, [ws.id]: { loading: true } }));
+      try {
+        const response = await gitApi.getStatuses(paths);
+        if (!active) return;
 
-        try {
-          const status = await gitApi.getStatus(ws.localPath);
-          if (!active) break;
-          setGitStatuses(prev => ({
-            ...prev,
-            [ws.id]: {
-              loading: false,
-              hasChanges: status.has_uncommitted_changes || status.has_unpushed_commits,
-              uncommitted: status.uncommitted_count,
-              unpushed: status.unpushed_count
-            }
-          }));
-        } catch {
-          if (!active) break;
-          setGitStatuses(prev => ({ ...prev, [ws.id]: { loading: false, error: true } }));
+        const resultByPath = new Map(
+          response.results.map(result => [result.path, result]),
+        );
+        const nextStatuses: Record<string, GitStatus> = {};
+
+        for (const path of paths) {
+          const result = resultByPath.get(path);
+          const status = result?.status;
+          const workspaceStatus: GitStatus = status
+            ? {
+                loading: false,
+                hasChanges:
+                  status.has_uncommitted_changes || status.has_unpushed_commits,
+                uncommitted: status.uncommitted_count,
+                unpushed: status.unpushed_count
+              }
+            : { loading: false, error: true };
+
+          for (const workspaceId of workspaceIdsByPath.get(path) ?? []) {
+            nextStatuses[workspaceId] = workspaceStatus;
+          }
         }
+
+        setGitStatuses(nextStatuses);
+      } catch {
+        if (!active) return;
+        setGitStatuses(
+          Object.fromEntries(
+            toCheck.map(workspace => [
+              workspace.id,
+              { loading: false, error: true },
+            ]),
+          ),
+        );
       }
     };
 
-    // Reset git statuses when workspaces change
-    setGitStatuses({});
-    fetchStatus();
+    queueMicrotask(() => {
+      if (!active) return;
+      setGitStatuses(
+        Object.fromEntries(
+          toCheck.map(workspace => [workspace.id, { loading: true }]),
+        ),
+      );
+    });
+    void fetchStatus();
 
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, workspaceIds]);
+  }, [refreshKey, workspaceStatusKey]);
 
   const groupedWorkspaces = useMemo(() => {
     const groups: Record<TimeGroup, EnrichedWorkspace[]> = {

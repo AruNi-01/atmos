@@ -20,7 +20,10 @@ import {
   getWorkspaceTimeGroupLabel,
   UNTAGGED_WORKSPACE_GROUP_KEY,
 } from "@/app-shell/sidebar/workspace-grouping";
-import { getWorkspacePriorityMeta } from "@/app-shell/sidebar/workspace-metadata-controls";
+import {
+  getWorkspacePriorityMeta,
+  WorkspaceLabelDots,
+} from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
@@ -114,19 +117,13 @@ export function LeftSidebarPinnedSection({
                   ) : groupingMode === "priority" ? (
                     <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
                   ) : groupingMode === "label" ? (
-                    <span className="flex min-w-0 items-center gap-1">
-                      {primaryLabel ? (
-                        <span
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: primaryLabel.color }}
-                        />
-                      ) : null}
-                      <span className="truncate">
-                        {labelGroupKey === UNTAGGED_WORKSPACE_GROUP_KEY
-                          ? t("workspaceGrouping.untagged")
-                          : primaryLabel?.name}
+                    labelGroupKey === UNTAGGED_WORKSPACE_GROUP_KEY ? (
+                      <span className="truncate text-muted-foreground">
+                        {t("workspaceGrouping.untagged")}
                       </span>
-                    </span>
+                    ) : (
+                      <WorkspaceLabelDots labels={entry.workspace.labels} overlap />
+                    )
                   ) : undefined;
 
                   return renderWorkspaceItemRow(entry, {

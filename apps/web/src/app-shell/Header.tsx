@@ -589,13 +589,14 @@ const Header: React.FC = () => {
             isLoadingBranches={isLoadingBranches}
             isTargetBranchOpen={isTargetBranchOpen}
             onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-            onOpenPr={(prNumber) => {
+            onOpenPr={(prNumber, prTitle) => {
               if (!currentBranch || !githubOwner || !githubRepo) return;
               openPullRequestTab({
                 branch: currentBranch,
                 owner: githubOwner,
                 prNumber,
                 repo: githubRepo,
+                title: prTitle,
               });
             }}
             onRefreshChangedFiles={refreshGitStatus}

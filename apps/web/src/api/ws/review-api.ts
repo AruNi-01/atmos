@@ -210,6 +210,16 @@ export interface ReviewFileContentDto {
   new_content: string;
 }
 
+export interface ReviewFileContentGetBatchResult {
+  file_snapshot_guid: string;
+  content: ReviewFileContentDto | null;
+  error: string | null;
+}
+
+export interface ReviewFileContentGetBatchResponse {
+  results: ReviewFileContentGetBatchResult[];
+}
+
 export interface ReviewRunArtifactDto {
   run: ReviewAgentRunModel;
   kind: string;
@@ -295,6 +305,17 @@ export const reviewWsApi = {
     return wsRequest<ReviewFileContentDto>("review_file_content_get", {
       file_snapshot_guid: fileSnapshotGuid,
     });
+  },
+
+  getFileContents: async (
+    fileSnapshotGuids: string[],
+  ): Promise<ReviewFileContentGetBatchResponse> => {
+    return wsRequest<ReviewFileContentGetBatchResponse>(
+      "review_file_content_get_batch",
+      {
+        file_snapshot_guids: fileSnapshotGuids,
+      },
+    );
   },
 
   setFileReviewed: async (data: {

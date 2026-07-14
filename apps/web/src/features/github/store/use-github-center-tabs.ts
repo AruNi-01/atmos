@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 
 const GITHUB_PR_TAB_PREFIX = "github-pr:";
@@ -13,6 +14,10 @@ type GithubCenterTabBase = {
   owner: string;
   repo: string;
   label: string;
+  /** Optional description shown in tooltip on hover. */
+  description?: string;
+  /** Wall-clock time (ms) the tab was first opened; used to order center tabs. */
+  openedAt: number;
 };
 
 export type GithubPullRequestCenterTab = GithubCenterTabBase & {
@@ -35,11 +40,11 @@ type GithubCenterTabsStore = {
   tabsByContext: Record<string, GithubCenterTab[]>;
   openPullRequest: (
     contextId: string,
-    params: Omit<GithubPullRequestCenterTab, "contextId" | "id" | "kind" | "value">,
+    params: Omit<GithubPullRequestCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
   ) => GithubPullRequestCenterTab;
   openActionRun: (
     contextId: string,
-    params: Omit<GithubActionCenterTab, "contextId" | "id" | "kind" | "value">,
+    params: Omit<GithubActionCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
   ) => GithubActionCenterTab;
   closeTab: (contextId: string, value: string) => void;
 };
@@ -110,58 +115,89 @@ function upsertTab(
   if (existingIndex === -1) return [...tabs, nextTab];
 
   const nextTabs = [...tabs];
-  nextTabs[existingIndex] = { ...tabs[existingIndex], ...nextTab } as GithubCenterTab;
+  // Preserve the original open time so refreshing/re-opening a tab does not reorder it.
+  nextTabs[existingIndex] = {
+    ...tabs[existingIndex],
+    ...nextTab,
+    openedAt: tabs[existingIndex].openedAt,
+  } as GithubCenterTab;
   return nextTabs;
 }
 
+/** Strip transient `run` data from action tabs before persisting.
+ *  Action run status / conclusion goes stale quickly, and the detail view
+ *  re-fetches fresh data when the tab becomes active. */
+function stripTransientRunData(
+  tabsByContext: Record<string, GithubCenterTab[]>,
+): Record<string, GithubCenterTab[]> {
+  const result: Record<string, GithubCenterTab[]> = {};
+  for (const [contextId, tabs] of Object.entries(tabsByContext)) {
+    result[contextId] = tabs.map((tab) =>
+      tab.kind === "github-action" ? { ...tab, run: null } : tab,
+    );
+  }
+  return result;
+}
+
 export const useGithubCenterTabsStore = create<GithubCenterTabsStore>()(
-  (set) => ({
-    tabsByContext: {},
-    openPullRequest: (contextId, params) => {
-      const value = buildGithubPullRequestTabValue(contextId, params.prNumber);
-      const tab: GithubPullRequestCenterTab = {
-        ...params,
-        contextId,
-        id: value,
-        kind: "github-pr",
-        value,
-      };
-      set((state) => ({
-        tabsByContext: {
-          ...state.tabsByContext,
-          [contextId]: upsertTab(state.tabsByContext[contextId] ?? [], tab),
-        },
-      }));
-      return tab;
-    },
-    openActionRun: (contextId, params) => {
-      const value = buildGithubActionTabValue(contextId, params.runId);
-      const tab: GithubActionCenterTab = {
-        ...params,
-        contextId,
-        id: value,
-        kind: "github-action",
-        value,
-      };
-      set((state) => ({
-        tabsByContext: {
-          ...state.tabsByContext,
-          [contextId]: upsertTab(state.tabsByContext[contextId] ?? [], tab),
-        },
-      }));
-      return tab;
-    },
-    closeTab: (contextId, value) =>
-      set((state) => {
-        const tabs = state.tabsByContext[contextId] ?? [];
-        const nextTabs = tabs.filter((tab) => tab.value !== value);
-        if (nextTabs.length === tabs.length) return state;
-        return {
+  persist(
+    (set) => ({
+      tabsByContext: {},
+      openPullRequest: (contextId, params) => {
+        const value = buildGithubPullRequestTabValue(contextId, params.prNumber);
+        const tab: GithubPullRequestCenterTab = {
+          ...params,
+          contextId,
+          id: value,
+          kind: "github-pr",
+          value,
+          openedAt: Date.now(),
+        };
+        set((state) => ({
           tabsByContext: {
             ...state.tabsByContext,
-            [contextId]: nextTabs,
+            [contextId]: upsertTab(state.tabsByContext[contextId] ?? [], tab),
           },
+        }));
+        return tab;
+      },
+      openActionRun: (contextId, params) => {
+        const value = buildGithubActionTabValue(contextId, params.runId);
+        const tab: GithubActionCenterTab = {
+          ...params,
+          contextId,
+          id: value,
+          kind: "github-action",
+          value,
+          openedAt: Date.now(),
         };
+        set((state) => ({
+          tabsByContext: {
+            ...state.tabsByContext,
+            [contextId]: upsertTab(state.tabsByContext[contextId] ?? [], tab),
+          },
+        }));
+        return tab;
+      },
+      closeTab: (contextId, value) =>
+        set((state) => {
+          const tabs = state.tabsByContext[contextId] ?? [];
+          const nextTabs = tabs.filter((tab) => tab.value !== value);
+          if (nextTabs.length === tabs.length) return state;
+          return {
+            tabsByContext: {
+              ...state.tabsByContext,
+              [contextId]: nextTabs,
+            },
+          };
+        }),
+    }),
+    {
+      name: "github-center-tabs",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        tabsByContext: stripTransientRunData(state.tabsByContext),
       }),
-  }),
+    },
+  ),
 );

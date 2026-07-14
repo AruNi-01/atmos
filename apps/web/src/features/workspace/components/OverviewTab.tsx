@@ -464,6 +464,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         owner: githubOwner,
         prNumber: pr.number,
         repo: githubRepo,
+        title: pr.title as string | undefined,
       });
     },
     [

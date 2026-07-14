@@ -302,6 +302,48 @@ export const queryKeys = {
         params.prNumber,
       ] as const,
 
+    /** GitHub: Actions list for a branch */
+    githubActionsList: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; branch: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "actionsList",
+        params.owner,
+        params.repo,
+        params.branch,
+      ] as const,
+
+    /** GitHub: Actions detail for a run */
+    githubActionsDetail: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; runId: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "actionsDetail",
+        params.owner,
+        params.repo,
+        params.runId,
+      ] as const,
+
+    /** GitHub: CI Status for a branch */
+    githubCiStatus: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; branch: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "ciStatus",
+        params.owner,
+        params.repo,
+        params.branch,
+      ] as const,
+
     /** Review: session list for a given target */
     reviewSessions: (
       scope: ComputerQueryScope,

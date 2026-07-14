@@ -9,6 +9,12 @@ pub struct GitGetStatusRequest {
     pub path: String,
 }
 
+/// 批量获取 Git 状态请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGetStatusBatchRequest {
+    pub paths: Vec<String>,
+}
+
 /// 获取 HEAD 提交 hash 请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitGetHeadCommitRequest {
@@ -51,6 +57,20 @@ pub struct GitStatusResponse {
     pub github_owner: Option<String>,
     /// Github repo
     pub github_repo: Option<String>,
+}
+
+/// 单个批量 Git 状态结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGetStatusBatchResult {
+    pub path: String,
+    pub status: Option<GitStatusResponse>,
+    pub error: Option<String>,
+}
+
+/// 批量 Git 状态响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGetStatusBatchResponse {
+    pub results: Vec<GitGetStatusBatchResult>,
 }
 
 /// 列出 Git 分支请求
@@ -141,6 +161,27 @@ pub struct GitFileDiffRequest {
     pub against_index: bool,
 }
 
+/// 批量获取文件 diff 请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFilesDiffRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 文件相对路径列表
+    pub file_paths: Vec<String>,
+    /// Remote branch name used for branch comparison.
+    #[serde(default)]
+    pub base_branch: Option<String>,
+    /// Explicit Git ref used for commit/hash comparison.
+    #[serde(default)]
+    pub base_ref: Option<String>,
+    /// Commit whose own patch should be displayed.
+    #[serde(default)]
+    pub commit_ref: Option<String>,
+    /// 为 true 时对比 index 与工作区（仅未暂存部分）
+    #[serde(default)]
+    pub against_index: bool,
+}
+
 /// 针对单个变更块的补丁应用请求（unified diff 文本）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitPatchChunkRequest {
@@ -170,6 +211,22 @@ pub struct GitFileDiffResponse {
     pub new_content: String,
     /// 文件状态
     pub status: String,
+    /// 实际使用的 compare ref
+    pub compare_ref: Option<String>,
+}
+
+/// 单个批量文件 diff 结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFilesDiffResult {
+    pub file_path: String,
+    pub diff: Option<GitFileDiffResponse>,
+    pub error: Option<String>,
+}
+
+/// 批量文件 diff 响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFilesDiffResponse {
+    pub results: Vec<GitFilesDiffResult>,
 }
 
 /// Git 提交请求

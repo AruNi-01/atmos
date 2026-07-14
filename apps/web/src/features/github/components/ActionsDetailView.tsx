@@ -15,6 +15,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useGithubActionsDetail } from "@/features/github/hooks/use-github";
+import { useInvalidateGithubActions } from "@/features/github/hooks/use-github-pr-query";
 import {
   formatActionTimestamp,
   formatActionTimeAgo,
@@ -48,6 +49,7 @@ export function ActionsDetailView({
   const t = useTranslations("github.actionsDetail");
   const agentFixContext = useAgentFixContext();
   const send = useWebSocketStore((s) => s.send);
+  const invalidateActions = useInvalidateGithubActions();
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
 
   const effectiveRunId = runId ?? run?.databaseId;
@@ -95,6 +97,10 @@ export function ActionsDetailView({
         run_id: effectiveRun.databaseId,
         failed_only: false,
       });
+      // Invalidate both detail and list (since we don't have branch here, we just pass runId which invalidates detail)
+      // The list polling should catch the change, or we invalidate the whole repo actions
+      invalidateActions({ owner, repo, runId: effectiveRun.databaseId });
+      invalidateActions({ owner, repo, branch: effectiveRun.headBranch });
     } catch (e) {
       console.error(e);
     } finally {
@@ -113,6 +119,8 @@ export function ActionsDetailView({
         run_id: effectiveRun.databaseId,
         failed_only: true,
       });
+      invalidateActions({ owner, repo, runId: effectiveRun.databaseId });
+      invalidateActions({ owner, repo, branch: effectiveRun.headBranch });
     } catch (e) {
       console.error(e);
     } finally {

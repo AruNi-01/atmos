@@ -4,7 +4,8 @@ use core_service::{Result, ServiceError};
 
 use super::{
     FsCreateDirRequest, FsDeletePathRequest, FsDuplicatePathRequest, FsListDirRequest,
-    FsListProjectFilesRequest, FsReadFileRequest, FsRenamePathRequest, FsSearchContentRequest,
+    FsListProjectFilesRequest, FsReadFileRequest, FsReadFileResponse, FsReadFilesRequest,
+    FsReadFilesResponse, FsReadFilesResult, FsRenamePathRequest, FsSearchContentRequest,
     FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest, WsMessageService,
 };
 
@@ -64,28 +65,56 @@ impl WsMessageService {
         }))
     }
 
-    pub(super) fn handle_fs_read_file(&self, req: FsReadFileRequest) -> Result<Value> {
+    fn read_file(&self, req: FsReadFileRequest) -> Result<FsReadFileResponse> {
         let path = self.fs_engine.expand_path(&req.path)?;
 
         if !path.exists() {
-            return Ok(json!({
-                "path": path.to_string_lossy(),
-                "exists": false,
-                "content": null,
-                "size": 0,
-                "is_symlink": false,
-            }));
+            return Ok(FsReadFileResponse {
+                path: path.to_string_lossy().into_owned(),
+                exists: false,
+                content: None,
+                size: 0,
+                is_symlink: false,
+            });
         }
 
         let (content, size, is_symlink) = self.fs_engine.read_file(&path)?;
 
-        Ok(json!({
-            "path": path.to_string_lossy(),
-            "exists": true,
-            "content": content,
-            "size": size,
-            "is_symlink": is_symlink,
-        }))
+        Ok(FsReadFileResponse {
+            path: path.to_string_lossy().into_owned(),
+            exists: true,
+            content: Some(content),
+            size,
+            is_symlink,
+        })
+    }
+
+    pub(super) fn handle_fs_read_file(&self, req: FsReadFileRequest) -> Result<Value> {
+        Ok(json!(self.read_file(req)?))
+    }
+
+    pub(super) fn handle_fs_read_files(&self, req: FsReadFilesRequest) -> Result<Value> {
+        let results = req
+            .paths
+            .into_iter()
+            .map(|path| {
+                let result_path = path.clone();
+                match self.read_file(FsReadFileRequest { path }) {
+                    Ok(file) => FsReadFilesResult {
+                        path: result_path,
+                        file: Some(file),
+                        error: None,
+                    },
+                    Err(error) => FsReadFilesResult {
+                        path: result_path,
+                        file: None,
+                        error: Some(error.to_string()),
+                    },
+                }
+            })
+            .collect();
+
+        Ok(json!(FsReadFilesResponse { results }))
     }
 
     pub(super) fn handle_fs_write_file(&self, req: FsWriteFileRequest) -> Result<Value> {

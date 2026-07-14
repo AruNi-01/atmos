@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
   useBranchPrListQuery,
@@ -6,6 +6,9 @@ import {
   useGithubPrDetailSidebarQuery,
   useGithubPrFilesQuery,
   useGithubPrTimelineInfiniteQuery,
+  useGithubActionsListQuery,
+  useGithubActionsDetailQuery,
+  useGithubCiStatusQuery,
 } from '@/features/github/hooks/use-github-pr-query';
 import type { PrFile } from '@/features/github/lib/github-query-options';
 
@@ -55,38 +58,29 @@ export function useGithubPRList({
 
 // CI 状态（in_progress 时自动轮询）
 export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
+  const query = useGithubCiStatusQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    enabled: Boolean(owner && repo && branch),
+  });
+
+  const status = query.data?.status;
+  const isPending = status === 'in_progress' || status === 'queued';
 
   useEffect(() => {
-    if (!owner || !repo || !branch) return;
-    
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
-
-    const fetch = async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await send('github_ci_status', { owner, repo, branch }) as any;
-        if (!isMounted) return;
-        setData(result);
-        if (result?.status === 'in_progress' || result?.status === 'queued') {
-          timer = setTimeout(fetch, 30_000); // 30s
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    let timer: ReturnType<typeof setTimeout>;
+    if (isPending) {
+      timer = setTimeout(() => {
+        void query.refetch();
+      }, 30_000); // 30s poll
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
     };
-
-    fetch();
-    return () => { 
-      isMounted = false;
-      if (timer) clearTimeout(timer); 
-    };
-  }, [owner, repo, branch, send]);
-
-  return data;
+  }, [isPending, query.refetch]);
+  
+  return query.data ?? null;
 }
 
 /** PR detail — TanStack Query (cached across center-tab close/reopen). */
@@ -188,90 +182,62 @@ export function useGithubPRDetailSidebar(
 
 // Actions List
 export function useGithubActionsList({ owner, repo, branch, enabled = true }: GithubContext & { enabled?: boolean }) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useGithubActionsListQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    enabled: enabled && Boolean(owner && repo && branch),
+  });
 
-  const fetch = useCallback(async (isAuto = false) => {
-    if (!enabled || !owner || !repo || !branch) return;
-    if (!isAuto) setLoading(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await send('github_actions_list', { owner, repo, branch }) as any[];
-      setData(result);
-
-      return result;
-    } catch (e) {
-      console.error(e);
-      return null;
-    } finally {
-      if (!isAuto) setLoading(false);
-    }
-  }, [owner, repo, branch, send, enabled]);
+  const hasInProgress = useMemo(() => {
+    return query.data?.some(r => r.status === 'in_progress' || r.status === 'queued') ?? false;
+  }, [query.data]);
 
   useEffect(() => {
-    if (!enabled || !owner || !repo || !branch) return;
-    
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
-    let isInitial = true;
-
-    const poll = async () => {
-      // Use isAuto=false for the first fetch so setLoading(true) fires,
-      // then isAuto=true for subsequent auto-refreshes.
-      const result = await fetch(!isInitial);
-      isInitial = false;
-      if (!isMounted) return;
-      
-      const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');
-      if (hasInProgress) {
-        timer = setTimeout(poll, 30_000); // 30s
-      }
+    let timer: ReturnType<typeof setTimeout>;
+    if (hasInProgress) {
+      timer = setTimeout(() => {
+        void query.refetch();
+      }, 30_000); // 30s
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
     };
+  }, [hasInProgress, query.refetch]);
 
-    poll();
+  const refresh = useCallback(async () => {
+    await query.refetch();
+    return query.data;
+  }, [query.refetch, query.data]);
 
-    return () => { 
-      isMounted = false;
-      if (timer) clearTimeout(timer); 
-    };
-  }, [fetch, enabled, owner, repo, branch]);
-
-  return { data, loading, refresh: () => fetch() };
+  return { data: query.data ?? null, loading: query.isLoading, refresh };
 }
 
 export function useGithubActionsDetail(owner: string, repo: string, runId: number | undefined) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useGithubActionsDetailQuery({
+    owner,
+    repo,
+    runId: runId ?? 0,
+    enabled: Boolean(owner && repo && runId),
+  });
+
+  // Action detail has jobs, if the action is not complete, we should poll
+  const status = query.data?.status;
+  const isPending = status === 'in_progress' || status === 'queued';
 
   useEffect(() => {
-    if (!owner || !repo || !runId) {
-      setData(null);
-      return;
+    let timer: ReturnType<typeof setTimeout>;
+    if (isPending) {
+      timer = setTimeout(() => {
+        void query.refetch();
+      }, 30_000); // 30s
     }
-
-    let isMounted = true;
-    const fetchDetail = async () => {
-      setLoading(true);
-      try {
-        const result = await send('github_actions_detail', { owner, repo, run_id: runId });
-        if (!isMounted) return;
-        setData(result);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+    return () => {
+      if (timer) clearTimeout(timer);
     };
+  }, [isPending, query.refetch]);
 
-    fetchDetail();
-    return () => { isMounted = false; };
-  }, [owner, repo, runId, send]);
-
-  return { data, loading };
+  return { data: query.data ?? null, loading: query.isLoading };
 }
 
 export interface GitCommit {

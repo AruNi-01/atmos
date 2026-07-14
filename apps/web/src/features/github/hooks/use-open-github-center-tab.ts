@@ -37,12 +37,14 @@ export function useOpenGithubCenterTab() {
       owner,
       prNumber,
       repo,
+      title,
     }: {
       branch: string;
       label?: string;
       owner: string;
       prNumber: number;
       repo: string;
+      title?: string | null;
     }) => {
       if (!effectiveContextId) return;
       const tab = openPullRequest(effectiveContextId, {
@@ -51,6 +53,7 @@ export function useOpenGithubCenterTab() {
         owner,
         prNumber,
         repo,
+        description: title ?? undefined,
       });
       activateTab(tab.value);
     },
@@ -75,12 +78,13 @@ export function useOpenGithubCenterTab() {
       const tab = openActionRun(effectiveContextId, {
         label:
           label ||
-          run.displayTitle ||
+          run.workflowName ||
           t("actionRun", { number: runId }),
         owner,
         repo,
         run,
         runId,
+        description: run.displayTitle,
       });
       activateTab(tab.value);
     },

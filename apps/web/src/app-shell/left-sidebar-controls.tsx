@@ -400,7 +400,7 @@ function SortableWorkspaceGroupSection({
     <section
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Translate.toString(transform),
         transition,
       }}
       className={cn("space-y-1.5", isDragging && "relative z-20 opacity-60")}

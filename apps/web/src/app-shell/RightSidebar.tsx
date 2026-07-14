@@ -822,12 +822,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       owner={githubOwner}
                       repo={githubRepo}
                       branch={currentBranch}
-                      onPrClick={(prNumber) =>
+                      onPrClick={(prNumber, prTitle) =>
                         openPullRequestTab({
                           branch: currentBranch,
                           owner: githubOwner,
                           prNumber,
                           repo: githubRepo,
+                          title: prTitle,
                         })
                       }
                       prSubTab={prSubTab}

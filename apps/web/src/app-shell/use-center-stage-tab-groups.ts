@@ -39,69 +39,106 @@ export function useCenterStageTabGroups({
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
 
-    const fileTabsGroup = openFiles
+    // Sort helper: group tabs by their openedAt timestamp (ascending — oldest first,
+    // matching the flat tab-bar order).
+    const byOpenedAt = (left: { openedAt: number }, right: { openedAt: number }) =>
+      left.openedAt - right.openedAt;
+
+    // File tabs (regular editor files, not diffs / reviews / conflicts)
+    const fileTabs: TabGroupItem[] = [];
+    openFiles
       .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
-      .map((file) => ({
-        id: file.path,
-        label: file.name,
-        value: file.path,
-        kind: "file" as const,
-        file,
-      }));
-    if (fileTabsGroup.length > 0) {
-      groups.push({ key: "file", label: t("groups.file"), tabs: fileTabsGroup });
-    }
-
-    const diffTabsGroup = openFiles
-      .filter((file) => isDiffGroupEditorPath(file.path))
-      .map((file) => ({
-        id: file.path,
-        label: file.name,
-        value: file.path,
-        kind: "diff-group" as const,
-        file,
-      }));
-    if (diffTabsGroup.length > 0) {
-      groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabsGroup });
-    }
-
-    const reviewTabsGroup = openFiles
-      .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path))
-      .map((file) => ({
-        id: file.path,
-        label: file.name,
-        value: file.path,
-        kind: "review-diff" as const,
-        file,
-      }));
-    if (reviewTabsGroup.length > 0) {
-      groups.push({ key: "review-diff", label: t("groups.review"), tabs: reviewTabsGroup });
-    }
-
-    const conflictTabsGroup = openFiles
-      .filter((file) => isConflictResolveEditorPath(file.path))
-      .map((file) => ({
-        id: file.path,
-        label: file.name,
-        value: file.path,
-        kind: "conflict" as const,
-        file,
-      }));
-    if (conflictTabsGroup.length > 0) {
-      groups.push({ key: "conflict", label: t("groups.conflict"), tabs: conflictTabsGroup });
-    }
-
-    if (githubTabs.length > 0) {
-      groups.push({
-        key: "github",
-        label: t("groups.github"),
-        tabs: githubTabs.map((tab) => ({
-          id: tab.id,
-          label: tab.label,
-          value: tab.value,
-          kind: tab.kind,
-        })),
+      .forEach((file) => {
+        fileTabs.push({
+          id: file.path,
+          label: file.name,
+          value: file.path,
+          kind: "file" as const,
+          file,
+        });
       });
+    if (fileTabs.length > 0) {
+      fileTabs.sort((a, b) => byOpenedAt(
+        { openedAt: a.file!.lastOpenedAt },
+        { openedAt: b.file!.lastOpenedAt },
+      ));
+      groups.push({ key: "file", label: t("groups.file"), tabs: fileTabs });
+    }
+
+    // Diff tabs
+    const diffTabs: TabGroupItem[] = [];
+    openFiles
+      .filter((file) => isDiffGroupEditorPath(file.path))
+      .forEach((file) => {
+        diffTabs.push({
+          id: file.path,
+          label: file.name,
+          value: file.path,
+          kind: "diff-group" as const,
+          file,
+        });
+      });
+    if (diffTabs.length > 0) {
+      diffTabs.sort((a, b) => byOpenedAt(
+        { openedAt: a.file!.lastOpenedAt },
+        { openedAt: b.file!.lastOpenedAt },
+      ));
+      groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabs });
+    }
+
+    // Review tabs
+    const reviewTabs: TabGroupItem[] = [];
+    openFiles
+      .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path))
+      .forEach((file) => {
+        reviewTabs.push({
+          id: file.path,
+          label: file.name,
+          value: file.path,
+          kind: "review-diff" as const,
+          file,
+        });
+      });
+    if (reviewTabs.length > 0) {
+      reviewTabs.sort((a, b) => byOpenedAt(
+        { openedAt: a.file!.lastOpenedAt },
+        { openedAt: b.file!.lastOpenedAt },
+      ));
+      groups.push({ key: "review", label: t("groups.review"), tabs: reviewTabs });
+    }
+
+    // Conflict tabs
+    const conflictTabs: TabGroupItem[] = [];
+    openFiles
+      .filter((file) => isConflictResolveEditorPath(file.path))
+      .forEach((file) => {
+        conflictTabs.push({
+          id: file.path,
+          label: file.name,
+          value: file.path,
+          kind: "conflict" as const,
+          file,
+        });
+      });
+    if (conflictTabs.length > 0) {
+      conflictTabs.sort((a, b) => byOpenedAt(
+        { openedAt: a.file!.lastOpenedAt },
+        { openedAt: b.file!.lastOpenedAt },
+      ));
+      groups.push({ key: "conflict", label: t("groups.conflict"), tabs: conflictTabs });
+    }
+
+    // GitHub tabs (PR and Action) — attach openedAt from the source tab for sorting
+    const githubGroupTabs: Array<TabGroupItem & { openedAt: number }> = githubTabs.map((tab) => ({
+      id: tab.id,
+      label: tab.label,
+      value: tab.value,
+      kind: tab.kind,
+      openedAt: tab.openedAt,
+    }));
+    if (githubGroupTabs.length > 0) {
+      githubGroupTabs.sort(byOpenedAt);
+      groups.push({ key: "github", label: t("groups.github"), tabs: githubGroupTabs });
     }
 
     return groups;

@@ -922,7 +922,8 @@
         "diff": "Diff",
         "review": "Review",
         "conflict": "冲突解决",
-        "github": "GitHub"
+        "github": "GitHub",
+        "other": "标签页"
       }
     },
     "globalSearchParts": {
