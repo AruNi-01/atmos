@@ -222,15 +222,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         persistedGroupingModeRef.current = 'project';
         persistedPinnedSectionCollapsedRef.current = false;
         persistedLabelGroupOrderRef.current = [];
+        let retryTimer: number | null = null;
+        let retryAttempt = 0;
 
-        queueMicrotask(() => {
-            if (settingsScopeVersionRef.current !== scopeVersion) return;
-            setGroupingMode('project');
-            setLabelGroupOrder([]);
-            setIsPinnedSectionCollapsed(false);
-            setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
-            setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
-
+        const loadSettings = () => {
             void functionSettingsApi.get()
                 .then((settings) => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
@@ -272,11 +267,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     );
                 })
                 .catch((error) => {
+                    if (settingsScopeVersionRef.current !== scopeVersion) return;
                     console.error('Failed to load workspace sidebar settings:', error);
+                    const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
+                    retryAttempt += 1;
+                    retryTimer = window.setTimeout(loadSettings, delay);
                 });
+        };
+
+        queueMicrotask(() => {
+            if (settingsScopeVersionRef.current !== scopeVersion) return;
+            setGroupingMode('project');
+            setLabelGroupOrder([]);
+            setIsPinnedSectionCollapsed(false);
+            setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
+            setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
+            loadSettings();
         });
 
         return () => {
+            if (retryTimer !== null) {
+                window.clearTimeout(retryTimer);
+            }
             if (settingsScopeVersionRef.current === scopeVersion) {
                 settingsScopeVersionRef.current += 1;
             }
