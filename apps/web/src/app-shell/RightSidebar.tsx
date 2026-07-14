@@ -449,6 +449,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
     if (changesScope === "staged" || changesScope === "unstaged") {
       await compareWorktreeChanges();
+      if (currentProjectPath) await invalidateGitQueries(currentProjectPath);
       return;
     }
 
@@ -458,6 +459,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     changesScope,
     compareAgainstRef,
     compareWorktreeChanges,
+    currentProjectPath,
     fetchChanges,
     resetCompareMode,
     selectedCommitHash,

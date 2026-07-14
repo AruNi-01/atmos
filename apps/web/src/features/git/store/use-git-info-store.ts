@@ -12,6 +12,7 @@ import {
 } from '@/providers/app/query-client';
 import { getComputerQueryScope } from '@/api/query/query-scope';
 import { gitStatusQueryOptions } from '@/features/git/lib/git-query-options';
+import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 
 /**
  * Git orchestration store — context, target branch, and project linkage.
@@ -142,9 +143,10 @@ export function useGitStatusCheck() {
     try {
       const client = getAtmosWebQueryClient();
       const scope = getComputerQueryScope();
+      const connectionState = useWebSocketStore.getState().connectionState;
       // Destructive preflight must not inherit the UI query's 15s staleTime.
       const status = await client.fetchQuery({
-        ...gitStatusQueryOptions(scope, "connected", path),
+        ...gitStatusQueryOptions(scope, connectionState, path),
         staleTime: 0,
       });
 

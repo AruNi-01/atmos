@@ -33,7 +33,6 @@ import {
   getProjectBootstrapSnapshot,
   invalidateProjectBootstrap,
   patchProjectBootstrapSnapshotAt,
-  setProjectBootstrapSnapshotAt,
 } from '@/features/project/hooks/use-project-bootstrap-query';
 
 export type { WorkspaceSetupProgress } from './project-store-setup-progress';
@@ -516,9 +515,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         type: 'error',
         timeout: 5000,
       });
-      // Restore optimistic Project snapshot + orchestration state on error.
-      if (previousSnapshot) {
-        setProjectBootstrapSnapshotAt(scope, previousSnapshot);
+      // Restore orchestration fields and reinsert only the deleted workspace into
+      // the latest Query snapshot (preserve unrelated updates during the delete).
+      if (workspaceBeingDeleted) {
+        patchProjectBootstrapSnapshotAt(scope, (current) => ({
+          ...current,
+          projects: current.projects.map((project) => {
+            if (project.id !== projectId) return project;
+            if (project.workspaces.some((workspace) => workspace.id === workspaceId)) {
+              return project;
+            }
+            return {
+              ...project,
+              workspaces: sortWorkspaces([...project.workspaces, workspaceBeingDeleted]),
+            };
+          }),
+        }));
       }
       set({
         activeWorkspaceId: previousActiveWorkspaceId,

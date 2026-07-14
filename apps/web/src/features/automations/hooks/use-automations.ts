@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { wsRequest } from "@/api/ws/request";
 import type {
@@ -29,6 +30,7 @@ import { queryKeys } from "@/api/query/query-keys";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 
 export function useAutomations() {
+  const t = useTranslations("automation.store");
   const queryClient = useQueryClient();
   const scope = useComputerQueryScope();
 
@@ -42,7 +44,7 @@ export function useAutomations() {
     automationListQuery.isError
       ? (automationListQuery.error instanceof Error
           ? automationListQuery.error.message
-          : "Failed to load automations")
+          : t("errors.loadAutomations"))
       : null;
 
   const reload = React.useCallback(async () => {

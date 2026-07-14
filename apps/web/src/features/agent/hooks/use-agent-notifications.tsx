@@ -172,7 +172,9 @@ export function useAgentNotifications() {
               disabled={!canNavigate}
               onClick={() => {
                 if (!canNavigate) return;
-                navigateToAgentHookSessionPane(session, router, projects);
+                const latestProjects =
+                  getProjectBootstrapSnapshot()?.projects ?? projects;
+                navigateToAgentHookSessionPane(session, router, latestProjects);
                 agentToastManager.close(toastId);
               }}
             >

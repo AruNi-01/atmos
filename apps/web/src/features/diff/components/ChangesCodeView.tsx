@@ -96,6 +96,10 @@ export function ChangesCodeView({
   const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
   const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
   const { files: compareFiles, compareRef } = selectCompareChangedFiles(compareQuery.data);
+  const queriesLoading =
+    statusQuery.isLoading ||
+    worktreeQuery.isLoading ||
+    (isCompareQueryEnabled(compareMode, defaultBranch) && compareQuery.isLoading);
 
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const setDiffGroupActiveFile = useEditorStore((s) => s.setDiffGroupActiveFile);
@@ -557,7 +561,7 @@ export function ChangesCodeView({
     );
   }
 
-  if (isLoading || !workerPoolReady) {
+  if (isLoading || queriesLoading || !workerPoolReady) {
     return (
       <div className="flex h-full flex-col overflow-hidden bg-background">
         <DiffCodeViewScaffold

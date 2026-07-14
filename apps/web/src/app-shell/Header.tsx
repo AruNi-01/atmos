@@ -113,14 +113,31 @@ const Header: React.FC = () => {
     setTargetBranch,
   } = useGitInfoStore();
 
-  const statusQuery = useGitStatusQuery(editorRepoPath ?? null);
+  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
+
+  const onWsEvent = useWebSocketStore(s => s.onEvent);
+
+  // Find current project based on workspaceId OR projectId
+  const currentProject = projects.find(p =>
+    (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
+    (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
+  );
+  const currentWorkspace = currentProject?.workspaces.find(
+    w => w.id === currentWorkspaceId
+  );
+  const currentProjectIdForContext = currentProject?.id ?? null;
+  const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
+  const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
+  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
+  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
+
+  const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
+
+  const statusQuery = useGitStatusQuery(headerRepoPath);
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const githubOwner = statusQuery.data?.github_owner ?? null;
   const githubRepo = statusQuery.data?.github_repo ?? null;
 
-  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
-
-  const onWsEvent = useWebSocketStore(s => s.onEvent);
   const { data: prListData, refresh: refreshHeaderPrList } = useGithubPRList({
     owner: githubOwner ?? undefined,
     repo: githubRepo ?? undefined,
@@ -155,21 +172,6 @@ const Header: React.FC = () => {
     });
   }, [onWsEvent, githubOwner, githubRepo, currentBranch, refreshHeaderPrList]);
 
-  // Find current project based on workspaceId OR projectId
-  const currentProject = projects.find(p =>
-    (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
-    (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
-  );
-  const currentWorkspace = currentProject?.workspaces.find(
-    w => w.id === currentWorkspaceId
-  );
-  const currentProjectIdForContext = currentProject?.id ?? null;
-  const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
-  const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
-  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
-  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
-
-  const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
   const hasUncommittedChanges = statusQuery.data?.has_uncommitted_changes ?? false;
   const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
   const uncommittedCount = statusQuery.data?.uncommitted_count ?? 0;

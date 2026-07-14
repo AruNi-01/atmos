@@ -347,10 +347,8 @@ export function ComputerDetailsDialog({
     }
 
     let cancelled = false;
-    queueMicrotask(() => {
-      if (cancelled) return;
-      setRelayLoading(true);
-    });
+    setRelayLoading(true);
+    setRelayError(null);
 
     void (async () => {
       try {

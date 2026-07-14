@@ -43,6 +43,7 @@ export function wsQueryOptions<
     retry: (failureCount, error) => {
       if (connectionState !== "connected") return false;
       if (typeof retry === "function") return retry(failureCount, error);
+      if (typeof retry === "number") return failureCount < retry;
       if (typeof retry === "boolean") return retry && failureCount < 1;
       return failureCount < 1;
     },

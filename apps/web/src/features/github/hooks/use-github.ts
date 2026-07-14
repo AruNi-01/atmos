@@ -32,13 +32,14 @@ export function useGithubPRList({
     enabled: enabled && Boolean(owner && repo && branch),
   });
 
+  const { refetch, data, isLoading, isFetching } = query;
   const refresh = useCallback(() => {
-    return query.refetch();
-  }, [query]);
+    return refetch();
+  }, [refetch]);
 
   return {
-    data: query.data ?? null,
-    loading: query.isLoading,
+    data: data ?? null,
+    loading: isLoading || isFetching,
     refresh,
   };
 }

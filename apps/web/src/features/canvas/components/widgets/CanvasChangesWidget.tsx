@@ -179,6 +179,7 @@ function CanvasChangesWidgetBody({
 
     if (changesScope === "staged" || changesScope === "unstaged") {
       await compareWorktreeChanges();
+      if (repoPath) await invalidateGitQueries(repoPath);
       return;
     }
 
@@ -189,6 +190,7 @@ function CanvasChangesWidgetBody({
     compareAgainstRef,
     compareWorktreeChanges,
     fetchChanges,
+    repoPath,
     resetCompareMode,
     selectedCommitHash,
   ]);

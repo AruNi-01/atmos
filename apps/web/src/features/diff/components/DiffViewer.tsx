@@ -158,6 +158,10 @@ export const DiffViewer = ({
   const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
   const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
   const { files: compareFiles, compareRef } = selectCompareChangedFiles(compareQuery.data);
+  const queriesLoading =
+    statusQuery.isLoading ||
+    worktreeQuery.isLoading ||
+    (isCompareQueryEnabled(compareMode, defaultBranch) && compareQuery.isLoading);
 
   useEffect(() => {
     void loadDiffSettings();
@@ -336,6 +340,8 @@ export const DiffViewer = ({
   }, [isPopoverVisible, dismissPopover]);
 
   useEffect(() => {
+    if (queriesLoading) return;
+
     const loadDiff = async () => {
       setIsLoading(true);
       setError(null);
@@ -396,7 +402,7 @@ export const DiffViewer = ({
     };
 
     loadDiff();
-  }, [repoPath, filePath, compareBaseRef, compareMode, compareRef, snapshotGuidFromPath]);
+  }, [repoPath, filePath, compareBaseRef, compareMode, compareRef, snapshotGuidFromPath, queriesLoading]);
 
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({
@@ -829,7 +835,7 @@ export const DiffViewer = ({
     toggleInlineCommentExpanded,
   ]);
 
-  if (isLoading) {
+  if (isLoading || queriesLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
