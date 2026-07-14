@@ -479,6 +479,7 @@ export function GroupedWorkspaceOneColumnContent({
   sensors: DndSensors;
   toggleWorkspaceGroup: (stateKey: string) => void;
 }) {
+  const [isAnyGroupDragging, setIsAnyGroupDragging] = React.useState(false);
   const sortableLabelGroupIds = groups
     .filter((group) => group.key !== UNTAGGED_WORKSPACE_GROUP_KEY)
     .map((group) => group.key);
@@ -488,7 +489,10 @@ export function GroupedWorkspaceOneColumnContent({
       <DndContext
         collisionDetection={closestCenter}
         sensors={sensors}
+        onDragStart={() => setIsAnyGroupDragging(true)}
+        onDragCancel={() => setIsAnyGroupDragging(false)}
         onDragEnd={({ active, over }) => {
+          setIsAnyGroupDragging(false);
           if (
             groupingMode !== "label" ||
             !onLabelGroupOrderChange ||
@@ -518,7 +522,10 @@ export function GroupedWorkspaceOneColumnContent({
                   key={group.key}
                   group={group}
                   groupingMode={groupingMode}
-                  isCollapsed={collapsedWorkspaceGroups[stateKey] ?? false}
+                  isCollapsed={
+                    isAnyGroupDragging ||
+                    (collapsedWorkspaceGroups[stateKey] ?? false)
+                  }
                   renderWorkspaceContentRow={renderWorkspaceContentRow}
                   sortingEnabled={Boolean(onLabelGroupOrderChange)}
                   toggleWorkspaceGroup={() => toggleWorkspaceGroup(stateKey)}
