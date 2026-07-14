@@ -1,0 +1,83 @@
+apps/web/messages/zh.json
+  s_2191a3eb120e55::t_ccefead6fb8369 924-925,5419-5423,5564,5600,5699
+apps/web/src/features/github/lib/pr-detail-sidebar.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 33
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  s_2191a3eb120e55::t_560226666da775 158,160
+apps/web/src/app-shell/CenterStagePanels.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 399
+  s_2191a3eb120e55::t_ada295506d20ae 36,89-104,131-132,142,171-172,177,368-398
+apps/web/src/app-shell/RightSidebar.tsx
+  s_2191a3eb120e55::t_3f37f7435c64b2 43,63,69,281-284,825-832,870-876,955,960
+apps/web/src/features/github/lib/agent-fix-prompts.ts
+  s_2191a3eb120e55::t_c7de5f72965f27 3
+apps/web/src/app-shell/Header.tsx
+  s_2191a3eb120e55::t_382d991a292cbe 4,62,116,592-600
+apps/web/src/app-shell/center-stage-tabs.tsx
+  s_2191a3eb120e55::t_30668acf20d31e 41-53
+apps/web/src/features/github/components/PRDetailView.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 54,65-66,68,72-74,81,83,86-87,93,96,291,306,390-392,395,397,399,411,1031
+apps/web/src/app-shell/sidebar/RightSidebarCreatePrDialog.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 11,21-23
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  s_2191a3eb120e55::t_14be6a18e99ba2 20,23,50-52,209-212,317-325
+  s_2191a3eb120e55::t_541076c9300bb7 326-329
+apps/web/messages/en.json
+  s_2191a3eb120e55::t_8e86a3de2b5ced 924-925,5419-5423,5564,5600,5699
+apps/web/src/features/canvas/components/widgets/CanvasContextOverview.tsx
+  s_2191a3eb120e55::t_5a6a96df300518 14-17,96-98,103-105
+apps/web/src/features/github/hooks/use-open-github-center-tab.ts
+  s_2191a3eb120e55::t_07512cb61b6948 1-91
+apps/web/src/features/github/components/PRCreateModal.tsx
+  s_2191a3eb120e55::t_e95294db2835b6 125
+apps/web/src/features/github/store/__tests__/use-github-center-tabs.test.ts
+  s_2191a3eb120e55::t_19359f7f7f52ef 23
+  s_2191a3eb120e55::t_b863b2ad02057a 1-22,24-87
+apps/web/src/app-shell/CenterStage.tsx
+  s_2191a3eb120e55::t_d502000b08f37b 255-260,268,327-328
+  s_2191a3eb120e55::t_855a902a4de859 381
+  s_2191a3eb120e55::t_8f3ee1bc837078 520-523,528
+  s_2191a3eb120e55::t_48f9d364d7f0a8 1089-1091
+  s_2191a3eb120e55::t_c6fc2aa5542486 42,100-107,111,148-159
+  s_2191a3eb120e55::t_92f5c8b35d8ac9 1128-1132,1240,1255,1281-1282,1287
+  s_2191a3eb120e55::t_5ffcabecc4f01b 377-380,382-443
+  s_2191a3eb120e55::t_9b3f95c55ea0d5 1122,1150-1154,1158
+  s_2191a3eb120e55::t_f287a79068c00d 444
+apps/web/src/features/github/hooks/use-github.ts
+  s_2191a3eb120e55::t_b57320088b99c7 92,164
+apps/web/src/app-shell/use-center-stage-tab-groups.ts
+  s_2191a3eb120e55::t_e8fe1dca70b1c4 19,28,32,94-106,108
+apps/web/src/features/github/components/ActionsDetailView.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 29,34-37,40,45-48,57,61,102,120,129,132-137,148-150,153,155,159,164,166,287,312
+apps/web/src/features/github/lib/__tests__/pr-review-thread-agent-fix.test.tsx
+  s_2191a3eb120e55::t_98e765a3d69332 109
+  s_2191a3eb120e55::t_9dd255eafb307e 9-13
+apps/web/src/features/github/lib/pr-detail-actions.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 57,305
+apps/web/src/features/github/lib/pr-detail-parts.tsx
+  s_2191a3eb120e55::t_73d3ace673c1dd 148,343,401,543
+apps/web/src/features/github/store/use-github-center-tabs.ts
+  s_2191a3eb120e55::t_0f710a6af1f3ac 93-98
+  s_2191a3eb120e55::t_6ecdf26ff82994 1-92,99-167
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  s_2191a3eb120e55::t_da84e172245354 463
+  s_2191a3eb120e55::t_c5e49122eb074a 67,286,460-462,464-467,469-475,484-485,487
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  s_2191a3eb120e55::t_2f7d7d85d6b979 41,47,58,73,93,108,237-249,301-303
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "25e2c9e642e7d449809a65638a1951a3b314356f",
+  "prompts": {},
+  "sessions": {
+    "s_2191a3eb120e55": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a902c3a9-5a30-4f58-9bde-3956dabfaf7a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
