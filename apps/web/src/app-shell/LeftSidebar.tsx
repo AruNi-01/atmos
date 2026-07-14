@@ -139,6 +139,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
+    const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
     const [isGroupingSettingsReady, setIsGroupingSettingsReady] = useState(false);
     const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
@@ -155,6 +156,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
     const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
     const persistedPinnedSectionCollapsedRef = useRef(false);
+    const persistedLabelGroupOrderRef = useRef<string[]>([]);
+    const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
+    const labelGroupOrderWriteVersionRef = useRef(0);
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
@@ -179,11 +183,24 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             .then((settings) => {
                 const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
                 let nextGroupingMode: SidebarGroupingMode = 'project';
-                if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
+                if (
+                    groupingModeSetting === 'project' ||
+                    groupingModeSetting === 'status' ||
+                    groupingModeSetting === 'time' ||
+                    groupingModeSetting === 'label' ||
+                    groupingModeSetting === 'priority'
+                ) {
                     nextGroupingMode = groupingModeSetting;
                 }
                 persistedGroupingModeRef.current = nextGroupingMode;
                 setGroupingMode(nextGroupingMode);
+
+                const savedLabelGroupOrder = settings.workspace_sidebar?.label_group_order;
+                const nextLabelGroupOrder = Array.isArray(savedLabelGroupOrder)
+                    ? savedLabelGroupOrder.filter((item): item is string => typeof item === 'string')
+                    : [];
+                persistedLabelGroupOrderRef.current = nextLabelGroupOrder;
+                setLabelGroupOrder(nextLabelGroupOrder);
 
                 const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
                 let nextPinnedSectionCollapsed = false;
@@ -368,6 +385,35 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
     }, [currentSidebarRouteKey]);
 
+    const handleLabelGroupOrderChange = useCallback((labelIds: string[]) => {
+        setLabelGroupOrder(labelIds);
+
+        const writeVersion = labelGroupOrderWriteVersionRef.current + 1;
+        labelGroupOrderWriteVersionRef.current = writeVersion;
+        const write = labelGroupOrderWriteRef.current
+            .catch(() => undefined)
+            .then(async () => {
+                const result = await functionSettingsApi.update(
+                    'workspace_sidebar',
+                    'label_group_order',
+                    labelIds,
+                );
+                if (!result.ok) {
+                    throw new Error('Failed to persist workspace label group order');
+                }
+                persistedLabelGroupOrderRef.current = labelIds;
+            });
+        labelGroupOrderWriteRef.current = write;
+
+        void write.catch((error) => {
+            console.error('Failed to persist workspace label group order:', error);
+            if (labelGroupOrderWriteVersionRef.current !== writeVersion) return;
+
+            const persistedOrder = persistedLabelGroupOrderRef.current;
+            setLabelGroupOrder([...persistedOrder]);
+        });
+    }, []);
+
     const handleAddProject = () => {
         setCreateProjectOpen(true);
     };
@@ -484,6 +530,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         currentWorkspace,
         groupingMode,
         kanbanFilters,
+        labelGroupOrder,
         projectSidebarSelectionRouteKey,
         projects,
         selectedProjectSidebarId,
@@ -492,6 +539,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         workspaceSidebarStatusTwoColumn,
         workspaceSidebarTimeTwoColumn,
         workspaceSidebarTwoColumn,
+        workspaceLabels,
     });
     const {
         activeId,
@@ -573,6 +621,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
         <LeftSidebarPinnedSection
             groupingMode={groupingMode}
+            labelGroupOrder={labelGroupOrder}
             isCollapsed={isPinnedSectionCollapsed}
             isDividerHovered={isPinnedDividerHovered}
             isSortingDisabled={isPinnedSortingDisabled}
@@ -626,6 +675,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             collapsedWorkspaceGroups={collapsedWorkspaceGroups}
             groupingMode={groupingMode}
             groups={groupedWorkspaces}
+            onLabelGroupOrderChange={
+                isGroupingSettingsReady ? handleLabelGroupOrderChange : undefined
+            }
             renderWorkspaceContentRow={renderWorkspaceContentRow}
             toggleWorkspaceGroup={toggleWorkspaceGroup}
         />

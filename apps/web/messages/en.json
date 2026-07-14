@@ -153,7 +153,8 @@
       "yesterday": "Yesterday",
       "last_7_days": "Last 7 Days",
       "last_30_days": "Last 30 Days",
-      "older": "Older"
+      "older": "Older",
+      "untagged": "No label"
     },
     "leftPinnedSection": {
       "sortingDisabledMessage": "Workspace order cannot be updated while folders are syncing.",
@@ -383,6 +384,8 @@
         "project": "By Project",
         "status": "By Status",
         "time": "By Time",
+        "label": "By Label",
+        "priority": "By Priority",
         "sectionLabel": "Group By"
       },
       "filter": {

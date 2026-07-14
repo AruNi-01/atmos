@@ -15,8 +15,11 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
 import {
+  getWorkspaceLabelGroupKey,
   getWorkspaceTimeGroupLabel,
+  UNTAGGED_WORKSPACE_GROUP_KEY,
 } from "@/app-shell/sidebar/workspace-grouping";
+import { getWorkspacePriorityMeta } from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
@@ -26,6 +29,7 @@ type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
 export function LeftSidebarPinnedSection({
   groupingMode,
+  labelGroupOrder,
   isCollapsed,
   isDividerHovered,
   isSortingDisabled,
@@ -37,6 +41,7 @@ export function LeftSidebarPinnedSection({
   onUpdatePinOrder,
 }: {
   groupingMode: SidebarGroupingMode;
+  labelGroupOrder: string[];
   isCollapsed: boolean;
   isDividerHovered: boolean;
   isSortingDisabled: boolean;
@@ -91,10 +96,30 @@ export function LeftSidebarPinnedSection({
                 {pinnedWorkspaces.map((entry) => {
                   const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
                   const StatusIcon = statusMeta.icon;
+                  const priorityMeta = getWorkspacePriorityMeta(entry.workspace.priority);
+                  const PriorityIcon = priorityMeta.icon;
+                  const labelGroupKey = getWorkspaceLabelGroupKey(entry.workspace, labelGroupOrder);
+                  const primaryLabel = entry.workspace.labels.find((label) => label.id === labelGroupKey);
                   const rightContext = groupingMode === "status" ? (
                     <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
                   ) : groupingMode === "time" ? (
                     <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
+                  ) : groupingMode === "priority" ? (
+                    <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
+                  ) : groupingMode === "label" ? (
+                    <span className="flex min-w-0 items-center gap-1">
+                      {primaryLabel ? (
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: primaryLabel.color }}
+                        />
+                      ) : null}
+                      <span className="truncate">
+                        {labelGroupKey === UNTAGGED_WORKSPACE_GROUP_KEY
+                          ? t("workspaceGrouping.untagged")
+                          : primaryLabel?.name}
+                      </span>
+                    </span>
                   ) : undefined;
 
                   return renderWorkspaceItemRow(entry, {

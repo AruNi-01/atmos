@@ -35,7 +35,8 @@ export interface FunctionSettings {
     [key: string]: unknown;
   };
   workspace_sidebar?: {
-    grouping_mode?: "project" | "status" | "time";
+    grouping_mode?: "project" | "status" | "time" | "label" | "priority";
+    label_group_order?: string[];
     [key: string]: unknown;
   };
   inner_browser?: {

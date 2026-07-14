@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { Project, Workspace } from '@/shared/types/domain';
+import type { Project, Workspace, WorkspaceLabel } from '@/shared/types/domain';
 import {
     getPinnedWorkspaceEntries,
     getProjectModeProjects,
@@ -16,6 +16,7 @@ import {
 } from '@/app-shell/sidebar/WorkspaceKanbanFilterMenu';
 import {
     flattenProjectWorkspaces,
+    getWorkspaceLabelGroupKey,
     getWorkspaceTimeGroupKey,
     groupWorkspaces,
 } from '@/app-shell/sidebar/workspace-grouping';
@@ -27,6 +28,7 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     currentWorkspace: Workspace | undefined;
     groupingMode: SidebarGroupingMode;
     kanbanFilters: WorkspaceKanbanFilters;
+    labelGroupOrder: string[];
     projectSidebarSelectionRouteKey: string | null;
     projects: Project[];
     selectedProjectSidebarId: string | null;
@@ -35,6 +37,7 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     workspaceSidebarStatusTwoColumn: boolean;
     workspaceSidebarTimeTwoColumn: boolean;
     workspaceSidebarTwoColumn: boolean;
+    workspaceLabels: WorkspaceLabel[];
 }
 
 export function useLeftSidebarWorkspaceDerived({
@@ -43,6 +46,7 @@ export function useLeftSidebarWorkspaceDerived({
     currentWorkspace,
     groupingMode,
     kanbanFilters,
+    labelGroupOrder,
     projectSidebarSelectionRouteKey,
     projects,
     selectedProjectSidebarId,
@@ -51,6 +55,7 @@ export function useLeftSidebarWorkspaceDerived({
     workspaceSidebarStatusTwoColumn,
     workspaceSidebarTimeTwoColumn,
     workspaceSidebarTwoColumn,
+    workspaceLabels,
 }: UseLeftSidebarWorkspaceDerivedParams) {
     const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
     const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
@@ -78,8 +83,11 @@ export function useLeftSidebarWorkspaceDerived({
     );
     const groupedWorkspaces = useMemo(() => {
         if (groupingMode === 'project') return [];
-        return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode);
-    }, [unpinnedFlattenedWorkspaces, groupingMode]);
+        return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode, {
+            availableLabels: workspaceLabels,
+            labelGroupOrder,
+        });
+    }, [groupingMode, labelGroupOrder, unpinnedFlattenedWorkspaces, workspaceLabels]);
     const isProjectTwoColumn = groupingMode === 'project' && workspaceSidebarTwoColumn;
     const isTimeTwoColumn = groupingMode === 'time' && workspaceSidebarTimeTwoColumn;
     const isStatusTwoColumn = groupingMode === 'status' && workspaceSidebarStatusTwoColumn;
@@ -93,8 +101,14 @@ export function useLeftSidebarWorkspaceDerived({
         if (groupingMode === 'time') {
             return getWorkspaceTimeGroupKey(currentWorkspace);
         }
+        if (groupingMode === 'priority') {
+            return currentWorkspace.priority;
+        }
+        if (groupingMode === 'label') {
+            return getWorkspaceLabelGroupKey(currentWorkspace, labelGroupOrder);
+        }
         return null;
-    }, [currentWorkspace, groupingMode]);
+    }, [currentWorkspace, groupingMode, labelGroupOrder]);
     const effectiveSelectedProjectSidebarId = useMemo(() => {
         if (!isProjectTwoColumn || projectModeProjects.length === 0) return null;
         const visibleIds = new Set(projectModeProjects.map((project) => project.id));
