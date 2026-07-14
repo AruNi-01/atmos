@@ -153,7 +153,8 @@
       "yesterday": "昨天",
       "last_7_days": "最近 7 天",
       "last_30_days": "最近 30 天",
-      "older": "更早"
+      "older": "更早",
+      "untagged": "无标签"
     },
     "leftPinnedSection": {
       "sortingDisabledMessage": "文件夹同步时无法调整工作区顺序。",
@@ -383,6 +384,8 @@
         "project": "按项目",
         "status": "按状态",
         "time": "按时间",
+        "label": "按标签",
+        "priority": "按优先级",
         "sectionLabel": "分组方式"
       },
       "filter": {

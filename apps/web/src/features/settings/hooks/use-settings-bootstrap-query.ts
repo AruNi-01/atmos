@@ -19,7 +19,7 @@ export function useSettingsBootstrapQuery(options?: { enabled?: boolean }) {
       scope,
       connectionState,
       queryKey: queryKeys.computer.settingsBootstrap(scope),
-      queryFn: settingsBootstrapQueryFn,
+      queryFn: () => settingsBootstrapQueryFn(scope),
       enabled: options?.enabled ?? true,
     }),
   );

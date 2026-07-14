@@ -17,10 +17,12 @@ import {
 import type { Project, Workspace, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import {
   Clock3,
+  Flag,
   FolderKanban,
+  Tags,
 } from "lucide-react";
 
-export type SidebarGroupingMode = "project" | "status" | "time";
+export type SidebarGroupingMode = "project" | "status" | "time" | "label" | "priority";
 
 // Linear-style circular status icons
 function StatusBacklog({ className }: { className?: string }) {
@@ -153,6 +155,8 @@ export const SIDEBAR_GROUPING_OPTIONS: Array<{
   { value: "project", label: "By Project", labelKey: "grouping.project", icon: FolderKanban },
   { value: "status", label: "By Status", labelKey: "grouping.status", icon: StatusBacklog },
   { value: "time", label: "By Time", labelKey: "grouping.time", icon: Clock3 },
+  { value: "label", label: "By Label", labelKey: "grouping.label", icon: Tags },
+  { value: "priority", label: "By Priority", labelKey: "grouping.priority", icon: Flag },
 ];
 
 export const WORKSPACE_WORKFLOW_STATUS_OPTIONS = Object.values(WORKFLOW_STATUS_META);
