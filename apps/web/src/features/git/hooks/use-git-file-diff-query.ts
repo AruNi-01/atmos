@@ -21,13 +21,14 @@ export function useGitFileDiffQuery(
   repoPath: string | null | undefined,
   filePath: string | null | undefined,
   params: GitFileDiffParams = WORKTREE_DIFF_PARAMS,
+  options?: { enabled?: boolean },
 ) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
   return useQuery(
     gitFileDiffQueryOptions(scope, connectionState, repoPath ?? "", filePath ?? "", params, {
-      enabled: Boolean(repoPath) && Boolean(filePath),
+      enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(filePath),
     }),
   );
 }

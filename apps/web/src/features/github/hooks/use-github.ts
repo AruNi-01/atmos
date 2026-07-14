@@ -1,6 +1,15 @@
-import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useBranchPrListQuery } from '@/features/github/hooks/use-github-pr-query';
+import {
+  useBranchPrListQuery,
+  useGithubPrDetailQuery,
+  useGithubPrDetailSidebarQuery,
+  useGithubPrFilesQuery,
+  useGithubPrTimelineInfiniteQuery,
+} from '@/features/github/hooks/use-github-pr-query';
+import type { PrFile } from '@/features/github/lib/github-query-options';
+
+export type { PrFile };
 
 export interface GithubContext {
   owner?: string;
@@ -80,158 +89,101 @@ export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
   return data;
 }
 
-export function useGithubPRDetail(prNumber: number, owner?: string, repo?: string) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+/** PR detail — TanStack Query (cached across modal close/reopen). */
+export function useGithubPRDetail(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrDetailQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
 
   const fetch = useCallback(async () => {
-    if (!owner || !repo || !prNumber) return;
-    setLoading(true);
-    try {
-      const result = await send('github_pr_detail', { owner, repo, pr_number: prNumber });
-      setData(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, prNumber, send]);
+    await query.refetch();
+  }, [query.refetch]);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, loading, fetch };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    fetch,
+  };
 }
 
-const TIMELINE_PER_PAGE = 100;
-
-export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: string, enabled = true) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [items, setItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const nextPageRef = useRef(1);
-  const fetchingRef = useRef(false);
-
-  const fetchPage = useCallback(async (page: number) => {
-    if (!owner || !repo || !prNumber) return;
-    setIsLoading(true);
-    try {
-      const result = await send('github_pr_timeline_page', {
-        owner,
-        repo,
-        pr_number: prNumber,
-        page,
-        per_page: TIMELINE_PER_PAGE,
-      }) as { items: unknown[]; has_more: boolean };
-
-      const newItems = Array.isArray(result?.items) ? result.items : [];
-      nextPageRef.current = page + 1;
-      const more = result?.has_more ?? false;
-      startTransition(() => {
-        setItems(prev => page === 1 ? newItems : [...prev, ...newItems]);
-        setHasMore(more);
-      });
-      // Auto-fetch next page
-      if (more) {
-        void fetchPage(page + 1);
-      } else {
-        fetchingRef.current = false;
-      }
-    } catch (e) {
-      console.error('Failed to fetch PR timeline page', e);
-      setHasMore(false);
-      fetchingRef.current = false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [owner, repo, prNumber, send]);
-
-  useEffect(() => {
-    setItems([]);
-    setHasMore(false);
-    fetchingRef.current = false;
-    if (!enabled || !owner || !repo || !prNumber) return;
-    nextPageRef.current = 1;
-    fetchingRef.current = true;
-    void fetchPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prNumber, owner, repo, enabled]);
+/** PR timeline — infinite Query with legacy auto-page chaining. */
+export function useGithubPRTimeline(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrTimelineInfiniteQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
 
   const loadMore = useCallback(() => {
-    void fetchPage(nextPageRef.current);
-  }, [fetchPage]);
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
 
-  return { items, isLoading, hasMore, loadMore };
+  return {
+    items: query.items,
+    isLoading: query.isLoading || query.isFetchingNextPage,
+    hasMore: Boolean(query.hasNextPage),
+    loadMore,
+  };
 }
 
-export interface PrFile {
-  sha: string;
-  filename: string;
-  status: string;
-  additions: number;
-  deletions: number;
-  changes: number;
-  patch?: string;
+export function useGithubPRFiles(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrFilesQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
+
+  return {
+    files: query.data ?? [],
+    loading: query.isLoading,
+  };
 }
 
-export function useGithubPRFiles(prNumber: number, owner?: string, repo?: string, enabled = true) {
-  const send = useWebSocketStore(s => s.send);
-  const [files, setFiles] = useState<PrFile[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!enabled || !owner || !repo || !prNumber) return;
-    let cancelled = false;
-
-    const loadFiles = async () => {
-      setFiles([]);
-      setLoading(true);
-      try {
-        const result = await send('github_pr_files', { owner, repo, pr_number: prNumber });
-        if (!cancelled) setFiles(Array.isArray(result) ? result as PrFile[] : []);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void loadFiles();
-    return () => { cancelled = true; };
-  }, [prNumber, owner, repo, enabled, send]);
-
-  return { files, loading };
-}
-
-export function useGithubPRDetailSidebar(prNumber: number, owner?: string, repo?: string) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+/** PR sidebar — TanStack Query (cached across modal close/reopen). */
+export function useGithubPRDetailSidebar(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrDetailSidebarQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
 
   const fetch = useCallback(async () => {
-    if (!owner || !repo || !prNumber) return;
-    setLoading(true);
-    try {
-      const result = await send('github_pr_detail_sidebar', { owner, repo, pr_number: prNumber });
-      setData(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, prNumber, send]);
+    await query.refetch();
+  }, [query.refetch]);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, loading, fetch };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    fetch,
+  };
 }
 
 // Actions List
@@ -248,6 +200,7 @@ export function useGithubActionsList({ owner, repo, branch, enabled = true }: Gi
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await send('github_actions_list', { owner, repo, branch }) as any[];
       setData(result);
+
       return result;
     } catch (e) {
       console.error(e);

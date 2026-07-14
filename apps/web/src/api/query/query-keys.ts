@@ -246,6 +246,62 @@ export const queryKeys = {
         Boolean(params.emitBranchStatusRefresh),
       ] as const,
 
+    /** GitHub: single PR detail (conversation + commits summary) */
+    githubPrDetail: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; prNumber: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "prDetail",
+        params.owner,
+        params.repo,
+        params.prNumber,
+      ] as const,
+
+    /** GitHub: PR detail sidebar (reviewers, labels, checks, …) */
+    githubPrDetailSidebar: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; prNumber: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "prDetailSidebar",
+        params.owner,
+        params.repo,
+        params.prNumber,
+      ] as const,
+
+    /** GitHub: PR changed-files list */
+    githubPrFiles: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; prNumber: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "prFiles",
+        params.owner,
+        params.repo,
+        params.prNumber,
+      ] as const,
+
+    /** GitHub: PR timeline infinite pages */
+    githubPrTimeline: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; prNumber: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "prTimeline",
+        params.owner,
+        params.repo,
+        params.prNumber,
+      ] as const,
+
     /** Review: session list for a given target */
     reviewSessions: (
       scope: ComputerQueryScope,

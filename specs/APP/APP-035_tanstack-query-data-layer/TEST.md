@@ -477,7 +477,7 @@ bun --filter web typecheck
 
 **File:** `apps/web/src/api/query/api-operation-inventory.ts`
 
-All required domains present: system (pilot/complete), settings (pilot/complete), usage (pilot/complete), project (core/complete), git (core/complete with fileDiff deferred), files (core/complete with volatile search deferred), tokenUsage (extended/complete), skills (extended/complete), automations (extended/complete), github (extended/complete — PR lists; CI polling deferred), review (extended/partial — sessions complete; comments local), localServices (extended/complete), localModels (extended/complete), agentRegistry (extended/complete), acpSessions (deferred), canvas (deferred), agentHooks (deferred), terminalLayout (deferred), connection (excluded), terminal (excluded), agentChat (excluded), editor (excluded).
+All required domains present: system (pilot/complete), settings (pilot/complete), usage (pilot/complete), project (core/complete), git (core/complete — on-demand fileDiff Query-owned; ChangesCodeView batch still imperative), files (core/complete with volatile search deferred), tokenUsage (extended/complete), skills (extended/complete), automations (extended/complete), github (extended/complete — PR lists + detail/sidebar/files/timeline; CI polling deferred), review (extended/partial — sessions complete; comments local), localServices (extended/complete), localModels (extended/complete), agentRegistry (extended/complete), acpSessions (deferred), canvas (deferred), agentHooks (deferred), terminalLayout (deferred), connection (excluded), terminal (excluded), agentChat (excluded), editor (excluded).
 
 **File:** `apps/web/src/api/query/__tests__/api-operation-inventory.test.ts`
 
@@ -504,12 +504,12 @@ All 7 extended domains received query options + hooks:
 - `automation_run_updated` → `invalidateAutomationRunQueries`
 
 **Query keys extended** (`api/query/query-keys.ts`):
-`tokenUsageOverview`, `skillsList`, `automationList`, `automationAgentCapabilities`, `automationRunList`, `githubRepoPrList`, `githubBranchPrList`, `reviewSessions`, `localServicesScan`, `localModelList`, `agentRegistryList`, `customAgentList`.
+`tokenUsageOverview`, `skillsList`, `automationList`, `automationAgentCapabilities`, `automationRunList`, `githubRepoPrList`, `githubBranchPrList`, `githubPrDetail`, `githubPrDetailSidebar`, `githubPrFiles`, `githubPrTimeline`, `reviewSessions`, `localServicesScan`, `localModelList`, `agentRegistryList`, `customAgentList`.
 
 ### Gaps and deferred work
 
 - **ACP sessions** — explicitly deferred; multi-root infinite pagination needs a dedicated design pass.
-- **Git fileDiff** — status/changedFiles/branches Query-owned; per-file diff content still imperative in DiffViewer (optimization).
+- **Git fileDiff** — on-demand DiffViewer + editor gutter Query-owned; ChangesCodeView still batches imperatively.
 - **GlobalSearch content search** — tree Query-owned; debounced `searchContent` remains imperative (volatile query).
 - **Review comments** — sessions list Query-owned; comment list + optimistic merge remain local in `use-review-context`.
 - **Canvas / Agent Hooks / Terminal layout** — deferred per TECH.

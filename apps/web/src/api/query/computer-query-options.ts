@@ -1,6 +1,11 @@
 "use client";
 
-import type { QueryKey, UseQueryOptions } from "@tanstack/react-query";
+import type {
+  InfiniteData,
+  QueryKey,
+  UseInfiniteQueryOptions,
+  UseQueryOptions,
+} from "@tanstack/react-query";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 
 type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
@@ -23,6 +28,23 @@ export function restComputerQueryEnabled(
   return Boolean(scope?.activeInstanceId) && runtimeReady;
 }
 
+function resolveWsRetry<TError>(
+  connectionState: ConnectionState,
+  retry:
+    | boolean
+    | number
+    | ((failureCount: number, error: TError) => boolean)
+    | undefined,
+  failureCount: number,
+  error: TError,
+): boolean {
+  if (connectionState !== "connected") return false;
+  if (typeof retry === "function") return retry(failureCount, error);
+  if (typeof retry === "number") return failureCount < retry;
+  if (typeof retry === "boolean") return retry && failureCount < 1;
+  return failureCount < 1;
+}
+
 export function wsQueryOptions<
   TQueryFnData,
   TError = Error,
@@ -40,13 +62,31 @@ export function wsQueryOptions<
   return {
     ...rest,
     enabled: (enabled ?? true) && connectionEnabled,
-    retry: (failureCount, error) => {
-      if (connectionState !== "connected") return false;
-      if (typeof retry === "function") return retry(failureCount, error);
-      if (typeof retry === "number") return failureCount < retry;
-      if (typeof retry === "boolean") return retry && failureCount < 1;
-      return failureCount < 1;
-    },
+    retry: (failureCount, error) =>
+      resolveWsRetry(connectionState, retry, failureCount, error),
+  };
+}
+
+export function wsInfiniteQueryOptions<
+  TQueryFnData,
+  TError = Error,
+  TData = InfiniteData<TQueryFnData>,
+  TQueryKey extends QueryKey = QueryKey,
+  TPageParam = unknown,
+>(
+  options: UseInfiniteQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam> & {
+    connectionState: ConnectionState;
+    scope: ComputerQueryScope;
+  },
+): UseInfiniteQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam> {
+  const { connectionState, scope, enabled, retry, ...rest } = options;
+  const connectionEnabled = wsComputerQueryEnabled(scope, connectionState);
+
+  return {
+    ...rest,
+    enabled: (enabled ?? true) && connectionEnabled,
+    retry: (failureCount, error) =>
+      resolveWsRetry(connectionState, retry, failureCount, error),
   };
 }
 

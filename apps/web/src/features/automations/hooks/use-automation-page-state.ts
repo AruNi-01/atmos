@@ -60,7 +60,6 @@ export function useAutomationPageState() {
     runNow,
     pauseAutomation,
     resumeAutomation,
-    listRuns,
     getRun,
     cancelRun,
     getArtifact,
@@ -139,7 +138,6 @@ export function useAutomationPageState() {
     selectedAutomationGuid,
     selectedRunGuid,
     setRunParam,
-    listRuns,
     getRun,
     getArtifact,
   });

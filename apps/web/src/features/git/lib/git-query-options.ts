@@ -139,7 +139,7 @@ export function gitFileDiffQueryOptions(
   return wsQueryOptions<GitFileDiffResponse>({
     scope,
     connectionState,
-    enabled: options?.enabled,
+    enabled: (options?.enabled ?? true) && Boolean(repoPath) && Boolean(filePath),
     queryKey: queryKeys.computer.gitFileDiff(scope, repoPath, filePath, params),
     queryFn: () =>
       gitApi.getFileDiff(repoPath, filePath, params.baseBranch, {

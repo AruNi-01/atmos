@@ -12,13 +12,14 @@ import type {
 import { parseDiffFromFile } from '@pierre/diffs';
 import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
-import { gitApi, reviewWsApi } from '@/api/ws-api';
+import { reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
 import { Loader2, toastManager } from '@workspace/ui';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useGitChangedFilesQuery, GIT_WORKTREE_PARAMS } from '@/features/git/hooks/use-git-changed-files-query';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from '@/features/git/lib/git-query-options';
+import { useGitFileDiffQuery } from '@/features/git/hooks/use-git-file-diff-query';
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, type GitFileDiffParams } from '@/features/git/lib/git-query-options';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
 import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
@@ -162,6 +163,34 @@ export const DiffViewer = ({
     statusQuery.isLoading ||
     worktreeQuery.isLoading ||
     (isCompareQueryEnabled(compareMode, defaultBranch) && compareQuery.isLoading);
+
+  const [reviewFallbackToGit, setReviewFallbackToGit] = useState(false);
+
+  useEffect(() => {
+    setReviewFallbackToGit(false);
+  }, [filePath, snapshotGuidFromPath, compareBaseRef, compareMode, compareRef]);
+
+  const fileDiffParams = useMemo<GitFileDiffParams>(
+    () => ({
+      baseBranch: null,
+      againstIndex: false,
+      baseRef: compareMode === 'ref' ? null : compareRef,
+      commitRef: compareMode === 'ref' ? compareBaseRef : null,
+    }),
+    [compareBaseRef, compareMode, compareRef],
+  );
+
+  const gitDiffEnabled =
+    !queriesLoading &&
+    Boolean(repoPath) &&
+    Boolean(filePath) &&
+    (!snapshotGuidFromPath || reviewFallbackToGit);
+
+  const gitDiffQuery = useGitFileDiffQuery(
+    gitDiffEnabled ? repoPath : null,
+    gitDiffEnabled ? filePath : null,
+    fileDiffParams,
+  );
 
   useEffect(() => {
     void loadDiffSettings();
@@ -341,68 +370,89 @@ export const DiffViewer = ({
 
   useEffect(() => {
     if (queriesLoading) return;
+    if (!snapshotGuidFromPath || reviewFallbackToGit) return;
 
-    const loadDiff = async () => {
-      setIsLoading(true);
-      setError(null);
-      setDiffCompareRef(null);
+    let cancelled = false;
+    const fileName = filePath.split('/').pop() || filePath;
 
+    setIsLoading(true);
+    setError(null);
+    setDiffCompareRef(null);
+
+    void (async () => {
       try {
-        const fileName = filePath.split('/').pop() || filePath;
-        if (snapshotGuidFromPath) {
-          try {
-            const diff = await reviewWsApi.getFileContent(snapshotGuidFromPath);
-            const nextOldFile = { name: fileName, contents: diff.old_content };
-            const nextNewFile = { name: fileName, contents: diff.new_content };
-            setOldFile(nextOldFile);
-            setNewFile(nextNewFile);
-            setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
-            setDiffCompareRef(null);
-          } catch (err) {
-            // Only fall through to git diff for "snapshot not found" errors
-            // Re-throw server errors, network failures, and other non-recoverable errors
-            const isNotFoundError =
-              err instanceof Error &&
-              (err.message.includes('404') ||
-                err.message.includes('Not Found') ||
-                err.message.toLowerCase().includes('snapshot not found'));
-            if (!isNotFoundError) {
-              throw err;
-            }
-            const diff = await gitApi.getFileDiff(repoPath, filePath, null, {
-              baseRef: compareMode === 'ref' ? null : compareRef,
-              commitRef: compareMode === 'ref' ? compareBaseRef : null,
-            });
-            const nextOldFile = { name: fileName, contents: diff.old_content };
-            const nextNewFile = { name: fileName, contents: diff.new_content };
-            setOldFile(nextOldFile);
-            setNewFile(nextNewFile);
-            setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
-            setDiffCompareRef(diff.compare_ref);
-          }
-        } else {
-          const diff = await gitApi.getFileDiff(repoPath, filePath, null, {
-            baseRef: compareMode === 'ref' ? null : compareRef,
-            commitRef: compareMode === 'ref' ? compareBaseRef : null,
-          });
-          const nextOldFile = { name: fileName, contents: diff.old_content };
-          const nextNewFile = { name: fileName, contents: diff.new_content };
-          setOldFile(nextOldFile);
-          setNewFile(nextNewFile);
-          setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
-          setDiffCompareRef(diff.compare_ref);
-        }
+        const diff = await reviewWsApi.getFileContent(snapshotGuidFromPath);
+        if (cancelled) return;
+        const nextOldFile = { name: fileName, contents: diff.old_content };
+        const nextNewFile = { name: fileName, contents: diff.new_content };
+        setOldFile(nextOldFile);
+        setNewFile(nextNewFile);
+        setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
+        setDiffCompareRef(null);
+        setIsLoading(false);
       } catch (err) {
+        if (cancelled) return;
+        const isNotFoundError =
+          err instanceof Error &&
+          (err.message.includes('404') ||
+            err.message.includes('Not Found') ||
+            err.message.toLowerCase().includes('snapshot not found'));
+        if (isNotFoundError) {
+          setReviewFallbackToGit(true);
+          return;
+        }
         console.error('Failed to load diff:', err);
         setError(err instanceof Error ? err.message : loadFallbackMessageRef.current);
         setWorkingDiff(null);
-      } finally {
         setIsLoading(false);
       }
-    };
+    })();
 
-    loadDiff();
-  }, [repoPath, filePath, compareBaseRef, compareMode, compareRef, snapshotGuidFromPath, queriesLoading]);
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath, queriesLoading, reviewFallbackToGit, snapshotGuidFromPath]);
+
+  useEffect(() => {
+    if (!gitDiffEnabled) return;
+
+    if (gitDiffQuery.isLoading || gitDiffQuery.isFetching) {
+      setIsLoading(true);
+      setError(null);
+    }
+
+    if (gitDiffQuery.data) {
+      const fileName = filePath.split('/').pop() || filePath;
+      const nextOldFile = { name: fileName, contents: gitDiffQuery.data.old_content };
+      const nextNewFile = { name: fileName, contents: gitDiffQuery.data.new_content };
+      setOldFile(nextOldFile);
+      setNewFile(nextNewFile);
+      setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
+      setDiffCompareRef(gitDiffQuery.data.compare_ref);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
+    if (gitDiffQuery.isError) {
+      console.error('Failed to load diff:', gitDiffQuery.error);
+      setError(
+        gitDiffQuery.error instanceof Error
+          ? gitDiffQuery.error.message
+          : loadFallbackMessageRef.current,
+      );
+      setWorkingDiff(null);
+      setIsLoading(false);
+    }
+  }, [
+    filePath,
+    gitDiffEnabled,
+    gitDiffQuery.data,
+    gitDiffQuery.error,
+    gitDiffQuery.isError,
+    gitDiffQuery.isFetching,
+    gitDiffQuery.isLoading,
+  ]);
 
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({

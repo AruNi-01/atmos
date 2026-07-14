@@ -92,8 +92,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const t = useTranslations('github.prDetailModal');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
-  const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
-  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
+  const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo, isOpen);
+  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo, isOpen);
   const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>('description');
   const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(false);
   const [hasVisitedCommits, setHasVisitedCommits] = React.useState(false);
