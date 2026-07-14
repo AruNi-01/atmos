@@ -1,0 +1,35 @@
+apps/web/src/features/github/lib/pr-detail-actions.tsx
+  s_2191a3eb120e55::t_e5302c7e1108c6 57-305
+apps/web/src/features/github/lib/pr-detail-parts.tsx
+  s_2191a3eb120e55::t_82d43427c9f7a8 148-543
+apps/web/src/app-shell/sidebar/RightSidebarCreatePrDialog.tsx
+  s_2191a3eb120e55::t_49180780fe50a2 11-23
+apps/web/src/features/github/lib/pr-detail-sidebar.tsx
+  s_2191a3eb120e55::t_76e985baa9367d 33
+apps/web/src/features/github/components/PRDetailView.tsx
+  s_2191a3eb120e55::t_1ba2a2ee4908ff 291-306
+  s_2191a3eb120e55::t_439f831a9f735b 390-391
+  s_2191a3eb120e55::t_3b5c0180ad28e3 54-96
+  s_2191a3eb120e55::t_03f466ee514d39 392-1031
+apps/web/src/features/github/components/ActionsDetailView.tsx
+  s_2191a3eb120e55::t_a3a7d0cdccdea9 148-149
+  s_2191a3eb120e55::t_fe39b747ffb3c8 61
+  s_2191a3eb120e55::t_55ac50779e3f0e 129-137,150-312
+  s_2191a3eb120e55::t_b0648bad155262 29-57,102-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "182fae76696f9b7d08ddbb10456c9468af060090",
+  "prompts": {},
+  "sessions": {
+    "s_2191a3eb120e55": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a902c3a9-5a30-4f58-9bde-3956dabfaf7a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
