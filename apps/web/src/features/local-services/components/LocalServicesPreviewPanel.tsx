@@ -1,17 +1,17 @@
 "use client";
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { RotateCcw } from "lucide-react";
 import { Button, cn } from "@workspace/ui";
 
 import type { LocalService } from "@/features/local-services/types";
 import { localServiceOpenUrl } from "@/features/local-services/lib/local-service-url";
-import {
-  localServicesScopeKey,
-  useLocalServicesStore,
-} from "@/features/local-services/store/local-services-store";
+import { useLocalServicesScanQuery } from "@/features/local-services/hooks/use-local-services-query";
+import { localServicesScanQueryOptions } from "@/features/local-services/lib/local-services-query-options";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useComputerQueryScope } from "@/api/query/query-scope";
 import { LocalServiceList } from "./LocalServiceList";
 
 interface LocalServicesPreviewPanelProps {
@@ -26,6 +26,9 @@ export function LocalServicesPreviewPanel({
   onOpenUrl,
 }: LocalServicesPreviewPanelProps) {
   const t = useTranslations("LocalServices.components");
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
   const request = React.useMemo(
     () => ({
       scope: "current_context" as const,
@@ -34,25 +37,26 @@ export function LocalServicesPreviewPanel({
     }),
     [projectId, workspaceId],
   );
-  const key = localServicesScopeKey(request);
-  const connectionState = useWebSocketStore((s) => s.connectionState);
-  const scan = useLocalServicesStore((s) => s.scan);
-  const scope = useLocalServicesStore((s) => s.scopes[key]);
-  const services = scope?.data?.services ?? [];
-  const loading = scope?.loading ?? false;
-  const error = scope?.error ?? scope?.data?.unavailable?.message ?? null;
+  const query = useLocalServicesScanQuery(request, {
+    enabled: connectionState === "connected",
+    refetchInterval: 30_000,
+  });
 
-  const refresh = React.useCallback((force = false) => {
-    if (connectionState !== "connected") return;
-    void scan({ ...request, force });
-  }, [connectionState, request, scan]);
+  const services = query.data?.services ?? [];
+  const loading = query.isFetching;
+  const error = query.error
+    ? (query.error instanceof Error ? query.error.message : t("preview.errorFallback"))
+    : (query.data?.unavailable?.message ?? null);
 
-  React.useEffect(() => {
+  const forceRefresh = React.useCallback(async () => {
     if (connectionState !== "connected") return;
-    refresh(false);
-    const timer = window.setInterval(() => refresh(false), 30_000);
-    return () => window.clearInterval(timer);
-  }, [connectionState, refresh]);
+    await queryClient.fetchQuery(
+      localServicesScanQueryOptions(scope, connectionState, {
+        ...request,
+        force: true,
+      }),
+    );
+  }, [connectionState, queryClient, request, scope]);
 
   const handleOpen = React.useCallback((service: LocalService) => {
     const openUrl = localServiceOpenUrl(service);
@@ -71,7 +75,7 @@ export function LocalServicesPreviewPanel({
           variant="ghost"
           size="icon"
           className="size-8"
-          onClick={() => refresh(true)}
+          onClick={() => void forceRefresh()}
           disabled={loading || connectionState !== "connected"}
           title={t("preview.refreshTitle")}
         >
@@ -87,7 +91,7 @@ export function LocalServicesPreviewPanel({
         services={services}
         emptyLabel={t("preview.emptyLabel")}
         onOpen={handleOpen}
-        onRefresh={() => refresh(true)}
+        onRefresh={() => void forceRefresh()}
       />
     </section>
   );

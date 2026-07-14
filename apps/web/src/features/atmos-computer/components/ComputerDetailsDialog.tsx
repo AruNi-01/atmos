@@ -14,11 +14,10 @@ import {
   TabsList,
   TabsTrigger,
 } from '@workspace/ui';
-import {
-  systemApi,
-  type GhCliStatusResponse,
-  type RuntimeInfoResponse,
-  type TerminalOverviewResponse,
+import type {
+  GhCliStatusResponse,
+  RuntimeInfoResponse,
+  TerminalOverviewResponse,
 } from '@/api/rest-api';
 import {
   fetchRelayGhCliStatus,
@@ -32,6 +31,11 @@ import {
   formatRegistrationVia,
   registrationMetaFromRecord,
 } from '@/features/connection/lib/registration-meta';
+import {
+  useGhCliStatusQuery,
+  useRuntimeInfoQuery,
+  useTerminalOverviewQuery,
+} from '@/features/system/hooks/use-system-status-queries';
 
 function formatTime(epochSec: number | null | undefined, locale: string): string {
   if (!epochSec) {
@@ -263,6 +267,11 @@ function HostTabContent({
   );
 }
 
+function queryErrorMessage(error: unknown): string | null {
+  if (!error) return null;
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function ComputerDetailsDialog({
   open,
   onOpenChange,
@@ -276,81 +285,105 @@ export function ComputerDetailsDialog({
 }) {
   const t = useTranslations('atmosComputer.detailsDialog');
   const locale = useLocale();
-  const [loading, setLoading] = useState(false);
-  const [overview, setOverview] = useState<TerminalOverviewResponse | null>(null);
-  const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfoResponse | null>(null);
-  const [ghCliStatus, setGhCliStatus] = useState<GhCliStatusResponse | null>(null);
-  const [displayHostname, setDisplayHostname] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [liveTab, setLiveTab] = useState<'runtime' | 'host'>('runtime');
+  const localEnabled = open && isCurrent && Boolean(computer);
+  const dialogCycleKey = `${open}:${computer?.server_id ?? ''}:${isCurrent ? '1' : '0'}`;
 
+  const overviewQuery = useTerminalOverviewQuery({ enabled: localEnabled });
+  const runtimeQuery = useRuntimeInfoQuery({ enabled: localEnabled });
+  const ghCliQuery = useGhCliStatusQuery({ enabled: localEnabled });
+
+  const [relayLoading, setRelayLoading] = useState(false);
+  const [relayOverview, setRelayOverview] = useState<TerminalOverviewResponse | null>(null);
+  const [relayRuntimeInfo, setRelayRuntimeInfo] = useState<RuntimeInfoResponse | null>(null);
+  const [relayGhCliStatus, setRelayGhCliStatus] = useState<GhCliStatusResponse | null>(null);
+  const [relayError, setRelayError] = useState<string | null>(null);
+  const [displayHostname, setDisplayHostname] = useState<string | null>(null);
+  const [userLiveTab, setUserLiveTab] = useState<'runtime' | 'host' | null>(null);
+  const [activeCycleKey, setActiveCycleKey] = useState(dialogCycleKey);
+
+  // Reset ephemeral dialog state when the open/computer cycle changes (React-recommended).
+  if (activeCycleKey !== dialogCycleKey) {
+    setActiveCycleKey(dialogCycleKey);
+    setRelayLoading(false);
+    setRelayOverview(null);
+    setRelayRuntimeInfo(null);
+    setRelayGhCliStatus(null);
+    setRelayError(null);
+    setDisplayHostname(null);
+    setUserLiveTab(null);
+  }
+
+  // Local hostname (not Query-owned; comes from local computer status helper).
   useEffect(() => {
-    if (!open || !computer) {
+    if (!open || !computer || !isCurrent) {
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setOverview(null);
-    setRuntimeInfo(null);
-    setGhCliStatus(null);
-    setDisplayHostname(null);
-    setLiveTab('runtime');
+    void (async () => {
+      try {
+        const status = await fetchLocalComputerStatus();
+        if (cancelled) return;
+        setDisplayHostname(
+          status?.computer_name ??
+            status?.hostname ??
+            status?.shell_env?.hostname ??
+            null,
+        );
+      } catch {
+        if (!cancelled) {
+          setDisplayHostname(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, computer, isCurrent]);
+
+  // Relay-fetch branch for non-current computers.
+  useEffect(() => {
+    if (!open || !computer || isCurrent) {
+      return;
+    }
+
+    let cancelled = false;
+    setRelayLoading(true);
+    setRelayError(null);
 
     void (async () => {
       try {
-        const mode = canFetchLiveDetails(computer, isCurrent);
-        if (mode === 'local') {
-          const status = await fetchLocalComputerStatus();
-          if (cancelled) {
-            return;
-          }
-          setDisplayHostname(
-            status?.computer_name ??
-              status?.hostname ??
-              status?.shell_env?.hostname ??
-              null,
-          );
-          const [overviewData, runtimeData, ghStatus] = await Promise.all([
-            systemApi.getTerminalOverview(),
-            systemApi.getRuntimeInfo(),
-            systemApi.getGhCliStatus(),
-          ]);
+        const mode = canFetchLiveDetails(computer, false);
+        if (mode !== 'relay') {
           if (!cancelled) {
-            setOverview(overviewData);
-            setRuntimeInfo(runtimeData);
-            setGhCliStatus(ghStatus);
-            setLiveTab(runtimeData ? 'runtime' : 'host');
+            setRelayLoading(false);
           }
           return;
         }
-
-        if (mode === 'relay') {
-          const { relayGatewayHttpBase, relayClientToken } = useAtmosComputerStore.getState();
-          if (!relayGatewayHttpBase || !relayClientToken) {
-            return;
-          }
-          const [overviewData, runtimeData, ghStatus] = await Promise.all([
-            fetchRelayTerminalOverview(relayGatewayHttpBase, relayClientToken),
-            fetchRelayRuntimeInfo(relayGatewayHttpBase, relayClientToken),
-            fetchRelayGhCliStatus(relayGatewayHttpBase, relayClientToken),
-          ]);
+        const { relayGatewayHttpBase, relayClientToken } = useAtmosComputerStore.getState();
+        if (!relayGatewayHttpBase || !relayClientToken) {
           if (!cancelled) {
-            setOverview(overviewData);
-            setRuntimeInfo(runtimeData);
-            setGhCliStatus(ghStatus);
-            setDisplayHostname(overviewData.shell_env?.hostname ?? null);
-            setLiveTab(runtimeData ? 'runtime' : 'host');
+            setRelayLoading(false);
           }
           return;
+        }
+        const [overviewData, runtimeData, ghStatus] = await Promise.all([
+          fetchRelayTerminalOverview(relayGatewayHttpBase, relayClientToken),
+          fetchRelayRuntimeInfo(relayGatewayHttpBase, relayClientToken),
+          fetchRelayGhCliStatus(relayGatewayHttpBase, relayClientToken),
+        ]);
+        if (!cancelled) {
+          setRelayOverview(overviewData);
+          setRelayRuntimeInfo(runtimeData);
+          setRelayGhCliStatus(ghStatus);
+          setDisplayHostname(overviewData.shell_env?.hostname ?? null);
         }
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
+          setRelayError(e instanceof Error ? e.message : String(e));
         }
       } finally {
         if (!cancelled) {
-          setLoading(false);
+          setRelayLoading(false);
         }
       }
     })();
@@ -364,6 +397,18 @@ export function ComputerDetailsDialog({
     return null;
   }
 
+  const overview = isCurrent ? (overviewQuery.data ?? null) : relayOverview;
+  const runtimeInfo = isCurrent ? (runtimeQuery.data ?? null) : relayRuntimeInfo;
+  const ghCliStatus = isCurrent ? (ghCliQuery.data ?? null) : relayGhCliStatus;
+  const loading = isCurrent
+    ? overviewQuery.isLoading || runtimeQuery.isLoading || ghCliQuery.isLoading
+    : relayLoading;
+  const error = isCurrent
+    ? queryErrorMessage(overviewQuery.error) ??
+      queryErrorMessage(runtimeQuery.error) ??
+      queryErrorMessage(ghCliQuery.error)
+    : relayError;
+
   const name = (computer.display_name ?? t('common.computer')).slice(0, 64);
   const registrationMeta =
     registrationMetaFromRecord(computer.registration_meta) ??
@@ -373,6 +418,8 @@ export function ComputerDetailsDialog({
   const hasLiveData = Boolean(overview || runtimeInfo || ghCliStatus);
   const showRuntimeTab = Boolean(runtimeInfo);
   const showHostTab = Boolean(overview || ghCliStatus);
+  const defaultLiveTab: 'runtime' | 'host' = runtimeInfo ? 'runtime' : 'host';
+  const liveTab = userLiveTab ?? defaultLiveTab;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -429,7 +476,7 @@ export function ComputerDetailsDialog({
         {!loading && hasLiveData && (showRuntimeTab || showHostTab) ? (
           <Tabs
             value={liveTab}
-            onValueChange={(value) => setLiveTab(value as 'runtime' | 'host')}
+            onValueChange={(value) => setUserLiveTab(value as 'runtime' | 'host')}
             className="pt-1"
           >
             <TabsList

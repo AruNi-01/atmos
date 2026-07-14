@@ -153,7 +153,8 @@
       "yesterday": "Yesterday",
       "last_7_days": "Last 7 Days",
       "last_30_days": "Last 30 Days",
-      "older": "Older"
+      "older": "Older",
+      "untagged": "No label"
     },
     "leftPinnedSection": {
       "sortingDisabledMessage": "Workspace order cannot be updated while folders are syncing.",
@@ -383,6 +384,8 @@
         "project": "By Project",
         "status": "By Status",
         "time": "By Time",
+        "label": "By Label",
+        "priority": "By Priority",
         "sectionLabel": "Group By"
       },
       "filter": {
@@ -918,7 +921,9 @@
         "file": "File",
         "diff": "Diff",
         "review": "Review",
-        "conflict": "Conflict Resolve"
+        "conflict": "Conflict Resolve",
+        "github": "GitHub",
+        "other": "Tabs"
       }
     },
     "globalSearchParts": {
@@ -5412,7 +5417,11 @@
     }
   },
   "github": {
-    "actionsDetailModal": {
+    "centerTabs": {
+      "pullRequest": "PR #{number}",
+      "actionRun": "Action #{number}"
+    },
+    "actionsDetail": {
       "loading": {
         "title": "Loading run details",
         "body": "Please wait a moment."
@@ -5553,7 +5562,7 @@
         "unknown": "Unknown"
       }
     },
-    "prDetailModalParts": {
+    "prDetailParts": {
       "checks": {
         "title": "Checks",
         "groups": {
@@ -5589,7 +5598,7 @@
         "unknownAuthor": "unknown"
       }
     },
-    "prDetailModalActions": {
+    "prDetailActions": {
       "closePr": "Close PR",
       "reopenPr": "Reopen PR",
       "merged": "Merged",
@@ -5688,7 +5697,7 @@
       "nextPage": "Next page",
       "page": "PAGE"
     },
-    "prDetailModal": {
+    "prDetail": {
       "agentFix": {
         "openWorkspace": "Open a workspace or project to run Agent Fix.",
         "threadLabel": "Fix PR review: {fileName}",

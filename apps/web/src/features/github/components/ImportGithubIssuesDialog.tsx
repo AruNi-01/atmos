@@ -23,6 +23,7 @@ import { ScrollArea } from '@workspace/ui/components/ui/scroll-area';
 import { Badge } from '@workspace/ui/components/ui/badge';
 import { GithubIssuePayload, wsWorkspaceApi, wsGithubApi, gitApi } from '@/api/ws-api';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { Loader2, Search, ExternalLink, Import, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 
 interface ImportGithubIssuesDialogProps {
@@ -39,7 +40,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
   onImported,
 }) => {
   const t = useTranslations('github.importIssuesDialog');
-  const projects = useProjectStore((s) => s.projects);
+  const projects = useProjects();
   const addWorkspacesToProject = useProjectStore((s) => s.addWorkspacesToProject);
 
   const [projectId, setProjectId] = useState(() => {

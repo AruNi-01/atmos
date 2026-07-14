@@ -21,8 +21,9 @@ import {
 } from '@workspace/ui';
 import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
 import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
-import { useGitStore } from '@/features/git/store/use-git-store';
+import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
+import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
@@ -35,7 +36,7 @@ import { useQueryState } from 'nuqs';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { parseReviewReportMetadata } from '@/features/code-review/lib/review-report-frontmatter';
 import { ReviewReportMetadataCard } from '@/features/code-review/components/ReviewReportMetadataCard';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/features/files/components/FileTree';
 import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
@@ -66,9 +67,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     editorContextId ? state.navigationTargets[editorContextId]?.[file.path] ?? null : null
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
-  const { projects } = useProjectStore();
-  const refreshChangedFiles = useGitStore((s) => s.refreshChangedFiles);
-  const refreshGitStatus = useGitStore((s) => s.refreshGitStatus);
+  const projects = useProjects();
   const {
     autoSave,
     lineWrap,
@@ -117,14 +116,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const handleGitGutterStateChanged = useCallback(
     async (kind: 'stage' | 'restore') => {
-      await refreshChangedFiles();
-      await refreshGitStatus();
+      if (currentProjectPath) {
+        await invalidateGitQueries(currentProjectPath);
+      }
       setGitDiffRefreshNonce((n) => n + 1);
       if (kind === 'restore') {
         await reloadFileContent(file.path, editorContextId || undefined);
       }
     },
-    [refreshChangedFiles, refreshGitStatus, reloadFileContent, file.path, editorContextId],
+    [currentProjectPath, reloadFileContent, file.path, editorContextId],
   );
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
@@ -137,8 +137,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (settingsModalOpen) setSettingsOpen(false);
   }, [settingsModalOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
-  const fileTreeData = useFileTreeStore((s) => s.data);
   const fileTreeRootPath = useFileTreeStore((s) => s.rootPath);
+  const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
+  const fileTreeQuery = useFileTreeQuery(fileTreeRootPath, fileTreeShowHidden);
+  const fileTreeData = fileTreeQuery.data?.tree ?? [];
   const editorViewRef = useRef<EditorView | null>(null);
 
   // Get relative path for breadcrumbs (strict root boundary + longest project prefix)

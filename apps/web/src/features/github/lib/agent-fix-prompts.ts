@@ -1,6 +1,6 @@
 import type {
   ReviewCommentThread,
-} from "@/features/github/lib/pr-detail-modal-parts";
+} from "@/features/github/lib/pr-detail-parts";
 
 export interface PullRequestFixPromptContext {
   owner: string;

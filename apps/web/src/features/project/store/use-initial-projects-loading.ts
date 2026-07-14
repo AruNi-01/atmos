@@ -1,10 +1,9 @@
 'use client';
 
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjectBootstrapQuery } from '@/features/project/hooks/use-project-bootstrap-query';
 
 /** True only on the first load when project list is still empty. */
 export function useInitialProjectsLoading(): boolean {
-  const isLoading = useProjectStore((s) => s.isLoading);
-  const projects = useProjectStore((s) => s.projects);
-  return isLoading && projects.length === 0;
+  const query = useProjectBootstrapQuery();
+  return query.isPending && !query.data;
 }

@@ -122,7 +122,7 @@ export function PRCreateModal({
         className="min-w-[820px] w-full p-0 overflow-hidden border border-border/60 shadow-2xl bg-background"
       >
         <div className="flex flex-col h-full relative">
-          {/* Close Button in Header (matching PRDetailModal) */}
+          {/* Close button in the dialog header */}
           <div className="absolute right-6 top-6 z-50">
             <DialogClose asChild>
               <button

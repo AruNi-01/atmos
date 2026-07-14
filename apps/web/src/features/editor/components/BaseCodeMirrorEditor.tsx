@@ -32,10 +32,19 @@ import { showMinimap } from '@replit/codemirror-minimap';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { gitApi } from '@/api/ws-api';
+import { useGitFileDiffQuery } from '@/features/git/hooks/use-git-file-diff-query';
+import type { GitFileDiffParams } from '@/features/git/lib/git-query-options';
 import { loadCodeLanguageSupport } from '@/shared/lib/code-language';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import { createGitChangeGutterExtensions } from '@/shared/lib/codemirror-git-gutter';
 import { createSearchExtension } from './codemirror-search-panel';
+
+const EDITOR_AGAINST_INDEX_DIFF_PARAMS: GitFileDiffParams = {
+  baseBranch: null,
+  againstIndex: true,
+  baseRef: null,
+  commitRef: null,
+};
 /** 用于在启用 Git 集成时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
 export interface BaseCodeMirrorEditorGitDiffSource {
   repoPath: string;
@@ -648,6 +657,26 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     onNavigationTargetAppliedRef.current = onNavigationTargetApplied;
   }, [onNavigationTargetApplied]);
 
+  const editorGitDiffQuery = useGitFileDiffQuery(
+    gitIntegration ? gitDiffSource?.repoPath : null,
+    gitIntegration ? gitDiffSource?.fileRelativePath : null,
+    EDITOR_AGAINST_INDEX_DIFF_PARAMS,
+  );
+
+  useEffect(() => {
+    if (!gitIntegration || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+      return;
+    }
+    if (gitDiffRefreshNonce === 0) return;
+    void editorGitDiffQuery.refetch();
+  }, [
+    editorGitDiffQuery.refetch,
+    gitDiffRefreshNonce,
+    gitDiffSource?.fileRelativePath,
+    gitDiffSource?.repoPath,
+    gitIntegration,
+  ]);
+
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -863,82 +892,74 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       return;
     }
 
-    let cancelled = false;
+    if (editorGitDiffQuery.isLoading || editorGitDiffQuery.isFetching) {
+      return;
+    }
 
-    void (async () => {
-      try {
-        const diff = await gitApi.getFileDiff(
-          gitDiffSource.repoPath,
-          gitDiffSource.fileRelativePath,
-          null,
-          { againstIndex: true },
-        );
-        if (cancelled || editorRef.current !== view) return;
+    if (!editorGitDiffQuery.data) {
+      view.dispatch({
+        effects: gitIntegrationCompartment.reconfigure([]),
+      });
+      return;
+    }
 
-        view.dispatch({
-          effects: gitIntegrationCompartment.reconfigure(
-            createGitChangeGutterExtensions({
-              fileRelativePath: gitDiffSource.fileRelativePath,
-              fileStatus: diff.status,
-              originalContent: diff.old_content,
-              stagePatch: async (patch) => {
-                try {
-                  const r = await gitApi.stagePatchChunk(
-                    gitDiffSource.repoPath,
-                    gitDiffSource.fileRelativePath,
-                    patch,
-                    diff.status,
-                  );
-                  if (!r.success) {
-                    return { ok: false, error: r.error ?? 'stage_patch_chunk failed' };
-                  }
-                  return { ok: true };
-                } catch (e) {
-                  return {
-                    ok: false,
-                    error: e instanceof Error ? e.message : String(e),
-                  };
-                }
-              },
-              restorePatch: async (patch) => {
-                try {
-                  const r = await gitApi.restorePatchChunk(
-                    gitDiffSource.repoPath,
-                    gitDiffSource.fileRelativePath,
-                    patch,
-                    diff.status,
-                  );
-                  if (!r.success) {
-                    return { ok: false, error: r.error ?? 'restore_patch_chunk failed' };
-                  }
-                  return { ok: true };
-                } catch (e) {
-                  return {
-                    ok: false,
-                    error: e instanceof Error ? e.message : String(e),
-                  };
-                }
-              },
-              onGitStateChanged: (kind) => onGitGutterStateChangedRef.current?.(kind),
-            }),
-          ),
-        });
-      } catch {
-        if (cancelled || editorRef.current !== view) return;
-        view.dispatch({
-          effects: gitIntegrationCompartment.reconfigure([]),
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    const diff = editorGitDiffQuery.data;
+    view.dispatch({
+      effects: gitIntegrationCompartment.reconfigure(
+        createGitChangeGutterExtensions({
+          fileRelativePath: gitDiffSource.fileRelativePath,
+          fileStatus: diff.status,
+          originalContent: diff.old_content,
+          stagePatch: async (patch) => {
+            try {
+              const r = await gitApi.stagePatchChunk(
+                gitDiffSource.repoPath,
+                gitDiffSource.fileRelativePath,
+                patch,
+                diff.status,
+              );
+              if (!r.success) {
+                return { ok: false, error: r.error ?? 'stage_patch_chunk failed' };
+              }
+              return { ok: true };
+            } catch (e) {
+              return {
+                ok: false,
+                error: e instanceof Error ? e.message : String(e),
+              };
+            }
+          },
+          restorePatch: async (patch) => {
+            try {
+              const r = await gitApi.restorePatchChunk(
+                gitDiffSource.repoPath,
+                gitDiffSource.fileRelativePath,
+                patch,
+                diff.status,
+              );
+              if (!r.success) {
+                return { ok: false, error: r.error ?? 'restore_patch_chunk failed' };
+              }
+              return { ok: true };
+            } catch (e) {
+              return {
+                ok: false,
+                error: e instanceof Error ? e.message : String(e),
+              };
+            }
+          },
+          onGitStateChanged: (kind) => onGitGutterStateChangedRef.current?.(kind),
+        }),
+      ),
+    });
   }, [
-    gitIntegration,
-    gitDiffSource?.repoPath,
-    gitDiffSource?.fileRelativePath,
+    editorGitDiffQuery.data,
+    editorGitDiffQuery.isFetching,
+    editorGitDiffQuery.isLoading,
     gitDiffRefreshNonce,
+    gitDiffSource?.fileRelativePath,
+    gitDiffSource?.repoPath,
+    gitIntegration,
     gitIntegrationCompartment,
   ]);
 

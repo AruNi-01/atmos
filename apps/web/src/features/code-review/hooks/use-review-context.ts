@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryState, parseAsString } from "nuqs";
 import { toastManager } from "@workspace/ui";
@@ -14,10 +15,13 @@ import {
   type ReviewTarget,
   type ReviewAnchor,
 } from "@/api/ws-api";
+import { getComputerQueryScope } from "@/api/query/query-scope";
 import { buildCommand, type AgentId } from "@/features/wiki/components/AgentSelect";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useReviewSessionsQuery } from "@/features/code-review/hooks/use-review-sessions-query";
+import { reviewSessionsKey } from "@/features/code-review/lib/review-query-options";
 import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 import {
@@ -61,6 +65,7 @@ export function useReviewContext({
     unknownReviewSession: t("errors.unknownReviewSession"),
   });
   const [storedReviewAgentId, setStoredReviewAgentId] = useReviewDefaultAgentId();
+  const queryClient = useQueryClient();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
   const setPendingAgentChatMode = useDialogStore(
@@ -69,11 +74,13 @@ export function useReviewContext({
   const [, setAgentChatOpen] = useAgentChatUrl();
   const terminalRunner = useReviewTerminalRunnerStore((state) => state.runner);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const sessionsQuery = useReviewSessionsQuery(target);
+  const sessions = sessionsQuery.data ?? [];
+  const isLoading = sessionsQuery.isLoading;
+  const sessionsLoadError = sessionsQuery.error;
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingAgentRun, setIsCreatingAgentRun] = useState(false);
   const [isFinalizingRun, setIsFinalizingRun] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<ReviewSessionDto[]>([]);
   const [urlSelectedSessionGuid, setUrlSelectedSessionGuid] = useQueryState(
     "reviewSession",
     parseAsString.withOptions({ history: "replace" }),
@@ -158,32 +165,31 @@ export function useReviewContext({
   }, [t]);
 
   const loadSessions = useCallback(async () => {
-    if (!target) {
-      setSessions([]);
+    if (!target) return;
+    await queryClient.invalidateQueries({
+      queryKey: reviewSessionsKey(getComputerQueryScope(), target),
+      refetchType: "active",
+    });
+  }, [queryClient, target]);
+
+  const toastedSessionsErrorRef = useRef<unknown>(null);
+  useEffect(() => {
+    if (!sessionsLoadError) {
+      toastedSessionsErrorRef.current = null;
       return;
     }
-    setIsLoading(true);
-    try {
-      const nextSessions = await reviewWsApi.listSessions(target, true);
-      setSessions(nextSessions);
-    } catch (error) {
-      console.error("Failed to load review sessions", error);
-      toastManager.add({
-        title: loadSessionsErrorTextRef.current.title,
-        description:
-          error instanceof Error
-            ? error.message
-            : loadSessionsErrorTextRef.current.unknownReviewSession,
-        type: "error",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [target]);
-
-  useEffect(() => {
-    void loadSessions();
-  }, [loadSessions]);
+    if (toastedSessionsErrorRef.current === sessionsLoadError) return;
+    toastedSessionsErrorRef.current = sessionsLoadError;
+    console.error("Failed to load review sessions", sessionsLoadError);
+    toastManager.add({
+      title: loadSessionsErrorTextRef.current.title,
+      description:
+        sessionsLoadError instanceof Error
+          ? sessionsLoadError.message
+          : loadSessionsErrorTextRef.current.unknownReviewSession,
+      type: "error",
+    });
+  }, [sessionsLoadError]);
 
   useEffect(() => {
     const unsubscribers = [
@@ -422,13 +428,19 @@ export function useReviewContext({
       const defaultTitle = t("createSession.defaultTitle", {
         timestamp: `${mm}.${dd}-${hh}:${min}`,
       });
+      const scope = getComputerQueryScope();
+      const key = reviewSessionsKey(scope, target);
+      await queryClient.cancelQueries({ queryKey: key });
       const session = await reviewWsApi.createSession({
         target,
         title: defaultTitle,
       });
       setSelectedSessionGuid(session.guid);
       setSelectedRevisionGuid(session.current_revision_guid);
-      setSessions((prev) => [session, ...prev]);
+      queryClient.setQueryData<ReviewSessionDto[]>(
+        key,
+        (prev) => [session, ...(prev ?? [])],
+      );
       const targetKind = target.kind === "workspace" ? "workspace" : "project";
       toastManager.add({
         title: t("createSession.successTitle"),
@@ -449,7 +461,7 @@ export function useReviewContext({
     } finally {
       setIsCreating(false);
     }
-  }, [setSelectedRevisionGuid, setSelectedSessionGuid, t, target]);
+  }, [queryClient, setSelectedRevisionGuid, setSelectedSessionGuid, t, target]);
 
   const handleCloseSession = useCallback(async () => {
     if (!currentSession) return;

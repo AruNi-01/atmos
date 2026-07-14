@@ -10,7 +10,6 @@ import {
   parseAsString,
   parseAsStringEnum,
   parseAsBoolean,
-  parseAsInteger,
 } from "nuqs";
 
 // ---------------------------------------------------------------------------
@@ -145,13 +144,6 @@ export const settingsModalParams = {
 };
 
 // ---------------------------------------------------------------------------
-// OverviewTab – PR detail modal
-// ---------------------------------------------------------------------------
-export const overviewParams = {
-  pr: parseAsInteger,
-};
-
-// ---------------------------------------------------------------------------
 // Agent Chat Panel (global)
 // ---------------------------------------------------------------------------
 export const agentChatParams = {
@@ -163,11 +155,9 @@ export const agentChatParams = {
 };
 
 // ---------------------------------------------------------------------------
-// RightSidebar – PR & Actions modals
+// RightSidebar – create pull request dialog
 // ---------------------------------------------------------------------------
-export const rightSidebarModalParams = {
-  rsPr: parseAsInteger,
-  rsRunId: parseAsInteger,
+export const rightSidebarDialogParams = {
   rsCreatePr: parseAsBoolean.withDefault(false),
 };
 

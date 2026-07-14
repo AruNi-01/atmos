@@ -57,6 +57,7 @@ import {
   hydrateComputerClientSettingsFromDisk,
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
+import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
 import {
   activeComputerRows,
   isCurrentLocalComputer,
@@ -170,12 +171,8 @@ export function AtmosComputerSection() {
     selectedServerId,
     relayWebSocketUrl,
     localServerId,
-    setAccessToken,
-    setAccessTokenConfigured,
-    setRelayUrl,
     setComputers,
     setLocalServerId,
-    setRelaySecretKey,
   } = useAtmosComputerStore();
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -414,8 +411,10 @@ export function AtmosComputerSection() {
     const nextSecret = secretDraft.trim();
     setBusy('relay-settings');
     try {
-      setRelayUrl(nextUrl);
-      setRelaySecretKey(nextSecret);
+      await applyIdentityBearingComputerSettings({
+        relayUrl: nextUrl,
+        relaySecretKey: nextSecret,
+      });
       clearRemoteComputerRegisterTokenCache();
       const persisted = await saveComputerClientSettingsToDisk(
         accessToken,
@@ -496,10 +495,12 @@ export function AtmosComputerSection() {
 
         await teardownLocalRelayIdentity();
       }
-      setRelayUrl(nextUrl);
-      setRelaySecretKey(nextSecret);
-      setAccessToken(token);
-      setAccessTokenConfigured(true);
+      await applyIdentityBearingComputerSettings({
+        relayUrl: nextUrl,
+        relaySecretKey: nextSecret,
+        accessToken: token,
+        accessTokenConfigured: true,
+      });
       setTokenReveal(null);
       const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       if (!persisted) {
@@ -560,8 +561,10 @@ export function AtmosComputerSection() {
         relaySecretKey,
       );
       setTokenDraft(nextToken);
-      setAccessToken(nextToken);
-      setAccessTokenConfigured(true);
+      await applyIdentityBearingComputerSettings({
+        accessToken: nextToken,
+        accessTokenConfigured: true,
+      });
       setTokenReveal(nextToken);
       void activateCurrentLocalConnection().catch(() => undefined);
       toastManager.add({
@@ -586,11 +589,13 @@ export function AtmosComputerSection() {
       if (!(await ensureAccessTokenReady(token, nextUrl, nextSecret))) {
         return;
       }
-      setRelayUrl(nextUrl);
-      setRelaySecretKey(nextSecret);
+      await applyIdentityBearingComputerSettings({
+        relayUrl: nextUrl,
+        relaySecretKey: nextSecret,
+        accessToken: token,
+        accessTokenConfigured: true,
+      });
       setTokenDraft(token);
-      setAccessToken(token);
-      setAccessTokenConfigured(true);
       setTokenReveal(token);
       const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       toastManager.add({

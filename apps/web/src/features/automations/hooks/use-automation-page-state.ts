@@ -20,6 +20,10 @@ import type {
   AutomationSummary,
   AutomationUpdateRequest,
 } from "@/features/automations/types";
+import {
+  useProjects,
+  useProjectsLoading,
+} from "@/features/project/hooks/use-project-bootstrap-query";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
@@ -56,7 +60,6 @@ export function useAutomationPageState() {
     runNow,
     pauseAutomation,
     resumeAutomation,
-    listRuns,
     getRun,
     cancelRun,
     getArtifact,
@@ -66,12 +69,9 @@ export function useAutomationPageState() {
   const router = useAppRouter();
   const showOpening = useWorkspaceCreationStore((state) => state.showOpening);
   const githubPrereqs = useGithubRelayPrerequisites();
-  const projects = useProjectStore((state) => state.projects);
-  const isProjectsLoading = useProjectStore((state) => state.isLoading);
-  const fetchProjects = useProjectStore((state) => state.fetchProjects);
-  const ensureWorkspaceVisible = useProjectStore(
-    (state) => state.ensureWorkspaceVisible,
-  );
+  const projects = useProjects();
+  const isProjectsLoading = useProjectsLoading();
+  const ensureWorkspaceVisible = useProjectStore((state) => state.ensureWorkspaceVisible);
 
   const [pageView, setPageView] = useQueryState(
     "automationView",
@@ -138,16 +138,11 @@ export function useAutomationPageState() {
     selectedAutomationGuid,
     selectedRunGuid,
     setRunParam,
-    listRuns,
     getRun,
     getArtifact,
   });
 
-  React.useEffect(() => {
-    if (projects.length === 0 && !isProjectsLoading) {
-      void fetchProjects();
-    }
-  }, [fetchProjects, isProjectsLoading, projects.length]);
+  // Projects are now loaded by the TanStack Query bootstrap; no manual fetch needed.
 
   React.useEffect(() => {
     if (

@@ -38,8 +38,8 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, LocalServicesService, NotificationService,
-    ProjectService, ReviewService, TerminalService, WorkspaceService,
+    AgentService, AgentSessionService, AutomationService, LocalServicesService,
+    NotificationService, ProjectService, ReviewService, TerminalService, WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
@@ -149,6 +149,7 @@ impl WsMessageService {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
             }
             WsAction::FsReadFile => self.handle_fs_read_file(parse_request(request.data)?),
+            WsAction::FsReadFiles => self.handle_fs_read_files(parse_request(request.data)?),
             WsAction::FsWriteFile => self.handle_fs_write_file(parse_request(request.data)?),
             WsAction::FsCreateDir => self.handle_fs_create_dir(parse_request(request.data)?),
             WsAction::FsRenamePath => self.handle_fs_rename_path(parse_request(request.data)?),
@@ -185,6 +186,10 @@ impl WsMessageService {
 
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
+            WsAction::GitGetStatusBatch => {
+                self.handle_git_get_status_batch(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GitGetHeadCommit => {
                 self.handle_git_get_head_commit(parse_request(request.data)?)
             }
@@ -204,6 +209,10 @@ impl WsMessageService {
                 self.handle_git_changed_files(parse_request(request.data)?)
             }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
+            WsAction::GitFilesDiff => {
+                self.handle_git_files_diff(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GitStagePatchChunk => {
                 self.handle_git_stage_patch_chunk(parse_request(request.data)?)
             }
@@ -466,6 +475,10 @@ impl WsMessageService {
             }
             WsAction::ReviewFileContentGet => {
                 self.handle_review_file_content_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFileContentGetBatch => {
+                self.handle_review_file_content_get_batch(parse_request(request.data)?)
                     .await
             }
             WsAction::ReviewFileSetReviewed => {

@@ -1,48 +1,105 @@
 use std::time::Instant;
 
+use futures_util::{stream, StreamExt};
 use serde_json::{json, Value};
 
+use core_engine::{FsEngine, GitEngine};
 use core_service::service::git_commit_message::GitCommitMessageGenerator;
 use core_service::{Result, ServiceError};
 
 use super::{
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
-    GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
-    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest,
-    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest,
-    GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
+    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitFileDiffResponse,
+    GitFilesDiffRequest, GitFilesDiffResponse, GitFilesDiffResult, GitGenerateCommitMessageRequest,
+    GitGetCommitCountRequest, GitGetHeadCommitRequest, GitGetStatusBatchRequest,
+    GitGetStatusBatchResponse, GitGetStatusBatchResult, GitGetStatusRequest,
+    GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest, GitPullRequest, GitPushRequest,
+    GitRenameBranchRequest, GitStageRequest, GitStatusResponse, GitSyncRequest, GitUnstageRequest,
+    WsEvent, WsMessage, WsMessageService,
 };
 
+const GIT_BATCH_CONCURRENCY: usize = 8;
+
 impl WsMessageService {
-    pub(super) fn handle_git_get_status(&self, req: GitGetStatusRequest) -> Result<Value> {
-        let path = self.fs_engine.expand_path(&req.path)?;
-        let status = self
-            .git_engine
+    fn get_git_status(
+        fs_engine: &FsEngine,
+        git_engine: &GitEngine,
+        req: GitGetStatusRequest,
+    ) -> Result<GitStatusResponse> {
+        let path = fs_engine.expand_path(&req.path)?;
+        let status = git_engine
             .get_git_status(&path)
             .map_err(|e| ServiceError::Validation(format!("Failed to get git status: {}", e)))?;
 
-        let current_branch = self.git_engine.get_current_branch(&path).ok();
+        let current_branch = git_engine.get_current_branch(&path).ok();
 
-        let remote_url = self.git_engine.get_remote_url(&path).unwrap_or_default();
+        let remote_url = git_engine.get_remote_url(&path).unwrap_or_default();
         let github_info = core_engine::GithubEngine::parse_github_remote(&remote_url);
         let github_owner = github_info.as_ref().map(|x| x.0.clone());
         let github_repo = github_info.as_ref().map(|x| x.1.clone());
 
-        Ok(json!({
-            "has_uncommitted_changes": status.has_uncommitted_changes,
-            "has_merge_conflicts": status.has_merge_conflicts,
-            "has_unpushed_commits": status.has_unpushed_commits,
-            "uncommitted_count": status.uncommitted_count,
-            "unpushed_count": status.unpushed_count,
-            "upstream_behind_count": status.upstream_behind_count,
-            "default_branch": status.default_branch,
-            "default_branch_ahead": status.default_branch_ahead,
-            "default_branch_behind": status.default_branch_behind,
-            "current_branch": current_branch,
-            "github_owner": github_owner,
-            "github_repo": github_repo,
+        Ok(GitStatusResponse {
+            has_uncommitted_changes: status.has_uncommitted_changes,
+            has_merge_conflicts: status.has_merge_conflicts,
+            has_unpushed_commits: status.has_unpushed_commits,
+            uncommitted_count: status.uncommitted_count,
+            unpushed_count: status.unpushed_count,
+            upstream_behind_count: status.upstream_behind_count,
+            default_branch: status.default_branch,
+            default_branch_ahead: status.default_branch_ahead,
+            default_branch_behind: status.default_branch_behind,
+            current_branch,
+            github_owner,
+            github_repo,
+        })
+    }
+
+    pub(super) fn handle_git_get_status(&self, req: GitGetStatusRequest) -> Result<Value> {
+        Ok(json!(Self::get_git_status(
+            &self.fs_engine,
+            &self.git_engine,
+            req
+        )?))
+    }
+
+    pub(super) async fn handle_git_get_status_batch(
+        &self,
+        req: GitGetStatusBatchRequest,
+    ) -> Result<Value> {
+        let results = stream::iter(req.paths.into_iter().map(|path| async move {
+            let result_path = path.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                Self::get_git_status(
+                    &FsEngine::new(),
+                    &GitEngine::new(),
+                    GitGetStatusRequest { path },
+                )
+            })
+            .await;
+
+            match result {
+                Ok(Ok(status)) => GitGetStatusBatchResult {
+                    path: result_path,
+                    status: Some(status),
+                    error: None,
+                },
+                Ok(Err(error)) => GitGetStatusBatchResult {
+                    path: result_path,
+                    status: None,
+                    error: Some(error.to_string()),
+                },
+                Err(error) => GitGetStatusBatchResult {
+                    path: result_path,
+                    status: None,
+                    error: Some(format!("Git status task failed: {error}")),
+                },
+            }
         }))
+        .buffered(GIT_BATCH_CONCURRENCY)
+        .collect()
+        .await;
+
+        Ok(json!(GitGetStatusBatchResponse { results }))
     }
 
     pub(super) fn handle_git_get_head_commit(&self, req: GitGetHeadCommitRequest) -> Result<Value> {
@@ -158,26 +215,97 @@ impl WsMessageService {
         }))
     }
 
-    pub(super) fn handle_git_file_diff(&self, req: GitFileDiffRequest) -> Result<Value> {
-        let path = self.fs_engine.expand_path(&req.path)?;
+    fn get_git_file_diff(
+        fs_engine: &FsEngine,
+        git_engine: &GitEngine,
+        req: GitFileDiffRequest,
+    ) -> Result<GitFileDiffResponse> {
+        let path = fs_engine.expand_path(&req.path)?;
         let diff = if let Some(commit_ref) = req.commit_ref.as_deref() {
-            self.git_engine
+            git_engine
                 .get_file_diff_for_commit(&path, &req.file_path, commit_ref)
                 .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?
         } else {
             let base_ref = req.base_ref.as_deref().or(req.base_branch.as_deref());
-            self.git_engine
+            git_engine
                 .get_file_diff(&path, &req.file_path, base_ref, req.against_index)
                 .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?
         };
 
-        Ok(json!({
-            "file_path": diff.file_path,
-            "old_content": diff.old_content,
-            "new_content": diff.new_content,
-            "status": diff.status,
-            "compare_ref": diff.compare_ref,
+        Ok(GitFileDiffResponse {
+            file_path: diff.file_path,
+            old_content: diff.old_content,
+            new_content: diff.new_content,
+            status: diff.status,
+            compare_ref: diff.compare_ref,
+        })
+    }
+
+    pub(super) fn handle_git_file_diff(&self, req: GitFileDiffRequest) -> Result<Value> {
+        Ok(json!(Self::get_git_file_diff(
+            &self.fs_engine,
+            &self.git_engine,
+            req
+        )?))
+    }
+
+    pub(super) async fn handle_git_files_diff(&self, req: GitFilesDiffRequest) -> Result<Value> {
+        let GitFilesDiffRequest {
+            path,
+            file_paths,
+            base_branch,
+            base_ref,
+            commit_ref,
+            against_index,
+        } = req;
+        let results = stream::iter(file_paths.into_iter().map(|file_path| {
+            let path = path.clone();
+            let base_branch = base_branch.clone();
+            let base_ref = base_ref.clone();
+            let commit_ref = commit_ref.clone();
+
+            async move {
+                let result_file_path = file_path.clone();
+                let result = tokio::task::spawn_blocking(move || {
+                    Self::get_git_file_diff(
+                        &FsEngine::new(),
+                        &GitEngine::new(),
+                        GitFileDiffRequest {
+                            path,
+                            file_path,
+                            base_branch,
+                            base_ref,
+                            commit_ref,
+                            against_index,
+                        },
+                    )
+                })
+                .await;
+
+                match result {
+                    Ok(Ok(diff)) => GitFilesDiffResult {
+                        file_path: result_file_path,
+                        diff: Some(diff),
+                        error: None,
+                    },
+                    Ok(Err(error)) => GitFilesDiffResult {
+                        file_path: result_file_path,
+                        diff: None,
+                        error: Some(error.to_string()),
+                    },
+                    Err(error) => GitFilesDiffResult {
+                        file_path: result_file_path,
+                        diff: None,
+                        error: Some(format!("Git file diff task failed: {error}")),
+                    },
+                }
+            }
         }))
+        .buffered(GIT_BATCH_CONCURRENCY)
+        .collect();
+        let results = results.await;
+
+        Ok(json!(GitFilesDiffResponse { results }))
     }
 
     pub(super) fn handle_git_stage_patch_chunk(&self, req: GitPatchChunkRequest) -> Result<Value> {

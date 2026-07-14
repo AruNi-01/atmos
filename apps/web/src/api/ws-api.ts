@@ -12,6 +12,7 @@ import type {
   FsListDirResponse,
   FsListProjectFilesResponse,
   FsReadFileResponse,
+  FsReadFilesResponse,
   FsRenamePathResponse,
   FsSearchContentResponse,
   FsSearchDirsResponse,
@@ -20,8 +21,10 @@ import type {
   GitChangedFilesResponse,
   GitCommitResponse,
   GitFileDiffResponse,
+  GitFilesDiffResponse,
   GitGenerateCommitMessageResponse,
   GitPatchChunkResponse,
+  GitGetStatusBatchResponse,
   GitStatusResponse,
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
@@ -41,6 +44,8 @@ export type {
   FsListDirResponse,
   FsListProjectFilesResponse,
   FsReadFileResponse,
+  FsReadFilesResponse,
+  FsReadFilesResult,
   FsRenamePathResponse,
   FsSearchContentResponse,
   FsSearchDirsResponse,
@@ -50,8 +55,12 @@ export type {
   GitChangedFilesResponse,
   GitCommitResponse,
   GitFileDiffResponse,
+  GitFilesDiffResponse,
+  GitFilesDiffResult,
   GitGenerateCommitMessageResponse,
   GitPatchChunkResponse,
+  GitGetStatusBatchResponse,
+  GitGetStatusBatchResult,
   GitStatusResponse,
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
@@ -106,6 +115,13 @@ export const fsApi = {
    */
   readFile: async (path: string): Promise<FsReadFileResponse> => {
     return wsRequest<FsReadFileResponse>("fs_read_file", { path });
+  },
+
+  /**
+   * 批量读取文件内容
+   */
+  readFiles: async (paths: string[]): Promise<FsReadFilesResponse> => {
+    return wsRequest<FsReadFilesResponse>("fs_read_files", { paths });
   },
 
   /**
@@ -341,6 +357,15 @@ export const gitApi = {
   },
 
   /**
+   * 批量获取 Git 状态
+   */
+  getStatuses: async (paths: string[]): Promise<GitGetStatusBatchResponse> => {
+    return wsRequest<GitGetStatusBatchResponse>("git_get_status_batch", {
+      paths,
+    });
+  },
+
+  /**
    * 获取当前 HEAD 提交 hash
    */
   getHeadCommit: async (path: string): Promise<{ commit_hash: string }> => {
@@ -426,6 +451,25 @@ export const gitApi = {
     return wsRequest<GitFileDiffResponse>("git_file_diff", {
       path,
       file_path: filePath,
+      base_branch: baseBranch ?? null,
+      base_ref: options?.baseRef ?? null,
+      commit_ref: options?.commitRef ?? null,
+      against_index: options?.againstIndex ?? false,
+    });
+  },
+
+  /**
+   * 批量获取文件 diff
+   */
+  getFilesDiff: async (
+    path: string,
+    filePaths: string[],
+    baseBranch?: string | null,
+    options?: { againstIndex?: boolean; baseRef?: string | null; commitRef?: string | null },
+  ): Promise<GitFilesDiffResponse> => {
+    return wsRequest<GitFilesDiffResponse>("git_files_diff", {
+      path,
+      file_paths: filePaths,
       base_branch: baseBranch ?? null,
       base_ref: options?.baseRef ?? null,
       commit_ref: options?.commitRef ?? null,

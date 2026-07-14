@@ -1,12 +1,11 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useQueryState, useQueryStates } from "nuqs";
+import { useQueryState } from "nuqs";
 import { useTheme } from "next-themes";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   llmProvidersModalParams,
-  rightSidebarModalParams,
   settingsModalParams,
   skillsModalParams,
   tokenUsageParams,
@@ -20,9 +19,11 @@ import {
 } from '@workspace/ui';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useGithubPRList } from '@/features/github/hooks/use-github';
-import { useGitStore } from '@/features/git/store/use-git-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
@@ -58,6 +59,7 @@ import { HeaderActionControls } from './header-action-controls';
 import { HeaderGitContext } from './header-git-context';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
+import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 
 const Header: React.FC = () => {
   const pathname = usePathname();
@@ -69,10 +71,9 @@ const Header: React.FC = () => {
   const [, setAgentChatOpen] = useAgentChatUrl();
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
 
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
   const setupProgress = useProjectStore(s => s.setupProgress);
-  const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const { layout, updateLayout, loadLayout } = useAgentChatLayoutStore();
   useEffect(() => { loadLayout(); }, [loadLayout]);
@@ -105,26 +106,38 @@ const Header: React.FC = () => {
     window.location.reload();
   }, []);
   const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
+  const editorRepoPath = useEditorStore(s => s.currentProjectPath);
   const {
-    currentBranch,
     targetBranch,
-    hasUncommittedChanges,
-    hasUnpushedCommits,
-    uncommittedCount,
-    unpushedCount,
-    defaultBranch,
-    defaultBranchAhead,
-    defaultBranchBehind,
     setCurrentContext,
     setTargetBranch,
-    refreshGitStatus,
-    githubOwner,
-    githubRepo,
   } = useGitInfoStore();
 
-  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const { openPullRequestTab } = useOpenGithubCenterTab();
 
   const onWsEvent = useWebSocketStore(s => s.onEvent);
+
+  // Find current project based on workspaceId OR projectId
+  const currentProject = projects.find(p =>
+    (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
+    (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
+  );
+  const currentWorkspace = currentProject?.workspaces.find(
+    w => w.id === currentWorkspaceId
+  );
+  const currentProjectIdForContext = currentProject?.id ?? null;
+  const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
+  const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
+  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
+  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
+
+  const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
+
+  const statusQuery = useGitStatusQuery(headerRepoPath);
+  const currentBranch = statusQuery.data?.current_branch ?? null;
+  const githubOwner = statusQuery.data?.github_owner ?? null;
+  const githubRepo = statusQuery.data?.github_repo ?? null;
+
   const { data: prListData, refresh: refreshHeaderPrList } = useGithubPRList({
     owner: githubOwner ?? undefined,
     repo: githubRepo ?? undefined,
@@ -159,19 +172,17 @@ const Header: React.FC = () => {
     });
   }, [onWsEvent, githubOwner, githubRepo, currentBranch, refreshHeaderPrList]);
 
-  // Find current project based on workspaceId OR projectId
-  const currentProject = projects.find(p =>
-    (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
-    (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
-  );
-  const currentWorkspace = currentProject?.workspaces.find(
-    w => w.id === currentWorkspaceId
-  );
-  const currentProjectIdForContext = currentProject?.id ?? null;
-  const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
-  const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
-  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
-  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
+  const hasUncommittedChanges = statusQuery.data?.has_uncommitted_changes ?? false;
+  const hasUnpushedCommits = statusQuery.data?.has_unpushed_commits ?? false;
+  const uncommittedCount = statusQuery.data?.uncommitted_count ?? 0;
+  const unpushedCount = statusQuery.data?.unpushed_count ?? 0;
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const defaultBranchAhead = statusQuery.data?.default_branch_ahead ?? null;
+  const defaultBranchBehind = statusQuery.data?.default_branch_behind ?? null;
+
+  const refreshGitStatus = useCallback(async () => {
+    if (headerRepoPath) await invalidateGitQueries(headerRepoPath);
+  }, [headerRepoPath]);
 
   // Editable state for target branch
 
@@ -249,7 +260,6 @@ const Header: React.FC = () => {
   } | null>(null);
 
   const deleteProject = useProjectStore(s => s.deleteProject);
-  const fetchProjects = useProjectStore(s => s.fetchProjects);
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
 
   useHeaderHotkeys({
@@ -579,8 +589,17 @@ const Header: React.FC = () => {
             isLoadingBranches={isLoadingBranches}
             isTargetBranchOpen={isTargetBranchOpen}
             onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-            onOpenPr={(prNumber) => setModalParams({ rsPr: prNumber })}
-            onRefreshChangedFiles={refreshChangedFiles}
+            onOpenPr={(prNumber, prTitle) => {
+              if (!currentBranch || !githubOwner || !githubRepo) return;
+              openPullRequestTab({
+                branch: currentBranch,
+                owner: githubOwner,
+                prNumber,
+                repo: githubRepo,
+                title: prTitle,
+              });
+            }}
+            onRefreshChangedFiles={refreshGitStatus}
             onSaveCurrentBranch={handleSaveCurrentBranch}
             onSetTargetBranch={setTargetBranch}
             prIconRef={prIconRef}
@@ -658,13 +677,6 @@ const Header: React.FC = () => {
               try {
                 await wsWorkspaceApi.delete(deleteWorkspaceDialog.workspaceId);
                 deleteWorkspaceDialog.onDeleted?.();
-                // Also update local state if workspace exists in projects
-                const projectId = projects.find(p =>
-                  p.workspaces.some(w => w.id === deleteWorkspaceDialog.workspaceId)
-                )?.id;
-                if (projectId) {
-                  await fetchProjects();
-                }
               } catch (error) {
                 console.error('Failed to delete workspace:', error);
               }

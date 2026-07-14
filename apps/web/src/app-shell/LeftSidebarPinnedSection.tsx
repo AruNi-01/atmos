@@ -14,9 +14,16 @@ import {
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
+import type { WorkspaceLabel } from "@/shared/types/domain";
 import {
+  getWorkspaceLabelGroupKey,
   getWorkspaceTimeGroupLabel,
+  UNTAGGED_WORKSPACE_GROUP_KEY,
 } from "@/app-shell/sidebar/workspace-grouping";
+import {
+  getWorkspacePriorityMeta,
+  WorkspaceLabelDots,
+} from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
@@ -25,7 +32,9 @@ import {
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
 export function LeftSidebarPinnedSection({
+  availableLabels,
   groupingMode,
+  labelGroupOrder,
   isCollapsed,
   isDividerHovered,
   isSortingDisabled,
@@ -36,7 +45,9 @@ export function LeftSidebarPinnedSection({
   onDividerHoverChange,
   onUpdatePinOrder,
 }: {
+  availableLabels: WorkspaceLabel[];
   groupingMode: SidebarGroupingMode;
+  labelGroupOrder: string[];
   isCollapsed: boolean;
   isDividerHovered: boolean;
   isSortingDisabled: boolean;
@@ -91,10 +102,28 @@ export function LeftSidebarPinnedSection({
                 {pinnedWorkspaces.map((entry) => {
                   const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
                   const StatusIcon = statusMeta.icon;
+                  const priorityMeta = getWorkspacePriorityMeta(entry.workspace.priority);
+                  const PriorityIcon = priorityMeta.icon;
+                  const labelGroupKey = getWorkspaceLabelGroupKey(
+                    entry.workspace,
+                    labelGroupOrder,
+                    availableLabels,
+                  );
+                  const primaryLabel = entry.workspace.labels.find((label) => label.id === labelGroupKey);
                   const rightContext = groupingMode === "status" ? (
                     <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
                   ) : groupingMode === "time" ? (
                     <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
+                  ) : groupingMode === "priority" ? (
+                    <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
+                  ) : groupingMode === "label" ? (
+                    labelGroupKey === UNTAGGED_WORKSPACE_GROUP_KEY ? (
+                      <span className="truncate text-muted-foreground">
+                        {t("workspaceGrouping.untagged")}
+                      </span>
+                    ) : (
+                      <WorkspaceLabelDots labels={entry.workspace.labels} overlap />
+                    )
                   ) : undefined;
 
                   return renderWorkspaceItemRow(entry, {

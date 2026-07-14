@@ -4,19 +4,25 @@ import React from "react";
 import { useEditor } from "tldraw";
 
 import { OverviewTab } from "@/features/workspace/components/OverviewTab";
-import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { useCanvasWidgetHost } from "@/features/canvas/components/CanvasWidgetHost";
 import {
   getCanvasContextId,
   type CanvasContextRef,
 } from "@/features/canvas/lib/canvas-widget-shape";
+import {
+  buildGithubActionTabValue,
+  buildGithubPullRequestTabValue,
+} from "@/features/github/store/use-github-center-tabs";
 
 export function CanvasContextOverview({ context }: { context: CanvasContextRef }) {
   const editor = useEditor();
   const host = useCanvasWidgetHost();
-  const projects = useProjectStore((state) => state.projects);
-  const currentBranch = useGitInfoStore((state) => state.currentBranch);
+  const projects = useProjects();
+  const repoPath = context.repoPath ?? context.localPath ?? null;
+  const statusQuery = useGitStatusQuery(repoPath);
+  const currentBranch = statusQuery.data?.current_branch ?? null;
   const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
   const contextId = getCanvasContextId(context);
 
@@ -87,12 +93,16 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
         dragOverlayContainer={portalRoot}
         onOpenPullRequest={(pr) => {
           host?.notifyUnsupported({
-            targetPath: buildMainAppTargetPath({ rsPr: pr.number }),
+            targetPath: buildMainAppTargetPath({
+              tab: buildGithubPullRequestTabValue(contextId, pr.number),
+            }),
           });
         }}
         onOpenActionRun={(run) => {
           host?.notifyUnsupported({
-            targetPath: buildMainAppTargetPath({ rsRunId: run.databaseId }),
+            targetPath: buildMainAppTargetPath({
+              tab: buildGithubActionTabValue(contextId, run.databaseId),
+            }),
           });
         }}
       />

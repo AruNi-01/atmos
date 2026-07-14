@@ -20,11 +20,9 @@ import {
   type RepoContext,
 } from "@/features/welcome/lib/welcome-page-helpers";
 import {
-  clearCachedRepoPrs,
-  fetchRepoPrsWithCache,
-  getCachedRepoPrs,
-  setCachedRepoPrs,
-} from "@/features/github/lib/github-pr-cache";
+  useRepoPrListQuery,
+  useInvalidateGithubPrs,
+} from "@/features/github/hooks/use-github-pr-query";
 
 type LinkType = "none" | "issue" | "pr";
 
@@ -66,9 +64,7 @@ export function useWelcomeProjectContext({
   const [prUrl, setPrUrl] = React.useState("");
   const [selectedPrNumber, setSelectedPrNumber] = React.useState("");
   const [prPreview, setPrPreview] = React.useState<GithubPrPayload | null>(null);
-  const [prs, setPrs] = React.useState<GithubPrPayload[]>([]);
-  const [prError, setPrError] = React.useState<string | null>(null);
-  const [isPrsLoading, setIsPrsLoading] = React.useState(false);
+  const [localPrError, setLocalPrError] = React.useState<string | null>(null);
   const [isPrPreviewLoading, setIsPrPreviewLoading] = React.useState(false);
   const [repoContext, setRepoContext] = React.useState<RepoContext | null>(null);
   const [issueError, setIssueError] = React.useState<string | null>(null);
@@ -83,6 +79,25 @@ export function useWelcomeProjectContext({
   const [isIssuePreviewLoading, setIsIssuePreviewLoading] = React.useState(false);
   const [loadedIssueRepoKey, setLoadedIssueRepoKey] = React.useState<string | null>(null);
   const issueLoadSeqRef = React.useRef(0);
+
+  // PR list is owned by TanStack Query. Query is enabled only when repoContext is set;
+  // the key changes with repoContext so old data is naturally discarded on project switch.
+  const prListQuery = useRepoPrListQuery({
+    owner: repoContext?.owner ?? "",
+    repo: repoContext?.repo ?? "",
+    enabled: Boolean(repoContext?.owner && repoContext?.repo),
+  });
+  const invalidateGithubPrs = useInvalidateGithubPrs();
+
+  const prs = prListQuery.data ?? [];
+  const isPrsLoading = Boolean(repoContext) && prListQuery.isFetching;
+  const prError =
+    localPrError ??
+    (prListQuery.error instanceof Error
+      ? prListQuery.error.message
+      : prListQuery.error
+        ? t("errors.loadGithubPrs")
+        : null);
 
   React.useEffect(() => {
     if (linkType !== "none") setDisplayedLinkType(linkType);
@@ -105,11 +120,10 @@ export function useWelcomeProjectContext({
       issueLoadSeqRef.current += 1;
       setLoadedIssueRepoKey(null);
       setIsIssuesLoading(false);
-      setPrs([]);
       setPrPreview(null);
       setSelectedPrNumber("");
       setPrUrl("");
-      setPrError(null);
+      setLocalPrError(null);
       setHasSetupScript(false);
       setName("");
       setBranch("");
@@ -147,32 +161,12 @@ export function useWelcomeProjectContext({
         if (cancelled) return;
 
         if (status.github_owner && status.github_repo) {
-          const nextContext = {
+          setRepoContext({
             owner: status.github_owner,
             repo: status.github_repo,
-          };
-          setRepoContext(nextContext);
-
-          const cachedPrs = getCachedRepoPrs(nextContext);
-          if (cachedPrs) {
-            setPrs(cachedPrs);
-          } else {
-            setIsPrsLoading(true);
-            try {
-              const fetchedPrs = await fetchRepoPrsWithCache(nextContext, () =>
-                wsGithubApi.listPrs(nextContext),
-              );
-              if (cancelled) return;
-              setPrs(fetchedPrs);
-              setCachedRepoPrs(nextContext, fetchedPrs);
-            } catch (error) {
-              if (!cancelled) {
-                setPrError(
-                  error instanceof Error ? error.message : t("errors.loadGithubPrs"),
-                );
-              }
-            }
-          }
+          });
+          // PR list is now owned by TanStack Query (prListQuery above).
+          // Setting repoContext enables the query which fetches automatically.
         }
       } catch (error) {
         if (!cancelled) {
@@ -181,7 +175,6 @@ export function useWelcomeProjectContext({
       } finally {
         if (!cancelled) {
           setIsBaseBranchesLoading(false);
-          setIsPrsLoading(false);
         }
       }
     }
@@ -246,7 +239,7 @@ export function useWelcomeProjectContext({
     setPrPreview(null);
     setSelectedPrNumber("");
     setPrUrl("");
-    setPrError(null);
+    setLocalPrError(null);
     setAutoExtractTodosPr(false);
   }, []);
 
@@ -341,7 +334,7 @@ export function useWelcomeProjectContext({
     (value: string) => {
       setSelectedPrNumber(value);
       setPrUrl("");
-      setPrError(null);
+      setLocalPrError(null);
       setBranchError(null);
       setSubmitError(null);
       setPrPreview(prs.find((pr) => String(pr.number) === value) ?? null);
@@ -352,12 +345,12 @@ export function useWelcomeProjectContext({
 
   const handleLoadPrFromUrl = React.useCallback(async () => {
     if (!prUrl.trim()) {
-      setPrError(null);
+      setLocalPrError(null);
       return;
     }
 
     setIsPrPreviewLoading(true);
-    setPrError(null);
+    setLocalPrError(null);
     setBranchError(null);
     setSubmitError(null);
     setSelectedPrNumber("");
@@ -369,7 +362,7 @@ export function useWelcomeProjectContext({
 
       if (currentRepo && currentRepo !== previewRepo) {
         setPrPreview(null);
-        setPrError(t("errors.prRepoMismatch", { previewRepo, currentRepo }));
+        setLocalPrError(t("errors.prRepoMismatch", { previewRepo, currentRepo }));
         return;
       }
 
@@ -377,30 +370,17 @@ export function useWelcomeProjectContext({
       clearIssueSelection();
     } catch (error) {
       setPrPreview(null);
-      setPrError(error instanceof Error ? error.message : t("errors.loadPrPreview"));
+      setLocalPrError(error instanceof Error ? error.message : t("errors.loadPrPreview"));
     } finally {
       setIsPrPreviewLoading(false);
     }
   }, [clearIssueSelection, prUrl, repoContext, setBranchError, setSubmitError]);
 
-  const handleRefreshPrs = React.useCallback(async () => {
+  const handleRefreshPrs = React.useCallback(() => {
     if (!repoContext) return;
-    setIsPrsLoading(true);
-    setPrError(null);
-    try {
-      clearCachedRepoPrs(repoContext);
-      const fetchedPrs = await fetchRepoPrsWithCache(
-        { ...repoContext, force: true },
-        () => wsGithubApi.listPrs(repoContext),
-      );
-      setPrs(fetchedPrs);
-      setCachedRepoPrs(repoContext, fetchedPrs);
-    } catch (error) {
-      setPrError(error instanceof Error ? error.message : t("errors.refreshGithubPrs"));
-    } finally {
-      setIsPrsLoading(false);
-    }
-  }, [repoContext]);
+    setLocalPrError(null);
+    invalidateGithubPrs({ owner: repoContext.owner, repo: repoContext.repo });
+  }, [invalidateGithubPrs, repoContext]);
 
   const handleLoadIssueFromUrl = React.useCallback(async () => {
     if (!issueUrl.trim()) {
@@ -482,7 +462,7 @@ export function useWelcomeProjectContext({
     setIssueError,
     setIssuePreview,
     setIssueUrl,
-    setPrError,
+    setPrError: setLocalPrError,
     setPrPreview,
     setPrUrl,
   };

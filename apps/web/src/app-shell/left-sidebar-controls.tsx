@@ -25,7 +25,7 @@ import {
   type DragStartEvent,
   type ImperativePanelHandle,
 } from "@workspace/ui";
-import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, GripVertical, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { Project, Workspace, WorkspaceLabel } from "@/shared/types/domain";
 import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectItem";
 import { SortableProject } from "@/app-shell/sidebar/SortableProject";
@@ -34,7 +34,12 @@ import {
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
-import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
+import { getWorkspacePriorityMeta } from "@/app-shell/sidebar/workspace-metadata-controls";
+import {
+  UNTAGGED_WORKSPACE_GROUP_KEY,
+  type FlattenedWorkspaceEntry,
+  type WorkspaceGroup,
+} from "@/app-shell/sidebar/workspace-grouping";
 export { LeftSidebarFooter, LeftSidebarTabsHeader } from "./left-sidebar-tab-footer-controls";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
@@ -318,76 +323,218 @@ export function LeftSidebarDragOverlay({
   );
 }
 
-export type WorkspaceGroup = {
-  key: string;
-  label: string;
-  items: FlattenedWorkspaceEntry[];
-};
+function WorkspaceGroupMarker({
+  group,
+  groupingMode,
+}: {
+  group: WorkspaceGroup;
+  groupingMode: SidebarGroupingMode;
+}) {
+  const statusMeta = groupingMode === "status"
+    ? getWorkspaceWorkflowStatusMeta(
+        group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0],
+      )
+    : null;
+  const priorityMeta = groupingMode === "priority"
+    ? getWorkspacePriorityMeta(
+        group.key as Parameters<typeof getWorkspacePriorityMeta>[0],
+      )
+    : null;
+  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon;
+
+  if (GroupIcon) {
+    return (
+      <GroupIcon
+        className={cn(
+          "size-3.5 shrink-0",
+          statusMeta?.className ?? priorityMeta?.className,
+        )}
+      />
+    );
+  }
+
+  if (groupingMode === "label" && group.color) {
+    return (
+      <span
+        className="size-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: group.color }}
+      />
+    );
+  }
+
+  return null;
+}
+
+function SortableWorkspaceGroupSection({
+  group,
+  groupingMode,
+  isCollapsed,
+  renderWorkspaceContentRow,
+  sortingEnabled,
+  toggleWorkspaceGroup,
+}: {
+  group: WorkspaceGroup;
+  groupingMode: SidebarGroupingMode;
+  isCollapsed: boolean;
+  renderWorkspaceContentRow: (
+    entry: FlattenedWorkspaceEntry,
+    options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
+  ) => React.ReactNode;
+  sortingEnabled: boolean;
+  toggleWorkspaceGroup: () => void;
+}) {
+  const isSortableLabel =
+    groupingMode === "label" &&
+    group.key !== UNTAGGED_WORKSPACE_GROUP_KEY &&
+    sortingEnabled;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: group.key, disabled: !isSortableLabel });
+
+  return (
+    <section
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+      }}
+      className={cn("space-y-1.5", isDragging && "relative z-20 opacity-60")}
+    >
+      <div className="group relative flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40">
+        <button
+          type="button"
+          onClick={toggleWorkspaceGroup}
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+        >
+          <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
+          <span className="truncate">{group.label}</span>
+          <ChevronRight
+            className={cn(
+              "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
+              !isCollapsed && "rotate-90",
+            )}
+          />
+          <span
+            className={cn(
+              "ml-auto inline-flex size-6 shrink-0 items-center justify-center text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
+              isSortableLabel &&
+                "group-hover:opacity-0 group-focus-within:opacity-0",
+            )}
+          >
+            {group.items.length}
+          </span>
+        </button>
+        {isSortableLabel ? (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="pointer-events-none absolute right-2 inline-flex size-6 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity hover:text-sidebar-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 active:cursor-grabbing group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+            aria-label={group.label}
+          >
+            <GripVertical className="size-3.5" />
+          </button>
+        ) : null}
+      </div>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="space-y-1 pl-3 pt-0.5">
+            {group.items.map((entry) =>
+              renderWorkspaceContentRow(entry, { showProjectName: true })
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function GroupedWorkspaceOneColumnContent({
   collapsedWorkspaceGroups,
   groupingMode,
   groups,
+  onLabelGroupOrderChange,
   renderWorkspaceContentRow,
+  sensors,
   toggleWorkspaceGroup,
 }: {
   collapsedWorkspaceGroups: Record<string, boolean>;
   groupingMode: SidebarGroupingMode;
   groups: WorkspaceGroup[];
+  onLabelGroupOrderChange?: (labelIds: string[]) => void;
   renderWorkspaceContentRow: (
     entry: FlattenedWorkspaceEntry,
     options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
   ) => React.ReactNode;
+  sensors: DndSensors;
   toggleWorkspaceGroup: (stateKey: string) => void;
 }) {
+  const [isAnyGroupDragging, setIsAnyGroupDragging] = React.useState(false);
+  const sortableLabelGroupIds = groups
+    .filter((group) => group.key !== UNTAGGED_WORKSPACE_GROUP_KEY)
+    .map((group) => group.key);
+
   return (
     <div className="scrollbar-on-hover h-full overflow-y-auto no-scrollbar">
-      <div className="space-y-0.5 px-2">
-        {groups.map((group) => {
-          const stateKey = `${groupingMode}:${group.key}`;
-          const isCollapsed = collapsedWorkspaceGroups[stateKey] ?? false;
-          const statusMeta = groupingMode === "status"
-            ? getWorkspaceWorkflowStatusMeta(group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0])
-            : null;
-          const StatusIcon = statusMeta?.icon;
-
-          return (
-            <section key={group.key} className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => toggleWorkspaceGroup(stateKey)}
-                className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
-              >
-                {StatusIcon ? (
-                  <StatusIcon className={cn("size-3.5 shrink-0", statusMeta?.className)} />
-                ) : null}
-                <span className="truncate">{group.label}</span>
-                <ChevronRight
-                  className={cn(
-                    "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
-                    !isCollapsed && "rotate-90",
-                  )}
+      <DndContext
+        collisionDetection={closestCenter}
+        sensors={sensors}
+        onDragStart={() => setIsAnyGroupDragging(true)}
+        onDragCancel={() => setIsAnyGroupDragging(false)}
+        onDragEnd={({ active, over }) => {
+          setIsAnyGroupDragging(false);
+          if (
+            groupingMode !== "label" ||
+            !onLabelGroupOrderChange ||
+            !over ||
+            active.id === over.id
+          ) return;
+          const oldIndex = sortableLabelGroupIds.indexOf(String(active.id));
+          const newIndex = sortableLabelGroupIds.indexOf(String(over.id));
+          if (oldIndex === -1 || newIndex === -1) return;
+          onLabelGroupOrderChange?.(arrayMove(sortableLabelGroupIds, oldIndex, newIndex));
+        }}
+        modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+      >
+        <SortableContext
+          items={
+            groupingMode === "label" && onLabelGroupOrderChange
+              ? sortableLabelGroupIds
+              : []
+          }
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-0.5 px-2">
+            {groups.map((group) => {
+              const stateKey = `${groupingMode}:${group.key}`;
+              return (
+                <SortableWorkspaceGroupSection
+                  key={group.key}
+                  group={group}
+                  groupingMode={groupingMode}
+                  isCollapsed={
+                    isAnyGroupDragging ||
+                    (collapsedWorkspaceGroups[stateKey] ?? false)
+                  }
+                  renderWorkspaceContentRow={renderWorkspaceContentRow}
+                  sortingEnabled={Boolean(onLabelGroupOrderChange)}
+                  toggleWorkspaceGroup={() => toggleWorkspaceGroup(stateKey)}
                 />
-                <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
-                  {group.items.length}
-                </span>
-              </button>
-              <div
-                className={cn(
-                  "grid transition-[grid-template-rows] duration-300 ease-out",
-                  isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
-                )}
-              >
-                <div className="overflow-hidden">
-                  <div className="space-y-1 pl-3 pt-0.5">
-                    {group.items.map((entry) => renderWorkspaceContentRow(entry, { showProjectName: true }))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
@@ -407,10 +554,6 @@ export function GroupedWorkspaceTwoColumnLeftContent({
     <div className="scrollbar-on-hover h-full overflow-y-auto px-2 py-1.5">
       <div className="space-y-1">
         {groups.map((group) => {
-          const statusMeta = groupingMode === "status"
-            ? getWorkspaceWorkflowStatusMeta(group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0])
-            : null;
-          const StatusIcon = statusMeta?.icon;
           const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
 
           return (
@@ -425,9 +568,7 @@ export function GroupedWorkspaceTwoColumnLeftContent({
                   : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
               )}
             >
-              {StatusIcon ? (
-                <StatusIcon className={cn("size-3.5 shrink-0", statusMeta?.className)} />
-              ) : null}
+              <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
               <span className="truncate">{group.label}</span>
               <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
                 {group.items.length}

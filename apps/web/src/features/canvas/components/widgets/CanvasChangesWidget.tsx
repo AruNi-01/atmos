@@ -22,7 +22,9 @@ import {
 import { useOpenCanvasCenterTab } from "@/features/canvas/hooks/use-open-canvas-center-tab";
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 import { useGitStore } from "@/features/git/store/use-git-store";
-import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
 import { useGitLog } from "@/features/github/hooks/use-github";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { type TLShapeId } from "tldraw";
@@ -70,22 +72,36 @@ function CanvasChangesWidgetBody({
     setSidebarUi({ changesFileViewMode: mode });
   const openCenterTab = useOpenCanvasCenterTab(shapeId, source.context);
   const {
+    compareMode,
+    compareBaseRef,
     compareAgainstRef,
-    compareFiles,
     compareWorktreeChanges,
-    isLoading,
-    refreshRepositoryState,
     resetCompareMode,
+    fetchChanges,
     setCurrentRepoPath,
-    stagedFiles,
-    unstagedFiles,
-    untrackedFiles,
     stageFiles,
     unstageFiles,
     discardUnstagedChanges,
     discardUntrackedFiles,
   } = useGitStore();
-  const currentBranch = useGitInfoStore((state) => state.currentBranch);
+
+  const statusQuery = useGitStatusQuery(repoPath ?? null);
+  const currentBranch = statusQuery.data?.current_branch ?? null;
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const compareParams = computeCompareParams(compareMode, defaultBranch, compareBaseRef);
+
+  const worktreeQuery = useGitChangedFilesQuery(repoPath ?? null, GIT_WORKTREE_PARAMS);
+  const compareQuery = useGitChangedFilesQuery(
+    isCompareQueryEnabled(compareMode, defaultBranch) ? (repoPath ?? null) : null,
+    compareParams,
+  );
+
+  const stagedFiles = worktreeQuery.data?.staged_files ?? EMPTY_CHANGED_FILES;
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
+  const { files: compareFiles } = selectCompareChangedFiles(compareQuery.data);
+  const isLoading = worktreeQuery.isFetching || compareQuery.isFetching;
+
   const changesScopeKey = `${repoPath ?? ""}:${currentBranch ?? ""}`;
   const [changesScopeState, setChangesScopeState] = React.useState<ChangesScopeState>(
     () => defaultChangesScopeState(changesScopeKey),
@@ -106,9 +122,9 @@ function CanvasChangesWidgetBody({
     setCurrentRepoPath(repoPath || null);
     resetCompareMode();
     if (repoPath) {
-      void refreshRepositoryState({ fetchRemote: true });
+      void invalidateGitQueries(repoPath);
     }
-  }, [changesScopeKey, refreshRepositoryState, repoPath, resetCompareMode, setCurrentRepoPath]);
+  }, [changesScopeKey, repoPath, resetCompareMode, setCurrentRepoPath]);
 
   const setChangesScopeMenuOpen = React.useCallback(
     (open: boolean) => {
@@ -133,13 +149,13 @@ function CanvasChangesWidgetBody({
 
       if (scope === "branch") {
         resetCompareMode();
-        void refreshRepositoryState({ fetchRemote: true });
+        if (repoPath) void invalidateGitQueries(repoPath);
         return;
       }
 
       void compareWorktreeChanges();
     },
-    [changesScopeKey, compareWorktreeChanges, refreshRepositoryState, resetCompareMode],
+    [changesScopeKey, compareWorktreeChanges, repoPath, resetCompareMode],
   );
 
   const handleSelectCommitScope = React.useCallback(
@@ -163,16 +179,18 @@ function CanvasChangesWidgetBody({
 
     if (changesScope === "staged" || changesScope === "unstaged") {
       await compareWorktreeChanges();
+      if (repoPath) await invalidateGitQueries(repoPath);
       return;
     }
 
     resetCompareMode();
-    await refreshRepositoryState({ fetchRemote: true });
+    await fetchChanges();
   }, [
     changesScope,
     compareAgainstRef,
     compareWorktreeChanges,
-    refreshRepositoryState,
+    fetchChanges,
+    repoPath,
     resetCompareMode,
     selectedCommitHash,
   ]);

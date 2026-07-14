@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, ReactNode } from 'react';
+import { useEffect, ReactNode, useRef } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
@@ -12,8 +12,11 @@ import {
   subscribeToWorkspaceDeleteProgress,
   subscribeToWorkspaceGitignoreSyncFailed,
   subscribeToWorkspaceSetupProgress,
-  useProjectStore,
 } from '@/features/project/store/use-project-store';
+import { ensureProjectBootstrap } from '@/features/project/hooks/use-project-bootstrap-query';
+import { getAtmosWebQueryClient } from '@/providers/app/query-client';
+import { getComputerQueryScope } from '@/api/query/query-scope';
+import { invalidateAfterComputerReconnect } from '@/api/query/reconnect-invalidation';
 
 interface WebSocketProviderProps {
   children: ReactNode;
@@ -21,7 +24,7 @@ interface WebSocketProviderProps {
 
 /**
  * WebSocket Provider
- * 
+ *
  * 在应用启动时自动建立 WebSocket 连接，并在整个应用生命周期中保持连接。
  * 提供自动重连和心跳检测功能。
  */
@@ -32,6 +35,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const hostedBootstrapState = useHostedConnectionStore(s => s.bootstrapState);
   const shouldConnect =
     !isHostedAtmosOrigin() || hostedBootstrapState === 'connected';
+  const prevConnectionStateRef = useRef(connectionState);
 
   useEffect(() => {
     if (!shouldConnect) {
@@ -92,11 +96,22 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       useAgentHooksStore.getState().init();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
-      const { projects, isLoading } = useProjectStore.getState();
-      if (projects.length === 0 && !isLoading) {
-        void useProjectStore.getState().fetchProjects();
-      }
+      // Project bootstrap is now Query-owned; reconnect invalidation handles refresh.
+      void ensureProjectBootstrap().catch(() => undefined);
     }
+  }, [connectionState]);
+
+  // APP-035: same-target reconnect → invalidate registered Query roots once.
+  useEffect(() => {
+    const prev = prevConnectionStateRef.current;
+    prevConnectionStateRef.current = connectionState;
+    if (connectionState !== 'connected') return;
+    if (prev === 'connected') return;
+    // Transition into connected from connecting/reconnecting/disconnected.
+    void invalidateAfterComputerReconnect(
+      getAtmosWebQueryClient(),
+      getComputerQueryScope(),
+    );
   }, [connectionState]);
 
   useAgentNotifications();

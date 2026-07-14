@@ -36,6 +36,16 @@ export interface FsReadFileResponse {
   is_symlink: boolean;
 }
 
+export interface FsReadFilesResult {
+  path: string;
+  file: FsReadFileResponse | null;
+  error: string | null;
+}
+
+export interface FsReadFilesResponse {
+  results: FsReadFilesResult[];
+}
+
 export interface FsWriteFileResponse {
   path: string;
   success: boolean;
@@ -135,6 +145,16 @@ export interface GitStatusResponse {
   github_repo: string | null;
 }
 
+export interface GitGetStatusBatchResult {
+  path: string;
+  status: GitStatusResponse | null;
+  error: string | null;
+}
+
+export interface GitGetStatusBatchResponse {
+  results: GitGetStatusBatchResult[];
+}
+
 // 变更文件信息
 export interface GitChangedFile {
   path: string;
@@ -162,6 +182,16 @@ export interface GitFileDiffResponse {
   new_content: string;
   status: string;
   compare_ref: string | null;
+}
+
+export interface GitFilesDiffResult {
+  file_path: string;
+  diff: GitFileDiffResponse | null;
+  error: string | null;
+}
+
+export interface GitFilesDiffResponse {
+  results: GitFilesDiffResult[];
 }
 
 export interface GitPatchChunkResponse {

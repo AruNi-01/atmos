@@ -6,6 +6,10 @@ import { Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { FileTree } from "@/features/files/components/FileTree";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
+import {
+  useFileTreeQuery,
+  invalidateFileTree,
+} from "@/features/files/hooks/use-file-tree-query";
 import type { FileTreeNode } from "@/api/ws-api";
 
 interface FileTreePanelProps {
@@ -18,7 +22,7 @@ interface FileTreePanelProps {
   activeFilePath?: string | null;
   currentProjectPath?: string | null;
   revealEnabled?: boolean;
-  contextMenuAnchor?: 'fixed' | 'local';
+  contextMenuAnchor?: "fixed" | "local";
   onRefresh?: () => Promise<void> | void;
   onShowHiddenChange?: (show: boolean) => void;
   onOpenFile?: (
@@ -42,25 +46,34 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   onShowHiddenChange,
   onOpenFile,
 }) => {
-  const t = useTranslations('files.components');
-  const storeData = useFileTreeStore((s) => s.data);
+  const t = useTranslations("files.components");
   const storeRootPath = useFileTreeStore((s) => s.rootPath);
-  const storeIsLoading = useFileTreeStore((s) => s.isLoading);
-  const storeRefresh = useFileTreeStore((s) => s.refresh);
   const storeShowHidden = useFileTreeStore((s) => s.showHidden);
   const setStoreShowHidden = useFileTreeStore((s) => s.setShowHidden);
-  const effectiveData = data ?? storeData;
+
   const effectiveRootPath = rootPath ?? storeRootPath;
-  const effectiveIsLoading = isLoading ?? storeIsLoading;
   const effectiveShowHidden = showHidden ?? storeShowHidden;
-  const effectiveRefresh = onRefresh ?? storeRefresh;
+
+  const fileTreeQuery = useFileTreeQuery(effectiveRootPath, effectiveShowHidden);
+
+  const effectiveData = data ?? fileTreeQuery.data?.tree ?? [];
+  const effectiveIsLoading =
+    isLoading ?? (fileTreeQuery.isLoading || fileTreeQuery.isFetching);
+  const effectiveRefresh =
+    onRefresh ??
+    (() =>
+      effectiveRootPath
+        ? invalidateFileTree(effectiveRootPath, effectiveShowHidden)
+        : Promise.resolve());
   const handleShowHiddenChange = onShowHiddenChange ?? setStoreShowHidden;
 
   if (!effectiveRootPath) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
         <Folder className="size-8 opacity-20 mb-2" />
-        <span className="text-xs text-center">{t('fileTreePanel.empty.selectWorkspace')}</span>
+        <span className="text-xs text-center">
+          {t("fileTreePanel.empty.selectWorkspace")}
+        </span>
       </div>
     );
   }
@@ -78,20 +91,34 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               onClick={() => handleShowHiddenChange(!effectiveShowHidden)}
               className={cn(
                 "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
-                effectiveShowHidden ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground",
+                effectiveShowHidden
+                  ? "text-sidebar-foreground bg-sidebar-accent"
+                  : "text-muted-foreground",
               )}
-              title={effectiveShowHidden ? t('fileTreePanel.actions.hideHiddenFiles') : t('fileTreePanel.actions.showHiddenFiles')}
+              title={
+                effectiveShowHidden
+                  ? t("fileTreePanel.actions.hideHiddenFiles")
+                  : t("fileTreePanel.actions.showHiddenFiles")
+              }
             >
-              {effectiveShowHidden ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+              {effectiveShowHidden ? (
+                <Eye className="size-3.5" />
+              ) : (
+                <EyeOff className="size-3.5" />
+              )}
             </button>
             <button
               type="button"
               onClick={effectiveRefresh}
               className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
-              title={t('fileTreePanel.actions.refreshFiles')}
+              title={t("fileTreePanel.actions.refreshFiles")}
               disabled={effectiveIsLoading}
             >
-              {effectiveIsLoading ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCcw className="size-3.5 text-muted-foreground" />}
+              {effectiveIsLoading ? (
+                <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" />
+              ) : (
+                <RotateCcw className="size-3.5 text-muted-foreground" />
+              )}
             </button>
           </div>
         </div>

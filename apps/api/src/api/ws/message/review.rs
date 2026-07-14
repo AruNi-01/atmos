@@ -60,6 +60,23 @@ pub struct ReviewFileContentGetRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFileContentGetBatchRequest {
+    pub file_snapshot_guids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFileContentGetBatchResult {
+    pub file_snapshot_guid: String,
+    pub content: Option<Value>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFileContentGetBatchResponse {
+    pub results: Vec<ReviewFileContentGetBatchResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewFileSetReviewedRequest {
     pub file_state_guid: String,
     pub reviewed: bool,

@@ -29,7 +29,7 @@ interface PRPanelProps {
   owner: string;
   repo: string;
   branch: string;
-  onPrClick?: (prNumber: number) => void;
+  onPrClick?: (prNumber: number, prTitle?: string | null) => void;
   prSubTab?: 'open' | 'closed';
   refreshRef?: React.Ref<PRPanelHandle>;
   onLoadingChange?: (loading: { open: boolean; closed: boolean }) => void;
@@ -144,7 +144,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                 return (
                   <div
                     key={pr.number}
-                    onClick={() => onPrClick?.(pr.number)}
+                    onClick={() => onPrClick?.(pr.number, pr.title)}
                     className="flex flex-col p-3 rounded-md border border-sidebar-border bg-transparent hover:bg-sidebar-accent/50 transition-all cursor-pointer group"
                   >
                     {/* Top Row: Title & State */}

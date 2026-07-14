@@ -23,7 +23,11 @@ import {
 } from "lucide-react";
 import { fsApi } from "@/api/ws-api";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import {
+  useProjects,
+  useProjectsLoading,
+  ensureProjectBootstrap,
+} from "@/features/project/hooks/use-project-bootstrap-query";
 import {
   buildSkillInstallCommand,
   hasInferredDownloadUrl,
@@ -54,9 +58,8 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
       t.has(key as never) ? t(key as never, values as never) : "",
     [t],
   );
-  const projects = useProjectStore(s => s.projects);
-  const fetchProjects = useProjectStore(s => s.fetchProjects);
-  const isLoadingProjects = useProjectStore(s => s.isLoading);
+  const projects = useProjects();
+  const isLoadingProjects = useProjectsLoading();
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [sessionError, setSessionError] = React.useState<string | null>(null);
   const [installScope, setInstallScope] = React.useState<InstallScope>("global");
@@ -134,7 +137,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
     let cancelled = false;
     setIsPreparingTargets(true);
 
-    void Promise.allSettled([fsApi.getHomeDir(), fetchProjects()]).then((results) => {
+    void Promise.allSettled([fsApi.getHomeDir(), ensureProjectBootstrap()]).then((results) => {
       if (cancelled) {
         return;
       }
@@ -159,7 +162,7 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
     return () => {
       cancelled = true;
     };
-  }, [open, skill, fetchProjects]);
+  }, [open, skill]);
 
   React.useEffect(() => {
     if (!open || !skill || phase !== "terminal" || !terminalWorkspaceId) {

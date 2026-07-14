@@ -172,29 +172,39 @@ export function ensureComputerClientSettingsHydrated(): Promise<void> {
 export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
   const disk = await loadComputerClientSettingsFromDisk();
   const store = useAtmosComputerStore.getState();
-  store.setAccessTokenConfigured(Boolean(disk?.configured || store.accessToken.trim().length >= 32));
+  const { applyIdentityBearingComputerSettings } = await import(
+    '@/features/connection/lib/query-identity-lifecycle'
+  );
 
   if (disk?.configured && disk.access_token.trim().length >= 32) {
-    store.setRelayUrl(disk.relay_url);
-    store.setRelaySecretKey(disk.relay_secret_key ?? '');
-    store.setAccessToken(disk.access_token);
+    await applyIdentityBearingComputerSettings({
+      relayUrl: disk.relay_url,
+      relaySecretKey: disk.relay_secret_key ?? '',
+      accessToken: disk.access_token,
+      accessTokenConfigured: true,
+    });
     return;
   }
 
   if (disk) {
-    store.setRelayUrl(disk.relay_url);
-    store.setRelaySecretKey(disk.relay_secret_key ?? '');
+    await applyIdentityBearingComputerSettings({
+      relayUrl: disk.relay_url,
+      relaySecretKey: disk.relay_secret_key ?? '',
+      accessTokenConfigured: Boolean(store.accessToken.trim().length >= 32),
+    });
+  } else {
+    store.setAccessTokenConfigured(Boolean(store.accessToken.trim().length >= 32));
   }
 
-  const legacy = store.accessToken.trim();
+  const legacy = useAtmosComputerStore.getState().accessToken.trim();
   if (legacy.length >= 32) {
     const persisted = await saveComputerClientSettingsToDisk(
       legacy,
-      store.relayUrl,
-      store.relaySecretKey,
+      useAtmosComputerStore.getState().relayUrl,
+      useAtmosComputerStore.getState().relaySecretKey,
     );
     if (persisted) {
-      store.setAccessTokenConfigured(true);
+      await applyIdentityBearingComputerSettings({ accessTokenConfigured: true });
     }
   }
 }

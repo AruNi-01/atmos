@@ -47,10 +47,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import {
+  useWorkspaceLabels,
+} from '@/features/project/hooks/use-project-bootstrap-query';
 import { LabelEditorContent } from '@/app-shell/sidebar/workspace-metadata-controls';
+import type { WorkspaceLabel } from '@/shared/types/domain';
 
-type ProjectStoreState = ReturnType<typeof useProjectStore.getState>;
-type ProjectStoreWorkspaceLabel = ProjectStoreState['workspaceLabels'][number];
+type ProjectStoreWorkspaceLabel = WorkspaceLabel;
 
 function parseColorToRgb(colorStr: string): { r: number; g: number; b: number; a: number } {
   const hex = colorStr.replace('#', '');
@@ -68,16 +71,15 @@ function formatDate(dateStr: string | undefined, locale: string) {
 export function LabelSettingsSection() {
   const t = useTranslations('settings.labelSection');
   const locale = useLocale();
+  const workspaceLabels = useWorkspaceLabels();
   const {
-    workspaceLabels,
     updateWorkspaceLabel,
     createWorkspaceLabel,
     deleteWorkspaceLabel,
     fetchWorkspaceLabels,
     restoreWorkspaceLabel,
   } = useProjectStore(
-    useShallow((state: ProjectStoreState) => ({
-      workspaceLabels: state.workspaceLabels,
+    useShallow((state) => ({
       updateWorkspaceLabel: state.updateWorkspaceLabel,
       createWorkspaceLabel: state.createWorkspaceLabel,
       deleteWorkspaceLabel: state.deleteWorkspaceLabel,
@@ -105,13 +107,26 @@ export function LabelSettingsSection() {
   const [deleteConfirmLabelId, setDeleteConfirmLabelId] = React.useState<string | null>(null);
   const [deleteConfirmIsBatch, setDeleteConfirmIsBatch] = React.useState(false);
   const [labelFilter, setLabelFilter] = React.useState<'active' | 'deleted'>('active');
+  const [deletedLabels, setDeletedLabels] = React.useState<WorkspaceLabel[]>([]);
 
   React.useEffect(() => {
-    fetchWorkspaceLabels(labelFilter === 'deleted');
+    let cancelled = false;
+    void (async () => {
+      const labels = await fetchWorkspaceLabels(labelFilter === 'deleted');
+      if (cancelled) return;
+      if (labelFilter === 'deleted') {
+        setDeletedLabels(labels);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [labelFilter, fetchWorkspaceLabels]);
 
+  const sourceLabels = labelFilter === 'deleted' ? deletedLabels : workspaceLabels;
+
   const filteredAndSortedLabels = React.useMemo(() => {
-    let labels = [...workspaceLabels];
+    let labels = [...sourceLabels];
 
     if (filterQuery.trim()) {
       const query = filterQuery.toLowerCase().trim();
@@ -137,7 +152,7 @@ export function LabelSettingsSection() {
     }
 
     return labels;
-  }, [workspaceLabels, filterQuery, selectedSources, sortField, sortDirection]);
+  }, [sourceLabels, filterQuery, selectedSources, sortField, sortDirection]);
 
   const handleSort = (field: 'name' | 'createdAt') => {
     if (sortField === field) {
@@ -501,7 +516,8 @@ export function LabelSettingsSection() {
                                       try {
                                         await restoreWorkspaceLabel(label.id);
                                         toastManager.add({ title: t('toasts.restored'), type: 'success' });
-                                        await fetchWorkspaceLabels(true);
+                                        const labels = await fetchWorkspaceLabels(true);
+                                        setDeletedLabels(labels);
                                       } catch {
                                         toastManager.add({ title: t('toasts.restoreFailed'), type: 'error' });
                                       }

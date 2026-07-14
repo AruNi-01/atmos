@@ -11,40 +11,18 @@ import {
   Github,
 } from 'lucide-react';
 import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
-import { systemApi } from '@/api/rest-api';
+import {
+  useGhCliStatusQuery,
+  useTmuxStatusQuery,
+} from '@/features/system/hooks/use-system-status-queries';
 
 export function IntegrationsSettingsSection() {
   const t = useTranslations('settings.integrationsSection');
-  const [ghCliStatus, setGhCliStatus] = React.useState<{
-    installed: boolean;
-    authenticated: boolean;
-    version: string | null;
-    username: string | null;
-  } | null>(null);
-  const [tmuxStatus, setTmuxStatus] = React.useState<{
-    installed: boolean;
-    version: string | null;
-  } | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const checkStatuses = async () => {
-      setIsLoading(true);
-      try {
-        const [ghStatus, tmuxStat] = await Promise.all([
-          systemApi.getGhCliStatus(),
-          systemApi.getTmuxStatus(),
-        ]);
-        setGhCliStatus(ghStatus);
-        setTmuxStatus(tmuxStat);
-      } catch (error) {
-        console.error('Failed to check integration statuses:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkStatuses();
-  }, []);
+  const ghCliQuery = useGhCliStatusQuery();
+  const tmuxQuery = useTmuxStatusQuery();
+  const ghCliStatus = ghCliQuery.data ?? null;
+  const tmuxStatus = tmuxQuery.data ?? null;
+  const isLoading = ghCliQuery.isLoading || tmuxQuery.isLoading;
 
   return (
     <div className="space-y-4">

@@ -145,7 +145,7 @@ function prDetailT(key: string): string {
     cachedPrDetailTranslator = createTranslator({
       locale,
       messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'github.prDetailModalParts',
+      namespace: 'github.prDetailParts',
     });
   }
   return cachedPrDetailTranslator(key as never);
@@ -334,13 +334,17 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
 
   return (
     <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
+      <MultiFileDiff
+        oldFile={{ ...diffFiles.oldFile, cacheKey: `${diffFiles.oldFile.name}:old` }}
+        newFile={{ ...diffFiles.newFile, cacheKey: `${diffFiles.newFile.name}:new` }}
+        options={options}
+      />
     </div>
   );
 }
 
 export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
-  const t = useTranslations('github.prDetailModalParts');
+  const t = useTranslations('github.prDetailParts');
   const [open, setOpen] = React.useState(false);
   const allPassed = checks.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS');
   const passedCount = checks.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length;
@@ -398,7 +402,7 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
   agentFixSource?: AgentFixPromptSource;
   thread: ReviewCommentThread;
 }) {
-  const t = useTranslations('github.prDetailModalParts');
+  const t = useTranslations('github.prDetailParts');
   const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
@@ -540,7 +544,7 @@ interface CommentBoxProps {
 }
 
 export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComment, onClose, onMerge, onReopen }: CommentBoxProps) {
-  const t = useTranslations('github.prDetailModalParts');
+  const t = useTranslations('github.prDetailParts');
   const [comment, setComment] = React.useState('');
   const [tab, setTab] = React.useState<'write' | 'preview'>('write');
 

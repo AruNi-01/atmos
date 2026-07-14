@@ -52,7 +52,7 @@ type HeaderGitContextProps = {
   isLoadingBranches: boolean;
   isTargetBranchOpen: boolean;
   onCancelEditCurrentBranch: () => void;
-  onOpenPr: (prNumber: number) => void;
+  onOpenPr: (prNumber: number, prTitle?: string | null) => void;
   onRefreshChangedFiles: () => Promise<void> | void;
   onSaveCurrentBranch: () => Promise<void> | void;
   onSetTargetBranch: (projectId: string, branch: string) => Promise<void> | void;
@@ -117,7 +117,7 @@ export function HeaderGitContext({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => onOpenPr(currentBranchPR.number)}
+                  onClick={() => onOpenPr(currentBranchPR.number, currentBranchPR.title)}
                   onMouseEnter={() => prIconRef.current?.startAnimation()}
                   onMouseLeave={() => prIconRef.current?.stopAnimation()}
                   className="flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"

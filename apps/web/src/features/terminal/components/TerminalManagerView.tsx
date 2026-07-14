@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import {
   ScrollArea,
@@ -12,54 +13,23 @@ import {
   SquareTerminal,
   Trash2,
   Activity,
-  Clock,
-  FolderOpen,
-  Monitor,
-  Layers,
   AlertTriangle,
   CheckCircle2,
-  Server,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  Cpu,
   HardDrive,
-  Globe,
   Skull,
-  Info,
-  ChevronDown,
-  Hash,
-  User,
-  Terminal,
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  Power,
-  X,
 } from '@workspace/ui';
-import {
-  systemApi,
-  type TerminalOverviewResponse,
-  type ActiveSessionInfo,
-  type TmuxSessionDetail,
-  type SystemPtyInfo,
-  type PtyHealth,
-  type TmuxServerInfo,
-  type ShellEnvInfo,
-  type OrphanedProcess,
-  type PtyDeviceDetail,
-} from '@/api/rest-api';
+import { systemApi } from '@/api/rest-api';
+import { queryKeys } from '@/api/query/query-keys';
+import { useComputerQueryScope } from '@/api/query/query-scope';
+import { useTerminalOverviewQuery } from '@/features/system/hooks/use-system-status-queries';
 
 import {
-  SessionCard,
-  TmuxSessionCard,
   SystemPtySection,
   OrphanedProcessesSection,
-  TmuxServerSection,
   ShellEnvSection,
   PtyDeviceDetailSection,
   SessionsGroupSection,
@@ -68,35 +38,34 @@ import {
 
 export const TerminalManagerView: React.FC = () => {
   const t = useTranslations('terminal.managerView');
-  const [data, setData] = useState<TerminalOverviewResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
+  const overviewQuery = useTerminalOverviewQuery();
+  const data = overviewQuery.data ?? null;
+  const isLoading = overviewQuery.isLoading || overviewQuery.isFetching;
+  const error =
+    overviewQuery.error instanceof Error
+      ? overviewQuery.error.message
+      : overviewQuery.error
+        ? String(overviewQuery.error)
+        : null;
   const [isCleaning, setIsCleaning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await systemApi.getTerminalOverview();
-      setData(result);
-    } catch (err) {
-      console.error('Failed to load terminal overview:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load terminal data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const invalidateOverview = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.computer.terminalOverview(scope),
+    });
+  };
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const handleRefresh = () => {
+    void overviewQuery.refetch();
+  };
 
   const handleCleanup = async () => {
     setIsCleaning(true);
     try {
       const result = await systemApi.cleanupTerminals();
-      // Refresh data after cleanup
-      await loadData();
+      await invalidateOverview();
       if (result.cleaned_client_sessions > 0) {
         console.log(`Cleaned ${result.cleaned_client_sessions} stale sessions`);
       }
@@ -110,7 +79,7 @@ export const TerminalManagerView: React.FC = () => {
   const handleKillServer = async () => {
     try {
       await systemApi.killTmuxServer();
-      await loadData();
+      await invalidateOverview();
     } catch (err) {
       console.error('Failed to kill tmux server:', err);
     }
@@ -119,7 +88,7 @@ export const TerminalManagerView: React.FC = () => {
   const handleKillSession = async (sessionName: string) => {
     try {
       await systemApi.killTmuxSession(sessionName);
-      await loadData();
+      await invalidateOverview();
     } catch (err) {
       console.error('Failed to kill tmux session:', err);
     }
@@ -132,7 +101,7 @@ export const TerminalManagerView: React.FC = () => {
       if (result.failed_pids.length > 0) {
         console.warn(`Failed to kill PIDs: ${result.failed_pids.join(', ')}`);
       }
-      await loadData();
+      await invalidateOverview();
     } catch (err) {
       console.error('Failed to kill orphaned processes:', err);
     }
@@ -173,7 +142,7 @@ export const TerminalManagerView: React.FC = () => {
             <Button
               variant="outline"
               size="icon"
-              onClick={loadData}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
               title={t('refreshStats')}
@@ -190,12 +159,12 @@ export const TerminalManagerView: React.FC = () => {
           <div className="flex items-center justify-center flex-1">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
           </div>
-        ) : error ? (
+        ) : error && !data ? (
           <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
             <AlertTriangle className="size-16 mb-4 opacity-30 text-amber-500" />
             <p className="text-base font-medium">{t('loadErrorTitle')}</p>
             <p className="text-sm mt-1">{error}</p>
-            <Button variant="outline" size="sm" onClick={loadData} className="mt-4 cursor-pointer">
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-4 cursor-pointer">
               {t('retry')}
             </Button>
           </div>

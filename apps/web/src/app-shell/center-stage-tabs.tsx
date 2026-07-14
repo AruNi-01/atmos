@@ -38,7 +38,19 @@ export type TabGroupItem = {
   id: string;
   label: string;
   value: string;
-  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "diff-group" | "review-diff" | "conflict";
+  kind:
+    | "overview"
+    | "wiki"
+    | "terminal"
+    | "project-wiki"
+    | "code-review"
+    | "file"
+    | "diff"
+    | "diff-group"
+    | "review-diff"
+    | "conflict"
+    | "github-pr"
+    | "github-action";
   file?: OpenFile;
 };
 

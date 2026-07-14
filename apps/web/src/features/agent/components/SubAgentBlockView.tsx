@@ -172,8 +172,8 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                       <div className="max-h-[360px] overflow-auto">
                         {isMounted ? (
                           <MultiFileDiff
-                            oldFile={diffFiles.oldFile}
-                            newFile={diffFiles.newFile}
+                            oldFile={{ ...diffFiles.oldFile, cacheKey: `${diffFiles.oldFile.name}:old` }}
+                            newFile={{ ...diffFiles.newFile, cacheKey: `${diffFiles.newFile.name}:new` }}
                             options={{
                               theme: diffTheme,
                               diffStyle: "unified",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
@@ -35,33 +35,20 @@ export function useLeftSidebarFileTreeSync({
 }: UseLeftSidebarFileTreeSyncParams) {
     const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
     const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
-    const fileTreeProjectId = useFileTreeStore((s) => s.projectId);
-    const fileTreeWorkspaceId = useFileTreeStore((s) => s.workspaceId);
-    const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
-    const isLoadingFiles = useFileTreeStore((s) => s.isLoading);
-    const fetchFileTree = useFileTreeStore((s) => s.fetch);
-    const showHiddenFiles = useFileTreeStore((s) => s.showHidden);
+    const setContext = useFileTreeStore((s) => s.setContext);
 
-    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string | null, effectivePath: string, showHidden: boolean = false) => {
-        if (!effectivePath) return;
-        setCurrentProjectPath(effectivePath);
-        await fetchFileTree(projectId, workspaceId, effectivePath, showHidden);
-    }, [setCurrentProjectPath, fetchFileTree]);
-
+    // Update the store context so FileTreePanel knows which Query key to render.
+    // TanStack Query handles deduplication and fetching automatically when the
+    // rootPath or scope changes.
     useEffect(() => {
         if ((activeTab === 'files' || filesOnRight) && currentProjectId && currentEffectivePath) {
-            const canFetch = currentWorkspaceId ? !isSettingUp : true;
-
-            if (canFetch) {
-                const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
-                const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
-
-                if ((isContextMismatch || isHiddenMismatch) && !isLoadingFiles) {
-                    void doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
-                }
+            const canSet = currentWorkspaceId ? !isSettingUp : true;
+            if (canSet) {
+                setCurrentProjectPath(currentEffectivePath);
+                setContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
             }
         }
-    }, [activeTab, filesOnRight, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
+    }, [activeTab, filesOnRight, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentProjectPath, setContext]);
 
     useEffect(() => {
         if (!fileTreeRevealTarget) return;

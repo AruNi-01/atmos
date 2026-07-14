@@ -41,7 +41,6 @@ import { useEditorStore, EDITOR_CONFLICT_RESOLVE_ALL_PATH } from "@/features/edi
 import {
   formatGitActionErrorForDisplay,
   isConflictActionError,
-  useGitStore,
 } from "@/features/git/store/use-git-store";
 import {
   GitChangedFile,
@@ -238,9 +237,9 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
         return true;
       }
 
-      return useGitStore.getState().gitStatus?.has_merge_conflicts ?? false;
+      return gitStatus?.has_merge_conflicts ?? false;
     },
-    [],
+    [gitStatus],
   );
 
   const showActionErrorToast = useCallback(

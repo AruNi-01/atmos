@@ -1,11 +1,18 @@
-import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
-  getCachedBranchPrs,
-  getRepoPrSeedForBranch,
-  setCachedBranchPrs,
-  type BranchPr,
-} from '@/features/github/lib/github-pr-cache';
+  useBranchPrListQuery,
+  useGithubPrDetailQuery,
+  useGithubPrDetailSidebarQuery,
+  useGithubPrFilesQuery,
+  useGithubPrTimelineInfiniteQuery,
+  useGithubActionsListQuery,
+  useGithubActionsDetailQuery,
+  useGithubCiStatusQuery,
+} from '@/features/github/hooks/use-github-pr-query';
+import type { PrFile } from '@/features/github/lib/github-query-options';
+
+export type { PrFile };
 
 export interface GithubContext {
   owner?: string;
@@ -13,7 +20,7 @@ export interface GithubContext {
   branch?: string;
 }
 
-// PR 列表
+// PR 列表 — backed by TanStack Query (APP-035 cutover)
 export function useGithubPRList({
   owner,
   repo,
@@ -21,343 +28,216 @@ export function useGithubPRList({
   state,
   emitBranchStatusRefresh = false,
   enabled = true,
-  preferRepoCache = false,
 }: GithubContext & {
   state?: string;
   emitBranchStatusRefresh?: boolean;
   enabled?: boolean;
+  /** @deprecated preferRepoCache is no longer needed; Query cache handles deduplication */
   preferRepoCache?: boolean;
 }) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useBranchPrListQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    state,
+    emitBranchStatusRefresh,
+    enabled: enabled && Boolean(owner && repo && branch),
+  });
 
-  const fetch = useCallback(async (options?: { force?: boolean }) => {
-    if (!enabled || !owner || !repo || !branch) return;
-    if (!options?.force) {
-      const cached = getCachedBranchPrs({ owner, repo, branch, state });
-      if (cached) {
-        setData(cached);
-        return;
-      }
+  const { refetch, data, isLoading, isFetching } = query;
+  const refresh = useCallback(() => {
+    return refetch();
+  }, [refetch]);
 
-      if (preferRepoCache) {
-        const seeded = getRepoPrSeedForBranch({ owner, repo, branch, state });
-        if (seeded) {
-          setCachedBranchPrs({ owner, repo, branch, state }, seeded);
-          setData(seeded);
-          return;
-        }
-      }
-    }
-
-    setLoading(true);
-    try {
-      const result = await send('github_pr_list', {
-        owner,
-        repo,
-        branch,
-        state,
-        emit_branch_status_refresh: emitBranchStatusRefresh,
-      });
-      if (Array.isArray(result)) {
-        setCachedBranchPrs({ owner, repo, branch, state }, result as BranchPr[]);
-      }
-      setData(result);
-    } catch (e) {
-      console.error(e);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, branch, state, send, emitBranchStatusRefresh, enabled, preferRepoCache]);
-
-  useEffect(() => { 
-    if (!enabled) return;
-    fetch(); 
-  }, [enabled, fetch]);
-
-  const refresh = useCallback(() => fetch({ force: true }), [fetch]);
-
-  return { data, loading, refresh };
+  return {
+    data: data ?? null,
+    loading: isLoading || isFetching,
+    refresh,
+  };
 }
 
 // CI 状态（in_progress 时自动轮询）
 export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
+  const query = useGithubCiStatusQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    enabled: Boolean(owner && repo && branch),
+  });
+
+  const status = query.data?.status;
+  const isPending = status === 'in_progress' || status === 'queued';
 
   useEffect(() => {
-    if (!owner || !repo || !branch) return;
-    
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
-
-    const fetch = async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await send('github_ci_status', { owner, repo, branch }) as any;
-        if (!isMounted) return;
-        setData(result);
-        if (result?.status === 'in_progress' || result?.status === 'queued') {
-          timer = setTimeout(fetch, 30_000); // 30s
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    let timer: ReturnType<typeof setTimeout>;
+    if (isPending) {
+      timer = setTimeout(() => {
+        void query.refetch();
+      }, 30_000); // 30s poll
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
     };
-
-    fetch();
-    return () => { 
-      isMounted = false;
-      if (timer) clearTimeout(timer); 
-    };
-  }, [owner, repo, branch, send]);
-
-  return data;
+  }, [isPending, query.refetch]);
+  
+  return query.data ?? null;
 }
 
-export function useGithubPRDetail(prNumber: number, owner?: string, repo?: string) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+/** PR detail — TanStack Query (cached across center-tab close/reopen). */
+export function useGithubPRDetail(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrDetailQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
 
   const fetch = useCallback(async () => {
-    if (!owner || !repo || !prNumber) return;
-    setLoading(true);
-    try {
-      const result = await send('github_pr_detail', { owner, repo, pr_number: prNumber });
-      setData(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, prNumber, send]);
+    await query.refetch();
+  }, [query.refetch]);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, loading, fetch };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    fetch,
+  };
 }
 
-const TIMELINE_PER_PAGE = 100;
-
-export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: string, enabled = true) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [items, setItems] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const nextPageRef = useRef(1);
-  const fetchingRef = useRef(false);
-
-  const fetchPage = useCallback(async (page: number) => {
-    if (!owner || !repo || !prNumber) return;
-    setIsLoading(true);
-    try {
-      const result = await send('github_pr_timeline_page', {
-        owner,
-        repo,
-        pr_number: prNumber,
-        page,
-        per_page: TIMELINE_PER_PAGE,
-      }) as { items: unknown[]; has_more: boolean };
-
-      const newItems = Array.isArray(result?.items) ? result.items : [];
-      nextPageRef.current = page + 1;
-      const more = result?.has_more ?? false;
-      startTransition(() => {
-        setItems(prev => page === 1 ? newItems : [...prev, ...newItems]);
-        setHasMore(more);
-      });
-      // Auto-fetch next page
-      if (more) {
-        void fetchPage(page + 1);
-      } else {
-        fetchingRef.current = false;
-      }
-    } catch (e) {
-      console.error('Failed to fetch PR timeline page', e);
-      setHasMore(false);
-      fetchingRef.current = false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [owner, repo, prNumber, send]);
-
-  useEffect(() => {
-    setItems([]);
-    setHasMore(false);
-    fetchingRef.current = false;
-    if (!enabled || !owner || !repo || !prNumber) return;
-    nextPageRef.current = 1;
-    fetchingRef.current = true;
-    void fetchPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prNumber, owner, repo, enabled]);
+/** PR timeline — infinite Query with legacy auto-page chaining. */
+export function useGithubPRTimeline(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrTimelineInfiniteQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
 
   const loadMore = useCallback(() => {
-    void fetchPage(nextPageRef.current);
-  }, [fetchPage]);
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
 
-  return { items, isLoading, hasMore, loadMore };
+  return {
+    items: query.items,
+    isLoading: query.isLoading || query.isFetchingNextPage,
+    hasMore: Boolean(query.hasNextPage),
+    loadMore,
+  };
 }
 
-export interface PrFile {
-  sha: string;
-  filename: string;
-  status: string;
-  additions: number;
-  deletions: number;
-  changes: number;
-  patch?: string;
+export function useGithubPRFiles(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrFilesQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
+
+  return {
+    files: query.data ?? [],
+    loading: query.isLoading,
+  };
 }
 
-export function useGithubPRFiles(prNumber: number, owner?: string, repo?: string, enabled = true) {
-  const send = useWebSocketStore(s => s.send);
-  const [files, setFiles] = useState<PrFile[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!enabled || !owner || !repo || !prNumber) return;
-    let cancelled = false;
-
-    const loadFiles = async () => {
-      setFiles([]);
-      setLoading(true);
-      try {
-        const result = await send('github_pr_files', { owner, repo, pr_number: prNumber });
-        if (!cancelled) setFiles(Array.isArray(result) ? result as PrFile[] : []);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void loadFiles();
-    return () => { cancelled = true; };
-  }, [prNumber, owner, repo, enabled, send]);
-
-  return { files, loading };
-}
-
-export function useGithubPRDetailSidebar(prNumber: number, owner?: string, repo?: string) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+/** PR sidebar — TanStack Query (cached across center-tab close/reopen). */
+export function useGithubPRDetailSidebar(
+  prNumber: number,
+  owner?: string,
+  repo?: string,
+  enabled = true,
+) {
+  const query = useGithubPrDetailSidebarQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    prNumber,
+    enabled: enabled && Boolean(owner && repo && prNumber),
+  });
 
   const fetch = useCallback(async () => {
-    if (!owner || !repo || !prNumber) return;
-    setLoading(true);
-    try {
-      const result = await send('github_pr_detail_sidebar', { owner, repo, pr_number: prNumber });
-      setData(result);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [owner, repo, prNumber, send]);
+    await query.refetch();
+  }, [query.refetch]);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { data, loading, fetch };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    fetch,
+  };
 }
 
 // Actions List
 export function useGithubActionsList({ owner, repo, branch, enabled = true }: GithubContext & { enabled?: boolean }) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useGithubActionsListQuery({
+    owner: owner ?? "",
+    repo: repo ?? "",
+    branch: branch ?? "",
+    enabled: enabled && Boolean(owner && repo && branch),
+  });
 
-  const fetch = useCallback(async (isAuto = false) => {
-    if (!enabled || !owner || !repo || !branch) return;
-    if (!isAuto) setLoading(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await send('github_actions_list', { owner, repo, branch }) as any[];
-      setData(result);
-      return result;
-    } catch (e) {
-      console.error(e);
-      return null;
-    } finally {
-      if (!isAuto) setLoading(false);
-    }
-  }, [owner, repo, branch, send, enabled]);
+  const hasInProgress = useMemo(() => {
+    return query.data?.some(r => r.status === 'in_progress' || r.status === 'queued') ?? false;
+  }, [query.data]);
 
   useEffect(() => {
-    if (!enabled || !owner || !repo || !branch) return;
-    
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let isMounted = true;
-    let isInitial = true;
-
-    const poll = async () => {
-      // Use isAuto=false for the first fetch so setLoading(true) fires,
-      // then isAuto=true for subsequent auto-refreshes.
-      const result = await fetch(!isInitial);
-      isInitial = false;
-      if (!isMounted) return;
-      
-      const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');
-      if (hasInProgress) {
-        timer = setTimeout(poll, 30_000); // 30s
-      }
+    let timer: ReturnType<typeof setTimeout>;
+    if (hasInProgress) {
+      timer = setTimeout(() => {
+        void query.refetch();
+      }, 30_000); // 30s
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
     };
+  }, [hasInProgress, query.refetch]);
 
-    poll();
+  const refresh = useCallback(async () => {
+    await query.refetch();
+    return query.data;
+  }, [query.refetch, query.data]);
 
-    return () => { 
-      isMounted = false;
-      if (timer) clearTimeout(timer); 
-    };
-  }, [fetch, enabled, owner, repo, branch]);
-
-  return { data, loading, refresh: () => fetch() };
+  return { data: query.data ?? null, loading: query.isLoading, refresh };
 }
 
 export function useGithubActionsDetail(owner: string, repo: string, runId: number | undefined) {
-  const send = useWebSocketStore(s => s.send);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useGithubActionsDetailQuery({
+    owner,
+    repo,
+    runId: runId ?? 0,
+    enabled: Boolean(owner && repo && runId),
+  });
+
+  // Action detail has jobs, if the action is not complete, we should poll
+  const status = query.data?.status;
+  const isPending = status === 'in_progress' || status === 'queued';
 
   useEffect(() => {
-    if (!owner || !repo || !runId) {
-      setData(null);
-      return;
+    let timer: ReturnType<typeof setTimeout>;
+    if (isPending) {
+      timer = setTimeout(() => {
+        void query.refetch();
+      }, 30_000); // 30s
     }
-
-    let isMounted = true;
-    const fetchDetail = async () => {
-      setLoading(true);
-      try {
-        const result = await send('github_actions_detail', { owner, repo, run_id: runId });
-        if (!isMounted) return;
-        setData(result);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+    return () => {
+      if (timer) clearTimeout(timer);
     };
+  }, [isPending, query.refetch]);
 
-    fetchDetail();
-    return () => { isMounted = false; };
-  }, [owner, repo, runId, send]);
-
-  return { data, loading };
+  return { data: query.data ?? null, loading: query.isLoading };
 }
 
 export interface GitCommit {

@@ -32,7 +32,10 @@ import {
   toastManager,
 } from "@workspace/ui";
 
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import {
+  useProjects,
+  useProjectsLoading,
+} from "@/features/project/hooks/use-project-bootstrap-query";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { listCanvasFrameTargets, type CanvasFrameTarget } from "@/features/canvas/lib/canvas-widget-frame";
 import { findCanvasWidgetPlacements } from "@/features/canvas/lib/canvas-widget-placement";
@@ -504,9 +507,8 @@ export function CanvasAddAtmosWidgetPopover({
   triggerClassName?: string;
 }) {
   const t = useTranslations("canvas.addWidgetDialog");
-  const projects = useProjectStore((state) => state.projects);
-  const isLoadingProjects = useProjectStore((state) => state.isLoading);
-  const fetchProjects = useProjectStore((state) => state.fetchProjects);
+  const projects = useProjects();
+  const isLoadingProjects = useProjectsLoading();
   const setFocusPulseShapeIds = useCanvasRuntimeStore((state) => state.setFocusPulseShapeIds);
   const addWidget = useAddAtmosWidget(editor);
   const addTerminal = useAddCanvasTerminal(editor);
@@ -520,13 +522,10 @@ export function CanvasAddAtmosWidgetPopover({
     if (!open) {
       return;
     }
-    if (projects.length === 0 && !isLoadingProjects) {
-      void fetchProjects();
-    }
     if (editor) {
       setFrameTargets(listCanvasFrameTargets(editor));
     }
-  }, [editor, fetchProjects, isLoadingProjects, open, projects.length]);
+  }, [editor, isLoadingProjects, open, projects.length]);
 
   React.useEffect(() => {
     if (open) return;

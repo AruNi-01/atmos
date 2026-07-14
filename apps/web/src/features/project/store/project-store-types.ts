@@ -9,12 +9,9 @@ import type {
 import type { WorkspaceSetupProgress } from "./project-store-setup-progress";
 
 export interface ProjectStore {
-  projects: Project[];
-  workspaceLabels: WorkspaceLabel[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
   hasLoadedProjects: boolean;
-  connectionEpoch: number;
 
   fetchProjects: () => Promise<void>;
   ensureWorkspaceVisible: (workspaceId: string) => Promise<boolean>;
@@ -62,7 +59,7 @@ export interface ProjectStore {
     workspaceId: string,
     priority: WorkspacePriority,
   ) => Promise<void>;
-  fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<void>;
+  fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<WorkspaceLabel[]>;
   createWorkspaceLabel: (data: { name: string; color: string; source?: "manual" | "gitHub_issue" | "gitHub_pr" }) => Promise<WorkspaceLabel>;
   updateWorkspaceLabel: (
     labelId: string,

@@ -1,9 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createTranslator } from "next-intl";
 import { toastManager } from "@workspace/ui";
 
+import { queryKeys } from "@/api/query/query-keys";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { useAutomationRunListQuery } from "@/features/automations/hooks/use-automations-query";
+import { automationRunListQueryOptions } from "@/features/automations/lib/automations-query-options";
 import {
   mergeLiveOutputIntoArtifact,
   type LiveRunOutputBuffer,
@@ -11,6 +17,7 @@ import {
 import type {
   AutomationArtifactKind,
   AutomationArtifactResponse,
+  AutomationRunListResponse,
   AutomationRunOutputEvent,
   AutomationRunSummary,
   AutomationRunUpdatedEvent,
@@ -49,9 +56,6 @@ interface UseAutomationRunHistoryStateOptions {
   selectedAutomationGuid: string | null;
   selectedRunGuid: string | null;
   setRunParam: (guid: string | null) => Promise<URLSearchParams>;
-  listRuns: (
-    automationGuid: string,
-  ) => Promise<{ runs: AutomationRunSummary[] }>;
   getRun: (runGuid: string) => Promise<AutomationRunSummary>;
   getArtifact: (
     runGuid: string,
@@ -64,12 +68,17 @@ export function useAutomationRunHistoryState({
   selectedAutomationGuid,
   selectedRunGuid,
   setRunParam,
-  listRuns,
   getRun,
   getArtifact,
 }: UseAutomationRunHistoryStateOptions) {
-  const [runs, setRuns] = React.useState<AutomationRunSummary[]>([]);
-  const [runsLoading, setRunsLoading] = React.useState(false);
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const runListQuery = useAutomationRunListQuery(selectedAutomationGuid);
+
+  const runs = runListQuery.data?.runs ?? [];
+  const runsLoading = runListQuery.isLoading || runListQuery.isFetching;
+
   const [selectedRun, setSelectedRun] =
     React.useState<AutomationRunSummary | null>(null);
   const [artifact, setArtifact] =
@@ -79,37 +88,78 @@ export function useAutomationRunHistoryState({
   const liveRunOutputRef = React.useRef<Map<string, LiveRunOutputBuffer>>(
     new Map(),
   );
-  const runsRequestSeqRef = React.useRef(0);
+  const loadErrorToastShownRef = React.useRef(false);
 
   React.useEffect(() => {
     selectedAutomationGuidRef.current = selectedAutomationGuid;
     liveRunOutputRef.current.clear();
+    loadErrorToastShownRef.current = false;
   }, [selectedAutomationGuid]);
+
+  React.useEffect(() => {
+    if (!selectedAutomationGuid) {
+      void setRunParam(null);
+      return;
+    }
+  }, [selectedAutomationGuid, setRunParam]);
+
+  React.useEffect(() => {
+    if (!runListQuery.isError || loadErrorToastShownRef.current) return;
+    if (!selectedAutomationGuid) return;
+    loadErrorToastShownRef.current = true;
+    toastManager.add({
+      title: automationsT("runHistory.failedToLoadTitle"),
+      description:
+        runListQuery.error instanceof Error
+          ? runListQuery.error.message
+          : automationsT("runHistory.unknownError"),
+      type: "error",
+    });
+  }, [runListQuery.error, runListQuery.isError, selectedAutomationGuid]);
+
+  const patchRunList = React.useCallback(
+    (
+      automationGuid: string,
+      updater: (current: AutomationRunSummary[]) => AutomationRunSummary[],
+    ) => {
+      queryClient.setQueryData<AutomationRunListResponse>(
+        queryKeys.computer.automationRunList(scope, automationGuid),
+        (old) => {
+          const current = old?.runs ?? [];
+          return {
+            runs: updater(current),
+            next_page_token: old?.next_page_token ?? null,
+          };
+        },
+      );
+    },
+    [queryClient, scope],
+  );
+
+  const setRuns = React.useCallback(
+    (
+      updater:
+        | AutomationRunSummary[]
+        | ((current: AutomationRunSummary[]) => AutomationRunSummary[]),
+    ) => {
+      const automationGuid = selectedAutomationGuidRef.current;
+      if (!automationGuid) return;
+      patchRunList(automationGuid, (current) =>
+        typeof updater === "function" ? updater(current) : updater,
+      );
+    },
+    [patchRunList],
+  );
 
   const loadRuns = React.useCallback(
     async (automationGuid: string) => {
-      const shouldUpdateSelection =
-        selectedAutomationGuidRef.current === automationGuid;
-      const requestId = shouldUpdateSelection
-        ? runsRequestSeqRef.current + 1
-        : runsRequestSeqRef.current;
-      if (shouldUpdateSelection) {
-        runsRequestSeqRef.current = requestId;
-        setRunsLoading(true);
-      }
-      const isCurrentRequest = () =>
-        shouldUpdateSelection &&
-        selectedAutomationGuidRef.current === automationGuid &&
-        runsRequestSeqRef.current === requestId;
       try {
-        const response = await listRuns(automationGuid);
-        if (isCurrentRequest()) {
-          setRuns(response.runs);
-        }
+        const response = await queryClient.fetchQuery(
+          automationRunListQueryOptions(scope, connectionState, automationGuid),
+        );
         return response.runs;
       } catch (err) {
-        if (isCurrentRequest()) {
-          setRuns([]);
+        if (selectedAutomationGuidRef.current === automationGuid) {
           toastManager.add({
             title: automationsT("runHistory.failedToLoadTitle"),
             description:
@@ -120,25 +170,10 @@ export function useAutomationRunHistoryState({
           });
         }
         return [];
-      } finally {
-        if (isCurrentRequest()) {
-          setRunsLoading(false);
-        }
       }
     },
-    [listRuns],
+    [connectionState, queryClient, scope],
   );
-
-  React.useEffect(() => {
-    if (!selectedAutomationGuid) {
-      runsRequestSeqRef.current += 1;
-      setRuns([]);
-      void setRunParam(null);
-      setRunsLoading(false);
-      return;
-    }
-    void loadRuns(selectedAutomationGuid);
-  }, [loadRuns, selectedAutomationGuid, setRunParam]);
 
   React.useEffect(() => {
     if (pageView !== "history") {
@@ -185,11 +220,7 @@ export function useAutomationRunHistoryState({
 
   const applyRunUpdate = React.useCallback(
     (payload: AutomationRunUpdatedEvent) => {
-      if (payload.automation_guid !== selectedAutomationGuidRef.current) {
-        return;
-      }
-
-      setRuns((current) => {
+      patchRunList(payload.automation_guid, (current) => {
         const index = current.findIndex((run) => run.guid === payload.run_guid);
         if (index === -1) {
           return [payload.run, ...current];
@@ -203,7 +234,7 @@ export function useAutomationRunHistoryState({
         setSelectedRun(payload.run);
       }
     },
-    [selectedRunGuid],
+    [patchRunList, selectedRunGuid],
   );
 
   const applyRunOutput = React.useCallback(
@@ -264,7 +295,6 @@ export function useAutomationRunHistoryState({
   );
 
   const clearRunSelection = React.useCallback(() => {
-    setRuns([]);
     setSelectedRun(null);
     setArtifact(null);
     void setRunParam(null);

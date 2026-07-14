@@ -33,6 +33,10 @@ interface AtmosComputerData {
   registerTokenExpiresAt: number | null;
   localComputerDisplayName: string;
   localServerId: string | null;
+  /** Bumped when access token / relay URL / relay secret identity changes (APP-035). */
+  relayAuthRevision: number;
+  /** Bumped when gateway base / client token changes (APP-035). Never put tokens in keys. */
+  relaySessionRevision: number;
 }
 
 interface AtmosComputerStore extends AtmosComputerData {
@@ -46,10 +50,17 @@ interface AtmosComputerStore extends AtmosComputerData {
   setRelayWebSocketUrl: (url: string | null) => void;
   setRelayGatewayHttpBase: (url: string | null) => void;
   setRelayClientToken: (token: string | null) => void;
+  setRelaySessionTransport: (session: {
+    relayWebSocketUrl: string | null;
+    relayGatewayHttpBase: string | null;
+    relayClientToken: string | null;
+  }) => void;
   setRegisterCommandShown: (cmd: string | null) => void;
   setRegisterTokenExpiresAt: (ts: number | null) => void;
   setLocalComputerDisplayName: (name: string) => void;
   setLocalServerId: (id: string | null) => void;
+  bumpRelayAuthRevision: () => number;
+  bumpRelaySessionRevision: () => number;
   resetRelaySession: () => void;
   hydrateLocalConnectionPrefs: () => void;
 }
@@ -133,6 +144,8 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   registerTokenExpiresAt: null,
   localComputerDisplayName: localPrefs.localComputerDisplayName,
   localServerId: localPrefs.localServerId,
+  relayAuthRevision: 0,
+  relaySessionRevision: 0,
 
   hydrateLocalConnectionPrefs: () => {
     const p = loadLocalConnectionPrefs();
@@ -163,6 +176,22 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   setRelayWebSocketUrl: relayWebSocketUrl => set({ relayWebSocketUrl }),
   setRelayGatewayHttpBase: relayGatewayHttpBase => set({ relayGatewayHttpBase }),
   setRelayClientToken: relayClientToken => set({ relayClientToken }),
+
+  setRelaySessionTransport: session => {
+    const current = get();
+    const changed =
+      current.relayWebSocketUrl !== session.relayWebSocketUrl ||
+      current.relayGatewayHttpBase !== session.relayGatewayHttpBase ||
+      current.relayClientToken !== session.relayClientToken;
+    if (!changed) return;
+    set({
+      relayWebSocketUrl: session.relayWebSocketUrl,
+      relayGatewayHttpBase: session.relayGatewayHttpBase,
+      relayClientToken: session.relayClientToken,
+      relaySessionRevision: current.relaySessionRevision + 1,
+    });
+  },
+
   setRegisterCommandShown: registerCommandShown => set({ registerCommandShown }),
   setRegisterTokenExpiresAt: registerTokenExpiresAt => set({ registerTokenExpiresAt }),
 
@@ -179,13 +208,33 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
     persistLocalConnectionPrefs({ localServerId });
   },
 
+  bumpRelayAuthRevision: () => {
+    const next = get().relayAuthRevision + 1;
+    set({ relayAuthRevision: next });
+    return next;
+  },
+
+  bumpRelaySessionRevision: () => {
+    const next = get().relaySessionRevision + 1;
+    set({ relaySessionRevision: next });
+    return next;
+  },
+
   resetRelaySession: () => {
+    const current = get();
+    const hadSession =
+      current.relayWebSocketUrl !== null ||
+      current.relayGatewayHttpBase !== null ||
+      current.relayClientToken !== null;
     set({
       relayWebSocketUrl: null,
       relayGatewayHttpBase: null,
       relayClientToken: null,
       registerCommandShown: null,
       registerTokenExpiresAt: null,
+      relaySessionRevision: hadSession
+        ? current.relaySessionRevision + 1
+        : current.relaySessionRevision,
     });
     get().setSelectedServerId(null);
   },

@@ -19,7 +19,7 @@ import {
   showBrowserNotification,
   showDesktopNotification,
 } from "@/shared/lib/notifications";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
   navigateToAgentHookSessionPane,
@@ -127,7 +127,7 @@ export function useAgentNotifications() {
       return;
     }
 
-    const projects = useProjectStore.getState().projects;
+    const projects = getProjectBootstrapSnapshot()?.projects ?? [];
     const session: AgentHookSession = {
       session_id: update.session_id,
       tool: update.tool,
@@ -172,7 +172,9 @@ export function useAgentNotifications() {
               disabled={!canNavigate}
               onClick={() => {
                 if (!canNavigate) return;
-                navigateToAgentHookSessionPane(session, router, projects);
+                const latestProjects =
+                  getProjectBootstrapSnapshot()?.projects ?? projects;
+                navigateToAgentHookSessionPane(session, router, latestProjects);
                 agentToastManager.close(toastId);
               }}
             >

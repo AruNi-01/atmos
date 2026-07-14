@@ -9,6 +9,9 @@ import { useTheme } from 'next-themes';
 import { Loader2 } from 'lucide-react';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
+import { useGitChangedFilesQuery, GIT_WORKTREE_PARAMS } from '@/features/git/hooks/use-git-changed-files-query';
+import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from '@/features/git/lib/git-query-options';
 import { useEditorStore, type FileNavigationTarget } from '@/features/editor/store/use-editor-store';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
@@ -28,6 +31,7 @@ import type { AgentFixContextRef } from '@/features/agent-fix/types';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   applyCollapseModeToItems,
+  diffSideCacheKey,
   type CopyAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
 import {
@@ -74,14 +78,29 @@ export function ChangesCodeView({
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
-  const compareRef = useGitStore((s) => s.compareRef);
+  const compareMode = useGitStore((s) => s.compareMode);
   const compareBaseRef = useGitStore((s) => s.compareBaseRef);
   const effectiveGroupKind =
     groupKind === 'compared' && compareBaseRef ? 'commit' : groupKind;
-  const stagedFiles = useGitStore((s) => s.stagedFiles);
-  const unstagedFiles = useGitStore((s) => s.unstagedFiles);
-  const untrackedFiles = useGitStore((s) => s.untrackedFiles);
-  const compareFiles = useGitStore((s) => s.compareFiles);
+
+  const statusQuery = useGitStatusQuery(repoPath);
+  const defaultBranch = statusQuery.data?.default_branch ?? null;
+  const compareParams = computeCompareParams(compareMode, defaultBranch, compareBaseRef);
+
+  const worktreeQuery = useGitChangedFilesQuery(repoPath, GIT_WORKTREE_PARAMS);
+  const compareQuery = useGitChangedFilesQuery(
+    isCompareQueryEnabled(compareMode, defaultBranch) ? repoPath : null,
+    compareParams,
+  );
+
+  const stagedFiles = worktreeQuery.data?.staged_files ?? EMPTY_CHANGED_FILES;
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
+  const { files: compareFiles, compareRef } = selectCompareChangedFiles(compareQuery.data);
+  const queriesLoading =
+    statusQuery.isLoading ||
+    worktreeQuery.isLoading ||
+    (isCompareQueryEnabled(compareMode, defaultBranch) && compareQuery.isLoading);
 
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const setDiffGroupActiveFile = useEditorStore((s) => s.setDiffGroupActiveFile);
@@ -166,14 +185,7 @@ export function ChangesCodeView({
         compareRef,
       }),
     );
-  }, [
-    groupKind,
-    stagedFiles,
-    unstagedFiles,
-    untrackedFiles,
-    compareFiles,
-    compareRef,
-  ]);
+  }, [groupKind, stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef]);
 
   const totalStats = useMemo(
     () => ({
@@ -276,25 +288,6 @@ export function ChangesCodeView({
       setPathByFileName(new Map());
     });
 
-    const loadFile = async (file: (typeof groupFiles)[number]) => {
-      const diff = await gitApi.getFileDiff(repoPath, file.path, null, {
-        againstIndex: diffRequestOptions.againstIndex,
-        baseRef: diffRequestOptions.baseRef,
-        commitRef: diffRequestOptions.commitRef,
-      });
-      const fileDiff = parseDiffFromFile(
-        { name: file.path, contents: diff.old_content },
-        { name: file.path, contents: diff.new_content },
-      );
-      nextPathByFileName.set(fileDiff.name, file.path);
-      return {
-        id: file.path,
-        fileDiff,
-        oldContent: diff.old_content,
-        newContent: diff.new_content,
-      };
-    };
-
     const load = async () => {
       setIsLoading(true);
       setError(null);
@@ -306,16 +299,61 @@ export function ChangesCodeView({
           if (cancelled) return;
 
           const batch = groupFiles.slice(offset, offset + CODE_VIEW_BATCH_SIZE);
-          const results = await Promise.all(
-            batch.map(async (file) => {
-              try {
-                return await loadFile(file);
-              } catch (err) {
-                console.error(`Failed to load diff for ${file.path}:`, err);
-                return null;
-              }
-            }),
+          let batchResponse;
+          try {
+            batchResponse = await gitApi.getFilesDiff(
+              repoPath,
+              batch.map((file) => file.path),
+              null,
+              {
+                againstIndex: diffRequestOptions.againstIndex,
+                baseRef: diffRequestOptions.baseRef,
+                commitRef: diffRequestOptions.commitRef,
+              },
+            );
+          } catch (err) {
+            for (const file of batch) {
+              console.error(`Failed to load diff for ${file.path}:`, err);
+            }
+            continue;
+          }
+
+          const resultByPath = new Map(
+            batchResponse.results.map((result) => [result.file_path, result]),
           );
+          const results = batch.map((file) => {
+            try {
+              const result = resultByPath.get(file.path);
+              if (!result?.diff) {
+                throw new Error(
+                  result?.error ?? `Missing diff result for ${file.path}`,
+                );
+              }
+              const diff = result.diff;
+              const fileDiff = parseDiffFromFile(
+                {
+                  name: file.path,
+                  contents: diff.old_content,
+                  cacheKey: diffSideCacheKey(file.path, diff.old_content),
+                },
+                {
+                  name: file.path,
+                  contents: diff.new_content,
+                  cacheKey: diffSideCacheKey(file.path, diff.new_content),
+                },
+              );
+              nextPathByFileName.set(fileDiff.name, file.path);
+              return {
+                id: file.path,
+                fileDiff,
+                oldContent: diff.old_content,
+                newContent: diff.new_content,
+              };
+            } catch (err) {
+              console.error(`Failed to load diff for ${file.path}:`, err);
+              return null;
+            }
+          });
 
           if (cancelled) return;
 
@@ -331,7 +369,7 @@ export function ChangesCodeView({
               type: 'diff',
               fileDiff: result.fileDiff,
               collapsed: collapseModeRef.current === 'collapsed',
-            });
+            } as CodeViewItem<CopyAnnotationMeta>);
           }
 
           if (codeItems.length === 0) continue;
@@ -550,7 +588,7 @@ export function ChangesCodeView({
     );
   }
 
-  if (isLoading || !workerPoolReady) {
+  if (isLoading || queriesLoading || !workerPoolReady) {
     return (
       <div className="flex h-full flex-col overflow-hidden bg-background">
         <DiffCodeViewScaffold

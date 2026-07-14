@@ -13,10 +13,12 @@ import {
 } from '@workspace/ui';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
+import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
 import { llmProvidersModalParams, agentChatParams, settingsModalParams, tokenUsageParams, leftSidebarParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
@@ -128,7 +130,7 @@ export function GlobalSearch() {
   const setCreateWorkspaceOpen = useDialogStore(s => s.setCreateWorkspaceOpen);
   const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
 
-  const projects = useProjectStore(s => s.projects);
+  const projects = useProjects();
   const quickAddWorkspace = useProjectStore(s => s.quickAddWorkspace);
   const setupProgress = useProjectStore(s => s.setupProgress);
   const openFile = useEditorStore(s => s.openFile);
@@ -157,8 +159,6 @@ export function GlobalSearch() {
   const [subView, setSubView] = useState<SubView | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [fileTreeCache, setFileTreeCache] = useState<FileTreeNode[]>([]);
-  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [codeSearchResults, setCodeSearchResults] = useState<SearchMatch[]>([]);
   const [isSearchingCode, setIsSearchingCode] = useState(false);
   const [codeSearchTruncated, setCodeSearchTruncated] = useState(false);
@@ -206,6 +206,12 @@ export function GlobalSearch() {
   }, [currentProject, currentWorkspaceId]);
 
   const currentEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
+
+  // Shared file-tree query — deduplicates with the sidebar FileTreePanel when
+  // both are mounted with the same rootPath + showHidden=false.
+  const fileTreeQuery = useFileTreeQuery(currentEffectivePath ?? null, false);
+  const fileTreeCache = fileTreeQuery.data?.tree ?? [];
+  const isLoadingFiles = fileTreeQuery.isLoading || fileTreeQuery.isFetching;
 
   // TODO sub-view
   const contextId = currentWorkspaceId || currentProjectIdFromUrl || null;
@@ -285,27 +291,6 @@ export function GlobalSearch() {
   const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
   const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
   const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
-
-  const loadFileTree = useCallback(async () => {
-    if (!currentEffectivePath) return;
-
-    setIsLoadingFiles(true);
-    try {
-      const response = await fsApi.listProjectFiles(currentEffectivePath);
-      setFileTreeCache(response.tree);
-    } catch (error) {
-      console.error('Failed to load file tree:', error);
-    } finally {
-      setIsLoadingFiles(false);
-    }
-  }, [currentEffectivePath]);
-
-  // Load file tree when switching to files tab
-  useEffect(() => {
-    if (globalSearchTab === 'files' && currentEffectivePath && fileTreeCache.length === 0 && !isSettingUp) {
-      loadFileTree();
-    }
-  }, [globalSearchTab, currentEffectivePath, fileTreeCache.length, isSettingUp, loadFileTree]);
 
   // Debounced code search
   useEffect(() => {

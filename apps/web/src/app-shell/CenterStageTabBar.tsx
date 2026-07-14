@@ -38,11 +38,13 @@ import {
   CenterStageOpenFileTab,
   CenterStageOverviewTab,
   CenterStageScrollableTabs,
+  CenterStageSurfaceContentTab,
   CenterStageStickyTabActions,
   CenterStageTabGroupItemContent,
   CenterStageTabList,
 } from "@/app-shell/center-stage-shared-tabs";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
+import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -53,6 +55,7 @@ interface CenterStageTabBarProps {
   activeValue: string;
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
+  githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
   projectWikiTabVisible: boolean;
@@ -67,6 +70,7 @@ interface CenterStageTabBarProps {
   handleCenterStageTabChange: (value: string) => void;
   handleCloseTabGroupItem: (tab: TabGroupItem) => void;
   handleCloseFile: (file: OpenFile) => void;
+  handleCloseGithubTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateTerminalCenterTab: () => void;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
@@ -86,6 +90,7 @@ export function CenterStageTabBar({
   activeValue,
   codeReviewTabVisible,
   effectiveContextId,
+  githubTabs,
   openFiles,
   orderedGroupedTabItems,
   projectWikiTabVisible,
@@ -100,6 +105,7 @@ export function CenterStageTabBar({
   handleCenterStageTabChange,
   handleCloseTabGroupItem,
   handleCloseFile,
+  handleCloseGithubTab,
   handleCloseTerminalCenterTab,
   handleCreateTerminalCenterTab,
   handleRenameTerminalCenterTab,
@@ -120,6 +126,25 @@ export function CenterStageTabBar({
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem) => {
     return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
+
+  // Open files and GitHub PR/Action tabs share one lane, ordered by when each
+  // was opened (no per-type grouping) so tabs appear in natural open order.
+  const orderedSurfaceTabs = React.useMemo<
+    Array<
+      | { type: "file"; openedAt: number; file: OpenFile }
+      | { type: "github"; openedAt: number; tab: GithubCenterTab }
+    >
+  >(() => {
+    const items = [
+      ...openFiles.map(
+        (file) => ({ type: "file" as const, openedAt: file.lastOpenedAt, file }),
+      ),
+      ...githubTabs.map(
+        (tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab }),
+      ),
+    ];
+    return items.sort((left, right) => left.openedAt - right.openedAt);
+  }, [githubTabs, openFiles]);
 
   return (
     <CenterStageTabList>
@@ -228,19 +253,32 @@ export function CenterStageTabBar({
           />
         ) : null}
 
-        {openFiles.map((file) => (
-          <CenterStageOpenFileTab
-            key={file.path}
-            file={file}
-            sessionDisplay={sessionDisplay}
-            onClose={handleCloseFile}
-            onContextMenuRequest={(event, nextFile) => {
-              setActiveFile(nextFile.path, effectiveContextId);
-              setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
-            }}
-            onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
-          />
-        ))}
+        {orderedSurfaceTabs.map((item) =>
+          item.type === "file" ? (
+            <CenterStageOpenFileTab
+              key={item.file.path}
+              file={item.file}
+              sessionDisplay={sessionDisplay}
+              onClose={handleCloseFile}
+              onContextMenuRequest={(event, nextFile) => {
+                setActiveFile(nextFile.path, effectiveContextId);
+                setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
+              }}
+              onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
+            />
+          ) : (
+            <CenterStageSurfaceContentTab
+              key={item.tab.value}
+              closeLabel={t("centerStageTabBar.closeTab", { tab: item.tab.label })}
+              name={item.tab.label}
+              onClose={() => handleCloseGithubTab(item.tab.value)}
+              path={`${item.tab.owner}/${item.tab.repo}`}
+              tooltip={item.tab.description || `${item.tab.owner}/${item.tab.repo}`}
+              value={item.tab.value}
+              variant={item.tab.kind}
+            />
+          ),
+        )}
       </CenterStageScrollableTabs>
 
       <CenterStageStickyTabActions>
@@ -279,7 +317,9 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "diff" ||
     tab.kind === "diff-group" ||
     tab.kind === "review-diff" ||
-    tab.kind === "conflict"
+    tab.kind === "conflict" ||
+    tab.kind === "github-pr" ||
+    tab.kind === "github-action"
   );
 }
 

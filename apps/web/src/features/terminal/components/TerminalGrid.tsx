@@ -18,7 +18,10 @@ import { isPathLikeTitle } from "./terminal-title";
 import { systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import {
+  useProjects,
+  useProjectsLoading,
+} from "@/features/project/hooks/use-project-bootstrap-query";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
 import {
   TerminalMosaicWorkspacePaneWindow,
@@ -193,8 +196,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? projectWikiMaximizedIds[workspaceId]
     : getMaximizedTerminalId(workspaceId, terminalTabId);
 
-  const projects = useProjectStore(s => s.projects);
-  const isProjectsLoading = useProjectStore(s => s.isLoading);
+  const projects = useProjects();
+  const isProjectsLoading = useProjectsLoading();
 
   // Look up project and workspace info for human-readable naming
   const workspaceInfo = (() => {

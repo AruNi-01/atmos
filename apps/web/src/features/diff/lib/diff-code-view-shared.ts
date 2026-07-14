@@ -279,3 +279,37 @@ export function filePathFromHeaderContext(
 ): string {
   return pathByName.get(fileDiff.name) ?? fileDiff.name;
 }
+
+/** Fast, non-cryptographic 53-bit string hash (cyrb53). */
+function hashString(input: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+/**
+ * Build a stable per-side `FileContents.cacheKey` for the @pierre/diffs worker
+ * pool. The pool primes syntax-highlight results keyed by
+ * `FileDiffMetadata.cacheKey`, which `parseDiffFromFile` derives as
+ * `${oldFile.cacheKey}:${newFile.cacheKey}` only when BOTH sides carry a key.
+ * Omitting it triggers a `primeDiffHighlightCache` warning and disables caching.
+ *
+ * The key must change whenever the file `name` (drives language inference) or
+ * `contents` change, otherwise stale highlights are served. Pass a precomputed
+ * content hash (e.g. an immutable snapshot's sha256) as `contentHash` to avoid
+ * rehashing large contents on the main thread.
+ */
+export function diffSideCacheKey(
+  name: string,
+  contents: string,
+  contentHash?: string | null,
+): string {
+  return `${name}:${contentHash ?? hashString(contents)}`;
+}

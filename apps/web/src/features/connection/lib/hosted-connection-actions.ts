@@ -7,6 +7,10 @@ import {
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {
+  applyRelaySessionTransport,
+  resetRelaySessionForQuery,
+} from '@/features/connection/lib/query-identity-lifecycle';
+import {
   setHostedRuntimeApiOverride,
   type ApiConfig,
 } from '@/shared/lib/desktop-runtime';
@@ -27,9 +31,8 @@ export async function reconnectForCurrentTarget(): Promise<void> {
 }
 
 export async function activateCurrentLocalConnection(): Promise<void> {
-  const store = useAtmosComputerStore.getState();
-  store.resetRelaySession();
-  store.setConnectionMode('local');
+  await resetRelaySessionForQuery();
+  useAtmosComputerStore.getState().setConnectionMode('local');
   writeHostedConnectionPreference('local');
   await syncClientSessionLocal().catch(() => undefined);
   await reconnectForCurrentTarget();
@@ -50,9 +53,11 @@ export async function activateHostedRemoteConnection(
     return;
   }
   store.setSelectedServerId(serverId);
-  store.setRelayWebSocketUrl(session.ws_url);
-  store.setRelayGatewayHttpBase(session.gateway_url);
-  store.setRelayClientToken(session.client_token);
+  await applyRelaySessionTransport({
+    relayWebSocketUrl: session.ws_url,
+    relayGatewayHttpBase: session.gateway_url,
+    relayClientToken: session.client_token,
+  });
   store.setConnectionMode('relay');
   writeHostedConnectionPreference('relay');
   void syncClientSessionRelay(serverId, session.gateway_url, session.client_token).catch(

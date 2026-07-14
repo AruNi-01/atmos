@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { createTranslator } from "next-intl";
-import { systemApi } from "@/api/rest-api";
+import { useTmuxStatusQuery } from "@/features/system/hooks/use-system-status-queries";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
@@ -37,51 +37,36 @@ function sharedT(key: string): string {
 }
 
 /**
- * Hook to check tmux installation status
- * Call this at app startup to verify tmux is available
+ * Hook to check tmux installation status (APP-035: backed by TanStack Query).
  */
 export function useTmuxCheck(options: UseTmuxCheckOptions = {}): TmuxCheckState {
   const { enabled = true } = options;
-  const [isLoading, setIsLoading] = useState(enabled);
-  const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
-  const [version, setVersion] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const query = useTmuxStatusQuery({ enabled });
 
-  const checkTmux = useCallback(async () => {
-    if (!enabled) {
-      setIsLoading(false);
-      setIsInstalled(null);
-      setVersion(null);
-      setError(null);
-      return;
-    }
+  const refetch = useCallback(async () => {
+    if (!enabled) return;
+    await query.refetch();
+  }, [enabled, query]);
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const status = await systemApi.getTmuxStatus();
-      setIsInstalled(status.installed);
-      setVersion(status.version);
-    } catch (err) {
-      // Only show the install prompt when the backend explicitly reports tmux missing.
-      setError(err instanceof Error ? err.message : sharedT("errors.failedToCheckStatus"));
-      setIsInstalled(null);
-      setVersion(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [enabled]);
-
-  useEffect(() => {
-    void checkTmux();
-  }, [checkTmux]);
+  if (!enabled) {
+    return {
+      isLoading: false,
+      isInstalled: null,
+      version: null,
+      error: null,
+      refetch,
+    };
+  }
 
   return {
-    isLoading,
-    isInstalled,
-    version,
-    error,
-    refetch: checkTmux,
+    isLoading: query.isPending,
+    isInstalled: query.data?.installed ?? null,
+    version: query.data?.version ?? null,
+    error: query.error
+      ? query.error instanceof Error
+        ? query.error.message
+        : sharedT("errors.failedToCheckStatus")
+      : null,
+    refetch,
   };
 }

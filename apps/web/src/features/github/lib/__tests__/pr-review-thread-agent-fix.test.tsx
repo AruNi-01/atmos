@@ -6,6 +6,11 @@ import { createRoot, type Root } from "react-dom/client";
 
 import type { AgentFixPromptSource } from "@/features/agent-fix/types";
 
+mock.module("next-intl", () => ({
+  createTranslator: () => (key: string) => key,
+  useTranslations: () => (key: string) => key,
+}));
+
 mock.module("@workspace/ui", () => ({
   Avatar: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div {...props}>{children}</div>
@@ -101,7 +106,7 @@ mock.module("@/features/agent-fix/components/AgentFixButton", () => ({
   AgentFixButton: () => <button type="button">Agent Fix</button>,
 }));
 
-const { ReviewCommentThreadView } = await import("../pr-detail-modal-parts");
+const { ReviewCommentThreadView } = await import("../pr-detail-parts");
 
 let root: Root | null = null;
 
