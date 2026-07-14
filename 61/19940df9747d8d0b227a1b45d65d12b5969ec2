@@ -1,0 +1,43 @@
+apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts
+  s_12de46b8739032::t_1ca0aa1943039d 3,19,31,40,49,58,86-90,104-109,111
+apps/web/src/app-shell/left-sidebar-controls.tsx
+  s_12de46b8739032::t_ad0128591bc7f1 28,37-42,326-330,332-340,342-344,348-412,414-435,441,455-458,461-463,470-472,474-477,483-494,496,498-502
+  s_12de46b8739032::t_4069f41cfd4eab 345,448,473
+  s_12de46b8739032::t_81e46969da71a3 331,341,346-347,464-469,478-482,495
+  s_12de46b8739032::t_dbc815b2e266e2 525-528,543-554
+  s_12de46b8739032::t_a70a3e1a44e0d3 413
+apps/web/messages/en.json
+  s_12de46b8739032::t_131616d67fc457 156-157,387-388
+apps/web/src/app-shell/sidebar/workspace-grouping.test.ts
+  s_12de46b8739032::t_041da4915f059e 24-30,77,85,90-91
+  s_12de46b8739032::t_1d555014d6c9bc 1-23,31-76,78-84,86-89,92-113
+apps/web/src/app-shell/sidebar/workspace-grouping.ts
+  s_12de46b8739032::t_906b74fb4081cc 1-6,13-16,29,34-35,39-41,56-68,126-167,171-174,176-177,191,204-263,267
+apps/web/src/api/ws/settings-api.ts
+  s_12de46b8739032::t_91808bbadc470d 38-39
+apps/web/messages/zh.json
+  s_12de46b8739032::t_913c80599f2456 156-157,387-388
+apps/web/src/app-shell/sidebar/workspace-status.tsx
+  s_12de46b8739032::t_95de8d6479fb46 20,22,25,158-159
+apps/web/src/app-shell/LeftSidebarPinnedSection.tsx
+  s_12de46b8739032::t_55408118b25b52 18,20,22,32,44,99-102,107-122
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_12de46b8739032::t_403d6c1c516efe 159-161,199-203,390-414,678-680
+  s_12de46b8739032::t_bce1c83e277f8b 142,186-192,198,204,388-389,415-416,533,542,624
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "6119940df9747d8d0b227a1b45d65d12b5969ec2",
+  "prompts": {},
+  "sessions": {
+    "s_12de46b8739032": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "31083709-c189-479b-af4a-eaacbcdbfb4e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
