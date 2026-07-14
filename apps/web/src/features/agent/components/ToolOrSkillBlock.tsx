@@ -109,8 +109,8 @@ function AgentToolDiffFile({
         <div className="max-h-[360px] overflow-auto border-t border-border/60">
           {isMounted ? (
             <MultiFileDiff
-              oldFile={file.oldFile}
-              newFile={file.newFile}
+              oldFile={{ ...file.oldFile, cacheKey: `${file.oldFile.name}:old` }}
+              newFile={{ ...file.newFile, cacheKey: `${file.newFile.name}:new` }}
               options={options}
             />
           ) : (
@@ -307,8 +307,8 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
               >
                 {isMounted ? (
                   <MultiFileDiff
-                    oldFile={fileDiff.oldFile}
-                    newFile={fileDiff.newFile}
+                    oldFile={{ ...fileDiff.oldFile, cacheKey: `${fileDiff.oldFile.name}:old` }}
+                    newFile={{ ...fileDiff.newFile, cacheKey: `${fileDiff.newFile.name}:new` }}
                     options={diffOptions}
                   />
                 ) : (

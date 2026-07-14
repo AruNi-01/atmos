@@ -334,7 +334,11 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
 
   return (
     <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
+      <MultiFileDiff
+        oldFile={{ ...diffFiles.oldFile, cacheKey: `${diffFiles.oldFile.name}:old` }}
+        newFile={{ ...diffFiles.newFile, cacheKey: `${diffFiles.newFile.name}:new` }}
+        options={options}
+      />
     </div>
   );
 }
