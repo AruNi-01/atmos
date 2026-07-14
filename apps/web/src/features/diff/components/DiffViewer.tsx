@@ -41,6 +41,7 @@ import {
   buildSharedDiffViewOptions,
   getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
+import { diffSideCacheKey } from '@/features/diff/lib/diff-code-view-shared';
 import { DiffViewerHeader } from '@/features/diff/components/DiffViewerHeader';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 
@@ -383,8 +384,24 @@ export const DiffViewer = ({
       try {
         const diff = await reviewWsApi.getFileContent(snapshotGuidFromPath);
         if (cancelled) return;
-        const nextOldFile = { name: fileName, contents: diff.old_content };
-        const nextNewFile = { name: fileName, contents: diff.new_content };
+        const nextOldFile = {
+          name: fileName,
+          contents: diff.old_content,
+          cacheKey: diffSideCacheKey(
+            fileName,
+            diff.old_content,
+            diff.file_snapshot.old_sha256,
+          ),
+        };
+        const nextNewFile = {
+          name: fileName,
+          contents: diff.new_content,
+          cacheKey: diffSideCacheKey(
+            fileName,
+            diff.new_content,
+            diff.file_snapshot.new_sha256,
+          ),
+        };
         setOldFile(nextOldFile);
         setNewFile(nextNewFile);
         setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
@@ -423,8 +440,16 @@ export const DiffViewer = ({
 
     if (gitDiffQuery.data) {
       const fileName = filePath.split('/').pop() || filePath;
-      const nextOldFile = { name: fileName, contents: gitDiffQuery.data.old_content };
-      const nextNewFile = { name: fileName, contents: gitDiffQuery.data.new_content };
+      const nextOldFile = {
+        name: fileName,
+        contents: gitDiffQuery.data.old_content,
+        cacheKey: diffSideCacheKey(fileName, gitDiffQuery.data.old_content),
+      };
+      const nextNewFile = {
+        name: fileName,
+        contents: gitDiffQuery.data.new_content,
+        cacheKey: diffSideCacheKey(fileName, gitDiffQuery.data.new_content),
+      };
       setOldFile(nextOldFile);
       setNewFile(nextNewFile);
       setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));

@@ -22,6 +22,7 @@ import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeVie
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   buildDiffSelectionInfo,
+  diffSideCacheKey,
   getNextItemVersion,
   updateViewerDiffItem,
 } from '@/features/diff/lib/diff-code-view-shared';
@@ -328,10 +329,20 @@ export function ReviewCodeView({
                 {
                   name: file.snapshot.file_path,
                   contents: diff.old_content,
+                  cacheKey: diffSideCacheKey(
+                    file.snapshot.file_path,
+                    diff.old_content,
+                    file.snapshot.old_sha256,
+                  ),
                 },
                 {
                   name: file.snapshot.file_path,
                   contents: diff.new_content,
+                  cacheKey: diffSideCacheKey(
+                    file.snapshot.file_path,
+                    diff.new_content,
+                    file.snapshot.new_sha256,
+                  ),
                 },
               );
               pathByFileNameRef.current.set(fileDiff.name, file.snapshot.file_path);
@@ -345,8 +356,7 @@ export function ReviewCodeView({
                 type: 'diff' as const,
                 fileDiff,
                 collapsed: collapseModeRef.current === 'collapsed',
-                cacheKey: file.snapshot.file_path,
-              } as CodeViewItem<ReviewAnnotationMeta> & { cacheKey: string };
+              } as CodeViewItem<ReviewAnnotationMeta>;
             } catch (loadError) {
               console.error(
                 `Failed to load review diff for ${file.snapshot.file_path}:`,

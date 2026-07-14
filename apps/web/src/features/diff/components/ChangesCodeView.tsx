@@ -31,6 +31,7 @@ import type { AgentFixContextRef } from '@/features/agent-fix/types';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   applyCollapseModeToItems,
+  diffSideCacheKey,
   type CopyAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
 import {
@@ -330,8 +331,16 @@ export function ChangesCodeView({
               }
               const diff = result.diff;
               const fileDiff = parseDiffFromFile(
-                { name: file.path, contents: diff.old_content },
-                { name: file.path, contents: diff.new_content },
+                {
+                  name: file.path,
+                  contents: diff.old_content,
+                  cacheKey: diffSideCacheKey(file.path, diff.old_content),
+                },
+                {
+                  name: file.path,
+                  contents: diff.new_content,
+                  cacheKey: diffSideCacheKey(file.path, diff.new_content),
+                },
               );
               nextPathByFileName.set(fileDiff.name, file.path);
               return {
@@ -360,8 +369,7 @@ export function ChangesCodeView({
               type: 'diff',
               fileDiff: result.fileDiff,
               collapsed: collapseModeRef.current === 'collapsed',
-              cacheKey: result.id,
-            } as CodeViewItem<CopyAnnotationMeta> & { cacheKey: string });
+            } as CodeViewItem<CopyAnnotationMeta>);
           }
 
           if (codeItems.length === 0) continue;
