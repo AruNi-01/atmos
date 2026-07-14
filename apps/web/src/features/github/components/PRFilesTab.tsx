@@ -355,6 +355,7 @@ export function PRFilesTab({
         type: 'diff',
         fileDiff,
         annotations,
+        cacheKey: file.filename,
       });
     }
 

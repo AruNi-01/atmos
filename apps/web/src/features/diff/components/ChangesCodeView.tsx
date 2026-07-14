@@ -287,25 +287,6 @@ export function ChangesCodeView({
       setPathByFileName(new Map());
     });
 
-    const loadFile = async (file: (typeof groupFiles)[number]) => {
-      const diff = await gitApi.getFileDiff(repoPath, file.path, null, {
-        againstIndex: diffRequestOptions.againstIndex,
-        baseRef: diffRequestOptions.baseRef,
-        commitRef: diffRequestOptions.commitRef,
-      });
-      const fileDiff = parseDiffFromFile(
-        { name: file.path, contents: diff.old_content },
-        { name: file.path, contents: diff.new_content },
-      );
-      nextPathByFileName.set(fileDiff.name, file.path);
-      return {
-        id: file.path,
-        fileDiff,
-        oldContent: diff.old_content,
-        newContent: diff.new_content,
-      };
-    };
-
     const load = async () => {
       setIsLoading(true);
       setError(null);
@@ -317,16 +298,53 @@ export function ChangesCodeView({
           if (cancelled) return;
 
           const batch = groupFiles.slice(offset, offset + CODE_VIEW_BATCH_SIZE);
-          const results = await Promise.all(
-            batch.map(async (file) => {
-              try {
-                return await loadFile(file);
-              } catch (err) {
-                console.error(`Failed to load diff for ${file.path}:`, err);
-                return null;
-              }
-            }),
+          let batchResponse;
+          try {
+            batchResponse = await gitApi.getFilesDiff(
+              repoPath,
+              batch.map((file) => file.path),
+              null,
+              {
+                againstIndex: diffRequestOptions.againstIndex,
+                baseRef: diffRequestOptions.baseRef,
+                commitRef: diffRequestOptions.commitRef,
+              },
+            );
+          } catch (err) {
+            for (const file of batch) {
+              console.error(`Failed to load diff for ${file.path}:`, err);
+            }
+            continue;
+          }
+
+          const resultByPath = new Map(
+            batchResponse.results.map((result) => [result.file_path, result]),
           );
+          const results = batch.map((file) => {
+            try {
+              const result = resultByPath.get(file.path);
+              if (!result?.diff) {
+                throw new Error(
+                  result?.error ?? `Missing diff result for ${file.path}`,
+                );
+              }
+              const diff = result.diff;
+              const fileDiff = parseDiffFromFile(
+                { name: file.path, contents: diff.old_content },
+                { name: file.path, contents: diff.new_content },
+              );
+              nextPathByFileName.set(fileDiff.name, file.path);
+              return {
+                id: file.path,
+                fileDiff,
+                oldContent: diff.old_content,
+                newContent: diff.new_content,
+              };
+            } catch (err) {
+              console.error(`Failed to load diff for ${file.path}:`, err);
+              return null;
+            }
+          });
 
           if (cancelled) return;
 
@@ -342,6 +360,7 @@ export function ChangesCodeView({
               type: 'diff',
               fileDiff: result.fileDiff,
               collapsed: collapseModeRef.current === 'collapsed',
+              cacheKey: result.id,
             });
           }
 

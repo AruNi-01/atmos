@@ -287,47 +287,80 @@ export function ReviewCodeView({
           if (cancelled) return;
 
           const batch = orderedFiles.slice(offset, offset + CODE_VIEW_BATCH_SIZE);
-          const results = await Promise.all(
-            batch.map(async (file) => {
-              try {
-                const diff = await reviewWsApi.getFileContent(file.snapshot.guid);
-                const fileDiff = parseDiffFromFile(
-                  {
-                    name: file.snapshot.file_path,
-                    contents: diff.old_content,
-                  },
-                  {
-                    name: file.snapshot.file_path,
-                    contents: diff.new_content,
-                  },
-                );
-                pathByFileNameRef.current.set(fileDiff.name, file.snapshot.file_path);
-                fileSnapshotByPathRef.current.set(file.snapshot.file_path, file);
-                loadedContentsRef.current.set(file.snapshot.file_path, {
-                  oldContent: diff.old_content,
-                  newContent: diff.new_content,
-                });
-                return {
-                  id: file.snapshot.file_path,
-                  type: 'diff' as const,
-                  fileDiff,
-                  collapsed: collapseModeRef.current === 'collapsed',
-                };
-              } catch (loadError) {
-                console.error(
-                  `Failed to load review diff for ${file.snapshot.file_path}:`,
-                  loadError,
-                );
-                if (loadErrorRef.current == null) {
-                  loadErrorRef.current =
-                  loadError instanceof Error
-                      ? loadError
-                      : new Error(loadReviewDiffFallbackRef.current);
-                }
-                return null;
-              }
-            }),
+          let batchResponse;
+          try {
+            batchResponse = await reviewWsApi.getFileContents(
+              batch.map((file) => file.snapshot.guid),
+            );
+          } catch (loadError) {
+            for (const file of batch) {
+              console.error(
+                `Failed to load review diff for ${file.snapshot.file_path}:`,
+                loadError,
+              );
+            }
+            if (loadErrorRef.current == null) {
+              loadErrorRef.current =
+                loadError instanceof Error
+                  ? loadError
+                  : new Error(loadReviewDiffFallbackRef.current);
+            }
+            continue;
+          }
+
+          const resultBySnapshotGuid = new Map(
+            batchResponse.results.map((result) => [
+              result.file_snapshot_guid,
+              result,
+            ]),
           );
+          const results = batch.map((file) => {
+            try {
+              const result = resultBySnapshotGuid.get(file.snapshot.guid);
+              if (!result?.content) {
+                throw new Error(
+                  result?.error ??
+                    `Missing review content result for ${file.snapshot.file_path}`,
+                );
+              }
+              const diff = result.content;
+              const fileDiff = parseDiffFromFile(
+                {
+                  name: file.snapshot.file_path,
+                  contents: diff.old_content,
+                },
+                {
+                  name: file.snapshot.file_path,
+                  contents: diff.new_content,
+                },
+              );
+              pathByFileNameRef.current.set(fileDiff.name, file.snapshot.file_path);
+              fileSnapshotByPathRef.current.set(file.snapshot.file_path, file);
+              loadedContentsRef.current.set(file.snapshot.file_path, {
+                oldContent: diff.old_content,
+                newContent: diff.new_content,
+              });
+              return {
+                id: file.snapshot.file_path,
+                type: 'diff' as const,
+                fileDiff,
+                collapsed: collapseModeRef.current === 'collapsed',
+                cacheKey: file.snapshot.file_path,
+              };
+            } catch (loadError) {
+              console.error(
+                `Failed to load review diff for ${file.snapshot.file_path}:`,
+                loadError,
+              );
+              if (loadErrorRef.current == null) {
+                loadErrorRef.current =
+                  loadError instanceof Error
+                    ? loadError
+                    : new Error(loadReviewDiffFallbackRef.current);
+              }
+              return null;
+            }
+          });
 
           if (cancelled) return;
 
