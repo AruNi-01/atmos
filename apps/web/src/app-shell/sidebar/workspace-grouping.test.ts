@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   UNTAGGED_WORKSPACE_GROUP_KEY,
+  getWorkspaceLabelGroupKey,
   groupWorkspaces,
   type FlattenedWorkspaceEntry,
 } from "@/app-shell/sidebar/workspace-grouping";
@@ -109,5 +110,26 @@ describe("groupWorkspaces", () => {
     ]);
     expect(groups[0].items.map((item) => item.workspace.id)).toEqual(["urgent"]);
     expect(groups[3].items.map((item) => item.workspace.id)).toEqual(["low"]);
+  });
+
+  it("uses the available label order when a workspace's labels have no saved order", () => {
+    const multiLabelWorkspace = workspace({
+      labels: [labelB, labelA],
+    });
+
+    expect(
+      getWorkspaceLabelGroupKey(
+        multiLabelWorkspace,
+        [],
+        [labelA, labelB],
+      ),
+    ).toBe(labelA.id);
+    expect(
+      getWorkspaceLabelGroupKey(
+        multiLabelWorkspace,
+        [labelB.id],
+        [labelA, labelB],
+      ),
+    ).toBe(labelB.id);
   });
 });

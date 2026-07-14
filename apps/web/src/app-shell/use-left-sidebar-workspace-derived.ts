@@ -105,10 +105,14 @@ export function useLeftSidebarWorkspaceDerived({
             return currentWorkspace.priority;
         }
         if (groupingMode === 'label') {
-            return getWorkspaceLabelGroupKey(currentWorkspace, labelGroupOrder);
+            return getWorkspaceLabelGroupKey(
+                currentWorkspace,
+                labelGroupOrder,
+                workspaceLabels,
+            );
         }
         return null;
-    }, [currentWorkspace, groupingMode, labelGroupOrder]);
+    }, [currentWorkspace, groupingMode, labelGroupOrder, workspaceLabels]);
     const effectiveSelectedProjectSidebarId = useMemo(() => {
         if (!isProjectTwoColumn || projectModeProjects.length === 0) return null;
         const visibleIds = new Set(projectModeProjects.map((project) => project.id));

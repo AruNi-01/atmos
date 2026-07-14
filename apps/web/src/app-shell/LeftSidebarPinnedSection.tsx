@@ -14,6 +14,7 @@ import {
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
+import type { WorkspaceLabel } from "@/shared/types/domain";
 import {
   getWorkspaceLabelGroupKey,
   getWorkspaceTimeGroupLabel,
@@ -28,6 +29,7 @@ import {
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
 export function LeftSidebarPinnedSection({
+  availableLabels,
   groupingMode,
   labelGroupOrder,
   isCollapsed,
@@ -40,6 +42,7 @@ export function LeftSidebarPinnedSection({
   onDividerHoverChange,
   onUpdatePinOrder,
 }: {
+  availableLabels: WorkspaceLabel[];
   groupingMode: SidebarGroupingMode;
   labelGroupOrder: string[];
   isCollapsed: boolean;
@@ -98,7 +101,11 @@ export function LeftSidebarPinnedSection({
                   const StatusIcon = statusMeta.icon;
                   const priorityMeta = getWorkspacePriorityMeta(entry.workspace.priority);
                   const PriorityIcon = priorityMeta.icon;
-                  const labelGroupKey = getWorkspaceLabelGroupKey(entry.workspace, labelGroupOrder);
+                  const labelGroupKey = getWorkspaceLabelGroupKey(
+                    entry.workspace,
+                    labelGroupOrder,
+                    availableLabels,
+                  );
                   const primaryLabel = entry.workspace.labels.find((label) => label.id === labelGroupKey);
                   const rightContext = groupingMode === "status" ? (
                     <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />

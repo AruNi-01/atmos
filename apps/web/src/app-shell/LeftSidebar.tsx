@@ -21,7 +21,8 @@ import { WorkspaceScriptDialog } from '@/features/workspace/components/Workspace
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
 import { FileTreePanel } from '@/features/files/components/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { useComputerQueryScope } from '@/api/query/query-scope';
+import { isComputerQueryScopeCurrent } from '@/api/ws/request';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
@@ -75,6 +76,16 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const projects = useProjects();
     const workspaceLabels = useWorkspaceLabels();
     const bootstrapQuery = useProjectBootstrapQuery();
+    const {
+        activeInstanceId,
+        connectionEpoch,
+        relaySessionRevision,
+    } = useComputerQueryScope();
+    const workspaceSidebarSettingsScopeKey = JSON.stringify([
+        activeInstanceId,
+        connectionEpoch,
+        relaySessionRevision,
+    ]);
     const isLoading = bootstrapQuery.isPending || bootstrapQuery.isFetching;
     const hasLoadedProjects = !!bootstrapQuery.data;
 
@@ -140,7 +151,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
     const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
-    const [isGroupingSettingsReady, setIsGroupingSettingsReady] = useState(false);
+    const [loadedGroupingSettingsScopeKey, setLoadedGroupingSettingsScopeKey] = useState<string | null>(null);
+    const isGroupingSettingsReady =
+        loadedGroupingSettingsScopeKey === workspaceSidebarSettingsScopeKey;
+    const effectiveLabelGroupOrder = isGroupingSettingsReady
+        ? labelGroupOrder
+        : [];
     const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations'
@@ -159,6 +175,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const persistedLabelGroupOrderRef = useRef<string[]>([]);
     const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
     const labelGroupOrderWriteVersionRef = useRef(0);
+    const settingsScopeVersionRef = useRef(0);
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
@@ -179,41 +196,77 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     // Projects are now loaded by the TanStack Query bootstrap — no manual fetch needed.
 
     useEffect(() => {
-        useFunctionSettingsStore.getState().load()
-            .then((settings) => {
-                const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
-                let nextGroupingMode: SidebarGroupingMode = 'project';
-                if (
-                    groupingModeSetting === 'project' ||
-                    groupingModeSetting === 'status' ||
-                    groupingModeSetting === 'time' ||
-                    groupingModeSetting === 'label' ||
-                    groupingModeSetting === 'priority'
-                ) {
-                    nextGroupingMode = groupingModeSetting;
-                }
-                persistedGroupingModeRef.current = nextGroupingMode;
-                setGroupingMode(nextGroupingMode);
+        const scopeVersion = settingsScopeVersionRef.current + 1;
+        settingsScopeVersionRef.current = scopeVersion;
+        labelGroupOrderWriteVersionRef.current += 1;
+        labelGroupOrderWriteRef.current = Promise.resolve();
+        persistedGroupingModeRef.current = 'project';
+        persistedPinnedSectionCollapsedRef.current = false;
+        persistedLabelGroupOrderRef.current = [];
 
-                const savedLabelGroupOrder = settings.workspace_sidebar?.label_group_order;
-                const nextLabelGroupOrder = Array.isArray(savedLabelGroupOrder)
-                    ? savedLabelGroupOrder.filter((item): item is string => typeof item === 'string')
-                    : [];
-                persistedLabelGroupOrderRef.current = nextLabelGroupOrder;
-                setLabelGroupOrder(nextLabelGroupOrder);
+        queueMicrotask(() => {
+            if (settingsScopeVersionRef.current !== scopeVersion) return;
+            setGroupingMode('project');
+            setLabelGroupOrder([]);
+            setIsPinnedSectionCollapsed(false);
+            setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
+            setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
 
-                const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
-                let nextPinnedSectionCollapsed = false;
-                if (typeof pinnedSectionCollapsed === 'boolean') {
-                    nextPinnedSectionCollapsed = pinnedSectionCollapsed;
-                }
-                persistedPinnedSectionCollapsedRef.current = nextPinnedSectionCollapsed;
-                setIsPinnedSectionCollapsed(nextPinnedSectionCollapsed);
-            })
-            .finally(() => {
-                setIsGroupingSettingsReady(true);
-            });
-    }, []);
+            void functionSettingsApi.get()
+                .then((settings) => {
+                    if (settingsScopeVersionRef.current !== scopeVersion) return;
+
+                    const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
+                    let nextGroupingMode: SidebarGroupingMode = 'project';
+                    if (
+                        groupingModeSetting === 'project' ||
+                        groupingModeSetting === 'status' ||
+                        groupingModeSetting === 'time' ||
+                        groupingModeSetting === 'label' ||
+                        groupingModeSetting === 'priority'
+                    ) {
+                        nextGroupingMode = groupingModeSetting;
+                    }
+                    persistedGroupingModeRef.current = nextGroupingMode;
+                    setGroupingMode(nextGroupingMode);
+
+                    const savedLabelGroupOrder = settings.workspace_sidebar?.label_group_order;
+                    const nextLabelGroupOrder = Array.isArray(savedLabelGroupOrder)
+                        ? savedLabelGroupOrder.filter((item): item is string => typeof item === 'string')
+                        : [];
+                    persistedLabelGroupOrderRef.current = nextLabelGroupOrder;
+                    setLabelGroupOrder(nextLabelGroupOrder);
+
+                    const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
+                    const nextPinnedSectionCollapsed =
+                        typeof pinnedSectionCollapsed === 'boolean'
+                            ? pinnedSectionCollapsed
+                            : false;
+                    persistedPinnedSectionCollapsedRef.current = nextPinnedSectionCollapsed;
+                    setIsPinnedSectionCollapsed(nextPinnedSectionCollapsed);
+                    setKanbanFilters(parseWorkspaceKanbanFilters(settings));
+                    setSecondColumnKanbanCardProperties(
+                        parseWorkspaceKanbanCardProperties(settings),
+                    );
+                })
+                .catch((error) => {
+                    console.error('Failed to load workspace sidebar settings:', error);
+                })
+                .finally(() => {
+                    if (settingsScopeVersionRef.current === scopeVersion) {
+                        setLoadedGroupingSettingsScopeKey(
+                            workspaceSidebarSettingsScopeKey,
+                        );
+                    }
+                });
+        });
+
+        return () => {
+            if (settingsScopeVersionRef.current === scopeVersion) {
+                settingsScopeVersionRef.current += 1;
+            }
+        };
+    }, [workspaceSidebarSettingsScopeKey]);
 
     useEffect(() => {
         if (!isGroupingSettingsReady) return;
@@ -228,26 +281,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         persistedPinnedSectionCollapsedRef.current = isPinnedSectionCollapsed;
         void functionSettingsApi.update('workspace_sidebar', 'pinned_section_collapsed', isPinnedSectionCollapsed);
     }, [isPinnedSectionCollapsed, isGroupingSettingsReady]);
-
-    useEffect(() => {
-        useFunctionSettingsStore.getState().load()
-            .then((settings) => {
-                setKanbanFilters(parseWorkspaceKanbanFilters(settings));
-            })
-            .catch(() => {
-                setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
-            });
-    }, []);
-
-    useEffect(() => {
-        useFunctionSettingsStore.getState().load()
-            .then((settings) => {
-                setSecondColumnKanbanCardProperties(parseWorkspaceKanbanCardProperties(settings));
-            })
-            .catch(() => {
-                setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
-            });
-    }, []);
 
     useEffect(() => {
         if (projects.length > 0 && expandedProjects.length === 0) {
@@ -388,16 +421,27 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const handleLabelGroupOrderChange = useCallback((labelIds: string[]) => {
         setLabelGroupOrder(labelIds);
 
+        const expectedScope = {
+            activeInstanceId,
+            connectionEpoch,
+            relaySessionRevision,
+        };
+        const settingsScopeVersion = settingsScopeVersionRef.current;
         const writeVersion = labelGroupOrderWriteVersionRef.current + 1;
         labelGroupOrderWriteVersionRef.current = writeVersion;
         const write = labelGroupOrderWriteRef.current
             .catch(() => undefined)
             .then(async () => {
+                if (!isComputerQueryScopeCurrent(expectedScope)) return;
+                if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
                 const result = await functionSettingsApi.update(
                     'workspace_sidebar',
                     'label_group_order',
                     labelIds,
+                    expectedScope,
                 );
+                if (!isComputerQueryScopeCurrent(expectedScope)) return;
+                if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
                 if (!result.ok) {
                     throw new Error('Failed to persist workspace label group order');
                 }
@@ -406,13 +450,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         labelGroupOrderWriteRef.current = write;
 
         void write.catch((error) => {
+            if (!isComputerQueryScopeCurrent(expectedScope)) return;
             console.error('Failed to persist workspace label group order:', error);
+            if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
             if (labelGroupOrderWriteVersionRef.current !== writeVersion) return;
 
             const persistedOrder = persistedLabelGroupOrderRef.current;
             setLabelGroupOrder([...persistedOrder]);
         });
-    }, []);
+    }, [activeInstanceId, connectionEpoch, relaySessionRevision]);
 
     const handleAddProject = () => {
         setCreateProjectOpen(true);
@@ -530,7 +576,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         currentWorkspace,
         groupingMode,
         kanbanFilters,
-        labelGroupOrder,
+        labelGroupOrder: effectiveLabelGroupOrder,
         projectSidebarSelectionRouteKey,
         projects,
         selectedProjectSidebarId,
@@ -620,8 +666,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
         <LeftSidebarPinnedSection
+            availableLabels={workspaceLabels}
             groupingMode={groupingMode}
-            labelGroupOrder={labelGroupOrder}
+            labelGroupOrder={effectiveLabelGroupOrder}
             isCollapsed={isPinnedSectionCollapsed}
             isDividerHovered={isPinnedDividerHovered}
             isSortingDisabled={isPinnedSortingDisabled}

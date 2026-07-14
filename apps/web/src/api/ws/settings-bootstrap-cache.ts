@@ -1,8 +1,11 @@
 "use client";
 
-import { wsRequest } from "@/api/ws/request";
+import { wsRequestForComputerScope } from "@/api/ws/request";
 import { queryKeys } from "@/api/query/query-keys";
-import { getComputerQueryScope } from "@/api/query/query-scope";
+import {
+  getComputerQueryScope,
+  type ComputerQueryScope,
+} from "@/api/query/query-scope";
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import type {
   AgentBehaviourSettings,
@@ -43,8 +46,8 @@ function bumpSections(keys: SettingsBootstrapSection[]) {
   }
 }
 
-function bootstrapQueryKey() {
-  return queryKeys.computer.settingsBootstrap(getComputerQueryScope());
+function bootstrapQueryKey(scope: ComputerQueryScope = getComputerQueryScope()) {
+  return queryKeys.computer.settingsBootstrap(scope);
 }
 
 function readSnapshot(): SettingsBootstrapPayload | undefined {
@@ -65,23 +68,29 @@ function writeSnapshot(payload: SettingsBootstrapPayload): void {
 
 function patchSnapshot(
   updater: (current: SettingsBootstrapPayload | undefined) => SettingsBootstrapPayload | undefined,
+  scope?: ComputerQueryScope,
 ): void {
   try {
     const client = getAtmosWebQueryClient();
-    const key = bootstrapQueryKey();
+    const key = bootstrapQueryKey(scope);
     client.setQueryData<SettingsBootstrapPayload | undefined>(key, updater);
   } catch {
     // ignore
   }
 }
 
-async function fetchBootstrapFromServer(): Promise<SettingsBootstrapPayload> {
+async function fetchBootstrapFromServer(
+  scope: ComputerQueryScope = getComputerQueryScope(),
+): Promise<SettingsBootstrapPayload> {
   const requestMutationVersion = mutationVersion;
   const requestSectionVersions = { ...sectionVersions };
   // Capture scope key before await so a computer switch mid-flight cannot
   // merge against a different Query entry than the one that started this fetch.
-  const queryKey = bootstrapQueryKey();
-  const payload = await wsRequest<SettingsBootstrapPayload>("settings_bootstrap_get");
+  const queryKey = bootstrapQueryKey(scope);
+  const payload = await wsRequestForComputerScope<SettingsBootstrapPayload>(
+    scope,
+    "settings_bootstrap_get",
+  );
 
   if (mutationVersion === requestMutationVersion) {
     return payload;
@@ -113,19 +122,20 @@ async function fetchBootstrapFromServer(): Promise<SettingsBootstrapPayload> {
 }
 
 async function ensureSettingsBootstrap(): Promise<SettingsBootstrapPayload> {
+  const scope = getComputerQueryScope();
   if (typeof window === "undefined") {
-    return fetchBootstrapFromServer();
+    return fetchBootstrapFromServer(scope);
   }
   try {
     const client = getAtmosWebQueryClient();
-    const key = bootstrapQueryKey();
+    const key = bootstrapQueryKey(scope);
     return client.ensureQueryData({
       queryKey: key,
-      queryFn: fetchBootstrapFromServer,
+      queryFn: () => fetchBootstrapFromServer(scope),
       staleTime: 15_000,
     });
   } catch {
-    return fetchBootstrapFromServer();
+    return fetchBootstrapFromServer(scope);
   }
 }
 
@@ -150,7 +160,12 @@ export const settingsBootstrapCache = {
     return ensureSettingsBootstrap().then((payload) => payload.agent_behaviour_settings);
   },
 
-  patchFunctionSetting: (functionName: string, key: string, value: unknown): void => {
+  patchFunctionSetting: (
+    functionName: string,
+    key: string,
+    value: unknown,
+    scope?: ComputerQueryScope,
+  ): void => {
     bumpSections(["function_settings"]);
     patchSnapshot((current) => {
       if (!current) return current;
@@ -167,7 +182,7 @@ export const settingsBootstrapCache = {
           [functionName]: nextSection,
         },
       };
-    });
+    }, scope);
   },
 
   setLlmProviders: (config: LlmProvidersFile): void => {

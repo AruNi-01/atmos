@@ -323,6 +323,48 @@ export function LeftSidebarDragOverlay({
   );
 }
 
+function WorkspaceGroupMarker({
+  group,
+  groupingMode,
+}: {
+  group: WorkspaceGroup;
+  groupingMode: SidebarGroupingMode;
+}) {
+  const statusMeta = groupingMode === "status"
+    ? getWorkspaceWorkflowStatusMeta(
+        group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0],
+      )
+    : null;
+  const priorityMeta = groupingMode === "priority"
+    ? getWorkspacePriorityMeta(
+        group.key as Parameters<typeof getWorkspacePriorityMeta>[0],
+      )
+    : null;
+  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon;
+
+  if (GroupIcon) {
+    return (
+      <GroupIcon
+        className={cn(
+          "size-3.5 shrink-0",
+          statusMeta?.className ?? priorityMeta?.className,
+        )}
+      />
+    );
+  }
+
+  if (groupingMode === "label" && group.color) {
+    return (
+      <span
+        className="size-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: group.color }}
+      />
+    );
+  }
+
+  return null;
+}
+
 function SortableWorkspaceGroupSection({
   group,
   groupingMode,
@@ -353,17 +395,6 @@ function SortableWorkspaceGroupSection({
     transition,
     isDragging,
   } = useSortable({ id: group.key, disabled: !isSortableLabel });
-  const statusMeta = groupingMode === "status"
-    ? getWorkspaceWorkflowStatusMeta(
-        group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0],
-      )
-    : null;
-  const priorityMeta = groupingMode === "priority"
-    ? getWorkspacePriorityMeta(
-        group.key as Parameters<typeof getWorkspacePriorityMeta>[0],
-      )
-    : null;
-  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon;
 
   return (
     <section
@@ -380,19 +411,7 @@ function SortableWorkspaceGroupSection({
           onClick={toggleWorkspaceGroup}
           className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
         >
-          {GroupIcon ? (
-            <GroupIcon
-              className={cn(
-                "size-3.5 shrink-0",
-                statusMeta?.className ?? priorityMeta?.className,
-              )}
-            />
-          ) : groupingMode === "label" && group.color ? (
-            <span
-              className="size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: group.color }}
-            />
-          ) : null}
+          <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
           <span className="truncate">{group.label}</span>
           <ChevronRight
             className={cn(
@@ -519,13 +538,6 @@ export function GroupedWorkspaceTwoColumnLeftContent({
     <div className="scrollbar-on-hover h-full overflow-y-auto px-2 py-1.5">
       <div className="space-y-1">
         {groups.map((group) => {
-          const statusMeta = groupingMode === "status"
-            ? getWorkspaceWorkflowStatusMeta(group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0])
-            : null;
-          const priorityMeta = groupingMode === "priority"
-            ? getWorkspacePriorityMeta(group.key as Parameters<typeof getWorkspacePriorityMeta>[0])
-            : null;
-          const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon;
           const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
 
           return (
@@ -540,19 +552,7 @@ export function GroupedWorkspaceTwoColumnLeftContent({
                   : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
               )}
             >
-              {GroupIcon ? (
-                <GroupIcon
-                  className={cn(
-                    "size-3.5 shrink-0",
-                    statusMeta?.className ?? priorityMeta?.className,
-                  )}
-                />
-              ) : groupingMode === "label" && group.color ? (
-                <span
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: group.color }}
-                />
-              ) : null}
+              <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
               <span className="truncate">{group.label}</span>
               <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
                 {group.items.length}

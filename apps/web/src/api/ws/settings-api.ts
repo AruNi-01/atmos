@@ -1,7 +1,11 @@
 "use client";
 
-import { wsRequest } from "@/api/ws/request";
+import { wsRequest, wsRequestForComputerScope } from "@/api/ws/request";
 import { settingsBootstrapCache } from "@/api/ws/settings-bootstrap-cache";
+import {
+  getComputerQueryScope,
+  type ComputerQueryScope,
+} from "@/api/query/query-scope";
 import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
 export interface FunctionSettings {
@@ -122,14 +126,20 @@ export const functionSettingsApi = {
     functionName: string,
     key: string,
     value: unknown,
+    expectedScope?: ComputerQueryScope,
   ): Promise<{ ok: boolean }> => {
-    const result = await wsRequest<{ ok: boolean }>("function_settings_update", {
-      function_name: functionName,
-      key,
-      value,
-    });
+    const scope = expectedScope ?? getComputerQueryScope();
+    const result = await wsRequestForComputerScope<{ ok: boolean }>(
+      scope,
+      "function_settings_update",
+      {
+        function_name: functionName,
+        key,
+        value,
+      },
+    );
     if (result.ok) {
-      settingsBootstrapCache.patchFunctionSetting(functionName, key, value);
+      settingsBootstrapCache.patchFunctionSetting(functionName, key, value, scope);
     }
     return result;
   },

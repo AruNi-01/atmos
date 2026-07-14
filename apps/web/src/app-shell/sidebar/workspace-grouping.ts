@@ -123,20 +123,14 @@ function sortEntriesByRecency(items: FlattenedWorkspaceEntry[]): FlattenedWorksp
   });
 }
 
-function getOrderedLabels(
-  items: FlattenedWorkspaceEntry[],
-  availableLabels: WorkspaceLabel[],
+function orderWorkspaceLabels(
+  labels: WorkspaceLabel[],
   labelGroupOrder: string[],
 ): WorkspaceLabel[] {
   const labelsById = new Map<string, WorkspaceLabel>();
-  for (const label of availableLabels) {
-    labelsById.set(label.id, label);
-  }
-  for (const item of items) {
-    for (const label of item.workspace.labels) {
-      if (!labelsById.has(label.id)) {
-        labelsById.set(label.id, label);
-      }
+  for (const label of labels) {
+    if (!labelsById.has(label.id)) {
+      labelsById.set(label.id, label);
     }
   }
 
@@ -151,18 +145,32 @@ function getOrderedLabels(
   return ordered;
 }
 
+function getOrderedLabels(
+  items: FlattenedWorkspaceEntry[],
+  availableLabels: WorkspaceLabel[],
+  labelGroupOrder: string[],
+): WorkspaceLabel[] {
+  return orderWorkspaceLabels(
+    [
+      ...availableLabels,
+      ...items.flatMap((item) => item.workspace.labels),
+    ],
+    labelGroupOrder,
+  );
+}
+
 export function getWorkspaceLabelGroupKey(
   workspace: Workspace,
   labelGroupOrder: string[],
+  availableLabels: WorkspaceLabel[] = [],
 ): string {
   if (workspace.labels.length === 0) return UNTAGGED_WORKSPACE_GROUP_KEY;
 
-  const orderById = new Map(labelGroupOrder.map((labelId, index) => [labelId, index]));
-  return [...workspace.labels].sort((a, b) => {
-    const aOrder = orderById.get(a.id) ?? Number.MAX_SAFE_INTEGER;
-    const bOrder = orderById.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-    return aOrder - bOrder;
-  })[0].id;
+  const workspaceLabelIds = new Set(workspace.labels.map((label) => label.id));
+  return orderWorkspaceLabels(
+    [...availableLabels, ...workspace.labels],
+    labelGroupOrder,
+  ).find((label) => workspaceLabelIds.has(label.id))?.id ?? workspace.labels[0].id;
 }
 
 export function groupWorkspaces(
