@@ -1,0 +1,19 @@
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_12de46b8739032::t_eeb914f3a4e058 225-226,228,270,272-274,276-285,289-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c2ce687f7cd6187aefd8b21cccf37f67993246d0",
+  "prompts": {},
+  "sessions": {
+    "s_12de46b8739032": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "31083709-c189-479b-af4a-eaacbcdbfb4e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
