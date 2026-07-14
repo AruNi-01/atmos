@@ -361,7 +361,7 @@ export function ChangesCodeView({
               fileDiff: result.fileDiff,
               collapsed: collapseModeRef.current === 'collapsed',
               cacheKey: result.id,
-            });
+            } as CodeViewItem<CopyAnnotationMeta> & { cacheKey: string });
           }
 
           if (codeItems.length === 0) continue;

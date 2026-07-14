@@ -356,7 +356,7 @@ export function PRFilesTab({
         fileDiff,
         annotations,
         cacheKey: file.filename,
-      });
+      } as CodeViewItem<PrAnnotationMeta> & { cacheKey: string });
     }
 
     return {

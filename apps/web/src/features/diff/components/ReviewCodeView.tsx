@@ -346,7 +346,7 @@ export function ReviewCodeView({
                 fileDiff,
                 collapsed: collapseModeRef.current === 'collapsed',
                 cacheKey: file.snapshot.file_path,
-              };
+              } as CodeViewItem<ReviewAnnotationMeta> & { cacheKey: string };
             } catch (loadError) {
               console.error(
                 `Failed to load review diff for ${file.snapshot.file_path}:`,
