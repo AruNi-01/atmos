@@ -1,0 +1,195 @@
+apps/web/src/features/github/hooks/use-github.ts
+  s_28f04f1580c3ad::t_e9b5e3e37c3ab9 36
+apps/web/src/api/query/__tests__/reconnect-invalidation.test.ts
+  s_28f04f1580c3ad::t_bd958d0bdfa3cd 17,22,26-33
+apps/web/src/providers/app/query-provider.tsx
+  s_ecaafc6aeafe83::t_fe3893f0c25891 3,5-8,16-22
+apps/web/src/features/files/hooks/use-file-tree-query.ts
+  s_28f04f1580c3ad::t_49b9763980cbf6 24-28,38-43,50-54,65-70,81-86
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  s_28f04f1580c3ad::t_ad081bc06daef0 98
+  s_28f04f1580c3ad::t_c78e5713448897 14
+  s_28f04f1580c3ad::t_1af042a88cafd1 91,95-97
+apps/web/src/features/agent/hooks/use-agent-registry-query.ts
+  s_28f04f1580c3ad::t_c844c3a0bce582 4,11-12,44-57
+  s_28f04f1580c3ad::t_34581d8d65a962 58
+apps/web/src/features/project/store/use-project-store.ts
+  s_28f04f1580c3ad::t_0de5a88c20bed6 455-456,519,524-525
+  s_28f04f1580c3ad::t_0f113a8d9fdebe 128-140
+  s_844731516e1186::t_8c4bdb09ec673f 6,31,35-36
+  s_28f04f1580c3ad::t_67ed2fbcb9f7a3 34
+  s_844731516e1186::t_49a23af47f1e7f 164,176-177,194,205-206,224,229-230,252,304-305,334,337-338,365,422-423,453,472-473,521,534,538-539,568,572-573,604,608-609,635,639-640,666,670-671,696,700-701,730,734-735
+apps/web/src/features/automations/hooks/use-automation-websocket-sync.ts
+  s_28f04f1580c3ad::t_91dd3500eb6a95 31-41
+apps/web/src/api/query/reconnect-invalidation.ts
+  s_28f04f1580c3ad::t_6f2c2276ca6405 13,18-25
+apps/web/src/features/agent/hooks/use-agent-manager.ts
+  s_28f04f1580c3ad::t_f5b1de8daf0550 59-63
+  s_28f04f1580c3ad::t_b5ba138b76b91f 12
+  s_28f04f1580c3ad::t_57a254719a85eb 148
+apps/web/src/features/project/store/project-store-order-actions.ts
+  s_844731516e1186::t_93806c7b1f6091 4,11-12,14-15,26-27,31-32,50-52,65,69-70,98,102-103
+apps/web/src/app-shell/Footer.tsx
+  s_28f04f1580c3ad::t_03cedd1ef39d07 496-497
+apps/web/src/features/automations/hooks/use-automations-query.ts
+  s_28f04f1580c3ad::t_7e1423f49b765b 27-29
+apps/web/src/features/diff/components/DiffViewer.tsx
+  s_28f04f1580c3ad::t_b74063b9b831e2 153,157-159
+  s_28f04f1580c3ad::t_b3befea2e65298 21
+  s_28f04f1580c3ad::t_6df8bfd7bf9cc5 160
+apps/web/src/features/local-services/hooks/use-local-services-query.ts
+  s_28f04f1580c3ad::t_3912638380e666 16
+apps/web/src/features/project/hooks/use-project-bootstrap-query.ts
+  s_28f04f1580c3ad::t_735d26772027db 64-68
+  s_844731516e1186::t_da25d890465038 8,19-60,90,97,105
+  s_ecaafc6aeafe83::t_74bb95dc641324 83-84
+  s_28f04f1580c3ad::t_8bb6070e25a7cf 103-104
+  s_28f04f1580c3ad::t_baea85d632821b 137-138
+apps/web/src/features/files/lib/files-query-options.ts
+  s_28f04f1580c3ad::t_ecb4b185d90571 21,29,37,42-45,54,62,70,79,84,96,101
+apps/web/src/features/code-review/hooks/use-review-sessions-query.ts
+  s_28f04f1580c3ad::t_1088592d5160be 3,7
+apps/web/src/api/ws/settings-bootstrap-cache.ts
+  s_3f40e4b9bde1b5::t_20f0b15805669a 81-83,90-95
+  s_28f04f1580c3ad::t_16fe7d37010295 156-157,164,176,184,192,194,197
+  s_28f04f1580c3ad::t_7bf4fccabde5d0 212-213
+apps/web/src/api/query/query-keys.ts
+  s_28f04f1580c3ad::t_87d329b2763f47 252-256,262-263
+  s_28f04f1580c3ad::t_9c924a669ae5b0 230-236,246
+apps/web/src/features/project/store/project-store-label-actions.ts
+  s_844731516e1186::t_ede184785145c0 4,10,12,44,60,64-65,76,80-81,100,103-104,123,127-128,154,158-159
+  s_28f04f1580c3ad::t_162e9e47b032c6 48-56
+apps/web/src/features/usage/hooks/use-token-usage-query.ts
+  s_28f04f1580c3ad::t_d36b8e13c37a19 11-14
+  s_28f04f1580c3ad::t_848624ff94a4f9 18-22
+apps/web/src/app-shell/RightSidebar.tsx
+  s_28f04f1580c3ad::t_7cd23d2c51f7c9 247
+  s_28f04f1580c3ad::t_0ff26920641fd5 256,260-262
+  s_28f04f1580c3ad::t_028126ef331eea 263
+  s_28f04f1580c3ad::t_f61d986286959b 14
+  s_28f04f1580c3ad::t_19848ece576758 456,461
+apps/web/src/features/git/hooks/use-git-branches-query.ts
+  s_28f04f1580c3ad::t_72650d37415e1d 16-18
+apps/web/src/features/github/lib/github-query-options.ts
+  s_28f04f1580c3ad::t_e1253b0bf2a312 55-61
+  s_28f04f1580c3ad::t_e8527299ec4932 31,41,49,71
+apps/web/src/features/github/hooks/use-github-pr-query.ts
+  s_28f04f1580c3ad::t_c1e411d063b4ff 38,44-54
+  s_28f04f1580c3ad::t_6b1745f944aa25 19,22-23
+  s_28f04f1580c3ad::t_b56e97f951c6b2 20-21,31-35,56
+apps/web/src/features/git/hooks/use-git-file-diff-query.ts
+  s_28f04f1580c3ad::t_54636cf9ce952c 29-31
+apps/web/src/features/skills/hooks/use-skills-query.ts
+  s_28f04f1580c3ad::t_1c8f61e41d9710 4,8-9,30-39
+  s_28f04f1580c3ad::t_9c45c91eff4200 40
+apps/web/src/features/git/hooks/use-git-changed-files-query.ts
+  s_28f04f1580c3ad::t_f67a643cc1c14c 32-34
+apps/web/src/api/ws/usage-api.ts
+  s_3f40e4b9bde1b5::t_ec6434c4f5c56c 148-153
+apps/web/src/features/git/store/use-git-info-store.ts
+  s_28f04f1580c3ad::t_ae12a4b81730c7 145-149
+apps/web/src/features/usage/lib/usage-query-events.ts
+  s_3f40e4b9bde1b5::t_25d1846dd7ffe6 15-18
+apps/web/src/features/system/hooks/use-system-status-queries.ts
+  s_28f04f1580c3ad::t_e14df2c4de8236 17,23,29,35,41
+apps/web/src/features/local-services/components/LocalServicesPreviewPanel.tsx
+  s_28f04f1580c3ad::t_5a3b4267ac246f 4,12,14,29-31,51-60,78,94
+apps/web/src/features/git/hooks/use-git-status-query.ts
+  s_28f04f1580c3ad::t_c98e7981555199 19-21
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_3f40e4b9bde1b5::t_89ad27a4c99456 431-433,441
+apps/web/src/features/system/lib/system-query-options.ts
+  s_28f04f1580c3ad::t_6837fd49a1af7f 11,16,25,30,39,44,53,58,67,72
+apps/web/src/features/usage/hooks/use-usage-overview-query.ts
+  s_3f40e4b9bde1b5::t_981b3a8c551ca9 16-20,30-31
+apps/web/src/api/query/__tests__/usage-query-events.test.ts
+  s_3f40e4b9bde1b5::t_ba49eb35c27511 49-64
+apps/web/src/shared/hooks/use-tmux-check.ts
+  s_28f04f1580c3ad::t_07bdd480dd417c 47,49
+apps/web/src/app-shell/TokenUsageDialog.tsx
+  s_28f04f1580c3ad::t_21ef5e3862b435 46
+  s_28f04f1580c3ad::t_afb9ce74a4cf85 138-139
+  s_28f04f1580c3ad::t_9d86f0a11609d3 331-347
+apps/web/src/features/git/lib/git-query-options.ts
+  s_28f04f1580c3ad::t_5282fa98219ed4 98,103,115,120,137,142,158,163
+  s_28f04f1580c3ad::t_b5270d7feae111 11,18-21,24-27,29-37,52
+  s_28f04f1580c3ad::t_b2b0bb2e39a3f8 22-23,28,38-39,44-51
+  s_28f04f1580c3ad::t_7dc32ebc4bf44b 53
+apps/web/src/features/project/lib/project-query-options.ts
+  s_28f04f1580c3ad::t_088761991f95c7 40,48
+apps/web/src/features/git/store/use-git-store.ts
+  s_28f04f1580c3ad::t_79fd53d8219c0f 149-158,184-195
+apps/web/src/features/canvas/components/widgets/CanvasChangesWidget.tsx
+  s_28f04f1580c3ad::t_1934d0b3e866bb 27
+  s_28f04f1580c3ad::t_d90bb873c00708 80
+  s_28f04f1580c3ad::t_cb0ab29287c6e0 102
+  s_28f04f1580c3ad::t_736376a9495c73 186,191
+  s_28f04f1580c3ad::t_ca10e72e017c0c 95,99-101
+apps/web/src/features/skills/components/SkillsView.tsx
+  s_28f04f1580c3ad::t_37acf34b446288 14
+  s_28f04f1580c3ad::t_4719d90b18dcd8 60,64
+  s_28f04f1580c3ad::t_a59f1fb4517903 321-325,329
+apps/web/src/app-shell/UsagePopover.tsx
+  s_3f40e4b9bde1b5::t_ea0307c7c02827 610
+  s_3f40e4b9bde1b5::t_a49356658d91a1 244-245
+apps/web/src/api/query/api-operation-inventory.ts
+  s_28f04f1580c3ad::t_2be8dfe3f6e458 259
+apps/web/src/features/settings/components/LabelSettingsSection.tsx
+  s_28f04f1580c3ad::t_ba92789c7fde7c 110,113-123,126-127,129
+  s_28f04f1580c3ad::t_6d9cc9095b9000 155
+  s_28f04f1580c3ad::t_0a05ead58fb0a9 519-520
+apps/web/src/features/local-services/lib/local-services-query-options.ts
+  s_28f04f1580c3ad::t_9a0eb590ce05b8 28-29
+  s_28f04f1580c3ad::t_26f928993ddd72 19,25,30-32
+apps/web/src/app-shell/sidebar/CommitActions.tsx
+  s_28f04f1580c3ad::t_6e569dfdfd8b39 242
+apps/web/src/features/code-review/lib/review-query-options.ts
+  s_28f04f1580c3ad::t_a858d5ccd5a334 11-16
+apps/web/src/features/automations/hooks/use-automations.ts
+  s_28f04f1580c3ad::t_8bf473b9e33714 70,72,75-78
+  s_28f04f1580c3ad::t_3ec5cef77dac67 7
+apps/web/src/features/project/store/project-store-types.ts
+  s_28f04f1580c3ad::t_662413d875f4c3 62
+apps/web/src/features/usage/lib/token-usage-query-options.ts
+  s_28f04f1580c3ad::t_f8ebe4ce537080 25,30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "dece1bcd30741e21fe5db6ce9ed397432fe3c441",
+  "prompts": {},
+  "sessions": {
+    "s_28f04f1580c3ad": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4e92bb0e-6960-42b5-a5dc-efed918079f8",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_3f40e4b9bde1b5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "cf24ce8b-609c-43f0-b02b-91b4e016db41",
+        "model": "cursor-grok-4.5-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_844731516e1186": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a4f64af8-1e69-4092-94de-73f09feed8a9",
+        "model": "cursor-grok-4.5-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ecaafc6aeafe83": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "fc56eea8-5069-4c23-abe8-26484e6abdc2",
+        "model": "cursor-grok-4.5-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
