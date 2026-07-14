@@ -1,0 +1,75 @@
+apps/web/src/features/automations/hooks/use-automation-run-history-state.ts
+  s_28f04f1580c3ad::t_11d652e959d93e 4,8-12,20,74-81,91,96,99-153,157-159,162,175,223,237
+apps/web/src/features/diff/components/DiffViewer.tsx
+  s_28f04f1580c3ad::t_039647f9e2868e 15
+  s_28f04f1580c3ad::t_980316475d6891 167-194
+  s_28f04f1580c3ad::t_7b9bac442123de 373,375-376,378-382,384-392,394-403,409-412,414-422,424-455
+  s_28f04f1580c3ad::t_166253e882f541 21-22
+apps/web/src/api/query/computer-query-options.ts
+  s_28f04f1580c3ad::t_e553c1eb169258 3-8,32,38,40-47,65-89
+  s_28f04f1580c3ad::t_1cf378e82fdf9b 31,36,39
+  s_28f04f1580c3ad::t_489a0a27a277b3 33-35,37
+specs/APP/APP-035_tanstack-query-data-layer/TEST.md
+  s_28f04f1580c3ad::t_161ad96e4dc31b 507
+  s_28f04f1580c3ad::t_c64635aefd4ff4 512
+  s_28f04f1580c3ad::t_d7edb3cffc615d 480
+specs/APP/APP-035_tanstack-query-data-layer/PROGRESS.md
+  s_28f04f1580c3ad::t_4534bf3f48cd16 28
+  s_28f04f1580c3ad::t_18822e8aa1491e 16
+specs/APP/APP-035_tanstack-query-data-layer/TECH.md
+  s_28f04f1580c3ad::t_9093838d2b5544 462
+apps/web/src/features/github/lib/github-query-options.ts
+  s_28f04f1580c3ad::t_08219e06c3cceb 15-23
+  s_28f04f1580c3ad::t_07d25b79f18948 49-50
+  s_28f04f1580c3ad::t_6529d5b56b3a98 113-114,140-141
+  s_28f04f1580c3ad::t_ad0dce925389f0 4-7,40-48,51-53,101-112,115-139,142-206
+  s_28f04f1580c3ad::t_d093add4d010e5 24
+apps/web/src/features/github/components/PRDetailModal.tsx
+  s_28f04f1580c3ad::t_14c1a920a4e612 95-96
+apps/web/src/features/git/lib/git-query-options.ts
+  s_28f04f1580c3ad::t_7fc5107b21afd2 142
+apps/web/src/api/query/query-keys.ts
+  s_28f04f1580c3ad::t_58829bfae12c39 249-304
+apps/web/src/features/git/hooks/use-git-file-diff-query.ts
+  s_28f04f1580c3ad::t_ed6e22d92a6d85 24,31
+apps/web/src/api/query/api-operation-inventory.ts
+  s_28f04f1580c3ad::t_9a6c252e939443 188
+  s_28f04f1580c3ad::t_ec87c9b290dde1 185-187,189
+  s_28f04f1580c3ad::t_cd1be2ecc476af 329
+  s_28f04f1580c3ad::t_d6450385d21a72 390-429
+apps/web/src/features/github/hooks/use-github.ts
+  s_28f04f1580c3ad::t_f26bc26b6f5c84 1,3-12,92-104,107-108,110-114,117-129,132-135,137-142,145-156,158-161,164-176,179-180,182-186,203
+apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx
+  s_28f04f1580c3ad::t_ab58af99e1a2bf 667-679
+  s_28f04f1580c3ad::t_5b9b993411f3f7 895-897,899-904,906-954,956-958,960-962
+  s_28f04f1580c3ad::t_1c6971b0238271 35-36,41-47
+  s_28f04f1580c3ad::t_20ec18012261a0 660-665
+  s_4eb0d6f28cd85c::t_4ab3a86cedf462 666
+apps/web/src/features/github/hooks/use-github-pr-query.ts
+  s_28f04f1580c3ad::t_9fd11012a70903 3-4,11-14,17,44-119,125-159
+  s_28f04f1580c3ad::t_5d19f84579d5b2 160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9910203974b1940d838a7d21bcea71f811dd807f",
+  "prompts": {},
+  "sessions": {
+    "s_28f04f1580c3ad": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4e92bb0e-6960-42b5-a5dc-efed918079f8",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_4eb0d6f28cd85c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e699b68b-663b-4def-aad2-1dca637bd1b3",
+        "model": "gpt-5.6-sol-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
