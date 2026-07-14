@@ -10,10 +10,19 @@ export function reconnectInvalidationKeys(scope: ComputerQueryScope): QueryKey[]
     queryKeys.computer.system(scope),
     queryKeys.computer.settingsBootstrap(scope),
     queryKeys.computer.usageOverview(scope),
+    [...queryKeys.computer.root(scope), "tokenUsage"] as const,
     queryKeys.computer.projectBootstrap(scope),
     queryKeys.computer.filesRoot(scope),
     // Git: invalidate all repos via prefix — individual repo paths are unknown at reconnect time.
     queryKeys.computer.gitAll(scope),
+    queryKeys.computer.skillsList(scope),
+    queryKeys.computer.automationList(scope),
+    [...queryKeys.computer.root(scope), "automations"] as const,
+    [...queryKeys.computer.root(scope), "github"] as const,
+    [...queryKeys.computer.root(scope), "review"] as const,
+    [...queryKeys.computer.root(scope), "localModels"] as const,
+    [...queryKeys.computer.root(scope), "localServices"] as const,
+    [...queryKeys.computer.root(scope), "agentRegistry"] as const,
   ];
 }
 

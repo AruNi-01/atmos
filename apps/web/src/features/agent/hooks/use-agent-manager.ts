@@ -9,6 +9,7 @@ import {
   useAgentRegistryListQuery,
   useCustomAgentListQuery,
   useInvalidateAgentRegistry,
+  forceRefreshAgentRegistry,
 } from "@/features/agent/hooks/use-agent-registry-query";
 
 export function useAgentManager(query: string) {
@@ -55,7 +56,11 @@ export function useAgentManager(query: string) {
   }, []);
 
   /** Invalidate registry queries after a mutation. Used by AgentManagerView for custom-agent save. */
-  const loadData = React.useCallback(async (_forceRefresh?: boolean) => {
+  const loadData = React.useCallback(async (forceRefresh?: boolean) => {
+    if (forceRefresh) {
+      await forceRefreshAgentRegistry();
+      return;
+    }
     invalidateRegistry();
   }, [invalidateRegistry]);
 
@@ -140,7 +145,7 @@ export function useAgentManager(query: string) {
   };
 
   const handleRefresh = () => {
-    invalidateRegistry();
+    void loadData(true);
   };
 
   const handleRemoveRegistry = async (registryId: string) => {

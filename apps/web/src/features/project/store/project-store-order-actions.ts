@@ -1,14 +1,18 @@
 'use client';
 
 import { toastManager } from '@workspace/ui';
+import { getComputerQueryScope } from '@/api/query/query-scope';
 import { wsProjectApi, wsWorkspaceApi } from '@/api/ws-api';
 import type { Project, Workspace } from '@/shared/types/domain';
 import { waitForConnection } from './project-store-connection';
 import { sortWorkspaces } from './project-store-mappers';
 import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
 import {
+  cancelProjectBootstrapQuery,
+  getProjectBootstrapSnapshot,
   invalidateProjectBootstrap,
-  patchProjectBootstrapSnapshot,
+  patchProjectBootstrapSnapshotAt,
+  setProjectBootstrapSnapshotAt,
 } from '@/features/project/hooks/use-project-bootstrap-query';
 
 type ProjectStorePinOrderActions = Pick<ProjectStore, 'updateWorkspacePinOrder'>;
@@ -19,10 +23,13 @@ export function createProjectStorePinOrderActions(
 ): ProjectStorePinOrderActions {
   return {
     updateWorkspacePinOrder: async (orderedWorkspaceIds) => {
+      const scope = getComputerQueryScope();
+      const previousSnapshot = getProjectBootstrapSnapshot();
       const orderById = new Map(orderedWorkspaceIds.map((id, index) => [id, index]));
 
       // Optimistic update first
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((project) => ({
           ...project,
@@ -40,6 +47,9 @@ export function createProjectStorePinOrderActions(
         await wsWorkspaceApi.updatePinOrder(orderedWorkspaceIds);
       } catch (error) {
         console.error('Error updating pinned order:', error);
+        if (previousSnapshot) {
+          setProjectBootstrapSnapshotAt(scope, previousSnapshot);
+        }
       }
     },
   };
@@ -52,10 +62,12 @@ export function createProjectStoreReorderActions(
   return {
     reorderProjects: async (newOrder: Project[]) => {
       try {
+        const scope = getComputerQueryScope();
         await waitForConnection();
 
         // Optimistic update
-        patchProjectBootstrapSnapshot((current) => ({
+        await cancelProjectBootstrapQuery(scope);
+        patchProjectBootstrapSnapshotAt(scope, (current) => ({
           ...current,
           projects: newOrder,
         }));
@@ -83,10 +95,12 @@ export function createProjectStoreReorderActions(
 
     reorderWorkspaces: async (projectId: string, newOrder: Workspace[]) => {
       try {
+        const scope = getComputerQueryScope();
         await waitForConnection();
 
         // Optimistic update
-        patchProjectBootstrapSnapshot((current) => ({
+        await cancelProjectBootstrapQuery(scope);
+        patchProjectBootstrapSnapshotAt(scope, (current) => ({
           ...current,
           projects: current.projects.map((project) =>
             project.id === projectId ? { ...project, workspaces: newOrder } : project,

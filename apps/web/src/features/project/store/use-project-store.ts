@@ -3,6 +3,7 @@
 import { createTranslator } from 'next-intl';
 import { create } from 'zustand';
 import { WorkspacePriority, WorkspaceWorkflowStatus, type Project } from '@/shared/types/domain';
+import { getComputerQueryScope } from '@/api/query/query-scope';
 import { wsProjectApi, wsScriptApi, wsWorkspaceApi } from '@/api/ws-api';
 import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { toastManager } from '@workspace/ui';
@@ -27,9 +28,12 @@ import {
 } from './project-store-subscriptions';
 import type { ProjectStore } from './project-store-types';
 import {
+  cancelProjectBootstrapQuery,
   ensureProjectBootstrap,
   getProjectBootstrapSnapshot,
-  patchProjectBootstrapSnapshot,
+  invalidateProjectBootstrap,
+  patchProjectBootstrapSnapshotAt,
+  setProjectBootstrapSnapshotAt,
 } from '@/features/project/hooks/use-project-bootstrap-query';
 
 export type { WorkspaceSetupProgress } from './project-store-setup-progress';
@@ -121,7 +125,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         return true;
       }
 
-      await get().fetchProjects();
+      // Force a network refetch — ensureQueryData would no-op within staleTime and
+      // miss workspaces created externally (CLI, agents, other windows).
+      set({ isLoading: true });
+      try {
+        await invalidateProjectBootstrap();
+        await ensureProjectBootstrap();
+        set({ hasLoadedProjects: true });
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      } finally {
+        set({ isLoading: false });
+      }
+
       if (hasWorkspace(getProjectBootstrapSnapshot()?.projects ?? [], workspaceId)) {
         return true;
       }
@@ -145,6 +161,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addProject: async (data) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
 
       const newProjectModel = await wsProjectApi.create({
@@ -156,7 +173,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       const newProject = mapProjectModel(newProjectModel, []);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: [...current.projects, newProject],
       }));
@@ -173,6 +191,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateProject: async (id, data) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
 
       await wsProjectApi.update({
@@ -183,7 +202,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         sidebarOrder: data.sidebarOrder,
       });
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === id ? { ...p, ...data } : p
@@ -201,11 +221,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   deleteProject: async (id) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
 
       await wsProjectApi.delete(id);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.filter((p) => p.id !== id),
       }));
@@ -227,6 +249,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addWorkspace: async (data) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
 
       const newWorkspaceModel = await wsWorkspaceApi.create({
@@ -278,7 +301,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         },
       }));
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === data.projectId
@@ -307,9 +331,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addWorkspacesToProject: async (projectId: string, workspaceGuids: string[]) => {
     try {
+      const scope = getComputerQueryScope();
       const mappedWorkspaces = await wsWorkspaceApi.listProjectWorkspacesFiltered(projectId, workspaceGuids);
 
-      patchProjectBootstrapSnapshot((current) => {
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => {
         const project = current.projects.find((p) => p.id === projectId);
         if (!project) return current;
 
@@ -336,6 +362,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   quickAddWorkspace: async (projectId: string) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
 
       const project = getProjectBootstrapSnapshot()?.projects.find((p) => p.id === projectId);
@@ -392,7 +419,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         },
       }));
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId
@@ -422,7 +450,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   deleteWorkspace: async (projectId, workspaceId) => {
+    const scope = getComputerQueryScope();
     const previousSnapshot = getProjectBootstrapSnapshot();
+    const previousActiveWorkspaceId = get().activeWorkspaceId;
+    const previousSetupProgress = get().setupProgress;
     const workspaceBeingDeleted = previousSnapshot?.projects
       .find((project) => project.id === projectId)
       ?.workspaces.find((workspace) => workspace.id === workspaceId);
@@ -438,7 +469,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       };
     });
 
-    patchProjectBootstrapSnapshot((current) => ({
+    await cancelProjectBootstrapQuery(scope);
+    patchProjectBootstrapSnapshotAt(scope, (current) => ({
       ...current,
       projects: current.projects.map((project) =>
         project.id === projectId
@@ -484,13 +516,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         type: 'error',
         timeout: 5000,
       });
-      // Restore snapshot on error
+      // Restore optimistic Project snapshot + orchestration state on error.
       if (previousSnapshot) {
-        patchProjectBootstrapSnapshot(() => previousSnapshot);
+        setProjectBootstrapSnapshotAt(scope, previousSnapshot);
       }
       set({
-        activeWorkspaceId: get().activeWorkspaceId,
-        setupProgress: get().setupProgress,
+        activeWorkspaceId: previousActiveWorkspaceId,
+        setupProgress: previousSetupProgress,
       });
       console.error('Error deleting workspace:', error);
       throw error;
@@ -499,10 +531,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   pinWorkspace: async (projectId, workspaceId) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.pin(workspaceId);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) => ({
           ...p,
@@ -531,10 +565,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   unpinWorkspace: async (projectId, workspaceId) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.unpin(workspaceId);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId
@@ -565,10 +601,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   archiveWorkspace: async (projectId, workspaceId) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.archive(workspaceId);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId
@@ -594,10 +632,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateWorkspaceName: async (projectId: string, workspaceId: string, name: string) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.updateName(workspaceId, name);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId
@@ -623,10 +663,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateWorkspaceBranch: async (projectId: string, workspaceId: string, branch: string) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.updateBranch(workspaceId, branch);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId
@@ -651,10 +693,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     workflowStatus: WorkspaceWorkflowStatus,
   ) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.updateWorkflowStatus(workspaceId, workflowStatus);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId
@@ -683,10 +727,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     priority: WorkspacePriority,
   ) => {
     try {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.updatePriority(workspaceId, priority);
 
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         projects: current.projects.map((p) =>
           p.id === projectId

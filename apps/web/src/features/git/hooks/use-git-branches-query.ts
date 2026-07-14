@@ -13,15 +13,8 @@ export function useGitBranchesQuery(repoPath: string | null | undefined) {
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
   return useQuery(
-    repoPath
-      ? {
-          ...gitBranchesQueryOptions(scope, connectionState, repoPath),
-          enabled: connectionState === "connected" && Boolean(scope.activeInstanceId),
-        }
-      : {
-          queryKey: ["disabled"],
-          queryFn: () => null as unknown as { local: string[]; remote: string[] },
-          enabled: false,
-        },
+    gitBranchesQueryOptions(scope, connectionState, repoPath ?? "", {
+      enabled: Boolean(repoPath),
+    }),
   );
 }

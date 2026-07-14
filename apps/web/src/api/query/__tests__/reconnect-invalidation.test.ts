@@ -14,14 +14,23 @@ const scope: ComputerQueryScope = {
 };
 
 describe("reconnect-invalidation", () => {
-  test("reconnectInvalidationKeys covers system, settings, usage, project bootstrap, files, and git roots", () => {
+  test("reconnectInvalidationKeys covers Query-owned reconnect-sensitive roots", () => {
     expect(reconnectInvalidationKeys(scope)).toEqual([
       queryKeys.computer.system(scope),
       queryKeys.computer.settingsBootstrap(scope),
       queryKeys.computer.usageOverview(scope),
+      [...queryKeys.computer.root(scope), "tokenUsage"],
       queryKeys.computer.projectBootstrap(scope),
       queryKeys.computer.filesRoot(scope),
       queryKeys.computer.gitAll(scope),
+      queryKeys.computer.skillsList(scope),
+      queryKeys.computer.automationList(scope),
+      [...queryKeys.computer.root(scope), "automations"],
+      [...queryKeys.computer.root(scope), "github"],
+      [...queryKeys.computer.root(scope), "review"],
+      [...queryKeys.computer.root(scope), "localModels"],
+      [...queryKeys.computer.root(scope), "localServices"],
+      [...queryKeys.computer.root(scope), "agentRegistry"],
     ]);
   });
 

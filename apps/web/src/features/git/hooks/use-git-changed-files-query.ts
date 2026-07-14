@@ -29,16 +29,9 @@ export function useGitChangedFilesQuery(
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
   return useQuery(
-    repoPath
-      ? {
-          ...gitChangedFilesQueryOptions(scope, connectionState, repoPath, params),
-          enabled: connectionState === "connected" && Boolean(scope.activeInstanceId),
-        }
-      : {
-          queryKey: ["disabled"],
-          queryFn: () => null as unknown as GitChangedFilesResponse,
-          enabled: false,
-        },
+    gitChangedFilesQueryOptions(scope, connectionState, repoPath ?? "", params, {
+      enabled: Boolean(repoPath),
+    }),
   );
 }
 

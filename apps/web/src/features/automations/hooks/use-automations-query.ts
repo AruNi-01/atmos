@@ -24,6 +24,9 @@ export function useAutomationAgentCapabilitiesQuery() {
 }
 
 export function useAutomationRunListQuery(automationGuid: string | null) {
+  // Reserved for a future run-list cutover. Run history still uses imperative
+  // `loadRuns` in use-automation-run-history-state (request-seq race control).
+  // Bridge invalidates this key on run events so a Query consumer can adopt it later.
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 

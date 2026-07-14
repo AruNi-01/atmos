@@ -43,6 +43,7 @@ import {
 } from "@workspace/ui";
 
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
+import { tokenUsageApi } from "@/api/ws/token-usage-api";
 import {
   ChartContainer,
   ChartLegend,
@@ -134,7 +135,8 @@ export function TokenUsageDialog({
   const t = useTranslations("appShell.tokenUsageDialog");
   const locale = useLocale();
   const tokenUsageQuery = useTokenUsageQuery(
-    open ? { year: selectedYear || null } : undefined,
+    { year: selectedYear || null },
+    { enabled: open },
   );
   const overview: TokenUsageOverviewResponse | null = open ? (tokenUsageQuery.data ?? null) : null;
   const loading = open && tokenUsageQuery.isLoading && !tokenUsageQuery.data;
@@ -326,11 +328,23 @@ export function TokenUsageDialog({
     resolution === "month" ? t("resolution.options.month") : t("resolution.options.day");
 
   const handleRefresh = React.useCallback(() => {
-    void queryClient.invalidateQueries({
-      queryKey: [...queryKeys.computer.root(scope), "tokenUsage"],
-      refetchType: "all",
-    });
-  }, [queryClient, scope]);
+    void (async () => {
+      const next = await tokenUsageApi.getOverview({
+        refresh: true,
+        year: selectedYear || null,
+      });
+      queryClient.setQueryData(
+        queryKeys.computer.tokenUsageOverview(scope, {
+          year: selectedYear || null,
+          since: null,
+          until: null,
+          clients: null,
+          groupBy: null,
+        }),
+        next,
+      );
+    })();
+  }, [queryClient, scope, selectedYear]);
 
   const showInitialSkeleton = loading && !overview;
   const showDeferredChartSkeleton = !showInitialSkeleton && !!overview && !chartsReady;

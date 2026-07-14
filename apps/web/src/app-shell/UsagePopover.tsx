@@ -63,7 +63,6 @@ import {
 
 export { ProviderGlyph } from "./usage-popover-components";
 
-const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
 const ALL_PROVIDER_SWITCH_ID = "__all_providers_switch__";
 const AUTO_REFRESH_OPTIONS = [
@@ -242,18 +241,8 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     void loadLayoutSettings();
   }, [loadLayoutSettings]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (!overview) {
-      void loadOverview(false);
-      return;
-    }
-
-    const stale = !overview.generated_at || Date.now() - overview.generated_at * 1000 > STALE_MS;
-    if (stale) {
-      void loadOverview(false);
-    }
-  }, [open, overview, loadOverview]);
+  // Initial load is owned by useUsageOverviewQuery when open/embedded.
+  // loadOverview remains for manual/forced refresh only.
 
   useEffect(() => {
     if (usageQuery.isError && !overview) {
@@ -618,7 +607,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
               <div className={cn(embedded && "min-h-0 h-full")}>
                 <ScrollArea className={embedded ? "h-full" : "h-[min(62vh,560px)]"} scrollbarGutter>
                 <div className="px-0 py-3">
-                  {isLoading && !overview ? (
+                  {(isLoading || usageQuery.isLoading) && !overview ? (
                     <div className="px-4">
                       <LoadingState />
                     </div>

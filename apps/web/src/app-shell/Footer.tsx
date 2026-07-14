@@ -493,7 +493,8 @@ const Footer: React.FC = () => {
   const fetchConnections = useCallback(() => {
     if (connectionState !== 'connected') return;
     setConnectionsEnabled(true);
-  }, [connectionState]);
+    void wsConnectionsQuery.refetch();
+  }, [connectionState, wsConnectionsQuery.refetch]);
 
   const statusColors: Record<typeof connectionState, string> = {
     connected: 'bg-emerald-500',

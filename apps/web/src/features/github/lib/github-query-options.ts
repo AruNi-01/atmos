@@ -28,6 +28,7 @@ export function repoPrListQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
   params: RepoPrListParams,
+  options?: { enabled?: boolean },
 ) {
   const { owner, repo, state, limit } = params;
   return wsQueryOptions({
@@ -37,7 +38,7 @@ export function repoPrListQueryOptions(
     queryFn: (): Promise<GithubPrPayload[]> =>
       wsGithubApi.listPrs({ owner, repo, state, limit }),
     staleTime: 5 * 60_000, // 5 min — matches the legacy TTL
-    enabled: Boolean(owner && repo),
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo),
   });
 }
 
@@ -45,12 +46,19 @@ export function branchPrListQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
   params: BranchPrListParams,
+  options?: { enabled?: boolean },
 ) {
   const { owner, repo, branch, state, emitBranchStatusRefresh } = params;
   return wsQueryOptions({
     scope,
     connectionState,
-    queryKey: queryKeys.computer.githubBranchPrList(scope, { owner, repo, branch, state }),
+    queryKey: queryKeys.computer.githubBranchPrList(scope, {
+      owner,
+      repo,
+      branch,
+      state,
+      emitBranchStatusRefresh,
+    }),
     queryFn: (): Promise<BranchPr[]> =>
       wsRequest<BranchPr[]>("github_pr_list", {
         owner,
@@ -60,6 +68,6 @@ export function branchPrListQueryOptions(
         emit_branch_status_refresh: emitBranchStatusRefresh ?? false,
       }),
     staleTime: 5 * 60_000,
-    enabled: Boolean(owner && repo && branch),
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
   });
 }

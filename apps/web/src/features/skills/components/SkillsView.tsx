@@ -11,7 +11,7 @@ import {
 } from "@workspace/ui";
 import { skillsApi, type SkillInfo } from "@/api/ws-api";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useSkillsListQuery, useInvalidateSkillsList } from "@/features/skills/hooks/use-skills-query";
+import { useSkillsListQuery, useInvalidateSkillsList, forceRefreshSkillsList } from "@/features/skills/hooks/use-skills-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";
@@ -57,9 +57,11 @@ export const SkillsView: React.FC = () => {
   const skillsQuery = useSkillsListQuery();
   const skills = skillsQuery.data?.skills ?? [];
   const isLoading = skillsQuery.isLoading;
+  const isRefreshing = skillsQuery.isFetching && !skillsQuery.isPending;
   const invalidateSkillsList = useInvalidateSkillsList();
   const queryClient = useQueryClient();
   const scope = useComputerQueryScope();
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [showFilter, setShowFilter] = useState(scopeFilter !== "all");
@@ -316,12 +318,15 @@ export const SkillsView: React.FC = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => invalidateSkillsList()}
-                    disabled={isLoading}
+                    onClick={() => {
+                      setIsForceRefreshing(true);
+                      void forceRefreshSkillsList().finally(() => setIsForceRefreshing(false));
+                    }}
+                    disabled={isLoading || isForceRefreshing || isRefreshing}
                     className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
                     title="Refresh Skills"
                   >
-                    {isLoading ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
+                    {isForceRefreshing || isRefreshing ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
                   </Button>
                 </div>
               )}

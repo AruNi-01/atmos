@@ -46,6 +46,22 @@ describe("usage-query-events applyUsageOverviewUpdated", () => {
         all: null,
       }),
     ).toBe(false);
+    expect(
+      isUsageOverviewResponse({
+        generated_at: 1,
+        providers: [],
+        all: sampleOverview().all,
+      }),
+    ).toBe(false);
+    expect(
+      isUsageOverviewResponse({
+        generated_at: 1,
+        providers: [],
+        all: sampleOverview().all,
+        partial_failures: [],
+        auto_refresh: null,
+      }),
+    ).toBe(false);
   });
 
   test("applyUsageOverviewUpdated patches the default usage overview key", () => {

@@ -16,13 +16,19 @@ export function localServicesScanQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
   request: LocalServicesScanRequest,
+  options?: { enabled?: boolean; refetchInterval?: number | false },
 ) {
   const scopeKey = localServicesScopeKey(request);
   return wsQueryOptions({
     scope,
     connectionState,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.localServicesScan(scope, scopeKey),
     queryFn: (): Promise<LocalServicesScanResponse> => localServicesApi.scan(request),
-    staleTime: 15_000,
+    // Forced scans must bypass the normal stale window so Refresh hits the network.
+    staleTime: request.force ? 0 : 15_000,
+    ...(options?.refetchInterval !== undefined
+      ? { refetchInterval: options.refetchInterval }
+      : {}),
   });
 }

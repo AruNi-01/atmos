@@ -12,7 +12,10 @@ export function isUsageOverviewResponse(data: unknown): data is UsageOverviewRes
     typeof value.generated_at === "number" &&
     Array.isArray(value.providers) &&
     value.all !== null &&
-    typeof value.all === "object"
+    typeof value.all === "object" &&
+    Array.isArray(value.partial_failures) &&
+    value.auto_refresh !== null &&
+    typeof value.auto_refresh === "object"
   );
 }
 

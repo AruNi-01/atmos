@@ -4,6 +4,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { wsRequest } from "@/api/ws/request";
 import type {
+  AutomationAgentCapabilitiesResponse,
   AutomationArtifactKind,
   AutomationArtifactResponse,
   AutomationContinueInTerminalResponse,
@@ -66,12 +67,15 @@ export function useAutomations() {
   }, [queryClient, scope]);
 
   const reloadAgents = React.useCallback(async () => {
+    const key = queryKeys.computer.automationAgentCapabilities(scope);
     await queryClient.invalidateQueries({
-      queryKey: queryKeys.computer.automationAgentCapabilities(scope),
+      queryKey: key,
       refetchType: "all",
     });
-    return agents;
-  }, [agents, queryClient, scope]);
+    return (
+      queryClient.getQueryData<AutomationAgentCapabilitiesResponse>(key)?.agents ?? []
+    );
+  }, [queryClient, scope]);
 
   const upsertAutomation = React.useCallback((automation: AutomationSummary) => {
     queryClient.setQueryData<AutomationListResponse>(

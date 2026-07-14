@@ -1,13 +1,15 @@
 'use client';
 
 import { toastManager } from '@workspace/ui';
+import { getComputerQueryScope } from '@/api/query/query-scope';
 import { wsWorkspaceApi, type WorkspaceLabelModel } from '@/api/ws-api';
 import type { WorkspaceLabel } from '@/shared/types/domain';
 import { waitForConnection } from './project-store-connection';
 import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
 import {
+  cancelProjectBootstrapQuery,
   invalidateProjectBootstrap,
-  patchProjectBootstrapSnapshot,
+  patchProjectBootstrapSnapshotAt,
 } from '@/features/project/hooks/use-project-bootstrap-query';
 
 type WorkspaceLabelSource = 'manual' | 'gitHub_issue' | 'gitHub_pr';
@@ -39,20 +41,28 @@ export function createProjectStoreLabelActions(
 ): ProjectStoreLabelActions {
   return {
     fetchWorkspaceLabels: async (deletedOnly: boolean = false) => {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       const labels = await wsWorkspaceApi.listLabels(deletedOnly);
       const mappedLabels = labels.map((label) => mapWorkspaceLabelModel(label));
-      patchProjectBootstrapSnapshot((current) => ({
-        ...current,
-        workspaceLabels: mappedLabels,
-      }));
+      // Deleted labels must not overwrite the app-wide bootstrap active-label list.
+      if (!deletedOnly) {
+        await cancelProjectBootstrapQuery(scope);
+        patchProjectBootstrapSnapshotAt(scope, (current) => ({
+          ...current,
+          workspaceLabels: mappedLabels,
+        }));
+      }
+      return mappedLabels;
     },
 
     createWorkspaceLabel: async ({ name, color, source = 'manual' }) => {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       const label = await wsWorkspaceApi.createLabel({ name, color, source });
       const mappedLabel = mapWorkspaceLabelModel(label);
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         workspaceLabels: [
           ...current.workspaceLabels.filter((existing) => existing.id !== mappedLabel.id),
@@ -63,10 +73,12 @@ export function createProjectStoreLabelActions(
     },
 
     updateWorkspaceLabel: async (labelId, { name, color }) => {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       const label = await wsWorkspaceApi.updateLabel(labelId, { name, color });
       const mappedLabel = mapWorkspaceLabelModel(label);
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         workspaceLabels: current.workspaceLabels
           .map((existing) => (existing.id === mappedLabel.id ? mappedLabel : existing))
@@ -85,9 +97,11 @@ export function createProjectStoreLabelActions(
     },
 
     deleteWorkspaceLabel: async (labelId: string) => {
+      const scope = getComputerQueryScope();
       await waitForConnection();
       await wsWorkspaceApi.deleteLabel(labelId);
-      patchProjectBootstrapSnapshot((current) => ({
+      await cancelProjectBootstrapQuery(scope);
+      patchProjectBootstrapSnapshotAt(scope, (current) => ({
         ...current,
         workspaceLabels: current.workspaceLabels.filter((label) => label.id !== labelId),
       }));
@@ -106,10 +120,12 @@ export function createProjectStoreLabelActions(
       labels: WorkspaceLabel[],
     ) => {
       try {
+        const scope = getComputerQueryScope();
         await waitForConnection();
         await wsWorkspaceApi.updateLabels(workspaceId, labels.map((label) => label.id));
 
-        patchProjectBootstrapSnapshot((current) => ({
+        await cancelProjectBootstrapQuery(scope);
+        patchProjectBootstrapSnapshotAt(scope, (current) => ({
           ...current,
           projects: current.projects.map((project) =>
             project.id === projectId
@@ -135,10 +151,12 @@ export function createProjectStoreLabelActions(
 
     markWorkspaceVisited: async (workspaceId: string) => {
       try {
+        const scope = getComputerQueryScope();
         await waitForConnection();
         await wsWorkspaceApi.markVisited(workspaceId);
         const visitedAt = new Date().toISOString();
-        patchProjectBootstrapSnapshot((current) => ({
+        await cancelProjectBootstrapQuery(scope);
+        patchProjectBootstrapSnapshotAt(scope, (current) => ({
           ...current,
           projects: current.projects.map((project) => ({
             ...project,

@@ -13,18 +13,22 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
 export function useUsageOverviewQuery(options?: {
   enabled?: boolean;
+  /**
+   * Reserved for explicit refresh ops (`usageWsApi.getOverview(true, id)`).
+   * Ignored here: server does not return a filtered snapshot for
+   * refresh=false + provider_id, so reads always share the unfiltered key.
+   */
   providerId?: string | null;
 }) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  const providerId = options?.providerId ?? null;
 
   return useQuery(
     wsQueryOptions({
       scope,
       connectionState,
-      queryKey: queryKeys.computer.usageOverview(scope, { providerId }),
-      queryFn: () => usageWsApi.getOverview(false, providerId),
+      queryKey: queryKeys.computer.usageOverview(scope),
+      queryFn: () => usageWsApi.getOverview(false),
       enabled: options?.enabled ?? true,
       staleTime: 60_000,
     }),

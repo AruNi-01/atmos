@@ -227,7 +227,13 @@ export const queryKeys = {
     /** GitHub: branch-level PR list */
     githubBranchPrList: (
       scope: ComputerQueryScope,
-      params: { owner: string; repo: string; branch: string; state?: string },
+      params: {
+        owner: string;
+        repo: string;
+        branch: string;
+        state?: string;
+        emitBranchStatusRefresh?: boolean;
+      },
     ) =>
       [
         ...queryKeys.computer.root(scope),
@@ -237,19 +243,24 @@ export const queryKeys = {
         params.repo,
         params.branch,
         params.state ?? "open",
+        Boolean(params.emitBranchStatusRefresh),
       ] as const,
 
     /** Review: session list for a given target */
     reviewSessions: (
       scope: ComputerQueryScope,
-      target: { repoPath: string; filePath: string; snapshotGuid?: string | null },
+      target: {
+        kind: string;
+        targetId: string;
+        snapshotGuid?: string | null;
+      },
     ) =>
       [
         ...queryKeys.computer.root(scope),
         "review",
         "sessions",
-        target.repoPath,
-        target.filePath,
+        target.kind,
+        target.targetId,
         target.snapshotGuid ?? null,
       ] as const,
 

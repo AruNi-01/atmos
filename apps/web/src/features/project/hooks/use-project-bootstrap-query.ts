@@ -5,6 +5,7 @@ import { queryKeys } from "@/api/query/query-keys";
 import {
   getComputerQueryScope,
   useComputerQueryScope,
+  type ComputerQueryScope,
 } from "@/api/query/query-scope";
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
@@ -15,13 +16,56 @@ import {
 } from "@/features/project/lib/project-query-options";
 import type { Project, WorkspaceLabel } from "@/shared/types/domain";
 
+export function projectBootstrapKey(scope = getComputerQueryScope()) {
+  return queryKeys.computer.projectBootstrap(scope);
+}
+
+/** Patch only an existing snapshot at a captured scope (no-op if absent). */
+export function patchProjectBootstrapSnapshotAt(
+  scope: ComputerQueryScope,
+  updater: (current: ProjectBootstrapSnapshot) => ProjectBootstrapSnapshot,
+): void {
+  try {
+    const client = getAtmosWebQueryClient();
+    const key = queryKeys.computer.projectBootstrap(scope);
+    const current = client.getQueryData<ProjectBootstrapSnapshot>(key);
+    if (!current) return;
+    client.setQueryData(key, updater(current));
+  } catch {
+    // ignore outside browser
+  }
+}
+
+export function setProjectBootstrapSnapshotAt(
+  scope: ComputerQueryScope,
+  snapshot: ProjectBootstrapSnapshot,
+): void {
+  try {
+    const client = getAtmosWebQueryClient();
+    client.setQueryData(queryKeys.computer.projectBootstrap(scope), snapshot);
+  } catch {
+    // ignore outside browser
+  }
+}
+
+/** Cancel in-flight bootstrap for scope before applying a mutation patch. */
+export async function cancelProjectBootstrapQuery(
+  scope?: ComputerQueryScope,
+): Promise<void> {
+  const client = getAtmosWebQueryClient();
+  await client.cancelQueries({
+    queryKey: queryKeys.computer.projectBootstrap(scope ?? getComputerQueryScope()),
+  });
+}
+
 export function useProjectBootstrapQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery({
-    ...projectBootstrapQueryOptions(scope, connectionState),
-    enabled: options?.enabled ?? true,
-  });
+  return useQuery(
+    projectBootstrapQueryOptions(scope, connectionState, {
+      enabled: options?.enabled,
+    }),
+  );
 }
 
 export function useProjects(options?: { enabled?: boolean }): Project[] {
@@ -36,40 +80,29 @@ export function useWorkspaceLabels(options?: { enabled?: boolean }): WorkspaceLa
 
 export function useProjectsLoading(): boolean {
   const query = useProjectBootstrapQuery();
-  return query.isPending || query.isFetching;
+  // isLoading = isPending && isFetching — true only with no data yet, not background refetch
+  return query.isLoading;
 }
 
 export function getProjectBootstrapSnapshot(): ProjectBootstrapSnapshot | undefined {
   try {
     const client = getAtmosWebQueryClient();
-    return client.getQueryData<ProjectBootstrapSnapshot>(
-      queryKeys.computer.projectBootstrap(getComputerQueryScope()),
-    );
+    return client.getQueryData<ProjectBootstrapSnapshot>(projectBootstrapKey());
   } catch {
     return undefined;
   }
 }
 
 export function setProjectBootstrapSnapshot(snapshot: ProjectBootstrapSnapshot): void {
-  try {
-    const client = getAtmosWebQueryClient();
-    client.setQueryData(
-      queryKeys.computer.projectBootstrap(getComputerQueryScope()),
-      snapshot,
-    );
-  } catch {
-    // ignore outside browser
-  }
+  setProjectBootstrapSnapshotAt(getComputerQueryScope(), snapshot);
 }
 
 export function patchProjectBootstrapSnapshot(
   updater: (current: ProjectBootstrapSnapshot) => ProjectBootstrapSnapshot,
 ): void {
-  const current = getProjectBootstrapSnapshot() ?? {
-    projects: [],
-    workspaceLabels: [],
-  };
-  setProjectBootstrapSnapshot(updater(current));
+  // Never seed an empty snapshot into a fresh Computer scope (e.g. late mutation
+  // after target change). Only patch when Query already owns a bootstrap entry.
+  patchProjectBootstrapSnapshotAt(getComputerQueryScope(), updater);
 }
 
 export async function ensureProjectBootstrap(): Promise<ProjectBootstrapSnapshot> {
@@ -101,10 +134,8 @@ export function useProjectBootstrapCache() {
       queryClient.setQueryData(key, snapshot);
     },
     patch: (updater: (current: ProjectBootstrapSnapshot) => ProjectBootstrapSnapshot) => {
-      const current = queryClient.getQueryData<ProjectBootstrapSnapshot>(key) ?? {
-        projects: [],
-        workspaceLabels: [],
-      };
+      const current = queryClient.getQueryData<ProjectBootstrapSnapshot>(key);
+      if (!current) return;
       queryClient.setQueryData(key, updater(current));
     },
   };

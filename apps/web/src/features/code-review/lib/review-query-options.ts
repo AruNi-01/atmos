@@ -8,9 +8,12 @@ import { reviewWsApi, type ReviewSessionDto, type ReviewTarget } from "@/api/ws/
 
 type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
-function reviewTargetKey(target: ReviewTarget): { repoPath: string; filePath: string } {
-  const id = target.kind === "workspace" ? target.workspaceId : target.projectId;
-  return { repoPath: id, filePath: target.kind };
+function reviewTargetKey(target: ReviewTarget): {
+  kind: string;
+  targetId: string;
+} {
+  const targetId = target.kind === "workspace" ? target.workspaceId : target.projectId;
+  return { kind: target.kind, targetId };
 }
 
 /** Stable key for a review target. Used to construct the TanStack Query key. */

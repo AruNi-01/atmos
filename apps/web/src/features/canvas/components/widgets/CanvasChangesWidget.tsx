@@ -24,7 +24,7 @@ import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
-import { computeCompareParams } from "@/features/git/lib/git-query-options";
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
 import { useGitLog } from "@/features/github/hooks/use-github";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { type TLShapeId } from "tldraw";
@@ -77,6 +77,7 @@ function CanvasChangesWidgetBody({
     compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
+    fetchChanges,
     setCurrentRepoPath,
     stageFiles,
     unstageFiles,
@@ -91,14 +92,14 @@ function CanvasChangesWidgetBody({
 
   const worktreeQuery = useGitChangedFilesQuery(repoPath ?? null, GIT_WORKTREE_PARAMS);
   const compareQuery = useGitChangedFilesQuery(
-    compareMode !== 'worktree' ? (repoPath ?? null) : null,
+    isCompareQueryEnabled(compareMode, defaultBranch) ? (repoPath ?? null) : null,
     compareParams,
   );
 
-  const stagedFiles = worktreeQuery.data?.staged_files ?? [];
-  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
-  const untrackedFiles = worktreeQuery.data?.untracked_files ?? [];
-  const compareFiles = compareQuery.data?.staged_files ?? [];
+  const stagedFiles = worktreeQuery.data?.staged_files ?? EMPTY_CHANGED_FILES;
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
+  const { files: compareFiles } = selectCompareChangedFiles(compareQuery.data);
   const isLoading = worktreeQuery.isFetching || compareQuery.isFetching;
 
   const changesScopeKey = `${repoPath ?? ""}:${currentBranch ?? ""}`;
@@ -182,12 +183,12 @@ function CanvasChangesWidgetBody({
     }
 
     resetCompareMode();
-    if (repoPath) await invalidateGitQueries(repoPath);
+    await fetchChanges();
   }, [
     changesScope,
     compareAgainstRef,
     compareWorktreeChanges,
-    repoPath,
+    fetchChanges,
     resetCompareMode,
     selectedCommitHash,
   ]);

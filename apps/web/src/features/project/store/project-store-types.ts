@@ -59,7 +59,7 @@ export interface ProjectStore {
     workspaceId: string,
     priority: WorkspacePriority,
   ) => Promise<void>;
-  fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<void>;
+  fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<WorkspaceLabel[]>;
   createWorkspaceLabel: (data: { name: string; color: string; source?: "manual" | "gitHub_issue" | "gitHub_pr" }) => Promise<WorkspaceLabel>;
   updateWorkspaceLabel: (
     labelId: string,

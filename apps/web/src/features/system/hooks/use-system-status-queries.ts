@@ -14,44 +14,29 @@ import {
 export function useTmuxStatusQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const runtimeReady = useComputerRuntimeReady();
-  return useQuery({
-    ...tmuxStatusQueryOptions(scope, runtimeReady),
-    enabled: (options?.enabled ?? true) && runtimeReady,
-  });
+  return useQuery(tmuxStatusQueryOptions(scope, runtimeReady, options));
 }
 
 export function useRuntimeInfoQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const runtimeReady = useComputerRuntimeReady();
-  return useQuery({
-    ...runtimeInfoQueryOptions(scope, runtimeReady),
-    enabled: (options?.enabled ?? true) && runtimeReady,
-  });
+  return useQuery(runtimeInfoQueryOptions(scope, runtimeReady, options));
 }
 
 export function useGhCliStatusQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const runtimeReady = useComputerRuntimeReady();
-  return useQuery({
-    ...ghCliStatusQueryOptions(scope, runtimeReady),
-    enabled: (options?.enabled ?? true) && runtimeReady,
-  });
+  return useQuery(ghCliStatusQueryOptions(scope, runtimeReady, options));
 }
 
 export function useTerminalOverviewQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const runtimeReady = useComputerRuntimeReady();
-  return useQuery({
-    ...terminalOverviewQueryOptions(scope, runtimeReady),
-    enabled: (options?.enabled ?? true) && runtimeReady,
-  });
+  return useQuery(terminalOverviewQueryOptions(scope, runtimeReady, options));
 }
 
 export function useWsConnectionsQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const runtimeReady = useComputerRuntimeReady();
-  return useQuery({
-    ...wsConnectionsQueryOptions(scope, runtimeReady),
-    enabled: (options?.enabled ?? true) && runtimeReady,
-  });
+  return useQuery(wsConnectionsQueryOptions(scope, runtimeReady, options));
 }

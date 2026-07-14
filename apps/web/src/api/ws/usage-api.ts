@@ -145,7 +145,12 @@ export const usageWsApi = {
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    // Provider-scoped fetches are not authoritative for the shared overview
+    // cache (refresh=false may even return an empty shell). Callers that pass
+    // providerId write the result themselves when appropriate.
+    if (!providerId) {
+      emitUsageOverviewUpdated(overview);
+    }
     return overview;
   },
 

@@ -21,10 +21,11 @@ import {
 export function useFileTreeQuery(rootPath: string | null, showHidden: boolean) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery({
-    ...fileTreeQueryOptions(scope, connectionState, rootPath ?? "", showHidden),
-    enabled: !!rootPath,
-  });
+  return useQuery(
+    fileTreeQueryOptions(scope, connectionState, rootPath ?? "", showHidden, {
+      enabled: Boolean(rootPath),
+    }),
+  );
 }
 
 /** Per-directory listing, used by FileBrowser and dir-picker overlays. */
@@ -34,20 +35,23 @@ export function useListDirQuery(
 ) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery({
-    ...listDirQueryOptions(scope, connectionState, dirPath ?? "", options),
-    enabled: !!dirPath,
-  });
+  return useQuery(
+    listDirQueryOptions(scope, connectionState, dirPath ?? "", {
+      ...options,
+      enabled: Boolean(dirPath),
+    }),
+  );
 }
 
 /** File content query — for read/reload only; active editing buffer stays in useEditorStore. */
 export function useReadFileQuery(path: string | null) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery({
-    ...readFileQueryOptions(scope, connectionState, path ?? ""),
-    enabled: !!path,
-  });
+  return useQuery(
+    readFileQueryOptions(scope, connectionState, path ?? "", {
+      enabled: Boolean(path),
+    }),
+  );
 }
 
 /** Ripgrep content search. Query is disabled when query string is empty. */
@@ -58,10 +62,12 @@ export function useSearchContentQuery(
 ) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery({
-    ...searchContentQueryOptions(scope, connectionState, rootPath ?? "", query, options),
-    enabled: !!rootPath && query.trim().length > 0,
-  });
+  return useQuery(
+    searchContentQueryOptions(scope, connectionState, rootPath ?? "", query, {
+      ...options,
+      enabled: Boolean(rootPath) && query.trim().length > 0,
+    }),
+  );
 }
 
 /** Directory name search. */
@@ -72,10 +78,12 @@ export function useSearchDirsQuery(
 ) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery({
-    ...searchDirsQueryOptions(scope, connectionState, rootPath ?? "", query, options),
-    enabled: !!rootPath,
-  });
+  return useQuery(
+    searchDirsQueryOptions(scope, connectionState, rootPath ?? "", query, {
+      ...options,
+      enabled: Boolean(rootPath),
+    }),
+  );
 }
 
 /**

@@ -16,10 +16,11 @@ export function useRepoPrListQuery(params: RepoPrListParams & { enabled?: boolea
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
 
-  return useQuery({
-    ...repoPrListQueryOptions(scope, connectionState, restParams),
-    enabled: enabled && Boolean(params.owner && params.repo),
-  });
+  return useQuery(
+    repoPrListQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo),
+    }),
+  );
 }
 
 export function useBranchPrListQuery(params: BranchPrListParams & { enabled?: boolean }) {
@@ -27,24 +28,32 @@ export function useBranchPrListQuery(params: BranchPrListParams & { enabled?: bo
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
 
-  return useQuery({
-    ...branchPrListQueryOptions(scope, connectionState, restParams),
-    enabled: enabled && Boolean(params.owner && params.repo && params.branch),
-  });
+  return useQuery(
+    branchPrListQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.branch),
+    }),
+  );
 }
 
-/** Imperatively invalidate all GitHub PR queries (e.g. after a PR mutation). */
+/** Imperatively invalidate GitHub PR queries (e.g. after a PR mutation). */
 export function useInvalidateGithubPrs() {
   const queryClient = useQueryClient();
   const scope = useComputerQueryScope();
 
   return (params?: { owner?: string; repo?: string }) => {
-    const key =
-      params?.owner && params?.repo
-        ? [...queryKeys.computer.root(scope), "github"]
-        : [...queryKeys.computer.root(scope), "github"];
+    if (params?.owner && params?.repo) {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.computer.root(scope), "github", "repoPrs", params.owner, params.repo],
+        refetchType: "active",
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.computer.root(scope), "github", "branchPrs", params.owner, params.repo],
+        refetchType: "active",
+      });
+      return;
+    }
     void queryClient.invalidateQueries({
-      queryKey: key,
+      queryKey: [...queryKeys.computer.root(scope), "github"],
       refetchType: "active",
     });
   };

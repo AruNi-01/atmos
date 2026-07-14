@@ -146,6 +146,16 @@ export const useGitStore = create<GitStore>((set, get) => ({
       compareMode: 'branch',
       compareBaseRef: null,
     });
+    if (!path) return;
+    // Restore remote fetch on repo switch so ahead/behind counts stay fresh.
+    void (async () => {
+      try {
+        await gitApi.fetch(path);
+      } catch {
+        // Ignore fetch failures; status query still loads local state.
+      }
+      await invalidateGitQueries(path);
+    })();
   },
 
   selectFile: (filePath) => {
@@ -171,6 +181,18 @@ export const useGitStore = create<GitStore>((set, get) => ({
 
   compareAgainstDefaultBranch: async () => {
     set({ compareMode: 'default-branch', compareBaseRef: null });
+    const { currentRepoPath } = get();
+    if (!currentRepoPath) return;
+    try {
+      set({ isLoading: true });
+      await gitApi.fetch(currentRepoPath);
+      await invalidateGitQueries(currentRepoPath);
+    } catch (error) {
+      console.error('Failed to compare against default branch:', error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   compareAgainstRef: async (baseRef: string) => {

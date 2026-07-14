@@ -22,10 +22,12 @@ export function tokenUsageQueryOptions(
   scope: ComputerQueryScope,
   connectionState: "connecting" | "connected" | "disconnected" | "reconnecting",
   filters?: TokenUsageQueryFilters,
+  options?: { enabled?: boolean },
 ) {
   return wsQueryOptions({
     scope,
     connectionState,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.tokenUsageOverview(scope, {
       year: filters?.year ?? null,
       since: filters?.since ?? null,

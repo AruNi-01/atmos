@@ -37,6 +37,7 @@ export async function fetchProjectBootstrapSnapshot(): Promise<ProjectBootstrapS
 export function projectBootstrapQueryOptions(
   scope: ComputerQueryScope,
   connectionState: "connecting" | "connected" | "disconnected" | "reconnecting",
+  options?: { enabled?: boolean },
 ) {
   return wsQueryOptions({
     scope,
@@ -44,5 +45,6 @@ export function projectBootstrapQueryOptions(
     queryKey: queryKeys.computer.projectBootstrap(scope),
     queryFn: fetchProjectBootstrapSnapshot,
     staleTime: 30_000,
+    enabled: options?.enabled,
   });
 }

@@ -78,13 +78,21 @@ function patchSnapshot(
 async function fetchBootstrapFromServer(): Promise<SettingsBootstrapPayload> {
   const requestMutationVersion = mutationVersion;
   const requestSectionVersions = { ...sectionVersions };
+  // Capture scope key before await so a computer switch mid-flight cannot
+  // merge against a different Query entry than the one that started this fetch.
+  const queryKey = bootstrapQueryKey();
   const payload = await wsRequest<SettingsBootstrapPayload>("settings_bootstrap_get");
 
   if (mutationVersion === requestMutationVersion) {
     return payload;
   }
 
-  const current = readSnapshot();
+  let current: SettingsBootstrapPayload | undefined;
+  try {
+    current = getAtmosWebQueryClient().getQueryData<SettingsBootstrapPayload>(queryKey);
+  } catch {
+    current = undefined;
+  }
   const next: Partial<SettingsBootstrapPayload> = { ...(current ?? {}) };
   for (const key of SECTION_KEYS) {
     if (sectionVersions[key] === requestSectionVersions[key]) {
@@ -145,21 +153,18 @@ export const settingsBootstrapCache = {
   patchFunctionSetting: (functionName: string, key: string, value: unknown): void => {
     bumpSections(["function_settings"]);
     patchSnapshot((current) => {
-      const settings = current?.function_settings ?? {};
+      if (!current) return current;
+      const settings = current.function_settings ?? {};
       const section = settings[functionName];
       const nextSection =
         section && typeof section === "object" && !Array.isArray(section)
           ? { ...section, [key]: value }
           : { [key]: value };
       return {
+        ...current,
         function_settings: {
           ...settings,
           [functionName]: nextSection,
-        },
-        llm_providers: current?.llm_providers ?? { version: 1, features: {}, providers: {} },
-        code_agent_custom: current?.code_agent_custom ?? { agents: [] },
-        agent_behaviour_settings: current?.agent_behaviour_settings ?? {
-          idle_session_timeout_mins: 0,
         },
       };
     });
@@ -168,14 +173,7 @@ export const settingsBootstrapCache = {
   setLlmProviders: (config: LlmProvidersFile): void => {
     bumpSections(["llm_providers"]);
     patchSnapshot((current) => {
-      if (!current) {
-        return {
-          function_settings: {},
-          llm_providers: config,
-          code_agent_custom: { agents: [] },
-          agent_behaviour_settings: { idle_session_timeout_mins: 0 },
-        };
-      }
+      if (!current) return current;
       return { ...current, llm_providers: config };
     });
   },
@@ -183,14 +181,7 @@ export const settingsBootstrapCache = {
   setCodeAgentCustom: (payload: CodeAgentCustomPayload): void => {
     bumpSections(["code_agent_custom"]);
     patchSnapshot((current) => {
-      if (!current) {
-        return {
-          function_settings: {},
-          llm_providers: { version: 1, features: {}, providers: {} },
-          code_agent_custom: payload,
-          agent_behaviour_settings: { idle_session_timeout_mins: 0 },
-        };
-      }
+      if (!current) return current;
       return { ...current, code_agent_custom: payload };
     });
   },
@@ -198,13 +189,12 @@ export const settingsBootstrapCache = {
   setAgentBehaviourSettings: (settings: AgentBehaviourSettings): void => {
     bumpSections(["agent_behaviour_settings", "code_agent_custom"]);
     patchSnapshot((current) => {
+      if (!current) return current;
       const next: SettingsBootstrapPayload = {
-        function_settings: current?.function_settings ?? {},
-        llm_providers: current?.llm_providers ?? { version: 1, features: {}, providers: {} },
-        code_agent_custom: current?.code_agent_custom ?? { agents: [] },
+        ...current,
         agent_behaviour_settings: settings,
       };
-      if (current?.code_agent_custom) {
+      if (current.code_agent_custom) {
         next.code_agent_custom = {
           ...current.code_agent_custom,
           idle_session_timeout_mins: settings.idle_session_timeout_mins,
@@ -219,11 +209,8 @@ export const settingsBootstrapCache = {
     try {
       const client = getAtmosWebQueryClient();
       const key = bootstrapQueryKey();
-      const current = client.getQueryData<SettingsBootstrapPayload>(key);
-      if (current) {
-        const { agent_behaviour_settings: _removed, ...rest } = current;
-        client.setQueryData(key, rest);
-      }
+      // Do not leave a incomplete-but-fresh cache entry for imperative readers.
+      // Invalidate so the next get() refetches a complete bootstrap payload.
       void client.invalidateQueries({ queryKey: key });
     } catch {
       // ignore

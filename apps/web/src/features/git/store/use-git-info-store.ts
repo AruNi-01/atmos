@@ -142,9 +142,11 @@ export function useGitStatusCheck() {
     try {
       const client = getAtmosWebQueryClient();
       const scope = getComputerQueryScope();
-      const status = await client.fetchQuery(
-        gitStatusQueryOptions(scope, "connected", path),
-      );
+      // Destructive preflight must not inherit the UI query's 15s staleTime.
+      const status = await client.fetchQuery({
+        ...gitStatusQueryOptions(scope, "connected", path),
+        staleTime: 0,
+      });
 
       const issues: string[] = [];
       if (status.has_uncommitted_changes) {

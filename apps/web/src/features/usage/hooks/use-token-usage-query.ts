@@ -8,9 +8,16 @@ import {
   type TokenUsageQueryFilters,
 } from "@/features/usage/lib/token-usage-query-options";
 
-export function useTokenUsageQuery(filters?: TokenUsageQueryFilters) {
+export function useTokenUsageQuery(
+  filters?: TokenUsageQueryFilters,
+  options?: { enabled?: boolean },
+) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
-  return useQuery(tokenUsageQueryOptions(scope, connectionState, filters));
+  return useQuery(
+    tokenUsageQueryOptions(scope, connectionState, filters, {
+      enabled: options?.enabled,
+    }),
+  );
 }

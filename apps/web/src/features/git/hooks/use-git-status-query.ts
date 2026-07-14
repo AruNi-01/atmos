@@ -16,12 +16,9 @@ export function useGitStatusQuery(repoPath: string | null | undefined) {
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
   return useQuery(
-    repoPath
-      ? {
-          ...gitStatusQueryOptions(scope, connectionState, repoPath),
-          enabled: connectionState === "connected" && Boolean(scope.activeInstanceId),
-        }
-      : { queryKey: ["disabled"], queryFn: () => null as unknown as GitStatusResponse, enabled: false },
+    gitStatusQueryOptions(scope, connectionState, repoPath ?? "", {
+      enabled: Boolean(repoPath),
+    }),
   );
 }
 

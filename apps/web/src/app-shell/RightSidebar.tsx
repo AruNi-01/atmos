@@ -11,7 +11,7 @@ import { useTranslations } from "next-intl";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
-import { computeCompareParams } from "@/features/git/lib/git-query-options";
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -244,6 +244,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
+    fetchChanges,
     isLoading: isMutating,
   } = useGitStore();
 
@@ -252,15 +253,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const defaultBranch = statusQuery.data?.default_branch ?? null;
   const compareParams = computeCompareParams(compareMode, defaultBranch, compareBaseRef);
   const compareQuery = useGitChangedFilesQuery(
-    compareMode !== 'worktree' ? currentProjectPath : null,
+    isCompareQueryEnabled(compareMode, defaultBranch) ? currentProjectPath : null,
     compareParams,
   );
 
-  const stagedFiles = worktreeQuery.data?.staged_files ?? [];
-  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
-  const untrackedFiles = worktreeQuery.data?.untracked_files ?? [];
-  const compareFiles = compareQuery.data?.staged_files ?? [];
-  const compareRef = compareQuery.data?.compare_ref ?? null;
+  const stagedFiles = worktreeQuery.data?.staged_files ?? EMPTY_CHANGED_FILES;
+  const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
+  const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
+  const { files: compareFiles, compareRef } = selectCompareChangedFiles(compareQuery.data);
   const gitStatus = statusQuery.data ?? null;
   const isLoading = isMutating || worktreeQuery.isFetching || compareQuery.isFetching;
 
@@ -453,12 +453,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
 
     resetCompareMode();
-    if (currentProjectPath) await invalidateGitQueries(currentProjectPath);
+    await fetchChanges();
   }, [
     changesScope,
     compareAgainstRef,
     compareWorktreeChanges,
-    currentProjectPath,
+    fetchChanges,
     resetCompareMode,
     selectedCommitHash,
   ]);

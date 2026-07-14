@@ -44,8 +44,9 @@ export function useTmuxCheck(options: UseTmuxCheckOptions = {}): TmuxCheckState 
   const query = useTmuxStatusQuery({ enabled });
 
   const refetch = useCallback(async () => {
+    if (!enabled) return;
     await query.refetch();
-  }, [query]);
+  }, [enabled, query]);
 
   if (!enabled) {
     return {

@@ -13,11 +13,5 @@ export function useLocalServicesScanQuery(
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
-  return useQuery({
-    ...localServicesScanQueryOptions(scope, connectionState, request),
-    enabled: options?.enabled ?? true,
-    ...(options?.refetchInterval !== undefined
-      ? { refetchInterval: options.refetchInterval }
-      : {}),
-  });
+  return useQuery(localServicesScanQueryOptions(scope, connectionState, request, options));
 }

@@ -33,7 +33,7 @@ export function useGithubPRList({
   });
 
   const refresh = useCallback(() => {
-    void query.refetch();
+    return query.refetch();
   }, [query]);
 
   return {

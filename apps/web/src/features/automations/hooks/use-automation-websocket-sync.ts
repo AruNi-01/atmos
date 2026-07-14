@@ -28,6 +28,17 @@ interface UseAutomationWebsocketSyncOptions {
   clearRunSelection: () => void;
 }
 
+/**
+ * Page-local automation WebSocket sync.
+ *
+ * Ownership split (APP-035):
+ * - `ServerStateEventBridge` owns Query list/run *invalidation* for definition/run events
+ *   so caches stay fresh even when this page is unmounted.
+ * - This hook owns page UX that Query invalidation alone cannot: selected detail refresh,
+ *   selection reset on delete, local run-state patches, and `automation_run_output` streams.
+ * - `upsertAutomation` / `removeAutomation` still patch the Query list for immediate UI;
+ *   bridge invalidation may refetch afterward (correctness over dedupe).
+ */
 export function useAutomationWebsocketSync({
   selectedAutomationGuid,
   setSelectedDetail,

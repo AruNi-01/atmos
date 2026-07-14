@@ -239,7 +239,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
 
       return gitStatus?.has_merge_conflicts ?? false;
     },
-    [],
+    [gitStatus],
   );
 
   const showActionErrorToast = useCallback(

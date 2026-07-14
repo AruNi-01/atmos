@@ -8,10 +8,12 @@ import type { ComputerQueryScope } from "@/api/query/query-scope";
 export function tmuxStatusQueryOptions(
   scope: ComputerQueryScope,
   runtimeReady: boolean,
+  options?: { enabled?: boolean },
 ) {
   return restComputerQueryOptions({
     scope,
     runtimeReady,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.tmuxStatus(scope),
     queryFn: () => systemApi.getTmuxStatus(),
   });
@@ -20,10 +22,12 @@ export function tmuxStatusQueryOptions(
 export function runtimeInfoQueryOptions(
   scope: ComputerQueryScope,
   runtimeReady: boolean,
+  options?: { enabled?: boolean },
 ) {
   return restComputerQueryOptions({
     scope,
     runtimeReady,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.runtimeInfo(scope),
     queryFn: () => systemApi.getRuntimeInfo(),
   });
@@ -32,10 +36,12 @@ export function runtimeInfoQueryOptions(
 export function ghCliStatusQueryOptions(
   scope: ComputerQueryScope,
   runtimeReady: boolean,
+  options?: { enabled?: boolean },
 ) {
   return restComputerQueryOptions({
     scope,
     runtimeReady,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.ghCliStatus(scope),
     queryFn: () => systemApi.getGhCliStatus(),
   });
@@ -44,10 +50,12 @@ export function ghCliStatusQueryOptions(
 export function terminalOverviewQueryOptions(
   scope: ComputerQueryScope,
   runtimeReady: boolean,
+  options?: { enabled?: boolean },
 ) {
   return restComputerQueryOptions({
     scope,
     runtimeReady,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.terminalOverview(scope),
     queryFn: () => systemApi.getTerminalOverview(),
   });
@@ -56,10 +64,12 @@ export function terminalOverviewQueryOptions(
 export function wsConnectionsQueryOptions(
   scope: ComputerQueryScope,
   runtimeReady: boolean,
+  options?: { enabled?: boolean },
 ) {
   return restComputerQueryOptions({
     scope,
     runtimeReady,
+    enabled: options?.enabled,
     queryKey: queryKeys.computer.wsConnections(scope),
     queryFn: () => systemApi.getWsConnections(),
   });

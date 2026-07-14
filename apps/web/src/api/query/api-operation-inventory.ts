@@ -256,7 +256,7 @@ export const apiOperationInventory = [
     legacyOwner: "useFileTreeStore",
     queryKeyRoot: "queryKeys.computer.files",
     phase: "domain",
-    status: "planned",
+    status: "complete",
   },
 
   // ──────────────────────────────────────────────────────────────────────────

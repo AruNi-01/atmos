@@ -428,6 +428,9 @@ export function useReviewContext({
       const defaultTitle = t("createSession.defaultTitle", {
         timestamp: `${mm}.${dd}-${hh}:${min}`,
       });
+      const scope = getComputerQueryScope();
+      const key = reviewSessionsKey(scope, target);
+      await queryClient.cancelQueries({ queryKey: key });
       const session = await reviewWsApi.createSession({
         target,
         title: defaultTitle,
@@ -435,7 +438,7 @@ export function useReviewContext({
       setSelectedSessionGuid(session.guid);
       setSelectedRevisionGuid(session.current_revision_guid);
       queryClient.setQueryData<ReviewSessionDto[]>(
-        reviewSessionsKey(getComputerQueryScope(), target),
+        key,
         (prev) => [session, ...(prev ?? [])],
       );
       const targetKind = target.kind === "workspace" ? "workspace" : "project";
