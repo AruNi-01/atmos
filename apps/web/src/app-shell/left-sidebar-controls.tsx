@@ -405,11 +405,11 @@ function SortableWorkspaceGroupSection({
       }}
       className={cn("space-y-1.5", isDragging && "relative z-20 opacity-60")}
     >
-      <div className="group flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40">
+      <div className="group relative flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40">
         <button
           type="button"
           onClick={toggleWorkspaceGroup}
-          className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
         >
           <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
           <span className="truncate">{group.label}</span>
@@ -419,7 +419,13 @@ function SortableWorkspaceGroupSection({
               !isCollapsed && "rotate-90",
             )}
           />
-          <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+          <span
+            className={cn(
+              "ml-auto inline-flex size-6 shrink-0 items-center justify-center text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
+              isSortableLabel &&
+                "group-hover:opacity-0 group-focus-within:opacity-0",
+            )}
+          >
             {group.items.length}
           </span>
         </button>
@@ -428,7 +434,7 @@ function SortableWorkspaceGroupSection({
             type="button"
             {...attributes}
             {...listeners}
-            className="mr-2 inline-flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity hover:text-sidebar-foreground focus-visible:opacity-100 active:cursor-grabbing group-hover:opacity-100"
+            className="pointer-events-none absolute right-2 inline-flex size-6 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity hover:text-sidebar-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 active:cursor-grabbing group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
             aria-label={group.label}
           >
             <GripVertical className="size-3.5" />
