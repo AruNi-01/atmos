@@ -1,5 +1,5 @@
 {
-  "lockfileVersion": 1,
+  "lockfileVersion": 2,
   "configVersion": 1,
   "workspaces": {
     "": {
@@ -170,6 +170,7 @@
         "@codemirror/view": "^6",
         "@headless-tree/core": "^1.6.2",
         "@headless-tree/react": "^1.6.2",
+        "@lezer/highlight": "^1.2.3",
         "@pierre/diffs": "^1.2.1",
         "@pierre/icons": "^0.5.0",
         "@pierre/trees": "1.0.0-beta.3",
@@ -181,6 +182,7 @@
         "@tauri-apps/api": "^2.0.0",
         "@tauri-apps/plugin-process": "^2.0.0",
         "@tauri-apps/plugin-updater": "^2.0.0",
+        "@tldraw/utils": "^5.2.3",
         "@types/mime": "^4.0.0",
         "@workspace/ui": "workspace:*",
         "@xterm/addon-attach": "^0.12.0",
@@ -370,8 +372,8 @@
     },
   },
   "trustedDependencies": [
-    "sharp",
     "unrs-resolver",
+    "sharp",
   ],
   "overrides": {
     "@codemirror/state": "6.5.4",
