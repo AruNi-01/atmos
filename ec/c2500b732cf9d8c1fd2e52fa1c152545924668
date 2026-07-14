@@ -1,0 +1,48 @@
+apps/web/src/app-shell/Header.tsx
+  s_28f04f1580c3ad::t_25680467985e94 116-136
+apps/web/src/features/canvas/components/widgets/CanvasChangesWidget.tsx
+  s_28f04f1580c3ad::t_75c91b6381d2e3 193
+  s_28f04f1580c3ad::t_bbb2ad375541a9 182
+apps/web/src/api/query/computer-query-options.ts
+  s_28f04f1580c3ad::t_a16ce0e1028a70 46
+apps/web/src/features/project/store/use-project-store.ts
+  s_28f04f1580c3ad::t_53d3f374a52a81 518-533
+apps/web/src/features/git/store/use-git-info-store.ts
+  s_28f04f1580c3ad::t_9fc03ffa55dcae 15
+  s_28f04f1580c3ad::t_c988b63bfb5e58 146,149
+apps/web/src/features/diff/components/DiffViewer.tsx
+  s_28f04f1580c3ad::t_3bc6b5e5184f75 838
+  s_28f04f1580c3ad::t_2d29ab4c39f94a 405
+  s_28f04f1580c3ad::t_532716c61ce623 343-344
+  s_28f04f1580c3ad::t_b734126cc46af8 161-164
+apps/web/src/features/github/hooks/use-github.ts
+  s_28f04f1580c3ad::t_2b724e9a2f55e6 35,37-38,41-42
+apps/web/src/features/atmos-computer/components/ComputerDetailsDialog.tsx
+  s_28f04f1580c3ad::t_95d4b60a2271b4 350-351
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  s_28f04f1580c3ad::t_c37d921d357787 175-177
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  s_28f04f1580c3ad::t_f9e2d0f7fa5386 99-102
+  s_28f04f1580c3ad::t_e56f101f87c898 564
+apps/web/src/features/automations/hooks/use-automations.ts
+  s_28f04f1580c3ad::t_0957e91f3e5145 4,33,47
+apps/web/src/app-shell/RightSidebar.tsx
+  s_28f04f1580c3ad::t_e729274e3d740f 452
+  s_28f04f1580c3ad::t_110bd8f015b118 462
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "ecc2500b732cf9d8c1fd2e52fa1c152545924668",
+  "prompts": {},
+  "sessions": {
+    "s_28f04f1580c3ad": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4e92bb0e-6960-42b5-a5dc-efed918079f8",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
