@@ -33,38 +33,31 @@ type WorkspaceTimeGroupKey = "today" | "yesterday" | "last_7_days" | "last_30_da
 
 export const UNTAGGED_WORKSPACE_GROUP_KEY = "__untagged__";
 
-let cachedWorkspaceGroupingLocale: "en" | "zh" | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedWorkspaceGroupingTranslator: any = null;
-let cachedWorkspaceKanbanLocale: "en" | "zh" | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedWorkspaceKanbanTranslator: any = null;
+function createCachedWorkspaceTranslator(
+  namespace: "appShell.workspaceGrouping" | "appShell.kanban",
+) {
+  let cachedLocale: "en" | "zh" | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let cachedTranslator: any = null;
 
-function workspaceGroupingT(key: string): string {
-  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
-  if (!cachedWorkspaceGroupingTranslator || cachedWorkspaceGroupingLocale !== locale) {
-    cachedWorkspaceGroupingLocale = locale;
-    cachedWorkspaceGroupingTranslator = createTranslator({
-      locale,
-      messages: locale === "zh" ? zhMessages : enMessages,
-      namespace: "appShell.workspaceGrouping",
-    });
-  }
-  return cachedWorkspaceGroupingTranslator(key as never);
+  return (key: string): string => {
+    const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
+    if (!cachedTranslator || cachedLocale !== locale) {
+      cachedLocale = locale;
+      cachedTranslator = createTranslator({
+        locale,
+        messages: locale === "zh" ? zhMessages : enMessages,
+        namespace,
+      });
+    }
+    return cachedTranslator(key as never);
+  };
 }
 
-function workspaceKanbanT(key: string): string {
-  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
-  if (!cachedWorkspaceKanbanTranslator || cachedWorkspaceKanbanLocale !== locale) {
-    cachedWorkspaceKanbanLocale = locale;
-    cachedWorkspaceKanbanTranslator = createTranslator({
-      locale,
-      messages: locale === "zh" ? zhMessages : enMessages,
-      namespace: "appShell.kanban",
-    });
-  }
-  return cachedWorkspaceKanbanTranslator(key as never);
-}
+const workspaceGroupingT = createCachedWorkspaceTranslator(
+  "appShell.workspaceGrouping",
+);
+const workspaceKanbanT = createCachedWorkspaceTranslator("appShell.kanban");
 
 export function flattenProjectWorkspaces(projects: Project[]): FlattenedWorkspaceEntry[] {
   return projects.flatMap((project) =>

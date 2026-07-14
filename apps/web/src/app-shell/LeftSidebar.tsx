@@ -176,6 +176,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
     const labelGroupOrderWriteVersionRef = useRef(0);
     const settingsScopeVersionRef = useRef(0);
+    const persistWorkspaceSidebarSetting = useCallback((
+        key: string,
+        value: unknown,
+    ) => {
+        const expectedScope = {
+            activeInstanceId,
+            connectionEpoch,
+            relaySessionRevision,
+        };
+        void functionSettingsApi.update(
+            'workspace_sidebar',
+            key,
+            value,
+            expectedScope,
+        ).catch((error) => {
+            if (!isComputerQueryScopeCurrent(expectedScope)) return;
+            console.error(`Failed to persist workspace sidebar setting "${key}":`, error);
+        });
+    }, [activeInstanceId, connectionEpoch, relaySessionRevision]);
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
@@ -248,16 +267,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     setSecondColumnKanbanCardProperties(
                         parseWorkspaceKanbanCardProperties(settings),
                     );
+                    setLoadedGroupingSettingsScopeKey(
+                        workspaceSidebarSettingsScopeKey,
+                    );
                 })
                 .catch((error) => {
                     console.error('Failed to load workspace sidebar settings:', error);
-                })
-                .finally(() => {
-                    if (settingsScopeVersionRef.current === scopeVersion) {
-                        setLoadedGroupingSettingsScopeKey(
-                            workspaceSidebarSettingsScopeKey,
-                        );
-                    }
                 });
         });
 
@@ -272,15 +287,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         if (!isGroupingSettingsReady) return;
         if (persistedGroupingModeRef.current === groupingMode) return;
         persistedGroupingModeRef.current = groupingMode;
-        void functionSettingsApi.update('workspace_sidebar', 'grouping_mode', groupingMode);
-    }, [groupingMode, isGroupingSettingsReady]);
+        persistWorkspaceSidebarSetting('grouping_mode', groupingMode);
+    }, [groupingMode, isGroupingSettingsReady, persistWorkspaceSidebarSetting]);
 
     useEffect(() => {
         if (!isGroupingSettingsReady) return;
         if (persistedPinnedSectionCollapsedRef.current === isPinnedSectionCollapsed) return;
         persistedPinnedSectionCollapsedRef.current = isPinnedSectionCollapsed;
-        void functionSettingsApi.update('workspace_sidebar', 'pinned_section_collapsed', isPinnedSectionCollapsed);
-    }, [isPinnedSectionCollapsed, isGroupingSettingsReady]);
+        persistWorkspaceSidebarSetting(
+            'pinned_section_collapsed',
+            isPinnedSectionCollapsed,
+        );
+    }, [
+        isPinnedSectionCollapsed,
+        isGroupingSettingsReady,
+        persistWorkspaceSidebarSetting,
+    ]);
 
     useEffect(() => {
         if (projects.length > 0 && expandedProjects.length === 0) {
@@ -726,6 +748,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 isGroupingSettingsReady ? handleLabelGroupOrderChange : undefined
             }
             renderWorkspaceContentRow={renderWorkspaceContentRow}
+            sensors={sensors}
             toggleWorkspaceGroup={toggleWorkspaceGroup}
         />
     );

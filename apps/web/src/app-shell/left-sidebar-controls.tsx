@@ -459,6 +459,7 @@ export function GroupedWorkspaceOneColumnContent({
   groups,
   onLabelGroupOrderChange,
   renderWorkspaceContentRow,
+  sensors,
   toggleWorkspaceGroup,
 }: {
   collapsedWorkspaceGroups: Record<string, boolean>;
@@ -469,6 +470,7 @@ export function GroupedWorkspaceOneColumnContent({
     entry: FlattenedWorkspaceEntry,
     options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
   ) => React.ReactNode;
+  sensors: DndSensors;
   toggleWorkspaceGroup: (stateKey: string) => void;
 }) {
   const sortableLabelGroupIds = groups
@@ -479,6 +481,7 @@ export function GroupedWorkspaceOneColumnContent({
     <div className="scrollbar-on-hover h-full overflow-y-auto no-scrollbar">
       <DndContext
         collisionDetection={closestCenter}
+        sensors={sensors}
         onDragEnd={({ active, over }) => {
           if (
             groupingMode !== "label" ||
