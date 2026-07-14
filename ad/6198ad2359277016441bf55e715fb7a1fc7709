@@ -1,0 +1,51 @@
+apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts
+  s_12de46b8739032::t_c36a106311527c 108-112,115
+apps/web/src/api/ws/request.test.ts
+  s_12de46b8739032::t_5dfc70ae0119cb 1-2,11-41,54-55
+  s_12de46b8739032::t_adcab7968b3a3e 3-10,42-53
+apps/web/src/app-shell/LeftSidebarPinnedSection.tsx
+  s_12de46b8739032::t_f7742554db667c 17,32,45,104-108
+apps/web/src/app-shell/left-sidebar-controls.tsx
+  s_12de46b8739032::t_0b1ccb59759cc1 326-367,414,555
+apps/web/src/api/ws/request.ts
+  s_12de46b8739032::t_2a3530225460fc 42-43,60-62
+  s_12de46b8739032::t_41cf2966fd50b7 5-12,20-32,45-46,48-59,63-67
+  s_12de46b8739032::t_d939fc22a2bd36 13-19
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_12de46b8739032::t_465a32cce5b678 79-88,154-156,178
+  s_12de46b8739032::t_96e2bdc9c9cdae 669
+  s_12de46b8739032::t_f88c824ab48aae 157-159,252-254,579,671
+  s_12de46b8739032::t_a593b80d0b4d2f 199-251,255-269
+  s_12de46b8739032::t_8546c6141b8cc3 429,436,444,455
+  s_12de46b8739032::t_f7a5e6eadb3c2b 25,424-428,435,441,443,453,461
+  s_12de46b8739032::t_2248b85995a05a 24
+apps/web/src/api/ws/settings-api.ts
+  s_12de46b8739032::t_9dba9cde5109a9 142
+  s_12de46b8739032::t_512af8f9a467f6 3,5-8,129,131-140
+apps/web/src/app-shell/sidebar/workspace-grouping.test.ts
+  s_12de46b8739032::t_4077fc71f31c5a 5,114-133
+  s_12de46b8739032::t_0835adda6c1543 134
+apps/web/src/app-shell/sidebar/workspace-grouping.ts
+  s_12de46b8739032::t_96b8babe08bb2b 126-127,131-133,148-161,165,169-173
+apps/web/src/features/settings/hooks/use-settings-bootstrap-query.ts
+  s_12de46b8739032::t_d393e20d2d5929 22
+apps/web/src/api/ws/settings-bootstrap-cache.ts
+  s_12de46b8739032::t_a2bcf95ea120a0 5-8,49-50,71,75,163-168,185
+  s_12de46b8739032::t_0f136767d09bb2 3,82-84,89-93,125,127,131,134,138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "ad6198ad2359277016441bf55e715fb7a1fc7709",
+  "prompts": {},
+  "sessions": {
+    "s_12de46b8739032": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "31083709-c189-479b-af4a-eaacbcdbfb4e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
