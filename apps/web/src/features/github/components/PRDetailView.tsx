@@ -1,11 +1,6 @@
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   Button,
   Tabs,
   TabsList,
@@ -13,7 +8,6 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
-  DialogClose,
   Skeleton,
   Tooltip,
   TooltipContent,
@@ -27,8 +21,6 @@ import {
   ExternalLink,
   GitMerge,
   XCircle,
-  Expand,
-  Shrink,
   MessageSquare,
   RotateCw,
   CheckCircle2,
@@ -36,7 +28,6 @@ import {
   GitPullRequest,
   GitCommit,
   Rocket,
-  X,
   Check,
   Copy,
   Eye,
@@ -60,7 +51,7 @@ import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features
 import { CommitList } from './CommitList';
 import { PRFilesTab } from './PRFilesTab';
 import { usePrContextHeader } from './use-pr-context-header';
-import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-modal-actions';
+import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-actions';
 import {
   CommentBox,
   PRDetailSkeleton,
@@ -71,42 +62,41 @@ import {
   type ReviewCommentThread,
   type StatusCheck,
   type TimelineItem,
-} from '../lib/pr-detail-modal-parts';
-import { PRMetadataSidebar } from '../lib/pr-detail-modal-sidebar';
+} from '../lib/pr-detail-parts';
+import { PRMetadataSidebar } from '../lib/pr-detail-sidebar';
 
-interface PRDetailModalProps {
+interface PRDetailViewProps {
   owner: string;
   repo: string;
   branch: string;
-  prNumber: number | null;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+  prNumber: number;
+  active: boolean;
+  onRequestClose: () => void;
   onMerged?: () => void;
   onClosed?: () => void;
 }
 
 type PRMainTab = 'description' | 'discussion' | 'commits' | 'files';
 
-export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
+export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestClose, onMerged, onClosed }: PRDetailViewProps) {
   const locale = useLocale();
-  const t = useTranslations('github.prDetailModal');
+  const t = useTranslations('github.prDetail');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
-  const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo, isOpen);
-  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo, isOpen);
+  const { data: pr, loading, fetch } = useGithubPRDetail(prNumber, owner, repo, active);
+  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber, owner, repo, active);
   const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>('description');
   const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(false);
   const [hasVisitedCommits, setHasVisitedCommits] = React.useState(false);
   const [hasVisitedFiles, setHasVisitedFiles] = React.useState(false);
   const { items: timelineItems, isLoading: timelineLoading, hasMore: timelineHasMore, loadMore: loadMoreTimeline } = useGithubPRTimeline(
-    prNumber || 0, owner, repo, hasVisitedDiscussion && !!prNumber && isOpen
+    prNumber, owner, repo, hasVisitedDiscussion && active
   );
   const { files: prFiles, loading: prFilesLoading } = useGithubPRFiles(
-    prNumber || 0, owner, repo, hasVisitedFiles && !!prNumber && isOpen
+    prNumber, owner, repo, hasVisitedFiles && active
   );
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
   const [branchCopied, setBranchCopied] = React.useState(false);
@@ -189,25 +179,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     },
     [agentFixContext, branch, owner, pr, prNumber, repo, t],
   );
-
-  // Reset tab state when modal opens/closes or PR changes
-  React.useEffect(() => {
-    setActiveMainTab('description');
-    setHasVisitedDiscussion(false);
-    setHasVisitedCommits(false);
-    setHasVisitedFiles(false);
-    resetPrContext();
-  }, [prNumber, resetPrContext]);
-
-  React.useEffect(() => {
-    if (!isOpen) {
-      setActiveMainTab('description');
-      setHasVisitedDiscussion(false);
-      setHasVisitedCommits(false);
-      setHasVisitedFiles(false);
-      resetPrContext();
-    }
-  }, [isOpen, resetPrContext]);
 
   const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
@@ -317,7 +288,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       });
       fetch?.();
       onMerged?.();
-      onOpenChange(false);
+      onRequestClose();
     } catch (e) {
       console.error(e);
     } finally {
@@ -332,7 +303,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       await send('github_pr_close', { owner, repo, pr_number: prNumber, comment: body.trim() || undefined });
       fetch?.();
       onClosed?.();
-      onOpenChange(false);
+      onRequestClose();
     } catch (e) {
       console.error(e);
     } finally {
@@ -416,26 +387,18 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   }, [resetPrContext]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          "transition-all duration-200 flex flex-col gap-0 overflow-hidden",
-          isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-6xl sm:max-w-6xl w-full h-[80vh] px-6 pb-6 pt-0"
-        )}
-      >
-        <div className="flex flex-col flex-1 min-h-0 min-h-[600px]">
-          <DialogHeader className="pr-24 flex flex-row items-center gap-3 space-y-0 pt-6 pb-4 shrink-0 relative">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6 pb-6">
+        <div className="flex flex-col flex-1 min-h-0">
+          <header className="pr-12 flex flex-row items-center gap-3 pt-6 pb-4 shrink-0 relative">
             <Github className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
-              <DialogTitle className="text-base font-bold whitespace-nowrap">{t('header.title', { prNumber: prNumber ?? 0 })}</DialogTitle>
+              <h2 className="text-base font-bold whitespace-nowrap">{t('header.title', { prNumber })}</h2>
               <span className="text-muted-foreground/30 font-light select-none">|</span>
-              <DialogDescription className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium" title={`${owner}/${repo} • ${branch}`}>
+              <p className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium" title={`${owner}/${repo} • ${branch}`}>
                 {owner}/{repo} • {branch}
-              </DialogDescription>
+              </p>
             </div>
 
-            {/* Modal Controls in Header - these will scroll away */}
             <div className="absolute right-0 top-6 flex items-center gap-1">
               <button
                 className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
@@ -444,22 +407,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               >
                 {isSidebarCollapsed ? <PanelRightOpen className="size-3.5" /> : <PanelRightClose className="size-3.5" />}
               </button>
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsFullscreen(!isFullscreen);
-                }}
-              >
-                {isFullscreen ? <Shrink className="size-3.5" /> : <Expand className="size-3.5" />}
-              </button>
-              <DialogClose asChild>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100">
-                  <X className="size-4" />
-                </button>
-              </DialogClose>
             </div>
-          </DialogHeader>
+          </header>
 
           {loading ? (
             <div className="pt-2 px-0.5 overflow-y-auto flex-1">
@@ -1079,7 +1028,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
           onMerge={() => handleMerge()}
           onReopen={() => handleReopen()}
         />
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }

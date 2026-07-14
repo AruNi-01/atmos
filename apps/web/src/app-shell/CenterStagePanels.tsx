@@ -33,6 +33,7 @@ import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 
 function TerminalGridLoadingFallback() {
   const t = useTranslations("appShell.centerStagePanels");
@@ -85,6 +86,22 @@ const FileViewer = dynamic(() => import("@/features/editor/components/FileViewer
   ),
 });
 
+const PRDetailView = dynamic(
+  () =>
+    import("@/features/github/components/PRDetailView").then(
+      (mod) => mod.PRDetailView,
+    ),
+  { ssr: false },
+);
+
+const ActionsDetailView = dynamic(
+  () =>
+    import("@/features/github/components/ActionsDetailView").then(
+      (mod) => mod.ActionsDetailView,
+    ),
+  { ssr: false },
+);
+
 const TerminalGrid = dynamic(
   () =>
     import("@/features/terminal/components/TerminalGrid").then(
@@ -111,6 +128,8 @@ interface CenterStagePanelsProps {
   currentView: string;
   currentWorkspace?: Workspace;
   effectiveContextId: string;
+  githubTabs: GithubCenterTab[];
+  handleCloseGithubTab: (value: string) => void;
   handleCreateTerminalCenterTab: () => void;
   handleTerminalPaneClosed: (event: {
     paneId: string;
@@ -120,6 +139,7 @@ interface CenterStagePanelsProps {
   }) => void;
 
   openFiles: OpenFile[];
+  onGithubPullRequestChanged: () => void;
   projectWikiTabVisible: boolean;
   projectWikiTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
@@ -148,10 +168,13 @@ export function CenterStagePanels({
   currentView,
   currentWorkspace,
   effectiveContextId,
+  githubTabs,
+  handleCloseGithubTab,
   handleCreateTerminalCenterTab,
   handleTerminalPaneClosed,
 
   openFiles,
+  onGithubPullRequestChanged,
   projectWikiTabVisible,
   projectWikiTerminalGridRef,
   projectWikiUserTriggeredRef,
@@ -341,6 +364,38 @@ export function CenterStagePanels({
           />
         </div>
       )}
+
+      {githubTabs.map((tab) => (
+        <div
+          key={tab.value}
+          className={cn(
+            "flex-1 min-h-0 min-w-0",
+            activeValue !== tab.value && "hidden",
+          )}
+        >
+          {tab.kind === "github-pr" ? (
+            <PRDetailView
+              active={activeValue === tab.value}
+              branch={tab.branch}
+              onClosed={onGithubPullRequestChanged}
+              onMerged={onGithubPullRequestChanged}
+              onRequestClose={() => handleCloseGithubTab(tab.value)}
+              owner={tab.owner}
+              prNumber={tab.prNumber}
+              repo={tab.repo}
+            />
+          ) : (
+            <ActionsDetailView
+              active={activeValue === tab.value}
+              onRequestClose={() => handleCloseGithubTab(tab.value)}
+              owner={tab.owner}
+              repo={tab.repo}
+              run={tab.run}
+              runId={tab.runId}
+            />
+          )}
+        </div>
+      ))}
 
       {openFiles.map((file) => (
         <TabsPanel

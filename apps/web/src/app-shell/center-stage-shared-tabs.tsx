@@ -17,8 +17,10 @@ import {
 import {
   BookOpen,
   FileCheckCorner,
+  GitPullRequest,
   GitMergeIcon,
   SquareTerminal as TerminalIcon,
+  Workflow,
 } from "lucide-react";
 
 import {
@@ -45,7 +47,9 @@ export type CenterStageSurfaceTabVariant =
   | "diff"
   | "diff-group"
   | "review-diff"
-  | "conflict";
+  | "conflict"
+  | "github-pr"
+  | "github-action";
 
 export function CenterStageTabList({
   children,
@@ -202,6 +206,10 @@ export function CenterStageSurfaceContentTab({
             <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
           ) : variant === "conflict" ? (
             <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+          ) : variant === "github-pr" ? (
+            <GitPullRequest className="size-3.5 shrink-0" />
+          ) : variant === "github-action" ? (
+            <Workflow className="size-3.5 shrink-0" />
           ) : (
             <CenterStageFileIcon name={name} className="size-3.5 shrink-0" />
           )}
@@ -302,6 +310,19 @@ export function CenterStageTabGroupItemContent({
         {effectiveContextId ? (
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
         ) : null}
+      </>
+    );
+  }
+
+  if (tab.kind === "github-pr" || tab.kind === "github-action") {
+    return (
+      <>
+        {tab.kind === "github-pr" ? (
+          <GitPullRequest className="size-3.5 shrink-0" />
+        ) : (
+          <Workflow className="size-3.5 shrink-0" />
+        )}
+        <span className={textClassName}>{tab.label}</span>
       </>
     );
   }

@@ -89,7 +89,7 @@ export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
   return data;
 }
 
-/** PR detail — TanStack Query (cached across modal close/reopen). */
+/** PR detail — TanStack Query (cached across center-tab close/reopen). */
 export function useGithubPRDetail(
   prNumber: number,
   owner?: string,
@@ -161,7 +161,7 @@ export function useGithubPRFiles(
   };
 }
 
-/** PR sidebar — TanStack Query (cached across modal close/reopen). */
+/** PR sidebar — TanStack Query (cached across center-tab close/reopen). */
 export function useGithubPRDetailSidebar(
   prNumber: number,
   owner?: string,

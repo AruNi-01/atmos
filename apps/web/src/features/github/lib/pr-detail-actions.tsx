@@ -54,7 +54,7 @@ export function PRActionBar({
   onMerge,
   onReopen,
 }: PRActionBarProps) {
-  const t = useTranslations('github.prDetailModalActions');
+  const t = useTranslations('github.prDetailActions');
   const [isOpen, setIsOpen] = React.useState(false);
   const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(false);
   const [isToolbarHovered, setIsToolbarHovered] = React.useState(false);
@@ -302,7 +302,7 @@ function MergeStrategyItem({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const t = useTranslations('github.prDetailModalActions');
+  const t = useTranslations('github.prDetailActions');
   return (
     <DropdownMenuItem
       className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"

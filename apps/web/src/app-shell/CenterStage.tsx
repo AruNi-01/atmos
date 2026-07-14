@@ -39,6 +39,7 @@ import {
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 import { canvasApi, systemApi } from "@/api/rest-api";
 import {
   PROJECT_WIKI_WINDOW_NAME,
@@ -96,9 +97,18 @@ import {
   createDefaultDocument,
   parseBoardDocument,
 } from "@/features/canvas/hooks/use-canvas-board";
+import {
+  isGithubCenterTabValue,
+  parseGithubCenterTabValue,
+  type GithubCenterTab,
+  useGithubCenterTabsStore,
+} from "@/features/github/store/use-github-center-tabs";
+
+const EMPTY_GITHUB_TABS: GithubCenterTab[] = [];
 
 const CenterStage: React.FC = () => {
   const t = useTranslations("appShell.centerStage");
+  const githubTabsT = useTranslations("github.centerTabs");
   usePrewarmCodeLanguages();
   const router = useAppRouter();
 
@@ -135,6 +145,18 @@ const CenterStage: React.FC = () => {
   useEditorStoreHydration();
 
   const { workspaceId, projectId: projectIdFromUrl, effectiveContextId, currentView } = useContextParams();
+  const githubTabs = useGithubCenterTabsStore((state) =>
+    effectiveContextId
+      ? state.tabsByContext[effectiveContextId] ?? EMPTY_GITHUB_TABS
+      : EMPTY_GITHUB_TABS,
+  );
+  const openGithubPullRequest = useGithubCenterTabsStore(
+    (state) => state.openPullRequest,
+  );
+  const openGithubActionRun = useGithubCenterTabsStore(
+    (state) => state.openActionRun,
+  );
+  const closeGithubTab = useGithubCenterTabsStore((state) => state.closeTab);
   const {
     terminalTabs,
     createTerminalTab,
@@ -230,6 +252,12 @@ const CenterStage: React.FC = () => {
         ? tabFromUrl
         : fallbackCenterTab;
     }
+    if (isGithubCenterTabValue(tabFromUrl)) {
+      const target = parseGithubCenterTabValue(tabFromUrl);
+      return target?.contextId === effectiveContextId
+        ? tabFromUrl
+        : fallbackCenterTab;
+    }
     return tabFromUrl;
   }, [
     tabFromUrl,
@@ -237,6 +265,7 @@ const CenterStage: React.FC = () => {
     centerWikiTabEnabled,
     projectWikiTabVisible,
     codeReviewTabVisible,
+    effectiveContextId,
     fallbackCenterTab,
     visibleTerminalTabs,
   ]);
@@ -295,6 +324,8 @@ const CenterStage: React.FC = () => {
   const centerStageRepoPath = useGitStore((s) => s.currentRepoPath);
   const statusQuery = useGitStatusQuery(centerStageRepoPath);
   const currentBranch = statusQuery.data?.current_branch ?? null;
+  const githubOwner = statusQuery.data?.github_owner ?? null;
+  const githubRepo = statusQuery.data?.github_repo ?? null;
 
   const handleCloseFile = React.useCallback((file: OpenFile) => {
     if (file.isDirty) {
@@ -342,6 +373,74 @@ const CenterStage: React.FC = () => {
 
   // activeValue 优先使用打开的文件路径，否则使用当前 center tab
   const activeValue = activeFilePath || resolvedTab;
+
+  React.useEffect(() => {
+    const target = parseGithubCenterTabValue(tabFromUrl);
+    if (
+      !target ||
+      !effectiveContextId ||
+      target.contextId !== effectiveContextId ||
+      githubTabs.some((tab) => tab.value === tabFromUrl) ||
+      !githubOwner ||
+      !githubRepo
+    ) {
+      return;
+    }
+
+    if (target.kind === "github-pr") {
+      if (!currentBranch) return;
+      openGithubPullRequest(effectiveContextId, {
+        branch: currentBranch,
+        label: githubTabsT("pullRequest", { number: target.itemId }),
+        owner: githubOwner,
+        prNumber: target.itemId,
+        repo: githubRepo,
+      });
+      return;
+    }
+
+    openGithubActionRun(effectiveContextId, {
+      label: githubTabsT("actionRun", { number: target.itemId }),
+      owner: githubOwner,
+      repo: githubRepo,
+      run: null,
+      runId: target.itemId,
+    });
+  }, [
+    currentBranch,
+    effectiveContextId,
+    githubOwner,
+    githubRepo,
+    githubTabs,
+    githubTabsT,
+    openGithubActionRun,
+    openGithubPullRequest,
+    tabFromUrl,
+  ]);
+
+  const handleCloseGithubTab = React.useCallback(
+    (value: string) => {
+      if (!effectiveContextId) return;
+      const closingIndex = githubTabs.findIndex((tab) => tab.value === value);
+      const nextTab =
+        githubTabs[closingIndex + 1] ?? githubTabs[closingIndex - 1] ?? null;
+      closeGithubTab(effectiveContextId, value);
+      if (activeValue === value) {
+        setUrlParams({
+          tab: nextTab?.value ?? fallbackCenterTab,
+          wikiPage: null,
+        });
+      }
+    },
+    [
+      activeValue,
+      closeGithubTab,
+      effectiveContextId,
+      fallbackCenterTab,
+      githubTabs,
+      setUrlParams,
+    ],
+  );
 
   useTerminalTabMountLifecycle({
     activeValue,
@@ -418,11 +517,15 @@ const CenterStage: React.FC = () => {
       setUrlParams({ tab: last, wikiPage: null });
       return;
     }
+    if (githubTabs.some((tab) => tab.value === last)) {
+      setUrlParams({ tab: last, wikiPage: null });
+      return;
+    }
     const exists = openFiles.some((f) => f.path === last);
     if (exists) {
       setActiveFile(last, effectiveContextId);
     }
-  }, [effectiveContextId, activeFilePath, activeValue, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
+  }, [effectiveContextId, activeFilePath, activeValue, githubTabs, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
 
   const { defaultAgentId, terminalQuickOpenAgents } = useCenterStageTerminalAgents(isSetupBlocking);
 
@@ -983,6 +1086,9 @@ const CenterStage: React.FC = () => {
       } else {
         runWhenTerminalGridReady(val, (grid) => grid.focusActivePane());
       }
+    } else if (isGithubCenterTabValue(val)) {
+      setUrlParams({ tab: val, wikiPage: null });
+      setActiveFile(null, effectiveContextId || undefined);
     } else if (FIXED_TABS.has(val)) {
       setFixedTab(val as FixedTab);
       setActiveFile(null, effectiveContextId || undefined);
@@ -1013,11 +1119,17 @@ const CenterStage: React.FC = () => {
     orderedGroupedTabItems,
   } = useCenterStageTabGroups({
     effectiveContextId,
+    githubTabs,
     openFiles,
   });
 
   const currentRepoPath = centerStageRepoPath;
   const sessionDisplay = useReviewSnapshotStore((s) => s.sessionDisplay);
+  const handleGithubPullRequestChanged = React.useCallback(() => {
+    if (currentRepoPath) {
+      void invalidateGitQueries(currentRepoPath);
+    }
+  }, [currentRepoPath]);
 
   const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {
     if (tab.kind === "terminal") {
@@ -1035,10 +1147,15 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (tab.kind === "github-pr" || tab.kind === "github-action") {
+      handleCloseGithubTab(tab.value);
+      return;
+    }
+
     if (tab.file) {
       handleCloseFile(tab.file);
     }
-  }, [handleCloseFile, handleCloseTerminalCenterTab]);
+  }, [handleCloseFile, handleCloseGithubTab, handleCloseTerminalCenterTab]);
 
   const { currentProject, currentWorkspace } = resolveCenterStageProjectContext(
     projects,
@@ -1120,6 +1237,7 @@ const CenterStage: React.FC = () => {
           activeValue={activeValue}
           codeReviewTabVisible={codeReviewTabVisible}
           effectiveContextId={effectiveContextId}
+          githubTabs={githubTabs}
           openFiles={openFiles}
           orderedGroupedTabItems={orderedGroupedTabItems}
           projectWikiTabVisible={projectWikiTabVisible}
@@ -1134,6 +1252,7 @@ const CenterStage: React.FC = () => {
           handleCenterStageTabChange={handleCenterStageTabChange}
           handleCloseTabGroupItem={handleCloseTabGroupItem}
           handleCloseFile={handleCloseFile}
+          handleCloseGithubTab={handleCloseGithubTab}
           handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
           handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
@@ -1159,10 +1278,13 @@ const CenterStage: React.FC = () => {
           currentView={currentView}
           currentWorkspace={currentWorkspace}
           effectiveContextId={effectiveContextId}
+          githubTabs={githubTabs}
+          handleCloseGithubTab={handleCloseGithubTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
           handleTerminalPaneClosed={handleTerminalPaneClosed}
           mountedTerminalTabsByContext={mountedTerminalTabsByContext}
           openFiles={openFiles}
+          onGithubPullRequestChanged={handleGithubPullRequestChanged}
           projectWikiTabVisible={projectWikiTabVisible}
           projectWikiTerminalGridRef={projectWikiTerminalGridRef}
           projectWikiUserTriggeredRef={projectWikiUserTriggeredRef}

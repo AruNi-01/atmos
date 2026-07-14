@@ -40,13 +40,12 @@ import { useQueryStates } from "nuqs";
 import {
   centerStageParams,
   rightSidebarParams,
-  rightSidebarModalParams,
+  rightSidebarDialogParams,
   type RightSidebarTab,
 } from "@/shared/lib/nuqs/searchParams";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import dynamic from "next/dynamic";
-import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
@@ -61,12 +60,13 @@ import {
   type ChangesDiffScope,
 } from "@/app-shell/sidebar/ChangesToolbar";
 import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
-import { RightSidebarDialogs } from "@/app-shell/sidebar/RightSidebarDialogs";
+import { RightSidebarCreatePrDialog } from "@/app-shell/sidebar/RightSidebarCreatePrDialog";
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
 import type { ReviewTarget } from "@/api/ws-api";
 import { ReviewActions } from "@/features/diff/components/review/ReviewActions";
 import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
+import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 
 const AgentChatPanel = dynamic(
   () => import("@/features/agent/components/AgentChatPanel").then((m) => m.AgentChatPanel),
@@ -278,11 +278,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   }, [activeTab, topTabs, setSidebarParams]);
   const [{ tab: activeCenterTab, wikiPage: activeWikiPage }] =
     useQueryStates(centerStageParams);
-  const [
-    { rsPr: activePrNumber, rsRunId: activeRunId, rsCreatePr },
-    setModalParams,
-  ] = useQueryStates(rightSidebarModalParams);
-  const { activeActionRun, setActiveActionRun } = useDialogStore();
+  const [{ rsCreatePr }, setDialogParams] = useQueryStates(
+    rightSidebarDialogParams,
+  );
+  const { openActionRunTab, openPullRequestTab } = useOpenGithubCenterTab();
 
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
@@ -823,7 +822,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       owner={githubOwner}
                       repo={githubRepo}
                       branch={currentBranch}
-                      onPrClick={(num) => setModalParams({ rsPr: num })}
+                      onPrClick={(prNumber) =>
+                        openPullRequestTab({
+                          branch: currentBranch,
+                          owner: githubOwner,
+                          prNumber,
+                          repo: githubRepo,
+                        })
+                      }
                       prSubTab={prSubTab}
                       onLoadingChange={setPRPanelLoading}
                       enabled={activeTab === "pr"}
@@ -861,10 +867,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     repo={githubRepo}
                     branch={currentBranch}
                     enabled={activeTab === "actions"}
-                    onRunClick={(run: ActionRun) => {
-                      setActiveActionRun(run);
-                      setModalParams({ rsRunId: run.databaseId });
-                    }}
+                    onRunClick={(run: ActionRun) =>
+                      openActionRunTab({
+                        owner: githubOwner,
+                        repo: githubRepo,
+                        run,
+                      })
+                    }
                   />
                 </div>
               ) : (
@@ -943,23 +952,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           )}
         </Tabs>
 
-        <RightSidebarDialogs
+        <RightSidebarCreatePrDialog
           githubOwner={githubOwner}
           githubRepo={githubRepo}
           currentBranch={currentBranch}
-          activePrNumber={activePrNumber}
-          onClosePr={() => setModalParams({ rsPr: null })}
-          onPrMerged={() => {
-            if (currentProjectPath) void invalidateGitQueries(currentProjectPath);
-          }}
-          activeRunId={activeRunId}
-          activeActionRun={activeActionRun}
-          onCloseActions={() => {
-            setActiveActionRun(null);
-            setModalParams({ rsRunId: null });
-          }}
           rsCreatePr={!!rsCreatePr}
-          onCloseCreatePr={() => setModalParams({ rsCreatePr: false })}
+          onCloseCreatePr={() => setDialogParams({ rsCreatePr: false })}
           onPrCreated={() => prPanelRef.current?.refreshOpen()}
         />
       </div>

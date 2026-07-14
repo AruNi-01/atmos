@@ -1,12 +1,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
   Avatar,
   AvatarImage,
   AvatarFallback,
@@ -15,12 +9,9 @@ import {
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   XCircle,
-  Expand,
-  Shrink,
   Loader2,
   CheckCircle2,
   Rocket,
-  X,
   Clock,
 } from "lucide-react";
 import { useGithubActionsDetail } from "@/features/github/hooks/use-github";
@@ -35,40 +26,39 @@ import { ActionsActionBar } from "./ActionsActionBar";
 import { ActionsJobsList } from "./ActionsJobsList";
 import type { ActionJob } from "./actions-detail-types";
 
-interface ActionsDetailModalProps {
+interface ActionsDetailViewProps {
   owner: string;
   repo: string;
   /** Full run object — available when opened from click, null on page refresh. */
   run: ActionRun | null;
-  /** Unique run ID used to fetch detail; drives isOpen when provided. */
-  runId: number | null;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+  /** Unique run ID used to fetch detail. */
+  runId: number;
+  active: boolean;
+  onRequestClose: () => void;
 }
 
-export function ActionsDetailModal({
+export function ActionsDetailView({
   owner,
   repo,
   run,
   runId,
-  isOpen,
-  onOpenChange,
-}: ActionsDetailModalProps) {
-  const t = useTranslations("github.actionsDetailModal");
+  active,
+  onRequestClose,
+}: ActionsDetailViewProps) {
+  const t = useTranslations("github.actionsDetail");
   const agentFixContext = useAgentFixContext();
   const send = useWebSocketStore((s) => s.send);
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   const effectiveRunId = runId ?? run?.databaseId;
   const { data: detail, loading: detailLoading } = useGithubActionsDetail(
     owner,
     repo,
-    isOpen ? effectiveRunId : undefined,
+    active ? effectiveRunId : undefined,
   );
   const jobs = React.useMemo(
     () => (Array.isArray(detail?.jobs) ? (detail.jobs as ActionJob[]) : []),
-    [detail?.jobs],
+    [detail],
   );
 
   // Merge: prefer the passed-in `run` object; fall back to `detail` (available after fetch on refresh)
@@ -109,7 +99,7 @@ export function ActionsDetailModal({
       console.error(e);
     } finally {
       setActionLoading(false);
-      onOpenChange(false);
+      onRequestClose();
     }
   };
 
@@ -127,7 +117,7 @@ export function ActionsDetailModal({
       console.error(e);
     } finally {
       setActionLoading(false);
-      onOpenChange(false);
+      onRequestClose();
     }
   };
 
@@ -136,24 +126,15 @@ export function ActionsDetailModal({
     window.open(effectiveRun.url, "_blank");
   };
 
-  // Still loading initial data on refresh — show dialog with loading skeleton
+  // Still loading initial data on refresh — keep the center panel stable.
   if (!effectiveRun) {
-    if (!isOpen) return null;
     return (
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent
-          showCloseButton={false}
-          className="max-w-2xl sm:max-w-2xl w-full h-[80vh] px-6 pb-6 pt-0 flex flex-col gap-0 overflow-hidden"
-        >
-          <DialogTitle className="sr-only">{t("loading.title")}</DialogTitle>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <Loader2 className="size-6 animate-spin opacity-50" />
-              <span className="text-xs">{t("loading.body")}</span>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="size-6 animate-spin opacity-50" />
+          <span className="text-xs">{t("loading.body")}</span>
+        </div>
+      </div>
     );
   }
 
@@ -164,56 +145,25 @@ export function ActionsDetailModal({
   const createdAtTimeAgo = formatActionTimeAgo(effectiveRun.createdAt);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          "transition-all duration-200 flex flex-col gap-0 overflow-hidden",
-          isFullscreen
-            ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none"
-            : "max-w-2xl sm:max-w-2xl w-full h-[80vh] px-6 pb-6 pt-0",
-        )}
-      >
-        <div className="flex-1 overflow-y-auto min-h-[400px] pr-4 -mr-4 pb-16 relative no-scrollbar">
-          <DialogHeader className="pr-24 flex flex-row items-center gap-3 space-y-0 pt-6 pb-4 shrink-0 relative">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-0 overflow-hidden px-6 pb-6">
+        <div className="flex-1 overflow-y-auto min-h-0 pr-4 -mr-4 pb-16 relative no-scrollbar">
+          <header className="flex flex-row items-center gap-3 pt-6 pb-4 shrink-0 relative">
             <WorkflowIcon className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
-              <DialogTitle className="text-base font-bold whitespace-nowrap">
+              <h2 className="text-base font-bold whitespace-nowrap">
                 {t("title", { runId: effectiveRun.databaseId })}
-              </DialogTitle>
+              </h2>
               <span className="text-muted-foreground/30 font-light select-none">
                 |
               </span>
-              <DialogDescription
+              <p
                 className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium"
                 title={`${owner}/${repo}`}
               >
                 {owner}/{repo}
-              </DialogDescription>
+              </p>
             </div>
-
-            {/* Modal Controls in Header */}
-            <div className="absolute right-0 top-6 flex items-center gap-1">
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsFullscreen(!isFullscreen);
-                }}
-              >
-                {isFullscreen ? (
-                  <Shrink className="size-3.5" />
-                ) : (
-                  <Expand className="size-3.5" />
-                )}
-              </button>
-              <DialogClose asChild>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100">
-                  <X className="size-4" />
-                </button>
-              </DialogClose>
-            </div>
-          </DialogHeader>
+          </header>
 
           <div className="flex flex-col text-sm relative">
             <div className="shrink-0 pb-4 pt-1 border-b border-border/50 sticky top-0 z-30 bg-background/98 backdrop-blur-md">
@@ -334,7 +284,7 @@ export function ActionsDetailModal({
               <ActionsJobsList
                 agentFixContext={agentFixContext}
                 detailLoading={detailLoading}
-                isOpen={isOpen}
+                isOpen={active}
                 jobs={jobs}
                 owner={owner}
                 repo={repo}
@@ -359,8 +309,7 @@ export function ActionsDetailModal({
           onRerunFailed={handleRerunFailed}
           onRerunAll={handleRerunAll}
         />
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 

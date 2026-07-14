@@ -3,8 +3,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale, useTranslations } from 'next-intl';
-import { useQueryStates } from 'nuqs';
-import { rightSidebarModalParams } from '@/shared/lib/nuqs/searchParams';
 import {
   Button,
   cn,
@@ -61,12 +59,12 @@ import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { useGithubPRList, useGithubActionsList } from '@/features/github/hooks/use-github';
 import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/features/github/components/ActionsPanel';
+import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { fsApi, type GithubIssuePayload } from '@/api/ws-api';
 import { TaskListPanel, renderStatusIcon } from '@/features/workspace/components/TaskListPanel';
 import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/shared/types/domain';
@@ -285,8 +283,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   });
   const { latestRuns, stats } = useProcessedActions(actionRuns);
 
-  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
-  const { setActiveActionRun, setActivePr } = useDialogStore();
+  const { openActionRunTab, openPullRequestTab } = useOpenGithubCenterTab();
   const [requirementExpanded, setRequirementExpanded] = useState(false);
   const [isEditingRequirement, setIsEditingRequirement] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -460,10 +457,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         onOpenPullRequest(pr);
         return;
       }
-      setActivePr(pr);
-      void setModalParams({ rsPr: pr.number, rsRunId: null });
+      if (!githubOwner || !githubRepo) return;
+      openPullRequestTab({
+        branch: effectiveGitBranch,
+        label: `#${pr.number} ${pr.title}`,
+        owner: githubOwner,
+        prNumber: pr.number,
+        repo: githubRepo,
+      });
     },
-    [onOpenPullRequest, setActivePr, setModalParams],
+    [
+      effectiveGitBranch,
+      githubOwner,
+      githubRepo,
+      onOpenPullRequest,
+      openPullRequestTab,
+    ],
   );
 
   const handleOpenActionRun = useCallback(
@@ -472,10 +481,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         onOpenActionRun(run);
         return;
       }
-      setActiveActionRun(run);
-      void setModalParams({ rsPr: null, rsRunId: run.databaseId });
+      if (!githubOwner || !githubRepo) return;
+      openActionRunTab({ owner: githubOwner, repo: githubRepo, run });
     },
-    [onOpenActionRun, setActiveActionRun, setModalParams],
+    [githubOwner, githubRepo, onOpenActionRun, openActionRunTab],
   );
 
   const taskDragOverlay = (

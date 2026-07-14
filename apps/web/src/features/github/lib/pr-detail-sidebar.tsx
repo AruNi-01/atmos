@@ -30,7 +30,7 @@ import {
   type Label,
   type Reviewer,
   type StatusCheck,
-} from './pr-detail-modal-parts';
+} from './pr-detail-parts';
 
 interface PRSidebarData {
   participants?: Array<{ login: string; avatar_url?: string }>;

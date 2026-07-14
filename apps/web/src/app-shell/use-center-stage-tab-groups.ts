@@ -16,6 +16,7 @@ import {
   writeCenterStageTabGroupOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
+import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import {
   applySavedTabGroupOrder,
   type TabGroupItem,
@@ -24,9 +25,11 @@ import {
 
 export function useCenterStageTabGroups({
   effectiveContextId,
+  githubTabs,
   openFiles,
 }: {
   effectiveContextId: string | null;
+  githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
 }) {
   const t = useTranslations("appShell.centerStageTabGroups");
@@ -88,8 +91,21 @@ export function useCenterStageTabGroups({
       groups.push({ key: "conflict", label: t("groups.conflict"), tabs: conflictTabsGroup });
     }
 
+    if (githubTabs.length > 0) {
+      groups.push({
+        key: "github",
+        label: t("groups.github"),
+        tabs: githubTabs.map((tab) => ({
+          id: tab.id,
+          label: tab.label,
+          value: tab.value,
+          kind: tab.kind,
+        })),
+      });
+    }
+
     return groups;
-  }, [openFiles, t]);
+  }, [githubTabs, openFiles, t]);
 
   const orderedGroupedTabItems = React.useMemo(() => {
     const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;

@@ -1,12 +1,11 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useQueryState, useQueryStates } from "nuqs";
+import { useQueryState } from "nuqs";
 import { useTheme } from "next-themes";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   llmProvidersModalParams,
-  rightSidebarModalParams,
   settingsModalParams,
   skillsModalParams,
   tokenUsageParams,
@@ -60,6 +59,7 @@ import { HeaderActionControls } from './header-action-controls';
 import { HeaderGitContext } from './header-git-context';
 import { useHeaderFullscreen } from './use-header-fullscreen';
 import { useHeaderHotkeys } from './use-header-hotkeys';
+import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 
 const Header: React.FC = () => {
   const pathname = usePathname();
@@ -113,7 +113,7 @@ const Header: React.FC = () => {
     setTargetBranch,
   } = useGitInfoStore();
 
-  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const { openPullRequestTab } = useOpenGithubCenterTab();
 
   const onWsEvent = useWebSocketStore(s => s.onEvent);
 
@@ -589,7 +589,15 @@ const Header: React.FC = () => {
             isLoadingBranches={isLoadingBranches}
             isTargetBranchOpen={isTargetBranchOpen}
             onCancelEditCurrentBranch={handleCancelEditCurrentBranch}
-            onOpenPr={(prNumber) => setModalParams({ rsPr: prNumber })}
+            onOpenPr={(prNumber) => {
+              if (!currentBranch || !githubOwner || !githubRepo) return;
+              openPullRequestTab({
+                branch: currentBranch,
+                owner: githubOwner,
+                prNumber,
+                repo: githubRepo,
+              });
+            }}
             onRefreshChangedFiles={refreshGitStatus}
             onSaveCurrentBranch={handleSaveCurrentBranch}
             onSetTargetBranch={setTargetBranch}

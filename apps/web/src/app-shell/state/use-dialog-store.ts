@@ -115,15 +115,6 @@ interface DialogStore {
 
   headerHasOpenOverlay: boolean;
   setHeaderHasOpenOverlay: (open: boolean) => void;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  activeActionRun: any | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setActiveActionRun: (run: any | null) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  activePr: any | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setActivePr: (pr: any | null) => void;
 }
 
 export const useDialogStore = create<DialogStore>((set, get) => ({
@@ -306,10 +297,4 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
 
   headerHasOpenOverlay: false,
   setHeaderHasOpenOverlay: (open) => set({ headerHasOpenOverlay: open }),
-
-  activeActionRun: null,
-  setActiveActionRun: (run) => set({ activeActionRun: run }),
-
-  activePr: null,
-  setActivePr: (pr) => set({ activePr: pr }),
 }));

@@ -11,6 +11,10 @@ import {
   getCanvasContextId,
   type CanvasContextRef,
 } from "@/features/canvas/lib/canvas-widget-shape";
+import {
+  buildGithubActionTabValue,
+  buildGithubPullRequestTabValue,
+} from "@/features/github/store/use-github-center-tabs";
 
 export function CanvasContextOverview({ context }: { context: CanvasContextRef }) {
   const editor = useEditor();
@@ -89,12 +93,16 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
         dragOverlayContainer={portalRoot}
         onOpenPullRequest={(pr) => {
           host?.notifyUnsupported({
-            targetPath: buildMainAppTargetPath({ rsPr: pr.number }),
+            targetPath: buildMainAppTargetPath({
+              tab: buildGithubPullRequestTabValue(contextId, pr.number),
+            }),
           });
         }}
         onOpenActionRun={(run) => {
           host?.notifyUnsupported({
-            targetPath: buildMainAppTargetPath({ rsRunId: run.databaseId }),
+            targetPath: buildMainAppTargetPath({
+              tab: buildGithubActionTabValue(contextId, run.databaseId),
+            }),
           });
         }}
       />

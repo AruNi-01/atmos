@@ -921,7 +921,8 @@
         "file": "文件",
         "diff": "Diff",
         "review": "Review",
-        "conflict": "冲突解决"
+        "conflict": "冲突解决",
+        "github": "GitHub"
       }
     },
     "globalSearchParts": {
@@ -5415,7 +5416,11 @@
     }
   },
   "github": {
-    "actionsDetailModal": {
+    "centerTabs": {
+      "pullRequest": "PR #{number}",
+      "actionRun": "Action #{number}"
+    },
+    "actionsDetail": {
       "loading": {
         "title": "正在加载运行详情",
         "body": "请稍候。"
@@ -5556,7 +5561,7 @@
         "unknown": "未知"
       }
     },
-    "prDetailModalParts": {
+    "prDetailParts": {
       "checks": {
         "title": "Checks",
         "groups": {
@@ -5592,7 +5597,7 @@
         "unknownAuthor": "未知"
       }
     },
-    "prDetailModalActions": {
+    "prDetailActions": {
       "closePr": "关闭 PR",
       "reopenPr": "重新打开 PR",
       "merged": "已合并",
@@ -5691,7 +5696,7 @@
       "nextPage": "下一页",
       "page": "页码"
     },
-    "prDetailModal": {
+    "prDetail": {
       "agentFix": {
         "openWorkspace": "打开一个工作区或项目后才能运行 Agent Fix。",
         "threadLabel": "修复 PR 评审：{fileName}",

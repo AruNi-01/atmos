@@ -38,11 +38,13 @@ import {
   CenterStageOpenFileTab,
   CenterStageOverviewTab,
   CenterStageScrollableTabs,
+  CenterStageSurfaceContentTab,
   CenterStageStickyTabActions,
   CenterStageTabGroupItemContent,
   CenterStageTabList,
 } from "@/app-shell/center-stage-shared-tabs";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
+import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -53,6 +55,7 @@ interface CenterStageTabBarProps {
   activeValue: string;
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
+  githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
   projectWikiTabVisible: boolean;
@@ -67,6 +70,7 @@ interface CenterStageTabBarProps {
   handleCenterStageTabChange: (value: string) => void;
   handleCloseTabGroupItem: (tab: TabGroupItem) => void;
   handleCloseFile: (file: OpenFile) => void;
+  handleCloseGithubTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateTerminalCenterTab: () => void;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
@@ -86,6 +90,7 @@ export function CenterStageTabBar({
   activeValue,
   codeReviewTabVisible,
   effectiveContextId,
+  githubTabs,
   openFiles,
   orderedGroupedTabItems,
   projectWikiTabVisible,
@@ -100,6 +105,7 @@ export function CenterStageTabBar({
   handleCenterStageTabChange,
   handleCloseTabGroupItem,
   handleCloseFile,
+  handleCloseGithubTab,
   handleCloseTerminalCenterTab,
   handleCreateTerminalCenterTab,
   handleRenameTerminalCenterTab,
@@ -228,6 +234,19 @@ export function CenterStageTabBar({
           />
         ) : null}
 
+        {githubTabs.map((tab) => (
+          <CenterStageSurfaceContentTab
+            key={tab.value}
+            closeLabel={t("centerStageTabBar.closeTab", { tab: tab.label })}
+            name={tab.label}
+            onClose={() => handleCloseGithubTab(tab.value)}
+            path={`${tab.owner}/${tab.repo}`}
+            tooltip={`${tab.owner}/${tab.repo}`}
+            value={tab.value}
+            variant={tab.kind}
+          />
+        ))}
+
         {openFiles.map((file) => (
           <CenterStageOpenFileTab
             key={file.path}
@@ -279,7 +298,9 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "diff" ||
     tab.kind === "diff-group" ||
     tab.kind === "review-diff" ||
-    tab.kind === "conflict"
+    tab.kind === "conflict" ||
+    tab.kind === "github-pr" ||
+    tab.kind === "github-action"
   );
 }
 
