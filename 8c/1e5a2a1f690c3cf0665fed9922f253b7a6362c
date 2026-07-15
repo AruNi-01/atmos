@@ -1,0 +1,43 @@
+apps/web/src/features/settings/store/layout-settings-store.ts
+  s_95f00e05caab3e::t_95a2567df37229 179-180
+  s_95f00e05caab3e::t_744795de44d02d 138-139
+  s_95f00e05caab3e::t_d0afd79acc572e 43-44,53-54
+  s_95f00e05caab3e::t_1b724bdcae292d 225-238
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_95f00e05caab3e::t_918dcf2eefe830 623-624
+  s_95f00e05caab3e::t_25542328fed5c5 142-143
+apps/web/messages/zh.json
+  s_95f00e05caab3e::t_aa96e621ed0686 4648,4660-4664
+  s_95f00e05caab3e::t_80090a0165c44e 3778-3783
+apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts
+  s_95f00e05caab3e::t_2d0212335070fe 98-105
+  s_95f00e05caab3e::t_16c80aa3e44ed5 59-60
+  s_95f00e05caab3e::t_b43fce41cd6803 39-40
+apps/web/src/features/settings/components/settings-modal-data.ts
+  s_95f00e05caab3e::t_5c5130e73a9b21 477,494-499
+  s_95f00e05caab3e::t_b7983923d3c5e5 172-173
+apps/web/messages/en.json
+  s_95f00e05caab3e::t_8cb2050338417c 3778-3783
+  s_95f00e05caab3e::t_20536a91380371 4648,4660-4664
+apps/web/src/features/settings/components/LayoutSettingsSection.tsx
+  s_95f00e05caab3e::t_aa2b975ace720f 133
+  s_95f00e05caab3e::t_521f2e71417143 58-62
+  s_95f00e05caab3e::t_708901e8f8a53d 207,223-254
+  s_95f00e05caab3e::t_0f2dfe187d0c49 30-31,43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8c1e5a2a1f690c3cf0665fed9922f253b7a6362c",
+  "prompts": {},
+  "sessions": {
+    "s_95f00e05caab3e": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "f44e21b7-e08b-4ecb-975b-c47b6aea280a",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
