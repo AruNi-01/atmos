@@ -350,6 +350,9 @@ export function TerminalSideChatModal({
                   agent={record.agent}
                   isTerminalReady={readySideChatIds.has(record.side_chat_id)}
                   localPath={localPath}
+                  onHide={() => {
+                    terminalRefs.current.get(record.side_chat_id)?.focus();
+                  }}
                   onInteraction={onInteraction}
                   onSendEnter={() => {
                     terminalRefs.current.get(record.side_chat_id)?.sendEnter();

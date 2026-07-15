@@ -480,6 +480,9 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           getSideChatFlyTargetClientPoint={getSideChatFlyTargetClientPoint}
           isTerminalReady={isTerminalReady}
           localPath={workspaceInfo?.localPath}
+          onHide={() => {
+            terminalRefsMap.current.get(id)?.focus();
+          }}
           onStartSideChat={startSideChat}
           onSendEnter={() => {
             terminalRefsMap.current.get(id)?.sendEnter();

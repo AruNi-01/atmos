@@ -72,6 +72,7 @@ interface TerminalAgentInputOverlayProps {
   getTerminalCursorClientPoint?: () => { x: number; y: number } | null;
   isTerminalReady?: boolean;
   localPath?: string | null;
+  onHide?: () => void;
   onInteraction?: (event: React.SyntheticEvent) => void;
   onSendEnter: () => void;
   onSendText: (text: string) => void;
@@ -105,6 +106,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   getTerminalCursorClientPoint,
   isTerminalReady = true,
   localPath,
+  onHide,
   onInteraction,
   onSendEnter,
   onSendText,
@@ -213,6 +215,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsOpen(true);
     focusComposerSoon();
   }, [focusComposerSoon, isSendAnimating, isSendExiting]);
+
+  const prevOpenRef = React.useRef(isOpen);
+  React.useEffect(() => {
+    if (prevOpenRef.current && !isOpen) {
+      onHide?.();
+    }
+    prevOpenRef.current = isOpen;
+  }, [isOpen, onHide]);
 
   const upsertPromptContext = React.useCallback((context: TerminalPromptContext) => {
     setPromptContexts((current) => [
