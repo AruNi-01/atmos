@@ -92,7 +92,6 @@ function createEditorTheme(isDark: boolean): Extension {
         fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
         lineHeight: '1.6',
         overflow: 'auto',
-        position: 'relative',
         scrollbarWidth: 'thin',
         scrollbarColor: isDark ? 'rgba(161, 161, 170, 0.28) transparent' : 'rgba(113, 113, 122, 0.24) transparent',
       },
@@ -534,36 +533,41 @@ function createMinimapExtension(): Extension {
       displayText: 'blocks',
       showOverlay: 'always',
     })),
-    stabilizeMinimapGutter(),
+    mountMinimapOutsideScroller(),
   ];
 }
 
-function stabilizeMinimapGutter(): Extension {
+function mountMinimapOutsideScroller(): Extension {
   return ViewPlugin.fromClass(
     class {
       private frameId: number | null = null;
 
       constructor(private readonly view: EditorView) {
-        this.scheduleSync();
+        this.scheduleMount();
       }
 
-      update(update: { geometryChanged: boolean; viewportChanged: boolean }) {
-        if (update.geometryChanged || update.viewportChanged) {
-          this.scheduleSync();
+      update() {
+        const gutter = this.view.dom.querySelector<HTMLElement>('.cm-minimap-gutter');
+        if (gutter?.parentElement !== this.view.dom) {
+          this.scheduleMount();
         }
       }
 
-      scheduleSync() {
+      scheduleMount() {
         if (this.frameId !== null) {
-          cancelAnimationFrame(this.frameId);
+          return;
         }
         this.frameId = requestAnimationFrame(() => {
           this.frameId = null;
           const gutter = this.view.dom.querySelector<HTMLElement>('.cm-minimap-gutter');
-          if (!gutter) return;
-
-          const { scrollLeft, scrollTop } = this.view.scrollDOM;
-          gutter.style.transform = `translate(${scrollLeft}px, ${scrollTop}px)`;
+          if (gutter && gutter.parentElement !== this.view.dom) {
+            // The minimap package mounts its gutter inside `.cm-scroller`, which
+            // forces scroll-position compensation. Keep it local to the editor
+            // instead: it stays fixed while code scrolls, but still inherits a
+            // Canvas widget's scale transform with the rest of the editor.
+            gutter.style.removeProperty('transform');
+            this.view.dom.appendChild(gutter);
+          }
         });
       }
 
@@ -572,13 +576,6 @@ function stabilizeMinimapGutter(): Extension {
           cancelAnimationFrame(this.frameId);
         }
       }
-    },
-    {
-      eventHandlers: {
-        scroll() {
-          this.scheduleSync();
-        },
-      },
     },
   );
 }
