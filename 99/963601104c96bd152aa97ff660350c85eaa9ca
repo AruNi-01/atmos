@@ -1,0 +1,20 @@
+apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx
+  s_6152f66b4a884f::t_e59d9a87aa8b5b 536,540,546,549-552,556,558,563-567,569-570
+  s_6152f66b4a884f::t_983563e3bf3afc 568
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "99963601104c96bd152aa97ff660350c85eaa9ca",
+  "prompts": {},
+  "sessions": {
+    "s_6152f66b4a884f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6bdbfec9-ecc2-48ad-b787-c2b0ff803a7f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
