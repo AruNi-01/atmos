@@ -27,6 +27,8 @@ export function LayoutSettingsSection() {
     workspaceSidebarSecondColumnKanban,
     workspaceSidebarTimeTwoColumn,
     workspaceSidebarStatusTwoColumn,
+    workspaceSidebarPriorityTwoColumn,
+    workspaceSidebarLabelTwoColumn,
     showWsConnection,
     showLocalServices,
     showUsageCarousel,
@@ -38,6 +40,8 @@ export function LayoutSettingsSection() {
     setWorkspaceSidebarSecondColumnKanban,
     setWorkspaceSidebarTimeTwoColumn,
     setWorkspaceSidebarStatusTwoColumn,
+    setWorkspaceSidebarPriorityTwoColumn,
+    setWorkspaceSidebarLabelTwoColumn,
     setFooterShowWsConnection,
     setFooterShowLocalServices,
     setFooterShowUsageCarousel,
@@ -51,7 +55,11 @@ export function LayoutSettingsSection() {
   const [rightSidebarLayoutExpanded, setRightSidebarLayoutExpanded] = React.useState(false);
   const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);
   const isAnyTwoColumnEnabled =
-    workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
+    workspaceSidebarTwoColumn ||
+    workspaceSidebarTimeTwoColumn ||
+    workspaceSidebarStatusTwoColumn ||
+    workspaceSidebarPriorityTwoColumn ||
+    workspaceSidebarLabelTwoColumn;
   const footerEnabledCount =
     Number(showWsConnection) + Number(showLocalServices) + Number(showUsageCarousel) + Number(showAgentStatus);
 
@@ -122,7 +130,7 @@ export function LayoutSettingsSection() {
             </div>
           </CollapsibleTrigger>
           <div className="pt-1 text-xs text-muted-foreground">
-            {workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn
+            {isAnyTwoColumnEnabled
               ? t('workspaceSidebar.enabled')
               : t('workspaceSidebar.disabled')}
           </div>
@@ -196,7 +204,7 @@ export function LayoutSettingsSection() {
                 </div>
               </div>
             </div>
-            <div className="px-2 py-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
                   <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byStatusTitle')}</p>
@@ -208,6 +216,38 @@ export function LayoutSettingsSection() {
                   <Switch
                     checked={workspaceSidebarStatusTwoColumn}
                     onCheckedChange={(checked) => void setWorkspaceSidebarStatusTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byPriorityTitle')}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {t('workspaceSidebar.byPriorityDescription')}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarPriorityTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarPriorityTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-2 py-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byLabelTitle')}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {t('workspaceSidebar.byLabelDescription')}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarLabelTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarLabelTwoColumn(!!checked)}
                   />
                 </div>
               </div>

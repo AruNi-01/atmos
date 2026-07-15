@@ -36,6 +36,8 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     workspaceGroupSelectionRouteKey: string | null;
     workspaceSidebarStatusTwoColumn: boolean;
     workspaceSidebarTimeTwoColumn: boolean;
+    workspaceSidebarPriorityTwoColumn: boolean;
+    workspaceSidebarLabelTwoColumn: boolean;
     workspaceSidebarTwoColumn: boolean;
     workspaceLabels: WorkspaceLabel[];
 }
@@ -54,6 +56,8 @@ export function useLeftSidebarWorkspaceDerived({
     workspaceGroupSelectionRouteKey,
     workspaceSidebarStatusTwoColumn,
     workspaceSidebarTimeTwoColumn,
+    workspaceSidebarPriorityTwoColumn,
+    workspaceSidebarLabelTwoColumn,
     workspaceSidebarTwoColumn,
     workspaceLabels,
 }: UseLeftSidebarWorkspaceDerivedParams) {
@@ -91,7 +95,14 @@ export function useLeftSidebarWorkspaceDerived({
     const isProjectTwoColumn = groupingMode === 'project' && workspaceSidebarTwoColumn;
     const isTimeTwoColumn = groupingMode === 'time' && workspaceSidebarTimeTwoColumn;
     const isStatusTwoColumn = groupingMode === 'status' && workspaceSidebarStatusTwoColumn;
-    const isTwoColumnSidebar = isProjectTwoColumn || isTimeTwoColumn || isStatusTwoColumn;
+    const isPriorityTwoColumn = groupingMode === 'priority' && workspaceSidebarPriorityTwoColumn;
+    const isLabelTwoColumn = groupingMode === 'label' && workspaceSidebarLabelTwoColumn;
+    const isTwoColumnSidebar =
+        isProjectTwoColumn ||
+        isTimeTwoColumn ||
+        isStatusTwoColumn ||
+        isPriorityTwoColumn ||
+        isLabelTwoColumn;
     const shouldShowGlobalPinnedSection = pinnedWorkspaces.length > 0;
     const currentWorkspaceGroupKey = useMemo(() => {
         if (!currentWorkspace || currentWorkspace.isPinned) return null;

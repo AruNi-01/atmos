@@ -3775,6 +3775,12 @@
             "byStatusGroupUsesSecondColumn": {
               "label": "By Status group uses second column"
             },
+            "byPriorityGroupUsesSecondColumn": {
+              "label": "By Priority group uses second column"
+            },
+            "byLabelGroupUsesSecondColumn": {
+              "label": "By Label group uses second column"
+            },
             "headerLayout": {
               "label": "Header layout"
             },
@@ -4639,7 +4645,7 @@
       },
       "workspaceSidebar": {
         "title": "Workspace Sidebar Two-Column Layout",
-        "description": "Configure the optional two-column workspace browser for Project, By Time, and By Status sidebar modes.",
+        "description": "Configure the optional two-column workspace browser for Project, By Time, By Status, By Priority, and By Label sidebar modes.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "projectTwoColumnTitle": "Project sidebar two-column layout",
@@ -4651,7 +4657,11 @@
         "byTimeTitle": "By Time group uses second column",
         "byTimeDescription": "In the sidebar's By Time mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
         "byStatusTitle": "By Status group uses second column",
-        "byStatusDescription": "In the sidebar's By Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline."
+        "byStatusDescription": "In the sidebar's By Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
+        "byPriorityTitle": "By Priority group uses second column",
+        "byPriorityDescription": "In the sidebar's By Priority mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
+        "byLabelTitle": "By Label group uses second column",
+        "byLabelDescription": "In the sidebar's By Label mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline."
       },
       "footer": {
         "title": "Footer layout",

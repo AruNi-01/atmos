@@ -3775,6 +3775,12 @@
             "byStatusGroupUsesSecondColumn": {
               "label": "按状态分组时使用第二列"
             },
+            "byPriorityGroupUsesSecondColumn": {
+              "label": "按优先级分组时使用第二列"
+            },
+            "byLabelGroupUsesSecondColumn": {
+              "label": "按标签分组时使用第二列"
+            },
             "headerLayout": {
               "label": "Header 布局"
             },
@@ -4639,7 +4645,7 @@
       },
       "workspaceSidebar": {
         "title": "工作区侧边栏双列布局",
-        "description": "配置 Project、By Time 和 By Status 侧边栏模式下可选的双列工作区浏览器。",
+        "description": "配置 Project、By Time、By Status、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
         "enabled": "已启用",
         "disabled": "已关闭",
         "projectTwoColumnTitle": "Project 侧边栏双列布局",
@@ -4651,7 +4657,11 @@
         "byTimeTitle": "By Time 分组使用第二列",
         "byTimeDescription": "在侧边栏的 By Time 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
         "byStatusTitle": "By Status 分组使用第二列",
-        "byStatusDescription": "在侧边栏的 By Status 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。"
+        "byStatusDescription": "在侧边栏的 By Status 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
+        "byPriorityTitle": "By Priority 分组使用第二列",
+        "byPriorityDescription": "在侧边栏的 By Priority 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
+        "byLabelTitle": "By Label 分组使用第二列",
+        "byLabelDescription": "在侧边栏的 By Label 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。"
       },
       "footer": {
         "title": "页脚布局",

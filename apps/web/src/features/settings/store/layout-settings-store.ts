@@ -40,6 +40,8 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   workspaceSidebarSecondColumnKanban: boolean;
   workspaceSidebarTimeTwoColumn: boolean;
   workspaceSidebarStatusTwoColumn: boolean;
+  workspaceSidebarPriorityTwoColumn: boolean;
+  workspaceSidebarLabelTwoColumn: boolean;
   loaded: boolean;
   loadSettings: (force?: boolean) => Promise<void>;
   setProjectFilesSide: (value: ProjectFilesSide) => Promise<void>;
@@ -48,6 +50,8 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setWorkspaceSidebarSecondColumnKanban: (value: boolean) => Promise<void>;
   setWorkspaceSidebarTimeTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarStatusTwoColumn: (value: boolean) => Promise<void>;
+  setWorkspaceSidebarPriorityTwoColumn: (value: boolean) => Promise<void>;
+  setWorkspaceSidebarLabelTwoColumn: (value: boolean) => Promise<void>;
   setFooterShowWsConnection: (value: boolean) => Promise<void>;
   setFooterShowLocalServices: (value: boolean) => Promise<void>;
   setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
@@ -131,6 +135,8 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     workspaceSidebarSecondColumnKanban: false,
     workspaceSidebarTimeTwoColumn: false,
     workspaceSidebarStatusTwoColumn: false,
+    workspaceSidebarPriorityTwoColumn: false,
+    workspaceSidebarLabelTwoColumn: false,
     showWsConnection: true,
     showLocalServices: true,
     showUsageCarousel: true,
@@ -170,6 +176,8 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           workspaceSidebarSecondColumnKanban: layout?.workspace_sidebar_second_column_kanban === true,
           workspaceSidebarTimeTwoColumn: layout?.workspace_sidebar_time_two_column === true,
           workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
+          workspaceSidebarPriorityTwoColumn: layout?.workspace_sidebar_priority_two_column === true,
+          workspaceSidebarLabelTwoColumn: layout?.workspace_sidebar_label_two_column === true,
           ...footer,
           ...header,
           ...rightSidebar,
@@ -211,6 +219,20 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
       updateLayoutSetting(
         { workspaceSidebarStatusTwoColumn: value },
         'workspace_sidebar_status_two_column',
+        value,
+      ),
+
+    setWorkspaceSidebarPriorityTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarPriorityTwoColumn: value },
+        'workspace_sidebar_priority_two_column',
+        value,
+      ),
+
+    setWorkspaceSidebarLabelTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarLabelTwoColumn: value },
+        'workspace_sidebar_label_two_column',
         value,
       ),
 

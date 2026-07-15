@@ -169,6 +169,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "second column uses kanban cards",
     "by time group uses second column",
     "by status group uses second column",
+    "by priority group uses second column",
+    "by label group uses second column",
     "header layout",
     "workspace summary button",
     "task section",
@@ -472,7 +474,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
       hasDescription: true,
-      keywords: ["project sidebar", "by time", "by status", "second column"],
+      keywords: ["project sidebar", "by time", "by status", "by priority", "by label", "second column"],
     }),
     settingsModalSearchItem("layout.projectSidebarTwoColumnLayout", {
       keywords: ["projects in first column", "workspaces in second column"],
@@ -488,6 +490,12 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.byStatusGroupUsesSecondColumn", {
       keywords: ["status grouping", "sidebar by status"],
+    }),
+    settingsModalSearchItem("layout.byPriorityGroupUsesSecondColumn", {
+      keywords: ["priority grouping", "sidebar by priority"],
+    }),
+    settingsModalSearchItem("layout.byLabelGroupUsesSecondColumn", {
+      keywords: ["label grouping", "tag grouping", "sidebar by label", "sidebar by tag"],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
