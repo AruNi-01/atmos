@@ -510,8 +510,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
           embedded && "flex h-full flex-col rounded-none border-0"
         )}>
           <div className={cn(
-            "rounded-b-[20px] bg-background/95 pb-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-background",
-            embedded && "min-h-0 flex flex-1 flex-col rounded-none"
+            "bg-background/95 pb-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-background",
+            embedded
+              ? "min-h-0 flex flex-1 flex-col rounded-none"
+              : "rounded-b-[20px]"
           )}>
             <div className="px-3 pb-2.5 pt-2.5">
               <div className="relative -mx-3 px-3">
@@ -594,7 +596,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
             <div className="mx-5 border-t border-border/40" />
 
-            <div className={cn("px-0 pb-1 pt-2.5", embedded && "min-h-0 flex-1")}>
+            <div className={cn("px-0 pb-1 pt-2.5", embedded && "min-h-0 flex-1 flex flex-col overflow-hidden")}>
               {overview?.partial_failures.length ? (
                 <div className="mx-4 mb-2.5 flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground">
                   <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -604,8 +606,8 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                 </div>
               ) : null}
 
-              <div className={cn(embedded && "min-h-0 h-full")}>
-                <ScrollArea className={embedded ? "h-full" : "h-[min(62vh,560px)]"} scrollbarGutter>
+              <div className={cn(embedded && "min-h-0 flex-1 overflow-hidden")}>
+                <ScrollArea className={embedded ? "flex-1 min-h-0" : "h-[min(62vh,560px)]"} scrollbarGutter>
                 <div className="px-0 py-3">
                   {(isLoading || usageQuery.isLoading) && !overview ? (
                     <div className="px-4">
@@ -654,7 +656,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
             </div>
           </div>
 
-          <div className="shrink-0 px-0 pb-3 pt-3">
+          <div className={cn(
+            "shrink-0 px-0 pb-3 pt-3",
+            embedded && "border-t border-border/40 bg-background/95"
+          )}>
             <div className="flex items-center justify-between gap-3 px-4 text-xs text-foreground/90">
               <div
                 className="flex items-center"
