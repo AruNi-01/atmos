@@ -1,6 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import { getTerminalDisplayMeta, resolveAgentForTitle } from "../terminal-title";
+import { getTerminalDisplayMeta, resolveAgentForTitle } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "../../types";
 
 const hermesAgent: TerminalPaneAgent = {
@@ -192,6 +192,27 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
     expect(resolveAgentForTitle("/Users/me/.grok/versions/current/agent", agents)?.id).toBe(
       "grok-build",
     );
+  });
+
+  it("matches platform-packaged Grok binaries (grok-* prefix)", () => {
+    for (const dynamicTitle of [
+      "grok-macos-aarc",
+      "grok-macos-aarc --always-approve",
+      "grok-linux-x86_64 --always-approve",
+      "grok-windows-x86_64.exe",
+      "/Users/me/.grok/bin/grok-macos-aarc",
+      "/Users/me/.grok/bin/grok-macos-aarc --always-approve",
+      "/Users/me/.grok/versions/current/grok-macos-aarc",
+    ]) {
+      expect(resolveAgentForTitle(dynamicTitle, agents)?.id).toBe("grok-build");
+      expect(
+        getTerminalDisplayMeta({
+          baseTitle: "shell",
+          dynamicTitle,
+          configuredAgents: agents,
+        }).toolbarAgent?.id,
+      ).toBe("grok-build");
+    }
   });
 
   it("keeps bare filesystem paths as path titles", () => {

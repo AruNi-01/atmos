@@ -166,10 +166,16 @@ function firstCommandToken(value: string): { token: string; rest: string } {
   return { token: trimmed, rest: "" };
 }
 
+/** Platform-packaged Grok Build binaries: `grok`, `grok-macos-aarc`, `grok-linux-x86_64`, … */
+function isGrokBuildCommandToken(token: string): boolean {
+  return token === "grok" || token.startsWith("grok-");
+}
+
 function executablePathMatchToken(value: string): string | undefined {
   const normalized = value.replace(/\\/g, "/");
   const basename = normalizeAgentCommand(value);
   if (/(?:^|\/)(?:s?bin)\/[^/]+$/i.test(normalized)) {
+    // bin/sbin basenames are returned as-is; grok-* is remapped in matchExactToken.
     return basename;
   }
   const lower = normalized.toLowerCase();
@@ -179,7 +185,7 @@ function executablePathMatchToken(value: string): string | undefined {
   ) {
     return "cursor-agent";
   }
-  if (lower.includes("/.grok/") && (basename === "agent" || basename === "grok")) {
+  if (lower.includes("/.grok/") && (basename === "agent" || isGrokBuildCommandToken(basename))) {
     return "grok";
   }
   return undefined;
@@ -356,7 +362,10 @@ function matchExactToken<TAgent extends TerminalTitleAgent>(
   const matches = agents
     .map((agent) => {
       const tokens = agentCommandTokens(agent);
-      const exact = tokens.find((t) => t === token);
+      // Exact token, or Grok platform binary prefix (`grok-macos-aarc` → agent cmd `grok`).
+      const exact = tokens.find(
+        (t) => t === token || (t === "grok" && isGrokBuildCommandToken(token)),
+      );
       if (!exact) return null;
       return { agent, score: exact.length };
     })
