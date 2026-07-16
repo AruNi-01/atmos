@@ -214,6 +214,13 @@ pub(crate) fn error_status(descriptor: &ProviderDescriptor, message: String) -> 
 }
 
 pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
+    // Grok Build subscription quota only uses local `auth.json` (GROK_HOME / ~/.grok).
+    // Skip generic stored-API-key and static auth_paths detection so auth source/labels
+    // match `fetch_grok_live` and a stray Atmos-stored "grok" key cannot fake Detected.
+    if spec.id == "grok" {
+        return detect_grok_auth(spec);
+    }
+
     if provider_config_api_key(spec.id).is_some() {
         return AuthState {
             status: AuthStateStatus::Detected,
@@ -266,23 +273,6 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
                 detail: Some("Detected Claude CLI API key config".to_string()),
                 setup_hint: Some(spec.setup_hint.to_string()),
             };
-        }
-    }
-
-    if spec.id == "grok" {
-        if let Some(home) = env::var("GROK_HOME")
-            .ok()
-            .and_then(|value| expand_home(&value))
-        {
-            let path = home.join("auth.json");
-            if path.exists() {
-                return AuthState {
-                    status: AuthStateStatus::Detected,
-                    source: Some(path.display().to_string()),
-                    detail: Some("Detected Grok auth via GROK_HOME".to_string()),
-                    setup_hint: Some(spec.setup_hint.to_string()),
-                };
-            }
         }
     }
 
@@ -404,6 +394,31 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
         status: AuthStateStatus::Missing,
         source: None,
         detail: provider_config_region(spec.id).map(|region| format!("Preferred region: {region}")),
+        setup_hint: Some(spec.setup_hint.to_string()),
+    }
+}
+
+fn detect_grok_auth(spec: &ProviderSpec) -> AuthState {
+    if let Some(path) = grok::grok_auth_path().filter(|path| path.exists()) {
+        let via_grok_home = env::var("GROK_HOME")
+            .ok()
+            .is_some_and(|value| !value.trim().is_empty());
+        return AuthState {
+            status: AuthStateStatus::Detected,
+            source: Some(path.display().to_string()),
+            detail: Some(if via_grok_home {
+                "Detected Grok auth via GROK_HOME".to_string()
+            } else {
+                "Detected Grok auth.json".to_string()
+            }),
+            setup_hint: Some(spec.setup_hint.to_string()),
+        };
+    }
+
+    AuthState {
+        status: AuthStateStatus::Missing,
+        source: None,
+        detail: None,
         setup_hint: Some(spec.setup_hint.to_string()),
     }
 }
@@ -728,8 +743,10 @@ fn provider_specs() -> Vec<ProviderSpec> {
             live_kind: Some(LiveProviderKind::Grok),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
             setup_hint: "Run `grok login` so Atmos can read ~/.grok/auth.json (or set GROK_HOME).",
+            // Auth is resolved only via `grok::grok_auth_path` in `detect_grok_auth`
+            // (not generic auth_paths / stored API keys).
             auth_env_keys: &[],
-            auth_paths: &["~/.grok/auth.json"],
+            auth_paths: &[],
         },
         ProviderSpec {
             id: "antigravity",

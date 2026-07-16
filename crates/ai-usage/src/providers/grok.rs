@@ -91,6 +91,8 @@ pub(crate) async fn fetch_grok_live(client: &Client) -> Result<LiveFetchResult, 
 }
 
 fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchResult {
+    // Round before compare so primary vs product-row dedup cannot diverge on raw JSON
+    // fractions (e.g. 13.456 → 13.46 after round_metric).
     let product_percent = config
         .product_usage
         .iter()
@@ -99,10 +101,9 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
                 .as_deref()
                 .is_some_and(|name| name.eq_ignore_ascii_case("GrokBuild"))
         })
-        .and_then(|row| row.usage_percent);
-    let percent = product_percent
-        .or(config.credit_usage_percent)
+        .and_then(|row| row.usage_percent)
         .map(round_metric);
+    let percent = product_percent.or_else(|| config.credit_usage_percent.map(round_metric));
 
     let period_end = config
         .current_period
@@ -143,11 +144,10 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
         let Some(name) = product.product.as_deref() else {
             continue;
         };
-        if name.eq_ignore_ascii_case("GrokBuild") && product_percent.is_some() {
-            // Already shown as the primary window when it drove the percent.
-            if product_percent == percent && usage_rows.len() == 1 {
-                continue;
-            }
+        // GrokBuild percent already drives the primary window row when present.
+        if name.eq_ignore_ascii_case("GrokBuild") && product_percent.is_some() && product_percent == percent
+        {
+            continue;
         }
         if let Some(usage_percent) = product.usage_percent.map(round_metric) {
             usage_rows.push(DetailRow {
@@ -331,9 +331,14 @@ fn load_grok_auth() -> Result<GrokAuth, ProviderError> {
     parse_grok_auth(&contents)
 }
 
-fn grok_auth_path() -> Option<PathBuf> {
+/// Effective auth.json path used by collection. Prefer `GROK_HOME`, else `~/.grok`.
+///
+/// Callers that report auth detection must use this same resolver so labels and
+/// fetch agree when `GROK_HOME` is set.
+pub(crate) fn grok_auth_path() -> Option<PathBuf> {
     if let Some(home) = env::var("GROK_HOME")
         .ok()
+        .filter(|value| !value.trim().is_empty())
         .and_then(|value| expand_home(&value))
     {
         return Some(home.join("auth.json"));
@@ -579,6 +584,56 @@ mod tests {
             && row.value == "Disabled"));
         assert_eq!(result.plan_label.as_deref(), Some("SuperGrok"));
         assert!(result.fetch_message.contains("cli-chat-proxy"));
+    }
+
+    #[test]
+    fn does_not_duplicate_grok_build_row_when_percent_needs_rounding() {
+        let fixture = r#"{
+          "config": {
+            "currentPeriod": {
+              "type": "USAGE_PERIOD_TYPE_WEEKLY",
+              "start": "2026-07-09T22:17:47.739583+00:00",
+              "end": "2026-07-16T22:17:47.739583+00:00"
+            },
+            "creditUsagePercent": 13.456,
+            "productUsage": [
+              { "product": "GrokBuild", "usagePercent": 13.456 }
+            ],
+            "onDemandCap": { "val": 0 },
+            "onDemandUsed": { "val": 0 }
+          }
+        }"#;
+        let response: GrokBillingResponse = serde_json::from_str(fixture).expect("parse");
+        let config = response.config.expect("config");
+        let auth = GrokAuth {
+            access_token: "tok".into(),
+            email: Some("user@example.com".into()),
+            team_id: None,
+            display_name: None,
+            login_method: Some("SuperGrok".into()),
+            expires_at: None,
+        };
+        let result = map_credits_config(config, &auth);
+        let usage = result
+            .detail_sections
+            .iter()
+            .find(|section| section.title == "Usage")
+            .expect("usage section");
+        let percent_rows: Vec<_> = usage
+            .rows
+            .iter()
+            .filter(|row| row.value.contains("% used"))
+            .collect();
+        assert_eq!(
+            percent_rows.len(),
+            1,
+            "expected single percent row, got {:?}",
+            percent_rows
+                .iter()
+                .map(|row| (&row.label, &row.value))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(percent_rows[0].label, "Weekly");
     }
 
     #[test]
