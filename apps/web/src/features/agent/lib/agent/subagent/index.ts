@@ -14,6 +14,7 @@ const adaptersByVendor: Record<AgentVendor, typeof claudeCodeSubAgentAdapter[]> 
   antigravity: [fallbackSubAgentAdapter],
   "factory-droid": [fallbackSubAgentAdapter],
   kiro: [fallbackSubAgentAdapter],
+  grok: [fallbackSubAgentAdapter],
   unknown: [cursorSubAgentAdapter, fallbackSubAgentAdapter],
 };
 

@@ -29,6 +29,7 @@ crates/ai-usage/
         ├── cursor.rs       # Cursor AI
         ├── codex.rs        # Codex
         ├── gemini.rs       # Google Gemini
+        ├── grok.rs         # Grok Build / SuperGrok subscription quota
         ├── kimi.rs         # Moonshot Kimi
         ├── minimax.rs      # MiniMax
         ├── opencode.rs     # OpenCode

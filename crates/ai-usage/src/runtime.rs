@@ -23,6 +23,7 @@ use crate::providers::{
     codex, // commandcode disabled due to API data consistency issues
     cursor,
     factory,
+    grok,
     mimo,
     minimax,
     opencode,
@@ -66,6 +67,7 @@ pub(crate) enum LiveProviderKind {
     MiniMax,
     Mimo,
     Zed,
+    Grok,
     // CommandCode disabled due to API data consistency issues
     // CommandCode,
 }
@@ -212,6 +214,13 @@ pub(crate) fn error_status(descriptor: &ProviderDescriptor, message: String) -> 
 }
 
 pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
+    // Grok Build subscription quota only uses local `auth.json` (GROK_HOME / ~/.grok).
+    // Skip generic stored-API-key and static auth_paths detection so auth source/labels
+    // match `fetch_grok_live` and a stray Atmos-stored "grok" key cannot fake Detected.
+    if spec.id == "grok" {
+        return detect_grok_auth(spec);
+    }
+
     if provider_config_api_key(spec.id).is_some() {
         return AuthState {
             status: AuthStateStatus::Detected,
@@ -385,6 +394,31 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
         status: AuthStateStatus::Missing,
         source: None,
         detail: provider_config_region(spec.id).map(|region| format!("Preferred region: {region}")),
+        setup_hint: Some(spec.setup_hint.to_string()),
+    }
+}
+
+fn detect_grok_auth(spec: &ProviderSpec) -> AuthState {
+    if let Some(path) = grok::grok_auth_path().filter(|path| path.exists()) {
+        let via_grok_home = env::var("GROK_HOME")
+            .ok()
+            .is_some_and(|value| !value.trim().is_empty());
+        return AuthState {
+            status: AuthStateStatus::Detected,
+            source: Some(path.display().to_string()),
+            detail: Some(if via_grok_home {
+                "Detected Grok auth via GROK_HOME".to_string()
+            } else {
+                "Detected Grok auth.json".to_string()
+            }),
+            setup_hint: Some(spec.setup_hint.to_string()),
+        };
+    }
+
+    AuthState {
+        status: AuthStateStatus::Missing,
+        source: None,
+        detail: None,
         setup_hint: Some(spec.setup_hint.to_string()),
     }
 }
@@ -703,6 +737,18 @@ fn provider_specs() -> Vec<ProviderSpec> {
             auth_paths: &["~/.gemini/settings.json"],
         },
         ProviderSpec {
+            id: "grok",
+            label: "Grok Build",
+            kind: ProviderKind::Cli,
+            live_kind: Some(LiveProviderKind::Grok),
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+            setup_hint: "Run `grok login` so Atmos can read ~/.grok/auth.json (or set GROK_HOME).",
+            // Auth is resolved only via `grok::grok_auth_path` in `detect_grok_auth`
+            // (not generic auth_paths / stored API keys).
+            auth_env_keys: &[],
+            auth_paths: &[],
+        },
+        ProviderSpec {
             id: "antigravity",
             label: "Antigravity",
             kind: ProviderKind::Desktop,
@@ -796,6 +842,7 @@ async fn collect_live(
         LiveProviderKind::MiniMax => minimax::fetch_minimax_live(client).await,
         LiveProviderKind::Mimo => mimo::fetch_mimo_live(client).await,
         LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
+        LiveProviderKind::Grok => grok::fetch_grok_live(client).await,
         // CommandCode disabled due to API data consistency issues
         // LiveProviderKind::CommandCode => commandcode::fetch_commandcode_live(client).await,
     }

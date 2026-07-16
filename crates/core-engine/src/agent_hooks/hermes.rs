@@ -38,18 +38,18 @@ fn build_hook_script(port: u16) -> String {
         r#"#!/bin/sh
 # Atmos agent hook script
 ATMOS_HOOK_VERSION={hook_version}
-[ "$ATMOS_MANAGED" = "1" ] || exit 0
+[ "${{ATMOS_MANAGED:-}}" = "1" ] || exit 0
 
 payload="$(cat)"
 [ -n "$payload" ] || exit 0
 
 curl -sf -X POST \
   -H 'Content-Type: application/json' \
-  -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" \
-  -H "X-Atmos-Pane: $ATMOS_PANE_ID" \
-  -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" \
-  -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" \
-  -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" \
+  -H "X-Atmos-Context: ${{ATMOS_CONTEXT_ID:-}}" \
+  -H "X-Atmos-Pane: ${{ATMOS_PANE_ID:-}}" \
+  -H "X-Atmos-Terminal-Kind: ${{ATMOS_TERMINAL_KIND:-}}" \
+  -H "X-Atmos-Side-Chat-Id: ${{ATMOS_SIDE_CHAT_ID:-}}" \
+  -H "X-Atmos-Source-Pane: ${{ATMOS_SOURCE_PANE_ID:-}}" \
   -H "X-Atmos-Hook-Version: $ATMOS_HOOK_VERSION" \
   -d "$payload" \
   '{url}' >/dev/null 2>&1 || true

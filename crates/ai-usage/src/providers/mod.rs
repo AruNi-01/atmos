@@ -11,6 +11,7 @@ pub(crate) mod codex;
 pub(crate) mod cursor;
 pub(crate) mod factory;
 pub(crate) mod gemini;
+pub(crate) mod grok;
 pub(crate) mod kimi;
 pub(crate) mod mimo;
 pub(crate) mod minimax;

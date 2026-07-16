@@ -521,7 +521,66 @@ export const systemApi = {
 
 // ===== Agent Hooks API =====
 
+export interface AgentHookToolStatus {
+  detected: boolean;
+  installed: boolean;
+  current_version?: number | null;
+  outdated?: boolean;
+  installed_version?: number | null;
+  config_path?: string | null;
+  error?: string | null;
+}
+
+export interface AgentHookInstallReport {
+  claude_code: AgentHookToolStatus;
+  codex: AgentHookToolStatus;
+  cursor: AgentHookToolStatus;
+  gemini: AgentHookToolStatus;
+  antigravity: AgentHookToolStatus;
+  factory_droid: AgentHookToolStatus;
+  kiro: AgentHookToolStatus;
+  opencode: AgentHookToolStatus;
+  ampcode: AgentHookToolStatus;
+  pi: AgentHookToolStatus;
+  hermes: AgentHookToolStatus;
+  grok_build: AgentHookToolStatus;
+}
+
+export type ContestedCliOwner = 'grok-build' | 'cursor' | 'unknown';
+
+export interface CliIdentityResponse {
+  command: string;
+  owner: ContestedCliOwner;
+  resolved_path: string | null;
+}
+
 export const agentHooksApi = {
+  getStatus: async (): Promise<AgentHookInstallReport> => {
+    return fetchHooksApi<AgentHookInstallReport>('/hooks/status');
+  },
+
+  installAll: async (): Promise<AgentHookInstallReport> => {
+    return fetchHooksApi<AgentHookInstallReport>('/hooks/install', { method: 'POST' });
+  },
+
+  uninstallAll: async (): Promise<AgentHookInstallReport> => {
+    return fetchHooksApi<AgentHookInstallReport>('/hooks/uninstall', { method: 'POST' });
+  },
+
+  installTool: async (tool: string): Promise<AgentHookToolStatus> => {
+    return fetchHooksApi<AgentHookToolStatus>(
+      `/hooks/${encodeURIComponent(tool)}/install`,
+      { method: 'POST' },
+    );
+  },
+
+  uninstallTool: async (tool: string): Promise<AgentHookToolStatus> => {
+    return fetchHooksApi<AgentHookToolStatus>(
+      `/hooks/${encodeURIComponent(tool)}/uninstall`,
+      { method: 'POST' },
+    );
+  },
+
   forceSessionIdle: async (sessionId: string): Promise<{ ok: boolean }> => {
     return fetchHooksApi<{ ok: boolean }>(
       `/hooks/sessions/${encodeURIComponent(sessionId)}/force-idle`,
@@ -533,6 +592,13 @@ export const agentHooksApi = {
     return fetchHooksApi<{ ok: boolean }>(
       `/hooks/sessions/${encodeURIComponent(sessionId)}`,
       { method: 'DELETE' },
+    );
+  },
+
+  /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
+  getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
+    return fetchHooksApi<CliIdentityResponse>(
+      `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
     );
   },
 };

@@ -1,10 +1,9 @@
 import { Image, type ImageSourcePropType, StyleSheet, View } from "react-native";
-import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { BotIcon } from "@/ui/icons/lucide-native";
 
 const AGENT_ICON_ALIASES: Record<string, string[]> = {
-  "agent": ["cursor"],
+  // NOTE: do NOT alias bare "agent" → cursor (APP-036 contested freehand identity).
   "claude-acp": ["claude-code-acp", "claude-code"],
   "claude-code-acp": ["claude-code"],
   "codex-acp": ["codex"],
@@ -24,7 +23,13 @@ const AGENT_ICON_REMAP: Record<string, string> = {
   "openclaw": "openclaw",
 };
 
-const INVERTED_THEME_ICONS = new Set(["cline", "junie", "junie-acp", "devin"]);
+const INVERTED_THEME_ICONS = new Set([
+  "cline",
+  "junie",
+  "junie-acp",
+  "devin",
+  "grok-build",
+]);
 
 const AGENT_ICON_ASSETS: Record<string, ImageSourcePropType> = {
   "amp": require("../../../assets/agents/amp.png"),
@@ -47,6 +52,7 @@ const AGENT_ICON_ASSETS: Record<string, ImageSourcePropType> = {
   "gemini": require("../../../assets/agents/gemini.png"),
   "github-copilot": require("../../../assets/agents/github-copilot.png"),
   "goose": require("../../../assets/agents/goose.png"),
+  "grok-build": require("../../../assets/agents/grok-build.png"),
   "hermes-agent": require("../../../assets/agents/hermes-agent.png"),
   "junie": require("../../../assets/agents/junie.png"),
   "kilo": require("../../../assets/agents/kilo.png"),
@@ -120,8 +126,5 @@ const styles = StyleSheet.create({
   icon: {
     opacity: 0.95,
     resizeMode: "contain",
-  },
-  iconTinted: {
-    tintColor: colors.terminalFg,
   },
 });

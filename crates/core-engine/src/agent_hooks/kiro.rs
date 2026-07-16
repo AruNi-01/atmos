@@ -2,8 +2,8 @@ use serde_json::{json, Value};
 use tracing::debug;
 
 use super::{
-    home_dir, hook_version_assignment, hook_version_header_shell, installed_status_from_content,
-    AgentHookToolStatus,
+    atmos_context_curl_headers, atmos_managed_guard, home_dir, hook_version_assignment,
+    hook_version_header_shell, installed_status_from_content, AgentHookToolStatus,
 };
 
 const ATMOS_AGENT_NAME: &str = "atmos";
@@ -41,29 +41,41 @@ fn build_agent_config(port: u16) -> Value {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
+    let guard = atmos_managed_guard();
+    let context_headers = atmos_context_curl_headers();
     let agent_spawn_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
+        guard = guard,
         hook_version = hook_version.as_str(),
+        context_headers = context_headers,
         hook_version_header = hook_version_header.as_str(),
     );
     let prompt_submit_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
+        guard = guard,
         hook_version = hook_version.as_str(),
+        context_headers = context_headers,
         hook_version_header = hook_version_header.as_str(),
     );
     let pre_tool_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        guard = guard,
         hook_version = hook_version.as_str(),
+        context_headers = context_headers,
         hook_version_header = hook_version_header.as_str(),
     );
     let post_tool_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        guard = guard,
         hook_version = hook_version.as_str(),
+        context_headers = context_headers,
         hook_version_header = hook_version_header.as_str(),
     );
     let stop_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        guard = guard,
         hook_version = hook_version.as_str(),
+        context_headers = context_headers,
         hook_version_header = hook_version_header.as_str(),
     );
 

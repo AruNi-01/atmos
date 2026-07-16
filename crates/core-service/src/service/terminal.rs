@@ -311,10 +311,25 @@ impl TerminalService {
         // Pass ATMOS env vars so the default window "1" gets them too — otherwise
         // the "window already exists → attach" shortcut below would skip injection.
         let default_window_pane_id = format!("{}:1", workspace_id);
+        // Always export side-chat identity keys (empty on normal panes) so agent
+        // hook runners that require referenced env vars (notably Grok Build)
+        // still execute Atmos status hooks.
+        //
+        // Disable Grok's Claude/Cursor *compat hooks* via process env only
+        // (precedence: env > config.toml). Does not edit ~/.grok/config.toml, so
+        // non-Atmos Grok still honors the user's global compat settings. Native
+        // ~/.grok/hooks/* (including atmos-status) still load.
         let session_env_vars: Vec<(&str, &str)> = vec![
             ("ATMOS_MANAGED", "1"),
             ("ATMOS_CONTEXT_ID", &workspace_id),
             ("ATMOS_PANE_ID", &default_window_pane_id),
+            ("ATMOS_TERMINAL_KIND", ""),
+            ("ATMOS_SIDE_CHAT_ID", ""),
+            ("ATMOS_SOURCE_PANE_ID", ""),
+            ("GROK_CLAUDE_HOOKS_ENABLED", "0"),
+            ("GROK_CURSOR_HOOKS_ENABLED", "0"),
+            // Codex hooks cell is reserved/inert today; set for forward-compat.
+            ("GROK_CODEX_HOOKS_ENABLED", "0"),
         ];
         let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name)
         {
@@ -421,20 +436,36 @@ impl TerminalService {
         let source_pane_id_value = source_pane_id
             .as_deref()
             .or(computed_source_pane_id.as_deref());
-        let mut atmos_env_vars: Vec<(&str, &str)> = vec![
+        // Always export side-chat keys; empty on normal panes. Grok Build treats
+        // bare `$VAR` in hook commands as required and skips the hook if unset.
+        let terminal_kind_value = if terminal_kind == TerminalKind::SideChat {
+            "side_chat"
+        } else {
+            ""
+        };
+        let side_chat_id_value = if terminal_kind == TerminalKind::SideChat {
+            side_chat_id.as_deref().unwrap_or("")
+        } else {
+            ""
+        };
+        let source_pane_env_value = if terminal_kind == TerminalKind::SideChat {
+            source_pane_id_value.unwrap_or("")
+        } else {
+            ""
+        };
+        let atmos_env_vars: Vec<(&str, &str)> = vec![
             ("ATMOS_MANAGED", "1"),
             ("ATMOS_CONTEXT_ID", &workspace_id),
             ("ATMOS_PANE_ID", &stable_pane_id),
+            ("ATMOS_TERMINAL_KIND", terminal_kind_value),
+            ("ATMOS_SIDE_CHAT_ID", side_chat_id_value),
+            ("ATMOS_SOURCE_PANE_ID", source_pane_env_value),
+            // Session-scoped only: suppress Grok foreign-vendor hook scan
+            // without mutating ~/.grok/config.toml (see session_env_vars above).
+            ("GROK_CLAUDE_HOOKS_ENABLED", "0"),
+            ("GROK_CURSOR_HOOKS_ENABLED", "0"),
+            ("GROK_CODEX_HOOKS_ENABLED", "0"),
         ];
-        if terminal_kind == TerminalKind::SideChat {
-            atmos_env_vars.push(("ATMOS_TERMINAL_KIND", "side_chat"));
-            if let Some(side_chat_id) = side_chat_id.as_deref() {
-                atmos_env_vars.push(("ATMOS_SIDE_CHAT_ID", side_chat_id));
-            }
-            if let Some(source_pane_id) = source_pane_id_value {
-                atmos_env_vars.push(("ATMOS_SOURCE_PANE_ID", source_pane_id));
-            }
-        }
         let window_index = self
             .tmux_engine
             .create_window(

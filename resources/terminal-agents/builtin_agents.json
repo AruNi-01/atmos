@@ -141,7 +141,7 @@
   {
     "id": "cursor",
     "label": "Cursor Agent",
-    "cmd": "agent",
+    "cmd": "cursor-agent",
     "params": "--force --print --trust --output-format stream-json --stream-partial-output",
     "interactiveParams": "--yolo",
     "promptStrategy": "arg",
@@ -153,10 +153,33 @@
     "modelList": {
       "supported": true,
       "command": [
-        "agent",
+        "cursor-agent",
         "--list-models"
       ],
       "parser": "line_list"
+    }
+  },
+  {
+    "id": "grok-build",
+    "label": "Grok Build",
+    "cmd": "grok",
+    "params": "--always-approve --output-format streaming-json -p",
+    "interactiveParams": "--always-approve",
+    "promptStrategy": "prompt_flag",
+    "stdoutParser": "grok_streaming_json",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "manual",
+      "arg": "--reasoning-effort",
+      "placeholder": "e.g. high"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "grok",
+        "models"
+      ],
+      "parser": "grok_line_list"
     }
   },
   {

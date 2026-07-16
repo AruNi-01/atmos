@@ -5,12 +5,12 @@ use infra::db::entities::automation_run;
 use serde_json::Value;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{broadcast, mpsc};
-use tracing::warn;
+use tracing::{debug, warn};
 
+use super::AutomationEvent;
 use super::agents::StdoutParser;
 #[cfg(test)]
 use super::runner;
-use super::AutomationEvent;
 
 pub(crate) struct OutputChunk {
     pub stream: &'static str,
@@ -113,7 +113,7 @@ pub(crate) struct RenderedOutput {
 
 #[derive(Default)]
 struct JsonlParserState {
-    line_buffer: String,
+    line_buffer: Vec<u8>,
     saw_stream_text_since_assistant: bool,
 }
 
@@ -204,28 +204,29 @@ impl OutputRenderer {
             return Vec::new();
         }
         let line = std::mem::take(&mut self.jsonl_state.line_buffer);
-        let rendered = self.parse_jsonl_line(&line);
+        let rendered = self.parse_jsonl_line(&String::from_utf8_lossy(&line));
         self.normalize_final_boundaries(rendered)
     }
 
     fn push_jsonl_stdout(&mut self, bytes: &[u8]) -> Vec<RenderedOutput> {
-        self.jsonl_state
-            .line_buffer
-            .push_str(&String::from_utf8_lossy(bytes));
+        self.jsonl_state.line_buffer.extend_from_slice(bytes);
         let mut rendered = Vec::new();
-        while let Some(index) = self.jsonl_state.line_buffer.find('\n') {
+        while let Some(index) = self
+            .jsonl_state
+            .line_buffer
+            .iter()
+            .position(|byte| *byte == b'\n')
+        {
             let mut line = self
                 .jsonl_state
                 .line_buffer
                 .drain(..=index)
-                .collect::<String>();
-            if line.ends_with('\n') {
+                .collect::<Vec<_>>();
+            line.pop();
+            if line.last() == Some(&b'\r') {
                 line.pop();
-                if line.ends_with('\r') {
-                    line.pop();
-                }
             }
-            rendered.extend(self.parse_jsonl_line(&line));
+            rendered.extend(self.parse_jsonl_line(&String::from_utf8_lossy(&line)));
         }
         rendered
     }
@@ -281,6 +282,37 @@ fn parse_structured_stdout(
         StdoutParser::CursorStreamJson => parse_claude_like_stream_json(value, state),
         StdoutParser::CodexJsonl => parse_codex_jsonl(value),
         StdoutParser::OpencodeJson => parse_opencode_json(value),
+        StdoutParser::GrokStreamingJson => parse_grok_streaming_json(value),
+    }
+}
+
+/// Grok Build `--output-format streaming-json` NDJSON:
+/// `{"type":"thought"|"text"|"end", "data":"...", "stopReason":"..."}`
+fn parse_grok_streaming_json(value: &Value) -> Vec<RenderedOutput> {
+    let event_type = string_at(value, &["type"]).unwrap_or_default();
+    match event_type {
+        "text" => string_at(value, &["data"])
+            .map(|text| final_stdout(text.to_string()))
+            .into_iter()
+            .collect(),
+        "thought" => string_at(value, &["data"])
+            .map(|text| event_stdout(format!("[thinking] {text}")))
+            .into_iter()
+            .collect(),
+        "end" => {
+            if let Some(reason) =
+                string_at(value, &["stopReason"]).or_else(|| string_at(value, &["stop_reason"]))
+            {
+                vec![event_stdout(format!("[end] {reason}\n"))]
+            } else {
+                debug!("Grok Build end event received without stopReason");
+                Vec::new()
+            }
+        }
+        _ => {
+            debug!("Ignoring unknown Grok streaming-json event type: {event_type}");
+            Vec::new()
+        }
     }
 }
 
@@ -628,12 +660,14 @@ mod tests {
     fn codex_jsonl_parser_buffers_partial_lines_and_extracts_deltas() {
         let mut renderer = OutputRenderer::new(StdoutParser::CodexJsonl);
 
-        assert!(renderer
-            .push(OutputChunk {
-                stream: "stdout",
-                bytes: br#"{"type":"item.delta","text":"hel"#.to_vec(),
-            })
-            .is_empty());
+        assert!(
+            renderer
+                .push(OutputChunk {
+                    stream: "stdout",
+                    bytes: br#"{"type":"item.delta","text":"hel"#.to_vec(),
+                })
+                .is_empty()
+        );
         let rendered = renderer.push(OutputChunk {
             stream: "stdout",
             bytes: b"lo\"}\n".to_vec(),
@@ -667,5 +701,91 @@ mod tests {
             .collect::<String>();
         assert_eq!(final_text, "first status\n\nsecond status");
         assert_eq!(rendered[1].text, "\n\nsecond status");
+    }
+
+    #[test]
+    fn grok_streaming_json_extracts_text_and_thinking() {
+        let mut renderer = OutputRenderer::new(StdoutParser::GrokStreamingJson);
+        let rendered = renderer.push(OutputChunk {
+            stream: "stdout",
+            bytes: concat!(
+                r#"{"type":"thought","data":"Hmm"}"#,
+                "\n",
+                r#"{"type":"text","data":"ok"}"#,
+                "\n",
+                r#"{"type":"end","stopReason":"EndTurn"}"#,
+                "\n"
+            )
+            .as_bytes()
+            .to_vec(),
+        });
+
+        let final_text = rendered
+            .iter()
+            .filter(|chunk| chunk.write_to_final)
+            .map(|chunk| chunk.text.as_str())
+            .collect::<String>();
+        assert_eq!(final_text, "ok");
+
+        let event_text = rendered
+            .iter()
+            .filter(|chunk| !chunk.write_to_final)
+            .map(|chunk| chunk.text.as_str())
+            .collect::<String>();
+        assert!(event_text.contains("[thinking] Hmm"));
+        assert!(event_text.contains("[end] EndTurn"));
+    }
+
+    #[test]
+    fn grok_streaming_json_fails_open_on_unknown_types() {
+        let mut renderer = OutputRenderer::new(StdoutParser::GrokStreamingJson);
+        let rendered = renderer.push(OutputChunk {
+            stream: "stdout",
+            bytes: concat!(
+                r#"{"type":"unknown_event","data":"noise"}"#,
+                "\n",
+                r#"not-json"#,
+                "\n",
+                r#"{"type":"text","data":"valid"}"#,
+                "\n"
+            )
+            .as_bytes()
+            .to_vec(),
+        });
+
+        let final_text = rendered
+            .iter()
+            .filter(|chunk| chunk.write_to_final)
+            .map(|chunk| chunk.text.as_str())
+            .collect::<String>();
+        assert_eq!(final_text, "valid");
+    }
+
+    #[test]
+    fn grok_streaming_json_preserves_utf8_split_across_chunks() {
+        let mut renderer = OutputRenderer::new(StdoutParser::GrokStreamingJson);
+        let line = "{\"type\":\"text\",\"data\":\"你好🙂\"}\n".as_bytes();
+        let emoji_start = line
+            .windows(4)
+            .position(|window| window == "🙂".as_bytes())
+            .expect("fixture contains emoji");
+        let split = emoji_start + 2;
+
+        assert!(
+            renderer
+                .push(OutputChunk {
+                    stream: "stdout",
+                    bytes: line[..split].to_vec(),
+                })
+                .is_empty()
+        );
+        let rendered = renderer.push(OutputChunk {
+            stream: "stdout",
+            bytes: line[split..].to_vec(),
+        });
+
+        assert_eq!(rendered.len(), 1);
+        assert_eq!(rendered[0].text, "你好🙂");
+        assert!(rendered[0].write_to_final);
     }
 }

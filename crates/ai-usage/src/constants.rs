@@ -23,6 +23,9 @@ pub(crate) const FACTORY_USAGE_PATH: &str = "/api/organization/subscription/usag
 pub(crate) const ZED_BILLING_USAGE_URL: &str = "https://cloud.zed.dev/frontend/billing/usage";
 pub(crate) const ZED_SUBSCRIPTION_URL: &str =
     "https://cloud.zed.dev/frontend/billing/subscriptions/current";
+/// Grok Build / SuperGrok subscription credits (same surface the Grok CLI uses).
+pub(crate) const GROK_BILLING_CREDITS_URL: &str =
+    "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
 pub(crate) const COMMANDCODE_API_URL: &str = "https://api.commandcode.ai";
 pub(crate) const COMMANDCODE_CREDITS_PATH: &str = "/internal/billing/credits";
 pub(crate) const COMMANDCODE_SUBSCRIPTIONS_PATH: &str = "/internal/billing/subscriptions";

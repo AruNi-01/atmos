@@ -105,24 +105,90 @@ const VERSIONED_RUNTIME_WRAPPER_COMMANDS = [
 const EXECUTABLE_SUFFIX_RE = /\.(?:exe|cmd|bat|sh)$/i;
 const VERSION_SUFFIX_RE = /^[-_]?v?\d+(?:\.\d+)*(?:[-+_.]?[a-z][\w.-]*)?$/i;
 
+/** Contested short names whose product owner depends on the real binary on PATH. */
+export type ContestedCommandOwner = "grok-build" | "cursor" | "unknown";
+
+export type ContestedOwnersMap = Partial<Record<"agent", ContestedCommandOwner>>;
+
 export type TerminalTitleAgent = {
   id: string;
   label: string;
   command: string;
   iconType?: string;
   pipeCommand?: string;
+  /** Optional extra first-token aliases for exact matching. */
+  aliases?: string[];
+};
+
+export type ResolveAgentForTitleOptions = {
+  contestedOwners?: ContestedOwnersMap;
 };
 
 function normalizeRuntimeWrapperTitle(value: string | undefined): string {
-  const firstToken = value?.trim().split(/\s+/)[0] ?? "";
-  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
+  const firstToken = firstCommandToken(value ?? "").token;
+  const withoutPath = firstToken.split(/[\\/]/).filter(Boolean).pop() ?? firstToken;
   return withoutPath.replace(EXECUTABLE_SUFFIX_RE, "").toLowerCase();
 }
 
 function normalizeAgentCommand(value: string): string {
-  const firstToken = value.trim().split(/\s+/)[0] ?? "";
-  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
-  return withoutPath.toLowerCase();
+  const firstToken = firstCommandToken(value).token;
+  const withoutPath = firstToken.split(/[\\/]/).filter(Boolean).pop() ?? firstToken;
+  return withoutPath.replace(EXECUTABLE_SUFFIX_RE, "").toLowerCase();
+}
+
+function firstCommandToken(value: string): { token: string; rest: string } {
+  const trimmed = value.trim();
+  if (!trimmed) return { token: "", rest: "" };
+  const quote = trimmed[0] === '"' || trimmed[0] === "'" ? trimmed[0] : null;
+  if (!quote) {
+    const match = trimmed.match(/^(\S+)(?:\s+([\s\S]*))?$/);
+    return { token: match?.[1] ?? trimmed, rest: match?.[2]?.trim() ?? "" };
+  }
+
+  let escaped = false;
+  for (let index = 1; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === quote) {
+      return {
+        token: trimmed.slice(1, index),
+        rest: trimmed.slice(index + 1).trim(),
+      };
+    }
+  }
+  return { token: trimmed, rest: "" };
+}
+
+/** Platform-packaged Grok Build binaries: `grok`, `grok-macos-aarc`, `grok-linux-x86_64`, … */
+function isGrokBuildCommandToken(token: string): boolean {
+  return token === "grok" || token.startsWith("grok-");
+}
+
+function executablePathMatchToken(value: string): string | undefined {
+  const normalized = value.replace(/\\/g, "/");
+  const basename = normalizeAgentCommand(value);
+  if (/(?:^|\/)(?:s?bin)\/[^/]+$/i.test(normalized)) {
+    // bin/sbin basenames are returned as-is; grok-* is remapped in matchExactToken.
+    return basename;
+  }
+  const lower = normalized.toLowerCase();
+  if (
+    lower.includes("/cursor-agent/") &&
+    (basename === "agent" || basename === "cursor-agent")
+  ) {
+    return "cursor-agent";
+  }
+  if (lower.includes("/.grok/") && (basename === "agent" || isGrokBuildCommandToken(basename))) {
+    return "grok";
+  }
+  return undefined;
 }
 
 export function isPathLikeTitle(value: string | undefined): boolean {
@@ -131,11 +197,15 @@ export function isPathLikeTitle(value: string | undefined): boolean {
   return (
     trimmed.startsWith("/") ||
     trimmed.startsWith("~/") ||
+    /^[a-zA-Z]:[\\/]/.test(trimmed) ||
+    trimmed.startsWith("\\\\") ||
     trimmed === "~" ||
     trimmed === "." ||
     trimmed === ".." ||
     trimmed.startsWith("../") ||
-    trimmed.includes("/")
+    trimmed.startsWith("..\\") ||
+    trimmed.includes("/") ||
+    trimmed.includes("\\")
   );
 }
 
@@ -166,37 +236,146 @@ function isVersionLikeTitle(value: string | undefined): boolean {
   return /^v?\d+(?:\.\d+)+(?:[-+][\w.-]+)?$/i.test(value.trim());
 }
 
+function agentCommandTokens(agent: TerminalTitleAgent): string[] {
+  // Pipe-based agents are identified by the post-pipe executable only
+  // (`echo … | myagent`), never by bare left-hand commands like `echo`.
+  if (agent.pipeCommand) {
+    const pipeToken = normalizeAgentCommand(agent.pipeCommand);
+    return pipeToken ? [pipeToken] : [];
+  }
+  const tokens = [normalizeAgentCommand(agent.command)];
+  for (const alias of agent.aliases ?? []) {
+    const normalized = normalizeAgentCommand(alias);
+    if (normalized) tokens.push(normalized);
+  }
+  return tokens.filter(Boolean);
+}
+
+/** Split on unquoted `|` only so paths/args with quotes keep working. */
+function splitUnquotedPipeline(title: string): string[] {
+  const segments: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  for (const character of title) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "'") {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      current += character;
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      current += character;
+      continue;
+    }
+    if (character === "|") {
+      segments.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  if (current.trim()) segments.push(current.trim());
+  return segments.filter(Boolean);
+}
+
+/**
+ * Match dynamic terminal title first-token to a configured agent.
+ * Uses exact token match (longer commands win ties). Contested bare `agent`
+ * is resolved via `options.contestedOwners` instead of hard-coding a brand.
+ */
 export function resolveAgentForTitle<TAgent extends TerminalTitleAgent>(
   title: string | undefined,
   agents: TAgent[],
+  options?: ResolveAgentForTitleOptions,
 ): TAgent | undefined {
-  if (!title || isPathLikeTitle(title)) return undefined;
-  const normalizedTitle = normalizeAgentCommand(title);
+  if (!title) return undefined;
+  const command = firstCommandToken(title);
+  const pathOnlyTitle = isPathLikeTitle(title) && !command.rest;
+  const pathOnlyMatchToken = pathOnlyTitle
+    ? executablePathMatchToken(command.token)
+    : undefined;
+  if (pathOnlyTitle && !pathOnlyMatchToken) {
+    return undefined;
+  }
+  const normalizedTitle = pathOnlyMatchToken ?? normalizeAgentCommand(title);
   if (!normalizedTitle) return undefined;
 
-  if (normalizedTitle === "echo") {
-    return agents.find((agent) => agent.pipeCommand);
-  }
-
-  if (title.includes("|")) {
-    const afterPipe = title.split("|").slice(1).join("|").trim();
+  const pipeline = splitUnquotedPipeline(title);
+  if (pipeline.length > 1) {
+    const afterPipe = pipeline.slice(1).join(" | ").trim();
     const normalizedAfterPipe = normalizeAgentCommand(afterPipe);
     if (normalizedAfterPipe) {
-      return agents.find((agent) => {
-        const normalizedCommand = normalizeAgentCommand(agent.command);
-        const normalizedPipeCommand = agent.pipeCommand ? normalizeAgentCommand(agent.pipeCommand) : "";
-        return (
-          (normalizedCommand !== "" && normalizedAfterPipe.includes(normalizedCommand)) ||
-          (normalizedPipeCommand !== "" && normalizedAfterPipe.includes(normalizedPipeCommand))
-        );
-      });
+      const matched = matchExactToken(normalizedAfterPipe, agents, options);
+      if (matched) return matched;
     }
+    // Fall back to the first executable segment when the pipe tail is unknown.
+    return matchExactToken(normalizedTitle, agents, options);
   }
 
-  return agents.find((agent) => {
-    const normalizedCommand = normalizeAgentCommand(agent.command);
-    return normalizedCommand !== "" && normalizedTitle.includes(normalizedCommand);
-  });
+  return matchExactToken(normalizedTitle, agents, options);
+}
+
+function titleMatchToken(title: string | undefined): string {
+  if (!title) return "";
+  const pipeline = splitUnquotedPipeline(title);
+  if (pipeline.length > 1) {
+    return normalizeAgentCommand(pipeline.slice(1).join(" | ").trim());
+  }
+  return normalizeAgentCommand(title);
+}
+
+function isPathOnlyTitle(title: string | undefined): boolean {
+  if (!title) return false;
+  const command = firstCommandToken(title);
+  return isPathLikeTitle(title) && !command.rest;
+}
+
+function matchExactToken<TAgent extends TerminalTitleAgent>(
+  token: string,
+  agents: TAgent[],
+  options?: ResolveAgentForTitleOptions,
+): TAgent | undefined {
+  // Contested short name: map via real CLI identity, never substring-brand.
+  if (token === "agent") {
+    const owner = options?.contestedOwners?.agent;
+    if (owner === "grok-build") {
+      return agents.find((agent) => agent.id === "grok-build");
+    }
+    if (owner === "cursor") {
+      return agents.find((agent) => agent.id === "cursor");
+    }
+    // unknown / missing → no brand match (show raw command)
+    return undefined;
+  }
+
+  const matches = agents
+    .map((agent) => {
+      const tokens = agentCommandTokens(agent);
+      // Exact token, or Grok platform binary prefix (`grok-macos-aarc` → agent cmd `grok`).
+      const exact = tokens.find(
+        (t) => t === token || (t === "grok" && isGrokBuildCommandToken(token)),
+      );
+      if (!exact) return null;
+      return { agent, score: exact.length };
+    })
+    .filter((m): m is { agent: TAgent; score: number } => m !== null);
+
+  if (matches.length === 0) return undefined;
+
+  // Prefer longer / more-specific command token when multiple agents match.
+  matches.sort((a, b) => b.score - a.score);
+  return matches[0]?.agent;
 }
 
 function resolveAgentForLabel<TAgent extends TerminalTitleAgent>(
@@ -218,6 +397,7 @@ export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(optio
   dynamicTitle: string | undefined;
   configuredAgents?: TAgent[];
   agent?: TAgent;
+  contestedOwners?: ContestedOwnersMap;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -227,20 +407,31 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   dynamicTitle: string | undefined;
   configuredAgents?: TAgent[];
   agent?: TAgent;
+  contestedOwners?: ContestedOwnersMap;
 }): {
   displayTitle: string;
   toolbarAgent: TAgent | undefined;
 } {
-  const { baseTitle, dynamicTitle, configuredAgents = [], agent } = options;
+  const { baseTitle, dynamicTitle, configuredAgents = [], agent, contestedOwners } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
-  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents);
+  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
+    contestedOwners,
+  });
+  // Contested bare `agent` command lines suppress stale brand fallbacks.
+  // Path-only titles ending in `agent` must not hide a valid pane agent.
+  const unresolvedContestedDynamic =
+    titleMatchToken(dynamicTitle) === "agent" &&
+    !matchedDynamicAgent &&
+    !isPathOnlyTitle(dynamicTitle);
   const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
   const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
     ? agent ?? labelAgent
     : dynamicTitleIsVersion
       ? labelAgent ?? agent
       : undefined;
-  const toolbarAgent = matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
+  const toolbarAgent = unresolvedContestedDynamic
+    ? undefined
+    : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
   return {
     toolbarAgent,

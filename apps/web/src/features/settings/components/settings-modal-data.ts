@@ -227,6 +227,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "gemini",
     "antigravity",
     "cursor",
+    "grok",
+    "grok build",
     "factory droid",
     "kiro",
     "opencode",
@@ -589,7 +591,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
   ],
   "code-agent": [
     settingsModalSearchItem("codeAgent.builtInAgents", {
-      keywords: ["startup command", "parameters", "claude", "codex", "gemini", "antigravity"],
+      keywords: ["startup command", "parameters", "claude", "codex", "gemini", "antigravity", "grok", "grok build"],
     }),
     settingsModalSearchItem("codeAgent.builtInAgentCommand", {
       keywords: ["command", "startup command"],

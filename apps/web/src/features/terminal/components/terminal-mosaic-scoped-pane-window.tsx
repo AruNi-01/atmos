@@ -26,6 +26,7 @@ import {
   TerminalTitleWithAgent,
 } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
+import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
@@ -118,11 +119,13 @@ export function TerminalMosaicScopedPaneWindow({
   markPaneAttached,
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
+  const contestedOwners = useContestedCliOwners();
   const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
     baseTitle: pane.label,
     dynamicTitle: pane.dynamicTitle,
     configuredAgents,
     agent: pane.agent,
+    contestedOwners,
   });
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
 
@@ -379,7 +382,9 @@ export function TerminalMosaicScopedPaneWindow({
             agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
           }}
           onTitleChange={(title) => {
-            const detectedAgent = resolveAgentForTitle(title, configuredAgents);
+            const detectedAgent = resolveAgentForTitle(title, configuredAgents, {
+              contestedOwners,
+            });
             setDynamicTitle(workspaceId, id, title);
             if (detectedAgent) {
               setPaneAgent(workspaceId, id, detectedAgent);

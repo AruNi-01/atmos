@@ -25,6 +25,7 @@ export const AGENT_TOOL = {
   AMPCODE: "ampcode",
   PI: "pi",
   HERMES: "hermes",
+  GROK_BUILD: "grok-build",
 } as const;
 
 export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
@@ -41,6 +42,7 @@ export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.AMPCODE]: "AMP",
   [AGENT_TOOL.PI]: "Pi",
   [AGENT_TOOL.HERMES]: "Hermes Agent",
+  [AGENT_TOOL.GROK_BUILD]: "Grok Build",
 };
 
 export const AGENT_TOOL_ICON_IDS: Record<AgentToolType, string> = {
@@ -55,6 +57,7 @@ export const AGENT_TOOL_ICON_IDS: Record<AgentToolType, string> = {
   [AGENT_TOOL.AMPCODE]: "amp",
   [AGENT_TOOL.PI]: "pi",
   [AGENT_TOOL.HERMES]: "hermes",
+  [AGENT_TOOL.GROK_BUILD]: "grok-build",
 };
 
 

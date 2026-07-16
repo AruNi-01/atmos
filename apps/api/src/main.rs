@@ -147,25 +147,39 @@ fn spawn_non_critical_startup_tasks(
     });
 
     tokio::task::spawn_blocking(move || {
+        // Auto-install detected agent hooks (unless user uninstalled) and refresh
+        // port/version for anything already installed.
         let report = core_engine::agent_hooks::sync_installed_hooks(api_port);
         let label = |status: &core_engine::agent_hooks::AgentHookToolStatus| {
-            if status.installed {
+            if !status.detected {
+                "not_detected"
+            } else if status.installed {
                 if status.outdated {
                     "outdated"
                 } else {
-                    "current"
+                    "installed"
                 }
+            } else if status.error.is_some() {
+                "failed"
             } else {
-                "skipped"
+                // Detected but not installed: user opted out, or install skipped.
+                "opted_out_or_skipped"
             }
         };
         tracing::info!(
-            "Agent hooks version sync: claude_code={}, codex={}, opencode={}, pi={}, hermes={}",
+            "Agent hooks auto-sync: claude_code={}, codex={}, cursor={}, gemini={}, antigravity={}, factory_droid={}, kiro={}, opencode={}, ampcode={}, pi={}, hermes={}, grok_build={}",
             label(&report.claude_code),
             label(&report.codex),
+            label(&report.cursor),
+            label(&report.gemini),
+            label(&report.antigravity),
+            label(&report.factory_droid),
+            label(&report.kiro),
             label(&report.opencode),
+            label(&report.ampcode),
             label(&report.pi),
             label(&report.hermes),
+            label(&report.grok_build),
         );
     });
 

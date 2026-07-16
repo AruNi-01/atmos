@@ -1,9 +1,9 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
-    Json, Router,
 };
 use core_service::service::agent_hooks::AtmosContext;
 use serde_json::Value;
@@ -57,6 +57,8 @@ pub fn routes() -> Router<AppState> {
         .route("/ampcode", post(handle_ampcode_hook))
         .route("/pi", post(handle_pi_hook))
         .route("/hermes", post(handle_hermes_hook))
+        .route("/grok-build", post(handle_grok_build_hook))
+        .route("/cli-identity", get(cli_identity))
         .route("/sessions", get(list_hook_sessions))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
         .route(
@@ -138,6 +140,41 @@ async fn handle_hermes_hook(
         .agent_hooks_service
         .handle_hermes_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_grok_build_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_grok_build_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn cli_identity(
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Json<Value> {
+    let command = query
+        .get("command")
+        .cloned()
+        .unwrap_or_else(|| "agent".to_string());
+    let probe_command = command.clone();
+    let (owner, resolved_path) = match tokio::task::spawn_blocking(move || {
+        core_service::service::cli_identity::resolve_command_identity(&probe_command)
+    })
+    .await
+    {
+        Ok(result) => (result.owner.as_str(), result.resolved_path),
+        Err(_) => ("unknown", None),
+    };
+    Json(serde_json::json!({
+        "command": command,
+        "owner": owner,
+        "resolved_path": resolved_path,
+    }))
 }
 
 async fn handle_cursor_hook(
@@ -333,5 +370,18 @@ mod tests {
         let ctx = extract_atmos_context(&headers);
 
         assert_eq!(ctx.hook_version, None);
+    }
+
+    #[tokio::test]
+    async fn s11_cli_identity_endpoint_returns_unknown_for_uncontested_command() {
+        let query = std::collections::HashMap::from([(
+            "command".to_string(),
+            "not-a-contested-command".to_string(),
+        )]);
+        let Json(body) = cli_identity(axum::extract::Query(query)).await;
+
+        assert_eq!(body["command"], "not-a-contested-command");
+        assert_eq!(body["owner"], "unknown");
+        assert!(body["resolved_path"].is_null());
     }
 }

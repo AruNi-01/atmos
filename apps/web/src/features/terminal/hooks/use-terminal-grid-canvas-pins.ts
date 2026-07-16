@@ -21,6 +21,7 @@ import { toastManager } from "@workspace/ui";
 import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
 import { getTerminalDisplayMeta } from "../components/terminal-title";
+import { useContestedCliOwners } from "./use-contested-cli-owners";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 
 let cachedLocale: 'en' | 'zh' | null = null;
@@ -63,6 +64,7 @@ export function useTerminalGridCanvasPins({
   workspaceId,
   workspaceInfo,
 }: UseTerminalGridCanvasPinsOptions) {
+  const contestedOwners = useContestedCliOwners();
   const [pinnedPaneKeys, setPinnedPaneKeys] = React.useState<Set<string>>(() => new Set());
 
   React.useEffect(() => {
@@ -157,12 +159,24 @@ export function useTerminalGridCanvasPins({
           workspaceName: workspaceInfo.workspaceName,
           localPath: workspaceInfo.localPath,
           terminalName: (() => {
-            const { displayTitle } = getTerminalDisplayMeta({
+            const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
               baseTitle: pane.label,
               dynamicTitle: pane.dynamicTitle,
               configuredAgents,
               agent: pane.agent,
+              contestedOwners,
             });
+            // Contested freehand `agent` can pin before identity resolves. Prefer
+            // the pane's known launch agent over baking a raw `agent` label.
+            const firstToken = pane.dynamicTitle?.trim().split(/\s+/)[0]?.toLowerCase();
+            if (
+              firstToken === "agent" &&
+              !toolbarAgent &&
+              !contestedOwners.agent &&
+              pane.agent?.label
+            ) {
+              return pane.agent.label;
+            }
             const trimmed = displayTitle.trim();
             return trimmed || pane.label;
           })(),
@@ -198,7 +212,16 @@ export function useTerminalGridCanvasPins({
         type: "error",
       });
     }
-  }, [isProjectContext, panes, pinnedPaneKeys, workspaceId, workspaceInfo, configuredAgents, terminalTabId]);
+  }, [
+    isProjectContext,
+    panes,
+    pinnedPaneKeys,
+    workspaceId,
+    workspaceInfo,
+    configuredAgents,
+    contestedOwners,
+    terminalTabId,
+  ]);
 
   return {
     pinnedPaneKeys,

@@ -265,6 +265,7 @@ export const PROVIDER_ICON_IDS = new Set([
   "kimi",
   "amp",
   "zed",
+  "grok",
 ]);
 
 export function ProviderGlyph({
