@@ -11,7 +11,8 @@ mod kiro;
 mod opencode;
 mod pi;
 
-use std::path::PathBuf;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,8 +20,26 @@ use tracing::info;
 
 use crate::error::{EngineError, Result};
 
-pub const CURRENT_HOOK_VERSION: u32 = 2;
+// v3: optional `${VAR:-}` expansion so Grok's required-env preflight does not
+// skip Atmos hooks when side-chat (or other) vars are unset in the process env.
+pub const CURRENT_HOOK_VERSION: u32 = 3;
 const LEGACY_HOOK_VERSION: u32 = 1;
+
+/// Canonical tool keys used by install/uninstall APIs and opt-out persistence.
+const HOOK_TOOL_KEYS: &[&str] = &[
+    "claude_code",
+    "codex",
+    "cursor",
+    "gemini",
+    "antigravity",
+    "factory_droid",
+    "kiro",
+    "opencode",
+    "ampcode",
+    "pi",
+    "hermes",
+    "grok_build",
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentHookInstallReport {
@@ -123,6 +142,29 @@ pub(super) fn hook_version_header_shell() -> String {
     format!(r#"-H "X-Atmos-Hook-Version: {CURRENT_HOOK_VERSION}""#)
 }
 
+/// Shell test that Atmos is managing this terminal.
+///
+/// Uses `${ATMOS_MANAGED:-}` so Grok's hook runner (which treats bare `$VAR` /
+/// `${VAR}` in `command` as required) still executes the hook when the var is
+/// unset; the shell guard then no-ops cleanly.
+pub(super) fn atmos_managed_guard() -> &'static str {
+    r#"[ "${ATMOS_MANAGED:-}" = "1" ]"#
+}
+
+/// Curl header fragment for Atmos pane / side-chat context.
+///
+/// Side-chat vars are only injected for side-chat terminals; use empty-default
+/// expansion so normal panes (and Grok's required-env preflight) still run.
+pub(super) fn atmos_context_curl_headers() -> &'static str {
+    concat!(
+        r#"-H "X-Atmos-Context: ${ATMOS_CONTEXT_ID:-}" "#,
+        r#"-H "X-Atmos-Pane: ${ATMOS_PANE_ID:-}" "#,
+        r#"-H "X-Atmos-Terminal-Kind: ${ATMOS_TERMINAL_KIND:-}" "#,
+        r#"-H "X-Atmos-Side-Chat-Id: ${ATMOS_SIDE_CHAT_ID:-}" "#,
+        r#"-H "X-Atmos-Source-Pane: ${ATMOS_SOURCE_PANE_ID:-}""#,
+    )
+}
+
 pub(super) fn hook_version_header_ts() -> String {
     r#""X-Atmos-Hook-Version": String(ATMOS_HOOK_VERSION),"#.to_string()
 }
@@ -180,6 +222,9 @@ pub(super) fn parse_hook_version_from_json(value: &Value) -> Option<u32> {
 
 pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     info!("Installing agent hooks for Atmos port {}", port);
+
+    // Explicit install-all re-enables every known tool for future auto-sync.
+    clear_disabled_tools(HOOK_TOOL_KEYS.iter().copied());
 
     let claude = claude_code::install(port);
     let codex = codex::install(port);
@@ -258,6 +303,9 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
     let hermes_status = hermes::uninstall();
     let grok_build_status = grok_build::uninstall();
 
+    // Remember the opt-out so startup auto-install does not undo the uninstall.
+    mark_tools_disabled(HOOK_TOOL_KEYS.iter().copied());
+
     AgentHookInstallReport {
         claude_code: claude,
         codex,
@@ -304,52 +352,126 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
     }
 }
 
-fn sync_hook_if_installed(
+/// Decide whether startup sync should (re)install a tool's Atmos hooks.
+///
+/// Policy:
+/// - not detected → skip
+/// - user opted out via uninstall → skip (unless already installed; then refresh)
+/// - detected and not opted out → install / refresh (port + version)
+fn ensure_hook_for_tool(
     tool: &str,
     status: AgentHookToolStatus,
+    user_disabled: bool,
     install: impl FnOnce() -> AgentHookToolStatus,
 ) -> AgentHookToolStatus {
-    if !status.installed {
+    if !status.detected {
         return status;
     }
 
-    if status.outdated {
-        info!(
-            "Upgrading {} agent hook from v{} to v{}",
-            tool,
-            status.installed_version.unwrap_or(LEGACY_HOOK_VERSION),
-            CURRENT_HOOK_VERSION
-        );
+    // If hooks are present on disk, always refresh port/version even if the user
+    // previously opted out (files may have been restored manually).
+    if status.installed {
+        if status.outdated {
+            info!(
+                "Upgrading {} agent hook from v{} to v{}",
+                tool,
+                status.installed_version.unwrap_or(LEGACY_HOOK_VERSION),
+                CURRENT_HOOK_VERSION
+            );
+        }
+        return install();
     }
 
+    if user_disabled {
+        info!(
+            "Skipping {} agent hook auto-install (user uninstalled / opted out)",
+            tool
+        );
+        return status;
+    }
+
+    info!("Auto-installing {} agent hooks (CLI detected)", tool);
     install()
 }
 
-/// Refresh only Atmos-managed hooks that are already installed. This keeps the
-/// hardcoded API port and template version current without auto-installing hooks
-/// for tools that were detected but never opted into Atmos hooks.
+/// On API startup: auto-install Atmos hooks for every detected CLI agent unless
+/// the user explicitly uninstalled that tool, and refresh already-installed hooks
+/// so the localhost port and template version stay current.
 pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
-    let claude = sync_hook_if_installed("claude_code", claude_code::check(), || {
-        claude_code::install(port)
-    });
-    let codex = sync_hook_if_installed("codex", codex::check(), || codex::install(port));
-    let cursor = sync_hook_if_installed("cursor", cursor::check(), || cursor::install(port));
-    let gemini_status = sync_hook_if_installed("gemini", gemini::check(), || gemini::install(port));
-    let antigravity_status = sync_hook_if_installed("antigravity", antigravity::check(), || {
-        antigravity::install(port)
-    });
-    let factory = sync_hook_if_installed("factory_droid", factory_droid::check(), || {
-        factory_droid::install(port)
-    });
-    let kiro_status = sync_hook_if_installed("kiro", kiro::check(), || kiro::install(port));
-    let opencode =
-        sync_hook_if_installed("opencode", opencode::check(), || opencode::install(port));
-    let ampcode = sync_hook_if_installed("ampcode", ampcode::check(), || ampcode::install(port));
-    let pi_status = sync_hook_if_installed("pi", pi::check(), || pi::install(port));
-    let hermes_status = sync_hook_if_installed("hermes", hermes::check(), || hermes::install(port));
-    let grok_build_status = sync_hook_if_installed("grok_build", grok_build::check(), || {
-        grok_build::install(port)
-    });
+    let disabled = load_disabled_tools();
+
+    let claude = ensure_hook_for_tool(
+        "claude_code",
+        claude_code::check(),
+        disabled.contains("claude_code"),
+        || claude_code::install(port),
+    );
+    let codex = ensure_hook_for_tool(
+        "codex",
+        codex::check(),
+        disabled.contains("codex"),
+        || codex::install(port),
+    );
+    let cursor = ensure_hook_for_tool(
+        "cursor",
+        cursor::check(),
+        disabled.contains("cursor"),
+        || cursor::install(port),
+    );
+    let gemini_status = ensure_hook_for_tool(
+        "gemini",
+        gemini::check(),
+        disabled.contains("gemini"),
+        || gemini::install(port),
+    );
+    let antigravity_status = ensure_hook_for_tool(
+        "antigravity",
+        antigravity::check(),
+        disabled.contains("antigravity"),
+        || antigravity::install(port),
+    );
+    let factory = ensure_hook_for_tool(
+        "factory_droid",
+        factory_droid::check(),
+        disabled.contains("factory_droid"),
+        || factory_droid::install(port),
+    );
+    let kiro_status = ensure_hook_for_tool(
+        "kiro",
+        kiro::check(),
+        disabled.contains("kiro"),
+        || kiro::install(port),
+    );
+    let opencode = ensure_hook_for_tool(
+        "opencode",
+        opencode::check(),
+        disabled.contains("opencode"),
+        || opencode::install(port),
+    );
+    let ampcode = ensure_hook_for_tool(
+        "ampcode",
+        ampcode::check(),
+        disabled.contains("ampcode"),
+        || ampcode::install(port),
+    );
+    let pi_status = ensure_hook_for_tool(
+        "pi",
+        pi::check(),
+        disabled.contains("pi"),
+        || pi::install(port),
+    );
+    let hermes_status = ensure_hook_for_tool(
+        "hermes",
+        hermes::check(),
+        disabled.contains("hermes"),
+        || hermes::install(port),
+    );
+    let grok_build_status = ensure_hook_for_tool(
+        "grok_build",
+        grok_build::check(),
+        disabled.contains("grok_build"),
+        || grok_build::install(port),
+    );
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -372,9 +494,98 @@ fn home_dir() -> Result<PathBuf> {
         .ok_or_else(|| EngineError::Processing("Cannot determine home directory".into()))
 }
 
+fn normalize_tool_key(tool: &str) -> Option<&'static str> {
+    match tool {
+        "claude_code" => Some("claude_code"),
+        "codex" => Some("codex"),
+        "cursor" => Some("cursor"),
+        "gemini" => Some("gemini"),
+        "antigravity" => Some("antigravity"),
+        "factory_droid" => Some("factory_droid"),
+        "kiro" => Some("kiro"),
+        "opencode" => Some("opencode"),
+        "ampcode" => Some("ampcode"),
+        "pi" => Some("pi"),
+        "hermes" => Some("hermes"),
+        "grok_build" | "grok-build" => Some("grok_build"),
+        _ => None,
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct DisabledHooksFile {
+    /// Tools the user explicitly uninstalled; startup will not re-install them.
+    #[serde(default)]
+    tools: BTreeSet<String>,
+}
+
+fn disabled_hooks_path() -> Result<PathBuf> {
+    Ok(home_dir()?.join(".atmos").join("agent-hooks").join("disabled.json"))
+}
+
+fn load_disabled_tools_from(path: &Path) -> BTreeSet<String> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return BTreeSet::new(),
+    };
+    serde_json::from_str::<DisabledHooksFile>(&content)
+        .map(|file| file.tools)
+        .unwrap_or_default()
+}
+
+fn save_disabled_tools_to(path: &Path, tools: &BTreeSet<String>) {
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let file = DisabledHooksFile {
+        tools: tools.clone(),
+    };
+    if let Ok(content) = serde_json::to_string_pretty(&file) {
+        let _ = std::fs::write(path, content);
+    }
+}
+
+fn load_disabled_tools() -> BTreeSet<String> {
+    match disabled_hooks_path() {
+        Ok(path) => load_disabled_tools_from(&path),
+        Err(_) => BTreeSet::new(),
+    }
+}
+
+fn mark_tools_disabled<'a>(tools: impl IntoIterator<Item = &'a str>) {
+    let Ok(path) = disabled_hooks_path() else {
+        return;
+    };
+    let mut disabled = load_disabled_tools_from(&path);
+    for tool in tools {
+        if let Some(key) = normalize_tool_key(tool) {
+            disabled.insert(key.to_string());
+        }
+    }
+    save_disabled_tools_to(&path, &disabled);
+}
+
+fn clear_disabled_tools<'a>(tools: impl IntoIterator<Item = &'a str>) {
+    let Ok(path) = disabled_hooks_path() else {
+        return;
+    };
+    let mut disabled = load_disabled_tools_from(&path);
+    let before = disabled.len();
+    for tool in tools {
+        if let Some(key) = normalize_tool_key(tool) {
+            disabled.remove(key);
+        }
+    }
+    if disabled.len() != before {
+        save_disabled_tools_to(&path, &disabled);
+    }
+}
+
 /// Install hook for a single tool. Returns `None` if `tool` is not a known tool name.
 pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
-    Some(match tool {
+    let key = normalize_tool_key(tool)?;
+    clear_disabled_tools([key]);
+    Some(match key {
         "claude_code" => claude_code::install(port),
         "codex" => codex::install(port),
         "cursor" => cursor::install(port),
@@ -386,14 +597,15 @@ pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
         "ampcode" => ampcode::install(port),
         "pi" => pi::install(port),
         "hermes" => hermes::install(port),
-        "grok_build" | "grok-build" => grok_build::install(port),
+        "grok_build" => grok_build::install(port),
         _ => return None,
     })
 }
 
 /// Uninstall hook for a single tool. Returns `None` if `tool` is not a known tool name.
 pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
-    Some(match tool {
+    let key = normalize_tool_key(tool)?;
+    let status = match key {
         "claude_code" => claude_code::uninstall(),
         "codex" => codex::uninstall(),
         "cursor" => cursor::uninstall(),
@@ -405,9 +617,11 @@ pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
         "ampcode" => ampcode::uninstall(),
         "pi" => pi::uninstall(),
         "hermes" => hermes::uninstall(),
-        "grok_build" | "grok-build" => grok_build::uninstall(),
+        "grok_build" => grok_build::uninstall(),
         _ => return None,
-    })
+    };
+    mark_tools_disabled([key]);
+    Some(status)
 }
 
 #[cfg(test)]
@@ -424,6 +638,24 @@ mod tests {
             Some(12)
         );
         assert_eq!(parse_hook_version(r#""ATMOS_HOOK_VERSION": "3""#), Some(3));
+    }
+
+    #[test]
+    fn atmos_hook_shell_fragments_use_empty_defaults_for_grok() {
+        assert_eq!(atmos_managed_guard(), r#"[ "${ATMOS_MANAGED:-}" = "1" ]"#);
+        let headers = atmos_context_curl_headers();
+        for name in [
+            "ATMOS_CONTEXT_ID",
+            "ATMOS_PANE_ID",
+            "ATMOS_TERMINAL_KIND",
+            "ATMOS_SIDE_CHAT_ID",
+            "ATMOS_SOURCE_PANE_ID",
+        ] {
+            assert!(
+                headers.contains(&format!("${{{name}:-}}")),
+                "expected empty-default expansion for {name} in {headers}"
+            );
+        }
     }
 
     #[test]
@@ -477,11 +709,25 @@ mod tests {
     }
 
     #[test]
-    fn sync_hook_skips_uninstalled_hooks() {
+    fn ensure_hook_auto_installs_detected_uninstalled_when_not_disabled() {
         let called = Cell::new(false);
         let status = AgentHookToolStatus::detected_uninstalled("/tmp/hook");
 
-        let result = sync_hook_if_installed("codex", status, || {
+        let result = ensure_hook_for_tool("codex", status, false, || {
+            called.set(true);
+            AgentHookToolStatus::success("/tmp/hook")
+        });
+
+        assert!(called.get());
+        assert!(result.installed);
+    }
+
+    #[test]
+    fn ensure_hook_skips_detected_when_user_disabled() {
+        let called = Cell::new(false);
+        let status = AgentHookToolStatus::detected_uninstalled("/tmp/hook");
+
+        let result = ensure_hook_for_tool("codex", status, true, || {
             called.set(true);
             AgentHookToolStatus::success("/tmp/hook")
         });
@@ -491,12 +737,26 @@ mod tests {
     }
 
     #[test]
-    fn sync_hook_refreshes_installed_hooks() {
+    fn ensure_hook_skips_when_not_detected() {
+        let called = Cell::new(false);
+        let status = AgentHookToolStatus::not_detected();
+
+        let result = ensure_hook_for_tool("codex", status, false, || {
+            called.set(true);
+            AgentHookToolStatus::success("/tmp/hook")
+        });
+
+        assert!(!called.get());
+        assert!(!result.detected);
+    }
+
+    #[test]
+    fn ensure_hook_refreshes_installed_hooks_even_if_disabled() {
         let called = Cell::new(false);
         let status =
             AgentHookToolStatus::detected_installed("/tmp/hook", Some(CURRENT_HOOK_VERSION));
 
-        let result = sync_hook_if_installed("codex", status, || {
+        let result = ensure_hook_for_tool("codex", status, true, || {
             called.set(true);
             AgentHookToolStatus::success("/tmp/hook")
         });
@@ -507,12 +767,12 @@ mod tests {
     }
 
     #[test]
-    fn sync_hook_upgrades_outdated_hooks() {
+    fn ensure_hook_upgrades_outdated_hooks() {
         let called = Cell::new(false);
         let status =
             AgentHookToolStatus::detected_installed("/tmp/hook", Some(LEGACY_HOOK_VERSION));
 
-        let result = sync_hook_if_installed("codex", status, || {
+        let result = ensure_hook_for_tool("codex", status, false, || {
             called.set(true);
             AgentHookToolStatus::success("/tmp/hook")
         });
@@ -521,5 +781,39 @@ mod tests {
         assert!(result.installed);
         assert!(!result.outdated);
         assert_eq!(result.installed_version, Some(CURRENT_HOOK_VERSION));
+    }
+
+    #[test]
+    fn disabled_tools_file_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "atmos-hook-disabled-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("disabled.json");
+
+        assert!(load_disabled_tools_from(&path).is_empty());
+
+        let mut tools = BTreeSet::new();
+        tools.insert("grok_build".to_string());
+        tools.insert("codex".to_string());
+        save_disabled_tools_to(&path, &tools);
+
+        let loaded = load_disabled_tools_from(&path);
+        assert!(loaded.contains("grok_build"));
+        assert!(loaded.contains("codex"));
+        assert_eq!(loaded.len(), 2);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn normalize_tool_key_accepts_grok_aliases() {
+        assert_eq!(normalize_tool_key("grok-build"), Some("grok_build"));
+        assert_eq!(normalize_tool_key("grok_build"), Some("grok_build"));
+        assert_eq!(normalize_tool_key("nope"), None);
     }
 }

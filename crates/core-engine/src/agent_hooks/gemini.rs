@@ -2,8 +2,9 @@ use serde_json::{json, Value};
 use tracing::debug;
 
 use super::{
-    home_dir, hook_version_assignment, hook_version_header_shell, installed_status_from_versions,
-    parse_hook_version_from_json, AgentHookToolStatus,
+    atmos_context_curl_headers, atmos_managed_guard, home_dir, hook_version_assignment,
+    hook_version_header_shell, installed_status_from_versions, parse_hook_version_from_json,
+    AgentHookToolStatus,
 };
 
 fn settings_path() -> Option<std::path::PathBuf> {
@@ -44,8 +45,10 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
     format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        guard = atmos_managed_guard(),
         hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
         hook_version_header = hook_version_header,
         event_name = event_name,
         url = url,

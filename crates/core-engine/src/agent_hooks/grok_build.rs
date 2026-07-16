@@ -5,8 +5,9 @@ use serde_json::{Value, json};
 use tracing::debug;
 
 use super::{
-    AgentHookToolStatus, home_dir, hook_version_assignment, hook_version_header_shell,
-    installed_status_from_versions, parse_hook_version_from_json,
+    atmos_context_curl_headers, atmos_managed_guard, home_dir, hook_version_assignment,
+    hook_version_header_shell, installed_status_from_versions, parse_hook_version_from_json,
+    AgentHookToolStatus,
 };
 
 fn grok_root_for_environment(home: &Path, grok_home: Option<&OsStr>) -> PathBuf {
@@ -55,7 +56,10 @@ fn build_stdin_cmd(port: u16, detached: bool) -> String {
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
     let curl = format!(
-        r#"curl -sf --connect-timeout 1 --max-time 2 -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -H "X-Atmos-Terminal-Kind: $ATMOS_TERMINAL_KIND" -H "X-Atmos-Side-Chat-Id: $ATMOS_SIDE_CHAT_ID" -H "X-Atmos-Source-Pane: $ATMOS_SOURCE_PANE_ID" {hook_version_header} -d @- '{url}'"#,
+        r#"curl -sf --connect-timeout 1 --max-time 2 -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}'"#,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
     );
     let delivery = if detached {
         format!(
@@ -65,7 +69,8 @@ fn build_stdin_cmd(port: u16, detached: bool) -> String {
         format!(r#"cat | {curl} >/dev/null 2>&1"#)
     };
     format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && {hook_version} && {delivery} || true"#,
+        r#"{guard} && {hook_version} && {delivery} || true"#,
+        guard = atmos_managed_guard(),
         hook_version = hook_version,
         delivery = delivery,
     )
@@ -381,6 +386,19 @@ mod tests {
         let content = std::fs::read_to_string(&atmos_path).unwrap();
         assert!(content.contains("ATMOS_MANAGED"));
         assert!(content.contains("/hooks/grok-build"));
+        // Grok treats bare $VAR as required; optional vars must use ${VAR:-}.
+        assert!(
+            content.contains("${ATMOS_SIDE_CHAT_ID:-}")
+                && content.contains("${ATMOS_SOURCE_PANE_ID:-}")
+                && content.contains("${ATMOS_TERMINAL_KIND:-}"),
+            "optional Atmos env refs must use empty-default expansion for Grok"
+        );
+        assert!(
+            !content.contains("$ATMOS_SIDE_CHAT_ID\"")
+                && !content.contains("$ATMOS_SOURCE_PANE_ID\"")
+                && !content.contains("$ATMOS_TERMINAL_KIND\""),
+            "must not leave bare optional $ATMOS_* refs that Grok rejects"
+        );
         // Notification must not rely on unconfirmed OR-regex matcher dialect.
         assert!(
             !content.contains("permission_prompt|elicitation_dialog"),
