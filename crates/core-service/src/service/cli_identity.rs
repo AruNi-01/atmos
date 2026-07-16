@@ -143,23 +143,40 @@ fn which_command(command: &str) -> Option<String> {
 fn which_command_in_path(command: &str, path: Option<&std::ffi::OsStr>) -> Option<String> {
     let path = path?;
     for directory in std::env::split_paths(path) {
-        let candidate = directory.join(command);
-        if !candidate.is_file() {
-            continue;
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let Ok(metadata) = candidate.metadata() else {
-                continue;
-            };
-            if metadata.permissions().mode() & 0o111 == 0 {
+        for candidate in executable_candidates(&directory, command) {
+            if !candidate.is_file() {
                 continue;
             }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let Ok(metadata) = candidate.metadata() else {
+                    continue;
+                };
+                if metadata.permissions().mode() & 0o111 == 0 {
+                    continue;
+                }
+            }
+            return Some(candidate.to_string_lossy().to_string());
         }
-        return Some(candidate.to_string_lossy().to_string());
     }
     None
+}
+
+fn executable_candidates(directory: &Path, command: &str) -> Vec<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        // PATHEXT-style suffixes so bare `agent` resolves to agent.exe / agent.cmd.
+        let mut candidates = vec![directory.join(command)];
+        for suffix in [".exe", ".cmd", ".bat", ".com"] {
+            candidates.push(directory.join(format!("{command}{suffix}")));
+        }
+        candidates
+    }
+    #[cfg(not(windows))]
+    {
+        vec![directory.join(command)]
+    }
 }
 
 fn classify_agent_binary(resolved: Option<&str>, which_path: Option<&str>) -> ContestedCliOwner {
@@ -168,7 +185,7 @@ fn classify_agent_binary(resolved: Option<&str>, which_path: Option<&str>) -> Co
         return ContestedCliOwner::Unknown;
     }
 
-    let lower = path_str.to_ascii_lowercase();
+    let lower = path_str.to_ascii_lowercase().replace('\\', "/");
     let file_name = Path::new(path_str)
         .file_name()
         .and_then(|n| n.to_str())
@@ -312,6 +329,7 @@ fn terminate_probe_process_group(_child_id: u32) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     #[test]

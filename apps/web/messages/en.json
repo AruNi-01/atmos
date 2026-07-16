@@ -4769,9 +4769,24 @@
       "title": "Agent Hook Status",
       "description": "Hooks inject into local Agent tool configs so Atmos can track their running state.",
       "empty": "No supported agent tools detected on this system.",
+      "loadError": "Could not load agent hook status for this Computer.",
       "status": {
         "notDetected": "Not detected",
         "error": "Error: {error}"
+      },
+      "tools": {
+        "claude_code": "Claude Code",
+        "codex": "Codex CLI",
+        "cursor": "Cursor",
+        "gemini": "Gemini CLI",
+        "antigravity": "Antigravity",
+        "factory_droid": "Factory Droid",
+        "kiro": "Kiro",
+        "opencode": "OpenCode",
+        "ampcode": "AMP",
+        "pi": "Pi",
+        "hermes": "Hermes Agent",
+        "grok_build": "Grok Build"
       },
       "actions": {
         "installAll": "Install All",
@@ -4779,7 +4794,8 @@
         "uninstallAll": "Uninstall All",
         "uninstallAllTitle": "Uninstall managed agent hooks",
         "installTool": "Install {label} hooks",
-        "uninstallTool": "Uninstall {label} hooks"
+        "uninstallTool": "Uninstall {label} hooks",
+        "retry": "Retry"
       }
     },
     "codeAgentRunConfigSection": {

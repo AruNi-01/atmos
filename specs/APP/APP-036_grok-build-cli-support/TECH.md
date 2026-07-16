@@ -61,7 +61,7 @@ Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest
 |-----|--------|
 | M1 built-in | `builtin_agents.json` + consumers already load it |
 | M2 interactive | `interactiveParams: "--always-approve"` |
-| M3 models | `modelList.command: ["grok","models"]`, `line_list` + normalize `(default)` |
+| M3 models | `modelList.command: ["grok","models"]`, `grok_line_list` parser (`parse_grok_model_catalog`) |
 | M4 reasoning | `reasoningSupport.mode: "manual", arg: "--reasoning-effort"` |
 | M5 Cursor cmd | `cursor.cmd` + `modelList` → `cursor-agent` |
 | M6 titles unique | exact first-token match; drop substring `includes` |
@@ -98,7 +98,7 @@ Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest
   "modelList": {
     "supported": true,
     "command": ["grok", "models"],
-    "parser": "line_list"
+    "parser": "grok_line_list"
   }
 }
 ```
@@ -560,7 +560,7 @@ Each step 1–4 is independently mergeable with tests green.
 | Interactive flags | `--always-approve` | Matches Atmos “yolo” presets for other CLIs; user-overridable |
 | Headless output | `streaming-json` only | PRD locked; dedicated parser |
 | Contested probe | API host PATH | Same machine as local runtime; perfect tmux env parity is hard without per-pane which |
-| Notification matcher | install filter + server filter | Fewer hooks; still correct |
+| Notification install matcher | `.*` + server-side type filter only | Grok OR-regex dialect unconfirmed; server keeps only permission_prompt / elicitation_dialog |
 | Icon | theme pair from user assets | Brand fidelity; avoid wrong invert |
 | Cursor default cmd | hard cutover to `cursor-agent` | Fixes wrong binary; user overrides preserved |
 
@@ -579,8 +579,8 @@ Each step 1–4 is independently mergeable with tests green.
 
 ## Open questions (implementation)
 
-- [ ] Confirm Grok Notification **matcher** regex dialect accepts `permission_prompt|elicitation_dialog` (docs say regex); if not, install unfiltered Notification and filter server-side only.
-- [ ] Whether mobile must call cli-identity in M1 or only unique cmds.
+- [x] Notification matcher: resolved — install with matcher `.*`; filter `permission_prompt` / `elicitation_dialog` server-side only (no install-side OR regex).
+- [x] Mobile calls cli-identity in M1 via computer HTTP gateway when a client session is active; unique cmds still work offline.
 - [ ] Landing marketing icon sync (optional).
 
 ---

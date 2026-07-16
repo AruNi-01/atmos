@@ -49,7 +49,7 @@
 | REV-014 | P2 | backend | Grok model catalog includes status lines as models | verified |
 | REV-015 | P2 | frontend | Mobile identity refresh can publish the previous Computer's owner | fixed |
 | REV-016 | P1 | backend | Grok run-config flags split `-p` from its prompt value | verified |
-| REV-017 | P1 | frontend | Interactive Grok prompts incorrectly launch single-turn headless mode | fixed |
+| REV-017 | P1 | frontend | Interactive Grok prompts incorrectly launch single-turn headless mode | verified |
 | REV-018 | P1 | frontend | Hook settings bypass the selected relay Computer | fixed |
 | REV-019 | P3 | tests | Grok hook tests leak process-wide HOME state | fixed |
 | REV-020 | P1 | frontend | Web headless run config still split `-p` from the prompt | verified |
@@ -720,16 +720,17 @@ Give Grok an explicit interactive-prompt policy: pass the initial prompt positio
 
 ### Acceptance
 
-- [ ] Interactive workspace prompt produces `grok --always-approve '<prompt>'` with no `-p`.
+- [x] Interactive workspace prompt produces `grok --always-approve '<prompt>'` with no `-p`.
 - [ ] The launched Grok process remains in its interactive TUI after the first response.
-- [ ] Headless automation still uses `--output-format streaming-json -p <prompt>`.
-- [ ] Agent Select/run-plan tests assert both Grok modes.
+- [x] Headless automation still uses `--output-format streaming-json -p <prompt>`.
+- [x] Agent Select/run-plan tests assert both Grok modes.
 
 ### Fix log
 
 - 2026-07-16 - Reproduced by invoking `buildInteractiveAgentRunPlan` with the shipped Grok definition.
 - 2026-07-16 - Interactive Grok prompts are positional; only headless automation retains streaming JSON and `-p`.
 - Verification: Agent Select test asserts both command modes; live interactive-TUI persistence remains a manual check.
+- 2026-07-16 - Acceptance checkboxes updated for automated coverage; only manual TUI persistence remains open.
 
 ---
 

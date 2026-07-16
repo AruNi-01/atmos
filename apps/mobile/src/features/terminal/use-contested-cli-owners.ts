@@ -3,6 +3,7 @@ import type { ContestedCommandOwner, ContestedOwnersMap } from "@atmos/shared/te
 import { useSessionStore } from "@/stores/session-store";
 
 const CACHE_TTL_MS = 60_000;
+const PROBE_TIMEOUT_MS = 8_000;
 
 type CacheEntry = {
   owner: ContestedCommandOwner;
@@ -36,8 +37,13 @@ async function fetchAgentOwner(
   }
 
   const request = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
     try {
       const base = gatewayUrl.replace(/\/$/, "");
+      // Mobile computers are reached through the relay HTTP gateway (not a
+      // local API). Keep this REST probe with a hard timeout so a stalled
+      // request cannot permanently pin `inFlight`.
       const response = await fetch(
         `${base}/hooks/cli-identity?command=${encodeURIComponent("agent")}`,
         {
@@ -45,6 +51,7 @@ async function fetchAgentOwner(
             Accept: "application/json",
             Authorization: `Bearer ${clientToken}`,
           },
+          signal: controller.signal,
         },
       );
       if (!response.ok) {
@@ -59,6 +66,7 @@ async function fetchAgentOwner(
       cache.set(cacheKey, { owner: "unknown", cachedAt: Date.now() });
       return "unknown";
     } finally {
+      clearTimeout(timeout);
       inFlight.delete(cacheKey);
     }
   })();

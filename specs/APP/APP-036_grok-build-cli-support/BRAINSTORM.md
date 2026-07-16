@@ -76,13 +76,13 @@ Probed against local install: **grok 0.2.101** (`grok version`, `grok version --
 
 | Need | Support | Notes |
 |------|---------|-------|
-| List models | **Yes** — `grok models` | Human text; `line_list` mostly works; strip `(default)`. |
+| List models | **Yes** — `grok models` | Human text; dedicated `grok_line_list` parser drops login/default preamble and strips `(default)`. |
 
 ```json
 {
   "supported": true,
   "command": ["grok", "models"],
-  "parser": "line_list"
+  "parser": "grok_line_list"
 }
 ```
 

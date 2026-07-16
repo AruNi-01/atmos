@@ -159,13 +159,24 @@ export function useTerminalGridCanvasPins({
           workspaceName: workspaceInfo.workspaceName,
           localPath: workspaceInfo.localPath,
           terminalName: (() => {
-            const { displayTitle } = getTerminalDisplayMeta({
+            const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
               baseTitle: pane.label,
               dynamicTitle: pane.dynamicTitle,
               configuredAgents,
               agent: pane.agent,
               contestedOwners,
             });
+            // Contested freehand `agent` can pin before identity resolves. Prefer
+            // the pane's known launch agent over baking a raw `agent` label.
+            const firstToken = pane.dynamicTitle?.trim().split(/\s+/)[0]?.toLowerCase();
+            if (
+              firstToken === "agent" &&
+              !toolbarAgent &&
+              !contestedOwners.agent &&
+              pane.agent?.label
+            ) {
+              return pane.agent.label;
+            }
             const trimmed = displayTitle.trim();
             return trimmed || pane.label;
           })(),

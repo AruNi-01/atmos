@@ -131,30 +131,46 @@ fn build_hook_entries(port: u16) -> Value {
 fn command_on_path(cmd: &str, path: Option<&OsStr>) -> Option<PathBuf> {
     let path = path?;
     for dir in std::env::split_paths(&path) {
-        let candidate = dir.join(cmd);
-        if !candidate.is_file() {
-            continue;
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Ok(meta) = candidate.metadata() {
-                if meta.permissions().mode() & 0o111 == 0 {
-                    continue;
-                }
-            } else {
+        for candidate in executable_candidates(&dir, cmd) {
+            if !candidate.is_file() {
                 continue;
             }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = candidate.metadata() {
+                    if meta.permissions().mode() & 0o111 == 0 {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            }
+            return Some(candidate);
         }
-        return Some(candidate);
     }
     None
+}
+
+fn executable_candidates(directory: &Path, command: &str) -> Vec<PathBuf> {
+    #[cfg(windows)]
+    {
+        let mut candidates = vec![directory.join(command)];
+        for suffix in [".exe", ".cmd", ".bat", ".com"] {
+            candidates.push(directory.join(format!("{command}{suffix}")));
+        }
+        candidates
+    }
+    #[cfg(not(windows))]
+    {
+        vec![directory.join(command)]
+    }
 }
 
 /// Path fingerprint only — bare `agent` is contested with Cursor and must not
 /// alone mean Grok is installed (APP-036 REV-001).
 fn path_looks_like_grok(path: &std::path::Path) -> bool {
-    let path_str = path.to_string_lossy().to_ascii_lowercase();
+    let path_str = path.to_string_lossy().to_ascii_lowercase().replace('\\', "/");
     let file_name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -445,19 +461,18 @@ mod tests {
 
         let dir = unique_temp_dir("grok-agent-path");
 
-        // No ~/.grok config dir — only a Grok-fingerprinted agent binary path.
-        let grok_bin = dir.join(".grok").join("bin");
-        std::fs::create_dir_all(&grok_bin).unwrap();
-        // Detection via path fingerprint of `agent`, not via ~/.grok existence alone:
-        // remove empty config signal by using only the bin path under /.grok/.
-        let agent = grok_bin.join("agent");
+        // Keep the Grok-fingerprinted binary under a `.grok/bin` path segment, but
+        // pass a nonexistent root so detection must use path fingerprinting (not
+        // root existence).
+        let nested = dir.join("opt").join(".grok").join("bin");
+        std::fs::create_dir_all(&nested).unwrap();
+        let agent = nested.join("agent");
         std::fs::write(&agent, "#!/bin/sh\necho grok 0.0.0\n").unwrap();
         std::fs::set_permissions(&agent, std::fs::Permissions::from_mode(0o755)).unwrap();
 
-        assert!(grok_detected(
-            &dir.join(".grok"),
-            Some(grok_bin.as_os_str())
-        ));
+        let missing_root = dir.join("missing-grok-root");
+        assert!(!missing_root.exists());
+        assert!(grok_detected(&missing_root, Some(nested.as_os_str())));
         assert!(path_looks_like_grok(&agent));
         let _ = std::fs::remove_dir_all(&dir);
     }

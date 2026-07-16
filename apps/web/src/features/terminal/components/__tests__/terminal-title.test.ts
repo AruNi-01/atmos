@@ -197,4 +197,29 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
   it("keeps bare filesystem paths as path titles", () => {
     expect(resolveAgentForTitle("/Users/me/projects/grok", agents)).toBeUndefined();
   });
+
+  it("matches pipe agents via pipeCommand, not bare echo", () => {
+    const pipeAgent: TerminalPaneAgent = {
+      id: "custom-pipe",
+      label: "Custom Pipe",
+      command: "echo",
+      pipeCommand: "myagent",
+      iconType: "custom",
+    };
+    expect(resolveAgentForTitle("echo hello | myagent", [pipeAgent])?.id).toBe("custom-pipe");
+    expect(resolveAgentForTitle("echo hello", [pipeAgent])).toBeUndefined();
+    expect(resolveAgentForTitle('echo "a|b" | myagent', [pipeAgent])?.id).toBe("custom-pipe");
+  });
+
+  it("does not treat path-only titles ending in agent as contested freehand", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Cursor Agent",
+        dynamicTitle: "/tmp/workspace/agent",
+        configuredAgents: agents,
+        agent: cursorAgent,
+        contestedOwners: { agent: "unknown" },
+      }).toolbarAgent?.id,
+    ).toBe("cursor");
+  });
 });

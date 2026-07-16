@@ -35,7 +35,12 @@ function targetKey(): string {
 
 function targetReady(): boolean {
   const computer = useAtmosComputerStore.getState();
-  return computer.connectionMode === "local" || Boolean(computer.relayGatewayHttpBase);
+  if (computer.connectionMode === "local") return true;
+  // Match shared relay readiness: base alone is not enough — unauthenticated
+  // probes would cache `unknown` for the full TTL.
+  return Boolean(
+    computer.relayGatewayHttpBase?.trim() && computer.relayClientToken?.trim(),
+  );
 }
 
 function emit(): void {

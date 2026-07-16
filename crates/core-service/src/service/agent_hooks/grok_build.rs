@@ -28,7 +28,17 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     let event = normalize_event(raw_event);
 
     let session_id = service.resolve_session_id(payload, AgentToolType::GrokBuild, ctx);
-    let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
+    // Prefer payload cwd; fall back to the existing session path so later events
+    // without cwd do not wipe a previously known project path.
+    let project_path = AgentHooksService::extract_cwd(payload)
+        .map(String::from)
+        .or_else(|| {
+            service
+                .sessions
+                .read()
+                .get(&session_id)
+                .and_then(|session| session.project_path.clone())
+        });
 
     debug!(
         "Grok Build hook event: {} (normalized={}) session_id={}",
@@ -100,13 +110,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 ctx,
             );
         }
-        name if name.starts_with("subagent")
-            || name.contains("compact")
-            || name == "precompact"
-            || name == "postcompact"
-            || name == "pre_compact"
-            || name == "post_compact" =>
-        {
+        name if name.starts_with("subagent") || name.contains("compact") => {
             // Subagent / compact lifecycle — parent owns status.
         }
         _ => {
@@ -282,6 +286,30 @@ mod tests {
         assert_eq!(
             service.get_all_sessions()[0].project_path.as_deref(),
             Some("/Users/me/proj")
+        );
+    }
+
+    #[test]
+    fn later_events_without_cwd_keep_existing_project_path() {
+        let service = AgentHooksService::new();
+        fire(
+            &service,
+            serde_json::json!({
+                "hookEventName": "session_start",
+                "sessionId": "g5",
+                "cwd": "/tmp/kept",
+            }),
+        );
+        fire(
+            &service,
+            serde_json::json!({
+                "hookEventName": "pre_tool_use",
+                "sessionId": "g5",
+            }),
+        );
+        assert_eq!(
+            service.get_all_sessions()[0].project_path.as_deref(),
+            Some("/tmp/kept")
         );
     }
 }

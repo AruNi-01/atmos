@@ -305,6 +305,7 @@ fn parse_grok_streaming_json(value: &Value) -> Vec<RenderedOutput> {
             {
                 vec![event_stdout(format!("[end] {reason}\n"))]
             } else {
+                debug!("Grok Build end event received without stopReason");
                 Vec::new()
             }
         }

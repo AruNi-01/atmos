@@ -37,7 +37,7 @@ Prove deterministic logic at the cheapest honest layer; reserve manual/E2E for C
 |----------|-------|---------------|-------------------------|----------------|---------|--------|
 | S1 | Bun / unit | `bun test` | load `builtin_agents.json` / terminal-agent-definitions | repo manifest | entry `id=grok-build`, `cmd=grok`, label `Grok Build` | planned |
 | S2 | Rust unit | `cargo test -p core-service` | automation resolve built-in | resolved agents list | agent present; headless flags include streaming-json + `-p` | planned |
-| S3 | Rust unit | `cargo test -p core-service` | `parse_line_model_catalog` / model catalog | sample `grok models` stdout with `* grok-4.5 (default)` | id `grok-4.5` without `(default)`; default flag if implemented | planned |
+| S3 | Rust unit | `cargo test -p core-service` | `parse_grok_model_catalog` / `grok_line_list` | full `grok models` stdout including `You are logged in with grok.com.` and `Default model:` preamble plus `* grok-4.5 (default)` | only real models; id `grok-4.5` without `(default)`; login/default status lines dropped | planned |
 | S4 | Bun unit | `bun test` | run-config / reasoning arg helpers | agent id `grok-build` | reasoning arg `--reasoning-effort`; model flag `--model` | planned |
 | S5 | Bun / unit | `bun test` | builtin load | manifest | cursor `cmd=cursor-agent`; modelList uses `cursor-agent` | planned |
 | S6 | Rust unit | `cargo test -p core-service` | resolve cursor agent | resolved agents | executable not bare `agent` | planned |

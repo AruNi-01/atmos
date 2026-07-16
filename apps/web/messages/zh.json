@@ -4769,9 +4769,24 @@
       "title": "Agent Hook 状态",
       "description": "Hooks 会注入到本地 Agent 工具配置中，以便 Atmos 跟踪它们的运行状态。",
       "empty": "当前系统未检测到受支持的 Agent 工具。",
+      "loadError": "无法加载此 Computer 的 Agent Hook 状态。",
       "status": {
         "notDetected": "未检测到",
         "error": "错误：{error}"
+      },
+      "tools": {
+        "claude_code": "Claude Code",
+        "codex": "Codex CLI",
+        "cursor": "Cursor",
+        "gemini": "Gemini CLI",
+        "antigravity": "Antigravity",
+        "factory_droid": "Factory Droid",
+        "kiro": "Kiro",
+        "opencode": "OpenCode",
+        "ampcode": "AMP",
+        "pi": "Pi",
+        "hermes": "Hermes Agent",
+        "grok_build": "Grok Build"
       },
       "actions": {
         "installAll": "全部安装",
@@ -4779,7 +4794,8 @@
         "uninstallAll": "全部卸载",
         "uninstallAllTitle": "卸载由 Atmos 管理的 Agent hooks",
         "installTool": "安装 {label} hooks",
-        "uninstallTool": "卸载 {label} hooks"
+        "uninstallTool": "卸载 {label} hooks",
+        "retry": "重试"
       }
     },
     "codeAgentRunConfigSection": {

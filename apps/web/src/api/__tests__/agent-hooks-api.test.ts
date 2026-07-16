@@ -35,6 +35,7 @@ describe("agentHooksApi relay transport", () => {
     await agentHooksApi.uninstallAll();
     await agentHooksApi.installTool("grok_build");
     await agentHooksApi.uninstallTool("grok_build");
+    await agentHooksApi.getCliIdentity("agent");
 
     expect(calls.map((call) => call.url)).toEqual([
       "https://relay.example/v1/computers/computer-b/proxy/hooks/status",
@@ -42,17 +43,19 @@ describe("agentHooksApi relay transport", () => {
       "https://relay.example/v1/computers/computer-b/proxy/hooks/uninstall",
       "https://relay.example/v1/computers/computer-b/proxy/hooks/grok_build/install",
       "https://relay.example/v1/computers/computer-b/proxy/hooks/grok_build/uninstall",
+      "https://relay.example/v1/computers/computer-b/proxy/hooks/cli-identity?command=agent",
     ]);
     for (const call of calls) {
       expect(call.init?.headers).toMatchObject({
         Authorization: "Bearer client-token-b",
       });
     }
-    expect(calls.slice(1).map((call) => call.init?.method)).toEqual([
+    expect(calls.slice(1, 5).map((call) => call.init?.method)).toEqual([
       "POST",
       "POST",
       "POST",
       "POST",
     ]);
+    expect(calls[5]?.init?.method ?? "GET").toBe("GET");
   });
 });

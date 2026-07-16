@@ -1798,6 +1798,7 @@ mod tests {
         assert_eq!(resolved, path);
     }
 
+    #[cfg(unix)]
     #[test]
     fn grok_default_bin_directory_is_a_supported_user_search_path() {
         use std::os::unix::fs::PermissionsExt;

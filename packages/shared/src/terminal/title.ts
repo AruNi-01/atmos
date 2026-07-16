@@ -191,11 +191,15 @@ export function isPathLikeTitle(value: string | undefined): boolean {
   return (
     trimmed.startsWith("/") ||
     trimmed.startsWith("~/") ||
+    /^[a-zA-Z]:[\\/]/.test(trimmed) ||
+    trimmed.startsWith("\\\\") ||
     trimmed === "~" ||
     trimmed === "." ||
     trimmed === ".." ||
     trimmed.startsWith("../") ||
-    trimmed.includes("/")
+    trimmed.startsWith("..\\") ||
+    trimmed.includes("/") ||
+    trimmed.includes("\\")
   );
 }
 
@@ -227,12 +231,56 @@ function isVersionLikeTitle(value: string | undefined): boolean {
 }
 
 function agentCommandTokens(agent: TerminalTitleAgent): string[] {
+  // Pipe-based agents are identified by the post-pipe executable only
+  // (`echo … | myagent`), never by bare left-hand commands like `echo`.
+  if (agent.pipeCommand) {
+    const pipeToken = normalizeAgentCommand(agent.pipeCommand);
+    return pipeToken ? [pipeToken] : [];
+  }
   const tokens = [normalizeAgentCommand(agent.command)];
   for (const alias of agent.aliases ?? []) {
     const normalized = normalizeAgentCommand(alias);
     if (normalized) tokens.push(normalized);
   }
   return tokens.filter(Boolean);
+}
+
+/** Split on unquoted `|` only so paths/args with quotes keep working. */
+function splitUnquotedPipeline(title: string): string[] {
+  const segments: string[] = [];
+  let current = "";
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  for (const character of title) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "'") {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      current += character;
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      current += character;
+      continue;
+    }
+    if (character === "|") {
+      segments.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  if (current.trim()) segments.push(current.trim());
+  return segments.filter(Boolean);
 }
 
 /**
@@ -247,26 +295,26 @@ export function resolveAgentForTitle<TAgent extends TerminalTitleAgent>(
 ): TAgent | undefined {
   if (!title) return undefined;
   const command = firstCommandToken(title);
-  const pathOnlyMatchToken =
-    isPathLikeTitle(title) && !command.rest
-      ? executablePathMatchToken(command.token)
-      : undefined;
-  if (isPathLikeTitle(title) && !command.rest && !pathOnlyMatchToken) {
+  const pathOnlyTitle = isPathLikeTitle(title) && !command.rest;
+  const pathOnlyMatchToken = pathOnlyTitle
+    ? executablePathMatchToken(command.token)
+    : undefined;
+  if (pathOnlyTitle && !pathOnlyMatchToken) {
     return undefined;
   }
   const normalizedTitle = pathOnlyMatchToken ?? normalizeAgentCommand(title);
   if (!normalizedTitle) return undefined;
 
-  if (title.includes("|")) {
-    const afterPipe = title.split("|").slice(1).join("|").trim();
+  const pipeline = splitUnquotedPipeline(title);
+  if (pipeline.length > 1) {
+    const afterPipe = pipeline.slice(1).join(" | ").trim();
     const normalizedAfterPipe = normalizeAgentCommand(afterPipe);
     if (normalizedAfterPipe) {
-      return matchExactToken(normalizedAfterPipe, agents, options);
+      const matched = matchExactToken(normalizedAfterPipe, agents, options);
+      if (matched) return matched;
     }
-  }
-
-  if (normalizedTitle === "echo") {
-    return agents.find((agent) => agent.pipeCommand);
+    // Fall back to the first executable segment when the pipe tail is unknown.
+    return matchExactToken(normalizedTitle, agents, options);
   }
 
   return matchExactToken(normalizedTitle, agents, options);
@@ -274,10 +322,17 @@ export function resolveAgentForTitle<TAgent extends TerminalTitleAgent>(
 
 function titleMatchToken(title: string | undefined): string {
   if (!title) return "";
-  if (title.includes("|")) {
-    return normalizeAgentCommand(title.split("|").slice(1).join("|").trim());
+  const pipeline = splitUnquotedPipeline(title);
+  if (pipeline.length > 1) {
+    return normalizeAgentCommand(pipeline.slice(1).join(" | ").trim());
   }
   return normalizeAgentCommand(title);
+}
+
+function isPathOnlyTitle(title: string | undefined): boolean {
+  if (!title) return false;
+  const command = firstCommandToken(title);
+  return isPathLikeTitle(title) && !command.rest;
 }
 
 function matchExactToken<TAgent extends TerminalTitleAgent>(
@@ -353,8 +408,12 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
     contestedOwners,
   });
+  // Contested bare `agent` command lines suppress stale brand fallbacks.
+  // Path-only titles ending in `agent` must not hide a valid pane agent.
   const unresolvedContestedDynamic =
-    titleMatchToken(dynamicTitle) === "agent" && !matchedDynamicAgent;
+    titleMatchToken(dynamicTitle) === "agent" &&
+    !matchedDynamicAgent &&
+    !isPathOnlyTitle(dynamicTitle);
   const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
   const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
     ? agent ?? labelAgent
