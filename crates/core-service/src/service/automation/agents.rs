@@ -164,6 +164,7 @@ pub enum StdoutParser {
     CodexJsonl,
     CursorStreamJson,
     OpencodeJson,
+    GrokStreamingJson,
 }
 
 impl AutomationAgentCommandSpec {
@@ -235,6 +236,7 @@ struct TerminalAgentModelListSpec {
 enum TerminalAgentModelListParser {
     #[default]
     LineList,
+    GrokLineList,
     KiroJson,
 }
 
@@ -331,8 +333,8 @@ pub fn resolve_automation_agent_with_config(
                 .unwrap_or_else(|| "unsupported automation command".to_string())
         )));
     }
-    let mut args = parse_flag_args(&agent.flags)?;
-    args.extend(build_run_config_args(&agent, run_config)?);
+    let run_config_args = build_run_config_args(&agent, run_config)?;
+    let args = merge_automation_args(&agent.flags, agent.prompt_strategy, run_config_args)?;
     Ok(AutomationAgentCommandSpec {
         agent_id: agent.id,
         label: agent.label,
@@ -459,15 +461,14 @@ fn resolve_terminal_agents_with_settings(
         let override_interactive_flags = override_entry
             .and_then(|entry| entry.interactive_flags.as_ref())
             .and_then(|flags| non_empty(flags));
-        let interactive_flags = override_interactive_flags.unwrap_or_else(|| {
-            match override_flags {
+        let interactive_flags =
+            override_interactive_flags.unwrap_or_else(|| match override_flags {
                 Some(value) if value.trim() != definition.params.trim() => value,
                 _ => definition
                     .interactive_params
                     .clone()
                     .unwrap_or_else(|| definition.params.clone()),
-            }
-        });
+            });
         resolved.push(ResolvedTerminalAgent {
             id: definition.id,
             label: definition.label,
@@ -502,7 +503,11 @@ fn resolve_terminal_agents_with_settings(
             label,
             cmd,
             flags: entry.flags.clone(),
-            interactive_flags: entry.interactive_flags.clone().and_then(|flags| non_empty(&flags)).unwrap_or_else(|| entry.flags.clone()),
+            interactive_flags: entry
+                .interactive_flags
+                .clone()
+                .and_then(|flags| non_empty(&flags))
+                .unwrap_or_else(|| entry.flags.clone()),
             prompt_strategy: entry.prompt_strategy.unwrap_or(PromptStrategy::Arg),
             stdout_parser: entry.stdout_parser.unwrap_or_default(),
             model_support: AutomationAgentModelInputMode::None,
@@ -701,6 +706,7 @@ fn parse_model_catalog_output(
 ) -> std::result::Result<Vec<TerminalAgentModelOption>, String> {
     let models = match parser {
         TerminalAgentModelListParser::LineList => parse_line_model_catalog(output),
+        TerminalAgentModelListParser::GrokLineList => parse_grok_model_catalog(output),
         TerminalAgentModelListParser::KiroJson => parse_json_model_catalog(output)?,
     };
     Ok(dedupe_model_options(models))
@@ -722,11 +728,48 @@ fn parse_line_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
             if normalized.is_empty() || normalized.ends_with(':') {
                 return None;
             }
+            let (id, is_default) = strip_default_model_suffix(normalized);
+            if id.is_empty() {
+                return None;
+            }
             Some(TerminalAgentModelOption {
-                id: normalized.to_string(),
-                label: normalized.to_string(),
+                id: id.clone(),
+                label: id,
                 group: None,
-                is_default: false,
+                is_default,
+            })
+        })
+        .collect()
+}
+
+/// Strip trailing ` (default)` from model catalog lines (e.g. Grok `* grok-4.5 (default)`).
+fn strip_default_model_suffix(value: &str) -> (String, bool) {
+    let trimmed = value.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if let Some(prefix) = lower.strip_suffix(" (default)") {
+        let end = prefix.len();
+        return (trimmed[..end].trim_end().to_string(), true);
+    }
+    (trimmed.to_string(), false)
+}
+
+fn parse_grok_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
+    output
+        .lines()
+        .skip_while(|line| !line.trim().eq_ignore_ascii_case("available models:"))
+        .skip(1)
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if !trimmed.starts_with(['-', '*', '•']) {
+                return None;
+            }
+            let normalized = trimmed.trim_start_matches(['-', '*', '•', ' ']).trim();
+            let (id, is_default) = strip_default_model_suffix(normalized);
+            (!id.is_empty()).then_some(TerminalAgentModelOption {
+                label: id.clone(),
+                id,
+                group: None,
+                is_default,
             })
         })
         .collect()
@@ -926,19 +969,24 @@ fn common_user_bin_paths() -> Vec<PathBuf> {
         PathBuf::from("/usr/local/bin"),
     ];
     if let Some(home) = dirs::home_dir() {
-        paths.extend([
-            home.join(".local").join("bin"),
-            home.join(".npm-global").join("bin"),
-            home.join(".bun").join("bin"),
-            home.join(".cargo").join("bin"),
-            home.join(".deno").join("bin"),
-            home.join(".yarn").join("bin"),
-            home.join(".local").join("share").join("pnpm"),
-            home.join("Library").join("pnpm"),
-            home.join(".atmos").join("bin"),
-        ]);
+        paths.extend(user_bin_paths_for_home(&home));
     }
     paths
+}
+
+fn user_bin_paths_for_home(home: &Path) -> Vec<PathBuf> {
+    vec![
+        home.join(".local").join("bin"),
+        home.join(".npm-global").join("bin"),
+        home.join(".bun").join("bin"),
+        home.join(".cargo").join("bin"),
+        home.join(".deno").join("bin"),
+        home.join(".yarn").join("bin"),
+        home.join(".local").join("share").join("pnpm"),
+        home.join("Library").join("pnpm"),
+        home.join(".atmos").join("bin"),
+        home.join(".grok").join("bin"),
+    ]
 }
 
 fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
@@ -978,6 +1026,28 @@ fn is_executable(path: &Path) -> bool {
     {
         true
     }
+}
+
+fn merge_automation_args(
+    flags: &str,
+    prompt_strategy: PromptStrategy,
+    run_config_args: Vec<String>,
+) -> Result<Vec<String>> {
+    let mut args = parse_flag_args(flags)?;
+    let prompt_flag = if prompt_strategy == PromptStrategy::PromptFlag {
+        Some(args.pop().ok_or_else(|| {
+            ServiceError::Validation(
+                "Prompt-flag agent is missing its trailing prompt flag.".to_string(),
+            )
+        })?)
+    } else {
+        None
+    };
+    args.extend(run_config_args);
+    if let Some(prompt_flag) = prompt_flag {
+        args.push(prompt_flag);
+    }
+    Ok(args)
 }
 
 fn build_run_config_args(
@@ -1091,8 +1161,10 @@ fn build_run_config_args(
 
 fn model_flag_for_agent(agent_id: &str) -> Option<&'static str> {
     match agent_id {
-        "claude" | "codex" | "gemini" | "antigravity" | "devin" | "droid" | "cursor" | "kilocode" | "kiro"
-        | "commandcode" | "pi" | "opencode" | "kimi" => Some("--model"),
+        "claude" | "codex" | "gemini" | "antigravity" | "devin" | "droid" | "cursor"
+        | "kilocode" | "kiro" | "commandcode" | "pi" | "opencode" | "kimi" | "grok-build" => {
+            Some("--model")
+        }
         _ => None,
     }
 }
@@ -1276,16 +1348,35 @@ mod tests {
             && agent.prompt_strategy == Some(PromptStrategy::Arg)
             && agent.stdout_parser == StdoutParser::CodexJsonl));
         assert!(agents.iter().any(|agent| agent.id == "cursor"
+            && agent.cmd == "cursor-agent"
             && agent.params.starts_with("--force --print")
             && agent.interactive_params.as_deref() == Some("--yolo")));
-        assert!(agents.iter().any(|agent| agent.id == "antigravity"
-            && agent.cmd == "agy"
-            && agent.params == "--dangerously-skip-permissions --output-format stream-json -p"
-            && agent.interactive_params.as_deref() == Some("--dangerously-skip-permissions")
-            && agent.prompt_strategy == Some(PromptStrategy::PromptFlag)
-            && agent.stdout_parser == StdoutParser::CursorStreamJson
-            && agent.model_support == AutomationAgentModelInputMode::Catalog
-            && agent.model_list.as_ref().map_or(false, |m| m.supported && m.command == vec!["agy", "models"])));
+        assert!(agents.iter().any(|agent| {
+            agent.id == "antigravity"
+                && agent.cmd == "agy"
+                && agent.params == "--dangerously-skip-permissions --output-format stream-json -p"
+                && agent.interactive_params.as_deref() == Some("--dangerously-skip-permissions")
+                && agent.prompt_strategy == Some(PromptStrategy::PromptFlag)
+                && agent.stdout_parser == StdoutParser::CursorStreamJson
+                && agent.model_support == AutomationAgentModelInputMode::Catalog
+                && agent
+                    .model_list
+                    .as_ref()
+                    .is_some_and(|m| m.supported && m.command == vec!["agy", "models"])
+        }));
+        assert!(agents.iter().any(|agent| {
+            agent.id == "grok-build"
+                && agent.cmd == "grok"
+                && agent.params == "--always-approve --output-format streaming-json -p"
+                && agent.interactive_params.as_deref() == Some("--always-approve")
+                && agent.prompt_strategy == Some(PromptStrategy::PromptFlag)
+                && agent.stdout_parser == StdoutParser::GrokStreamingJson
+                && agent.model_support == AutomationAgentModelInputMode::Catalog
+                && agent
+                    .model_list
+                    .as_ref()
+                    .is_some_and(|m| m.supported && m.command == vec!["grok", "models"])
+        }));
     }
 
     #[test]
@@ -1412,7 +1503,12 @@ mod tests {
             (
                 "antigravity",
                 PromptStrategy::PromptFlag,
-                vec!["--dangerously-skip-permissions", "--output-format", "stream-json", "-p"],
+                vec![
+                    "--dangerously-skip-permissions",
+                    "--output-format",
+                    "stream-json",
+                    "-p",
+                ],
                 PromptDelivery::Arg,
                 StdoutParser::CursorStreamJson,
             ),
@@ -1507,6 +1603,18 @@ mod tests {
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),
+            (
+                "grok-build",
+                PromptStrategy::PromptFlag,
+                vec![
+                    "--always-approve",
+                    "--output-format",
+                    "streaming-json",
+                    "-p",
+                ],
+                PromptDelivery::Arg,
+                StdoutParser::GrokStreamingJson,
+            ),
         ];
         let definitions = load_builtin_terminal_agents().unwrap();
         let supported_count = definitions
@@ -1598,6 +1706,62 @@ mod tests {
         );
     }
 
+    #[test]
+    fn line_model_catalog_strips_default_suffix() {
+        let models = parse_line_model_catalog(
+            "Available models:\n* grok-4.5 (default)\n- grok-composer-2.5-fast\n\n",
+        );
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "grok-4.5");
+        assert!(models[0].is_default);
+        assert_eq!(models[1].id, "grok-composer-2.5-fast");
+        assert!(!models[1].is_default);
+    }
+
+    #[test]
+    fn grok_model_catalog_ignores_status_preamble() {
+        let models = parse_grok_model_catalog(
+            "You are logged in with grok.com.\n\nDefault model: grok-4.5\n\nAvailable models:\n  * grok-4.5 (default)\n  - grok-composer-2.5-fast\n",
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["grok-4.5", "grok-composer-2.5-fast"]
+        );
+        assert!(models[0].is_default);
+        assert!(!models[1].is_default);
+    }
+
+    #[test]
+    fn prompt_flag_stays_adjacent_to_prompt_after_run_config_args() {
+        let args = merge_automation_args(
+            "--always-approve --output-format streaming-json -p",
+            PromptStrategy::PromptFlag,
+            vec![
+                "--model".to_string(),
+                "grok-4.5".to_string(),
+                "--reasoning-effort".to_string(),
+                "high".to_string(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            args,
+            vec![
+                "--always-approve",
+                "--output-format",
+                "streaming-json",
+                "--model",
+                "grok-4.5",
+                "--reasoning-effort",
+                "high",
+                "-p",
+            ]
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn s5_executable_detection_requires_execute_bit() {
@@ -1632,6 +1796,23 @@ mod tests {
         .unwrap();
 
         assert_eq!(resolved, path);
+    }
+
+    #[test]
+    fn grok_default_bin_directory_is_a_supported_user_search_path() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let home = tempfile::tempdir().unwrap();
+        let bin = home.path().join(".grok").join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let executable = bin.join("grok");
+        std::fs::write(&executable, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+        assert_eq!(
+            resolve_executable_path_with_search_paths("grok", user_bin_paths_for_home(home.path()),),
+            Some(executable)
+        );
     }
 
     fn codex_spec() -> AutomationAgentCommandSpec {

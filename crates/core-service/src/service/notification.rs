@@ -447,6 +447,7 @@ fn tool_display_name(tool: &AgentToolType) -> &'static str {
         AgentToolType::Ampcode => "AMP",
         AgentToolType::Pi => "Pi",
         AgentToolType::Hermes => "Hermes",
+        AgentToolType::GrokBuild => "Grok Build",
     }
 }
 

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Keyboard, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import { getTerminalDisplayMeta } from "@atmos/shared/terminal";
+import { getTerminalDisplayMeta, type ContestedOwnersMap } from "@atmos/shared/terminal";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import {
   MOBILE_TERMINAL_AGENTS,
   type MobileTerminalAgent,
 } from "@/features/terminal/mobile-terminal-agents";
+import { useContestedCliOwners } from "@/features/terminal/use-contested-cli-owners";
 import {
   createMobileTerminalSessionId,
   resolveActiveTerminalEntry,
@@ -68,6 +69,7 @@ export function TerminalScreen({
   const updateEntry = useTerminalStore((state) => state.updateEntry);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const terminalWsUrl = useSessionStore((state) => state.activeClientSession?.terminal_ws_url);
+  const contestedOwners = useContestedCliOwners();
   const webViewRef = useRef<TerminalWebViewHandle>(null);
 
   const candidates = useTerminalCandidates({
@@ -88,7 +90,9 @@ export function TerminalScreen({
 
   const activeEntry = resolveActiveTerminalEntry(ensuredEntries, activeEntryId);
   const activeSessionId = activeEntry ? activeEntry.sessionId ?? activeEntry.id : null;
-  const activeDisplayMeta = activeEntry ? getMobileTerminalDisplayMeta(activeEntry) : null;
+  const activeDisplayMeta = activeEntry
+    ? getMobileTerminalDisplayMeta(activeEntry, contestedOwners)
+    : null;
   const {
     connectionState,
     sendTerminalInput,
@@ -123,7 +127,10 @@ export function TerminalScreen({
 
     onHeaderControlsChange({
       activeEntryId: activeEntry?.id ?? null,
-      entries: ensuredEntries.map((entry) => ({ id: entry.id, label: getMobileTerminalDisplayMeta(entry).displayTitle })),
+      entries: ensuredEntries.map((entry) => ({
+        id: entry.id,
+        label: getMobileTerminalDisplayMeta(entry, contestedOwners).displayTitle,
+      })),
       onCreateEntry: createTerminalEntry,
       onSelectEntry: (entryId) => setActiveEntry(workspaceId, entryId),
     });
@@ -131,6 +138,7 @@ export function TerminalScreen({
     return () => onHeaderControlsChange(null);
   }, [
     activeEntry?.id,
+    contestedOwners,
     createTerminalEntry,
     ensuredEntries,
     onHeaderControlsChange,
@@ -256,11 +264,15 @@ export function TerminalScreen({
   );
 }
 
-function getMobileTerminalDisplayMeta(entry: MobileTerminalEntry) {
+function getMobileTerminalDisplayMeta(
+  entry: MobileTerminalEntry,
+  contestedOwners?: ContestedOwnersMap,
+) {
   return getTerminalDisplayMeta({
     baseTitle: entry.label,
     configuredAgents: MOBILE_TERMINAL_AGENTS,
     dynamicTitle: entry.dynamicTitle,
+    contestedOwners,
   });
 }
 

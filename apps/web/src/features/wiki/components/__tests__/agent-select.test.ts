@@ -4,6 +4,7 @@ import {
   buildInteractiveAgentCommand,
   buildInteractiveAgentRunPlan,
   buildPipedAgentTerminalInput,
+  buildStructuredRunConfigArgs,
 } from "@/features/agent/lib/terminal-agent-run-config";
 import { AGENT_OPTIONS, buildCommand, buildCommandPlan, getInteractiveAgentParams } from "../AgentSelect";
 
@@ -14,6 +15,31 @@ function agent(id: string) {
 }
 
 describe("getInteractiveAgentParams", () => {
+  it("S1/S5 — loads Grok and Cursor built-in identities from the shared manifest", () => {
+    expect(agent("grok-build")).toMatchObject({
+      cmd: "grok",
+      interactiveParams: "--always-approve",
+      label: "Grok Build",
+      promptStrategy: "prompt_flag",
+      stdoutParser: "grok_streaming_json",
+    });
+    expect(agent("cursor")).toMatchObject({
+      cmd: "cursor-agent",
+      modelList: {
+        command: ["cursor-agent", "--list-models"],
+      },
+    });
+  });
+
+  it("S4 — compiles Grok model and reasoning run-config arguments", () => {
+    expect(
+      buildStructuredRunConfigArgs("grok-build", {
+        model: "grok-4.5",
+        reasoning: { mode: "manual", value: "high" },
+      }),
+    ).toEqual(["--model", "grok-4.5", "--reasoning-effort", "high"]);
+  });
+
   it("honors empty interactive params instead of falling back to automation params", () => {
     expect(getInteractiveAgentParams(agent("pi"))).toBe("");
   });
@@ -128,5 +154,36 @@ describe("getInteractiveAgentParams", () => {
         prompt: "fix this",
       }),
     ).toBe("agy --dangerously-skip-permissions --prompt-interactive 'fix this'");
+  });
+
+  it("keeps Grok workspace prompts interactive while preserving headless single mode", () => {
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "grok-build",
+        launchCommand: "grok --always-approve",
+        prompt: "fix this",
+      }),
+    ).toBe("grok --always-approve 'fix this'");
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "grok-build",
+        launchCommand: "grok --always-approve --output-format streaming-json -p",
+        prompt: "fix this",
+        mode: "headless",
+      }),
+    ).toBe("grok --always-approve --output-format streaming-json -p 'fix this'");
+    expect(
+      buildCommand(
+        "grok-build",
+        "fix this",
+        {
+          model: "grok-4.5",
+          reasoning: { mode: "manual", value: "high" },
+        },
+        "headless",
+      ),
+    ).toBe(
+      "grok --always-approve --output-format streaming-json --model grok-4.5 --reasoning-effort high -p 'fix this'",
+    );
   });
 });

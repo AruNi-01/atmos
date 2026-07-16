@@ -19,30 +19,13 @@ import {
   Trash2,
   Webhook,
 } from 'lucide-react';
-
-interface AgentHookToolStatus {
-  detected: boolean;
-  installed: boolean;
-  current_version?: number | null;
-  outdated?: boolean;
-  installed_version?: number | null;
-  config_path?: string | null;
-  error?: string | null;
-}
-
-interface AgentHookInstallReport {
-  claude_code: AgentHookToolStatus;
-  codex: AgentHookToolStatus;
-  cursor: AgentHookToolStatus;
-  gemini: AgentHookToolStatus;
-  antigravity: AgentHookToolStatus;
-  factory_droid: AgentHookToolStatus;
-  kiro: AgentHookToolStatus;
-  opencode: AgentHookToolStatus;
-  ampcode: AgentHookToolStatus;
-  pi: AgentHookToolStatus;
-  hermes: AgentHookToolStatus;
-}
+import {
+  agentHooksApi,
+  type AgentHookInstallReport,
+  type AgentHookToolStatus,
+} from '@/api/rest-api';
+import { useComputerQueryScope } from '@/api/query/query-scope';
+import { isComputerQueryScopeCurrent } from '@/api/ws/request';
 
 const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
   { key: 'claude_code', label: 'Claude Code' },
@@ -56,95 +39,176 @@ const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
   { key: 'ampcode', label: 'AMP' },
   { key: 'pi', label: 'Pi' },
   { key: 'hermes', label: 'Hermes Agent' },
+  { key: 'grok_build', label: 'Grok Build' },
 ];
 
 export function AgentHookStatusCard() {
   const t = useTranslations('settings.agentHookStatusCard');
-  const [report, setReport] = React.useState<AgentHookInstallReport | null>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [acting, setActing] = React.useState(false);
-  const [actingTool, setActingTool] = React.useState<string | null>(null);
+  const {
+    activeInstanceId,
+    connectionEpoch,
+    relaySessionRevision,
+  } = useComputerQueryScope();
+  const queryScope = React.useMemo(
+    () => ({ activeInstanceId, connectionEpoch, relaySessionRevision }),
+    [activeInstanceId, connectionEpoch, relaySessionRevision]
+  );
+  const hookTargetIdentity = [
+    queryScope.activeInstanceId,
+    queryScope.connectionEpoch,
+    queryScope.relaySessionRevision,
+  ].join(':');
+  const requestGenerationRef = React.useRef(0);
+  const [reportState, setReportState] = React.useState<{
+    target: string;
+    report: AgentHookInstallReport;
+  } | null>(null);
+  const [completedTarget, setCompletedTarget] = React.useState<string | null>(null);
+  const [actingTarget, setActingTarget] = React.useState<string | null>(null);
+  const [actingToolState, setActingToolState] = React.useState<{
+    target: string;
+    key: string;
+  } | null>(null);
   const [expanded, setExpanded] = React.useState(true);
-
-  const getBase = React.useCallback(async () => {
-    const config = await import('@/shared/lib/desktop-runtime').then((m) => m.getRuntimeApiConfig());
-    return (await import('@/shared/lib/desktop-runtime')).httpBase(config);
-  }, []);
-
-  const fetchStatus = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const base = await getBase();
-      const res = await fetch(`${base}/hooks/status`);
-      if (res.ok) setReport(await res.json());
-    } catch {
-      // Best-effort status card: leave the current report unchanged on transient failures.
-    } finally {
-      setLoading(false);
-    }
-  }, [getBase]);
+  const report =
+    reportState?.target === hookTargetIdentity ? reportState.report : null;
+  const loading = completedTarget !== hookTargetIdentity;
+  const acting = actingTarget === hookTargetIdentity;
+  const actingTool =
+    actingToolState?.target === hookTargetIdentity ? actingToolState.key : null;
 
   React.useEffect(() => {
-    void fetchStatus();
-  }, [fetchStatus]);
+    let cancelled = false;
+    const target = hookTargetIdentity;
+    const scope = queryScope;
+    const generation = ++requestGenerationRef.current;
+    void agentHooksApi
+      .getStatus()
+      .then((status) => {
+        if (
+          !cancelled &&
+          requestGenerationRef.current === generation &&
+          isComputerQueryScopeCurrent(scope)
+        ) {
+          setReportState({ target, report: status });
+        }
+      })
+      .catch(() => {
+        // Best-effort status card: leave the current report unchanged on transient failures.
+      })
+      .finally(() => {
+        if (
+          !cancelled &&
+          requestGenerationRef.current === generation &&
+          isComputerQueryScopeCurrent(scope)
+        ) {
+          setCompletedTarget(target);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hookTargetIdentity, queryScope]);
 
   const handleInstallAll = React.useCallback(async () => {
-    setActing(true);
+    const target = hookTargetIdentity;
+    const scope = queryScope;
+    const generation = ++requestGenerationRef.current;
+    setActingTarget(target);
     try {
-      const base = await getBase();
-      const res = await fetch(`${base}/hooks/install`, { method: 'POST' });
-      if (res.ok) setReport(await res.json());
+      const nextReport = await agentHooksApi.installAll();
+      if (
+        requestGenerationRef.current === generation &&
+        isComputerQueryScopeCurrent(scope)
+      ) {
+        setReportState({ target, report: nextReport });
+      }
     } catch {
       // Best-effort action; status can be refreshed by reopening the settings panel.
     } finally {
-      setActing(false);
+      if (requestGenerationRef.current === generation) {
+        setActingTarget((current) => current === target ? null : current);
+      }
     }
-  }, [getBase]);
+  }, [hookTargetIdentity, queryScope]);
 
   const handleUninstallAll = React.useCallback(async () => {
-    setActing(true);
+    const target = hookTargetIdentity;
+    const scope = queryScope;
+    const generation = ++requestGenerationRef.current;
+    setActingTarget(target);
     try {
-      const base = await getBase();
-      const res = await fetch(`${base}/hooks/uninstall`, { method: 'POST' });
-      if (res.ok) setReport(await res.json());
+      const nextReport = await agentHooksApi.uninstallAll();
+      if (
+        requestGenerationRef.current === generation &&
+        isComputerQueryScopeCurrent(scope)
+      ) {
+        setReportState({ target, report: nextReport });
+      }
     } catch {
       // Best-effort action; status can be refreshed by reopening the settings panel.
     } finally {
-      setActing(false);
+      if (requestGenerationRef.current === generation) {
+        setActingTarget((current) => current === target ? null : current);
+      }
     }
-  }, [getBase]);
+  }, [hookTargetIdentity, queryScope]);
 
-  const handleInstallTool = React.useCallback(async (key: string) => {
-    setActingTool(key);
+  const handleInstallTool = React.useCallback(async (key: keyof AgentHookInstallReport) => {
+    const target = hookTargetIdentity;
+    const scope = queryScope;
+    const generation = ++requestGenerationRef.current;
+    setActingToolState({ target, key });
     try {
-      const base = await getBase();
-      const res = await fetch(`${base}/hooks/${key}/install`, { method: 'POST' });
-      if (res.ok) {
-        const status: AgentHookToolStatus = await res.json();
-        setReport((prev) => prev ? { ...prev, [key]: status } : prev);
+      const status: AgentHookToolStatus = await agentHooksApi.installTool(key);
+      if (
+        requestGenerationRef.current === generation &&
+        isComputerQueryScopeCurrent(scope)
+      ) {
+        setReportState((previous) =>
+          previous?.target === target
+            ? { target, report: { ...previous.report, [key]: status } }
+            : previous
+        );
       }
     } catch {
       // Best-effort action; keep the last known report.
     } finally {
-      setActingTool(null);
+      if (requestGenerationRef.current === generation) {
+        setActingToolState((current) =>
+          current?.target === target && current.key === key ? null : current
+        );
+      }
     }
-  }, [getBase]);
+  }, [hookTargetIdentity, queryScope]);
 
-  const handleUninstallTool = React.useCallback(async (key: string) => {
-    setActingTool(key);
+  const handleUninstallTool = React.useCallback(async (key: keyof AgentHookInstallReport) => {
+    const target = hookTargetIdentity;
+    const scope = queryScope;
+    const generation = ++requestGenerationRef.current;
+    setActingToolState({ target, key });
     try {
-      const base = await getBase();
-      const res = await fetch(`${base}/hooks/${key}/uninstall`, { method: 'POST' });
-      if (res.ok) {
-        const status: AgentHookToolStatus = await res.json();
-        setReport((prev) => prev ? { ...prev, [key]: status } : prev);
+      const status: AgentHookToolStatus = await agentHooksApi.uninstallTool(key);
+      if (
+        requestGenerationRef.current === generation &&
+        isComputerQueryScopeCurrent(scope)
+      ) {
+        setReportState((previous) =>
+          previous?.target === target
+            ? { target, report: { ...previous.report, [key]: status } }
+            : previous
+        );
       }
     } catch {
       // Best-effort action; keep the last known report.
     } finally {
-      setActingTool(null);
+      if (requestGenerationRef.current === generation) {
+        setActingToolState((current) =>
+          current?.target === target && current.key === key ? null : current
+        );
+      }
     }
-  }, [getBase]);
+  }, [hookTargetIdentity, queryScope]);
 
   const anyInstalled = report && HOOK_TOOL_META.some((tool) => report[tool.key].installed);
   const anyDetected = report && HOOK_TOOL_META.some((tool) => report[tool.key].detected);

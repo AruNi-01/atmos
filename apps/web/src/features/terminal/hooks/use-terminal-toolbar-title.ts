@@ -12,6 +12,7 @@ import {
 import { getTerminalDisplayMeta, resolveAgentForTitle } from "@/features/terminal/components/terminal-title";
 import { isPathLikeTitle, shortenPath } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
+import { useContestedCliOwners } from "./use-contested-cli-owners";
 
 /** Where OSC title updates should be persisted (center mosaic pane vs canvas pin). */
 export type TerminalToolbarStoreWrite =
@@ -35,6 +36,7 @@ export function useTerminalToolbarTitle(options: {
 }) {
   const [localOscTitle, setLocalOscTitle] = useState<string | undefined>();
   const { storeWrite, configuredAgents, baseTitle, pinnedAgent, customLabel, keepAgentName, keepCwd } = options;
+  const contestedOwners = useContestedCliOwners();
 
   const storeLive = useTerminalStore(
     useShallow((s) => {
@@ -61,7 +63,7 @@ export function useTerminalToolbarTitle(options: {
       setLocalOscTitle(title);
       if (storeWrite.kind === "none") return;
       const { setDynamicTitle, setPaneAgent } = useTerminalStore.getState();
-      const detected = resolveAgentForTitle(title, configuredAgents);
+      const detected = resolveAgentForTitle(title, configuredAgents, { contestedOwners });
       if (storeWrite.kind === "mosaic-pane") {
         setDynamicTitle(
           storeWrite.workspaceId,
@@ -94,7 +96,7 @@ export function useTerminalToolbarTitle(options: {
         }
       }
     },
-    [storeWrite, configuredAgents],
+    [storeWrite, configuredAgents, contestedOwners],
   );
 
   const { displayTitle, toolbarAgent } = useMemo(() => {
@@ -110,6 +112,7 @@ export function useTerminalToolbarTitle(options: {
       dynamicTitle: mergedDynamic,
       configuredAgents,
       agent: mergedAgent,
+      contestedOwners,
     });
 
     const custom = customLabel?.trim();
@@ -155,6 +158,7 @@ export function useTerminalToolbarTitle(options: {
     customLabel,
     keepAgentName,
     keepCwd,
+    contestedOwners,
   ]);
 
   return { displayTitle, toolbarAgent, onTitleChange };

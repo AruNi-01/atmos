@@ -5,6 +5,7 @@ mod codex;
 mod cursor;
 mod factory_droid;
 mod gemini;
+mod grok_build;
 mod hermes;
 mod kiro;
 mod opencode;
@@ -34,6 +35,7 @@ pub struct AgentHookInstallReport {
     pub ampcode: AgentHookToolStatus,
     pub pi: AgentHookToolStatus,
     pub hermes: AgentHookToolStatus,
+    pub grok_build: AgentHookToolStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -190,20 +192,38 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     let ampcode = ampcode::install(port);
     let pi_status = pi::install(port);
     let hermes_status = hermes::install(port);
+    let grok_build_status = grok_build::install(port);
 
     info!(
-        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, antigravity={}, factory_droid={}, kiro={}, opencode={}, ampcode={}, pi={}, hermes={}",
+        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, antigravity={}, factory_droid={}, kiro={}, opencode={}, ampcode={}, pi={}, hermes={}, grok_build={}",
         if claude.installed { "ok" } else { "skip" },
         if codex.installed { "ok" } else { "skip" },
         if cursor.installed { "ok" } else { "skip" },
-        if gemini_status.installed { "ok" } else { "skip" },
-        if antigravity_status.installed { "ok" } else { "skip" },
+        if gemini_status.installed {
+            "ok"
+        } else {
+            "skip"
+        },
+        if antigravity_status.installed {
+            "ok"
+        } else {
+            "skip"
+        },
         if factory.installed { "ok" } else { "skip" },
         if kiro_status.installed { "ok" } else { "skip" },
         if opencode.installed { "ok" } else { "skip" },
         if ampcode.installed { "ok" } else { "skip" },
         if pi_status.installed { "ok" } else { "skip" },
-        if hermes_status.installed { "ok" } else { "skip" },
+        if hermes_status.installed {
+            "ok"
+        } else {
+            "skip"
+        },
+        if grok_build_status.installed {
+            "ok"
+        } else {
+            "skip"
+        },
     );
 
     AgentHookInstallReport {
@@ -218,6 +238,7 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
         ampcode,
         pi: pi_status,
         hermes: hermes_status,
+        grok_build: grok_build_status,
     }
 }
 
@@ -235,6 +256,7 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
     let ampcode = ampcode::uninstall();
     let pi_status = pi::uninstall();
     let hermes_status = hermes::uninstall();
+    let grok_build_status = grok_build::uninstall();
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -248,6 +270,7 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
         ampcode,
         pi: pi_status,
         hermes: hermes_status,
+        grok_build: grok_build_status,
     }
 }
 
@@ -263,6 +286,7 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
     let ampcode = ampcode::check();
     let pi_status = pi::check();
     let hermes_status = hermes::check();
+    let grok_build_status = grok_build::check();
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -276,6 +300,7 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
         ampcode,
         pi: pi_status,
         hermes: hermes_status,
+        grok_build: grok_build_status,
     }
 }
 
@@ -309,9 +334,7 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
     });
     let codex = sync_hook_if_installed("codex", codex::check(), || codex::install(port));
     let cursor = sync_hook_if_installed("cursor", cursor::check(), || cursor::install(port));
-    let gemini_status = sync_hook_if_installed("gemini", gemini::check(), || {
-        gemini::install(port)
-    });
+    let gemini_status = sync_hook_if_installed("gemini", gemini::check(), || gemini::install(port));
     let antigravity_status = sync_hook_if_installed("antigravity", antigravity::check(), || {
         antigravity::install(port)
     });
@@ -324,6 +347,9 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
     let ampcode = sync_hook_if_installed("ampcode", ampcode::check(), || ampcode::install(port));
     let pi_status = sync_hook_if_installed("pi", pi::check(), || pi::install(port));
     let hermes_status = sync_hook_if_installed("hermes", hermes::check(), || hermes::install(port));
+    let grok_build_status = sync_hook_if_installed("grok_build", grok_build::check(), || {
+        grok_build::install(port)
+    });
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -337,6 +363,7 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
         ampcode,
         pi: pi_status,
         hermes: hermes_status,
+        grok_build: grok_build_status,
     }
 }
 
@@ -359,6 +386,7 @@ pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
         "ampcode" => ampcode::install(port),
         "pi" => pi::install(port),
         "hermes" => hermes::install(port),
+        "grok_build" | "grok-build" => grok_build::install(port),
         _ => return None,
     })
 }
@@ -377,6 +405,7 @@ pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
         "ampcode" => ampcode::uninstall(),
         "pi" => pi::uninstall(),
         "hermes" => hermes::uninstall(),
+        "grok_build" | "grok-build" => grok_build::uninstall(),
         _ => return None,
     })
 }

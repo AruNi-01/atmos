@@ -105,24 +105,84 @@ const VERSIONED_RUNTIME_WRAPPER_COMMANDS = [
 const EXECUTABLE_SUFFIX_RE = /\.(?:exe|cmd|bat|sh)$/i;
 const VERSION_SUFFIX_RE = /^[-_]?v?\d+(?:\.\d+)*(?:[-+_.]?[a-z][\w.-]*)?$/i;
 
+/** Contested short names whose product owner depends on the real binary on PATH. */
+export type ContestedCommandOwner = "grok-build" | "cursor" | "unknown";
+
+export type ContestedOwnersMap = Partial<Record<"agent", ContestedCommandOwner>>;
+
 export type TerminalTitleAgent = {
   id: string;
   label: string;
   command: string;
   iconType?: string;
   pipeCommand?: string;
+  /** Optional extra first-token aliases for exact matching. */
+  aliases?: string[];
+};
+
+export type ResolveAgentForTitleOptions = {
+  contestedOwners?: ContestedOwnersMap;
 };
 
 function normalizeRuntimeWrapperTitle(value: string | undefined): string {
-  const firstToken = value?.trim().split(/\s+/)[0] ?? "";
-  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
+  const firstToken = firstCommandToken(value ?? "").token;
+  const withoutPath = firstToken.split(/[\\/]/).filter(Boolean).pop() ?? firstToken;
   return withoutPath.replace(EXECUTABLE_SUFFIX_RE, "").toLowerCase();
 }
 
 function normalizeAgentCommand(value: string): string {
-  const firstToken = value.trim().split(/\s+/)[0] ?? "";
-  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
-  return withoutPath.toLowerCase();
+  const firstToken = firstCommandToken(value).token;
+  const withoutPath = firstToken.split(/[\\/]/).filter(Boolean).pop() ?? firstToken;
+  return withoutPath.replace(EXECUTABLE_SUFFIX_RE, "").toLowerCase();
+}
+
+function firstCommandToken(value: string): { token: string; rest: string } {
+  const trimmed = value.trim();
+  if (!trimmed) return { token: "", rest: "" };
+  const quote = trimmed[0] === '"' || trimmed[0] === "'" ? trimmed[0] : null;
+  if (!quote) {
+    const match = trimmed.match(/^(\S+)(?:\s+([\s\S]*))?$/);
+    return { token: match?.[1] ?? trimmed, rest: match?.[2]?.trim() ?? "" };
+  }
+
+  let escaped = false;
+  for (let index = 1; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === quote) {
+      return {
+        token: trimmed.slice(1, index),
+        rest: trimmed.slice(index + 1).trim(),
+      };
+    }
+  }
+  return { token: trimmed, rest: "" };
+}
+
+function executablePathMatchToken(value: string): string | undefined {
+  const normalized = value.replace(/\\/g, "/");
+  const basename = normalizeAgentCommand(value);
+  if (/(?:^|\/)(?:s?bin)\/[^/]+$/i.test(normalized)) {
+    return basename;
+  }
+  const lower = normalized.toLowerCase();
+  if (
+    lower.includes("/cursor-agent/") &&
+    (basename === "agent" || basename === "cursor-agent")
+  ) {
+    return "cursor-agent";
+  }
+  if (lower.includes("/.grok/") && (basename === "agent" || basename === "grok")) {
+    return "grok";
+  }
+  return undefined;
 }
 
 export function isPathLikeTitle(value: string | undefined): boolean {
@@ -166,37 +226,92 @@ function isVersionLikeTitle(value: string | undefined): boolean {
   return /^v?\d+(?:\.\d+)+(?:[-+][\w.-]+)?$/i.test(value.trim());
 }
 
+function agentCommandTokens(agent: TerminalTitleAgent): string[] {
+  const tokens = [normalizeAgentCommand(agent.command)];
+  for (const alias of agent.aliases ?? []) {
+    const normalized = normalizeAgentCommand(alias);
+    if (normalized) tokens.push(normalized);
+  }
+  return tokens.filter(Boolean);
+}
+
+/**
+ * Match dynamic terminal title first-token to a configured agent.
+ * Uses exact token match (longer commands win ties). Contested bare `agent`
+ * is resolved via `options.contestedOwners` instead of hard-coding a brand.
+ */
 export function resolveAgentForTitle<TAgent extends TerminalTitleAgent>(
   title: string | undefined,
   agents: TAgent[],
+  options?: ResolveAgentForTitleOptions,
 ): TAgent | undefined {
-  if (!title || isPathLikeTitle(title)) return undefined;
-  const normalizedTitle = normalizeAgentCommand(title);
-  if (!normalizedTitle) return undefined;
-
-  if (normalizedTitle === "echo") {
-    return agents.find((agent) => agent.pipeCommand);
+  if (!title) return undefined;
+  const command = firstCommandToken(title);
+  const pathOnlyMatchToken =
+    isPathLikeTitle(title) && !command.rest
+      ? executablePathMatchToken(command.token)
+      : undefined;
+  if (isPathLikeTitle(title) && !command.rest && !pathOnlyMatchToken) {
+    return undefined;
   }
+  const normalizedTitle = pathOnlyMatchToken ?? normalizeAgentCommand(title);
+  if (!normalizedTitle) return undefined;
 
   if (title.includes("|")) {
     const afterPipe = title.split("|").slice(1).join("|").trim();
     const normalizedAfterPipe = normalizeAgentCommand(afterPipe);
     if (normalizedAfterPipe) {
-      return agents.find((agent) => {
-        const normalizedCommand = normalizeAgentCommand(agent.command);
-        const normalizedPipeCommand = agent.pipeCommand ? normalizeAgentCommand(agent.pipeCommand) : "";
-        return (
-          (normalizedCommand !== "" && normalizedAfterPipe.includes(normalizedCommand)) ||
-          (normalizedPipeCommand !== "" && normalizedAfterPipe.includes(normalizedPipeCommand))
-        );
-      });
+      return matchExactToken(normalizedAfterPipe, agents, options);
     }
   }
 
-  return agents.find((agent) => {
-    const normalizedCommand = normalizeAgentCommand(agent.command);
-    return normalizedCommand !== "" && normalizedTitle.includes(normalizedCommand);
-  });
+  if (normalizedTitle === "echo") {
+    return agents.find((agent) => agent.pipeCommand);
+  }
+
+  return matchExactToken(normalizedTitle, agents, options);
+}
+
+function titleMatchToken(title: string | undefined): string {
+  if (!title) return "";
+  if (title.includes("|")) {
+    return normalizeAgentCommand(title.split("|").slice(1).join("|").trim());
+  }
+  return normalizeAgentCommand(title);
+}
+
+function matchExactToken<TAgent extends TerminalTitleAgent>(
+  token: string,
+  agents: TAgent[],
+  options?: ResolveAgentForTitleOptions,
+): TAgent | undefined {
+  // Contested short name: map via real CLI identity, never substring-brand.
+  if (token === "agent") {
+    const owner = options?.contestedOwners?.agent;
+    if (owner === "grok-build") {
+      return agents.find((agent) => agent.id === "grok-build");
+    }
+    if (owner === "cursor") {
+      return agents.find((agent) => agent.id === "cursor");
+    }
+    // unknown / missing → no brand match (show raw command)
+    return undefined;
+  }
+
+  const matches = agents
+    .map((agent) => {
+      const tokens = agentCommandTokens(agent);
+      const exact = tokens.find((t) => t === token);
+      if (!exact) return null;
+      return { agent, score: exact.length };
+    })
+    .filter((m): m is { agent: TAgent; score: number } => m !== null);
+
+  if (matches.length === 0) return undefined;
+
+  // Prefer longer / more-specific command token when multiple agents match.
+  matches.sort((a, b) => b.score - a.score);
+  return matches[0]?.agent;
 }
 
 function resolveAgentForLabel<TAgent extends TerminalTitleAgent>(
@@ -218,6 +333,7 @@ export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(optio
   dynamicTitle: string | undefined;
   configuredAgents?: TAgent[];
   agent?: TAgent;
+  contestedOwners?: ContestedOwnersMap;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -227,20 +343,27 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   dynamicTitle: string | undefined;
   configuredAgents?: TAgent[];
   agent?: TAgent;
+  contestedOwners?: ContestedOwnersMap;
 }): {
   displayTitle: string;
   toolbarAgent: TAgent | undefined;
 } {
-  const { baseTitle, dynamicTitle, configuredAgents = [], agent } = options;
+  const { baseTitle, dynamicTitle, configuredAgents = [], agent, contestedOwners } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
-  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents);
+  const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
+    contestedOwners,
+  });
+  const unresolvedContestedDynamic =
+    titleMatchToken(dynamicTitle) === "agent" && !matchedDynamicAgent;
   const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
   const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
     ? agent ?? labelAgent
     : dynamicTitleIsVersion
       ? labelAgent ?? agent
       : undefined;
-  const toolbarAgent = matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
+  const toolbarAgent = unresolvedContestedDynamic
+    ? undefined
+    : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
   return {
     toolbarAgent,

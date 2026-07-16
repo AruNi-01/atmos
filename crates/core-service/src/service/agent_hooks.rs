@@ -5,6 +5,7 @@ mod codex;
 mod cursor;
 mod factory_droid;
 mod gemini;
+mod grok_build;
 mod hermes;
 mod kiro;
 mod opencode;
@@ -54,6 +55,7 @@ pub enum AgentToolType {
     Ampcode,
     Pi,
     Hermes,
+    GrokBuild,
 }
 
 impl std::fmt::Display for AgentToolType {
@@ -70,6 +72,7 @@ impl std::fmt::Display for AgentToolType {
             Self::Ampcode => write!(f, "ampcode"),
             Self::Pi => write!(f, "pi"),
             Self::Hermes => write!(f, "hermes"),
+            Self::GrokBuild => write!(f, "grok-build"),
         }
     }
 }
@@ -391,6 +394,10 @@ impl AgentHooksService {
         hermes::handle_event(self, payload, ctx);
     }
 
+    pub fn handle_grok_build_event(&self, payload: &Value, ctx: &AtmosContext) {
+        grok_build::handle_event(self, payload, ctx);
+    }
+
     /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.
     fn resolve_session_id(
         &self,
@@ -414,6 +421,8 @@ impl AgentHooksService {
             .get("cwd")
             .and_then(|v| v.as_str())
             .or_else(|| payload.get("project_path").and_then(|v| v.as_str()))
+            .or_else(|| payload.get("workspaceRoot").and_then(|v| v.as_str()))
+            .or_else(|| payload.get("workspace_root").and_then(|v| v.as_str()))
             .or_else(|| {
                 payload
                     .get("workspace_roots")
@@ -427,6 +436,7 @@ impl AgentHooksService {
         payload
             .get("session_id")
             .and_then(|v| v.as_str())
+            .or_else(|| payload.get("sessionId").and_then(|v| v.as_str()))
             .or_else(|| payload.get("conversation_id").and_then(|v| v.as_str()))
     }
 }

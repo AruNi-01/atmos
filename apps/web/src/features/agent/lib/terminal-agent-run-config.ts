@@ -266,9 +266,27 @@ export function buildInteractiveAgentRunPlan(args: {
       ? (definition?.promptStrategy ?? "arg")
       : resolveInteractivePromptStrategy(definition);
   const structuredArgs = buildStructuredRunConfigArgs(args.agentId, args.runConfig);
-  const baseCommand = [args.launchCommand.trim(), ...structuredArgs.map((item) => shellQuote(item))]
-    .filter(Boolean)
-    .join(" ");
+  const quotedStructuredArgs = structuredArgs.map((item) => shellQuote(item));
+  const launchCommand = args.launchCommand.trim();
+  const headlessPromptFlag =
+    mode === "headless" && strategy === "prompt_flag" && definition
+      ? promptFlagForInteractiveCommand(definition)
+      : null;
+  const launchTokens = tokenizeCommand(launchCommand);
+  const promptFlagIndex =
+    headlessPromptFlag && launchTokens.at(-1) === headlessPromptFlag
+      ? launchCommand.lastIndexOf(headlessPromptFlag)
+      : -1;
+  const baseCommand =
+    promptFlagIndex >= 0 && quotedStructuredArgs.length > 0
+      ? [
+          launchCommand.slice(0, promptFlagIndex).trimEnd(),
+          ...quotedStructuredArgs,
+          launchCommand.slice(promptFlagIndex),
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : [launchCommand, ...quotedStructuredArgs].filter(Boolean).join(" ");
   const prompt = args.prompt.trim();
   if (!prompt) {
     return { launchCommand: baseCommand };
@@ -295,6 +313,11 @@ export function buildInteractiveAgentRunPlan(args: {
   if (args.agentId === "antigravity") {
     return {
       launchCommand: `${baseCommand} --prompt-interactive ${quotedPrompt}`,
+    };
+  }
+  if (mode === "interactive" && args.agentId === "grok-build") {
+    return {
+      launchCommand: `${baseCommand} ${quotedPrompt}`,
     };
   }
   if (strategy === "prompt_flag" && definition) {
@@ -424,6 +447,7 @@ export function modelFlagForAgent(agentId: string): string | null {
     case "pi":
     case "opencode":
     case "kimi":
+    case "grok-build":
       return "--model";
     default:
       return null;

@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { Bot } from "lucide-react";
+import { useTheme } from "next-themes";
 
 const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "claude-code-acp": ["claude-code"],
@@ -11,7 +12,7 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "github-copilot": ["copilot"],
   "factory-droid": ["droid"],
   "junie-acp": ["junie"],
-  "agent": ["cursor"],
+  // NOTE: do NOT alias bare "agent" → cursor (APP-036 contested freehand identity).
   "commandcode": ["command-code"],
 };
 
@@ -28,11 +29,33 @@ const AGENT_ICON_REMAP: Record<string, string> = {
   "commandcode": "command-code",
 };
 
+/** Theme-pair brand icons (pre-filled light/dark assets — do not invert). */
+const THEME_PAIR_ICONS: Record<string, { light: string; dark: string }> = {
+  "grok-build": {
+    light: "/agents/grok-build-light.svg",
+    dark: "/agents/grok-build-dark.svg",
+  },
+};
+
 /** Icons that use currentColor — need inverted theme handling (dark on light, light on dark) */
 const INVERTED_THEME_ICONS = new Set(["cline", "junie", "junie-acp", "devin"]);
-const THEME_NATIVE_ICONS = new Set(["hermes", "hermes-agent.png", "openclaw", "openclaw.jpg", "pi"]);
+const THEME_NATIVE_ICONS = new Set([
+  "hermes",
+  "hermes-agent.png",
+  "openclaw",
+  "openclaw.jpg",
+  "pi",
+  "grok-build",
+  "grok-build-light",
+  "grok-build-dark",
+]);
 
 export function getAgentIconCandidates(registryId: string): string[] {
+  const themePair = THEME_PAIR_ICONS[registryId];
+  if (themePair) {
+    // Prefer light as default path list; component picks by theme at render time.
+    return [themePair.light, themePair.dark];
+  }
   const primary = AGENT_ICON_REMAP[registryId] ?? registryId;
   const aliases = AGENT_ICON_ALIASES[registryId] ?? [];
   // Deduplicate: primary first, then any aliases that differ
@@ -45,6 +68,7 @@ export function getAgentIconCandidates(registryId: string): string[] {
 }
 
 function shouldInvertTheme(registryId: string): boolean {
+  if (THEME_PAIR_ICONS[registryId]) return false;
   if (INVERTED_THEME_ICONS.has(registryId)) return true;
   const remapped = AGENT_ICON_REMAP[registryId];
   if (remapped && INVERTED_THEME_ICONS.has(remapped)) return true;
@@ -53,6 +77,7 @@ function shouldInvertTheme(registryId: string): boolean {
 }
 
 function shouldUseNativeTheme(registryId: string): boolean {
+  if (THEME_PAIR_ICONS[registryId]) return true;
   if (THEME_NATIVE_ICONS.has(registryId)) return true;
   const remapped = AGENT_ICON_REMAP[registryId];
   if (remapped && THEME_NATIVE_ICONS.has(remapped)) return true;
@@ -67,6 +92,7 @@ export const AgentIcon: React.FC<{
   isCustom?: boolean;
   registryIcon?: string | null;
 }> = ({ registryId, name, size = 18, isCustom = false, registryIcon = null }) => {
+  const { resolvedTheme } = useTheme();
   const isLikelyCustom = React.useMemo(
     () => isCustom || registryId.includes(" ") || registryId.includes("%20"),
     [isCustom, registryId]
@@ -74,6 +100,18 @@ export const AgentIcon: React.FC<{
 
   const sources = React.useMemo(
     () => {
+      const themePair = !isLikelyCustom ? THEME_PAIR_ICONS[registryId] : undefined;
+      if (themePair) {
+        const preferred = resolvedTheme === "dark" ? themePair.dark : themePair.light;
+        const fallback = preferred === themePair.dark ? themePair.light : themePair.dark;
+        const out = [preferred, fallback];
+        const normalizedRegistryIcon = registryIcon?.trim() || null;
+        if (normalizedRegistryIcon && !out.includes(normalizedRegistryIcon)) {
+          out.push(normalizedRegistryIcon);
+        }
+        return out;
+      }
+
       const localCandidates = isLikelyCustom ? [] : getAgentIconCandidates(registryId);
       const normalizedRegistryIcon = registryIcon?.trim() || null;
       const out = [...localCandidates];
@@ -82,18 +120,22 @@ export const AgentIcon: React.FC<{
       }
       return out;
     },
-    [registryId, isLikelyCustom, registryIcon]
+    [registryId, isLikelyCustom, registryIcon, resolvedTheme]
   );
-  const [idx, setIdx] = React.useState(0);
+  const sourceKey = sources.join("\0");
+  const [sourceState, setSourceState] = React.useState({ key: sourceKey, idx: 0 });
+  const idx = sourceState.key === sourceKey ? sourceState.idx : 0;
+  const advanceSource = () => {
+    setSourceState((previous) => ({
+      key: sourceKey,
+      idx: previous.key === sourceKey ? previous.idx + 1 : 1,
+    }));
+  };
   const invertedTheme = shouldInvertTheme(registryId);
   const nativeTheme = shouldUseNativeTheme(registryId);
   const localIconClassName = nativeTheme
     ? "shrink-0 opacity-95 invert-0"
     : `shrink-0 opacity-95 ${invertedTheme ? "dark:invert invert-0" : "invert dark:invert-0"}`;
-
-  React.useEffect(() => {
-    setIdx(0);
-  }, [sources]);
 
   if (idx >= sources.length) {
     return (
@@ -115,7 +157,7 @@ export const AgentIcon: React.FC<{
         width={size}
         height={size}
         className={localIconClassName}
-        onError={() => setIdx((v) => v + 1)}
+        onError={advanceSource}
       />
     );
   }
@@ -127,7 +169,7 @@ export const AgentIcon: React.FC<{
       width={size}
       height={size}
       className="shrink-0 opacity-95 invert-0 dark:invert"
-      onError={() => setIdx((v) => v + 1)}
+      onError={advanceSource}
     />
   );
 };
