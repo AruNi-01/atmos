@@ -342,19 +342,6 @@ export function AgentHookStatusCard() {
                           {tool.config_path.split(/[\\/]/).slice(-2).join('/')}
                         </span>
                       )}
-                      {tool.installed && typeof tool.installed_version === 'number' && (
-                        <span
-                          className={
-                            tool.outdated
-                              ? 'shrink-0 font-mono text-[10px] text-amber-500'
-                              : 'shrink-0 font-mono text-[10px] text-muted-foreground'
-                          }
-                        >
-                          {tool.outdated && typeof tool.current_version === 'number'
-                            ? `v${tool.installed_version} -> v${tool.current_version}`
-                            : `v${tool.installed_version}`}
-                        </span>
-                      )}
                       {!tool.detected && (
                         <span className="text-xs text-muted-foreground">{t('status.notDetected')}</span>
                       )}
