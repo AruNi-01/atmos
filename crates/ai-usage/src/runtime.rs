@@ -23,6 +23,7 @@ use crate::providers::{
     codex, // commandcode disabled due to API data consistency issues
     cursor,
     factory,
+    grok,
     mimo,
     minimax,
     opencode,
@@ -66,6 +67,7 @@ pub(crate) enum LiveProviderKind {
     MiniMax,
     Mimo,
     Zed,
+    Grok,
     // CommandCode disabled due to API data consistency issues
     // CommandCode,
 }
@@ -264,6 +266,23 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
                 detail: Some("Detected Claude CLI API key config".to_string()),
                 setup_hint: Some(spec.setup_hint.to_string()),
             };
+        }
+    }
+
+    if spec.id == "grok" {
+        if let Some(home) = env::var("GROK_HOME")
+            .ok()
+            .and_then(|value| expand_home(&value))
+        {
+            let path = home.join("auth.json");
+            if path.exists() {
+                return AuthState {
+                    status: AuthStateStatus::Detected,
+                    source: Some(path.display().to_string()),
+                    detail: Some("Detected Grok auth via GROK_HOME".to_string()),
+                    setup_hint: Some(spec.setup_hint.to_string()),
+                };
+            }
         }
     }
 
@@ -703,6 +722,16 @@ fn provider_specs() -> Vec<ProviderSpec> {
             auth_paths: &["~/.gemini/settings.json"],
         },
         ProviderSpec {
+            id: "grok",
+            label: "Grok Build",
+            kind: ProviderKind::Cli,
+            live_kind: Some(LiveProviderKind::Grok),
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+            setup_hint: "Run `grok login` so Atmos can read ~/.grok/auth.json (or set GROK_HOME).",
+            auth_env_keys: &[],
+            auth_paths: &["~/.grok/auth.json"],
+        },
+        ProviderSpec {
             id: "antigravity",
             label: "Antigravity",
             kind: ProviderKind::Desktop,
@@ -796,6 +825,7 @@ async fn collect_live(
         LiveProviderKind::MiniMax => minimax::fetch_minimax_live(client).await,
         LiveProviderKind::Mimo => mimo::fetch_mimo_live(client).await,
         LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
+        LiveProviderKind::Grok => grok::fetch_grok_live(client).await,
         // CommandCode disabled due to API data consistency issues
         // LiveProviderKind::CommandCode => commandcode::fetch_commandcode_live(client).await,
     }

@@ -91,6 +91,9 @@
 - **M10 — Settings / status UI parity**  
   Grok Build appears in the same Code Agent / hooks status UX as other built-ins (enablement, install state, running/idle/permission indicators where those exist today). Display name is always **Grok Build**.
 
+- **M11 — AI usage / quota (subscription credits)**  
+  Atmos AI usage tracking includes a **Grok Build** provider that reports the user’s SuperGrok / Grok Build **subscription quota** (used percent + reset time), using credentials already present from `grok login` (`~/.grok/auth.json`). The primary window is the **unified weekly pool** when the account is on unified billing; product-level GrokBuild percent and pay-as-you-go / on-demand status are exposed when the API returns them. Missing or expired auth surfaces a clear “run `grok login`” style setup hint, not a silent empty row.
+
 ### Nice to Have
 
 - **N1 — Dedicated brand icon** for Grok Build in AgentIcon / toolbar (fallback to existing generic built-in treatment is OK for M1).
@@ -100,7 +103,8 @@
 
 ## Out of Scope
 
-- **AI usage / quota provider for Grok** — token or subscription quota dashboards for Grok Build (can be a follow-up like deeper AI-usage work).
+- **Public xAI API prepaid credits console** — `console.x.ai` API key prepaid balance is a different product surface from SuperGrok / Grok Build subscription quota; not required for M11.
+- **Local token cost estimation as the primary meter** — session logs / `unified.jsonl` may inform secondary diagnostics later; subscription remaining % comes from the live billing endpoint.
 - **Blocking / security hooks** — Atmos does not install PreToolUse deny policies for Grok; status-only.
 - **ACP / `grok agent stdio|headless|serve` product mode** — not the M1 launch path; Automations use top-level headless single-turn + streaming-json.
 - **Removing Grok’s ability to use bare `agent` on the user’s PATH** — OS PATH ownership stays with the user; Atmos only avoids using contested names for **built-in Cursor** launch and labels freehand correctly.
@@ -122,13 +126,12 @@
 - **Risk — Grok compat hooks double-fire**: Grok may also load Claude/Cursor hook configs; mis-routing could show wrong tool brand. Primary install path must be Grok-native; dual-fire mitigation is TECH.
 - **Risk — Always-approve interactive default**: Matches other Atmos built-in “yolo” presets but is aggressive. Users can override; document in settings.
 - **Open (TECH)**: Exact interactive and headless flag strings; model list normalization; thought channel wiring; probe cache lifetime.
-- **Open (product)**: Whether future AI usage for Grok is a separate APP — default **yes, separate**.
+- **Risk — Grok billing private API**: M11 uses the same CLI chat-proxy billing endpoint the Grok CLI uses (`cli-chat-proxy.grok.com`); path/shape can change without public docs.
 
 ## Milestones
 
-- **Phase 1 (ship)** — M1–M10: built-in + Cursor cmd migration + title/identity + automation streaming parser + hooks status + UI parity.
+- **Phase 1 (ship)** — M1–M11: built-in + Cursor cmd migration + title/identity + automation streaming parser + hooks status + UI parity + AI usage quota provider.
 - **Phase 2** — N1–N4 polish (icon, richer thought UX, auto-install, stronger pane pin).
-- **Later / other specs** — AI usage / quota for Grok Build.
 
 ## Resolved BRAINSTORM decisions
 
@@ -141,4 +144,4 @@
 | Freehand bare `agent` | Real CLI identity; unknown → raw `agent` |
 | Automation output | `streaming-json` + dedicated Grok parser |
 | Hooks | In M1; status-only; PermissionRequest from `permission_prompt` and `elicitation_dialog` |
-| AI usage | Out of scope for this PRD |
+| AI usage | In scope (M11): `ai-usage` Grok provider via CLI billing JSON + `~/.grok/auth.json` |

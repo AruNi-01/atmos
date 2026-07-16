@@ -1,14 +1,16 @@
 # TECH · APP-036: Grok Build CLI Support
 
-> Technical Design · HOW. Implements PRD APP-036 (M1–M10). Also ships N1 brand icons (assets provided at `/Users/lurunrun/Downloads/Grok_light_dark`).
+> Technical Design · HOW. Implements PRD APP-036 (M1–M11). Also ships N1 brand icons (assets provided at `/Users/lurunrun/Downloads/Grok_light_dark`).
+
+<!-- updated 2026-07-16: M11 Grok AI usage / subscription quota provider -->
 
 ## Scope summary
 
-Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest, Cursor command migration to `cursor-agent`, title/identity resolution (including contested bare `agent`), automation `streaming-json` parser, native Grok hooks status, and UI/settings parity including icons.
+Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest, Cursor command migration to `cursor-agent`, title/identity resolution (including contested bare `agent`), automation `streaming-json` parser, native Grok hooks status, UI/settings parity including icons, and **subscription quota** in Atmos AI usage.
 
-**Addresses:** M1–M10, N1 (icons in Phase 1).  
+**Addresses:** M1–M11, N1 (icons in Phase 1).  
 **Deferred:** N2 richer thought UX beyond existing `[thinking]` channel; N3 auto-install hooks beyond existing global sync; N4 pane-pin priority (optional small follow-up if M7 is insufficient).  
-**Out of scope:** AI usage/quota, ACP agent mode, blocking hooks.
+**Out of scope:** ACP agent mode, blocking hooks, public xAI API prepaid console as primary meter.
 
 ## Architecture overview
 
@@ -67,6 +69,7 @@ Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest
 | M8 automation stream | new `StdoutParser::GrokStreamingJson` |
 | M9 hooks | engine install + service handler + API route |
 | M10 UI | store/labels/settings cards + icons |
+| M11 usage | `crates/ai-usage` provider `grok` + web icon |
 | N1 icons | `apps/web/public/agents/grok-build.svg` (+ mobile asset) from Downloads |
 
 ---
@@ -392,6 +395,79 @@ const THEME_PAIR_ICONS: Record<string, { light: string; dark: string }> = {
 
 `crates/core-service/src/service/notification.rs` — `tool_display_name(AgentToolType::GrokBuild) => "Grok Build"`.
 
+### 10. AI usage / quota — `crates/ai-usage` (M11)
+
+Add a live **Grok Build** usage provider (id `grok`, label `Grok Build`) that reuses the same local SuperGrok credentials the Grok CLI writes.
+
+#### Auth
+
+- Path: `~/.grok/auth.json` (override root via `GROK_HOME`).
+- Shape: map keyed by OIDC scope URL. Prefer entries under `https://auth.x.ai::…`; fall back to legacy `https://accounts.x.ai/sign-in`.
+- Fields used: `key` (bearer), `email`, `team_id`, `first_name`/`last_name`, `auth_mode`, `expires_at`.
+- Expired `expires_at` still attempts the request once (server may accept slightly stale tokens); on 401/403 return a re-login message.
+
+#### Live fetch (primary)
+
+```http
+GET https://cli-chat-proxy.grok.com/v1/billing?format=credits
+Authorization: Bearer <auth.json key>
+Accept: application/json
+```
+
+This is the same CLI chat-proxy billing surface the Grok CLI / OpenUsage use. Response (observed):
+
+```json
+{
+  "config": {
+    "currentPeriod": {
+      "type": "USAGE_PERIOD_TYPE_WEEKLY",
+      "start": "…",
+      "end": "…"
+    },
+    "creditUsagePercent": 13.0,
+    "productUsage": [{ "product": "GrokBuild", "usagePercent": 13.0 }],
+    "isUnifiedBillingUser": true,
+    "onDemandCap": { "val": 0 },
+    "onDemandUsed": { "val": 0 },
+    "billingPeriodStart": "…",
+    "billingPeriodEnd": "…"
+  }
+}
+```
+
+**Mapping to `LiveFetchResult`:**
+
+| Field | Source |
+|-------|--------|
+| Primary `usage_summary.percent` | Prefer `productUsage[GrokBuild].usagePercent`, else `creditUsagePercent` |
+| `reset_at` | `currentPeriod.end` or `billingPeriodEnd` (RFC3339 → unix) |
+| Window label | `USAGE_PERIOD_TYPE_WEEKLY` → **Weekly**; monthly → **Monthly**; else **Credits** |
+| Account rows | email, team_id, plan hint (`oidc` → SuperGrok) |
+| On-demand | cap/used cents when present |
+| `fetch_message` | `Grok CLI billing (cli-chat-proxy)` |
+
+Optional secondary probe (same bearer): plain `GET …/v1/billing` for absolute cents (`monthlyLimit`/`used`) when percent path lacks numbers — not required if credits format succeeds.
+
+**Not used for M1 primary path:** `grok agent stdio` + `x.ai/billing` (stdio still returns method-not-found as of CLI 0.2.x); grok.com gRPC-web protobuf (CodexBar fallback) is optional later only.
+
+#### Wiring
+
+| File | Change |
+|------|--------|
+| `providers/grok.rs` | **NEW** — auth parse + billing fetch + detail sections |
+| `providers/mod.rs` | `pub(crate) mod grok` |
+| `runtime.rs` | `LiveProviderKind::Grok`, `ProviderSpec`, `collect_live` arm |
+| `constants.rs` | billing URL constant |
+| `apps/web/.../usage-popover-components.tsx` | add `grok` to `PROVIDER_ICON_IDS` |
+| `apps/web/public/ai-provider/grok.svg` | monochrome mask icon (from Grok brand asset) |
+
+No new WebSocket actions — existing usage overview pipeline picks up the new provider automatically.
+
+#### Tests
+
+- Unit: parse `auth.json` preference order (OIDC over legacy); map credits JSON → percent + reset; reject empty key.
+- Optional: mock HTTP success path if crate already has request injection patterns; pure parse tests are enough for M11.
+
 ---
 
 ## Data model
@@ -470,7 +546,8 @@ Grok may load Claude/Cursor hooks via `[compat.*] hooks = true`.
 4. **Identity probe API** + title matcher rewrite + tests (collision matrix).
 5. **Frontend wiring** — run-config flags, hooks store, settings card, vendor map, **remove `agent→cursor` icon alias**, contested owner fetch.
 6. **Icons** — copy/adapt SVGs from Downloads into `public/agents` (+ mobile asset).
-7. **Manual smoke** — interactive Grok launch; Cursor with Grok-owned PATH; freehand matrix; automation sample; hooks install → Running/PermissionRequest/Idle.
+7. **AI usage (M11)** — `ai-usage` Grok provider + `public/ai-provider/grok.svg` + unit tests.
+8. **Manual smoke** — interactive Grok launch; Cursor with Grok-owned PATH; freehand matrix; automation sample; hooks install → Running/PermissionRequest/Idle; usage popover shows Grok when `~/.grok/auth.json` is present.
 
 Each step 1–4 is independently mergeable with tests green.
 
@@ -493,10 +570,10 @@ Each step 1–4 is independently mergeable with tests green.
 
 ## Dependencies & compatibility
 
-- Depends on: existing terminal-agent manifest loaders, hooks install framework, automation OutputRenderer, title helpers.
-- External: Grok Build CLI ≥ probed `0.2.101` behavior (hooks + streaming-json); Cursor CLI providing `cursor-agent`.
+- Depends on: existing terminal-agent manifest loaders, hooks install framework, automation OutputRenderer, title helpers, `ai-usage` provider pipeline.
+- External: Grok Build CLI ≥ probed `0.2.101` behavior (hooks + streaming-json + local `auth.json`); Cursor CLI providing `cursor-agent`.
 - Related specs: APP-024 run config, APP-017 automations, APP-032 hooks pattern.
-- Open source: `xai-org/grok-build` for envelope field names.
+- Open source: `xai-org/grok-build` for envelope field names; CodexBar / OpenUsage for billing endpoint discovery (OpenUsage JSON path preferred).
 
 ---
 

@@ -1,6 +1,6 @@
 # TEST · APP-036: Grok Build CLI Support
 
-> Test Plan · verify first-class Grok Build terminal agent, Cursor `cursor-agent` migration, contested freehand identity, streaming automation parser, hooks status, and icons. References PRD APP-036 and TECH APP-036.
+> Test Plan · verify first-class Grok Build terminal agent, Cursor `cursor-agent` migration, contested freehand identity, streaming automation parser, hooks status, icons, and AI usage quota. References PRD APP-036 and TECH APP-036.
 
 ## Test strategy
 
@@ -27,6 +27,7 @@ Prove deterministic logic at the cheapest honest layer; reserve manual/E2E for C
 | M8 Automation streaming | S12, S13 |
 | M9 Hooks status | S15, S16, S17, S18 |
 | M10 Settings / UI parity | S19, S20 |
+| M11 AI usage / quota | S22, S23, S24 |
 | N1 Icons | S21 |
 | N2–N4 | deferred / non-coverage |
 
@@ -55,6 +56,9 @@ Prove deterministic logic at the cheapest honest layer; reserve manual/E2E for C
 | S19 | Manual / agent-browser | manual + `agent-browser` | Settings Code Agent + hooks card | dev web | Grok Build listed; hook row install status | planned |
 | S20 | Manual | manual | Agent Select | workspace terminal | Grok Build option with label | planned |
 | S21 | Bun / visual | manual or snapshot | AgentIcon | light/dark theme | grok-build icon visible; not Bot fallback; not cursor icon for freehand agent when owner grok | planned |
+| S22 | Rust unit | `cargo test -p ai-usage` | Grok auth parse | synthetic auth.json | OIDC preferred; missing key errors | planned |
+| S23 | Rust unit | `cargo test -p ai-usage` | credits billing map | fixture JSON | percent + weekly reset + product row | planned |
+| S24 | Manual | manual | usage popover | real `~/.grok/auth.json` | Grok Build row with % / reset or re-login | planned |
 
 ## Scenarios
 
@@ -278,18 +282,39 @@ Load Agent Browser skill / `agent-browser skills get core --full` before running
 7. Optional: run a tiny automation / headless path with Grok streaming and confirm text appears.
 8. Uninstall Grok hooks; third-party hook files remain.
 
+### S22 — Grok auth.json preferred entry
+
+- **Level**: unit · **PRD**: M11
+- **Given**: synthetic auth JSON with both OIDC and legacy scopes (or only one)
+- **When**: Grok provider selects credentials
+- **Then**: OIDC scope entry wins when both have a non-empty `key`; missing key falls through; empty file errors cleanly
+
+### S23 — Credits billing JSON maps to usage summary
+
+- **Level**: unit · **PRD**: M11
+- **Given**: fixture body from `GET …/v1/billing?format=credits` with weekly period and `creditUsagePercent` / GrokBuild productUsage
+- **When**: map to `LiveFetchResult`
+- **Then**: percent matches, reset_at from period end, window labeled Weekly when type is weekly, GrokBuild product row present when productUsage includes it
+
+### S24 — Usage popover shows Grok when authenticated (manual)
+
+- **Level**: manual · **PRD**: M11
+- **Given**: machine with `grok login` / valid `~/.grok/auth.json`
+- **When**: open Atmos AI usage UI and refresh
+- **Then**: **Grok Build** provider appears with used % and reset countdown (or clear re-login error if token expired)
+
 ## Non-coverage
 
 - Full Playwright E2E of PATH hijacking (environment-specific; covered by S14 manual + unit matrix).
-- AI usage / quota for Grok (out of PRD scope).
-- ACP `grok agent stdio|serve` modes.
+- Public xAI API prepaid credits console as the primary SuperGrok meter.
+- ACP `grok agent stdio|serve` modes (including stdio `x.ai/billing`, still method-not-found on current CLI).
 - Grok compat double-fire with Claude hooks (residual risk; optional ownership test only).
 - N2 richer thought UX, N3 auto-install policy expansion, N4 pane-pin priority.
 - Performance under hundreds of OSC title updates (cache design is the control).
 
 ## Coverage Status
 
-_Last run: 2026-07-16._
+_Last run: 2026-07-16 (M11 Grok usage)._
 
 Commands:
 
@@ -297,6 +322,8 @@ Commands:
 cargo test -p core-service --lib
 cargo test -p api
 cargo test -p core-engine --lib agent_hooks::grok_build
+cargo test -p ai-usage --lib
+cargo clippy -p ai-usage --all-targets --no-deps
 bun test apps/web/src/api/__tests__/agent-hooks-api.test.ts apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts apps/web/src/features/wiki/components/__tests__/agent-select.test.ts
 bun --cwd apps/web typecheck
 bunx eslint <touched APP-036 web files>
@@ -307,6 +334,9 @@ cargo clippy -p core-engine -p core-service -p api --all-targets --no-deps
 - S2/S6 — ✅ built-in resolution + Rust and web full-argv prompt invocation coverage.
 - S3 — ✅ `grok_model_catalog_ignores_status_preamble`.
 - S4 — ✅ Grok model/reasoning args in `agent-select.test.ts`.
+- S22 — ✅ `providers::grok::tests` auth OIDC preference / missing token.
+- S23 — ✅ `maps_credits_billing_to_weekly_usage` + period window labels.
+- S24 — ⏳ manual (usage popover with live `~/.grok/auth.json`).
 - S7–S11 — ✅ title matrix, including argument-free `bin/grok` paths; identity deadline/path/descendant-pipe fixtures; GET response shape.
 - S12/S13 — ✅ Grok streaming text/thought/end, fail-open, and split-UTF-8 parser tests.
 - S14 — ⏸ launch-plan tests prove positional interactive Grok vs headless `-p`; live PATH/TUI matrix remains manual.

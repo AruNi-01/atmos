@@ -400,7 +400,7 @@ If Notification types prove unstable.
 - **Thought streaming UX**: show thought channel in automation UI vs text-only consume (PRD/TECH).
 - **Identity probe placement** and shell PATH fidelity (TECH).
 - **Hooks file name / merge strategy** under `~/.grok/hooks/` (TECH).
-- **Icon / AI-usage / deeper quota** — icon likely M1; usage follow-up.
+- **Icon** — N1 Phase 1 assets. **AI usage / quota** — promoted into PRD M11 (cli-chat-proxy billing + `~/.grok/auth.json`).
 
 ## Open questions
 
@@ -443,7 +443,7 @@ If Notification types prove unstable.
 - Promote to PRD:
   - Must-haves: `grok-build` agent, Cursor→`cursor-agent`, freehand identity, streaming automation parser, hooks status install + three-state mapping.
   - PermissionRequest maps from `Notification.notificationType` ∈ {`permission_prompt`, `elicitation_dialog`} (source-confirmed).
-  - Out of scope: AI usage quota provider, blocking security hooks, ACP agent mode.
+  - Out of scope: blocking security hooks, ACP agent mode (AI usage quota in M11).
 - Promote to TECH:
   - Exact `builtin_agents.json` entries.
   - `StdoutParser::GrokStreamingJson` event table + tests from live samples.
