@@ -52,6 +52,7 @@ import {
 } from '@/features/settings/components/settings-modal-data';
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
+import { isCancelledError } from '@/shared/lib/is-cancelled-error';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -627,6 +628,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const config = await llmProvidersApi.get();
       setLlmConfig(config);
     } catch (error) {
+      if (isCancelledError(error)) return;
       toastManager.add({
         title: t('errors.loadLlmSettingsTitle'),
         description: getErrorDescription(error),

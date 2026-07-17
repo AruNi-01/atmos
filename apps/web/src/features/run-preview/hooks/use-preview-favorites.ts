@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toastManager } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
+import { isCancelledError } from "@/shared/lib/is-cancelled-error";
 import {
   canonicalizeUrl,
   deriveFavoriteName,
@@ -82,6 +83,7 @@ export function usePreviewFavorites({
           setFavorites(sites);
         }
       } catch (error) {
+        if (isCancelledError(error)) return;
         console.error("Failed to load preview favorites:", error);
       }
     };

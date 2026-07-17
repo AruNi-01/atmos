@@ -19,7 +19,10 @@ test.describe("smoke settings", () => {
     await openActionMenu(page);
     await page.getByText("Settings", { exact: true }).click();
 
-    const settingsDialog = page.getByRole("dialog");
+    const settingsDialog = page.getByRole("dialog", {
+      name: "Settings",
+      exact: true,
+    });
     await expect(settingsDialog).toBeVisible();
     await settingsDialog.getByRole("button", { name: /close/i }).click();
     await expect(settingsDialog).toBeHidden();
@@ -47,7 +50,10 @@ test.describe("smoke settings", () => {
       .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
       .toBe("true");
 
-    const settingsDialog = page.getByRole("dialog");
+    const settingsDialog = page.getByRole("dialog", {
+      name: "Settings",
+      exact: true,
+    });
     await expect(settingsDialog).toBeVisible();
     await settingsDialog.getByRole("button", { name: /close/i }).click();
     await expect(settingsDialog).toBeHidden();
@@ -60,7 +66,10 @@ test.describe("smoke settings", () => {
     await connectLocalComputer(page);
 
     const contextUrl = await buildProjectWorkspaceDeepLink(page);
-    const settingsDialog = page.getByRole("dialog");
+    const settingsDialog = page.getByRole("dialog", {
+      name: "Settings",
+      exact: true,
+    });
 
     for (const activeSettingTab of ["layout", "atmos-computer", "about"] as const) {
       await gotoContextRoute(

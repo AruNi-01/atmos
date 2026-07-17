@@ -172,7 +172,10 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
       .toBe("shortcuts");
 
-    const settingsDialog = page.getByRole("dialog");
+    const settingsDialog = page.getByRole("dialog", {
+      name: "Settings",
+      exact: true,
+    });
     await expect(settingsDialog).toBeVisible();
     await settingsDialog.getByRole("button", { name: /close|关闭/i }).click();
     await expect(settingsDialog).toBeHidden();
