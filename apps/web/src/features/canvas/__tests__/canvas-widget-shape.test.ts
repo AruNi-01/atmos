@@ -94,12 +94,25 @@ describe("canvas-widget shape helpers", () => {
       owner: "AruNi-01",
       repo: "atmos",
       runId: 99,
-      description: "CI",
+      run: {
+        databaseId: 99,
+        workflowName: "CI",
+        displayTitle: "fix: typo",
+        status: "completed",
+        conclusion: "success",
+        createdAt: "2026-01-01T00:00:00Z",
+        url: "https://github.com/AruNi-01/atmos/actions/runs/99",
+        event: "push",
+        headBranch: "main",
+        headSha: "abc123",
+      },
+      description: "fix: typo",
     });
 
     expect(prTab.id).toBe("github-pr:AruNi-01/atmos#42");
     expect(actionTab.id).toBe("github-action:AruNi-01/atmos#99");
     expect(prTab.title).toBe("PR #42");
+    expect(actionTab.title).toBe("CI");
   });
 
   it("creates global pin keys for context-free widgets", () => {
@@ -318,6 +331,29 @@ describe("canvas-widget shape helpers", () => {
       expect(actionTab.run).toBeNull();
       expect(actionTab.runId).toBe(99);
     }
+  });
+
+  it("drops non-object center tabs while sanitizing source", () => {
+    const props = createCanvasWidgetShapeProps({
+      widgetType: "center",
+      source: {
+        type: "center",
+        context,
+        tabs: [
+          null,
+          "bad",
+          createCanvasCenterTab({
+            kind: "file",
+            path: "/repo/a.ts",
+            mode: "edit",
+          }),
+        ],
+        activeTabId: null,
+      } as never,
+    });
+
+    expect(props.source.tabs).toHaveLength(1);
+    expect(props.source.tabs[0]?.kind).toBe("file");
   });
 
   it("selects a neighboring tab when removing the active center tab", () => {

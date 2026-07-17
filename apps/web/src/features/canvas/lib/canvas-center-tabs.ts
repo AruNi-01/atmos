@@ -148,8 +148,8 @@ function defaultCanvasCenterTabTitle(tab: CanvasCenterTabDraft): string {
       return canvasCenterTabsT("titles.pullRequest", { number: tab.prNumber });
     case "github-action":
       return (
-        tab.description ||
         tab.run?.workflowName ||
+        tab.description ||
         canvasCenterTabsT("titles.actionRun", { number: tab.runId })
       );
   }

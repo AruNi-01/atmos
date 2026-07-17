@@ -75,6 +75,7 @@ function CanvasActionsWidgetBody({
               owner: githubOwner,
               repo: githubRepo,
               runId: run.databaseId,
+              run,
               title:
                 run.workflowName ||
                 t("actionRunTitle", { number: run.databaseId }),

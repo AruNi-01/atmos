@@ -287,9 +287,15 @@ export function sanitizeCanvasWidgetSource<T extends CanvasWidgetSourceRef>(sour
   // Action run status goes stale quickly; detail view re-fetches by runId.
   return {
     ...sanitized,
-    tabs: sanitized.tabs.map((tab) =>
-      tab.kind === "github-action" ? { ...tab, run: null } : tab,
-    ),
+    tabs: sanitized.tabs.flatMap((tab) => {
+      if (!tab || typeof tab !== "object" || !("kind" in tab)) {
+        return [];
+      }
+      if (tab.kind === "github-action") {
+        return [{ ...tab, run: null }];
+      }
+      return [tab];
+    }),
   } as T;
 }
 

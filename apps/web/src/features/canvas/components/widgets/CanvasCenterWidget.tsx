@@ -67,6 +67,7 @@ import {
 import { CanvasContextOverview } from "@/features/canvas/components/widgets/CanvasContextOverview";
 import { PRDetailView } from "@/features/github/components/PRDetailView";
 import { ActionsDetailView } from "@/features/github/components/ActionsDetailView";
+import { useInvalidateGithubPrs } from "@/features/github/hooks/use-github-pr-query";
 
 type CanvasCenterWidgetSource = Extract<CanvasWidgetSourceRef, { type: "center" }>;
 type ClosableCanvasCenterTab = Exclude<CanvasCenterTab, { kind: "overview" }>;
@@ -717,6 +718,15 @@ function CanvasCenterGithubPrTab({
   tab: Extract<CanvasCenterTab, { kind: "github-pr" }>;
   onRequestClose: () => void;
 }) {
+  const invalidateGithubPrs = useInvalidateGithubPrs();
+  const handlePrChanged = React.useCallback(() => {
+    invalidateGithubPrs({
+      owner: tab.owner,
+      repo: tab.repo,
+      prNumber: tab.prNumber,
+    });
+  }, [invalidateGithubPrs, tab.owner, tab.prNumber, tab.repo]);
+
   return (
     <PRDetailView
       active
@@ -724,6 +734,8 @@ function CanvasCenterGithubPrTab({
       owner={tab.owner}
       prNumber={tab.prNumber}
       repo={tab.repo}
+      onClosed={handlePrChanged}
+      onMerged={handlePrChanged}
       onRequestClose={onRequestClose}
     />
   );

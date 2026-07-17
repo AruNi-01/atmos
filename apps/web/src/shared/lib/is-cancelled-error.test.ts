@@ -13,6 +13,12 @@ describe("isCancelledError", () => {
     expect(isCancelledError(error)).toBe(true);
   });
 
+  test("detects aborted signals by message when name is mangled", () => {
+    const error = new Error("signal is aborted without reason");
+    error.name = "c";
+    expect(isCancelledError(error)).toBe(true);
+  });
+
   test("detects minified CancelledError by message", () => {
     const error = new Error("CancelledError");
     error.name = "c";
