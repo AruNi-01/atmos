@@ -2547,12 +2547,14 @@
     },
     "pullRequestsWidget": {
       "notAGitHubRepository": "不是 GitHub 仓库",
+      "loading": "正在加载仓库…",
       "refreshOpen": "刷新已打开的 Pull Request",
       "refreshClosed": "刷新已关闭的 Pull Request",
       "pullRequestTitle": "PR #{number}"
     },
     "actionsWidget": {
       "notAGitHubRepository": "不是 GitHub 仓库",
+      "loading": "正在加载仓库…",
       "actionRunTitle": "Action #{number}"
     },
     "terminalShape": {

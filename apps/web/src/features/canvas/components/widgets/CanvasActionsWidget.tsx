@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Workflow } from "lucide-react";
+import { Loader2, Workflow } from "lucide-react";
 
 import {
   ActionsPanel,
@@ -41,6 +41,17 @@ function CanvasActionsWidgetBody({
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const openCenterTab = useOpenCanvasCenterTab(shapeId, source.context);
+  const isResolvingGithub =
+    Boolean(repoPath) && statusQuery.isLoading && !statusQuery.data;
+
+  if (isResolvingGithub) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center py-10 text-muted-foreground">
+        <Loader2 className="mb-2 size-5 animate-spin opacity-50" />
+        <span className="px-4 text-center text-xs">{t("loading")}</span>
+      </div>
+    );
+  }
 
   if (!githubOwner || !githubRepo || !currentBranch) {
     return (
@@ -64,7 +75,6 @@ function CanvasActionsWidgetBody({
               owner: githubOwner,
               repo: githubRepo,
               runId: run.databaseId,
-              run,
               title:
                 run.workflowName ||
                 t("actionRunTitle", { number: run.databaseId }),

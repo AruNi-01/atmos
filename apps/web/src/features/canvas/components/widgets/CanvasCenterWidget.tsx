@@ -394,7 +394,13 @@ function CanvasCenterWidgetBody({
           </CenterStageStickyTabActions>
         </CenterStageTabList>
         <div className="min-h-0 flex-1 overflow-hidden">
-          {activeTab ? <CanvasCenterTabContent context={source.context} tab={activeTab} /> : null}
+          {activeTab ? (
+            <CanvasCenterTabContent
+              context={source.context}
+              tab={activeTab}
+              onCloseTab={() => closeTab(activeTab)}
+            />
+          ) : null}
         </div>
       </Tabs>
       <CenterStageFileTabContextMenu
@@ -522,9 +528,11 @@ function isCanvasTabGroupItemClosable(tab: TabGroupItem) {
 function CanvasCenterTabContent({
   context,
   tab,
+  onCloseTab,
 }: {
   context: CanvasContextRef;
   tab: CanvasCenterTab;
+  onCloseTab: () => void;
 }) {
   switch (tab.kind) {
     case "overview":
@@ -540,9 +548,9 @@ function CanvasCenterTabContent({
     case "review-file":
       return <CanvasCenterReviewFileTab context={context} tab={tab} />;
     case "github-pr":
-      return <CanvasCenterGithubPrTab tab={tab} />;
+      return <CanvasCenterGithubPrTab tab={tab} onRequestClose={onCloseTab} />;
     case "github-action":
-      return <CanvasCenterGithubActionTab tab={tab} />;
+      return <CanvasCenterGithubActionTab tab={tab} onRequestClose={onCloseTab} />;
   }
 }
 
@@ -704,8 +712,10 @@ function CanvasCenterReviewFileTab({
 
 function CanvasCenterGithubPrTab({
   tab,
+  onRequestClose,
 }: {
   tab: Extract<CanvasCenterTab, { kind: "github-pr" }>;
+  onRequestClose: () => void;
 }) {
   return (
     <PRDetailView
@@ -714,15 +724,17 @@ function CanvasCenterGithubPrTab({
       owner={tab.owner}
       prNumber={tab.prNumber}
       repo={tab.repo}
-      onRequestClose={() => undefined}
+      onRequestClose={onRequestClose}
     />
   );
 }
 
 function CanvasCenterGithubActionTab({
   tab,
+  onRequestClose,
 }: {
   tab: Extract<CanvasCenterTab, { kind: "github-action" }>;
+  onRequestClose: () => void;
 }) {
   return (
     <ActionsDetailView
@@ -731,7 +743,7 @@ function CanvasCenterGithubActionTab({
       repo={tab.repo}
       run={tab.run ?? null}
       runId={tab.runId}
-      onRequestClose={() => undefined}
+      onRequestClose={onRequestClose}
     />
   );
 }

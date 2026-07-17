@@ -281,6 +281,45 @@ describe("canvas-widget shape helpers", () => {
     expect(Object.prototype.hasOwnProperty.call(props.source.tabs[0], "line")).toBe(false);
   });
 
+  it("strips transient github action run payloads from center widget sources", () => {
+    const props = createCanvasWidgetShapeProps({
+      widgetType: "center",
+      source: {
+        type: "center",
+        context,
+        tabs: [
+          createCanvasCenterTab({
+            kind: "github-action",
+            owner: "AruNi-01",
+            repo: "atmos",
+            runId: 99,
+            run: {
+              databaseId: 99,
+              workflowName: "CI",
+              displayTitle: "CI",
+              status: "completed",
+              conclusion: "success",
+              createdAt: "2026-01-01T00:00:00Z",
+              url: "https://github.com/AruNi-01/atmos/actions/runs/99",
+              event: "push",
+              headBranch: "main",
+              headSha: "abc123",
+            },
+            description: "CI",
+          }),
+        ],
+        activeTabId: "github-action:AruNi-01/atmos#99",
+      },
+    });
+
+    const actionTab = props.source.tabs.find((tab) => tab.kind === "github-action");
+    expect(actionTab?.kind).toBe("github-action");
+    if (actionTab?.kind === "github-action") {
+      expect(actionTab.run).toBeNull();
+      expect(actionTab.runId).toBe(99);
+    }
+  });
+
   it("selects a neighboring tab when removing the active center tab", () => {
     const first = createCanvasCenterTab({
       kind: "file",

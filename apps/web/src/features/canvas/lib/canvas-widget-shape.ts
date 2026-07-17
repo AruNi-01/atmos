@@ -279,7 +279,18 @@ function sanitizeJsonValue(value: unknown): unknown {
 }
 
 export function sanitizeCanvasWidgetSource<T extends CanvasWidgetSourceRef>(source: T): T {
-  return sanitizeJsonValue(source) as T;
+  const sanitized = sanitizeJsonValue(source) as T;
+  if (sanitized.type !== "center" || !Array.isArray(sanitized.tabs)) {
+    return sanitized;
+  }
+
+  // Action run status goes stale quickly; detail view re-fetches by runId.
+  return {
+    ...sanitized,
+    tabs: sanitized.tabs.map((tab) =>
+      tab.kind === "github-action" ? { ...tab, run: null } : tab,
+    ),
+  } as T;
 }
 
 export function getCanvasContextId(context: CanvasContextRef): string {

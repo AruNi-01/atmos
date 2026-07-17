@@ -2547,12 +2547,14 @@
     },
     "pullRequestsWidget": {
       "notAGitHubRepository": "Not a GitHub repository",
+      "loading": "Loading repository…",
       "refreshOpen": "Refresh open pull requests",
       "refreshClosed": "Refresh closed pull requests",
       "pullRequestTitle": "PR #{number}"
     },
     "actionsWidget": {
       "notAGitHubRepository": "Not a GitHub repository",
+      "loading": "Loading repository…",
       "actionRunTitle": "Action #{number}"
     },
     "terminalShape": {
