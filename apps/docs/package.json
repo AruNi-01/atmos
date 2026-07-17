@@ -8,8 +8,8 @@
     "deploy:pages": "node ../../scripts/pages/deploy-pages-docs.mjs",
     "dev": "next dev",
     "start": "next start",
-    "types:check": "fumadocs-mdx && next typegen && bun ../../scripts/run-tsc7.ts --noEmit",
-    "typecheck": "fumadocs-mdx && next typegen && bun ../../scripts/run-tsc7.ts --noEmit",
+    "types:check": "bun ../../scripts/ensure-docs-mdx-source.ts && next typegen && ATMOS_TSC_SINGLE_THREADED=1 bun ../../scripts/run-tsc7.ts --noEmit",
+    "typecheck": "bun ../../scripts/ensure-docs-mdx-source.ts && next typegen && ATMOS_TSC_SINGLE_THREADED=1 bun ../../scripts/run-tsc7.ts --noEmit",
     "postinstall": "fumadocs-mdx",
     "lint": "eslint"
   },
