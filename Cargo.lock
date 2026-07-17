@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "atmos-desktop"
-version = "2026.7.15-beta.1"
+version = "2026.7.16"
 dependencies = [
  "chrono",
  "core-foundation 0.10.1",
