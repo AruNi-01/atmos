@@ -44,6 +44,21 @@ describe("canvas-widget shape helpers", () => {
     ).toBe("files:workspace:workspace-1:/repo/worktree");
 
     expect(
+      buildCanvasWidgetPinKey({
+        type: "pull-requests",
+        context,
+        prSubTab: "open",
+      }),
+    ).toBe("pull-requests:workspace:workspace-1");
+
+    expect(
+      buildCanvasWidgetPinKey({
+        type: "actions",
+        context,
+      }),
+    ).toBe("actions:workspace:workspace-1");
+
+    expect(
       buildCanvasWidgetPinKey(
         {
           type: "center",
@@ -54,6 +69,37 @@ describe("canvas-widget shape helpers", () => {
         "shape:frame-1",
       ),
     ).toBe("center:workspace:workspace-1:shape:frame-1");
+  });
+
+  it("registers pull request and actions widgets in Change & Workflow", () => {
+    expect(CANVAS_WIDGET_REGISTRY["pull-requests"].group).toBe("code-review");
+    expect(CANVAS_WIDGET_REGISTRY.actions.group).toBe("code-review");
+    expect(CANVAS_WIDGET_REGISTRY["pull-requests"].requiresContext).toBe(true);
+    expect(CANVAS_WIDGET_REGISTRY.actions.requiresContext).toBe(true);
+    expect(ADDABLE_CANVAS_WIDGET_TYPES).toContain("pull-requests");
+    expect(ADDABLE_CANVAS_WIDGET_TYPES).toContain("actions");
+  });
+
+  it("creates github center tabs with stable ids", () => {
+    const prTab = createCanvasCenterTab({
+      kind: "github-pr",
+      owner: "AruNi-01",
+      repo: "atmos",
+      branch: "main",
+      prNumber: 42,
+      description: "Add canvas widgets",
+    });
+    const actionTab = createCanvasCenterTab({
+      kind: "github-action",
+      owner: "AruNi-01",
+      repo: "atmos",
+      runId: 99,
+      description: "CI",
+    });
+
+    expect(prTab.id).toBe("github-pr:AruNi-01/atmos#42");
+    expect(actionTab.id).toBe("github-action:AruNi-01/atmos#99");
+    expect(prTab.title).toBe("PR #42");
   });
 
   it("creates global pin keys for context-free widgets", () => {

@@ -2455,7 +2455,7 @@
       "groups": {
         "workspace": "工作区",
         "browser": "浏览器",
-        "codeReview": "代码与评审",
+        "codeReview": "变更与工作流",
         "agents": "Agents",
         "usage": "用量"
       },
@@ -2475,6 +2475,14 @@
         "review": {
           "label": "评审",
           "description": "查看评审会话、评论和已评审状态。"
+        },
+        "pullRequests": {
+          "label": "Pull Requests",
+          "description": "浏览当前分支的已打开和已关闭 Pull Request。"
+        },
+        "actions": {
+          "label": "Actions",
+          "description": "浏览当前分支的 GitHub Actions 运行记录。"
         },
         "center": {
           "label": "主操作区",
@@ -2504,6 +2512,8 @@
         "files": "文件",
         "changes": "变更",
         "review": "评审",
+        "pullRequests": "Pull Requests",
+        "actions": "Actions",
         "center": "主操作区",
         "browser": "浏览器",
         "agentStatus": "Agent 状态板",
@@ -2525,13 +2535,25 @@
     "centerTabs": {
       "untitled": "未命名",
       "titles": {
-        "overview": "总览"
+        "overview": "总览",
+        "pullRequest": "PR #{number}",
+        "actionRun": "Action #{number}"
       },
       "subtitles": {
         "overview": "总览",
         "changedFiles": "变更文件",
         "reviewDiff": "评审 diff"
       }
+    },
+    "pullRequestsWidget": {
+      "notAGitHubRepository": "不是 GitHub 仓库",
+      "refreshOpen": "刷新已打开的 Pull Request",
+      "refreshClosed": "刷新已关闭的 Pull Request",
+      "pullRequestTitle": "PR #{number}"
+    },
+    "actionsWidget": {
+      "notAGitHubRepository": "不是 GitHub 仓库",
+      "actionRunTitle": "Action #{number}"
     },
     "terminalShape": {
       "defaultTitle": "Canvas Terminal",
@@ -2640,7 +2662,8 @@
         "group": {
           "file": "文件",
           "diff": "Diff",
-          "review": "评审"
+          "review": "评审",
+          "github": "GitHub"
         },
         "closeTab": "关闭 {title}",
         "missingContextId": "缺少上下文 ID。",

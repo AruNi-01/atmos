@@ -2455,7 +2455,7 @@
       "groups": {
         "workspace": "Workspace",
         "browser": "Browser",
-        "codeReview": "Code & Review",
+        "codeReview": "Change & Workflow",
         "agents": "Agents",
         "usage": "Usage"
       },
@@ -2475,6 +2475,14 @@
         "review": {
           "label": "Review",
           "description": "Inspect review sessions, comments, and reviewed state."
+        },
+        "pullRequests": {
+          "label": "Pull Requests",
+          "description": "Browse open and closed pull requests for the current branch."
+        },
+        "actions": {
+          "label": "Actions",
+          "description": "Browse GitHub Actions runs for the current branch."
         },
         "center": {
           "label": "Main Operating Area",
@@ -2504,6 +2512,8 @@
         "files": "Files",
         "changes": "Changes",
         "review": "Review",
+        "pullRequests": "Pull Requests",
+        "actions": "Actions",
         "center": "Main Operating Area",
         "browser": "Browser",
         "agentStatus": "Agent Status Board",
@@ -2525,13 +2535,25 @@
     "centerTabs": {
       "untitled": "Untitled",
       "titles": {
-        "overview": "Overview"
+        "overview": "Overview",
+        "pullRequest": "PR #{number}",
+        "actionRun": "Action #{number}"
       },
       "subtitles": {
         "overview": "Overview",
         "changedFiles": "Changed files",
         "reviewDiff": "Review diff"
       }
+    },
+    "pullRequestsWidget": {
+      "notAGitHubRepository": "Not a GitHub repository",
+      "refreshOpen": "Refresh open pull requests",
+      "refreshClosed": "Refresh closed pull requests",
+      "pullRequestTitle": "PR #{number}"
+    },
+    "actionsWidget": {
+      "notAGitHubRepository": "Not a GitHub repository",
+      "actionRunTitle": "Action #{number}"
     },
     "terminalShape": {
       "defaultTitle": "Canvas Terminal",
@@ -2640,7 +2662,8 @@
         "group": {
           "file": "File",
           "diff": "Diff",
-          "review": "Review"
+          "review": "Review",
+          "github": "GitHub"
         },
         "closeTab": "Close {title}",
         "missingContextId": "Missing context id.",

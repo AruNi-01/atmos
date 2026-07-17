@@ -65,6 +65,8 @@ import {
   type CanvasWidgetShape,
 } from "@/features/canvas/lib/canvas-widget-shape";
 import { CanvasContextOverview } from "@/features/canvas/components/widgets/CanvasContextOverview";
+import { PRDetailView } from "@/features/github/components/PRDetailView";
+import { ActionsDetailView } from "@/features/github/components/ActionsDetailView";
 
 type CanvasCenterWidgetSource = Extract<CanvasWidgetSourceRef, { type: "center" }>;
 type ClosableCanvasCenterTab = Exclude<CanvasCenterTab, { kind: "overview" }>;
@@ -273,6 +275,20 @@ function CanvasCenterWidgetBody({
       groups.push({ key: "review-diff", label: t("centerWidget.group.review"), tabs: reviewTabs });
     }
 
+    const githubTabs = tabs
+      .filter(
+        (tab): tab is Extract<CanvasCenterTab, { kind: "github-pr" | "github-action" }> =>
+          tab.kind === "github-pr" || tab.kind === "github-action",
+      )
+      .map((tab) => createCanvasCenterTabGroupItem(tab));
+    if (githubTabs.length > 0) {
+      groups.push({
+        key: "github",
+        label: t("centerWidget.group.github"),
+        tabs: githubTabs,
+      });
+    }
+
     return groups;
   }, [t, tabs]);
 
@@ -407,6 +423,10 @@ function getCanvasCenterSurfaceTabVariant(
     case "review-group":
     case "review-file":
       return "review-diff";
+    case "github-pr":
+      return "github-pr";
+    case "github-action":
+      return "github-action";
   }
 }
 
@@ -422,6 +442,10 @@ function getCanvasCenterOpenFilePath(tab: ClosableCanvasCenterTab): string {
       return tab.originalPath;
     case "review-group":
       return tab.groupPath || `${EDITOR_REVIEW_GROUP_PREFIX}${tab.revisionGuid ?? ""}`;
+    case "github-pr":
+      return `github-pr:${tab.owner}/${tab.repo}#${tab.prNumber}`;
+    case "github-action":
+      return `github-action:${tab.owner}/${tab.repo}#${tab.runId}`;
   }
 }
 
@@ -477,6 +501,10 @@ function getCanvasCenterTabGroupKind(tab: ClosableCanvasCenterTab): TabGroupItem
     case "review-group":
     case "review-file":
       return "review-diff";
+    case "github-pr":
+      return "github-pr";
+    case "github-action":
+      return "github-action";
   }
 }
 
@@ -485,7 +513,9 @@ function isCanvasTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "file" ||
     tab.kind === "diff" ||
     tab.kind === "diff-group" ||
-    tab.kind === "review-diff"
+    tab.kind === "review-diff" ||
+    tab.kind === "github-pr" ||
+    tab.kind === "github-action"
   );
 }
 
@@ -509,6 +539,10 @@ function CanvasCenterTabContent({
       return <CanvasCenterReviewGroupTab context={context} tab={tab} />;
     case "review-file":
       return <CanvasCenterReviewFileTab context={context} tab={tab} />;
+    case "github-pr":
+      return <CanvasCenterGithubPrTab tab={tab} />;
+    case "github-action":
+      return <CanvasCenterGithubActionTab tab={tab} />;
   }
 }
 
@@ -665,6 +699,40 @@ function CanvasCenterReviewFileTab({
         contextId={getCanvasContextId(context)}
       />
     </ReviewContextProvider>
+  );
+}
+
+function CanvasCenterGithubPrTab({
+  tab,
+}: {
+  tab: Extract<CanvasCenterTab, { kind: "github-pr" }>;
+}) {
+  return (
+    <PRDetailView
+      active
+      branch={tab.branch}
+      owner={tab.owner}
+      prNumber={tab.prNumber}
+      repo={tab.repo}
+      onRequestClose={() => undefined}
+    />
+  );
+}
+
+function CanvasCenterGithubActionTab({
+  tab,
+}: {
+  tab: Extract<CanvasCenterTab, { kind: "github-action" }>;
+}) {
+  return (
+    <ActionsDetailView
+      active
+      owner={tab.owner}
+      repo={tab.repo}
+      run={tab.run ?? null}
+      runId={tab.runId}
+      onRequestClose={() => undefined}
+    />
   );
 }
 
