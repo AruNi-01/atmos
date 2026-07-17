@@ -34,11 +34,100 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.7.16",
+    title: {
+      zh: "Grok Build 终端 Agent · TanStack Query · GitHub 中心标签页",
+      en: "Grok Build Terminal Agent, TanStack Query & GitHub Center Tabs",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.7.16 将 2026.7.15 beta 线打磨为稳定版，并新增一等公民的 Grok Build 终端支持；同时引入 TanStack Query 数据层、GitHub 中心标签页、工作区分组，以及 TypeScript 7 工具链与大量终端/编辑器可靠性修复。",
+      en: "Atmos Desktop 2026.7.16 graduates the 2026.7.15 beta line into a stable release and adds first-class Grok Build terminal support. It ships the TanStack Query data layer, GitHub center tabs, workspace grouping, TypeScript 7 tooling, and a wave of terminal and editor reliability fixes.",
+    },
+    date: "2026-07-16",
+    version: "2026.7.16",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-2026.7.16",
+    tags: [
+      { zh: "Grok Build", en: "Grok Build" },
+      { zh: "数据层", en: "Data Layer" },
+      { zh: "GitHub", en: "GitHub" },
+      { zh: "工作区分组", en: "Workspace Grouping" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Grok Build 终端 Agent** — 一等公民支持 Grok Build CLI（`grok`）作为内置终端 Agent，覆盖 Agent 选择、运行配置、自动化、streaming-json 解析（文本 + thinking）以及主题配套图标。",
+          "**Grok Build 用量与 Hooks** — Grok Build / SuperGrok 订阅额度显示在 AI 用量中；状态类 Grok hooks 安装到 `~/.grok/hooks/`（尊重 opt-out），在检测到 `grok` 时于 API 启动自动安装；CLI 身份探测可正确解析冲突的 `agent` 标题。",
+          "**TanStack Query 数据层** — 核心应用数据获取从 Zustand store 迁移到 TanStack Query，缓存与刷新语义更可预期。覆盖项目与工作区、文件系统、Git 快照、Agent 注册表与自定义 Agent、本地服务、Review 会话、GitHub PR 缓存，以及 CI 运行列表 / 文件 diff 视图。",
+          "**GitHub 中心标签页** — PR 详情、CI 检查与文件 diff 改为在中心标签页打开（不再用模态框），并改进标签持久化与交互体验。",
+          "**工作区分组** — 侧边栏可按标签与优先级对工作区分组，跨项目作用域行为一致，设置中提供优先级/标签分组的双列开关。",
+        ],
+        fixes: [
+          "**语法高亮缓存** — 修复 FileContents 与 CodeViewItem 之间的缓存 key 冲突，避免渲染出过期的高亮结果。",
+          "**工作区分组拖拽** — 修复拖拽过程中分组意外折叠的问题，并加固分组设置在边界场景下的行为。",
+          "**多行 Agent 命令启动** — 长命令以单次 bracketed-paste 写入终端；多行 shell 参数使用 ANSI-C 引号，避免截断或误执行。",
+          "**Agent Fix 与文件树** — 长 prompt 改为写入工作区文件而非内联嵌入；加固文件树路径回退逻辑。",
+          "**刷新图标方向** — 修复 Atmos Computer / 远程访问面板刷新图标旋转方向错误。",
+          "**侧边栏设置启动重试** — 加固侧边栏设置 bootstrap 重试逻辑，可在应用启动时的瞬时失败后恢复。",
+          "**编辑器 Minimap** — 修复 minimap 随文档滚动而移动的问题，保持固定位置。",
+          "**终端焦点** — 隐藏 AI 输入后焦点正确回到终端。",
+          "**用量面板页脚** — 修复全局搜索中嵌入式用量面板页脚与可滚动内容重叠。",
+          "**Grok 终端身份** — 加固 Grok 相关终端标题匹配（管道符、Windows 路径、平台打包的 `grok-*` 二进制），并在 Grok 会话中禁用不兼容的外部 hooks。",
+          "**发布与 Landing 构建** — 修复桌面发布后 R2 同步的 CI 触发；修复 Landing 在 Bun 1.3 / 1.4 lockfile 下的 Vercel 构建，以及 Next.js 内联脚本 hydration 警告。",
+        ],
+        improvements: [
+          "**TypeScript 7 工具链** — 采用双包工具链：原生 `tsc`（TS 7）负责 typecheck，TypeScript 6 继续服务 ESLint。",
+          "**WebSocket 优先收敛** — 将重复的 REST 端点收敛为 WebSocket actions，缩小传输面并与 WebSocket-first 规则对齐。",
+          "**终端搜索与字体** — 字体缩放时保留终端滚动位置；关闭搜索浮层时隐藏搜索匹配选区。",
+          "**Cursor 启动命令** — 内置 Cursor 启动改用 `cursor-agent` 而非裸 `agent` 命令，在同时安装 Grok 时身份更清晰。",
+          "**Agent Hooks 状态卡** — 不再展示嘈杂的版本号；Grok 及其他 Agent 的 hooks 安装与标注更清晰。",
+        ],
+        others: [
+          "将 GitHub 详情模态相关文件重构并入中心标签页模块。",
+          "补充编辑器工具依赖，为后续编辑器增强做准备。",
+        ],
+      },
+      en: {
+        features: [
+          "**Grok Build terminal agent** — First-class support for the Grok Build CLI (`grok`) as a built-in terminal agent, including agent select, run configuration, automations, streaming-json parsing (text + thinking), and theme-paired icons.",
+          "**Grok Build usage & hooks** — Grok Build / SuperGrok subscription credits appear in AI usage. Status-only Grok hooks install under `~/.grok/hooks/` (opt-out respected), auto-install on API startup when `grok` is detected, and a CLI identity probe correctly resolves contested `agent` titles.",
+          "**TanStack Query data layer** — Core application data fetching migrated from Zustand stores to TanStack Query for more predictable caching, refresh semantics, and consistency. Covers project and workspace data, filesystem operations, Git snapshots, agent registry and custom agents, local services, review sessions, GitHub PR cache, and CI run list / file diff views, with query options, hooks, and an event bridge across extended domains.",
+          "**GitHub center tabs** — Pull request details, CI checks, and file diffs open in center tabs instead of modal dialogs, with improved tab persistence and UX.",
+          "**Workspace grouping** — Workspaces group by label and priority in the sidebar, with consistent behavior across project scopes and two-column settings toggles for priority and label grouping.",
+        ],
+        fixes: [
+          "**Syntax highlighting cache** — Fixed cache key collisions across FileContents and CodeViewItem that caused stale rendered output.",
+          "**Workspace grouping drag** — Fixed workspace groups collapsing unexpectedly during drag operations and hardened grouping settings against edge cases.",
+          "**Multiline agent launches** — Long commands are delivered as a single bracketed-paste write; multiline shell arguments use ANSI-C quoting.",
+          "**Agent-fix & file tree** — Long prompts are stored to a workspace file instead of embedded inline; hardened file-tree path fallbacks.",
+          "**Refresh icon direction** — Fixed refresh icon spin direction on Atmos Computer and remote access panels.",
+          "**Sidebar settings bootstrap** — Fixed sidebar settings bootstrap retry logic to survive transient failures during app startup.",
+          "**Editor minimap** — Fixed the editor minimap so it stays fixed while the document scrolls.",
+          "**Terminal focus** — Fixed terminal focus returning to the terminal when AI input is hidden.",
+          "**Usage panel footer** — Fixed the usage panel embedded footer overlapping scrollable content in global search.",
+          "**Grok terminal identity** — Hardened Grok-related terminal title matching (pipes, Windows paths, platform-packaged `grok-*` binaries) and disabled incompatible foreign hooks for Grok sessions.",
+          "**Release & landing builds** — Fixed CI workflow triggering for R2 sync after desktop releases; fixed landing page Vercel builds for Bun 1.3 and 1.4 lockfile formats, and resolved a Next.js inline script hydration warning.",
+        ],
+        improvements: [
+          "**TypeScript 7 toolchain** — Adopted TypeScript 7 with a dual-package toolchain, keeping TypeScript 6 for ESLint while using native `tsc` for typechecking.",
+          "**WebSocket-first consolidation** — Consolidated duplicate REST endpoints into WebSocket actions, reducing transport surface area.",
+          "**Terminal search & font** — Preserve terminal scroll position on font resize and hide search match selections when the search overlay is dismissed.",
+          "**Cursor launch command** — Cursor built-in launches now use `cursor-agent` instead of the bare `agent` command so identity stays unambiguous when Grok is also installed.",
+          "**Agent hooks status card** — No longer surfaces noisy version numbers; hooks install and labeling are clearer for Grok and other agents.",
+        ],
+        others: [
+          "Refactored GitHub detail modal files into the center-tab module.",
+          "Added editor utility dependencies for upcoming editor enhancements.",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.7.9",
     title: {
       zh: "终端缓存控制 · 侧边栏与头部配置 · AI 选区上下文",
       en: "Terminal Cache Control, Layout Toggles & AI Selection Context",
     },
+
     description: {
       zh: "Atmos Desktop 2026.7.9 将 2026.7.6 阶段的终端体验与稳定性更新打磨为了稳定版，新增了强大的终端缓存策略、自定义终端标签名称、便捷的 AI 选区上下文交互，并全面提升了性能和应用内打磨。",
       en: "Atmos Desktop 2026.7.9 graduates the 2026.7.6 terminal UX and stability updates into a stable release, bringing robust terminal caching strategies, custom terminal tab names, instant AI selection context, and broad performance polish.",
