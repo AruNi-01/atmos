@@ -44,6 +44,21 @@ describe("canvas-widget shape helpers", () => {
     ).toBe("files:workspace:workspace-1:/repo/worktree");
 
     expect(
+      buildCanvasWidgetPinKey({
+        type: "pull-requests",
+        context,
+        prSubTab: "open",
+      }),
+    ).toBe("pull-requests:workspace:workspace-1");
+
+    expect(
+      buildCanvasWidgetPinKey({
+        type: "actions",
+        context,
+      }),
+    ).toBe("actions:workspace:workspace-1");
+
+    expect(
       buildCanvasWidgetPinKey(
         {
           type: "center",
@@ -54,6 +69,50 @@ describe("canvas-widget shape helpers", () => {
         "shape:frame-1",
       ),
     ).toBe("center:workspace:workspace-1:shape:frame-1");
+  });
+
+  it("registers pull request and actions widgets in Change & Workflow", () => {
+    expect(CANVAS_WIDGET_REGISTRY["pull-requests"].group).toBe("code-review");
+    expect(CANVAS_WIDGET_REGISTRY.actions.group).toBe("code-review");
+    expect(CANVAS_WIDGET_REGISTRY["pull-requests"].requiresContext).toBe(true);
+    expect(CANVAS_WIDGET_REGISTRY.actions.requiresContext).toBe(true);
+    expect(ADDABLE_CANVAS_WIDGET_TYPES).toContain("pull-requests");
+    expect(ADDABLE_CANVAS_WIDGET_TYPES).toContain("actions");
+  });
+
+  it("creates github center tabs with stable ids", () => {
+    const prTab = createCanvasCenterTab({
+      kind: "github-pr",
+      owner: "AruNi-01",
+      repo: "atmos",
+      branch: "main",
+      prNumber: 42,
+      description: "Add canvas widgets",
+    });
+    const actionTab = createCanvasCenterTab({
+      kind: "github-action",
+      owner: "AruNi-01",
+      repo: "atmos",
+      runId: 99,
+      run: {
+        databaseId: 99,
+        workflowName: "CI",
+        displayTitle: "fix: typo",
+        status: "completed",
+        conclusion: "success",
+        createdAt: "2026-01-01T00:00:00Z",
+        url: "https://github.com/AruNi-01/atmos/actions/runs/99",
+        event: "push",
+        headBranch: "main",
+        headSha: "abc123",
+      },
+      description: "fix: typo",
+    });
+
+    expect(prTab.id).toBe("github-pr:AruNi-01/atmos#42");
+    expect(actionTab.id).toBe("github-action:AruNi-01/atmos#99");
+    expect(prTab.title).toBe("PR #42");
+    expect(actionTab.title).toBe("CI");
   });
 
   it("creates global pin keys for context-free widgets", () => {
@@ -233,6 +292,68 @@ describe("canvas-widget shape helpers", () => {
 
     expect(JSON.stringify(props.source)).not.toContain("undefined");
     expect(Object.prototype.hasOwnProperty.call(props.source.tabs[0], "line")).toBe(false);
+  });
+
+  it("strips transient github action run payloads from center widget sources", () => {
+    const props = createCanvasWidgetShapeProps({
+      widgetType: "center",
+      source: {
+        type: "center",
+        context,
+        tabs: [
+          createCanvasCenterTab({
+            kind: "github-action",
+            owner: "AruNi-01",
+            repo: "atmos",
+            runId: 99,
+            run: {
+              databaseId: 99,
+              workflowName: "CI",
+              displayTitle: "CI",
+              status: "completed",
+              conclusion: "success",
+              createdAt: "2026-01-01T00:00:00Z",
+              url: "https://github.com/AruNi-01/atmos/actions/runs/99",
+              event: "push",
+              headBranch: "main",
+              headSha: "abc123",
+            },
+            description: "CI",
+          }),
+        ],
+        activeTabId: "github-action:AruNi-01/atmos#99",
+      },
+    });
+
+    const actionTab = props.source.tabs.find((tab) => tab.kind === "github-action");
+    expect(actionTab?.kind).toBe("github-action");
+    if (actionTab?.kind === "github-action") {
+      expect(actionTab.run).toBeNull();
+      expect(actionTab.runId).toBe(99);
+    }
+  });
+
+  it("drops non-object center tabs while sanitizing source", () => {
+    const props = createCanvasWidgetShapeProps({
+      widgetType: "center",
+      source: {
+        type: "center",
+        context,
+        tabs: [
+          null,
+          "bad",
+          createCanvasCenterTab({
+            kind: "file",
+            path: "/repo/a.ts",
+            mode: "edit",
+          }),
+        ],
+        activeTabId: null,
+      } as never,
+    });
+
+    expect(props.source.tabs).toHaveLength(1);
+    expect(props.source.tabs[0]?.kind).toBe("file");
   });
 
   it("selects a neighboring tab when removing the active center tab", () => {

@@ -163,8 +163,11 @@ export function useTerminalTabMountLifecycle({
 
   React.useEffect(() => {
     // Only register one sweeper interval globally to prevent HMR leaks
-    if (!(globalThis as any).__terminalCacheSweeperInterval) {
-      (globalThis as any).__terminalCacheSweeperInterval = setInterval(() => {
+    const globalState = globalThis as typeof globalThis & {
+      __terminalCacheSweeperInterval?: ReturnType<typeof setInterval>;
+    };
+    if (!globalState.__terminalCacheSweeperInterval) {
+      globalState.__terminalCacheSweeperInterval = setInterval(() => {
         useTerminalCacheStore.getState().sweepExpired();
       }, 60 * 1000);
     }

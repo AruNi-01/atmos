@@ -52,6 +52,17 @@ function createSourceForWidgetType(
         type: "review",
         context,
       };
+    case "pull-requests":
+      return {
+        type: "pull-requests",
+        context,
+        prSubTab: "open",
+      };
+    case "actions":
+      return {
+        type: "actions",
+        context,
+      };
     case "center": {
       const overviewTab = createCanvasCenterOverviewTab();
       return {

@@ -51,7 +51,9 @@ export default async function Page(props: {
       <DocsBody>
         <MDX
           components={getMDXComponents({
-            a: createRelativeLink(source, page),
+            // createRelativeLink's LoaderOutput typing still assumes a non-i18n
+            // pageTree shape; cast until fumadocs-ui accepts i18n loaders.
+            a: createRelativeLink(source as never, page),
           })}
         />
       </DocsBody>

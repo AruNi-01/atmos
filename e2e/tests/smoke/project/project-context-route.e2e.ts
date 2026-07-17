@@ -58,7 +58,7 @@ test.describe("smoke project", () => {
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("projects");
 
-    const settingsDialog = page.getByRole("dialog");
+    const settingsDialog = page.getByRole("dialog", { name: "Settings", exact: true });
 
     await gotoContextRoute(
       page,

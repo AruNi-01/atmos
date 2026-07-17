@@ -15,7 +15,7 @@
     },
     "apps/desktop": {
       "name": "desktop",
-      "version": "2026.7.9",
+      "version": "2026.7.16",
       "devDependencies": {
         "@tauri-apps/cli": "^2.0.0",
       },
@@ -24,7 +24,11 @@
       "name": "docs",
       "version": "0.0.0",
       "dependencies": {
+        "@radix-ui/react-collapsible": "^1.1.12",
+        "@radix-ui/react-popover": "^1.1.15",
+        "@radix-ui/react-scroll-area": "^1.2.10",
         "@workspace/ui": "workspace:*",
+        "class-variance-authority": "^0.7.1",
         "fumadocs-core": "16.8.12",
         "fumadocs-mdx": "15.0.7",
         "fumadocs-ui": "16.8.12",

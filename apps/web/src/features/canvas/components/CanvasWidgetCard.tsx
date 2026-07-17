@@ -24,6 +24,8 @@ import { CanvasWorkspaceContextWidget } from "@/features/canvas/components/widge
 import { CanvasFilesWidget } from "@/features/canvas/components/widgets/CanvasFilesWidget";
 import { CanvasChangesWidget } from "@/features/canvas/components/widgets/CanvasChangesWidget";
 import { CanvasReviewWidget } from "@/features/canvas/components/widgets/CanvasReviewWidget";
+import { CanvasPullRequestsWidget } from "@/features/canvas/components/widgets/CanvasPullRequestsWidget";
+import { CanvasActionsWidget } from "@/features/canvas/components/widgets/CanvasActionsWidget";
 import { CanvasCenterWidget } from "@/features/canvas/components/widgets/CanvasCenterWidget";
 import { CanvasBrowserWidget } from "@/features/canvas/components/widgets/CanvasBrowserWidget";
 import { CanvasAgentStatusWidget } from "@/features/canvas/components/widgets/CanvasAgentStatusWidget";
@@ -201,6 +203,10 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
         return <CanvasChangesWidget key={refreshNonce} shape={shape} />;
       case "review":
         return <CanvasReviewWidget key={refreshNonce} shape={shape} />;
+      case "pull-requests":
+        return <CanvasPullRequestsWidget key={refreshNonce} shape={shape} />;
+      case "actions":
+        return <CanvasActionsWidget key={refreshNonce} shape={shape} />;
       case "center":
         return <CanvasCenterWidget shape={shape} />;
       case "browser":

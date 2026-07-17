@@ -270,6 +270,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # Existing Pages tree is pruned + re-published each run so zip/webm history
+      # cannot grow past GitHub Pages' ~1GB soft limit (which caused report 404s).
+      - name: Checkout existing Pages reports for retention
+        if: needs.plan.outputs.publish_report == 'true'
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: e2e/reports/gh-pages-existing
+          fetch-depth: 1
+
       - name: Prepare GitHub Pages content
         if: needs.plan.outputs.publish_report == 'true'
         id: pages_meta
@@ -280,6 +291,7 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PAGES_EXISTING_ROOT: reports/gh-pages-existing
         working-directory: e2e
         run: node scripts/prepare-pages-report.cjs
 
@@ -290,19 +302,80 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: e2e/reports/pages-site
-          keep_files: true
+          # Full pruned site each time — do not accumulate multi-GB history.
+          keep_files: false
+          force_orphan: true
           enable_jekyll: false
 
+      - name: Resolve published gh-pages tip
+        if: needs.plan.outputs.publish_report == 'true'
+        id: pages_tip
+        run: |
+          sha="$(git ls-remote origin refs/heads/gh-pages | awk '{print $1}')"
+          if [ -z "$sha" ]; then
+            echo "Could not resolve gh-pages tip after deploy" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Resolved gh-pages tip: $sha"
+
+      - name: Wait for GitHub Pages build
+        if: needs.plan.outputs.publish_report == 'true'
+        id: wait_pages
+        uses: actions/github-script@v7
+        env:
+          PAGES_COMMIT_SHA: ${{ steps.pages_tip.outputs.sha }}
+        with:
+          script: |
+            const expectedSha = process.env.PAGES_COMMIT_SHA;
+            if (!expectedSha) {
+              core.setFailed("Missing published gh-pages tip SHA.");
+              return;
+            }
+
+            const deadline = Date.now() + 10 * 60 * 1000;
+            while (Date.now() < deadline) {
+              const { data: builds } = await github.rest.repos.listPagesBuilds({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 10,
+              });
+              const match = builds.find((build) => build.commit === expectedSha);
+              if (!match) {
+                core.info(`Pages build for ${expectedSha.slice(0, 7)} not listed yet.`);
+              } else {
+                core.info(`Pages build ${match.commit.slice(0, 7)} status=${match.status}`);
+                if (match.status === "built") {
+                  core.setOutput("pages_ready", "true");
+                  return;
+                }
+                if (match.status === "errored") {
+                  core.setFailed(match.error?.message || "GitHub Pages build failed");
+                  return;
+                }
+              }
+              await new Promise((resolve) => setTimeout(resolve, 15_000));
+            }
+            core.setFailed(
+              `Timed out waiting for GitHub Pages build of ${expectedSha.slice(0, 7)}; skipping report comment so prior links stay usable.`,
+            );
+
       - name: Comment on pull request with report URL
-        if: needs.plan.outputs.publish_report == 'true' && github.event_name == 'pull_request'
+        if: >-
+          needs.plan.outputs.publish_report == 'true'
+          && github.event_name == 'pull_request'
+          && steps.wait_pages.outcome == 'success'
         uses: actions/github-script@v7
         env:
           REPORT_URL: ${{ steps.pages_meta.outputs.report_url }}
+          SELECTED_SUITES: ${{ needs.plan.outputs.suites }}
         with:
           script: |
             const {
-              REPORT_COMMENT_MARKER,
+              buildExpiredPrCommentBody,
               buildPrCommentBody,
+              isE2eReportComment,
+              isExpiredE2eReportComment,
               readJsonReport,
             } = require("./e2e/scripts/e2e-report-utils.cjs");
             const report = readJsonReport("e2e/reports/merged/results.json");
@@ -310,36 +383,63 @@ jobs:
               core.setFailed("Merged JSON report was not generated.");
               return;
             }
-            const body = buildPrCommentBody(report, process.env.REPORT_URL);
-            const issue_number = context.issue.number;
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number,
-              per_page: 100,
-            });
-            const existing = comments.find((comment) =>
-              comment.user?.type === "Bot" && comment.body?.includes(REPORT_COMMENT_MARKER)
-            );
 
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
+            const issue_number = context.issue.number;
+            const runId = String(context.runId);
+            let suites = [];
+            try {
+              suites = JSON.parse(process.env.SELECTED_SUITES || "[]");
+            } catch {
+              suites = [];
+            }
+            const body = buildPrCommentBody(report, process.env.REPORT_URL, {
+              runId,
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              suites,
+            });
+
+            // Paginate so older report comments are still found and expired.
+            const priorComments = [];
+            for (let page = 1; page <= 10; page += 1) {
+              const { data } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number,
-                body,
+                per_page: 100,
+                page,
+              });
+              if (data.length === 0) break;
+              priorComments.push(...data);
+              if (data.length < 100) break;
+            }
+
+            const activeReportComments = priorComments.filter(
+              (comment) =>
+                comment.user?.type === "Bot" &&
+                isE2eReportComment(comment.body) &&
+                !isExpiredE2eReportComment(comment.body),
+            );
+
+            for (const comment of activeReportComments) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+                body: buildExpiredPrCommentBody(comment.body, {
+                  supersededByRunId: runId,
+                }),
               });
             }
 
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body,
+            });
+
       - name: Write GitHub summary with published report URL
-        if: needs.plan.outputs.publish_report == 'true'
+        if: needs.plan.outputs.publish_report == 'true' && steps.wait_pages.outcome == 'success'
         run: |
           {
             echo "### Published HTML report"

@@ -4,12 +4,14 @@ import {
   GitPullRequest,
   Layers2,
   LayoutDashboard,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import type { ActionRun } from "@/features/github/components/ActionsPanel";
 
 export const CANVAS_CENTER_OVERVIEW_TAB_ID = "overview";
 
@@ -66,6 +68,27 @@ export type CanvasCenterTab =
       originalPath: string;
       reviewSessionGuid?: string;
       revisionGuid?: string;
+    }
+  | {
+      id: string;
+      kind: "github-pr";
+      title: string;
+      owner: string;
+      repo: string;
+      branch: string;
+      prNumber: number;
+      description?: string;
+    }
+  | {
+      id: string;
+      kind: "github-action";
+      title: string;
+      owner: string;
+      repo: string;
+      runId: number;
+      /** Transient list payload; detail view re-fetches when missing. */
+      run?: ActionRun | null;
+      description?: string;
     };
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -80,7 +103,7 @@ let cachedCanvasCenterTabsLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedCanvasCenterTabsTranslator: any = null;
 
-function canvasCenterTabsT(key: string): string {
+function canvasCenterTabsT(key: string, values?: Record<string, string | number | Date>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedCanvasCenterTabsTranslator || cachedCanvasCenterTabsLocale !== locale) {
     cachedCanvasCenterTabsLocale = locale;
@@ -90,7 +113,7 @@ function canvasCenterTabsT(key: string): string {
       namespace: "canvas.centerTabs",
     });
   }
-  return cachedCanvasCenterTabsTranslator(key as never);
+  return cachedCanvasCenterTabsTranslator(key as never, values as never);
 }
 
 function omitUndefinedProperties<T extends Record<string, unknown>>(value: T): T {
@@ -109,6 +132,29 @@ function basename(path: string): string {
   return parts.at(-1) || trimmed || canvasCenterTabsT("untitled");
 }
 
+function defaultCanvasCenterTabTitle(tab: CanvasCenterTabDraft): string {
+  switch (tab.kind) {
+    case "overview":
+      return canvasCenterTabsT("titles.overview");
+    case "file":
+      return basename(tab.path);
+    case "changes-group":
+    case "review-group":
+      return basename(tab.groupPath);
+    case "changes-file":
+    case "review-file":
+      return basename(tab.filePath);
+    case "github-pr":
+      return canvasCenterTabsT("titles.pullRequest", { number: tab.prNumber });
+    case "github-action":
+      return (
+        tab.run?.workflowName ||
+        tab.description ||
+        canvasCenterTabsT("titles.actionRun", { number: tab.runId })
+      );
+  }
+}
+
 export function createCanvasCenterTabId(tab: CanvasCenterTabWithoutId): string {
   switch (tab.kind) {
     case "overview":
@@ -123,19 +169,15 @@ export function createCanvasCenterTabId(tab: CanvasCenterTabWithoutId): string {
       return `review-group:${tab.groupPath}:${tab.revisionGuid ?? "current"}`;
     case "review-file":
       return `review-file:${tab.filePath}:${tab.revisionGuid ?? "current"}`;
+    case "github-pr":
+      return `github-pr:${tab.owner}/${tab.repo}#${tab.prNumber}`;
+    case "github-action":
+      return `github-action:${tab.owner}/${tab.repo}#${tab.runId}`;
   }
 }
 
 export function createCanvasCenterTab(tab: CanvasCenterTabDraft): CanvasCenterTab {
-  const title =
-    tab.title ??
-    (tab.kind === "overview"
-      ? canvasCenterTabsT("titles.overview")
-      : tab.kind === "file"
-      ? basename(tab.path)
-      : tab.kind === "changes-group" || tab.kind === "review-group"
-        ? basename(tab.groupPath)
-        : basename(tab.filePath));
+  const title = tab.title ?? defaultCanvasCenterTabTitle(tab);
   return {
     ...omitUndefinedProperties(tab as Record<string, unknown>),
     id: createCanvasCenterTabId({ ...tab, title } as CanvasCenterTabWithoutId),
@@ -202,7 +244,10 @@ export function getCanvasCenterTabIcon(tab: CanvasCenterTab): LucideIcon {
       return GitCompare;
     case "review-group":
     case "review-file":
+    case "github-pr":
       return GitPullRequest;
+    case "github-action":
+      return Workflow;
   }
 }
 
@@ -220,5 +265,9 @@ export function getCanvasCenterTabSubtitle(tab: CanvasCenterTab): string {
       return canvasCenterTabsT("subtitles.reviewDiff");
     case "review-file":
       return tab.filePath;
+    case "github-pr":
+      return tab.description || `${tab.owner}/${tab.repo}#${tab.prNumber}`;
+    case "github-action":
+      return tab.description || `${tab.owner}/${tab.repo}#${tab.runId}`;
   }
 }

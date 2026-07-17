@@ -11,6 +11,8 @@ const allowedConsoleErrorPatterns = [
   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
   /\[console\.error\] Error: WebSocket not connected\b/i,
   /\[WebSocket\] Error: Event/i,
+  // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  /CancelledError\b/,
 ];
 
 function formatConsoleMessage(message: ConsoleMessage): string {

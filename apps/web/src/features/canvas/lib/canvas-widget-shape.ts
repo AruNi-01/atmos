@@ -26,6 +26,8 @@ export type CanvasWidgetType =
   | "files"
   | "changes"
   | "review"
+  | "pull-requests"
+  | "actions"
   | "center"
   | "browser"
   | "agent-status"
@@ -65,6 +67,15 @@ export type CanvasWidgetSourceRef =
       context: CanvasContextRef;
       sessionGuid?: string;
       revisionGuid?: string;
+    }
+  | {
+      type: "pull-requests";
+      context: CanvasContextRef;
+      prSubTab?: "open" | "closed";
+    }
+  | {
+      type: "actions";
+      context: CanvasContextRef;
     }
   | {
       type: "center";
@@ -115,6 +126,8 @@ export const CANVAS_WIDGET_DEFAULT_SIZES: Record<CanvasWidgetType, { w: number; 
   files: { w: 360, h: 520 },
   changes: { w: 390, h: 500 },
   review: { w: 410, h: 520 },
+  "pull-requests": { w: 390, h: 520 },
+  actions: { w: 390, h: 520 },
   center: { w: 860, h: 600 },
   browser: { w: 920, h: 640 },
   "agent-status": { w: 420, h: 520 },
@@ -266,7 +279,24 @@ function sanitizeJsonValue(value: unknown): unknown {
 }
 
 export function sanitizeCanvasWidgetSource<T extends CanvasWidgetSourceRef>(source: T): T {
-  return sanitizeJsonValue(source) as T;
+  const sanitized = sanitizeJsonValue(source) as T;
+  if (sanitized.type !== "center" || !Array.isArray(sanitized.tabs)) {
+    return sanitized;
+  }
+
+  // Action run status goes stale quickly; detail view re-fetches by runId.
+  // Persist may contain malformed tab entries; drop non-objects before mapping.
+  const tabs = (sanitized.tabs as unknown[])
+    .filter((tab): tab is CanvasCenterTab => {
+      if (tab === null || typeof tab !== "object") return false;
+      return "kind" in tab;
+    })
+    .map((tab) => (tab.kind === "github-action" ? { ...tab, run: null } : tab));
+
+  return {
+    ...sanitized,
+    tabs,
+  } as T;
 }
 
 export function getCanvasContextId(context: CanvasContextRef): string {
@@ -305,6 +335,10 @@ export function buildCanvasWidgetPinKey(source: CanvasWidgetSourceRef, frameId?:
       return `changes:${context.contextScope}:${contextId}:${source.group ?? "all"}`;
     case "review":
       return `review:${context.contextScope}:${contextId}:${source.sessionGuid ?? "current"}:${source.revisionGuid ?? "current"}`;
+    case "pull-requests":
+      return `pull-requests:${context.contextScope}:${contextId}`;
+    case "actions":
+      return `actions:${context.contextScope}:${contextId}`;
     case "center":
       return `center:${context.contextScope}:${contextId}:${frameId ?? "unframed"}`;
     case "browser":
@@ -337,6 +371,10 @@ export function createCanvasWidgetTitle(source: CanvasWidgetSourceRef): string {
       return canvasWidgetShapeT("titles.changes");
     case "review":
       return canvasWidgetShapeT("titles.review");
+    case "pull-requests":
+      return canvasWidgetShapeT("titles.pullRequests");
+    case "actions":
+      return canvasWidgetShapeT("titles.actions");
     case "center":
       return canvasWidgetShapeT("titles.center");
     case "browser":
@@ -385,6 +423,8 @@ function isCanvasWidgetType(value: unknown): value is CanvasWidgetType {
     value === "files" ||
     value === "changes" ||
     value === "review" ||
+    value === "pull-requests" ||
+    value === "actions" ||
     value === "center" ||
     value === "browser" ||
     value === "agent-status" ||

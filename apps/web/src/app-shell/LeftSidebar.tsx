@@ -23,6 +23,7 @@ import { FileTreePanel } from '@/features/files/components/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useComputerQueryScope } from '@/api/query/query-scope';
 import { isComputerQueryScopeCurrent } from '@/api/ws/request';
+import { isCancelledError } from '@/shared/lib/is-cancelled-error';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
@@ -270,6 +271,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 })
                 .catch((error) => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
+                    if (isCancelledError(error)) return;
                     console.error('Failed to load workspace sidebar settings:', error);
                     const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
                     retryAttempt += 1;
