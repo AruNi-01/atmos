@@ -83,9 +83,18 @@ describe("prepare-pages-report", () => {
       false,
     );
     expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-50/index.html"))).toBe(true);
-    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-40/index.html"))).toBe(true);
+    // Current run + 2 priors = RETAIN_RUNS_PER_GROUP (3). Older priors are dropped.
+    expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-40/index.html"))).toBe(
+      false,
+    );
     expect(fs.existsSync(path.join(siteRoot, "e2e-reports/pr-160/run-10/index.html"))).toBe(
       false,
     );
+
+    const retainedRuns = fs
+      .readdirSync(path.join(siteRoot, "e2e-reports/pr-160"))
+      .filter((name) => /^run-\d+$/.test(name))
+      .sort();
+    expect(retainedRuns).toEqual(["run-100", "run-200", "run-50"]);
   });
 });

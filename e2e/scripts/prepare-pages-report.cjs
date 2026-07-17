@@ -43,15 +43,19 @@ function retainExistingReports(existingRoot, siteRoot, currentReportPath) {
   const reportsRoot = path.join(existingRoot, "e2e-reports");
   if (!fs.existsSync(reportsRoot)) return;
 
+  // Current run is always added separately, so only keep RETAIN-1 priors.
+  const priorSlots = Math.max(0, RETAIN_RUNS_PER_GROUP - 1);
+
   for (const group of fs.readdirSync(reportsRoot, { withFileTypes: true })) {
     if (!group.isDirectory()) continue;
     const groupSource = path.join(reportsRoot, group.name);
-    const runNames = listRunDirs(groupSource);
-    const keep = runNames.slice(0, RETAIN_RUNS_PER_GROUP);
+    const runNames = listRunDirs(groupSource).filter((runName) => {
+      return path.join("e2e-reports", group.name, runName) !== currentReportPath;
+    });
+    const keep = runNames.slice(0, priorSlots);
 
     for (const runName of keep) {
       const relative = path.join("e2e-reports", group.name, runName);
-      if (relative === currentReportPath) continue;
       copyReportDir(path.join(groupSource, runName), path.join(siteRoot, relative));
     }
   }
