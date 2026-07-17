@@ -339,6 +339,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           REPORT_URL: ${{ steps.pages_meta.outputs.report_url }}
+          SELECTED_SUITES: ${{ needs.plan.outputs.suites }}
         with:
           script: |
             const {
@@ -356,7 +357,17 @@ jobs:
 
             const issue_number = context.issue.number;
             const runId = String(context.runId);
-            const body = buildPrCommentBody(report, process.env.REPORT_URL, { runId });
+            let suites = [];
+            try {
+              suites = JSON.parse(process.env.SELECTED_SUITES || "[]");
+            } catch {
+              suites = [];
+            }
+            const body = buildPrCommentBody(report, process.env.REPORT_URL, {
+              runId,
+              repository: `${context.repo.owner}/${context.repo.repo}`,
+              suites,
+            });
 
             // Paginate so older report comments are still found and expired.
             const priorComments = [];
