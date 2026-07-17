@@ -89,20 +89,23 @@ describe("e2e-report-utils PR comments", () => {
     expect(body).not.toContain(REPORT_COMMENT_EXPIRED_MARKER);
     expect(body).toContain("## E2E report: ❌ Failed");
     expect(body).toContain("**3 passed** · 1 failed · 1 flaky · 1 skipped · **2m 5s** · 60% pass rate");
-    expect(body).toContain("### Overview");
+    expect(body).toContain("### Run");
+    expect(body).toContain("<details>");
+    expect(body).toContain("<summary><strong>Overview</strong></summary>");
     expect(body).toContain("| Metric | Count |");
     expect(body).toContain("| Passed | 3 |");
     expect(body).toContain("| Failed | 1 |");
-    expect(body).toContain("### By file");
+    expect(body).toContain("<summary><strong>By file</strong></summary>");
     expect(body).toContain("`tests/smoke/settings/settings-modal.e2e.ts`");
-    expect(body).toContain("### By project");
+    expect(body).toContain("<summary><strong>By project</strong></summary>");
     expect(body).toContain("`chromium`");
-    expect(body).toContain("### Failed specs");
+    expect(body).toContain("<summary><strong>Failed specs</strong></summary>");
     expect(body).toContain("Timed out waiting for sidebar");
     expect(body).toContain("[`123`](https://github.com/AruNi-01/atmos/actions/runs/123)");
     expect(body).toContain("`smoke-settings`");
     expect(body).toContain("[Open report](https://example.test/report/)");
     expect(body).toContain("Open the HTML report for traces, screenshots, and videos.");
+    expect(body).not.toContain("<details open");
   });
 
   test("builds a passing comment without failure tables", () => {
@@ -123,7 +126,8 @@ describe("e2e-report-utils PR comments", () => {
 
     expect(body).toContain("## E2E report: ✅ Passed");
     expect(body).toContain("All selected E2E suites passed.");
-    expect(body).not.toContain("### Failed specs");
+    expect(body).toContain("<summary><strong>Overview</strong></summary>");
+    expect(body).not.toContain("<summary><strong>Failed specs</strong></summary>");
   });
 
   test("marks previous comments as expired while keeping the old report link", () => {

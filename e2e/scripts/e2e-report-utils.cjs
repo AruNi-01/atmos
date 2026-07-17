@@ -168,10 +168,22 @@ function appendMarkdownTable(lines, headers, rows) {
   }
 }
 
-function appendFailureLines(lines, failures, heading = "### Failed specs") {
-  if (failures.length === 0) return;
+function appendCollapsedSection(lines, summary, contentLines) {
+  if (!contentLines || contentLines.length === 0) return;
+  lines.push(
+    "",
+    "<details>",
+    `<summary><strong>${summary}</strong></summary>`,
+    "",
+    ...contentLines,
+    "",
+    "</details>",
+  );
+}
 
-  lines.push("", heading, "");
+function buildFailureTableLines(failures) {
+  if (failures.length === 0) return [];
+  const lines = [];
   appendMarkdownTable(
     lines,
     ["Project", "Spec", "Error"],
@@ -184,11 +196,18 @@ function appendFailureLines(lines, failures, heading = "### Failed specs") {
   if (failures.length > 15) {
     lines.push("", `_…and ${failures.length - 15} more failures in the HTML report._`);
   }
+  return lines;
 }
 
-function appendBreakdownTable(lines, heading, groups) {
-  if (groups.length === 0) return;
-  lines.push("", heading, "");
+function appendFailureLines(lines, failures, heading = "### Failed specs") {
+  const tableLines = buildFailureTableLines(failures);
+  if (tableLines.length === 0) return;
+  lines.push("", heading, "", ...tableLines);
+}
+
+function buildBreakdownTableLines(groups) {
+  if (groups.length === 0) return [];
+  const lines = [];
   appendMarkdownTable(
     lines,
     ["Name", "Passed", "Failed", "Flaky", "Skipped"],
@@ -200,6 +219,13 @@ function appendBreakdownTable(lines, heading, groups) {
       String(group.skipped),
     ]),
   );
+  return lines;
+}
+
+function appendBreakdownTable(lines, heading, groups) {
+  const tableLines = buildBreakdownTableLines(groups);
+  if (tableLines.length === 0) return;
+  lines.push("", heading, "", ...tableLines);
 }
 
 function buildReportSections(report, options = {}) {
@@ -319,9 +345,9 @@ function buildPrCommentBody(report, reportUrl, options = {}) {
   ]);
   appendMarkdownTable(lines, ["Field", "Value"], metaRows);
 
-  lines.push("", "### Overview", "");
+  const overviewLines = [];
   appendMarkdownTable(
-    lines,
+    overviewLines,
     ["Metric", "Count"],
     [
       ["Passed", String(overview.passed)],
@@ -332,10 +358,10 @@ function buildPrCommentBody(report, reportUrl, options = {}) {
       ["Pass rate", `${overview.passRate}%`],
     ],
   );
-
-  appendBreakdownTable(lines, "### By file", byFile);
-  appendBreakdownTable(lines, "### By project", byProject);
-  appendFailureLines(lines, failures, "### Failed specs");
+  appendCollapsedSection(lines, "Overview", overviewLines);
+  appendCollapsedSection(lines, "By file", buildBreakdownTableLines(byFile));
+  appendCollapsedSection(lines, "By project", buildBreakdownTableLines(byProject));
+  appendCollapsedSection(lines, "Failed specs", buildFailureTableLines(failures));
 
   if (failures.length === 0) {
     lines.push("", "All selected E2E suites passed.");
