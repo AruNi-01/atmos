@@ -270,6 +270,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # Existing Pages tree is pruned + re-published each run so zip/webm history
+      # cannot grow past GitHub Pages' ~1GB soft limit (which caused report 404s).
+      - name: Checkout existing Pages reports for retention
+        if: needs.plan.outputs.publish_report == 'true'
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: e2e/reports/gh-pages-existing
+          fetch-depth: 1
+
       - name: Prepare GitHub Pages content
         if: needs.plan.outputs.publish_report == 'true'
         id: pages_meta
@@ -280,6 +291,7 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PAGES_EXISTING_ROOT: reports/gh-pages-existing
         working-directory: e2e
         run: node scripts/prepare-pages-report.cjs
 
@@ -290,8 +302,37 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: e2e/reports/pages-site
-          keep_files: true
+          # Full pruned site each time — do not accumulate multi-GB history.
+          keep_files: false
+          force_orphan: true
           enable_jekyll: false
+
+      - name: Wait for GitHub Pages build
+        if: needs.plan.outputs.publish_report == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deadline = Date.now() + 10 * 60 * 1000;
+            while (Date.now() < deadline) {
+              const { data: builds } = await github.rest.repos.listPagesBuilds({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 1,
+              });
+              const latest = builds[0];
+              if (!latest) {
+                core.info("No Pages builds yet; continuing.");
+                return;
+              }
+              core.info(`Pages build ${latest.commit?.slice(0, 7)} status=${latest.status}`);
+              if (latest.status === "built") return;
+              if (latest.status === "errored") {
+                core.warning(latest.error?.message || "Pages build failed");
+                return;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 15_000));
+            }
+            core.warning("Timed out waiting for GitHub Pages build; commenting anyway.");
 
       - name: Comment on pull request with report URL
         if: needs.plan.outputs.publish_report == 'true' && github.event_name == 'pull_request'
