@@ -285,17 +285,17 @@ export function sanitizeCanvasWidgetSource<T extends CanvasWidgetSourceRef>(sour
   }
 
   // Action run status goes stale quickly; detail view re-fetches by runId.
+  // Persist may contain malformed tab entries; drop non-objects before mapping.
+  const tabs = (sanitized.tabs as unknown[])
+    .filter((tab): tab is CanvasCenterTab => {
+      if (tab === null || typeof tab !== "object") return false;
+      return "kind" in tab;
+    })
+    .map((tab) => (tab.kind === "github-action" ? { ...tab, run: null } : tab));
+
   return {
     ...sanitized,
-    tabs: sanitized.tabs.flatMap((tab) => {
-      if (!tab || typeof tab !== "object" || !("kind" in tab)) {
-        return [];
-      }
-      if (tab.kind === "github-action") {
-        return [{ ...tab, run: null }];
-      }
-      return [tab];
-    }),
+    tabs,
   } as T;
 }
 
