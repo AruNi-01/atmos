@@ -301,8 +301,10 @@ jobs:
         with:
           script: |
             const {
-              REPORT_COMMENT_MARKER,
+              buildExpiredPrCommentBody,
               buildPrCommentBody,
+              isE2eReportComment,
+              isExpiredE2eReportComment,
               readJsonReport,
             } = require("./e2e/scripts/e2e-report-utils.cjs");
             const report = readJsonReport("e2e/reports/merged/results.json");
@@ -310,33 +312,50 @@ jobs:
               core.setFailed("Merged JSON report was not generated.");
               return;
             }
-            const body = buildPrCommentBody(report, process.env.REPORT_URL);
-            const issue_number = context.issue.number;
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number,
-              per_page: 100,
-            });
-            const existing = comments.find((comment) =>
-              comment.user?.type === "Bot" && comment.body?.includes(REPORT_COMMENT_MARKER)
-            );
 
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
+            const issue_number = context.issue.number;
+            const runId = String(context.runId);
+            const body = buildPrCommentBody(report, process.env.REPORT_URL, { runId });
+
+            // Paginate so older report comments are still found and expired.
+            const priorComments = [];
+            for (let page = 1; page <= 10; page += 1) {
+              const { data } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number,
-                body,
+                per_page: 100,
+                page,
+              });
+              if (data.length === 0) break;
+              priorComments.push(...data);
+              if (data.length < 100) break;
+            }
+
+            const activeReportComments = priorComments.filter(
+              (comment) =>
+                comment.user?.type === "Bot" &&
+                isE2eReportComment(comment.body) &&
+                !isExpiredE2eReportComment(comment.body),
+            );
+
+            for (const comment of activeReportComments) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+                body: buildExpiredPrCommentBody(comment.body, {
+                  supersededByRunId: runId,
+                }),
               });
             }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body,
+            });
 
       - name: Write GitHub summary with published report URL
         if: needs.plan.outputs.publish_report == 'true'

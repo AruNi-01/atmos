@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 
 const REPORT_COMMENT_MARKER = "<!-- atmos-e2e-report -->";
+const REPORT_COMMENT_EXPIRED_MARKER = "<!-- atmos-e2e-report:expired -->";
 
 function readJsonReport(resultsPath) {
   if (!fs.existsSync(resultsPath)) return null;
@@ -72,20 +73,42 @@ function buildSummaryMarkdown(report) {
   return lines.join("\n");
 }
 
-function buildPrCommentBody(report, reportUrl) {
+function isE2eReportComment(body) {
+  return typeof body === "string" && body.includes(REPORT_COMMENT_MARKER);
+}
+
+function isExpiredE2eReportComment(body) {
+  return typeof body === "string" && body.includes(REPORT_COMMENT_EXPIRED_MARKER);
+}
+
+function extractReportUrl(body) {
+  if (typeof body !== "string") return null;
+  const match = body.match(/\[Open report\]\(([^)\s]+)\)/);
+  return match?.[1] ?? null;
+}
+
+function buildPrCommentBody(report, reportUrl, options = {}) {
   const stats = report.stats || {};
   const failures = collectFailures(report);
+  const runId = options.runId ? String(options.runId) : null;
   const lines = [
     REPORT_COMMENT_MARKER,
     "## E2E report",
     "",
+  ];
+
+  if (runId) {
+    lines.push(`- Run: \`${runId}\``);
+  }
+
+  lines.push(
     `- HTML report: [Open report](${reportUrl})`,
     `- Expected: ${stats.expected ?? 0}`,
     `- Unexpected: ${stats.unexpected ?? 0}`,
     `- Flaky: ${stats.flaky ?? 0}`,
     `- Skipped: ${stats.skipped ?? 0}`,
     `- Duration: ${Math.round((stats.duration ?? 0) / 1000)}s`,
-  ];
+  );
 
   if (failures.length > 0) {
     appendFailureLines(lines, failures, "### Failed specs");
@@ -96,9 +119,38 @@ function buildPrCommentBody(report, reportUrl) {
   return lines.join("\n");
 }
 
+function buildExpiredPrCommentBody(previousBody, options = {}) {
+  const supersededByRunId = options.supersededByRunId
+    ? String(options.supersededByRunId)
+    : null;
+  const previousUrl = extractReportUrl(previousBody);
+  const lines = [
+    REPORT_COMMENT_MARKER,
+    REPORT_COMMENT_EXPIRED_MARKER,
+    "## E2E report (expired)",
+    "",
+    "This report has been superseded by a newer CI - E2E run.",
+  ];
+
+  if (supersededByRunId) {
+    lines.push(`- Superseded by run: \`${supersededByRunId}\``);
+  }
+
+  if (previousUrl) {
+    lines.push(`- Previous HTML report: [Open report](${previousUrl})`);
+  }
+
+  return lines.join("\n");
+}
+
 module.exports = {
   REPORT_COMMENT_MARKER,
+  REPORT_COMMENT_EXPIRED_MARKER,
+  buildExpiredPrCommentBody,
   buildPrCommentBody,
   buildSummaryMarkdown,
+  extractReportUrl,
+  isE2eReportComment,
+  isExpiredE2eReportComment,
   readJsonReport,
 };
