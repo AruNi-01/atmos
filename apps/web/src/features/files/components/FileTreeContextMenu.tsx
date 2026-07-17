@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import {
   cn,
@@ -48,6 +49,10 @@ interface FileTreeContextMenuProps {
   menuState: FileTreeMenuState | null;
   selectedItem: FileTreeItem | null;
   relativePath: string | null;
+  /**
+   * @deprecated Menu is always portaled to document.body with fixed viewport
+   * coords (clientX/clientY). Kept for call-site compatibility.
+   */
   anchorPosition?: 'fixed' | 'absolute';
   panelState: PendingPanelState;
   panelName: string;
@@ -73,7 +78,6 @@ export function FileTreeContextMenu({
   menuState,
   selectedItem,
   relativePath,
-  anchorPosition = 'fixed',
   panelState,
   panelName,
   panelInputRef,
@@ -94,7 +98,16 @@ export function FileTreeContextMenu({
   applyRenameSelection,
 }: FileTreeContextMenuProps) {
   const t = useTranslations('files.components');
-  return (
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Portal the whole menu (including the zero-size fixed trigger) to body so
+  // canvas zoom/pan transforms and PopoverContent transforms cannot turn
+  // position:fixed into a mis-offset containing block.
+  const menu = (
     <DropdownMenu
       open={!!menuState}
       onOpenChange={(open) => {
@@ -107,17 +120,15 @@ export function FileTreeContextMenu({
         <button
           type="button"
           aria-hidden
-          className={cn(
-            'size-0 pointer-events-none',
-            anchorPosition === 'fixed' ? 'fixed' : 'absolute',
-          )}
+          className="fixed size-0 pointer-events-none"
           style={{
             left: menuState?.x ?? -9999,
             top: menuState?.y ?? -9999,
           }}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={4} className="w-64">
+      {/* z above breadcrumb/file popovers (e.g. z-[80]) */}
+      <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-64">
         {selectedItem ? (
           <>
             <DropdownMenuSub
@@ -134,7 +145,7 @@ export function FileTreeContextMenu({
                 <FilePlus2 />
                 {t('fileTreeContextMenu.actions.newFile')}
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-80 p-3">
+              <DropdownMenuSubContent className="z-[90] w-80 p-3">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
@@ -182,7 +193,7 @@ export function FileTreeContextMenu({
                 <FolderPlus />
                 {t('fileTreeContextMenu.actions.newFolder')}
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-80 p-3">
+              <DropdownMenuSubContent className="z-[90] w-80 p-3">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
@@ -280,7 +291,7 @@ export function FileTreeContextMenu({
                 <Pencil />
                 {t('fileTreeContextMenu.actions.rename')}
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-80 p-3">
+              <DropdownMenuSubContent className="z-[90] w-80 p-3">
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">
@@ -350,7 +361,7 @@ export function FileTreeContextMenu({
                 side="right"
                 align="start"
                 sideOffset={8}
-                className="w-72 border-border bg-popover p-3 shadow-lg"
+                className="z-[90] w-72 border-border bg-popover p-3 shadow-lg"
                 onOpenAutoFocus={(event) => event.preventDefault()}
                 onClick={(event) => event.stopPropagation()}
               >
@@ -402,4 +413,10 @@ export function FileTreeContextMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(menu, document.body);
 }
