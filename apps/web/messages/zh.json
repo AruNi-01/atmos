@@ -2754,7 +2754,8 @@
       "deleteBody": "确定删除 {name}？此操作无法撤销。",
       "deleteConfirm": "删除",
       "copiedTitle": "已复制路径",
-      "copyFailed": "无法复制路径"
+      "copyFailed": "无法复制路径",
+      "nameConflict": "已存在同名文档，请换一个名称。"
     },
     "script": {
       "runningTitle": "文档脚本运行中",

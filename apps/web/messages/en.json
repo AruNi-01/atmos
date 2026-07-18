@@ -2754,7 +2754,8 @@
       "deleteBody": "Delete {name}? This cannot be undone.",
       "deleteConfirm": "Delete",
       "copiedTitle": "Path copied",
-      "copyFailed": "Could not copy path"
+      "copyFailed": "Could not copy path",
+      "nameConflict": "A document with this name already exists. Choose a different name."
     },
     "script": {
       "runningTitle": "Document script running",

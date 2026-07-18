@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use chrono::Utc;
@@ -71,9 +71,18 @@ pub async fn get_document(
     })))
 }
 
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct PutDocumentQuery {
+    /// When true, allow replacing an existing file (normal Save of the open doc).
+    /// When false/omitted, refuse if the file already exists (Save As / create).
+    #[serde(default)]
+    pub overwrite: bool,
+}
+
 pub async fn put_document(
     State(state): State<AppState>,
     Path(file_name): Path<String>,
+    Query(query): Query<PutDocumentQuery>,
     Json(payload): Json<AtmosCanvasFilePayload>,
 ) -> ApiResult<Json<ApiResponse<CanvasDocumentWriteResponse>>> {
     let file_name = decode_name(file_name);
@@ -87,7 +96,9 @@ pub async fn put_document(
             files: s.files,
         }),
     };
-    let item = state.canvas_service.write_document(&file_name, &body)?;
+    let item = state
+        .canvas_service
+        .write_document(&file_name, &body, query.overwrite)?;
     Ok(Json(ApiResponse::success(CanvasDocumentWriteResponse {
         item: item_dto(item),
     })))
@@ -265,7 +276,7 @@ pub async fn update_default_board_compat(
     };
     let item = state
         .canvas_service
-        .write_document(DEFAULT_PIN_DOCUMENT_FILE, &body)?;
+        .write_document(DEFAULT_PIN_DOCUMENT_FILE, &body, true)?;
 
     let document_json = json!({
         "schema": "canvas.v1",

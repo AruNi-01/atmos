@@ -165,14 +165,23 @@ impl CanvasDocumentService {
         })
     }
 
+    /// Write a canvas document. When `overwrite` is false and the file already
+    /// exists, returns a validation error (Save As must not clobber).
     pub fn write_document(
         &self,
         file_name: &str,
         body: &AtmosCanvasFile,
+        overwrite: bool,
     ) -> Result<CanvasDocumentListItem> {
         validate_atmos_canvas_file(body)?;
         let path = self.resolve_document_path(file_name)?;
         self.ensure_canvas_dir()?;
+
+        if path.is_file() && !overwrite {
+            return Err(ServiceError::Validation(format!(
+                "Canvas document `{file_name}` already exists"
+            )));
+        }
 
         let json = serde_json::to_string_pretty(body).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize canvas document: {e}"))
@@ -250,7 +259,8 @@ impl CanvasDocumentService {
             .unwrap_or(&new_file_name)
             .to_string();
         doc.body.title = stem;
-        self.write_document(&new_file_name, &doc.body)?;
+        // New name must not exist (checked above); write without overwrite.
+        self.write_document(&new_file_name, &doc.body, false)?;
         fs::remove_file(&from).map_err(|e| {
             ServiceError::Processing(format!(
                 "Renamed to `{new_file_name}` but failed to remove old file: {e}"
@@ -282,7 +292,7 @@ impl CanvasDocumentService {
             .to_string();
         let mut body = src.body;
         body.title = stem;
-        self.write_document(&target_name, &body)
+        self.write_document(&target_name, &body, false)
     }
 
     fn resolve_document_path(&self, file_name: &str) -> Result<PathBuf> {
@@ -517,7 +527,8 @@ mod tests {
         assert!(svc
             .write_document(
                 "../x.atmos.tldr",
-                &CanvasDocumentService::empty_document("x")
+                &CanvasDocumentService::empty_document("x"),
+                false,
             )
             .is_err());
     }
@@ -530,6 +541,7 @@ mod tests {
         svc.write_document(
             "a.atmos.tldr",
             &CanvasDocumentService::empty_document("a"),
+            false,
         )
         .unwrap();
         let items = svc.list_documents().unwrap();
@@ -554,11 +566,19 @@ mod tests {
                 )]),
             }),
         };
-        svc.write_document("Ops Desk.atmos.tldr", &body).unwrap();
+        svc.write_document("Ops Desk.atmos.tldr", &body, false).unwrap();
         let loaded = svc.read_document("Ops Desk.atmos.tldr").unwrap();
         assert_eq!(loaded.body, body);
         assert_eq!(loaded.title, "Ops Desk");
         assert!(loaded.size_bytes > 0);
+        // overwrite=false must refuse
+        assert!(svc
+            .write_document("Ops Desk.atmos.tldr", &body, false)
+            .is_err());
+        // overwrite=true updates
+        assert!(svc
+            .write_document("Ops Desk.atmos.tldr", &body, true)
+            .is_ok());
     }
 
     #[test]
@@ -572,7 +592,7 @@ mod tests {
             session: None,
             script: None,
         };
-        assert!(svc.write_document("x.atmos.tldr", &bad).is_err());
+        assert!(svc.write_document("x.atmos.tldr", &bad, false).is_err());
     }
 
     #[test]
@@ -582,6 +602,7 @@ mod tests {
         svc.write_document(
             "a.atmos.tldr",
             &CanvasDocumentService::empty_document("a"),
+            false,
         )
         .unwrap();
         let renamed = svc.rename_document("a.atmos.tldr", "b").unwrap();

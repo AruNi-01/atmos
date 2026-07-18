@@ -203,7 +203,6 @@ export const CanvasView: React.FC = () => {
     isSaving,
     error,
     documentList,
-    canvasDir,
     loadBoard,
     saveDocument,
     saveAs,
@@ -1287,7 +1286,6 @@ export const CanvasView: React.FC = () => {
               fileName={fileName}
               dirty={dirty}
               documentList={documentList}
-              canvasDir={canvasDir}
               isBusy={isSaving || isManualSaving}
               onRefreshList={refreshDocumentList}
               onOpen={async (next) => {

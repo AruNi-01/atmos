@@ -914,9 +914,12 @@ export const canvasApi = {
   putDocument: async (
     fileName: string,
     body: AtmosCanvasFile,
+    options?: { overwrite?: boolean },
   ): Promise<CanvasDocumentWriteResponse> => {
+    const overwrite = options?.overwrite === true;
+    const qs = overwrite ? "?overwrite=true" : "";
     return fetchApi<CanvasDocumentWriteResponse>(
-      `/api/canvas/documents/${encodeURIComponent(fileName)}`,
+      `/api/canvas/documents/${encodeURIComponent(fileName)}${qs}`,
       {
         method: "PUT",
         body: JSON.stringify(body),

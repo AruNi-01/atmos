@@ -157,7 +157,8 @@ export async function loadPinTargetDocument(): Promise<{
 
   const fileName = DEFAULT_PIN_DOCUMENT_FILE;
   const document = createDefaultDocument("Default");
-  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document));
+  // Create only — never clobber an existing Default board from pin bootstrap.
+  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document), { overwrite: false });
   writeActiveCanvasDocumentFileName(fileName);
   return { fileName, document };
 }
@@ -166,7 +167,8 @@ export async function savePinTargetDocument(
   fileName: string,
   document: CanvasBoardDocument,
 ): Promise<void> {
-  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document));
+  // Pin updates always target an existing (or just-created) document path.
+  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document), { overwrite: true });
 }
 
 export function useCanvasBoard() {
@@ -250,10 +252,12 @@ export function useCanvasBoard() {
           ...nextDocument,
           title: nextDocument.title || title,
         });
-        const res = await canvasApi.putDocument(resolvedName, payload);
+        // Overwrite only when saving the already-open file. Save As / new name must not clobber.
+        const overwrite = fileName != null && resolvedName === fileName;
+        const res = await canvasApi.putDocument(resolvedName, payload, { overwrite });
         // Same open file: do NOT replace `document.tldrawDocument` in React state.
         // Feeding a new snapshot into <Tldraw> remounts/reloads the editor (flash).
-        const sameOpenFile = fileName != null && res.item.file_name === fileName;
+        const sameOpenFile = overwrite;
         if (sameOpenFile) {
           setTitle(payload.title);
           writeActiveCanvasDocumentFileName(res.item.file_name);
@@ -290,13 +294,45 @@ export function useCanvasBoard() {
   const saveAs = useCallback(
     async (displayName: string, nextDocument: CanvasBoardDocument) => {
       const { file_name } = await canvasApi.sanitizeName(displayName);
+      // Saving over the currently open file under a new display name that
+      // sanitizes to the same path is a normal save — otherwise never overwrite.
+      if (fileName != null && file_name === fileName) {
+        await saveDocument(
+          {
+            ...nextDocument,
+            title: displayName.trim() || nextDocument.title,
+          },
+          file_name,
+        );
+        return;
+      }
       const titled = {
         ...nextDocument,
         title: displayName.trim() || nextDocument.title,
       };
-      await saveDocument(titled, file_name);
+      // Force create path (overwrite=false) even if saveDocument's fileName matches.
+      setIsSaving(true);
+      setError(null);
+      try {
+        const payload = toAtmosCanvasFile({
+          ...titled,
+          title: titled.title || title,
+        });
+        const res = await canvasApi.putDocument(file_name, payload, { overwrite: false });
+        applyLoaded(res.item.file_name, {
+          ...titled,
+          schema: ATMOS_CANVAS_FILE_SCHEMA,
+          title: payload.title,
+        });
+        await refreshDocumentList();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save canvas");
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [saveDocument],
+    [applyLoaded, fileName, refreshDocumentList, title],
   );
 
   const openDocument = useCallback(

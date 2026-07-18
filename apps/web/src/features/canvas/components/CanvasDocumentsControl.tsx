@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { Copy, FileText, Loader2, MoreHorizontal } from "lucide-react";
+import { FileText, Loader2, MoreHorizontal } from "lucide-react";
 import {
   Button,
   Input,
@@ -35,7 +35,6 @@ export function CanvasDocumentsControl({
   fileName,
   dirty,
   documentList,
-  canvasDir,
   isBusy,
   onRefreshList,
   onOpen,
@@ -51,7 +50,6 @@ export function CanvasDocumentsControl({
   fileName: string | null;
   dirty: boolean;
   documentList: CanvasDocumentListItem[];
-  canvasDir?: string | null;
   isBusy?: boolean;
   onRefreshList: () => void | Promise<void>;
   onOpen: (fileName: string) => void | Promise<void>;
@@ -190,33 +188,18 @@ export function CanvasDocumentsControl({
       setSaveAsOpen(false);
       setSaveAsAfter("none");
       setPendingOpenFile(null);
-    } catch {
-      // parent surfaces
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const copyPath = async (itemFile: string) => {
-    const base = canvasDir?.replace(/\/$/, "") ?? "";
-    const full = itemFile
-      ? base
-        ? `${base}/${itemFile}`
-        : itemFile
-      : base || itemFile;
-    try {
-      await navigator.clipboard.writeText(full);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("nameConflict");
       toastManager.add({
-        title: t("copiedTitle"),
-        description: full,
-        type: "success",
-      });
-    } catch {
-      toastManager.add({
-        title: t("copiedTitle"),
-        description: t("copyFailed"),
+        title: t("saveAsTitle"),
+        description: message.includes("already exists")
+          ? t("nameConflict")
+          : message,
         type: "error",
       });
+    } finally {
+      setWorking(false);
     }
   };
 
@@ -246,18 +229,6 @@ export function CanvasDocumentsControl({
         >
           <div className="border-b px-3 py-2">
             <div className="text-sm font-medium">{t("popoverTitle")}</div>
-            <div className="text-xs text-muted-foreground">{t("popoverHint")}</div>
-            {canvasDir ? (
-              <button
-                type="button"
-                className="mt-1 flex max-w-full items-center gap-1 truncate text-[11px] text-muted-foreground hover:text-foreground"
-                onClick={() => void copyPath("")}
-                title={canvasDir}
-              >
-                <Copy className="size-3 shrink-0" />
-                <span className="truncate">{canvasDir}</span>
-              </button>
-            ) : null}
           </div>
           <div className="max-h-64 overflow-y-auto p-1">
             {documentList.length === 0 ? (
@@ -326,9 +297,6 @@ export function CanvasDocumentsControl({
                           }}
                         >
                           {t("duplicate")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => void copyPath(item.file_name)}>
-                          {t("copyPath")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"

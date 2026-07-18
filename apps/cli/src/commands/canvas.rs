@@ -278,6 +278,9 @@ pub struct DocPutArgs {
     /// Path to a JSON file matching `atmos-canvas-file.1`.
     #[arg(long)]
     pub from: PathBuf,
+    /// Allow replacing an existing document (default refuses name conflicts).
+    #[arg(long, default_value_t = false)]
+    pub force: bool,
 }
 
 #[derive(Debug, Args)]
@@ -364,10 +367,13 @@ async fn docs_put(api: &ApiClientArgs, args: &DocPutArgs) -> Result<Value, Strin
         .map_err(|err| format!("failed to read {}: {err}", args.from.display()))?;
     let body: Value = serde_json::from_str(&raw)
         .map_err(|err| format!("--from must be valid JSON: {err}"))?;
-    let path = format!(
+    let mut path = format!(
         "/api/canvas/documents/{}",
         urlencoding::encode(&args.file)
     );
+    if args.force {
+        path.push_str("?overwrite=true");
+    }
     canvas_http_json(api, reqwest::Method::PUT, &path, Some(body)).await
 }
 
