@@ -4,6 +4,7 @@ import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  Camera,
   Eye,
   LayoutGrid,
   Maximize2,
@@ -14,7 +15,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
-import { cn, DotmSquare12 } from "@workspace/ui";
+import { cn, DotmSquare12, TextShimmer } from "@workspace/ui";
 
 import type { CanvasAgentFeedStore } from "../lib/canvas-agent-feed";
 import type {
@@ -32,6 +33,7 @@ import {
   resolveCanvasAgentIslandWorking,
 } from "../lib/canvas-agent-activity";
 import type { CanvasAgentBridgeState } from "../hooks/use-canvas-agent-bridge";
+import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 
 const PANEL_TRANSITION = {
   duration: 0.24,
@@ -152,7 +154,16 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
             transition={PANEL_TRANSITION}
             className="pointer-events-auto w-[min(100vw-2rem,20rem)]"
           >
-            <ExpandedPanel batches={snapshot.batches} />
+            <ExpandedPanel
+              batches={snapshot.batches}
+              // While the island is in "working" mode, shimmer the current
+              // doing row even if the entry just flipped to done (15s window).
+              shimmerEntryId={
+                isWorking
+                  ? (snapshot.activeEntryId ?? current.requestId)
+                  : snapshot.activeEntryId
+              }
+            />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -182,14 +193,20 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
         <IslandStatusLabel
           labelKey={`${current.requestId}:${isWorking ? "work" : "idle"}`}
           label={current.label}
-          isWorking={isWorking}
+          isWorking={isWorking && !reducedMotion}
         />
       </button>
     </div>
   );
 }
 
-function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
+function ExpandedPanel({
+  batches,
+  shimmerEntryId,
+}: {
+  batches: CanvasAgentFeedBatch[];
+  shimmerEntryId: string | null;
+}) {
   const t = useTranslations("Canvas.chrome");
   const visibleBatches = buildVisibleHistoryBatches(batches);
 
@@ -207,7 +224,11 @@ function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
             ) : null}
             <ul className="flex flex-col gap-1">
               {batch.rows.map(row => (
-                <HistoryRow key={row.id} row={row} />
+                <HistoryRow
+                  key={row.id}
+                  row={row}
+                  shimmer={row.id === shimmerEntryId || row.status === "active"}
+                />
               ))}
             </ul>
           </React.Fragment>
@@ -217,8 +238,18 @@ function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
   );
 }
 
-function HistoryRow({ row }: { row: SummarizedFeedRow }) {
+function HistoryRow({
+  row,
+  shimmer,
+}: {
+  row: SummarizedFeedRow;
+  shimmer: boolean;
+}) {
   const locale = useLocale();
+  const t = useTranslations("Canvas.chrome");
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const shot = row.screenshot?.dataUrl ? row.screenshot : null;
+  const label = formatRowLabel(row);
 
   return (
     <li className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs">
@@ -228,27 +259,75 @@ function HistoryRow({ row }: { row: SummarizedFeedRow }) {
           "size-3.5 shrink-0",
           row.status === "error"
             ? "text-destructive"
-            : row.status === "active"
+            : shimmer
               ? "text-emerald-500"
               : "text-muted-foreground",
         )}
       />
       <span
         className={cn(
-          "min-w-0 flex-1 truncate",
-          row.status === "active" ? "text-foreground" : "text-foreground/85",
+          "min-w-0 flex-1",
+          shimmer ? "text-foreground" : "truncate text-foreground/85",
         )}
       >
-        {formatRowLabel(row)}
+        {shimmer ? (
+          <TextShimmer
+            as="span"
+            duration={1.5}
+            className="text-xs font-medium"
+          >
+            {label}
+          </TextShimmer>
+        ) : (
+          <span className="truncate">{label}</span>
+        )}
       </span>
+      {shot ? (
+        <button
+          type="button"
+          aria-label={t("agentIsland.openScreenshotPreview")}
+          title={t("agentIsland.openScreenshotPreview")}
+          onClick={e => {
+            e.stopPropagation();
+            setPreviewOpen(true);
+          }}
+          className={cn(
+            "size-7 shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40",
+            "cursor-zoom-in transition-opacity hover:opacity-90",
+          )}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={shot.dataUrl}
+            alt=""
+            width={shot.width || 28}
+            height={shot.height || 28}
+            className="size-full object-cover object-top"
+            draggable={false}
+          />
+        </button>
+      ) : null}
       <time
         className="shrink-0 tabular-nums text-[10px] text-muted-foreground"
         dateTime={new Date(row.time).toISOString()}
       >
         {formatTime(row.time, locale)}
       </time>
+      {previewOpen && shot ? (
+        <ImagePreviewOverlay
+          src={shot.dataUrl}
+          alt={t("agentIsland.screenshotPreviewAlt")}
+          onClose={() => setPreviewOpen(false)}
+        />
+      ) : null}
     </li>
   );
+}
+
+function isScreenshotRow(row: SummarizedFeedRow): boolean {
+  if (row.screenshot?.dataUrl) return true;
+  const command = (row.command ?? "").trim().toLowerCase().replace(/_/g, "-");
+  return command === "screenshot";
 }
 
 function HistoryIcon({
@@ -258,6 +337,7 @@ function HistoryIcon({
   className?: string;
   row: SummarizedFeedRow;
 }) {
+  if (isScreenshotRow(row)) return <Camera className={className} aria-hidden />;
   if (row.label.includes("writing")) return <Type className={className} aria-hidden />;
 
   switch (row.kind) {
@@ -283,8 +363,8 @@ function HistoryIcon({
 }
 
 /**
- * Label slot — no motion wrapper around TextShimmer (see Footer ticker comment).
- * Keyed remount + tailwind `animate-in` handles enter transitions.
+ * Label slot — TextShimmer matches Footer / AgentActivityIndicator.
+ * Do not wrap TextShimmer in motion/AnimatePresence (see HostedAppShellGate).
  */
 function IslandStatusLabel({
   labelKey,
@@ -298,19 +378,16 @@ function IslandStatusLabel({
   return (
     <span
       key={labelKey}
-      className="block whitespace-nowrap text-sm font-medium animate-in fade-in slide-in-from-bottom-1 duration-200"
+      className="block max-w-[14rem] truncate whitespace-nowrap text-sm font-medium"
       aria-live="polite"
       aria-atomic
     >
       {isWorking ? (
-        <span
-          className="canvas-agent-island-shimmer whitespace-nowrap"
-          style={{ animationDuration: "1.8s" }}
-        >
+        <TextShimmer as="span" duration={1.5} className="text-sm font-medium">
           {label}
-        </span>
+        </TextShimmer>
       ) : (
-        <span className="whitespace-nowrap opacity-90">{label}</span>
+        <span className="opacity-90">{label}</span>
       )}
     </span>
   );
@@ -372,8 +449,18 @@ function useDismissOnOutsidePress(
     if (!enabled) return;
 
     const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
       const root = rootRef.current;
-      if (!root || root.contains(event.target as Node)) return;
+      if (!root || root.contains(target)) return;
+      // Image preview is portaled to document.body — closing it must not
+      // collapse the Island history popover.
+      if (
+        target instanceof Element &&
+        target.closest("[data-image-preview-overlay]")
+      ) {
+        return;
+      }
       onDismiss();
     };
 

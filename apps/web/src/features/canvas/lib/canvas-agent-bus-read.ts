@@ -2,7 +2,11 @@ import type { Editor, TLShapeId } from "tldraw";
 
 import { getShapePageBoundsBox } from "./canvas-agent-bounds";
 import { CanvasAgentError } from "./canvas-agent-errors";
-import { computeCanvasLints } from "./canvas-agent-lint";
+import {
+  buildLintFixSuggestions,
+  computeCanvasLints,
+  summarizeLints,
+} from "./canvas-agent-lint";
 import {
   optionalString,
   parseOlderOffset,
@@ -66,6 +70,7 @@ export function runCanvasAgentGetState(
   const viewport = editor.getViewportPageBounds();
   const selection = editor.getSelectedShapeIds();
 
+  const lints = computeCanvasLints(editor);
   return {
     schema: "canvas_agent_state.v1",
     page_id: pageId,
@@ -102,15 +107,37 @@ export function runCanvasAgentGetState(
         parent_id: s.parentId,
       };
     }),
-    lints: computeCanvasLints(editor),
+    lints,
+    lints_summary: summarizeLints(lints),
   };
 }
 
-export function runCanvasAgentLint(editor: Editor) {
-  return { lints: computeCanvasLints(editor) };
+export function runCanvasAgentLint(
+  editor: Editor,
+  args: Record<string, unknown> = {},
+) {
+  const wantFixes =
+    args.fix_suggestions === true ||
+    args.fixSuggestions === true ||
+    args.include_fix_suggestions === true;
+
+  if (wantFixes) {
+    const { lints, fix_suggestions } = buildLintFixSuggestions(editor);
+    return {
+      lints,
+      summary: summarizeLints(lints),
+      fix_suggestions,
+    };
+  }
+
+  const lints = computeCanvasLints(editor);
+  return { lints, summary: summarizeLints(lints) };
 }
 
-export function runCanvasAgentSetStatus(args: Record<string, unknown>) {
+export function runCanvasAgentSetStatus(
+  editor: Editor,
+  args: Record<string, unknown>,
+) {
   const raw = optionalString(args.status);
   if (!raw) {
     throw new CanvasAgentError(
@@ -127,7 +154,17 @@ export function runCanvasAgentSetStatus(args: Record<string, unknown>) {
       false,
     );
   }
-  return { status };
+  const lints = computeCanvasLints(editor);
+  const summary = summarizeLints(lints);
+  return {
+    status,
+    lints_summary: summary,
+    /**
+     * When finishing a turn (`idle`), agents should treat non-zero
+     * `error_count` as "not done" and fix before stopping.
+     */
+    ready_to_idle: status !== "idle" || summary.clean,
+  };
 }
 
 /** Read text content for specific shapes on demand (includes tmux capture for terminals). */

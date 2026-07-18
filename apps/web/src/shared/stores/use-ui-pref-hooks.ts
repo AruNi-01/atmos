@@ -324,6 +324,11 @@ export interface CanvasUiPrefs {
   lastPinnedByBoard: Record<string, CanvasLastPinnedTerminal>;
   agentClientId: string | null;
   acceptsCommands: boolean;
+  /**
+   * When true, camera pans/zooms to shapes the canvas agent touches.
+   * Turn off when drawing alongside the agent.
+   */
+  agentFollow: boolean;
 }
 
 const DEFAULT_CANVAS_PREFS: CanvasUiPrefs = {
@@ -331,6 +336,7 @@ const DEFAULT_CANVAS_PREFS: CanvasUiPrefs = {
   lastPinnedByBoard: {},
   agentClientId: null,
   acceptsCommands: false,
+  agentFollow: true,
 };
 
 /** Merge persisted canvas prefs with defaults (older saves omit new fields). */
@@ -454,20 +460,27 @@ export function writeCanvasSession(
 }
 
 export function useCanvasAgentBridgePrefs(): [
-  { clientId: string | null; acceptsCommands: boolean },
+  { clientId: string | null; acceptsCommands: boolean; agentFollow: boolean },
   {
     setClientId: (id: string) => void;
     setAcceptsCommands: (value: boolean) => void;
+    setAgentFollow: (value: boolean) => void;
   },
 ] {
   const [prefs, setPrefs] = useInstanceSlice('canvas', DEFAULT_CANVAS_PREFS);
   return [
-    { clientId: prefs.agentClientId, acceptsCommands: prefs.acceptsCommands },
+    {
+      clientId: prefs.agentClientId,
+      acceptsCommands: prefs.acceptsCommands,
+      agentFollow: prefs.agentFollow !== false,
+    },
     {
       setClientId: id =>
         setPrefs(prev => ({ ...prev, agentClientId: id })),
       setAcceptsCommands: value =>
         setPrefs(prev => ({ ...prev, acceptsCommands: value })),
+      setAgentFollow: value =>
+        setPrefs(prev => ({ ...prev, agentFollow: value })),
     },
   ];
 }

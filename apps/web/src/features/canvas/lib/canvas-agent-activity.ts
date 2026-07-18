@@ -79,9 +79,20 @@ export interface CanvasAgentActivity {
   at: number;
 }
 
+/** Last agent-region screenshot captured via `atmos canvas screenshot`. */
+export interface CanvasAgentScreenshotPreview {
+  dataUrl: string;
+  width: number;
+  height: number;
+  /** Page-space region that was cropped (when known). */
+  region: CanvasAgentBounds | null;
+  at: number;
+}
+
 export class CanvasAgentActivityStore {
   private last: CanvasAgentActivity | null = null;
   private viewBounds: CanvasAgentBounds | null = null;
+  private lastScreenshot: CanvasAgentScreenshotPreview | null = null;
   private inflightDepth = 0;
   private inflight = false;
   /** Set by `set-status`; cleared when a new dispatch begins. */
@@ -100,6 +111,31 @@ export class CanvasAgentActivityStore {
   getSnapshot = (): CanvasAgentActivity | null => this.last;
 
   getViewState = (): CanvasAgentViewState => this.cachedViewState;
+
+  getLastScreenshot = (): CanvasAgentScreenshotPreview | null => this.lastScreenshot;
+
+  setLastScreenshot(preview: {
+    dataUrl: string;
+    width: number;
+    height: number;
+    region?: CanvasAgentBounds | null;
+  }) {
+    if (!preview.dataUrl.startsWith("data:")) return;
+    this.lastScreenshot = {
+      dataUrl: preview.dataUrl,
+      width: preview.width,
+      height: preview.height,
+      region: preview.region ?? null,
+      at: Date.now(),
+    };
+    this.emit();
+  }
+
+  clearLastScreenshot() {
+    if (!this.lastScreenshot) return;
+    this.lastScreenshot = null;
+    this.emit();
+  }
 
   /**
    * Session signal from `atmos canvas set-status`. `idle` stops UI indicators
@@ -205,6 +241,10 @@ export class CanvasAgentActivityStore {
     }
     if (this.viewBounds !== null) {
       this.viewBounds = null;
+      changed = true;
+    }
+    if (this.lastScreenshot !== null) {
+      this.lastScreenshot = null;
       changed = true;
     }
     if (this.inflightDepth > 0 || this.inflight) {

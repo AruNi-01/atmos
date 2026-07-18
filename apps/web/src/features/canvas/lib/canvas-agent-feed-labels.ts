@@ -90,6 +90,9 @@ export function describeCanvasAgentCommand(
   if (verb === "get-state" || verb === "status" || verb === "lint") {
     return { kind: "read", label: canvasAgentFeedT("readingCanvas") };
   }
+  if (verb === "screenshot") {
+    return { kind: "read", label: canvasAgentFeedT("capturingScreenshot") };
+  }
   if (verb === "extract-text") {
     return { kind: "read", label: canvasAgentFeedT("extractingShapeText") };
   }

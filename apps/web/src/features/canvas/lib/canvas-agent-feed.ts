@@ -24,6 +24,12 @@ export const CANVAS_AGENT_FEED_STALE_MS = 45_000;
 
 export type CanvasAgentFeedEntryStatus = "active" | "done" | "error";
 
+export interface CanvasAgentFeedScreenshot {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
 export interface CanvasAgentFeedEntry {
   requestId: string;
   command: string;
@@ -32,6 +38,8 @@ export interface CanvasAgentFeedEntry {
   status: CanvasAgentFeedEntryStatus;
   startedAt: number;
   completedAt: number | null;
+  /** Present when this entry was a successful `screenshot` capture. */
+  screenshot?: CanvasAgentFeedScreenshot | null;
 }
 
 export interface CanvasAgentFeedBatch {
@@ -131,10 +139,41 @@ export class CanvasAgentFeedStore {
     }
   }
 
-  /** Idempotent complete — safe to call from `finally` after each dispatch. */
-  finalizeRequest(requestId: string, success: boolean) {
+  /**
+   * Idempotent complete — safe to call from `finally` after each dispatch.
+   * Optional `screenshot` is attached to the same entry so the Island timeline
+   * can show a thumb on the "Capturing screenshot" row (HMR-safe: no new
+   * method call sites required beyond this existing finalize path).
+   */
+  finalizeRequest(
+    requestId: string,
+    success: boolean,
+    extras?: { screenshot?: CanvasAgentFeedScreenshot | null },
+  ) {
+    if (extras?.screenshot?.dataUrl?.startsWith("data:")) {
+      const entry = this.findEntry(requestId);
+      if (entry) {
+        entry.screenshot = {
+          dataUrl: extras.screenshot.dataUrl,
+          width: extras.screenshot.width,
+          height: extras.screenshot.height,
+        };
+      }
+    }
     this.complete(requestId, success);
     this.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
+  }
+
+  /**
+   * Attach a region screenshot JPEG to a feed entry.
+   * Prefer `finalizeRequest(..., { screenshot })` from the bridge so a single
+   * code path always runs (avoids HMR stale instances missing this method).
+   */
+  attachScreenshot(
+    requestId: string,
+    screenshot: CanvasAgentFeedScreenshot,
+  ) {
+    this.finalizeRequest(requestId, true, { screenshot });
   }
 
   /** Close orphaned `active` rows (missed complete, duplicate WS, tab race). */

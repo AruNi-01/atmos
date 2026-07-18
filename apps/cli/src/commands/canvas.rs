@@ -103,7 +103,11 @@ pub async fn execute(
             let body = args.body();
             invoke(&api, &canvas, "place", body).await
         }
-        CanvasCommand::Lint => invoke(&api, &canvas, "lint", json!({})).await,
+        CanvasCommand::Lint(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "lint", body).await
+        }
+        CanvasCommand::Screenshot(args) => screenshot(&api, &canvas, args).await,
         CanvasCommand::Apply(args) => {
             let body = args.body()?;
             invoke(&api, &canvas, "apply", body).await
@@ -167,9 +171,11 @@ pub enum CanvasCommand {
     Distribute(DistributeArgs),
     /// Place one shape relative to another (page-bounds math).
     Place(PlaceArgs),
-    /// Report overlap / unbound-arrow lints on the current page.
-    Lint,
-    /// Run up to 32 mutating commands in one request (stops on first failure).
+    /// Report layout lints (bad overlaps, text overflow, unbound arrows).
+    Lint(LintArgs),
+    /// Export a JPEG of the agent-drawn region only (excludes Atmos chrome widgets/terminals).
+    Screenshot(ScreenshotArgs),
+    /// Run up to 64 mutating commands in one request (stops on first failure).
     Apply(ApplyArgs),
     /// Set the dashed agent-view frame (explicit page-space rect or shape union).
     SetAgentView(SetAgentViewArgs),
@@ -759,6 +765,161 @@ impl CanvasSessionStatus {
             Self::Idle => "idle",
         }
     }
+}
+
+#[derive(Debug, Args)]
+pub struct LintArgs {
+    /// Include CLI-ready `fix_suggestions` (move / update_shape) for each remediable lint.
+    #[arg(long, default_value_t = false)]
+    pub fix_suggestions: bool,
+}
+
+impl LintArgs {
+    fn body(&self) -> Value {
+        if self.fix_suggestions {
+            json!({ "fix_suggestions": true })
+        } else {
+            json!({})
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "kebab-case")]
+pub enum ScreenshotSize {
+    Small,
+    Medium,
+    Large,
+}
+
+impl ScreenshotSize {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Small => "small",
+            Self::Medium => "medium",
+            Self::Large => "large",
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ScreenshotArgs {
+    /// Comma-separated shape ids — region is their page-bounds union (chrome still excluded).
+    #[arg(long)]
+    pub ids: Option<String>,
+    /// Explicit page-space crop box (use with --y --w --h).
+    #[arg(long)]
+    pub x: Option<f64>,
+    #[arg(long)]
+    pub y: Option<f64>,
+    #[arg(long)]
+    pub w: Option<f64>,
+    #[arg(long)]
+    pub h: Option<f64>,
+    /// Use the dashed agent-view frame from `set-agent-view` (recommended for turn-end verify).
+    #[arg(long, default_value_t = false)]
+    pub use_agent_view: bool,
+    /// Extra padding around the region when using --ids or --x/--y/--w/--h (default 48).
+    #[arg(long)]
+    pub padding: Option<f64>,
+    /// Export resolution preset.
+    #[arg(long, value_enum, default_value_t = ScreenshotSize::Medium)]
+    pub size: ScreenshotSize,
+    /// Include Atmos canvas-widget / canvas-terminal chrome (default off).
+    #[arg(long, default_value_t = false)]
+    pub include_widgets: bool,
+    /// Write the JPEG to this path (decoded from data_url). Prints the path on success.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+}
+
+impl ScreenshotArgs {
+    fn body(&self) -> Result<Value, String> {
+        let mut body = json!({
+            "size": self.size.as_str(),
+        });
+        if self.use_agent_view {
+            body["use_agent_view"] = json!(true);
+        }
+        if self.include_widgets {
+            body["include_widgets"] = json!(true);
+        }
+        if let Some(padding) = self.padding {
+            body["padding"] = json!(padding);
+        }
+        if let Some(ids) = &self.ids {
+            body["ids"] = json!(split_ids(ids));
+        }
+        let has_box = self.x.is_some() || self.y.is_some() || self.w.is_some() || self.h.is_some();
+        if has_box {
+            let x = self.x.ok_or("screenshot --x is required with y,w,h")?;
+            let y = self.y.ok_or("screenshot --y is required with x,w,h")?;
+            let w = self.w.ok_or("screenshot --w is required with x,y,h")?;
+            let h = self.h.ok_or("screenshot --h is required with x,y,w")?;
+            body["x"] = json!(x);
+            body["y"] = json!(y);
+            body["w"] = json!(w);
+            body["h"] = json!(h);
+        }
+        Ok(body)
+    }
+}
+
+async fn screenshot(
+    api: &ApiClientArgs,
+    canvas: &CanvasOpts,
+    args: ScreenshotArgs,
+) -> Result<Value, String> {
+    let body = args.body()?;
+    let result = invoke(api, canvas, "screenshot", body).await?;
+    if let Some(out) = &args.out {
+        let data = result
+            .get("data")
+            .cloned()
+            .unwrap_or(Value::Null);
+        let data_url = data
+            .get("data_url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "screenshot response missing data_url".to_string())?;
+        write_data_url_to_file(data_url, out)?;
+        return Ok(json!({
+            "ok": true,
+            "request_id": result.get("request_id").cloned().unwrap_or(Value::Null),
+            "data": {
+                "file_path": out,
+                "width": data.get("width"),
+                "height": data.get("height"),
+                "region": data.get("region"),
+                "shape_count": data.get("shape_count"),
+                "shape_ids": data.get("shape_ids"),
+                "excluded_chrome": data.get("excluded_chrome"),
+                "size": data.get("size"),
+                // Omit the huge data_url when writing to disk.
+            },
+        }));
+    }
+    Ok(result)
+}
+
+fn write_data_url_to_file(data_url: &str, path: &PathBuf) -> Result<(), String> {
+    const PREFIX: &str = "base64,";
+    let idx = data_url
+        .find(PREFIX)
+        .ok_or_else(|| "data_url is not base64-encoded".to_string())?;
+    let b64 = &data_url[idx + PREFIX.len()..];
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|err| format!("failed to decode screenshot base64: {err}"))?;
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+        }
+    }
+    std::fs::write(path, bytes)
+        .map_err(|err| format!("failed to write {}: {err}", path.display()))?;
+    Ok(())
 }
 
 #[derive(Debug, Args)]

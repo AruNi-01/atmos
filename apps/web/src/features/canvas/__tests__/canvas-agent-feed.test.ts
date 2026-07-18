@@ -96,4 +96,20 @@ describe("CanvasAgentFeedStore", () => {
     const { batches } = store.getSnapshot();
     expect(batches[0]?.entries).toHaveLength(1);
   });
+
+  it("finalizeRequest attaches screenshot onto the feed entry", () => {
+    const store = new CanvasAgentFeedStore();
+    store.begin("r-shot", "screenshot");
+    store.finalizeRequest("r-shot", true, {
+      screenshot: {
+        dataUrl: "data:image/jpeg;base64,abc",
+        width: 100,
+        height: 80,
+      },
+    });
+    const entry = store.getCurrentEntry();
+    expect(entry?.status).toBe("done");
+    expect(entry?.screenshot?.dataUrl).toContain("data:image/jpeg");
+    expect(entry?.screenshot?.width).toBe(100);
+  });
 });

@@ -27,14 +27,26 @@ export interface CanvasAgentBusOptions {
   /**
    * Initial value of "Allow terminal/CLI control". The bus owns this flag
    * after construction; the React hook keeps it in sync via
-   * `setBridgeAccepting`. When `false`, only `status` is allowed; everything
-   * else answers with `BRIDGE_DISABLED`.
+   * `setBridgeAccepting`. When `false`, only read-only diagnostics are allowed
+   * (`status`, `get_state`, `extract_text`, `lint`, `screenshot`, `set_status`);
+   * mutating verbs answer with `BRIDGE_DISABLED`.
    */
   isBridgeAccepting?: boolean;
   /**
    * Optional logger — defaults to console.debug. Tests can pass `noop`.
    */
   log?: (message: string, payload?: unknown) => void;
+  /**
+   * Returns the dashed agent-view frame set by `set-agent-view` (if any).
+   * Used by `screenshot --use-agent-view` so verification crops to the
+   * agent-drawn region and ignores other canvas chrome.
+   */
+  getAgentViewBounds?: () => {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null;
 }
 
 export function ok(data: unknown): CanvasAgentSuccess {

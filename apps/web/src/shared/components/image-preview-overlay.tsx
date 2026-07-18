@@ -33,8 +33,14 @@ export function ImagePreviewOverlay({
       role="dialog"
       aria-modal="true"
       aria-label={alt}
+      data-image-preview-overlay=""
       className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
+      onPointerDown={event => {
+        // Keep parent popovers/islands open: their outside-dismiss listeners
+        // run in capture phase and would treat this portal click as "outside".
+        event.stopPropagation();
+      }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object/data URLs and must not go through Next image optimization. */}
       <img
