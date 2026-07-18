@@ -331,7 +331,7 @@ export interface CanvasUiPrefs {
   agentFollow: boolean;
 }
 
-const DEFAULT_CANVAS_PREFS: CanvasUiPrefs = {
+export const DEFAULT_CANVAS_PREFS: CanvasUiPrefs = {
   sessionByBoard: {},
   lastPinnedByBoard: {},
   agentClientId: null,

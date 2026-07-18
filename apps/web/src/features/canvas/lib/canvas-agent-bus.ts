@@ -82,7 +82,6 @@ import { runCanvasAgentScreenshot } from "./canvas-agent-screenshot";
 import {
   DEFAULT_FRAME_SIZE,
   DEFAULT_GEO_SIZE,
-  DEFAULT_NOTE_SIZE,
   findNonOverlappingSpawn,
 } from "./canvas-agent-spawn";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
@@ -291,10 +290,9 @@ export class CanvasAgentBus {
       );
     }
     const w = positiveNumberOr(args.w, NOTE_BASE_WIDTH);
-    const spawn = this.resolveSpawn(editor, args.x, args.y, {
-      w,
-      h: DEFAULT_NOTE_SIZE.h,
-    });
+    // Reserve content-driven height for collision spawn (notes grow with text).
+    const spawnSize = estimateNoteSpawnSize(text, w);
+    const spawn = this.resolveSpawn(editor, args.x, args.y, spawnSize);
     const x = spawn.x;
     const y = spawn.y;
     const color = optionalString(args.color);
@@ -673,4 +671,18 @@ export class CanvasAgentBus {
       console.debug(message, payload);
     }
   }
+}
+
+/** Rough page-space size for note collision spawn (notes auto-grow with text). */
+function estimateNoteSpawnSize(text: string, w: number): { w: number; h: number } {
+  const scale = w / NOTE_BASE_WIDTH;
+  const lineH = 22 * scale;
+  const pad = 40 * scale;
+  let lines = 0;
+  for (const line of text.split("\n")) {
+    const charsPerLine = Math.max(1, Math.floor(w / (8 * scale)));
+    lines += Math.max(1, Math.ceil(Math.max(1, line.length) / charsPerLine));
+  }
+  const h = Math.max(w, Math.ceil(lines * lineH + pad));
+  return { w, h };
 }

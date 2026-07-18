@@ -132,18 +132,34 @@ describe("CanvasAgentBus", () => {
   });
 
   it("set_status works without an accepting bridge and reports lint readiness", async () => {
-    const { bus } = busFromEditor({ acceptsCommands: false });
+    const { editor, bus } = busFromEditor({ acceptsCommands: false });
+    // Overlapping pair so ready_to_idle is false while status can still be idle.
+    editor.createShape({
+      id: "shape:a",
+      type: "geo",
+      x: 0,
+      y: 0,
+      props: { w: 100, h: 100 },
+    });
+    editor.createShape({
+      id: "shape:b",
+      type: "geo",
+      x: 40,
+      y: 40,
+      props: { w: 100, h: 100 },
+    });
     const res = await bus.handleDispatch(call("set_status", { status: "idle" }));
     expect(res.success).toBe(true);
     if (res.success) {
       const data = res.data as {
         status: string;
         ready_to_idle: boolean;
-        lints_summary: { clean: boolean };
+        lints_summary: { clean: boolean; error_count: number };
       };
       expect(data.status).toBe("idle");
-      expect(data.ready_to_idle).toBe(true);
-      expect(data.lints_summary.clean).toBe(true);
+      expect(data.ready_to_idle).toBe(false);
+      expect(data.lints_summary.clean).toBe(false);
+      expect(data.lints_summary.error_count).toBeGreaterThan(0);
     }
   });
 

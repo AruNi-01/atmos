@@ -5,7 +5,6 @@ import { CanvasAgentError } from "./canvas-agent-errors";
 import {
   nonNegativeNumberOr,
   optionalNumber,
-  requireExistingShapes,
   requireIds,
   unionShapePageBounds,
 } from "./canvas-agent-bus-helpers";
@@ -14,19 +13,22 @@ import {
   expandBounds,
   type CanvasAgentBounds,
 } from "./canvas-agent-view-bounds";
+
 /** String literals avoid heavy shape-util imports on the agent path. */
 const CANVAS_TERMINAL_SHAPE_TYPE = "canvas-terminal";
 const CANVAS_WIDGET_SHAPE_TYPE = "canvas-widget";
 
 /**
- * Screenshot only the agent-drawn region so product widgets / terminals
- * elsewhere on the canvas do not pollute visual verification.
+ * Screenshot the agent-drawn region so product chrome does not pollute
+ * visual verification by default.
  *
  * Shape inclusion rules (when region is known):
- * 1. Never include Atmos chrome: `canvas-terminal`, `canvas-widget`.
+ * 1. Exclude Atmos chrome (`canvas-terminal`, `canvas-widget`) unless
+ *    `include_widgets` is set.
  * 2. Include a shape only if its center lies inside the region, OR ≥50% of
- *    its area intersects the region (so edge-grazing terminals stay out).
+ *    its area intersects the region.
  * 3. Crop export with `bounds` so off-region paint is clipped.
+ * 4. Explicit `--ids` must exist and live on the **current page**.
  */
 
 export type ScreenshotSize = "small" | "medium" | "large";
@@ -65,7 +67,16 @@ function rectsIntersectArea(
 }
 
 function shapeQualifiesForRegion(
-  bb: { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number; midX: number; midY: number },
+  bb: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    width: number;
+    height: number;
+    midX: number;
+    midY: number;
+  },
   region: CanvasAgentBounds,
 ): boolean {
   const r = {
@@ -75,27 +86,66 @@ function shapeQualifiesForRegion(
     maxY: region.y + region.h,
   };
   const centerInside =
-    bb.midX >= r.minX && bb.midX <= r.maxX && bb.midY >= r.minY && bb.midY <= r.maxY;
+    bb.midX >= r.minX &&
+    bb.midX <= r.maxX &&
+    bb.midY >= r.minY &&
+    bb.midY <= r.maxY;
   if (centerInside) return true;
   const area = Math.max(1, bb.width * bb.height);
   const overlap = rectsIntersectArea(bb, r);
   return overlap / area >= 0.5;
 }
 
+/** Require every id to exist and live on the current page (screenshotable). */
+function requireScreenshotableIds(editor: Editor, ids: readonly string[]): TLShape[] {
+  const pageShapeIds = new Set(
+    editor.getCurrentPageShapes().map((s) => s.id as string),
+  );
+  return ids.map((id) => {
+    const shape = editor.getShape(id as TLShapeId);
+    if (!shape) {
+      throw new CanvasAgentError(
+        "STALE_SHAPE_ID",
+        `Shape ${id} does not exist; re-run get_state and retry.`,
+        true,
+      );
+    }
+    if (!pageShapeIds.has(id)) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        `Shape ${id} is not on the current page and cannot be screenshotted. Switch pages or pass current-page ids.`,
+        false,
+      );
+    }
+    return shape;
+  });
+}
+
 function resolveRegion(
   editor: Editor,
   args: Record<string, unknown>,
-  getAgentViewBounds?: () => CanvasAgentBounds | null,
+  getAgentViewBounds: (() => CanvasAgentBounds | null) | undefined,
+  includeChrome: boolean,
 ): CanvasAgentBounds {
   const padding = nonNegativeNumberOr(args.padding, AGENT_VIEW_PADDING);
   const x = optionalNumber(args.x);
   const y = optionalNumber(args.y);
   const w = optionalNumber(args.w);
   const h = optionalNumber(args.h);
-  const hasBox =
+  const anyBoundField =
+    x !== undefined || y !== undefined || w !== undefined || h !== undefined;
+  const hasCompleteBox =
     x !== undefined && y !== undefined && w !== undefined && h !== undefined;
 
-  if (hasBox) {
+  if (anyBoundField && !hasCompleteBox) {
+    throw new CanvasAgentError(
+      "VALIDATION_ARG",
+      "screenshot bounds require all of x, y, w, and h (or omit all four)",
+      false,
+    );
+  }
+
+  if (hasCompleteBox) {
     if (!(w! > 0) || !(h! > 0)) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
@@ -109,7 +159,7 @@ function resolveRegion(
   const idsRaw = args.ids ?? args.center_ids;
   if (idsRaw !== undefined && idsRaw !== null) {
     const ids = requireIds(idsRaw);
-    requireExistingShapes(editor, ids);
+    requireScreenshotableIds(editor, ids);
     const union = unionShapePageBounds(editor, ids);
     if (!union) {
       throw new CanvasAgentError(
@@ -136,20 +186,22 @@ function resolveRegion(
         true,
       );
     }
-    // Agent view already includes its own padding from set-agent-view.
     return view;
   }
 
-  // Default: union of all non-chrome shapes currently on the page (agent drawing surface).
+  // Default region: union of shapes on the current page.
+  // When include_widgets is false, skip Atmos chrome; when true, include them.
   const contentIds: string[] = [];
   for (const shape of editor.getCurrentPageShapes()) {
-    if (ATMOS_CHROME_TYPES.has(shape.type)) continue;
+    if (!includeChrome && ATMOS_CHROME_TYPES.has(shape.type)) continue;
     contentIds.push(shape.id);
   }
   if (contentIds.length === 0) {
     throw new CanvasAgentError(
       "VALIDATION_ARG",
-      "No non-chrome shapes to screenshot. Draw first or pass an explicit region.",
+      includeChrome
+        ? "No shapes to screenshot on the current page."
+        : "No non-chrome shapes to screenshot. Draw first, pass an explicit region, or use --include-widgets.",
       true,
     );
   }
@@ -170,17 +222,15 @@ function selectShapesForRegion(
   includeChrome: boolean,
   explicitIds?: string[],
 ): TLShape[] {
-  const shapes = editor.getCurrentPageShapes();
   if (explicitIds && explicitIds.length) {
-    const set = new Set(explicitIds);
-    return shapes.filter((s) => {
-      if (!set.has(s.id)) return false;
+    // Already validated as current-page shapes in resolveRegion / call site.
+    return requireScreenshotableIds(editor, explicitIds).filter((s) => {
       if (!includeChrome && ATMOS_CHROME_TYPES.has(s.type)) return false;
       return true;
     });
   }
 
-  return shapes.filter((shape) => {
+  return editor.getCurrentPageShapes().filter((shape) => {
     if (!includeChrome && ATMOS_CHROME_TYPES.has(shape.type)) return false;
     const bb = getShapePageBoundsBox(editor, shape.id);
     if (!bb) return false;
@@ -201,13 +251,23 @@ export async function runCanvasAgentScreenshot(
     args.includeWidgets === true ||
     args.include_chrome === true;
 
-  const region = resolveRegion(editor, args, options?.getAgentViewBounds);
+  const region = resolveRegion(
+    editor,
+    args,
+    options?.getAgentViewBounds,
+    includeChrome,
+  );
 
   const idsRaw = args.ids ?? args.center_ids;
   const explicitIds =
     idsRaw !== undefined && idsRaw !== null ? requireIds(idsRaw) : undefined;
 
-  const selected = selectShapesForRegion(editor, region, includeChrome, explicitIds);
+  const selected = selectShapesForRegion(
+    editor,
+    region,
+    includeChrome,
+    explicitIds,
+  );
   if (selected.length === 0) {
     throw new CanvasAgentError(
       "VALIDATION_ARG",
@@ -251,7 +311,6 @@ export async function runCanvasAgentScreenshot(
     );
   }
 
-  // Soft size guard: if payload is huge, re-export smaller (agent JSON path).
   const approxBytes = Math.ceil((result.url.length * 3) / 4);
   if (approxBytes > 900_000 && size !== "small") {
     const retry = await editor.toImageDataUrl(

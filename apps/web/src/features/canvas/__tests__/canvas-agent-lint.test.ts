@@ -121,17 +121,8 @@ describe("canvas-agent-lint", () => {
         props: { w: 80, h: 80 },
       },
     ]);
-    // Arrow bindings stub — getArrowBindings needs real tldraw; unbound check
-    // may throw. We only assert no content/content overlap from the arrow.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let lints: ReturnType<typeof computeCanvasLints> = [];
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      lints = computeCanvasLints(editor as any);
-    } catch {
-      // getArrowBindings may fail on fake shapes; treat as no arrow lint.
-      lints = [];
-    }
+    const lints = computeCanvasLints(editor as any);
     expect(lints.filter((l) => l.type === "overlap")).toHaveLength(0);
   });
 
@@ -259,6 +250,33 @@ describe("canvas-agent-lint", () => {
     const { dx, dy } = suggestOverlapSeparation(a, b, 24);
     expect(dy).toBe(0);
     expect(dx).toBe(20 + 24);
+  });
+
+  it("suggestOverlapSeparation separates touching boxes with gap", () => {
+    const a = {
+      minX: 0,
+      minY: 0,
+      maxX: 100,
+      maxY: 100,
+      width: 100,
+      height: 100,
+      midX: 50,
+      midY: 50,
+    };
+    // B touches A on the right edge (penX = 0)
+    const b = {
+      minX: 100,
+      minY: 0,
+      maxX: 200,
+      maxY: 100,
+      width: 100,
+      height: 100,
+      midX: 150,
+      midY: 50,
+    };
+    const { dx, dy } = suggestOverlapSeparation(a, b, 24);
+    expect(dy).toBe(0);
+    expect(dx).toBe(24);
   });
 
   it("buildLintFixSuggestions emits move for overlaps", () => {

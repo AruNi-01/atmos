@@ -1,7 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 
-import { findNonOverlappingSpawn } from "../lib/canvas-agent-spawn";
+import { findNonOverlappingSpawn, rectsOverlap } from "../lib/canvas-agent-spawn";
 
 function makeEditor(
   shapes: Array<{
@@ -41,19 +41,6 @@ function makeEditor(
   };
 }
 
-function overlaps(
-  a: { x: number; y: number; w: number; h: number },
-  b: { x: number; y: number; w: number; h: number },
-  gap: number,
-) {
-  return !(
-    a.x + a.w + gap <= b.x ||
-    b.x + b.w + gap <= a.x ||
-    a.y + a.h + gap <= b.y ||
-    b.y + b.h + gap <= a.y
-  );
-}
-
 describe("findNonOverlappingSpawn", () => {
   it("returns near viewport center when empty", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,7 +65,7 @@ describe("findNonOverlappingSpawn", () => {
     });
     const candidate = { x: pos.x, y: pos.y, w: 200, h: 200 };
     const occupied = { x: -100, y: -100, w: 200, h: 200 };
-    expect(overlaps(candidate, occupied, 28)).toBe(false);
+    expect(rectsOverlap(candidate, occupied, 28)).toBe(false);
   });
 
   it("does not use a 120×80 grid that guarantees 200×200 collisions", () => {
@@ -110,7 +97,7 @@ describe("findNonOverlappingSpawn", () => {
         const a = shapes[i]!;
         const b = shapes[j]!;
         expect(
-          overlaps(
+          rectsOverlap(
             { x: a.x, y: a.y, w: 200, h: 200 },
             { x: b.x, y: b.y, w: 200, h: 200 },
             28,

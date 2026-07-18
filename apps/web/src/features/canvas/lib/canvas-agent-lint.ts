@@ -87,16 +87,20 @@ function isContentShape(shape: TLShape): boolean {
   return !NON_CONTENT_TYPES.has(shape.type);
 }
 
+/**
+ * True when boxes collide or sit closer than `padding` (gutter).
+ * With padding=2, shapes 0–2px apart count as overlapping for lint.
+ */
 function boxesOverlap(
   a: ShapePageBounds,
   b: ShapePageBounds,
   padding = 2,
 ): boolean {
   return !(
-    a.maxX + padding < b.minX ||
-    b.maxX + padding < a.minX ||
-    a.maxY + padding < b.minY ||
-    b.maxY + padding < a.minY
+    a.maxX + padding <= b.minX ||
+    b.maxX + padding <= a.minX ||
+    a.maxY + padding <= b.minY ||
+    b.maxY + padding <= a.minY
   );
 }
 
@@ -194,23 +198,44 @@ export function estimateGeoTextOverflow(shape: TLShape): boolean {
 
 /**
  * Suggest moving `b` just far enough to clear `a` with a gutter.
- * Chooses the cheaper axis (smaller penetration).
+ * Chooses the cheaper axis. Handles pure gap shortfalls (touching /
+ * near-touching boxes with pen ≤ 0) so we never return {0,0} when the
+ * boxes still violate the requested gap.
  */
 export function suggestOverlapSeparation(
   a: ShapePageBounds,
   b: ShapePageBounds,
   gap = DEFAULT_SEPARATION_GAP,
 ): { dx: number; dy: number } {
+  // Positive = penetration; negative = clearance (gap between edges).
   const penX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
   const penY = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
-  if (penX <= 0 || penY <= 0) return { dx: 0, dy: 0 };
 
-  if (penX <= penY) {
+  // Already separated by more than `gap` on either axis → no move needed.
+  if (penX < -gap || penY < -gap) {
+    return { dx: 0, dy: 0 };
+  }
+
+  // Displacement needed on each axis to achieve `gap` clearance.
+  // When pen is positive (overlap), move by pen + gap.
+  // When pen is zero (touching) or negative but > -gap (too close), move by gap - |clearance| = gap + pen.
+  const needX = penX + gap;
+  const needY = penY + gap;
+
+  if (needX <= 0 && needY <= 0) {
+    return { dx: 0, dy: 0 };
+  }
+
+  // Prefer the cheaper axis (smaller absolute move that still clears).
+  const preferX =
+    needY <= 0 ? true : needX <= 0 ? false : needX <= needY;
+
+  if (preferX) {
     const pushRight = b.midX >= a.midX;
-    return { dx: pushRight ? penX + gap : -(penX + gap), dy: 0 };
+    return { dx: pushRight ? needX : -needX, dy: 0 };
   }
   const pushDown = b.midY >= a.midY;
-  return { dx: 0, dy: pushDown ? penY + gap : -(penY + gap) };
+  return { dx: 0, dy: pushDown ? needY : -needY };
 }
 
 export function computeCanvasLints(editor: Editor): CanvasAgentLint[] {
@@ -267,12 +292,21 @@ function computeCanvasLintsWithContext(editor: Editor): {
     const metrics = geoTextMetrics(shape);
     if (!metrics?.overflows) continue;
 
+    // Effective box uses neededH so overflow that only collides once text
+    // grows past props.h is still detected.
+    const effectiveBb: ShapePageBounds = {
+      ...bb,
+      height: metrics.neededH,
+      maxY: bb.minY + metrics.neededH,
+      midY: bb.minY + metrics.neededH / 2,
+    };
+
     const collides = content.some(
       (other) =>
         other.shape.id !== shape.id &&
         !shapesAreRelated(shape, other.shape, byId) &&
-        !boxesContain(bb, other.bb) &&
-        boxesOverlap(bb, other.bb, 0),
+        !boxesContain(effectiveBb, other.bb) &&
+        boxesOverlap(effectiveBb, other.bb, 0),
     );
 
     const lint: CanvasAgentLint = {

@@ -2338,8 +2338,8 @@
         "aria": "启用 Canvas Agent Bridge"
       },
       "follow": {
-        "title": "Follow Agent",
-        "aria": "Follow Agent"
+        "title": "跟随 Agent",
+        "aria": "跟随 Agent"
       },
       "snippet": {
         "label": "命令",

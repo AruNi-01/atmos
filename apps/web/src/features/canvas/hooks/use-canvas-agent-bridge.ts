@@ -4,7 +4,10 @@ import * as React from "react";
 import type { Editor, TLShapeId } from "tldraw";
 
 import { canvasAgentBridgeWsApi } from "@/api/ws-api";
-import { resolveCanvasPrefsInstanceId } from "@/shared/stores/use-ui-pref-hooks";
+import {
+  DEFAULT_CANVAS_PREFS,
+  resolveCanvasPrefsInstanceId,
+} from "@/shared/stores/use-ui-pref-hooks";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "../lib/canvas-agent-bus";
@@ -16,17 +19,6 @@ import {
 } from "../lib/canvas-agent-view-bounds";
 import { focusCanvasShapes } from "../lib/canvas-shape-focus";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
-
-const DEFAULT_CANVAS_PREFS = {
-  sessionByBoard: {} as Record<string, unknown>,
-  agentClientId: null as string | null,
-  acceptsCommands: false,
-  /**
-   * When true, successful agent dispatches that touch shapes pan/zoom the
-   * camera to those shapes. Users drawing alongside the agent can turn this off.
-   */
-  agentFollow: true,
-};
 
 const DISPATCH_EVENT = "canvas_agent_dispatch";
 

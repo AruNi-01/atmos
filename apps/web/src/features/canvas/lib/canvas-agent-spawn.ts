@@ -8,9 +8,9 @@ export const DEFAULT_GEO_SIZE = { w: 200, h: 200 };
 export const DEFAULT_NOTE_SIZE = { w: 200, h: 200 };
 export const DEFAULT_FRAME_SIZE = { w: 640, h: 440 };
 
-type Rect = { x: number; y: number; w: number; h: number };
+export type SpawnRect = { x: number; y: number; w: number; h: number };
 
-function rectsOverlap(a: Rect, b: Rect, gap: number): boolean {
+export function rectsOverlap(a: SpawnRect, b: SpawnRect, gap: number): boolean {
   return !(
     a.x + a.w + gap <= b.x ||
     b.x + b.w + gap <= a.x ||
@@ -19,7 +19,7 @@ function rectsOverlap(a: Rect, b: Rect, gap: number): boolean {
   );
 }
 
-function fits(candidate: Rect, occupied: Rect[], gap: number): boolean {
+function fits(candidate: SpawnRect, occupied: SpawnRect[], gap: number): boolean {
   return !occupied.some((rect) => rectsOverlap(candidate, rect, gap));
 }
 
@@ -47,7 +47,7 @@ export function findNonOverlappingSpawn(
   const originX = viewport.center.x - w / 2;
   const originY = viewport.center.y - h / 2;
 
-  const first: Rect = { x: originX, y: originY, w, h };
+  const first: SpawnRect = { x: originX, y: originY, w, h };
   if (fits(first, occupied, gap)) {
     return { x: originX, y: originY };
   }
@@ -63,7 +63,7 @@ export function findNonOverlappingSpawn(
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
         const x = originX + dx * stepX;
         const y = originY + dy * stepY;
-        const candidate: Rect = { x, y, w, h };
+        const candidate: SpawnRect = { x, y, w, h };
         if (fits(candidate, occupied, gap)) {
           return { x, y };
         }
