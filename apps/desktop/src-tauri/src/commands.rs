@@ -14,7 +14,7 @@ use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
 use tauri::{LogicalPosition, Position, TitleBarStyle};
 
 const AGENT_CHAT_WINDOW_LABEL: &str = "agent-chat";
-const PREVIEW_BROWSER_WINDOW_LABEL: &str = "preview-browser";
+const PREVIEW_BROWSER_WINDOW_LABEL_PREFIX: &str = "preview-browser";
 const AGENT_CHAT_HANDOFF_MAX_AGE: Duration = Duration::from_secs(12 * 60 * 60);
 const DESKTOP_RELEASES_API_URL: &str =
     "https://api.github.com/repos/AruNi-01/atmos/releases?per_page=100";
@@ -208,6 +208,7 @@ pub fn open_preview_browser_window(
     url: Option<String>,
     workspace_id: Option<String>,
     project_id: Option<String>,
+    browser_context_id: Option<String>,
 ) -> Result<(), String> {
     let api_port = current_api_port(&state)?;
     let url = preview_browser_window_url(
@@ -216,9 +217,12 @@ pub fn open_preview_browser_window(
         url.as_deref(),
         workspace_id.as_deref(),
         project_id.as_deref(),
+        browser_context_id.as_deref(),
     )?;
+    // One OS window per browser instance (sidebar / center / …).
+    let window_label = preview_browser_window_label(browser_context_id.as_deref());
 
-    if let Some(existing) = app.get_webview_window(PREVIEW_BROWSER_WINDOW_LABEL) {
+    if let Some(existing) = app.get_webview_window(&window_label) {
         let _ = existing.navigate(url);
         let _ = existing.show();
         let _ = existing.set_focus();
@@ -227,7 +231,7 @@ pub fn open_preview_browser_window(
 
     let mut builder = WebviewWindowBuilder::new(
         &app,
-        PREVIEW_BROWSER_WINDOW_LABEL,
+        &window_label,
         app_window_webview_url(&url),
     )
     .title("Atmos Browser")
@@ -536,12 +540,44 @@ fn agent_chat_window_url(
     Ok(url)
 }
 
+/// Stable Tauri window label for a browser instance.
+/// Must stay in sync with `makePreviewBrowserWindowLabel` in the web app.
+pub fn preview_browser_window_label(browser_context_id: Option<&str>) -> String {
+    let Some(raw) = browser_context_id.map(str::trim).filter(|value| !value.is_empty()) else {
+        return PREVIEW_BROWSER_WINDOW_LABEL_PREFIX.to_string();
+    };
+
+    let safe: String = raw
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let safe = safe.trim_matches('-');
+    if safe.is_empty() {
+        return PREVIEW_BROWSER_WINDOW_LABEL_PREFIX.to_string();
+    }
+
+    let truncated: String = safe.chars().take(100).collect();
+    format!("{PREVIEW_BROWSER_WINDOW_LABEL_PREFIX}-{truncated}")
+}
+
+pub fn is_preview_browser_window_label(label: &str) -> bool {
+    label == PREVIEW_BROWSER_WINDOW_LABEL_PREFIX
+        || label.starts_with(&format!("{PREVIEW_BROWSER_WINDOW_LABEL_PREFIX}-"))
+}
+
 fn preview_browser_window_url(
     _locale: Option<&str>,
     _api_port: u16,
     preview_url: Option<&str>,
     workspace_id: Option<&str>,
     project_id: Option<&str>,
+    browser_context_id: Option<&str>,
 ) -> Result<tauri::Url, String> {
     let mut url = app_window_url("preview/")
         .map_err(|error| format!("invalid Preview browser window URL: {error}"))?;
@@ -556,6 +592,9 @@ fn preview_browser_window_url(
         }
         if let Some(value) = trim_query_value(project_id) {
             query.append_pair("projectId", value);
+        }
+        if let Some(value) = trim_query_value(browser_context_id) {
+            query.append_pair("browserContextId", value);
         }
     }
 

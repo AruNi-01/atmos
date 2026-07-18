@@ -5,6 +5,7 @@
   "windows": [
     "main",
     "preview-browser",
+    "preview-browser-*",
     "preview-inspector-*"
   ],
   "webviews": [

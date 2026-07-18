@@ -6,6 +6,7 @@
     "main",
     "agent-chat",
     "preview-browser",
+    "preview-browser-*",
     "appshot-permissions"
   ],
   "remote": {

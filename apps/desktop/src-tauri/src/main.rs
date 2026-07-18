@@ -541,17 +541,20 @@ document.close();
 }
 
 fn emit_standalone_surface_closed(window: &tauri::Window) {
-    let surface = match window.label() {
-        "agent-chat" => "agent-chat",
-        "preview-browser" => "preview",
-        _ => return,
+    let label = window.label();
+    let surface = if label == "agent-chat" {
+        "agent-chat"
+    } else if commands::is_preview_browser_window_label(label) {
+        "preview"
+    } else {
+        return;
     };
 
     let _ = window.app_handle().emit(
         "atmos://standalone-surface-closed",
         serde_json::json!({
             "surface": surface,
-            "label": window.label(),
+            "label": label,
         }),
     );
 }

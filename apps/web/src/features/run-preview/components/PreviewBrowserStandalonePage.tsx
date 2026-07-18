@@ -21,8 +21,10 @@ export function PreviewBrowserStandalonePage() {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get("workspaceId");
   const projectId = searchParams.get("projectId") ?? undefined;
+  const browserContextId = searchParams.get("browserContextId") ?? undefined;
   const [isPreviewMaximized, setIsPreviewMaximized] = useState(false);
   const {
+    browserContextId: resolvedBrowserContextId,
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
@@ -34,10 +36,22 @@ export function PreviewBrowserStandalonePage() {
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
-  } = usePreviewBrowserState({ workspaceId, projectId });
+  } = usePreviewBrowserState({
+    workspaceId,
+    projectId,
+    browserContextId,
+    // Standalone windows own their instance state; avoid fighting main-window ?pvUrl.
+    syncUrlQueryParam: false,
+  });
   const standaloneSurfaceKey = useMemo(
-    () => makeStandaloneSurfaceKey("preview", workspaceId, projectId),
-    [projectId, workspaceId],
+    () =>
+      makeStandaloneSurfaceKey(
+        "preview",
+        workspaceId,
+        projectId,
+        resolvedBrowserContextId,
+      ),
+    [projectId, resolvedBrowserContextId, workspaceId],
   );
 
   useEffect(() => {

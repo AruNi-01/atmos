@@ -14,6 +14,8 @@ export interface OpenPreviewBrowserWindowOptions {
   url?: string | null;
   workspaceId?: string | null;
   projectId?: string | null;
+  /** Isolates each browser instance to its own Desktop window. */
+  browserContextId?: string | null;
 }
 
 let cachedPreviewWindowLocale: "en" | "zh" | null = null;
@@ -60,6 +62,7 @@ export async function openPreviewBrowserWindow(
       url: options.url || null,
       workspaceId: options.workspaceId || null,
       projectId: options.projectId || null,
+      browserContextId: options.browserContextId || null,
     });
   } catch (error) {
     toastManager.add({

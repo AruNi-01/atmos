@@ -511,35 +511,6 @@ pub fn show_active_preview_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn hide_other_preview_surfaces(app: &AppHandle, active_session_id: &str) {
-    let states: Vec<DesktopPreviewBridgeState> = app
-        .state::<AppState>()
-        .preview_bridge
-        .lock()
-        .ok()
-        .map(|guard| {
-            guard
-                .surfaces
-                .values()
-                .filter(|state| {
-                    state.session_id != active_session_id && state.visible && !state.detached
-                })
-                .cloned()
-                .collect()
-        })
-        .unwrap_or_default();
-
-    for state in states {
-        let label = preview_surface_label(&state.session_id);
-        if let Some(preview) = app.get_webview(&label) {
-            let _ = preview.hide();
-        }
-        let _ = update_existing_bridge_state(app, &state.session_id, |state| {
-            state.visible = false;
-        });
-    }
-}
-
 fn handle_page_load(
     app: &AppHandle,
     webview: &Webview,
@@ -591,8 +562,9 @@ fn open_preview_child(
                 .map_err(|error| error.to_string())?;
         }
         if should_show {
+            // Multiple browser instances (center + right sidebar) may be visible
+            // at once — each child webview keeps its own bounds.
             existing.show().map_err(|error| error.to_string())?;
-            hide_other_preview_surfaces(app, session_id);
         }
         return Ok(());
     }
@@ -621,8 +593,9 @@ fn open_preview_child(
     preview
         .set_zoom(normalized_preview_zoom(bounds.zoom))
         .map_err(|error| error.to_string())?;
+    // Do not hide sibling preview sessions — center and sidebar browsers
+    // must be able to display native surfaces simultaneously.
     preview.show().map_err(|error| error.to_string())?;
-    hide_other_preview_surfaces(app, session_id);
     Ok(())
 }
 
@@ -1048,7 +1021,6 @@ pub fn show_preview_window(app: &AppHandle, session_id: &str) -> Result<(), Stri
         .unwrap_or(false)
     {
         set_active_session(app, session_id)?;
-        hide_other_preview_surfaces(app, session_id);
         return Ok(());
     }
 
@@ -1057,7 +1029,6 @@ pub fn show_preview_window(app: &AppHandle, session_id: &str) -> Result<(), Stri
         preview.show().map_err(|error| error.to_string())?;
     }
     set_active_session(app, session_id)?;
-    hide_other_preview_surfaces(app, session_id);
     update_existing_bridge_state(app, session_id, |state| {
         state.visible = true;
     })?;

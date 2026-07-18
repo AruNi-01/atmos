@@ -41,6 +41,38 @@ function surfaceFromKey(key: string): "preview" | "agent-chat" | null {
   return null;
 }
 
+/**
+ * Tauri webview window label for a browser instance.
+ * Must stay in sync with `preview_browser_window_label` in desktop commands.rs.
+ */
+export function makePreviewBrowserWindowLabel(browserContextId?: string | null): string {
+  const raw = browserContextId?.trim() || "";
+  if (!raw) return "preview-browser";
+
+  const safe = raw
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 100);
+  return safe ? `preview-browser-${safe}` : "preview-browser";
+}
+
+function expectedWindowLabelForKey(key: string): string | null {
+  const surface = surfaceFromKey(key);
+  if (surface === "agent-chat") return "agent-chat";
+  if (surface !== "preview") return null;
+
+  // preview:{workspaceId}:{projectId}:{encodeURIComponent(browserContextId)}
+  const match = /^preview:([^:]*):([^:]*):(.*)$/.exec(key);
+  if (!match) return "preview-browser";
+  let browserContextId = "";
+  try {
+    browserContextId = decodeURIComponent(match[3] || "");
+  } catch {
+    browserContextId = match[3] || "";
+  }
+  return makePreviewBrowserWindowLabel(browserContextId);
+}
+
 function publishEvent(event: StandaloneSurfaceEvent): void {
   if (!canUseWindow()) return;
 
@@ -66,12 +98,27 @@ function publishEvent(event: StandaloneSurfaceEvent): void {
   }
 }
 
+/**
+ * Standalone surface identity.
+ * Preview keys include browserContextId so each browser instance has its own
+ * window handoff (sidebar vs each center browser).
+ */
 export function makeStandaloneSurfaceKey(
   surface: "preview" | "agent-chat",
   workspaceId?: string | null,
   projectId?: string | null,
+  browserContextId?: string | null,
 ): string {
-  return [surface, workspaceId || "", projectId || ""].join(":");
+  if (surface === "preview") {
+    // browserContextId may contain ":" (e.g. center-browser:uuid) — encode it.
+    return [
+      "preview",
+      workspaceId || "",
+      projectId || "",
+      encodeURIComponent(browserContextId || ""),
+    ].join(":");
+  }
+  return ["agent-chat", workspaceId || "", projectId || ""].join(":");
 }
 
 export function isStandaloneSurfaceOpen(key: string): boolean {
@@ -143,12 +190,22 @@ export function subscribeStandaloneSurface(
 
   if (isTauriRuntime()) {
     const expectedSurface = surfaceFromKey(key);
+    const expectedWindowLabel = expectedWindowLabelForKey(key);
     void import("@tauri-apps/api/event")
       .then(({ listen }) =>
         listen<NativeStandaloneSurfaceClosedPayload>(
           "atmos://standalone-surface-closed",
           (event) => {
             if (disposed || !expectedSurface || event.payload?.surface !== expectedSurface) {
+              return;
+            }
+            // Only the browser instance that owns this window should unpause.
+            if (
+              expectedSurface === "preview" &&
+              event.payload?.label &&
+              expectedWindowLabel &&
+              event.payload.label !== expectedWindowLabel
+            ) {
               return;
             }
             const closeEvent = createEvent(key, "close");
