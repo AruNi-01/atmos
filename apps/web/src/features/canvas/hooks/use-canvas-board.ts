@@ -204,12 +204,13 @@ export function useCanvasBoard() {
   }, []);
 
   const applyLoaded = useCallback(
-    (nextFileName: string | null, nextDoc: CanvasBoardDocument) => {
+    (nextFileName: string | null, nextDoc: CanvasBoardDocument, meta?: { modifiedAt?: string }) => {
       setFileName(nextFileName);
       setTitle(nextDoc.title);
       setDocument(nextDoc);
       writeActiveCanvasDocumentFileName(nextFileName);
       clearDirty();
+      void meta;
     },
     [clearDirty],
   );
@@ -229,8 +230,11 @@ export function useCanvasBoard() {
           writeActiveCanvasDocumentFileName(null);
         }
       }
-      // Prefer untitled empty board on first open (PRD D5).
-      applyLoaded(null, createDefaultDocument("Untitled"));
+      // Always open a real file: create Untitled / Untitled-N if none active.
+      const created = await canvasApi.createNewDocument();
+      const res = await canvasApi.getDocument(created.item.file_name);
+      applyLoaded(res.file_name, parseAtmosCanvasFile(res.body));
+      await refreshDocumentList();
     } catch (err) {
       setDocument(null);
       setError(err instanceof Error ? err.message : "Failed to load canvas");
@@ -352,9 +356,22 @@ export function useCanvasBoard() {
     [applyLoaded],
   );
 
-  const newDocument = useCallback(() => {
-    applyLoaded(null, createDefaultDocument("Untitled"));
-  }, [applyLoaded]);
+  /** Create Untitled / Untitled-1 / … on disk and open it. */
+  const newDocument = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const created = await canvasApi.createNewDocument();
+      const res = await canvasApi.getDocument(created.item.file_name);
+      applyLoaded(res.file_name, parseAtmosCanvasFile(res.body));
+      await refreshDocumentList();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create document");
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [applyLoaded, refreshDocumentList]);
 
   const renameDocument = useCallback(
     async (targetFileName: string, displayName: string) => {
@@ -365,18 +382,29 @@ export function useCanvasBoard() {
           title: res.item.title,
           tldrawDocument: document?.tldrawDocument ?? null,
           session: document?.session ?? null,
+          script: document?.script ?? null,
         });
       }
       await refreshDocumentList();
     },
-    [applyLoaded, document?.session, document?.tldrawDocument, fileName, refreshDocumentList],
+    [
+      applyLoaded,
+      document?.script,
+      document?.session,
+      document?.tldrawDocument,
+      fileName,
+      refreshDocumentList,
+    ],
   );
 
   const deleteDocumentFile = useCallback(
     async (targetFileName: string) => {
       await canvasApi.deleteDocument(targetFileName);
       if (fileName === targetFileName) {
-        applyLoaded(null, createDefaultDocument("Untitled"));
+        // Always keep an open file-backed document.
+        const created = await canvasApi.createNewDocument();
+        const res = await canvasApi.getDocument(created.item.file_name);
+        applyLoaded(res.file_name, parseAtmosCanvasFile(res.body));
       }
       await refreshDocumentList();
     },

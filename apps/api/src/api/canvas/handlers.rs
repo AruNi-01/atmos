@@ -153,6 +153,16 @@ pub async fn sanitize_name(
     })))
 }
 
+/// POST /api/canvas/documents/new — create Untitled / Untitled-1 / … and return it.
+pub async fn create_new_document(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<CanvasDocumentWriteResponse>>> {
+    let item = state.canvas_service.create_untitled_document()?;
+    Ok(Json(ApiResponse::success(CanvasDocumentWriteResponse {
+        item: item_dto(item),
+    })))
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct SanitizeNamePayload {
     pub name: String,

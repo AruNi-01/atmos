@@ -905,6 +905,13 @@ export const canvasApi = {
     return fetchApi<CanvasDocumentListResponse>("/api/canvas/documents");
   },
 
+  createNewDocument: async (): Promise<CanvasDocumentWriteResponse> => {
+    return fetchApi<CanvasDocumentWriteResponse>("/api/canvas/documents/new", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
   getDocument: async (fileName: string): Promise<CanvasDocumentFileResponse> => {
     return fetchApi<CanvasDocumentFileResponse>(
       `/api/canvas/documents/${encodeURIComponent(fileName)}`,

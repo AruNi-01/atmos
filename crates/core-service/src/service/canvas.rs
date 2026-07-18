@@ -165,6 +165,37 @@ impl CanvasDocumentService {
         })
     }
 
+    /// Next free Untitled / Untitled-1 / Untitled-2… file name (with extension).
+    pub fn next_untitled_file_name(&self) -> Result<String> {
+        self.ensure_canvas_dir()?;
+        // Untitled, Untitled-1, Untitled-2, …
+        for i in 0..10_000 {
+            let stem = if i == 0 {
+                "Untitled".to_string()
+            } else {
+                format!("Untitled-{i}")
+            };
+            let file_name = format!("{stem}{CANVAS_FILE_EXTENSION}");
+            let path = self.resolve_document_path(&file_name)?;
+            if !path.exists() {
+                return Ok(file_name);
+            }
+        }
+        Err(ServiceError::Processing(
+            "Could not allocate an Untitled document name".into(),
+        ))
+    }
+
+    /// Create a new empty Untitled document on disk and return its list item.
+    pub fn create_untitled_document(&self) -> Result<CanvasDocumentListItem> {
+        let file_name = self.next_untitled_file_name()?;
+        let stem = file_name
+            .strip_suffix(CANVAS_FILE_EXTENSION)
+            .unwrap_or(&file_name)
+            .to_string();
+        self.write_document(&file_name, &Self::empty_document(&stem), false)
+    }
+
     /// Write a canvas document. When `overwrite` is false and the file already
     /// exists, returns a validation error (Save As must not clobber).
     pub fn write_document(
@@ -593,6 +624,18 @@ mod tests {
             script: None,
         };
         assert!(svc.write_document("x.atmos.tldr", &bad, false).is_err());
+    }
+
+    #[test]
+    fn allocates_untitled_sequence() {
+        let dir = tempdir().unwrap();
+        let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        let a = svc.create_untitled_document().unwrap();
+        assert_eq!(a.file_name, "Untitled.atmos.tldr");
+        let b = svc.create_untitled_document().unwrap();
+        assert_eq!(b.file_name, "Untitled-1.atmos.tldr");
+        let c = svc.create_untitled_document().unwrap();
+        assert_eq!(c.file_name, "Untitled-2.atmos.tldr");
     }
 
     #[test]

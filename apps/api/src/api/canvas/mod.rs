@@ -16,6 +16,7 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_default_board_compat).put(handlers::update_default_board_compat),
         )
         .route("/documents", get(handlers::list_documents))
+        .route("/documents/new", post(handlers::create_new_document))
         .route("/documents/sanitize-name", post(handlers::sanitize_name))
         .route(
             "/documents/{file_name}",

@@ -214,7 +214,7 @@ pub enum CanvasCommand {
     /// Send `--status idle` as the very last command of every canvas turn so
     /// the top-right green dot and bottom-right island stop immediately.
     SetStatus(SetStatusArgs),
-    /// List local canvas documents under `~/.atmos/canvas` (APP-037).
+    /// List local canvas documents (APP-037).
     Docs,
     /// Read one document file (JSON body).
     DocGet(DocFileArgs),

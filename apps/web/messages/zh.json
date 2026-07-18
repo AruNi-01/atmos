@@ -2730,7 +2730,7 @@
       "buttonAria": "打开 Canvas 文档列表",
       "popoverTitle": "Canvas 文档",
       "popoverHint": "保存在 ~/.atmos/canvas，后缀为 .atmos.tldr",
-      "empty": "还没有文档。使用「另存为」创建第一个。",
+      "empty": "还没有文档，点击「新建」创建一个。",
       "new": "新建",
       "save": "保存",
       "saveAs": "另存为",

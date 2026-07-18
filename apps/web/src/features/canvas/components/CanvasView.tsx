@@ -756,6 +756,17 @@ export const CanvasView: React.FC = () => {
     pendingSessionRef.current = readCanvasSession(boardIdentity);
   }, [boardIdentity]);
 
+  // Reflect list mtime for the open document as last-saved time.
+  React.useEffect(() => {
+    if (!fileName) return;
+    const item = documentList.find((d) => d.file_name === fileName);
+    if (!item?.modified_at) return;
+    const d = new Date(item.modified_at);
+    if (!Number.isNaN(d.getTime())) {
+      setLastSavedAt(d);
+    }
+  }, [documentList, fileName]);
+
   const persistEditorSnapshot = React.useCallback(
     async (options?: { targetFileName?: string; displayName?: string }) => {
       const editor = editorRef.current;
@@ -812,26 +823,12 @@ export const CanvasView: React.FC = () => {
   // Manual save function
   const handleManualSave = React.useCallback(async () => {
     const editor = editorRef.current;
-    if (!editor) return;
-
-    if (!fileName) {
-      // Untitled: Documents control handles Save As; show toast to name the board.
-      toastManager.add({
-        title: t("toast.title"),
-        description: t("toast.saveAsRequired"),
-        type: "error",
-      });
-      return;
-    }
+    if (!editor || !fileName) return;
 
     setIsManualSaving(true);
     try {
       await persistEditorSnapshot();
-      toastManager.add({
-        title: t("toast.title"),
-        description: t("toast.savedSuccessfully"),
-        type: "success",
-      });
+      setLastSavedAt(new Date());
     } catch {
       toastManager.add({
         title: t("toast.title"),
@@ -843,7 +840,7 @@ export const CanvasView: React.FC = () => {
     }
   }, [fileName, persistEditorSnapshot, t]);
 
-  // Keyboard shortcut for manual save (Cmd+S / Ctrl+S)
+  // Cmd/Ctrl+S flushes autosave (no Save As dialog — documents are always named files).
   useHotkeys('cmd+s, ctrl+s', (e) => {
     e.preventDefault();
     void handleManualSave();
@@ -1292,14 +1289,10 @@ export const CanvasView: React.FC = () => {
                 await openDocument(next);
               }}
               onNew={async () => {
-                newDocument();
+                await newDocument();
               }}
-              onSave={async () => {
+              onFlushSave={async () => {
                 await persistEditorSnapshot();
-                setLastSavedAt(new Date());
-              }}
-              onSaveAs={async (name) => {
-                await persistEditorSnapshot({ displayName: name });
                 setLastSavedAt(new Date());
               }}
               onRename={async (target, name) => {
@@ -1347,60 +1340,32 @@ export const CanvasView: React.FC = () => {
                 canvasAgentBridge.activity.jumpToLast(editor);
               }}
             />
-            <Button
-              variant="ghost"
-              onClick={() => void handleManualSave()}
-              disabled={isManualSaving || documentSaveInFlightRef.current}
+            {/* Autosave status only — no manual Save (documents always file-backed). */}
+            <div
               className={cn(
-                "group h-8 w-[132px] rounded-md border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none",
-                "hover:bg-foreground/10 hover:text-foreground",
+                "flex h-8 min-w-[7.5rem] items-center justify-center rounded-md px-2 text-xs text-muted-foreground",
               )}
+              aria-live="polite"
             >
-        {isManualSaving || isSaving ? (
-          <span className="flex items-center gap-2">
-            <LoaderCircle className="size-3 animate-spin" />
-            {t("saveButton.saving")}
-          </span>
-        ) : error ? (
-          t("saveButton.failed")
-        ) : (
-          /*
-            Two stacked labels — "Saved · HH:MM:SS" and "Save" — cross-fade
-            with a vertical slide on hover. Both share an absolute layer so
-            the wrapper holds a stable height while they animate.
-          */
-          <span className="relative flex h-4 w-full items-center justify-center overflow-hidden">
-            <span className="absolute inset-0 flex items-center justify-center gap-1 transition-all duration-200 ease-out group-hover:-translate-y-2 group-hover:opacity-0">
-              <span>{t("saveButton.saved")}</span>
-              {(() => {
-                const savedDate =
-                  lastSavedAt ??
-                  null;
-                if (!savedDate) return null;
-                return (
-                  <>
-                    <span>·</span>
-                    {/*
-                      Animated time using SlidingNumber — each digit slides
-                      between values when the timestamp updates after a save.
-                    */}
-                    <span className="flex items-center tabular-nums">
-                      <SlidingNumber value={savedDate.getHours()} padStart />
-                      <span>:</span>
-                      <SlidingNumber value={savedDate.getMinutes()} padStart />
-                      <span>:</span>
-                      <SlidingNumber value={savedDate.getSeconds()} padStart />
-                    </span>
-                  </>
-                );
-              })()}
-            </span>
-            <span className="absolute inset-0 flex translate-y-2 items-center justify-center opacity-0 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100">
-              {t("saveButton.save")}
-            </span>
-          </span>
-        )}
-      </Button>
+              {isManualSaving || isSaving ? (
+                <span className="flex items-center gap-2">
+                  <LoaderCircle className="size-3 animate-spin" />
+                  {t("saveButton.saving")}
+                </span>
+              ) : error ? (
+                t("saveButton.failed")
+              ) : lastSavedAt ? (
+                <span className="flex items-center gap-1 tabular-nums">
+                  <span>{t("saveButton.saved")}</span>
+                  <span>·</span>
+                  <SlidingNumber value={lastSavedAt.getHours()} padStart />
+                  <span>:</span>
+                  <SlidingNumber value={lastSavedAt.getMinutes()} padStart />
+                  <span>:</span>
+                  <SlidingNumber value={lastSavedAt.getSeconds()} padStart />
+                </span>
+              ) : null}
+            </div>
             {/*
               StylePanel toggle (sits where the old "collapse" minimize button was).
               OFF: tldraw's StylePanel is fully suppressed via `StylePanel: () => null`.

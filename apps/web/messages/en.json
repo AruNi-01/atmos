@@ -2730,7 +2730,7 @@
       "buttonAria": "Open canvas documents",
       "popoverTitle": "Canvas documents",
       "popoverHint": "Stored in ~/.atmos/canvas as .atmos.tldr files",
-      "empty": "No documents yet. Use Save As to create one.",
+      "empty": "No documents yet. Click New to create one.",
       "new": "New",
       "save": "Save",
       "saveAs": "Save As",
