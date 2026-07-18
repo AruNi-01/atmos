@@ -251,11 +251,31 @@ export function useCanvasBoard() {
           title: nextDocument.title || title,
         });
         const res = await canvasApi.putDocument(resolvedName, payload);
-        applyLoaded(res.item.file_name, {
-          ...nextDocument,
-          schema: ATMOS_CANVAS_FILE_SCHEMA,
-          title: payload.title,
-        });
+        // Same open file: do NOT replace `document.tldrawDocument` in React state.
+        // Feeding a new snapshot into <Tldraw> remounts/reloads the editor (flash).
+        const sameOpenFile = fileName != null && res.item.file_name === fileName;
+        if (sameOpenFile) {
+          setTitle(payload.title);
+          writeActiveCanvasDocumentFileName(res.item.file_name);
+          clearDirty();
+          // Keep in-memory script/title in sync without swapping the live store snapshot.
+          setDocument((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  title: payload.title,
+                  script: nextDocument.script ?? prev.script,
+                  session: nextDocument.session ?? prev.session,
+                }
+              : prev,
+          );
+        } else {
+          applyLoaded(res.item.file_name, {
+            ...nextDocument,
+            schema: ATMOS_CANVAS_FILE_SCHEMA,
+            title: payload.title,
+          });
+        }
         await refreshDocumentList();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save canvas");
@@ -264,7 +284,7 @@ export function useCanvasBoard() {
         setIsSaving(false);
       }
     },
-    [applyLoaded, fileName, refreshDocumentList, title],
+    [applyLoaded, clearDirty, fileName, refreshDocumentList, title],
   );
 
   const saveAs = useCallback(

@@ -12,6 +12,20 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/ui/dropdown-menu";
 import type { CanvasDocumentListItem } from "@/api/rest-api";
 
 type DirtyAction = "switch" | "new";
@@ -62,7 +76,6 @@ export function CanvasDocumentsControl({
   const [renameTarget, setRenameTarget] = React.useState<string | null>(null);
   const [renameName, setRenameName] = React.useState("");
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
-  const [menuFor, setMenuFor] = React.useState<string | null>(null);
   const [working, setWorking] = React.useState(false);
 
   React.useEffect(() => {
@@ -120,15 +133,22 @@ export function CanvasDocumentsControl({
     void runNew();
   };
 
+  const openSaveAsDialog = (after: "none" | DirtyAction | "open" = "none", openFile?: string) => {
+    setSaveAsName(title === "Untitled" ? "" : title);
+    setSaveAsAfter(after);
+    setPendingOpenFile(openFile ?? null);
+    setSaveAsOpen(true);
+  };
+
   const handleDirtySave = async () => {
     if (!pending) return;
     setWorking(true);
     try {
       if (!fileName) {
-        setSaveAsAfter(pending.action === "switch" ? "open" : pending.action);
-        setPendingOpenFile(pending.fileName ?? null);
-        setSaveAsName(title === "Untitled" ? "" : title);
-        setSaveAsOpen(true);
+        openSaveAsDialog(
+          pending.action === "switch" ? "open" : pending.action,
+          pending.fileName,
+        );
         setPending(null);
         return;
       }
@@ -198,7 +218,6 @@ export function CanvasDocumentsControl({
         type: "error",
       });
     }
-    setMenuFor(null);
   };
 
   return (
@@ -220,7 +239,11 @@ export function CanvasDocumentsControl({
             <span className="truncate text-xs font-medium">{displayTitle}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80 p-0">
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="z-[200] w-80 overflow-visible p-0"
+        >
           <div className="border-b px-3 py-2">
             <div className="text-sm font-medium">{t("popoverTitle")}</div>
             <div className="text-xs text-muted-foreground">{t("popoverHint")}</div>
@@ -248,7 +271,7 @@ export function CanvasDocumentsControl({
                   <div
                     key={item.file_name}
                     className={cn(
-                      "group flex items-start gap-1 rounded-md",
+                      "group flex items-center gap-1 rounded-md",
                       active && "bg-muted",
                     )}
                   >
@@ -266,69 +289,55 @@ export function CanvasDocumentsControl({
                         {item.file_name}
                       </span>
                     </button>
-                    <div className="relative shrink-0 pr-1 pt-1">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="size-7"
-                        disabled={working || isBusy}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMenuFor((cur) =>
-                            cur === item.file_name ? null : item.file_name,
-                          );
-                        }}
-                        aria-label={t("rowMenuAria")}
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="mr-1 size-7 shrink-0"
+                          disabled={working || isBusy}
+                          aria-label={t("rowMenuAria")}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="size-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        side="bottom"
+                        sideOffset={4}
+                        className="z-[300] min-w-[148px]"
                       >
-                        <MoreHorizontal className="size-3.5" />
-                      </Button>
-                      {menuFor === item.file_name ? (
-                        <div className="absolute right-0 top-8 z-10 min-w-[140px] rounded-md border bg-popover p-1 shadow-md">
-                          <button
-                            type="button"
-                            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
-                            onClick={() => {
-                              setRenameTarget(item.file_name);
-                              setRenameName(item.title);
-                              setMenuFor(null);
-                            }}
-                          >
-                            {t("rename")}
-                          </button>
-                          <button
-                            type="button"
-                            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
-                            onClick={() => {
-                              setWorking(true);
-                              void onDuplicate(item.file_name)
-                                .then(() => onRefreshList())
-                                .finally(() => setWorking(false));
-                              setMenuFor(null);
-                            }}
-                          >
-                            {t("duplicate")}
-                          </button>
-                          <button
-                            type="button"
-                            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
-                            onClick={() => void copyPath(item.file_name)}
-                          >
-                            {t("copyPath")}
-                          </button>
-                          <button
-                            type="button"
-                            className="block w-full rounded px-2 py-1.5 text-left text-xs text-destructive hover:bg-muted"
-                            onClick={() => {
-                              setDeleteTarget(item.file_name);
-                              setMenuFor(null);
-                            }}
-                          >
-                            {t("delete")}
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setRenameTarget(item.file_name);
+                            setRenameName(item.title);
+                          }}
+                        >
+                          {t("rename")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setWorking(true);
+                            void onDuplicate(item.file_name)
+                              .then(() => onRefreshList())
+                              .finally(() => setWorking(false));
+                          }}
+                        >
+                          {t("duplicate")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => void copyPath(item.file_name)}>
+                          {t("copyPath")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleteTarget(item.file_name)}
+                        >
+                          {t("delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 );
               })
@@ -351,9 +360,7 @@ export function CanvasDocumentsControl({
               disabled={working || isBusy || (!dirty && !!fileName)}
               onClick={() => {
                 if (!fileName) {
-                  setSaveAsName(title === "Untitled" ? "" : title);
-                  setSaveAsAfter("none");
-                  setSaveAsOpen(true);
+                  openSaveAsDialog("none");
                   return;
                 }
                 void onSave();
@@ -366,11 +373,7 @@ export function CanvasDocumentsControl({
               variant="secondary"
               className="h-7 text-xs"
               disabled={working || isBusy}
-              onClick={() => {
-                setSaveAsName(title === "Untitled" ? "" : title);
-                setSaveAsAfter("none");
-                setSaveAsOpen(true);
-              }}
+              onClick={() => openSaveAsDialog("none")}
             >
               {t("saveAs")}
             </Button>
@@ -378,139 +381,161 @@ export function CanvasDocumentsControl({
         </PopoverContent>
       </Popover>
 
-      {pending ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
-            <div className="text-sm font-medium">{t("dirtyTitle")}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{t("dirtyBody")}</p>
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button size="sm" variant="ghost" disabled={working} onClick={() => setPending(null)}>
-                {t("dirtyCancel")}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={working}
-                onClick={() => void handleDirtyDiscard()}
-              >
-                {t("dirtyDiscard")}
-              </Button>
-              <Button size="sm" disabled={working} onClick={() => void handleDirtySave()}>
-                {working ? <Loader2 className="size-3.5 animate-spin" /> : t("dirtySave")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Dirty guard — portal dialog so tldraw transforms do not trap layout */}
+      <Dialog open={pending != null} onOpenChange={(v) => !v && setPending(null)}>
+        <DialogContent className="z-[400] sm:max-w-sm" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{t("dirtyTitle")}</DialogTitle>
+            <DialogDescription>{t("dirtyBody")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button size="sm" variant="ghost" disabled={working} onClick={() => setPending(null)}>
+              {t("dirtyCancel")}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={working}
+              onClick={() => void handleDirtyDiscard()}
+            >
+              {t("dirtyDiscard")}
+            </Button>
+            <Button size="sm" disabled={working} onClick={() => void handleDirtySave()}>
+              {working ? <Loader2 className="size-3.5 animate-spin" /> : t("dirtySave")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {saveAsOpen ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
-            <div className="text-sm font-medium">{t("saveAsTitle")}</div>
-            <p className="mt-1 text-xs text-muted-foreground">{t("saveAsHint")}</p>
-            <Input
-              className="mt-3"
-              value={saveAsName}
-              onChange={(e) => setSaveAsName(e.target.value)}
-              placeholder={t("saveAsPlaceholder")}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void confirmSaveAs();
-                }
+      <Dialog
+        open={saveAsOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setSaveAsOpen(false);
+            setSaveAsAfter("none");
+            setPendingOpenFile(null);
+          }
+        }}
+      >
+        <DialogContent className="z-[400] sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("saveAsTitle")}</DialogTitle>
+            <DialogDescription>{t("saveAsHint")}</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={saveAsName}
+            onChange={(e) => setSaveAsName(e.target.value)}
+            placeholder={t("saveAsPlaceholder")}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void confirmSaveAs();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={working}
+              onClick={() => {
+                setSaveAsOpen(false);
+                setSaveAsAfter("none");
+                setPendingOpenFile(null);
               }}
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={working}
-                onClick={() => {
-                  setSaveAsOpen(false);
-                  setSaveAsAfter("none");
-                  setPendingOpenFile(null);
-                }}
-              >
-                {t("dirtyCancel")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={working || !saveAsName.trim()}
-                onClick={() => void confirmSaveAs()}
-              >
-                {working ? <Loader2 className="size-3.5 animate-spin" /> : t("saveAsConfirm")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            >
+              {t("dirtyCancel")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={working || !saveAsName.trim()}
+              onClick={() => void confirmSaveAs()}
+            >
+              {working ? <Loader2 className="size-3.5 animate-spin" /> : t("saveAsConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {renameTarget ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
-            <div className="text-sm font-medium">{t("renameTitle")}</div>
-            <Input
-              className="mt-3"
-              value={renameName}
-              onChange={(e) => setRenameName(e.target.value)}
-              autoFocus
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setRenameTarget(null)}>
-                {t("dirtyCancel")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={working || !renameName.trim()}
-                onClick={() => {
-                  setWorking(true);
-                  void onRename(renameTarget, renameName.trim())
-                    .then(() => {
-                      setRenameTarget(null);
-                      return onRefreshList();
-                    })
-                    .finally(() => setWorking(false));
-                }}
-              >
-                {working ? <Loader2 className="size-3.5 animate-spin" /> : t("renameConfirm")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <Dialog open={renameTarget != null} onOpenChange={(v) => !v && setRenameTarget(null)}>
+        <DialogContent className="z-[400] sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("renameTitle")}</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameTarget && renameName.trim()) {
+                e.preventDefault();
+                setWorking(true);
+                void onRename(renameTarget, renameName.trim())
+                  .then(() => {
+                    setRenameTarget(null);
+                    return onRefreshList();
+                  })
+                  .finally(() => setWorking(false));
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button size="sm" variant="ghost" onClick={() => setRenameTarget(null)}>
+              {t("dirtyCancel")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={working || !renameName.trim() || !renameTarget}
+              onClick={() => {
+                if (!renameTarget) return;
+                setWorking(true);
+                void onRename(renameTarget, renameName.trim())
+                  .then(() => {
+                    setRenameTarget(null);
+                    return onRefreshList();
+                  })
+                  .finally(() => setWorking(false));
+              }}
+            >
+              {working ? <Loader2 className="size-3.5 animate-spin" /> : t("renameConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {deleteTarget ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
-            <div className="text-sm font-medium">{t("deleteTitle")}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("deleteBody", { name: deleteTarget })}
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(null)}>
-                {t("dirtyCancel")}
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={working}
-                onClick={() => {
-                  setWorking(true);
-                  void onDelete(deleteTarget)
-                    .then(() => {
-                      setDeleteTarget(null);
-                      return onRefreshList();
-                    })
-                    .finally(() => setWorking(false));
-                }}
-              >
-                {working ? <Loader2 className="size-3.5 animate-spin" /> : t("deleteConfirm")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <Dialog open={deleteTarget != null} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <DialogContent className="z-[400] sm:max-w-sm" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{t("deleteTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("deleteBody", { name: deleteTarget ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(null)}>
+              {t("dirtyCancel")}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={working || !deleteTarget}
+              onClick={() => {
+                if (!deleteTarget) return;
+                setWorking(true);
+                void onDelete(deleteTarget)
+                  .then(() => {
+                    setDeleteTarget(null);
+                    return onRefreshList();
+                  })
+                  .finally(() => setWorking(false));
+              }}
+            >
+              {working ? <Loader2 className="size-3.5 animate-spin" /> : t("deleteConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

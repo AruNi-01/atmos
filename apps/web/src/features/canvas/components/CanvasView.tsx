@@ -374,6 +374,9 @@ export const CanvasView: React.FC = () => {
     canvasRevealRafIdsRef.current = [rafId];
   }, [cancelPendingCanvasReveal]);
 
+  // Snapshot is only used as the *initial* store for a given canvasRenderKey.
+  // After mount, the live editor is source of truth — do not recompute snapshot
+  // on every autosave (that remounts/reloads Tldraw).
   const initialSnapshot = React.useMemo(() => {
     if (!connectionBootstrapReady || !document?.tldrawDocument) {
       return null;
@@ -384,15 +387,18 @@ export const CanvasView: React.FC = () => {
         document.session ?? readCanvasSession(boardIdentity),
       ),
     );
-  }, [boardIdentity, connectionBootstrapReady, document?.session, document?.tldrawDocument]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: identity-only
+  }, [boardIdentity, connectionBootstrapReady, fileName, tldrawRemountKey]);
 
+  // Only remount when the open document *identity* changes (or crash remount).
+  // Do not key off `document` content — autosave would flash/reload the editor.
   const canvasRenderKey = React.useMemo(() => {
     if (!connectionBootstrapReady || !document) {
       return null;
     }
 
     return [boardIdentity, fileName ?? "untitled", tldrawRemountKey].join(":");
-  }, [boardIdentity, connectionBootstrapReady, document, fileName, tldrawRemountKey]);
+  }, [boardIdentity, connectionBootstrapReady, document != null, fileName, tldrawRemountKey]);
 
   if (previousCanvasRenderKeyRef.current !== canvasRenderKey) {
     previousCanvasRenderKeyRef.current = canvasRenderKey;

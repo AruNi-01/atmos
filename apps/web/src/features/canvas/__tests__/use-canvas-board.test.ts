@@ -21,6 +21,7 @@ describe("parseAtmosCanvasFile", () => {
       title: "Ops Desk",
       tldrawDocument: null,
       session: null,
+      script: null,
     });
   });
 
@@ -48,6 +49,7 @@ describe("parseAtmosCanvasFile", () => {
       title: "A",
       tldrawDocument: null,
       session: null,
+      script: null,
     });
   });
 
