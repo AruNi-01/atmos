@@ -73,7 +73,11 @@ export interface CanvasAgentBridgeState {
   failInflight: (message: string) => Promise<void>;
 }
 
-export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeState {
+export function useCanvasAgentBridge(
+  editor: Editor | null,
+  options?: { activeDocumentFileName?: string | null },
+): CanvasAgentBridgeState {
+  const activeDocumentFileName = options?.activeDocumentFileName ?? null;
   const isConnected = useWebSocketStore((s) => s.connectionState === "connected");
   const onEvent = useWebSocketStore((s) => s.onEvent);
 
@@ -119,7 +123,8 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
           label:
             typeof document !== "undefined" ? document.title || "Atmos Canvas" : "Atmos Canvas",
           accepts_commands: acceptsCommands,
-          capabilities: ["canvas.v1"],
+          capabilities: ["canvas.v1", "canvas-documents.1"],
+          active_document_file_name: activeDocumentFileName,
         });
       } catch (err) {
         if (!cancelled) {
@@ -130,7 +135,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     return () => {
       cancelled = true;
     };
-  }, [clientId, acceptsCommands, isConnected]);
+  }, [clientId, acceptsCommands, isConnected, activeDocumentFileName]);
 
   const isConnectedRef = React.useRef(isConnected);
   React.useEffect(() => {

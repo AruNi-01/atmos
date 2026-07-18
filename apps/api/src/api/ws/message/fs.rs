@@ -41,22 +41,6 @@ pub struct FsValidateGitPathRequest {
     pub path: String,
 }
 
-/// 获取默认 canvas board 响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CanvasBoardResponse {
-    pub guid: String,
-    pub slug: String,
-    pub name: String,
-    pub document_json: String,
-    pub updated_at: String,
-}
-
-/// 更新默认 canvas board 请求
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CanvasUpdateDefaultBoardRequest {
-    pub document_json: String,
-}
-
 /// Register a browser tab as terminal-agent bridge target.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CanvasBridgeRegisterRequest {
@@ -71,6 +55,9 @@ pub struct CanvasBridgeRegisterRequest {
     /// Protocol capabilities advertised by the tab (forward-compatibility).
     #[serde(default)]
     pub capabilities: Vec<String>,
+    /// Active canvas document file name (APP-037), if saved.
+    #[serde(default)]
+    pub active_document_file_name: Option<String>,
 }
 
 fn default_accepts_commands() -> bool {

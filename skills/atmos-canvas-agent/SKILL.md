@@ -1,283 +1,149 @@
 ---
 name: atmos-canvas-agent
-version: "1.4.0"
-description: 'Drive the user''s open Atmos Canvas (tldraw whiteboard) via the `atmos canvas` CLI. Use whenever the user asks to sketch, draw, diagram, lay out, arrange, label, move, resize, recolor, or delete anything on the canvas — including architecture/flow diagrams, sticky notes, frames, geo shapes, arrows, grids of cards, or viewport changes.'
+version: "2.1.0"
+description: >-
+  Drive the user's open Atmos Canvas via `atmos canvas` CLI: diagrams, layout,
+  screenshots, local .atmos.tldr documents, and (when needed) durable document
+  scripts or one-shot exec. Use for sketch/draw/diagram/layout requests, and
+  for interactive boards, games, or clickable UI only when the user asks for
+  that behavior.
 license: MIT
 ---
 
 # Atmos Canvas Agent Skill
 
-Drive the open Atmos Canvas with **stable layouts** (absolute coordinates first,
-page-bounds math, smart lint, region screenshots).
-
----
-
-## Prerequisites (always, in order)
-
-1. **`atmos` CLI** on `PATH` (`atmos --version`).
-2. **Live Canvas tab** — `atmos canvas status` (at least one accepting client).
-3. **Bridge ON** — Canvas Bot popover → **Enable bridge**. Mutating verbs fail with `BRIDGE_DISABLED` until enabled.
-
----
-
-## Quality bar (why diagrams look good)
-
-Atmos agents produce clean diagrams when they follow this contract:
-
-| Rule | Why |
-|------|-----|
-| **Create at final coordinates** | Never pile shapes at the same `(x,y)` hoping a later layout will fix it |
-| **Gutters ≥ 24px** | Avoid edge kissing / visual collision |
-| **Arrows use `--from-id` / `--to-id`** | Bindings survive moves |
-| **`lint` error_count = 0 before idle** | Smart lint only reports *real* card-on-card problems |
-| **Screenshot the agent region** | Verify without Atmos terminals/widgets polluting the crop |
-
----
-
-## Diagram workflow
-
-### 1. Plan regions (page space)
-
-Example bands for a product intro / architecture slide:
+Operate the **live Atmos Canvas** with `atmos canvas`. Most requests are **static
+diagrams** — use structured drawing commands only. Load deeper references only
+when the task needs documents or interactive scripts.
 
 ```text
-title:   y = 0    .. 80     full width
-body:    y = 120  .. …      cards, gap 24, col_w ~ 300–340
-footer:  y = body_bottom+48
-gutter:  24–40 between cards
+Default path:  create / layout / lint / screenshot / idle
+Only if needed: documents CLI · document scripts · exec
 ```
-
-Prefer **`set-agent-view --x --y --w --h`** once at the start so later `screenshot --use-agent-view` crops exactly that board.
-
-### 2. Create content (absolute coords preferred)
-
-- Fixed cards / labels → **`create-geo`** (`rectangle`) with `--w --h --text --x --y`
-- Sticky notes → **`create-note`** (auto height; no `--h`)
-- Section boxes → **`create-frame`**
-- **Always pass both `--x` and `--y`, or omit both** (never only one)
-- If you omit both, the bus **collision-spawns** (non-overlapping). Still prefer explicit coords for multi-shape diagrams.
-
-### 3. Layout polish (optional)
-
-After creates with real positions, refine with:
-
-- `align` / `stack` / `distribute`
-- `layout-row` / `layout-column` / `layout-grid` (page bounds)
-- `place` (relative to another shape)
-
-### 4. Arrows last
-
-```bash
-atmos canvas create-arrow --from-id "$A" --to-id "$B" --text "next"
-```
-
-### 5. Lint → fix → lint
-
-```bash
-atmos canvas lint --fix-suggestions
-# Apply every remediable error via suggested `move` / `update_shape` commands
-# warn unbound_arrow: fix for diagrams; OK for decorative strokes
-```
-
-`fix_suggestions[]` entries are CLI-ready:
-
-```json
-{
-  "command": "move",
-  "args": { "ids": ["shape:…"], "dx": 48, "dy": 0 },
-  "reason": "Separate shape:a and shape:b by moving the latter (dx=48)."
-}
-```
-
-Replay with `atmos canvas move --ids … --dx … --dy …` or batch via `apply`.
-
-### 6. Screenshot verify (agent region only)
-
-```bash
-# After set-agent-view for the drawing board:
-atmos canvas screenshot --use-agent-view --out /tmp/canvas-verify.jpg
-
-# Or crop to specific shapes you created:
-atmos canvas screenshot --ids "$ID1,$ID2,$ID3" --out /tmp/canvas-verify.jpg
-```
-
-A successful `screenshot` also shows a **thumbnail on the Canvas Agent Island**
-(bottom-right). Click it to enlarge. Prefer `--use-agent-view` so the island
-preview matches the agent board.
-
-**Chrome exclusion (default):** `canvas-terminal` and `canvas-widget` are **not** included, so remote terminals / workspace widgets do not pollute the JPEG. Pass `--include-widgets` only if you truly need them.
-
-### 7. End the turn
-
-```bash
-atmos canvas set-status --status idle
-```
-
-`set-status idle` returns `lints_summary` and `ready_to_idle`.  
-**If `ready_to_idle` is false / `error_count > 0`, keep fixing — do not stop.**
 
 ---
 
-## Command reference
+## Prerequisites
 
-CLI: `atmos canvas <verb> [--flags…]`
+1. `atmos` on `PATH` (`atmos --version`).
+2. Canvas open against local Atmos Server.
+3. `atmos canvas status` — for **live editor** work: `bridge.accepting_count >= 1` and bridge **enabled** (Canvas Bot). Document-only `docs` / `doc-*` do **not** need the bridge.
 
-```json
-{ "ok": true,  "request_id": "<uuid>", "data": { … } }
-{ "ok": false, "request_id": "<uuid>", "error": { "code": "…", "message": "…", "recoverable": true } }
-```
-
-### Diagnostics & read
-
-| Verb | Args | Notes |
-|------|------|-------|
-| `status` | — | Registered tabs + bridge state |
-| `get-state` | `--page-id` optional | Shapes + **`bounds`** + **`text_preview`** + `lints` + `lints_summary` |
-| `extract-text` | `--ids` optional | Full text / terminal tmux capture |
-| `lint` | `--fix-suggestions` | Smart lints + `summary`; with flag, also `fix_suggestions[]` |
-| `screenshot` | see below | JPEG of agent region (excludes Atmos chrome); Island thumb preview |
-
-`get-state` **includes** `text_preview` for notes/geo/frames (not terminal pane text). Use it for layout math. Use `extract-text` for full terminal scrollback.
-
-### Create
-
-| Verb | Required | Optional |
-|------|----------|----------|
-| `create-note` | `--text` | `--x --y --w --color` (**no `--h`**) |
-| `create-frame` | `--w --h` | `--title --x --y` |
-| `create-geo` | `--kind --w --h` | `--x --y --text --color --fill --size` |
-| `create-arrow` | coords **or** bindings | `--from-id --to-id --x1 --y1 --x2 --y2 --color --size --text` |
-| `create-draw` | `--points` | `--color --size --closed` |
-
-Create responses include:
-
-```json
-{
-  "id": "shape:…",
-  "type": "geo",
-  "bounds": { "min_x": 0, "min_y": 0, "w": 220, "h": 120 },
-  "warnings": ["text_may_overflow"]
-}
-```
-
-If `warnings` contains `text_may_overflow`, increase `--h`/`--w` or shorten text immediately.
-
-### Selection & transform
-
-| Verb | Args |
-|------|------|
-| `select` | `--ids <id,…>` |
-| `clear-selection` | — |
-| `move` | `--ids … --dx --dy` |
-| `delete` | `--ids … --confirm` |
-
-### Layout
-
-| Verb | Args |
-|------|------|
-| `align` | `--ids … --alignment top\|bottom\|left\|right\|center-horizontal\|center-vertical` |
-| `stack` | `--ids … --direction horizontal\|vertical [--gap 24]` |
-| `distribute` | `--ids … --direction horizontal\|vertical` (≥3) |
-| `place` | `--id … --reference-id … --side … [--align center]` |
-| `layout-row` / `layout-column` / `layout-grid` | page-bounds packing |
-
-### Agent view & screenshot
-
-| Verb | Args |
-|------|------|
-| `set-agent-view` | `--x --y --w --h` **or** `--center-ids …` `[--padding 48]` `[--zoom]` |
-| `screenshot` | `--use-agent-view` **or** `--ids …` **or** `--x --y --w --h` · `--size small\|medium\|large` · `--out path` · `--include-widgets` |
-
-```bash
-atmos canvas set-agent-view --x 0 --y 0 --w 1100 --h 900 --padding 32
-# … create shapes inside that board …
-atmos canvas screenshot --use-agent-view --size medium --out /tmp/verify.jpg
-```
-
-### Session
-
-| Verb | Args |
-|------|------|
-| `set-status` | `--status idle\|active` |
-
-Send **`idle` exactly once** when the whole canvas turn is finished (after final lint/screenshot). Never pair `idle` with a mid-turn lint.
-
-### Batch
-
-| Verb | Args |
-|------|------|
-| `apply` | `--commands '<json>'` or `--commands-file` · **max 64 steps** |
-
-Collect ids from `data.results[i].data.id` after apply.
+Fresh shell per tool call — re-run full commands; do not rely on exported env vars.
 
 ---
 
-## Good example: title + 3×2 grid (final coords)
+## Decision tree (load references on demand)
 
-```bash
-atmos canvas set-agent-view --x 0 --y 0 --w 760 --h 420 --padding 24
+| User intent | What to do | Load reference |
+|-------------|------------|----------------|
+| Diagram, architecture, cards, labels, arrange | Structured verbs below | *(this file only)* |
+| List / save-as style file ops / rename boards | `docs` / `doc-*` | [`references/documents.md`](references/documents.md) |
+| Clickable UI, game, animation, run-on-open | Durable **document script** | [`references/document-scripts.md`](references/document-scripts.md) |
+| One-shot JS probe on live editor | `exec` | [`references/document-scripts.md`](references/document-scripts.md) |
+| Full flag tables / error codes | — | [`references/command-reference.md`](references/command-reference.md) |
 
-atmos canvas apply --commands '[
-  {"command":"create_geo","args":{"kind":"rectangle","w":720,"h":64,"text":"Product","x":0,"y":0,"color":"black","fill":"semi"}},
-  {"command":"create_geo","args":{"kind":"rectangle","w":220,"h":120,"text":"Feature 1","x":0,"y":96,"color":"light-blue","fill":"semi"}},
-  {"command":"create_geo","args":{"kind":"rectangle","w":220,"h":120,"text":"Feature 2","x":244,"y":96,"color":"light-green","fill":"semi"}},
-  {"command":"create_geo","args":{"kind":"rectangle","w":220,"h":120,"text":"Feature 3","x":488,"y":96,"color":"yellow","fill":"semi"}},
-  {"command":"create_geo","args":{"kind":"rectangle","w":220,"h":120,"text":"Feature 4","x":0,"y":240,"color":"orange","fill":"semi"}},
-  {"command":"create_geo","args":{"kind":"rectangle","w":220,"h":120,"text":"Feature 5","x":244,"y":240,"color":"violet","fill":"semi"}},
-  {"command":"create_geo","args":{"kind":"rectangle","w":220,"h":120,"text":"Feature 6","x":488,"y":240,"color":"light-red","fill":"semi"}}
-]'
+**Do not** start with `script-put` or `exec` for a normal “draw a flowchart” request.
 
-atmos canvas lint --fix-suggestions
-# optional: apply fix_suggestions via move / update-shape, then lint again
-atmos canvas screenshot --use-agent-view --out /tmp/grid.jpg
-atmos canvas set-status --status idle
-```
-
-**Do not** create six cards at the same `x,y` then rely on `layout-grid` alone — if id collection fails, the board stays piled.
+**Offline mapping** (when you already know tldraw offline):  
+`exec` ≈ `/exec` · `script-put` ≈ script-workspace `main.js` · `get-state` ≈ getShapes · `~/.atmos/canvas/*.atmos.tldr` ≈ document file. Details in the scripts reference.
 
 ---
 
-## Lint semantics (smart)
+## Default workflow — static diagram
 
-| type | severity | Meaning |
-|------|----------|---------|
-| `overlap` | error | Two **content** shapes collide (not parent/child, not containment). Arrows / frames / Atmos chrome ignored. |
-| `text_overflow` | error if collides, else warn | Geo label likely exceeds box |
-| `unbound_arrow` | warn | Missing start/end binding |
+1. `atmos canvas status` (bridge accepting).
+2. `set-agent-view --x --y --w --h` for the drawing board.
+3. Create at **final coordinates** (gutter ≥ 24). Prefer `apply` for multi-shape boards.
+4. Bound arrows: `create-arrow --from-id --to-id` (not free-floating for diagrams).
+5. `lint --fix-suggestions` → fix → lint until `error_count = 0`.
+6. `screenshot --use-agent-view --out /tmp/canvas-verify.jpg`.
+7. `set-status --status idle` **once** at the end of the whole turn.
 
-`summary.clean === true` means **zero errors** (warns OK).
+### Quick create / layout
 
----
+| Verb | Notes |
+|------|--------|
+| `create-geo` | Fixed cards: `--kind rectangle --w --h --text --x --y --color --fill` |
+| `create-note` | Sticky; **no** `--h` |
+| `create-frame` | Section box |
+| `create-arrow` | Prefer `--from-id` / `--to-id` |
+| `move` / `align` / `stack` / `distribute` / `place` | Polish |
+| `layout-row` / `layout-column` / `layout-grid` | Packing |
+| `apply` | Batch ≤ 64 steps |
+| `update-shape` | Patch props |
+| `get-state` / `extract-text` / `lint` / `screenshot` | Read / verify |
 
-## Anti-patterns
+Always pass **both** `--x` and `--y`, or omit both (collision spawn).
 
-- ❌ Same `(x,y)` for many shapes “then layout later”
-- ❌ Ignoring `lints_summary.error_count` and still sending `idle`
-- ❌ `create-note` for fixed-size labeled cards (use `create-geo`)
-- ❌ Free-floating diagram arrows (use bindings)
-- ❌ Guessing CSS/hex colors (tldraw tokens only)
-- ❌ Retrying `create-*` after `RELAY_TIMEOUT` without `get-state`
-- ❌ Screenshot of full page with terminals/widgets when verifying a diagram (use `--use-agent-view` / `--ids`)
-- ❌ `set-status idle` right after an intermediate `lint`
-
----
-
-## Colors / style tokens
-
-- `--color`: `black`, `grey`, `light-violet`, `violet`, `blue`, `light-blue`, `yellow`, `orange`, `green`, `light-green`, `light-red`, `red`, `white`
-- `--fill`: `none`, `semi`, `solid`, `pattern`, `fill`, `lined-fill`
-- `--size`: `s`, `m`, `l`, `xl`
-
-Do **not** invent tokens like `light-orange` (use `orange`).
+Colors: `black`, `grey`, `light-violet`, `violet`, `blue`, `light-blue`, `yellow`, `orange`, `green`, `light-green`, `light-red`, `red`, `white`.  
+Fill: `none`, `semi`, `solid`, `pattern`, `fill`, `lined-fill`. Size: `s` `m` `l` `xl`.
 
 ---
 
-## Error codes
+## When the user wants interaction
+
+Only then:
+
+1. Read [`references/document-scripts.md`](references/document-scripts.md).
+2. `script-get` first if a script may already exist — **extend, don’t clobber**.
+3. `script-put --file …` or `--code …` → `script-status` → screenshot if useful.
+4. Remind the user to **Save** the document so the script lands on disk in the `.atmos.tldr`.
+
+One-shot probes: `atmos canvas exec --code 'return editor.getCurrentPageShapes().length'` (not durable).
+
+---
+
+## Documents (optional)
+
+Local boards: `~/.atmos/canvas/*.atmos.tldr`.  
+`status` includes `documents.dir`, `items`, `active_document`.  
+Full verbs: [`references/documents.md`](references/documents.md).
+
+Never hex-edit an **open** document file; use live CLI or `doc-*` on closed files.
+
+---
+
+## Anti-patterns (default path)
+
+- ❌ `script-put` / games for plain diagram asks  
+- ❌ Same `(x,y)` for many shapes then “layout later”  
+- ❌ Unbound diagram arrows  
+- ❌ `set-status idle` mid-turn after a partial lint  
+- ❌ Screenshot full page with terminals when verifying a diagram  
+- ❌ Inventing color tokens  
+- ❌ Assuming `config.js` / custom ShapeUtil exists (not shipped)
+
+---
+
+## Errors (short)
 
 | Code | Recovery |
 |------|----------|
-| `CANVAS_BRIDGE_OFFLINE` | Open Canvas tab |
-| `BRIDGE_DISABLED` | Enable bridge in Bot popover |
-| `STALE_SHAPE_ID` | `get-state` and refresh ids |
-| `VALIDATION_ARG` | Fix args (see message) |
-| `RELAY_TIMEOUT` | `get-state` then retry carefully |
+| `CANVAS_BRIDGE_OFFLINE` | Open Canvas |
+| `BRIDGE_DISABLED` | Enable bridge in Canvas Bot |
+| `STALE_SHAPE_ID` | `get-state` |
+| `RELAY_TIMEOUT` | `get-state`, careful retry |
+
+More codes: [`references/command-reference.md`](references/command-reference.md).
+
+---
+
+## Reporting
+
+- What changed (shape ids or “script installed”).  
+- One verification (`lint` / screenshot path / `script-status`).  
+- If a script was installed: whether user still needs to **Save**.
+
+---
+
+## References (on-demand)
+
+| File | Load when |
+|------|-----------|
+| [`references/document-scripts.md`](references/document-scripts.md) | Interactive UI, games, animation, `exec`, script API/helpers |
+| [`references/documents.md`](references/documents.md) | Multi-board files, `docs` / `doc-*` |
+| [`references/command-reference.md`](references/command-reference.md) | Full flag tables, lint semantics, full error list |
+
+Skill directory after sync: `~/.atmos/skills/.system/atmos-canvas-agent/`  
+(`atmos canvas skill-dir` prints the path).

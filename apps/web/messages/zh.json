@@ -2368,7 +2368,8 @@
       "toast": {
         "title": "画布",
         "savedSuccessfully": "保存成功",
-        "saveFailed": "保存失败"
+        "saveFailed": "保存失败",
+        "saveAsRequired": "未命名文档需要先「另存为」。请使用文档菜单。"
       },
       "loadError": {
         "title": "加载 Canvas 失败",
@@ -2723,6 +2724,43 @@
         "patchMustBeJsonObject": "patch 必须是 JSON 对象。",
         "provideBothXAndYOrOmitBoth": "x 和 y 要么同时提供，要么同时省略。"
       }
+    },
+    "documents": {
+      "buttonTitle": "文档",
+      "buttonAria": "打开 Canvas 文档列表",
+      "popoverTitle": "Canvas 文档",
+      "popoverHint": "保存在 ~/.atmos/canvas，后缀为 .atmos.tldr",
+      "empty": "还没有文档。使用「另存为」创建第一个。",
+      "new": "新建",
+      "save": "保存",
+      "saveAs": "另存为",
+      "dirtyTitle": "有未保存的更改",
+      "dirtyBody": "切换文档前是否保存当前更改？",
+      "dirtyCancel": "取消",
+      "dirtyDiscard": "不保存",
+      "dirtySave": "保存",
+      "saveAsTitle": "保存 Canvas 文档",
+      "saveAsHint": "名称会用于 ~/.atmos/canvas/ 下的文件名",
+      "saveAsPlaceholder": "文档名称",
+      "saveAsConfirm": "保存",
+      "rename": "重命名",
+      "duplicate": "复制",
+      "copyPath": "复制路径",
+      "delete": "删除",
+      "rowMenuAria": "文档操作",
+      "renameTitle": "重命名文档",
+      "renameConfirm": "重命名",
+      "deleteTitle": "删除文档？",
+      "deleteBody": "确定删除 {name}？此操作无法撤销。",
+      "deleteConfirm": "删除",
+      "copiedTitle": "已复制路径",
+      "copyFailed": "无法复制路径"
+    },
+    "script": {
+      "runningTitle": "文档脚本运行中",
+      "running": "脚本 · {entry}",
+      "errorTitle": "文档脚本错误",
+      "errorUnknown": "未知脚本错误"
     }
   },
   "Welcome": {

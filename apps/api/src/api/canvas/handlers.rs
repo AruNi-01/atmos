@@ -1,40 +1,167 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 
 use crate::{
-    api::dto::{ApiResponse, CanvasBoardResponse, UpdateCanvasBoardPayload},
+    api::dto::{
+        ApiResponse, AtmosCanvasFilePayload, CanvasDocumentFileResponse, CanvasDocumentListItemDto,
+        CanvasDocumentListResponse, CanvasDocumentWriteResponse,
+    },
     app_state::AppState,
     error::ApiResult,
 };
-use core_service::SaveCanvasBoardReq;
+use core_service::{AtmosCanvasFile, AtmosCanvasScript};
 
-pub async fn get_default_board(
+fn decode_name(file_name: String) -> String {
+    urlencoding::decode(&file_name)
+        .map(|s| s.into_owned())
+        .unwrap_or(file_name)
+}
+
+fn item_dto(item: core_service::CanvasDocumentListItem) -> CanvasDocumentListItemDto {
+    CanvasDocumentListItemDto {
+        file_name: item.file_name,
+        title: item.title,
+        modified_at: item.modified_at,
+        size_bytes: item.size_bytes,
+    }
+}
+
+pub async fn list_documents(
     State(state): State<AppState>,
-) -> ApiResult<Json<ApiResponse<CanvasBoardResponse>>> {
-    let board = state.canvas_service.get_default_board().await?;
-    Ok(Json(ApiResponse::success(CanvasBoardResponse {
-        guid: board.guid,
-        slug: board.slug,
-        name: board.name,
-        document_json: board.document_json,
-        updated_at: board.updated_at,
+) -> ApiResult<Json<ApiResponse<CanvasDocumentListResponse>>> {
+    let dir = state.canvas_service.canvas_dir()?;
+    let items = state.canvas_service.list_documents()?;
+    Ok(Json(ApiResponse::success(CanvasDocumentListResponse {
+        dir: dir.display().to_string(),
+        items: items.into_iter().map(item_dto).collect(),
     })))
 }
 
-pub async fn update_default_board(
+pub async fn get_document(
     State(state): State<AppState>,
-    Json(payload): Json<UpdateCanvasBoardPayload>,
-) -> ApiResult<Json<ApiResponse<CanvasBoardResponse>>> {
-    let board = state
+    Path(file_name): Path<String>,
+) -> ApiResult<Json<ApiResponse<CanvasDocumentFileResponse>>> {
+    let file_name = decode_name(file_name);
+    let doc = state.canvas_service.read_document(&file_name)?;
+    let abs = state
         .canvas_service
-        .save_default_board(SaveCanvasBoardReq {
-            document_json: payload.document_json,
-        })
-        .await?;
-    Ok(Json(ApiResponse::success(CanvasBoardResponse {
-        guid: board.guid,
-        slug: board.slug,
-        name: board.name,
-        document_json: board.document_json,
-        updated_at: board.updated_at,
+        .absolute_path(&file_name)
+        .map(|p| p.display().to_string())
+        .ok();
+    Ok(Json(ApiResponse::success(CanvasDocumentFileResponse {
+        file_name: doc.file_name,
+        title: doc.title,
+        modified_at: doc.modified_at,
+        size_bytes: doc.size_bytes,
+        absolute_path: abs,
+        body: AtmosCanvasFilePayload {
+            schema: doc.body.schema,
+            title: doc.body.title,
+            tldraw_document: doc.body.tldraw_document,
+            session: doc.body.session,
+            script: doc.body.script.map(|s| crate::api::dto::AtmosCanvasScriptPayload {
+                entry: s.entry,
+                files: s.files,
+            }),
+        },
     })))
+}
+
+pub async fn put_document(
+    State(state): State<AppState>,
+    Path(file_name): Path<String>,
+    Json(payload): Json<AtmosCanvasFilePayload>,
+) -> ApiResult<Json<ApiResponse<CanvasDocumentWriteResponse>>> {
+    let file_name = decode_name(file_name);
+    let body = AtmosCanvasFile {
+        schema: payload.schema,
+        title: payload.title,
+        tldraw_document: payload.tldraw_document,
+        session: payload.session,
+        script: payload.script.map(|s| AtmosCanvasScript {
+            entry: s.entry,
+            files: s.files,
+        }),
+    };
+    let item = state.canvas_service.write_document(&file_name, &body)?;
+    Ok(Json(ApiResponse::success(CanvasDocumentWriteResponse {
+        item: item_dto(item),
+    })))
+}
+
+pub async fn delete_document(
+    State(state): State<AppState>,
+    Path(file_name): Path<String>,
+) -> ApiResult<Json<ApiResponse<DeleteDocumentResponse>>> {
+    let file_name = decode_name(file_name);
+    state.canvas_service.delete_document(&file_name)?;
+    Ok(Json(ApiResponse::success(DeleteDocumentResponse {
+        deleted: file_name,
+    })))
+}
+
+pub async fn rename_document(
+    State(state): State<AppState>,
+    Path(file_name): Path<String>,
+    Json(payload): Json<RenameDocumentPayload>,
+) -> ApiResult<Json<ApiResponse<CanvasDocumentWriteResponse>>> {
+    let file_name = decode_name(file_name);
+    let item = state
+        .canvas_service
+        .rename_document(&file_name, &payload.name)?;
+    Ok(Json(ApiResponse::success(CanvasDocumentWriteResponse {
+        item: item_dto(item),
+    })))
+}
+
+pub async fn duplicate_document(
+    State(state): State<AppState>,
+    Path(file_name): Path<String>,
+    Json(payload): Json<DuplicateDocumentPayload>,
+) -> ApiResult<Json<ApiResponse<CanvasDocumentWriteResponse>>> {
+    let file_name = decode_name(file_name);
+    let item = state
+        .canvas_service
+        .duplicate_document(&file_name, payload.name.as_deref())?;
+    Ok(Json(ApiResponse::success(CanvasDocumentWriteResponse {
+        item: item_dto(item),
+    })))
+}
+
+pub async fn sanitize_name(
+    State(_state): State<AppState>,
+    Json(payload): Json<SanitizeNamePayload>,
+) -> ApiResult<Json<ApiResponse<SanitizeNameResponse>>> {
+    let file_name = core_service::CanvasDocumentService::sanitize_file_name(&payload.name)?;
+    Ok(Json(ApiResponse::success(SanitizeNameResponse {
+        file_name,
+    })))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct SanitizeNamePayload {
+    pub name: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SanitizeNameResponse {
+    pub file_name: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RenameDocumentPayload {
+    pub name: String,
+}
+
+#[derive(Debug, serde::Deserialize, Default)]
+pub struct DuplicateDocumentPayload {
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct DeleteDocumentResponse {
+    pub deleted: String,
 }

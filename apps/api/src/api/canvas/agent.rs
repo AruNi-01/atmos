@@ -279,9 +279,37 @@ pub async fn invoke(
 /// this to figure out *why* a follow-up call would fail.
 pub async fn status(State(state): State<AppState>) -> Json<Value> {
     let snapshot = state.canvas_agent_relay.status();
+    let dir = state
+        .canvas_service
+        .canvas_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| String::new());
+    let items = state
+        .canvas_service
+        .list_documents()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|item| {
+            json!({
+                "file_name": item.file_name,
+                "title": item.title,
+                "modified_at": item.modified_at,
+                "size_bytes": item.size_bytes,
+            })
+        })
+        .collect::<Vec<_>>();
+    let active_document = snapshot
+        .clients
+        .iter()
+        .find_map(|c| c.active_document_file_name.clone());
     Json(json!({
         "ok": true,
         "bridge": snapshot,
+        "documents": {
+            "dir": dir,
+            "items": items,
+            "active_document": active_document,
+        },
     }))
 }
 

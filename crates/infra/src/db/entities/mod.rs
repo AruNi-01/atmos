@@ -2,7 +2,6 @@ pub mod automation;
 pub mod automation_github_delivery_claim;
 pub mod automation_run;
 pub mod base;
-pub mod canvas_board;
 pub mod project;
 pub mod review_agent_run;
 pub mod review_comment;

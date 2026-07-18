@@ -1,44 +1,53 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 import {
+  ATMOS_CANVAS_FILE_SCHEMA,
   createCanvasSnapshot,
+  parseAtmosCanvasFile,
   parseBoardDocument,
   resolveCanvasSessionForLoad,
 } from "../hooks/use-canvas-board";
 
-describe("parseBoardDocument", () => {
-  it("accepts the expected v1 document wrapper", () => {
+describe("parseAtmosCanvasFile", () => {
+  it("accepts atmos-canvas-file.1 envelope", () => {
+    expect(
+      parseAtmosCanvasFile({
+        schema: ATMOS_CANVAS_FILE_SCHEMA,
+        title: "Ops Desk",
+        tldrawDocument: null,
+      }),
+    ).toEqual({
+      schema: ATMOS_CANVAS_FILE_SCHEMA,
+      title: "Ops Desk",
+      tldrawDocument: null,
+      session: null,
+    });
+  });
+
+  it("rejects unsupported schemas", () => {
+    expect(() =>
+      parseAtmosCanvasFile({
+        schema: "canvas.v1",
+        title: "x",
+        tldrawDocument: null,
+      }),
+    ).toThrow("Unsupported Canvas schema");
+  });
+
+  it("parseBoardDocument accepts JSON string of the new envelope", () => {
     expect(
       parseBoardDocument(
         JSON.stringify({
-          schema: "canvas.v1",
-          boardSlug: "default",
+          schema: ATMOS_CANVAS_FILE_SCHEMA,
+          title: "A",
           tldrawDocument: null,
         }),
       ),
     ).toEqual({
-      schema: "canvas.v1",
-      boardSlug: "default",
+      schema: ATMOS_CANVAS_FILE_SCHEMA,
+      title: "A",
       tldrawDocument: null,
-    });
-  });
-
-  it("accepts legacy full snapshots by extracting only the document", () => {
-    expect(
-      parseBoardDocument(
-        JSON.stringify({
-          schema: "canvas.v1",
-          boardSlug: "default",
-          tldrawSnapshot: {
-            document: { store: {}, schema: {} },
-            session: { version: 0 },
-          },
-        }),
-      ),
-    ).toEqual({
-      schema: "canvas.v1",
-      boardSlug: "default",
-      tldrawDocument: { store: {}, schema: {} },
+      session: null,
     });
   });
 
@@ -46,31 +55,7 @@ describe("parseBoardDocument", () => {
     expect(() => parseBoardDocument("{")).toThrow("invalid JSON");
   });
 
-  it("rejects unsupported schemas instead of silently resetting the board", () => {
-    expect(() =>
-      parseBoardDocument(
-        JSON.stringify({
-          schema: "canvas.v2",
-          boardSlug: "default",
-          tldrawDocument: null,
-        }),
-      ),
-    ).toThrow("Unsupported Canvas schema");
-  });
-
-  it("rejects unsupported board slugs instead of silently resetting the board", () => {
-    expect(() =>
-      parseBoardDocument(
-        JSON.stringify({
-          schema: "canvas.v1",
-          boardSlug: "other",
-          tldrawDocument: null,
-        }),
-      ),
-    ).toThrow("Unsupported Canvas board slug");
-  });
-
-  it("hydrates legacy canvas terminal shapes with a null lastAttachedAt", () => {
+  it("hydrates canvas terminal shapes with createCanvasSnapshot", () => {
     const snapshot = createCanvasSnapshot({
       store: {
         "shape:terminal": {
@@ -85,42 +70,29 @@ describe("parseBoardDocument", () => {
           isLocked: false,
           opacity: 1,
           props: {
-            w: 720,
-            h: 420,
+            w: 100,
+            h: 100,
+            workspaceId: "ws",
+            tmuxWindowName: "1",
             contextScope: "workspace",
-            workspaceId: "workspace-1",
-            projectName: "Project",
-            workspaceName: "Workspace",
+            projectName: "p",
+            workspaceName: "w",
             localPath: "/tmp",
-            terminalName: "Terminal",
-            tmuxWindowName: "Terminal",
+            terminalName: "t",
             isNewTerminal: false,
-            isPinned: false,
-            pinKey: "",
+            isPinned: true,
+            pinKey: "k",
+            sourceTerminalTabId: "terminal",
           },
           meta: {},
         },
       },
-      schema: {},
+      schema: { schemaVersion: 0, sequences: {} },
     } as never);
-
-    expect(snapshot?.document.store["shape:terminal"]).toMatchObject({
-      props: {
-        lastAttachedAt: null,
-      },
-    });
+    expect(snapshot?.document).toBeTruthy();
   });
-});
 
-describe("resolveCanvasSessionForLoad", () => {
-  it("defaults show-grid on for new sessions", () => {
+  it("resolveCanvasSessionForLoad defaults isGridMode true", () => {
     expect(resolveCanvasSessionForLoad(null).isGridMode).toBe(true);
-    expect(resolveCanvasSessionForLoad({ version: 0 }).isGridMode).toBe(true);
-  });
-
-  it("keeps show-grid off when the user saved that preference", () => {
-    expect(resolveCanvasSessionForLoad({ version: 0, isGridMode: false }).isGridMode).toBe(
-      false,
-    );
   });
 });

@@ -40,7 +40,7 @@ import { WorkspaceSetupProgressView } from "@/features/workspace/components/Work
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
-import { canvasApi, systemApi } from "@/api/rest-api";
+import { systemApi } from "@/api/rest-api";
 import {
   PROJECT_WIKI_WINDOW_NAME,
   CODE_REVIEW_WINDOW_NAME,
@@ -94,8 +94,8 @@ import {
   removeCanvasTerminalShapesFromDocument,
 } from "@/features/canvas/lib/canvas-terminal-shape";
 import {
-  createDefaultDocument,
-  parseBoardDocument,
+  loadPinTargetDocument,
+  savePinTargetDocument,
 } from "@/features/canvas/hooks/use-canvas-board";
 import {
   isGithubCenterTabValue,
@@ -907,10 +907,7 @@ const CenterStage: React.FC = () => {
     workspaceId: string;
   }) => {
     try {
-      const board = await canvasApi.getDefaultBoard();
-      const document = board.document_json
-        ? parseBoardDocument(board.document_json)
-        : createDefaultDocument();
+      const { fileName, document } = await loadPinTargetDocument();
       const result = removeCanvasTerminalShapesFromDocument(document.tldrawDocument, {
         contextScope,
         workspaceId,
@@ -924,15 +921,13 @@ const CenterStage: React.FC = () => {
       }
 
       dispatchCanvasTerminalShapesRemoved(result.removedShapeIds);
-      await canvasApi.updateDefaultBoard(
-        JSON.stringify({
-          ...document,
-          tldrawDocument: result.document,
-        }),
-      );
+      await savePinTargetDocument(fileName, {
+        ...document,
+        tldrawDocument: result.document as typeof document.tldrawDocument,
+      });
 
       for (const pinKey of result.removedPinKeys) {
-        clearLastPinnedTerminal(board.guid, pinKey);
+        clearLastPinnedTerminal(fileName, pinKey);
         dispatchCanvasTerminalPinStateChange(pinKey, false);
       }
     } catch (error) {

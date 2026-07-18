@@ -1,126 +1,596 @@
-use std::sync::Arc;
+//! APP-037: file-backed Canvas documents under `~/.atmos/canvas/*.atmos.tldr`.
 
-use infra::db::repo::CanvasBoardRepo;
-use sea_orm::DatabaseConnection;
-use serde_json::{json, Value};
+use std::env;
+use std::fs;
+use std::path::{Component, Path, PathBuf};
+use std::time::SystemTime;
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::error::{Result, ServiceError};
 
-pub const DEFAULT_CANVAS_SLUG: &str = "default";
-pub const DEFAULT_CANVAS_NAME: &str = "Canvas";
-const CANVAS_SCHEMA_V1: &str = "canvas.v1";
+pub const ATMOS_CANVAS_FILE_SCHEMA: &str = "atmos-canvas-file.1";
+pub const CANVAS_FILE_EXTENSION: &str = ".atmos.tldr";
+/// Well-known file used when pin-to-canvas has no active document preference.
+pub const DEFAULT_PIN_DOCUMENT_FILE: &str = "Default.atmos.tldr";
+const CANVAS_DIR_ENV: &str = "ATMOS_CANVAS_DIR";
+const MAX_STEM_LEN: usize = 120;
+/// Cap total document-script source size (all files) to avoid abusive payloads.
+const MAX_SCRIPT_TOTAL_BYTES: usize = 2 * 1024 * 1024;
+const MAX_SCRIPT_FILES: usize = 32;
 
-pub struct CanvasService {
-    db: Arc<DatabaseConnection>,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct AtmosCanvasScript {
+    /// Entry module path within `files`, default `main.js`.
+    #[serde(default = "default_script_entry")]
+    pub entry: String,
+    /// Source files keyed by relative path (e.g. `main.js`, `lib/util.js`).
+    #[serde(default)]
+    pub files: std::collections::BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct CanvasBoardDto {
-    pub guid: String,
-    pub slug: String,
-    pub name: String,
-    pub document_json: String,
-    pub updated_at: String,
+fn default_script_entry() -> String {
+    "main.js".to_string()
 }
 
-#[derive(Debug, Clone)]
-pub struct SaveCanvasBoardReq {
-    pub document_json: String,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AtmosCanvasFile {
+    pub schema: String,
+    pub title: String,
+    #[serde(rename = "tldrawDocument")]
+    pub tldraw_document: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<Value>,
+    /// Durable document script (tldraw-offline style). Runs when the doc opens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub script: Option<AtmosCanvasScript>,
 }
 
-impl CanvasService {
-    pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        Self { db }
+#[derive(Debug, Clone, Serialize)]
+pub struct CanvasDocumentListItem {
+    pub file_name: String,
+    pub title: String,
+    pub modified_at: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CanvasDocumentFileDto {
+    pub file_name: String,
+    pub title: String,
+    pub modified_at: String,
+    pub size_bytes: u64,
+    pub body: AtmosCanvasFile,
+}
+
+#[derive(Debug, Default)]
+pub struct CanvasDocumentService {
+    /// Optional override root (tests). Production uses `canvas_dir()`.
+    root_override: Option<PathBuf>,
+}
+
+impl CanvasDocumentService {
+    pub fn new() -> Self {
+        Self { root_override: None }
     }
 
-    pub async fn get_default_board(&self) -> Result<CanvasBoardDto> {
-        let repo = CanvasBoardRepo::new(&self.db);
-        let model = match repo.get_by_slug(DEFAULT_CANVAS_SLUG).await? {
-            Some(model) => model,
-            None => {
-                repo.upsert_default(DEFAULT_CANVAS_NAME, default_canvas_document_json())
-                    .await?
+    pub fn with_root(root: PathBuf) -> Self {
+        Self {
+            root_override: Some(root),
+        }
+    }
+
+    pub fn canvas_dir(&self) -> Result<PathBuf> {
+        if let Some(root) = &self.root_override {
+            return Ok(root.clone());
+        }
+        if let Ok(raw) = env::var(CANVAS_DIR_ENV) {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                return Ok(PathBuf::from(trimmed));
             }
+        }
+        let home = dirs::home_dir().ok_or_else(|| {
+            ServiceError::Processing("Unable to resolve home directory for canvas documents".into())
+        })?;
+        Ok(home.join(".atmos").join("canvas"))
+    }
+
+    pub fn ensure_canvas_dir(&self) -> Result<PathBuf> {
+        let dir = self.canvas_dir()?;
+        fs::create_dir_all(&dir).map_err(|e| {
+            ServiceError::Processing(format!(
+                "Failed to create canvas directory {}: {e}",
+                dir.display()
+            ))
+        })?;
+        Ok(dir)
+    }
+
+    pub fn list_documents(&self) -> Result<Vec<CanvasDocumentListItem>> {
+        let dir = self.ensure_canvas_dir()?;
+        let mut items = Vec::new();
+
+        let entries = fs::read_dir(&dir).map_err(|e| {
+            ServiceError::Processing(format!(
+                "Failed to read canvas directory {}: {e}",
+                dir.display()
+            ))
+        })?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| {
+                ServiceError::Processing(format!("Failed to read canvas directory entry: {e}"))
+            })?;
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Some(file_name) = path.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            if !file_name.ends_with(CANVAS_FILE_EXTENSION) {
+                continue;
+            }
+            items.push(list_item_for_path(file_name, &path)?);
+        }
+
+        items.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+        Ok(items)
+    }
+
+    pub fn read_document(&self, file_name: &str) -> Result<CanvasDocumentFileDto> {
+        let path = self.resolve_document_path(file_name)?;
+        if !path.is_file() {
+            return Err(ServiceError::NotFound(format!(
+                "Canvas document `{file_name}` not found"
+            )));
+        }
+        let raw = fs::read_to_string(&path).map_err(|e| {
+            ServiceError::Processing(format!("Failed to read canvas document `{file_name}`: {e}"))
+        })?;
+        let body: AtmosCanvasFile = serde_json::from_str(&raw).map_err(|e| {
+            ServiceError::Validation(format!("Invalid canvas document JSON: {e}"))
+        })?;
+        validate_atmos_canvas_file(&body)?;
+        let meta = list_item_for_path(file_name, &path)?;
+        Ok(CanvasDocumentFileDto {
+            file_name: meta.file_name,
+            title: body.title.clone(),
+            modified_at: meta.modified_at,
+            size_bytes: meta.size_bytes,
+            body,
+        })
+    }
+
+    pub fn write_document(
+        &self,
+        file_name: &str,
+        body: &AtmosCanvasFile,
+    ) -> Result<CanvasDocumentListItem> {
+        validate_atmos_canvas_file(body)?;
+        let path = self.resolve_document_path(file_name)?;
+        self.ensure_canvas_dir()?;
+
+        let json = serde_json::to_string_pretty(body).map_err(|e| {
+            ServiceError::Processing(format!("Failed to serialize canvas document: {e}"))
+        })?;
+        let tmp = path.with_extension("atmos.tldr.tmp");
+        fs::write(&tmp, json.as_bytes()).map_err(|e| {
+            ServiceError::Processing(format!("Failed to write canvas document temp file: {e}"))
+        })?;
+        fs::rename(&tmp, &path).map_err(|e| {
+            ServiceError::Processing(format!("Failed to finalize canvas document `{file_name}`: {e}"))
+        })?;
+        list_item_for_path(file_name, &path)
+    }
+
+    /// Sanitize a user display name into a safe file stem, then append extension.
+    pub fn sanitize_file_name(name: &str) -> Result<String> {
+        let stem = sanitize_stem(name)?;
+        Ok(format!("{stem}{CANVAS_FILE_EXTENSION}"))
+    }
+
+    pub fn empty_document(title: &str) -> AtmosCanvasFile {
+        AtmosCanvasFile {
+            schema: ATMOS_CANVAS_FILE_SCHEMA.to_string(),
+            title: title.to_string(),
+            tldraw_document: None,
+            session: None,
+            script: None,
+        }
+    }
+
+    /// Absolute path to a document file (for reveal / CLI).
+    pub fn absolute_path(&self, file_name: &str) -> Result<PathBuf> {
+        self.resolve_document_path(file_name)
+    }
+
+    pub fn delete_document(&self, file_name: &str) -> Result<()> {
+        let path = self.resolve_document_path(file_name)?;
+        if !path.is_file() {
+            return Err(ServiceError::NotFound(format!(
+                "Canvas document `{file_name}` not found"
+            )));
+        }
+        fs::remove_file(&path).map_err(|e| {
+            ServiceError::Processing(format!("Failed to delete canvas document `{file_name}`: {e}"))
+        })?;
+        Ok(())
+    }
+
+    /// Rename on disk (and update body.title to the new stem).
+    pub fn rename_document(
+        &self,
+        file_name: &str,
+        new_name: &str,
+    ) -> Result<CanvasDocumentListItem> {
+        let from = self.resolve_document_path(file_name)?;
+        if !from.is_file() {
+            return Err(ServiceError::NotFound(format!(
+                "Canvas document `{file_name}` not found"
+            )));
+        }
+        let new_file_name = Self::sanitize_file_name(new_name)?;
+        if new_file_name == validate_file_name(file_name)? {
+            return list_item_for_path(&new_file_name, &from);
+        }
+        let to = self.resolve_document_path(&new_file_name)?;
+        if to.exists() {
+            return Err(ServiceError::Validation(format!(
+                "Canvas document `{}` already exists",
+                new_file_name
+            )));
+        }
+        let mut doc = self.read_document(file_name)?;
+        let stem = new_file_name
+            .strip_suffix(CANVAS_FILE_EXTENSION)
+            .unwrap_or(&new_file_name)
+            .to_string();
+        doc.body.title = stem;
+        self.write_document(&new_file_name, &doc.body)?;
+        fs::remove_file(&from).map_err(|e| {
+            ServiceError::Processing(format!(
+                "Renamed to `{new_file_name}` but failed to remove old file: {e}"
+            ))
+        })?;
+        list_item_for_path(&new_file_name, &to)
+    }
+
+    /// Duplicate to a new file name (or auto `Title copy.atmos.tldr`).
+    pub fn duplicate_document(
+        &self,
+        file_name: &str,
+        new_name: Option<&str>,
+    ) -> Result<CanvasDocumentListItem> {
+        let src = self.read_document(file_name)?;
+        let target_name = if let Some(name) = new_name {
+            Self::sanitize_file_name(name)?
+        } else {
+            unique_copy_name(self, &src.body.title)?
         };
-
-        Ok(map_board_dto(model))
+        if self.resolve_document_path(&target_name)?.exists() {
+            return Err(ServiceError::Validation(format!(
+                "Canvas document `{target_name}` already exists"
+            )));
+        }
+        let stem = target_name
+            .strip_suffix(CANVAS_FILE_EXTENSION)
+            .unwrap_or(&target_name)
+            .to_string();
+        let mut body = src.body;
+        body.title = stem;
+        self.write_document(&target_name, &body)
     }
 
-    pub async fn save_default_board(&self, req: SaveCanvasBoardReq) -> Result<CanvasBoardDto> {
-        validate_canvas_document(&req.document_json)?;
-        let repo = CanvasBoardRepo::new(&self.db);
-        let model = repo
-            .upsert_default(DEFAULT_CANVAS_NAME, req.document_json)
-            .await?;
-        Ok(map_board_dto(model))
+    fn resolve_document_path(&self, file_name: &str) -> Result<PathBuf> {
+        let safe_name = validate_file_name(file_name)?;
+        let dir = self.canvas_dir()?;
+        let candidate = dir.join(&safe_name);
+
+        // Reject any path that would leave the canvas directory (symlinks, etc.).
+        let dir_canon = if dir.exists() {
+            fs::canonicalize(&dir).unwrap_or(dir.clone())
+        } else {
+            dir.clone()
+        };
+        if let Ok(canon) = fs::canonicalize(&candidate) {
+            if !canon.starts_with(&dir_canon) {
+                return Err(ServiceError::Validation(
+                    "Canvas document path escapes canvas directory".into(),
+                ));
+            }
+            return Ok(canon);
+        }
+
+        // File may not exist yet — ensure parent is canvas dir and name is flat.
+        if candidate
+            .parent()
+            .map(|p| p != dir.as_path() && p != dir_canon.as_path())
+            .unwrap_or(true)
+        {
+            // join on dir with a flat name should always have parent == dir
+        }
+        Ok(candidate)
     }
 }
 
-fn map_board_dto(model: infra::db::entities::canvas_board::Model) -> CanvasBoardDto {
-    CanvasBoardDto {
-        guid: model.guid,
-        slug: model.slug,
-        name: model.name,
-        document_json: model.document_json,
-        updated_at: model.updated_at.to_string(),
+fn validate_file_name(file_name: &str) -> Result<String> {
+    let trimmed = file_name.trim();
+    if trimmed.is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas document file name is required".into(),
+        ));
     }
-}
-
-fn default_canvas_document_json() -> String {
-    json!({
-        "schema": CANVAS_SCHEMA_V1,
-        "boardSlug": DEFAULT_CANVAS_SLUG,
-        "tldrawSnapshot": null,
-    })
-    .to_string()
-}
-
-fn validate_canvas_document(document_json: &str) -> Result<()> {
-    let parsed: Value = serde_json::from_str(document_json)
-        .map_err(|e| ServiceError::Validation(format!("Invalid canvas JSON: {e}")))?;
-
-    let schema = parsed
-        .get("schema")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ServiceError::Validation("Canvas document is missing `schema`".to_string())
-        })?;
-    if schema != CANVAS_SCHEMA_V1 {
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return Err(ServiceError::Validation(
+            "Canvas document file name must not contain path separators".into(),
+        ));
+    }
+    if trimmed == "." || trimmed == ".." || trimmed.contains("..") {
+        return Err(ServiceError::Validation(
+            "Canvas document file name is invalid".into(),
+        ));
+    }
+    if Path::new(trimmed)
+        .components()
+        .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err(ServiceError::Validation(
+            "Canvas document file name must be a single path segment".into(),
+        ));
+    }
+    if !trimmed.ends_with(CANVAS_FILE_EXTENSION) {
         return Err(ServiceError::Validation(format!(
-            "Unsupported canvas schema `{schema}`"
+            "Canvas document must use the `{CANVAS_FILE_EXTENSION}` extension"
         )));
     }
+    Ok(trimmed.to_string())
+}
 
-    let board_slug = parsed
-        .get("boardSlug")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            ServiceError::Validation("Canvas document is missing `boardSlug`".to_string())
-        })?;
-    if board_slug != DEFAULT_CANVAS_SLUG {
-        return Err(ServiceError::Validation(format!(
-            "Unsupported canvas board slug `{board_slug}`"
-        )));
+fn sanitize_stem(name: &str) -> Result<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas document name is required".into(),
+        ));
+    }
+    let without_ext = trimmed
+        .strip_suffix(CANVAS_FILE_EXTENSION)
+        .unwrap_or(trimmed)
+        .trim();
+    if without_ext.is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas document name is required".into(),
+        ));
     }
 
+    let mut out = String::with_capacity(without_ext.len());
+    for ch in without_ext.chars() {
+        if ch.is_control() || matches!(ch, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+            out.push('-');
+        } else {
+            out.push(ch);
+        }
+    }
+    let collapsed = out.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut stem = collapsed.trim().trim_matches('.').to_string();
+    if stem.is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas document name is invalid after sanitization".into(),
+        ));
+    }
+    if stem.len() > MAX_STEM_LEN {
+        stem.truncate(MAX_STEM_LEN);
+        stem = stem.trim().to_string();
+    }
+    Ok(stem)
+}
+
+fn validate_atmos_canvas_file(body: &AtmosCanvasFile) -> Result<()> {
+    if body.schema != ATMOS_CANVAS_FILE_SCHEMA {
+        return Err(ServiceError::Validation(format!(
+            "Unsupported canvas file schema `{}`",
+            body.schema
+        )));
+    }
+    if body.title.trim().is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas document title is required".into(),
+        ));
+    }
+    if let Some(script) = &body.script {
+        validate_atmos_canvas_script(script)?;
+    }
     Ok(())
+}
+
+fn validate_atmos_canvas_script(script: &AtmosCanvasScript) -> Result<()> {
+    let entry = script.entry.trim();
+    if entry.is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas script entry must not be empty".into(),
+        ));
+    }
+    if entry.contains("..") || entry.starts_with('/') || entry.contains('\\') {
+        return Err(ServiceError::Validation(
+            "Canvas script entry must be a relative path without ..".into(),
+        ));
+    }
+    if script.files.is_empty() {
+        return Err(ServiceError::Validation(
+            "Canvas script files must not be empty when script is set".into(),
+        ));
+    }
+    if script.files.len() > MAX_SCRIPT_FILES {
+        return Err(ServiceError::Validation(format!(
+            "Canvas script allows at most {MAX_SCRIPT_FILES} files"
+        )));
+    }
+    if !script.files.contains_key(entry) {
+        return Err(ServiceError::Validation(format!(
+            "Canvas script entry `{entry}` is missing from files"
+        )));
+    }
+    let mut total = 0usize;
+    for (path, source) in &script.files {
+        if path.trim().is_empty()
+            || path.contains("..")
+            || path.starts_with('/')
+            || path.contains('\\')
+        {
+            return Err(ServiceError::Validation(format!(
+                "Invalid canvas script file path `{path}`"
+            )));
+        }
+        total = total.saturating_add(source.len());
+        if total > MAX_SCRIPT_TOTAL_BYTES {
+            return Err(ServiceError::Validation(format!(
+                "Canvas script sources exceed {MAX_SCRIPT_TOTAL_BYTES} bytes"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn unique_copy_name(svc: &CanvasDocumentService, title: &str) -> Result<String> {
+    let base = sanitize_stem(&format!("{title} copy"))?;
+    let mut candidate = format!("{base}{CANVAS_FILE_EXTENSION}");
+    let mut n = 2;
+    while svc.resolve_document_path(&candidate)?.exists() {
+        candidate = format!("{base} {n}{CANVAS_FILE_EXTENSION}");
+        n += 1;
+        if n > 1000 {
+            return Err(ServiceError::Processing(
+                "Could not allocate a unique copy file name".into(),
+            ));
+        }
+    }
+    Ok(candidate)
+}
+
+fn list_item_for_path(file_name: &str, path: &Path) -> Result<CanvasDocumentListItem> {
+    let meta = fs::metadata(path).map_err(|e| {
+        ServiceError::Processing(format!(
+            "Failed to stat canvas document `{}`: {e}",
+            path.display()
+        ))
+    })?;
+    let modified = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    let modified_at: DateTime<Utc> = modified.into();
+    let title = file_name
+        .strip_suffix(CANVAS_FILE_EXTENSION)
+        .unwrap_or(file_name)
+        .to_string();
+    Ok(CanvasDocumentListItem {
+        file_name: file_name.to_string(),
+        title,
+        modified_at: modified_at.to_rfc3339(),
+        size_bytes: meta.len(),
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_canvas_document, DEFAULT_CANVAS_SLUG};
+    use super::*;
+    use tempfile::tempdir;
 
     #[test]
-    fn validates_expected_document_wrapper() {
-        let document = format!(
-            r#"{{"schema":"canvas.v1","boardSlug":"{DEFAULT_CANVAS_SLUG}","tldrawSnapshot":null}}"#
-        );
-        assert!(validate_canvas_document(&document).is_ok());
+    fn sanitizes_stem_and_builds_file_name() {
+        let name = CanvasDocumentService::sanitize_file_name("  Ops Desk  ").unwrap();
+        assert_eq!(name, "Ops Desk.atmos.tldr");
+        let slashy = CanvasDocumentService::sanitize_file_name("a/b").unwrap();
+        assert_eq!(slashy, "a-b.atmos.tldr");
     }
 
     #[test]
-    fn rejects_invalid_document_wrapper() {
-        let document = r#"{"schema":"canvas.v2","boardSlug":"wrong"}"#;
-        assert!(validate_canvas_document(document).is_err());
+    fn rejects_empty_name() {
+        assert!(CanvasDocumentService::sanitize_file_name("   ").is_err());
+    }
+
+    #[test]
+    fn rejects_path_traversal_file_name() {
+        let svc = CanvasDocumentService::with_root(tempdir().unwrap().path().to_path_buf());
+        assert!(svc.read_document("../secrets.atmos.tldr").is_err());
+        assert!(svc
+            .write_document(
+                "../x.atmos.tldr",
+                &CanvasDocumentService::empty_document("x")
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn list_only_atmos_tldr_files() {
+        let dir = tempdir().unwrap();
+        let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        fs::write(dir.path().join("notes.txt"), b"hi").unwrap();
+        svc.write_document(
+            "a.atmos.tldr",
+            &CanvasDocumentService::empty_document("a"),
+        )
+        .unwrap();
+        let items = svc.list_documents().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].file_name, "a.atmos.tldr");
+    }
+
+    #[test]
+    fn write_read_round_trip() {
+        let dir = tempdir().unwrap();
+        let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        let body = AtmosCanvasFile {
+            schema: ATMOS_CANVAS_FILE_SCHEMA.to_string(),
+            title: "Ops Desk".to_string(),
+            tldraw_document: Some(serde_json::json!({"store": {}, "schema": {}})),
+            session: Some(serde_json::json!({"version": 0, "isGridMode": true})),
+            script: Some(AtmosCanvasScript {
+                entry: "main.js".into(),
+                files: std::collections::BTreeMap::from([(
+                    "main.js".into(),
+                    "export default function () {}".into(),
+                )]),
+            }),
+        };
+        svc.write_document("Ops Desk.atmos.tldr", &body).unwrap();
+        let loaded = svc.read_document("Ops Desk.atmos.tldr").unwrap();
+        assert_eq!(loaded.body, body);
+        assert_eq!(loaded.title, "Ops Desk");
+        assert!(loaded.size_bytes > 0);
+    }
+
+    #[test]
+    fn rejects_bad_schema() {
+        let dir = tempdir().unwrap();
+        let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        let bad = AtmosCanvasFile {
+            schema: "nope".into(),
+            title: "x".into(),
+            tldraw_document: None,
+            session: None,
+            script: None,
+        };
+        assert!(svc.write_document("x.atmos.tldr", &bad).is_err());
+    }
+
+    #[test]
+    fn rename_delete_duplicate() {
+        let dir = tempdir().unwrap();
+        let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        svc.write_document(
+            "a.atmos.tldr",
+            &CanvasDocumentService::empty_document("a"),
+        )
+        .unwrap();
+        let renamed = svc.rename_document("a.atmos.tldr", "b").unwrap();
+        assert_eq!(renamed.file_name, "b.atmos.tldr");
+        assert!(!dir.path().join("a.atmos.tldr").exists());
+        let dup = svc.duplicate_document("b.atmos.tldr", None).unwrap();
+        assert!(dup.file_name.contains("copy"));
+        assert_eq!(svc.list_documents().unwrap().len(), 2);
+        svc.delete_document(&dup.file_name).unwrap();
+        assert_eq!(svc.list_documents().unwrap().len(), 1);
     }
 }

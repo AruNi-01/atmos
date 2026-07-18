@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
-import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
+import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import {
@@ -40,11 +40,19 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
+  ATMOS_CANVAS_FILE_SCHEMA,
   createCanvasSnapshot,
   resolveCanvasSessionForLoad,
   useCanvasBoard,
   type CanvasBoardDocument,
 } from "../hooks/use-canvas-board";
+import { getDocumentScriptHost } from "../lib/document-script-host";
+import {
+  applyDocumentScriptBundle,
+  registerDocumentScriptSession,
+} from "../lib/document-script-session";
+import { CanvasDocumentsControl } from "./CanvasDocumentsControl";
+import { CanvasDocumentScriptStatus } from "./CanvasDocumentScriptStatus";
 import type { CanvasTldrawDocument, CanvasTldrawSession } from "@/shared/types/canvas";
 import {
   clearLastPinnedTerminal,
@@ -156,11 +164,18 @@ function CanvasLoadingScreen({
   );
 }
 
-function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoardDocument {
+function createCanvasDocument(
+  document: CanvasTldrawDocument | null,
+  title: string,
+  session?: CanvasTldrawSession | null,
+  script?: CanvasBoardDocument["script"],
+): CanvasBoardDocument {
   return {
-    schema: "canvas.v1",
-    boardSlug: "default",
+    schema: ATMOS_CANVAS_FILE_SCHEMA,
+    title,
     tldrawDocument: document,
+    session: session ?? null,
+    script: script ?? null,
   };
 }
 
@@ -177,7 +192,30 @@ export const CanvasView: React.FC = () => {
     toggleIsTopLeftToolbarCollapsed,
     toggleIsToolbarCollapsed,
   } = useCanvasChromePrefs();
-  const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
+  const {
+    board,
+    boardIdentity,
+    fileName,
+    title: documentTitle,
+    document,
+    dirty,
+    isLoading,
+    isSaving,
+    error,
+    documentList,
+    canvasDir,
+    loadBoard,
+    saveDocument,
+    saveAs,
+    openDocument,
+    newDocument,
+    renameDocument,
+    deleteDocumentFile,
+    duplicateDocumentFile,
+    markDirty,
+    refreshDocumentList,
+    setDocument,
+  } = useCanvasBoard();
   const canvasPrefsInstanceId = useAtmosComputerStore((state) =>
     instanceIdFromRelaySelection(state.connectionMode, state.selectedServerId),
   );
@@ -212,7 +250,9 @@ export const CanvasView: React.FC = () => {
   // re-render, so it is safe to call before `editorReady` and pass the
   // editor in via `setEditor` below.
   const [agentBridgeEditor, setAgentBridgeEditor] = React.useState<Editor | null>(null);
-  const canvasAgentBridge = useCanvasAgentBridge(agentBridgeEditor);
+  const canvasAgentBridge = useCanvasAgentBridge(agentBridgeEditor, {
+    activeDocumentFileName: fileName,
+  });
   const [tldrawRemountKey, setTldrawRemountKey] = React.useState(0);
   const canvasCrashRecovery = React.useMemo(
     () => ({
@@ -340,21 +380,19 @@ export const CanvasView: React.FC = () => {
     }
     return createCanvasSnapshot(
       document.tldrawDocument,
-      resolveCanvasSessionForLoad(readCanvasSession(board?.guid)),
+      resolveCanvasSessionForLoad(
+        document.session ?? readCanvasSession(boardIdentity),
+      ),
     );
-  }, [board?.guid, connectionBootstrapReady, document?.tldrawDocument]);
+  }, [boardIdentity, connectionBootstrapReady, document?.session, document?.tldrawDocument]);
 
   const canvasRenderKey = React.useMemo(() => {
     if (!connectionBootstrapReady || !document) {
       return null;
     }
 
-    return [
-      board?.guid ?? "default",
-      board?.updated_at ?? "unsaved",
-      tldrawRemountKey,
-    ].join(":");
-  }, [board?.guid, board?.updated_at, connectionBootstrapReady, document, tldrawRemountKey]);
+    return [boardIdentity, fileName ?? "untitled", tldrawRemountKey].join(":");
+  }, [boardIdentity, connectionBootstrapReady, document, fileName, tldrawRemountKey]);
 
   if (previousCanvasRenderKeyRef.current !== canvasRenderKey) {
     previousCanvasRenderKeyRef.current = canvasRenderKey;
@@ -672,38 +710,88 @@ export const CanvasView: React.FC = () => {
     void loadCanvasSettings();
   }, [loadCanvasSettings]);
 
+  // Document script session for agent bus / CLI (script-get/put/status).
   React.useEffect(() => {
-    pendingSessionRef.current = readCanvasSession(board?.guid);
-    if (board?.updated_at && !lastSavedAt) {
-      setLastSavedAt(new Date(board.updated_at));
-    }
-  }, [board?.guid, board?.updated_at, lastSavedAt]);
+    registerDocumentScriptSession({
+      getScript: () => document?.script ?? null,
+      setScript: async (script) => {
+        setDocument((prev) => {
+          if (!prev) {
+            return {
+              schema: ATMOS_CANVAS_FILE_SCHEMA,
+              title: documentTitle,
+              tldrawDocument: null,
+              session: null,
+              script,
+            };
+          }
+          return { ...prev, script };
+        });
+        markDirty();
+        await applyDocumentScriptBundle(script);
+      },
+    });
+    return () => {
+      registerDocumentScriptSession(null);
+    };
+  }, [document, documentTitle, markDirty, setDocument]);
 
-  // Auto-save with configurable interval
+  // Start / stop document script when editor + document script change.
   React.useEffect(() => {
-    if (!editorReady) return;
+    if (!editorReady || !editorRef.current) return;
+    const host = getDocumentScriptHost();
+    host.setEditor(editorRef.current);
+    void applyDocumentScriptBundle(document?.script ?? null);
+    return () => {
+      void host.stop();
+    };
+  }, [boardIdentity, document?.script, editorReady]);
 
-    autoSaveIntervalRef.current = setInterval(() => {
+  React.useEffect(() => {
+    pendingSessionRef.current = readCanvasSession(boardIdentity);
+  }, [boardIdentity]);
+
+  const persistEditorSnapshot = React.useCallback(
+    async (options?: { targetFileName?: string; displayName?: string }) => {
       const editor = editorRef.current;
       if (!editor) return;
+      if (documentSaveInFlightRef.current) return;
 
       const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
+      const nextDocument = createCanvasDocument(
+        snapshot.document as CanvasTldrawDocument,
+        options?.displayName ?? documentTitle,
+        snapshot.session as CanvasTldrawSession,
+        document?.script,
+      );
 
-      // Directly save without debounce for auto-save
-      void (async () => {
-        if (documentSaveInFlightRef.current) {
-          return;
+      documentSaveInFlightRef.current = true;
+      try {
+        if (options?.displayName) {
+          await saveAs(options.displayName, nextDocument);
+        } else if (options?.targetFileName || fileName) {
+          await saveDocument(nextDocument, options?.targetFileName ?? fileName ?? undefined);
+        } else {
+          throw new Error("UNTITLED_NEEDS_SAVE_AS");
         }
+        setLastSavedAt(new Date());
+      } finally {
+        documentSaveInFlightRef.current = false;
+      }
+    },
+    [document?.script, documentTitle, fileName, saveAs, saveDocument],
+  );
 
-        documentSaveInFlightRef.current = true;
+  // Auto-save only when a file path is set (never invent untitled names).
+  React.useEffect(() => {
+    if (!editorReady || !fileName) return;
+
+    autoSaveIntervalRef.current = setInterval(() => {
+      void (async () => {
         try {
-          const documentJson = JSON.stringify(createCanvasDocument(snapshot.document));
-          await canvasWsApi.updateDefaultBoard(documentJson);
-          setLastSavedAt(new Date());
+          await persistEditorSnapshot();
         } catch {
           // Auto-save errors are logged silently
-        } finally {
-          documentSaveInFlightRef.current = false;
         }
       })();
     }, autoSaveInterval * 1000);
@@ -714,25 +802,26 @@ export const CanvasView: React.FC = () => {
         autoSaveIntervalRef.current = null;
       }
     };
-  }, [editorReady, autoSaveInterval]);
+  }, [autoSaveInterval, editorReady, fileName, persistEditorSnapshot]);
 
   // Manual save function
   const handleManualSave = React.useCallback(async () => {
     const editor = editorRef.current;
     if (!editor) return;
 
-    if (documentSaveInFlightRef.current) {
+    if (!fileName) {
+      // Untitled: Documents control handles Save As; show toast to name the board.
+      toastManager.add({
+        title: t("toast.title"),
+        description: t("toast.saveAsRequired"),
+        type: "error",
+      });
       return;
     }
 
     setIsManualSaving(true);
-    documentSaveInFlightRef.current = true;
-
     try {
-      const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
-      const documentJson = JSON.stringify(createCanvasDocument(snapshot.document));
-      await canvasWsApi.updateDefaultBoard(documentJson);
-      setLastSavedAt(new Date());
+      await persistEditorSnapshot();
       toastManager.add({
         title: t("toast.title"),
         description: t("toast.savedSuccessfully"),
@@ -746,9 +835,8 @@ export const CanvasView: React.FC = () => {
       });
     } finally {
       setIsManualSaving(false);
-      documentSaveInFlightRef.current = false;
     }
-  }, [t]);
+  }, [fileName, persistEditorSnapshot, t]);
 
   // Keyboard shortcut for manual save (Cmd+S / Ctrl+S)
   useHotkeys('cmd+s, ctrl+s', (e) => {
@@ -763,7 +851,7 @@ export const CanvasView: React.FC = () => {
     resetRuntime();
     hydratedRenderedBoardKeyRef.current = null;
     initialViewportFitDoneRef.current = false;
-  }, [board?.guid, resetRuntime]);
+  }, [boardIdentity, resetRuntime]);
 
   React.useEffect(() => {
     initialViewportFitDoneRef.current = false;
@@ -794,13 +882,13 @@ export const CanvasView: React.FC = () => {
         if (sessionDirtyRef.current && pendingSessionRef.current) {
           writeCanvasSession(
             sanitizeCanvasSessionForPersist(pendingSessionRef.current),
-            board?.guid,
+            boardIdentity,
           );
           sessionDirtyRef.current = false;
         }
       }, SESSION_SAVE_DEBOUNCE_MS);
     },
-    [board?.guid],
+    [boardIdentity],
   );
 
   React.useEffect(() => {
@@ -810,6 +898,7 @@ export const CanvasView: React.FC = () => {
 
     const cleanupDocument = editor.store.listen(
       () => {
+        markDirty();
         const runtime = useCanvasRuntimeStore.getState();
         const shapes = getCanvasTerminalShapes(editor);
         const shapeIds = new Set(shapes.map((shape) => shape.id));
@@ -855,7 +944,7 @@ export const CanvasView: React.FC = () => {
       cleanupDocument();
       cleanupSession();
     };
-  }, [editorReady, scheduleSessionSave, setActiveShapeId]);
+  }, [editorReady, markDirty, scheduleSessionSave, setActiveShapeId]);
 
   React.useEffect(() => {
     if (!editorReady) return;
@@ -921,28 +1010,25 @@ export const CanvasView: React.FC = () => {
       .filter((pinKey): pinKey is string => Boolean(pinKey));
     editor.deleteShapes(staleShapeIds);
     for (const pinKey of stalePinKeys) {
-      clearLastPinnedTerminal(board?.guid, pinKey);
+      clearLastPinnedTerminal(boardIdentity, pinKey);
       dispatchCanvasTerminalPinStateChange(pinKey, false);
     }
 
-    if (documentSaveInFlightRef.current) {
+    if (documentSaveInFlightRef.current || !fileName) {
       return;
     }
 
-    const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
-    documentSaveInFlightRef.current = true;
     void (async () => {
       try {
-        await canvasWsApi.updateDefaultBoard(JSON.stringify(createCanvasDocument(snapshot.document)));
-        setLastSavedAt(new Date());
+        await persistEditorSnapshot();
       } catch (error) {
         console.warn("Failed to save pruned Canvas terminals", error);
-      } finally {
-        documentSaveInFlightRef.current = false;
       }
     })();
   }, [
-    board?.guid,
+    boardIdentity,
+    fileName,
+    persistEditorSnapshot,
     canvasTerminalTabs,
     canvasTerminalWorkspaceLoaded,
     canvasWorkspaceIsProject,
@@ -967,13 +1053,13 @@ export const CanvasView: React.FC = () => {
 
     loadCanvasSessionIntoEditor(
       editor,
-      resolveCanvasSessionForLoad(readCanvasSession(board?.guid)),
+      resolveCanvasSessionForLoad(readCanvasSession(boardIdentity)),
     );
     const pageId = editor.getCurrentPageId();
-    if (!hasTrustedSessionViewport(readCanvasSession(board?.guid), pageId)) {
+    if (!hasTrustedSessionViewport(readCanvasSession(boardIdentity), pageId)) {
       void fitCanvasEditorToPageContent(editor);
     }
-  }, [board?.guid, canvasPrefsInstanceId, connectionBootstrapReady, editorReady]);
+  }, [boardIdentity, canvasPrefsInstanceId, connectionBootstrapReady, editorReady]);
 
   React.useEffect(() => {
     if (!editorReady || !canvasSettingsLoaded) {
@@ -985,7 +1071,7 @@ export const CanvasView: React.FC = () => {
       return;
     }
 
-    const boardKey = board?.guid ?? "default";
+    const boardKey = boardIdentity ?? "default";
     const hydrationKey = `${boardKey}:${maxRenderedTerminals}`;
     if (hydratedRenderedBoardKeyRef.current === hydrationKey) {
       return;
@@ -997,7 +1083,7 @@ export const CanvasView: React.FC = () => {
     );
     hydratedRenderedBoardKeyRef.current = hydrationKey;
     setRenderedShapeIds(restoredShapeIds);
-  }, [board?.guid, canvasSettingsLoaded, editorReady, maxRenderedTerminals, setRenderedShapeIds]);
+  }, [boardIdentity, canvasSettingsLoaded, editorReady, maxRenderedTerminals, setRenderedShapeIds]);
 
   React.useEffect(() => {
     if (!editorReady || !canvasSettingsLoaded) {
@@ -1009,7 +1095,7 @@ export const CanvasView: React.FC = () => {
       return;
     }
 
-    const lastPinned = consumeLastPinnedTerminal(board?.guid);
+    const lastPinned = consumeLastPinnedTerminal(boardIdentity);
     if (!lastPinned) {
       return;
     }
@@ -1034,7 +1120,7 @@ export const CanvasView: React.FC = () => {
       cancelAnimationFrame(frame);
     };
   }, [
-    board?.guid,
+    boardIdentity,
     canvasSettingsLoaded,
     editorReady,
     maxRenderedTerminals,
@@ -1191,6 +1277,38 @@ export const CanvasView: React.FC = () => {
         </Button>
         <CanvasAnimatedToolbarGroup isCollapsed={isToolbarCollapsed}>
           <div className="ml-0.5 flex items-center gap-0.5">
+            <CanvasDocumentsControl
+              title={documentTitle}
+              fileName={fileName}
+              dirty={dirty}
+              documentList={documentList}
+              canvasDir={canvasDir}
+              isBusy={isSaving || isManualSaving}
+              onRefreshList={refreshDocumentList}
+              onOpen={async (next) => {
+                await openDocument(next);
+              }}
+              onNew={async () => {
+                newDocument();
+              }}
+              onSave={async () => {
+                await persistEditorSnapshot();
+                setLastSavedAt(new Date());
+              }}
+              onSaveAs={async (name) => {
+                await persistEditorSnapshot({ displayName: name });
+                setLastSavedAt(new Date());
+              }}
+              onRename={async (target, name) => {
+                await renameDocument(target, name);
+              }}
+              onDelete={async (target) => {
+                await deleteDocumentFile(target);
+              }}
+              onDuplicate={async (target) => {
+                await duplicateDocumentFile(target);
+              }}
+            />
             <CanvasAddAtmosWidgetPopover
               editor={editorReady ? editorRef.current : null}
               open={addAtmosWidgetOpen}
@@ -1254,7 +1372,7 @@ export const CanvasView: React.FC = () => {
               {(() => {
                 const savedDate =
                   lastSavedAt ??
-                  (board?.updated_at ? new Date(board.updated_at) : null);
+                  null;
                 if (!savedDate) return null;
                 return (
                   <>
@@ -1327,6 +1445,7 @@ export const CanvasView: React.FC = () => {
           --tl-layer-following-indicator: 1450;
         }
       `}</style>
+      <CanvasDocumentScriptStatus />
       <div
         className={cn(
           "h-full w-full transition-opacity duration-150",
@@ -1341,7 +1460,7 @@ export const CanvasView: React.FC = () => {
             <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
               <CanvasAgentCrashBoundary className="h-full w-full">
                 <Tldraw
-                  key={`${board?.guid || "canvas"}:${tldrawRemountKey}`}
+                  key={`${boardIdentity || "canvas"}:${tldrawRemountKey}`}
                   licenseKey={TLDRAW_LICENSE_KEY}
                   snapshot={initialSnapshot ?? undefined}
                   shapeUtils={shapeUtils}
@@ -1356,12 +1475,12 @@ export const CanvasView: React.FC = () => {
                     }
 
                     // IndexedDB session can override snapshot; re-apply unless user saved grid off.
-                    if (readCanvasSession(board?.guid)?.isGridMode !== false) {
+                    if (readCanvasSession(boardIdentity)?.isGridMode !== false) {
                       nextEditor.updateInstanceState({ isGridMode: true });
                     }
 
                     const pageId = nextEditor.getCurrentPageId();
-                    const session = readCanvasSession(board?.guid);
+                    const session = readCanvasSession(boardIdentity);
                     if (!hasTrustedSessionViewport(session, pageId)) {
                       const viewportFitRafId = requestAnimationFrame(() => {
                         if (!initialViewportFitDoneRef.current && fitCanvasEditorToPageContent(nextEditor)) {

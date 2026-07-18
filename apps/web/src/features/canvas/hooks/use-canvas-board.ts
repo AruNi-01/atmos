@@ -1,27 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TLEditorSnapshot } from "tldraw";
-import { canvasApi, type CanvasBoardResponse } from "@/api/rest-api";
+import {
+  canvasApi,
+  type AtmosCanvasFile,
+  type AtmosCanvasScript,
+  type CanvasDocumentListItem,
+} from "@/api/rest-api";
 import type { CanvasTldrawDocument, CanvasTldrawSession } from "@/shared/types/canvas";
+import {
+  DEFAULT_PIN_DOCUMENT_FILE,
+  readActiveCanvasDocumentFileName,
+  writeActiveCanvasDocumentFileName,
+} from "../lib/canvas-document-prefs";
 import { normalizeCanvasTerminalShapePropsInDocument } from "../lib/canvas-terminal-shape";
 import { normalizeCanvasWidgetShapePropsInDocument } from "../lib/canvas-widget-shape";
 
-const CANVAS_SCHEMA = "canvas.v1";
-const CANVAS_BOARD_SLUG = "default";
+export const ATMOS_CANVAS_FILE_SCHEMA = "atmos-canvas-file.1";
 const SESSION_SNAPSHOT_VERSION = 0;
 
+/** In-memory / on-disk document payload (APP-037 + document scripts). */
 export interface CanvasBoardDocument {
-  schema: typeof CANVAS_SCHEMA;
-  boardSlug: typeof CANVAS_BOARD_SLUG;
+  schema: typeof ATMOS_CANVAS_FILE_SCHEMA;
+  title: string;
   tldrawDocument: CanvasTldrawDocument | null;
+  session?: CanvasTldrawSession | null;
+  script?: AtmosCanvasScript | null;
 }
 
-export function createDefaultDocument(): CanvasBoardDocument {
+export function createDefaultDocument(title = "Untitled"): CanvasBoardDocument {
   return {
-    schema: CANVAS_SCHEMA,
-    boardSlug: CANVAS_BOARD_SLUG,
+    schema: ATMOS_CANVAS_FILE_SCHEMA,
+    title,
     tldrawDocument: null,
+    session: null,
+    script: null,
   };
 }
 
@@ -77,110 +91,290 @@ function parseStoredTldrawDocument(value: unknown): CanvasTldrawDocument | null 
   return value as unknown as CanvasTldrawDocument;
 }
 
-function parseLegacyStoredSnapshot(value: unknown): CanvasTldrawDocument | null {
-  if (value === undefined || value === null) {
-    return null;
+export function parseAtmosCanvasFile(body: AtmosCanvasFile): CanvasBoardDocument {
+  if (body.schema !== ATMOS_CANVAS_FILE_SCHEMA) {
+    throw new Error(`Unsupported Canvas schema: ${String(body.schema ?? "(missing)")}`);
   }
-  if (!isPlainJsonObject(value)) {
-    throw new Error("Canvas tldraw snapshot must be a JSON object when present");
+  if (!body.title?.trim()) {
+    throw new Error("Canvas document title is required");
   }
-  if (!isPlainJsonObject(value.document)) {
-    throw new Error("Canvas tldraw snapshot must include a document object");
-  }
-  return value.document as unknown as CanvasTldrawDocument;
+  return {
+    schema: ATMOS_CANVAS_FILE_SCHEMA,
+    title: body.title,
+    tldrawDocument: parseStoredTldrawDocument(body.tldrawDocument ?? null),
+    session: (body.session as CanvasTldrawSession | null | undefined) ?? null,
+    script: body.script ?? null,
+  };
 }
 
+/** @deprecated Use parseAtmosCanvasFile — kept for callers still holding a JSON string. */
 export function parseBoardDocument(documentJson: string): CanvasBoardDocument {
-  let parsed: Partial<CanvasBoardDocument> & {
-    tldrawSnapshot?: unknown;
-    tldrawDocument?: unknown;
-  };
-
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(documentJson) as Partial<CanvasBoardDocument> & {
-      tldrawSnapshot?: unknown;
-      tldrawDocument?: unknown;
-    };
+    parsed = JSON.parse(documentJson);
   } catch (error) {
     throw new Error(
       `The saved Canvas board contains invalid JSON${error instanceof Error ? `: ${error.message}` : ""}`,
     );
   }
-
-  if (!parsed || typeof parsed !== "object") {
+  if (!isPlainJsonObject(parsed)) {
     throw new Error("The saved Canvas board must be a JSON object");
   }
+  return parseAtmosCanvasFile(parsed as AtmosCanvasFile);
+}
 
-  if (parsed.schema !== CANVAS_SCHEMA) {
-    throw new Error(`Unsupported Canvas schema: ${String(parsed.schema ?? "(missing)")}`);
-  }
-
-  if (parsed.boardSlug !== CANVAS_BOARD_SLUG) {
-    throw new Error(`Unsupported Canvas board slug: ${String(parsed.boardSlug ?? "(missing)")}`);
-  }
-
+export function toAtmosCanvasFile(document: CanvasBoardDocument): AtmosCanvasFile {
   return {
-    schema: CANVAS_SCHEMA,
-    boardSlug: CANVAS_BOARD_SLUG,
-    tldrawDocument:
-      "tldrawDocument" in parsed
-        ? parseStoredTldrawDocument(parsed.tldrawDocument)
-        : parseLegacyStoredSnapshot(parsed.tldrawSnapshot),
+    schema: ATMOS_CANVAS_FILE_SCHEMA,
+    title: document.title,
+    tldrawDocument: document.tldrawDocument,
+    session: document.session ?? undefined,
+    script: document.script ?? undefined,
   };
 }
 
-function stringifyBoardDocument(document: CanvasBoardDocument): string {
-  return JSON.stringify(document);
+/**
+ * Load the document used for pin-to-canvas / cleanup when Canvas UI may be closed.
+ * Prefer active preference; fall back to Default.atmos.tldr (create empty if missing).
+ */
+export async function loadPinTargetDocument(): Promise<{
+  fileName: string;
+  document: CanvasBoardDocument;
+}> {
+  const preferred = readActiveCanvasDocumentFileName();
+  const candidates = preferred
+    ? [preferred, DEFAULT_PIN_DOCUMENT_FILE]
+    : [DEFAULT_PIN_DOCUMENT_FILE];
+
+  for (const fileName of candidates) {
+    try {
+      const res = await canvasApi.getDocument(fileName);
+      return { fileName: res.file_name, document: parseAtmosCanvasFile(res.body) };
+    } catch {
+      // try next
+    }
+  }
+
+  const fileName = DEFAULT_PIN_DOCUMENT_FILE;
+  const document = createDefaultDocument("Default");
+  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document));
+  writeActiveCanvasDocumentFileName(fileName);
+  return { fileName, document };
+}
+
+export async function savePinTargetDocument(
+  fileName: string,
+  document: CanvasBoardDocument,
+): Promise<void> {
+  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document));
 }
 
 export function useCanvasBoard() {
-  const [board, setBoard] = useState<CanvasBoardResponse | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [title, setTitle] = useState("Untitled");
   const [document, setDocument] = useState<CanvasBoardDocument | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [documentList, setDocumentList] = useState<CanvasDocumentListItem[]>([]);
+  const [canvasDir, setCanvasDir] = useState<string | null>(null);
+  const dirtyRef = useRef(false);
+
+  const markDirty = useCallback(() => {
+    dirtyRef.current = true;
+    setDirty(true);
+  }, []);
+
+  const clearDirty = useCallback(() => {
+    dirtyRef.current = false;
+    setDirty(false);
+  }, []);
+
+  const refreshDocumentList = useCallback(async () => {
+    try {
+      const res = await canvasApi.listDocuments();
+      setDocumentList(res.items);
+      setCanvasDir(res.dir ?? null);
+    } catch {
+      setDocumentList([]);
+    }
+  }, []);
+
+  const applyLoaded = useCallback(
+    (nextFileName: string | null, nextDoc: CanvasBoardDocument) => {
+      setFileName(nextFileName);
+      setTitle(nextDoc.title);
+      setDocument(nextDoc);
+      writeActiveCanvasDocumentFileName(nextFileName);
+      clearDirty();
+    },
+    [clearDirty],
+  );
 
   const loadBoard = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const nextBoard = await canvasApi.getDefaultBoard();
-      setDocument(parseBoardDocument(nextBoard.document_json));
-      setBoard(nextBoard);
+      await refreshDocumentList();
+      const active = readActiveCanvasDocumentFileName();
+      if (active) {
+        try {
+          const res = await canvasApi.getDocument(active);
+          applyLoaded(res.file_name, parseAtmosCanvasFile(res.body));
+          return;
+        } catch {
+          writeActiveCanvasDocumentFileName(null);
+        }
+      }
+      // Prefer untitled empty board on first open (PRD D5).
+      applyLoaded(null, createDefaultDocument("Untitled"));
     } catch (err) {
       setDocument(null);
       setError(err instanceof Error ? err.message : "Failed to load canvas");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applyLoaded, refreshDocumentList]);
 
-  const saveDocument = useCallback(async (nextDocument: CanvasBoardDocument) => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      const nextBoard = await canvasApi.updateDefaultBoard(stringifyBoardDocument(nextDocument));
-      setDocument(parseBoardDocument(nextBoard.document_json));
-      setBoard(nextBoard);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save canvas");
-      throw err;
-    } finally {
-      setIsSaving(false);
-    }
-  }, []);
+  const saveDocument = useCallback(
+    async (nextDocument: CanvasBoardDocument, targetFileName?: string) => {
+      const resolvedName = targetFileName ?? fileName;
+      if (!resolvedName) {
+        throw new Error("Save As requires a document name");
+      }
+      setIsSaving(true);
+      setError(null);
+      try {
+        const payload = toAtmosCanvasFile({
+          ...nextDocument,
+          title: nextDocument.title || title,
+        });
+        const res = await canvasApi.putDocument(resolvedName, payload);
+        applyLoaded(res.item.file_name, {
+          ...nextDocument,
+          schema: ATMOS_CANVAS_FILE_SCHEMA,
+          title: payload.title,
+        });
+        await refreshDocumentList();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save canvas");
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [applyLoaded, fileName, refreshDocumentList, title],
+  );
+
+  const saveAs = useCallback(
+    async (displayName: string, nextDocument: CanvasBoardDocument) => {
+      const { file_name } = await canvasApi.sanitizeName(displayName);
+      const titled = {
+        ...nextDocument,
+        title: displayName.trim() || nextDocument.title,
+      };
+      await saveDocument(titled, file_name);
+    },
+    [saveDocument],
+  );
+
+  const openDocument = useCallback(
+    async (nextFileName: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await canvasApi.getDocument(nextFileName);
+        applyLoaded(res.file_name, parseAtmosCanvasFile(res.body));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to open canvas document");
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [applyLoaded],
+  );
+
+  const newDocument = useCallback(() => {
+    applyLoaded(null, createDefaultDocument("Untitled"));
+  }, [applyLoaded]);
+
+  const renameDocument = useCallback(
+    async (targetFileName: string, displayName: string) => {
+      const res = await canvasApi.renameDocument(targetFileName, displayName);
+      if (fileName === targetFileName) {
+        applyLoaded(res.item.file_name, {
+          schema: ATMOS_CANVAS_FILE_SCHEMA,
+          title: res.item.title,
+          tldrawDocument: document?.tldrawDocument ?? null,
+          session: document?.session ?? null,
+        });
+      }
+      await refreshDocumentList();
+    },
+    [applyLoaded, document?.session, document?.tldrawDocument, fileName, refreshDocumentList],
+  );
+
+  const deleteDocumentFile = useCallback(
+    async (targetFileName: string) => {
+      await canvasApi.deleteDocument(targetFileName);
+      if (fileName === targetFileName) {
+        applyLoaded(null, createDefaultDocument("Untitled"));
+      }
+      await refreshDocumentList();
+    },
+    [applyLoaded, fileName, refreshDocumentList],
+  );
+
+  const duplicateDocumentFile = useCallback(
+    async (targetFileName: string) => {
+      await canvasApi.duplicateDocument(targetFileName);
+      await refreshDocumentList();
+    },
+    [refreshDocumentList],
+  );
 
   useEffect(() => {
     void loadBoard();
   }, [loadBoard]);
 
+  /** Board identity for session prefs / pin memory — file name or synthetic untitled key. */
+  const boardIdentity = fileName ?? "untitled";
+
   return {
-    board,
+    /** @deprecated use fileName / boardIdentity */
+    board: fileName
+      ? {
+          guid: fileName,
+          slug: fileName,
+          name: title,
+          document_json: "",
+          updated_at: "",
+        }
+      : null,
+    boardIdentity,
+    fileName,
+    title,
     document,
+    dirty,
     isLoading,
     isSaving,
     error,
+    documentList,
+    canvasDir,
     loadBoard,
     saveDocument,
+    saveAs,
+    openDocument,
+    newDocument,
+    renameDocument,
+    deleteDocumentFile,
+    duplicateDocumentFile,
+    markDirty,
+    clearDirty,
+    refreshDocumentList,
+    setTitle,
+    setDocument,
   };
 }

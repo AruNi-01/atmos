@@ -114,6 +114,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-033** | Terminal Custom Naming | `specs/APP/APP-033_terminal-custom-naming/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-035** | TanStack Query Data Layer | `specs/APP/APP-035_tanstack-query-data-layer/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-036** | Grok Build CLI Support | `specs/APP/APP-036_grok-build-cli-support/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
+| **APP-037** | Canvas Local Documents | `specs/APP/APP-037_canvas-local-documents/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

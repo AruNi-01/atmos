@@ -2368,7 +2368,8 @@
       "toast": {
         "title": "Canvas",
         "savedSuccessfully": "Saved successfully",
-        "saveFailed": "Failed to save"
+        "saveFailed": "Failed to save",
+        "saveAsRequired": "Save As is required for an untitled board. Use the Documents menu."
       },
       "loadError": {
         "title": "Failed to load Canvas",
@@ -2723,6 +2724,43 @@
         "patchMustBeJsonObject": "patch must be a JSON object.",
         "provideBothXAndYOrOmitBoth": "Provide both x and y, or omit both."
       }
+    },
+    "documents": {
+      "buttonTitle": "Documents",
+      "buttonAria": "Open canvas documents",
+      "popoverTitle": "Canvas documents",
+      "popoverHint": "Stored in ~/.atmos/canvas as .atmos.tldr files",
+      "empty": "No documents yet. Use Save As to create one.",
+      "new": "New",
+      "save": "Save",
+      "saveAs": "Save As",
+      "dirtyTitle": "Unsaved changes",
+      "dirtyBody": "Save changes before switching documents?",
+      "dirtyCancel": "Cancel",
+      "dirtyDiscard": "Don't Save",
+      "dirtySave": "Save",
+      "saveAsTitle": "Save canvas document",
+      "saveAsHint": "Name is used for the file under ~/.atmos/canvas/",
+      "saveAsPlaceholder": "Document name",
+      "saveAsConfirm": "Save",
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "copyPath": "Copy path",
+      "delete": "Delete",
+      "rowMenuAria": "Document actions",
+      "renameTitle": "Rename document",
+      "renameConfirm": "Rename",
+      "deleteTitle": "Delete document?",
+      "deleteBody": "Delete {name}? This cannot be undone.",
+      "deleteConfirm": "Delete",
+      "copiedTitle": "Path copied",
+      "copyFailed": "Could not copy path"
+    },
+    "script": {
+      "runningTitle": "Document script running",
+      "running": "Script · {entry}",
+      "errorTitle": "Document script error",
+      "errorUnknown": "Unknown script error"
     }
   },
   "Welcome": {
