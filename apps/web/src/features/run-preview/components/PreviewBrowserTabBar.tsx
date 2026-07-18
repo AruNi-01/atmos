@@ -106,6 +106,10 @@ export function PreviewBrowserTabBar({
       >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
+          const prevIsActive = index > 0 && tabs[index - 1]?.id === activeTabId;
+          // Inactive tabs that are not adjacent to the active tab need a
+          // vertical divider — active tabs already separate via border/highlight.
+          const showLeadingDivider = !isActive && index > 0 && !prevIsActive;
           const label = getTabLabel(tab, index, {
             preview: t("preview"),
             newTab: t("newTab"),
@@ -116,12 +120,19 @@ export function PreviewBrowserTabBar({
             <div
               key={tab.id}
               className={cn(
-                "desktop-no-drag group/tab flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center overflow-hidden rounded-md border text-xs transition-colors",
+                // Keep overflow visible so the leading divider (outside the tab box) is not clipped.
+                "desktop-no-drag group/tab relative flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center rounded-md border text-xs transition-colors",
                 isActive
                   ? "border-border bg-background text-foreground shadow-sm"
                   : "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground",
               )}
             >
+              {showLeadingDivider ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-[-2px] top-1/2 h-3 w-px -translate-y-1/2 bg-border/70"
+                />
+              ) : null}
               <button
                 type="button"
                 className="flex h-full min-w-0 flex-1 items-center gap-1.5 px-2 text-left"
