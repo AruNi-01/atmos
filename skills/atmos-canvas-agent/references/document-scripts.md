@@ -83,6 +83,48 @@ Async default export is allowed. On `script-put` or document switch the host **a
 | `getLints()` | `{ lints }` |
 | `richTextToPlainText(rt)` | Button label hit-tests |
 | `isAtmosChromeShape(shape)` | Skip terminal/widget |
+| **`claimInputScope(opts)`** | **Focus a play surface: capture keys, lock shapes, avoid tldraw nudge** |
+| `hasActiveInputScope()` | Whether keyboard is currently claimed |
+
+### Input scope (games / keyboard) — required for snake-like boards
+
+**Problem without scope:** Space/arrows go to tldraw (nudge selection, tools). Clicking Start selects the button; arrow keys then move the button, not the snake.
+
+**Pattern:** put the board in a **frame** (`surfaceId`), lock furniture, claim keys on Start / board click:
+
+```js
+export default function ({ editor, helpers, signal }) {
+  let scope = null
+  const boardId = /* shape:snake-board frame id */
+
+  function startGame() {
+    scope?.release()
+    scope = helpers.claimInputScope({
+      surfaceId: boardId,
+      lockShapeIds: [boardId, /* start button, walls, labels… */],
+      signal,
+      onKeyDown(e) {
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') { /* turn up */ }
+        // …
+      },
+    })
+  }
+
+  // Click Start label → startGame()
+  // Escape or click outside the frame → scope releases; tldraw tools work again
+  signal.addEventListener('abort', () => scope?.release())
+}
+```
+
+| Scope behavior | Effect |
+|----------------|--------|
+| Claim | Clears selection, switches to **hand** tool, locks listed shapes, capture-phase keydown |
+| Capture keys (default) | Arrows, WASD, Space, Enter, Escape |
+| Escape / click outside frame | Release scope — no global permanent hijack |
+| Only one active scope | New claim releases the previous (multiple frames don't fight) |
+
+**Do not** listen only on `window` without `claimInputScope` — you will fight tldraw selection.
+**Do not** leave a permanent global keydown — use scope + `signal` abort.
 
 Prefer helpers + `editor.*`. Do not assume `import('tldraw')` works inside the script host.
 

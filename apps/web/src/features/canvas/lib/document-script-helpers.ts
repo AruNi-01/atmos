@@ -1,5 +1,9 @@
 /**
  * Helpers bag exposed to document scripts (aligned with tldraw offline recipes).
+ *
+ * Input scoping: games/interactive boards should call `claimInputScope` so
+ * arrow keys / space are not stolen by tldraw selection nudging, and only the
+ * focused surface receives keyboard while active.
  */
 import {
   createShapeId,
@@ -13,6 +17,38 @@ import {
 import { createArrowShapeWithBindings } from "./canvas-agent-arrow-bindings";
 import { getShapePageBoundsBox } from "./canvas-agent-bounds";
 import { computeCanvasLints, type CanvasAgentLint } from "./canvas-agent-lint";
+
+export type DocumentScriptInputScope = {
+  /** Whether this scope currently owns keyboard/pointer game input. */
+  isActive: () => boolean;
+  /** Release keyboard claim, unlock shapes, restore tool. */
+  release: () => void;
+};
+
+export type ClaimInputScopeOptions = {
+  /**
+   * Surface anchor (usually a frame / board rect). Click outside its bounds
+   * (or Escape) releases the scope so other canvas tools work again.
+   */
+  surfaceId?: TLShapeId;
+  /**
+   * Shapes to lock while scoped (Start button, walls, etc.) so arrow keys
+   * cannot select/nudge them. Defaults to [surfaceId] when surfaceId is set.
+   */
+  lockShapeIds?: TLShapeId[];
+  /**
+   * Key codes to preventDefault + deliver when scoped.
+   * Default: arrows, WASD, Space, Enter, Escape (Escape also releases).
+   */
+  captureKeys?: string[];
+  onKeyDown?: (e: KeyboardEvent) => void;
+  onKeyUp?: (e: KeyboardEvent) => void;
+  /** When true (default), Escape releases the scope. */
+  releaseOnEscape?: boolean;
+  /** When true (default), pointer-down outside surface bounds releases. */
+  releaseOnOutsidePointer?: boolean;
+  signal?: AbortSignal;
+};
 
 export type DocumentScriptHelpers = {
   createShapeId: typeof createShapeId;
@@ -37,14 +73,37 @@ export type DocumentScriptHelpers = {
   ) => TLShapeId;
   getLints: () => { lints: CanvasAgentLint[] };
   isAtmosChromeShape: (shape: TLShape | null | undefined) => boolean;
+  /**
+   * Claim keyboard/game input for an interactive surface (snake board, etc.).
+   * Call when the user clicks Start / the board. Only one scope is active per editor.
+   */
+  claimInputScope: (options?: ClaimInputScopeOptions) => DocumentScriptInputScope;
+  /** Whether any input scope is currently active on this editor. */
+  hasActiveInputScope: () => boolean;
 };
+
+const DEFAULT_CAPTURE_KEYS = [
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD",
+  "Space",
+  "Enter",
+  "Escape",
+];
+
+/** One active scope per editor instance. */
+const activeScopeByEditor = new WeakMap<Editor, { release: () => void }>();
 
 export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpers {
   const richTextToPlainText = (richText: unknown): string => {
     if (richText == null) return "";
     if (typeof richText === "string") return richText;
     try {
-      // TipTap-like doc
       const root = richText as { content?: Array<{ content?: Array<{ text?: string }> }> };
       const parts: string[] = [];
       for (const block of root.content ?? []) {
@@ -61,6 +120,36 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
   const isAtmosChromeShape = (shape: TLShape | null | undefined) => {
     if (!shape) return false;
     return shape.type === "canvas-terminal" || shape.type === "canvas-widget";
+  };
+
+  const setShapesLocked = (ids: TLShapeId[], locked: boolean) => {
+    editor.run(
+      () => {
+        for (const id of ids) {
+          const shape = editor.getShape(id);
+          if (!shape || isAtmosChromeShape(shape)) continue;
+          if (Boolean(shape.isLocked) === locked) continue;
+          editor.updateShape({
+            id,
+            type: shape.type,
+            isLocked: locked,
+          });
+        }
+      },
+      { history: "ignore" },
+    );
+  };
+
+  const pointInSurface = (surfaceId: TLShapeId | undefined, pagePoint: { x: number; y: number }) => {
+    if (!surfaceId) return true;
+    const box = getShapePageBoundsBox(editor, surfaceId);
+    if (!box) return false;
+    return (
+      pagePoint.x >= box.minX &&
+      pagePoint.x <= box.minX + box.w &&
+      pagePoint.y >= box.minY &&
+      pagePoint.y <= box.minY + box.h
+    );
   };
 
   return {
@@ -105,11 +194,17 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
           for (const id of ids) {
             const shape = editor.getShape(id);
             if (!shape || isAtmosChromeShape(shape)) continue;
+            // Temporarily unlock for script-driven motion if needed
+            const wasLocked = shape.isLocked;
+            if (wasLocked) {
+              editor.updateShape({ id, type: shape.type, isLocked: false });
+            }
             editor.updateShape({
               id,
               type: shape.type,
               x: shape.x + dx,
               y: shape.y + dy,
+              isLocked: wasLocked,
             });
           }
         },
@@ -167,5 +262,120 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
       return { lints: computeCanvasLints(editor) };
     },
     isAtmosChromeShape,
+    hasActiveInputScope() {
+      return activeScopeByEditor.has(editor);
+    },
+    claimInputScope(options = {}) {
+      // One scope at a time — release previous (e.g. another game on the board).
+      activeScopeByEditor.get(editor)?.release();
+
+      const captureKeys = new Set(options.captureKeys ?? DEFAULT_CAPTURE_KEYS);
+      const releaseOnEscape = options.releaseOnEscape !== false;
+      const releaseOnOutsidePointer = options.releaseOnOutsidePointer !== false;
+      const lockIds =
+        options.lockShapeIds ??
+        (options.surfaceId ? [options.surfaceId] : []);
+
+      let active = true;
+      const previousTool = editor.getCurrentToolId();
+
+      // Enter "play mode": no selection, hand tool so arrows aren't select-nudge.
+      editor.setSelectedShapes([]);
+      try {
+        editor.setCurrentTool("hand");
+      } catch {
+        // tool may be unavailable; continue
+      }
+      if (lockIds.length) {
+        setShapesLocked(lockIds, true);
+      }
+
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (!active) return;
+        // Don't steal keys from real form fields / terminals.
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable ||
+            target.closest?.("[data-canvas-terminal], .xterm"))
+        ) {
+          return;
+        }
+
+        if (e.code === "Escape" && releaseOnEscape) {
+          e.preventDefault();
+          e.stopPropagation();
+          release();
+          return;
+        }
+
+        if (!captureKeys.has(e.code) && !captureKeys.has(e.key)) {
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        options.onKeyDown?.(e);
+      };
+
+      const onKeyUp = (e: KeyboardEvent) => {
+        if (!active) return;
+        if (!captureKeys.has(e.code) && !captureKeys.has(e.key)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        options.onKeyUp?.(e);
+      };
+
+      const onPointerDown = (info: { name?: string; point?: { x: number; y: number } }) => {
+        if (!active || !releaseOnOutsidePointer || !options.surfaceId) return;
+        if (info?.name !== "pointer_down") return;
+        const point = info.point
+          ? editor.screenToPage(info.point)
+          : editor.inputs.currentPagePoint;
+        if (!point) return;
+        if (!pointInSurface(options.surfaceId, point)) {
+          release();
+        }
+      };
+
+      // Capture phase so we run before tldraw's nudge handlers.
+      window.addEventListener("keydown", onKeyDown, true);
+      window.addEventListener("keyup", onKeyUp, true);
+      editor.on("event", onPointerDown);
+
+      const release = () => {
+        if (!active) return;
+        active = false;
+        window.removeEventListener("keydown", onKeyDown, true);
+        window.removeEventListener("keyup", onKeyUp, true);
+        try {
+          editor.off("event", onPointerDown);
+        } catch {
+          // ignore
+        }
+        if (lockIds.length) {
+          setShapesLocked(lockIds, false);
+        }
+        try {
+          editor.setCurrentTool(previousTool || "select");
+        } catch {
+          // ignore
+        }
+        if (activeScopeByEditor.get(editor)?.release === release) {
+          activeScopeByEditor.delete(editor);
+        }
+      };
+
+      activeScopeByEditor.set(editor, { release });
+
+      options.signal?.addEventListener("abort", release, { once: true });
+
+      return {
+        isActive: () => active,
+        release,
+      };
+    },
   };
 }
