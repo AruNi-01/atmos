@@ -1161,9 +1161,8 @@ export const CanvasView: React.FC = () => {
   ]);
 
   // Note: a previous `placeTerminalShape` callback was removed together with
-  // the Import Terminal modal. Pinning a terminal onto the canvas now flows
-  // through `canvasApi.updateDefaultBoard` in `TerminalGrid.tsx`, which builds
-  // the snapshot on the API side and reloads the canvas.
+  // the Import Terminal modal. Pinning uses `loadPinTargetDocument` /
+  // `savePinTargetDocument` (file-backed Default or active .atmos.tldr).
 
   const handleCreateFrame = React.useCallback(() => {
     const editor = editorRef.current;

@@ -10,6 +10,11 @@ use crate::app_state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        // Legacy default-board routes: old web/desktop still call these (APP-037).
+        .route(
+            "/default",
+            get(handlers::get_default_board_compat).put(handlers::update_default_board_compat),
+        )
         .route("/documents", get(handlers::list_documents))
         .route("/documents/sanitize-name", post(handlers::sanitize_name))
         .route(
