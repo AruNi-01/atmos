@@ -11,12 +11,38 @@ import {
   PictureInPicture,
   PictureInPicture2,
   Plus,
+  RotateCcwSquare,
   X,
 } from "lucide-react";
 
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { cn } from "@/shared/lib/utils";
 import { canonicalizeUrl } from "../lib/preview-utils";
+
+function scrollTabIntoView(
+  container: HTMLElement,
+  tab: HTMLElement,
+  behavior: ScrollBehavior = "smooth",
+) {
+  const containerRect = container.getBoundingClientRect();
+  const tabRect = tab.getBoundingClientRect();
+  const padding = 8;
+
+  if (tabRect.left < containerRect.left + padding) {
+    container.scrollBy({
+      left: tabRect.left - containerRect.left - padding,
+      behavior,
+    });
+    return;
+  }
+
+  if (tabRect.right > containerRect.right - padding) {
+    container.scrollBy({
+      left: tabRect.right - containerRect.right + padding,
+      behavior,
+    });
+  }
+}
 
 export interface PreviewBrowserTab {
   id: string;
@@ -35,9 +61,11 @@ export interface PreviewBrowserChromeControls {
   needsDesktopPreviewSafeInset: boolean;
   openInWindowTitle?: string;
   returnToEmbeddedTitle?: string;
+  moveToCenterTitle?: string;
   toolbarToggleTitle: string;
   onOpenInWindow?: () => void;
   onReturnToEmbedded?: () => void;
+  onMoveToCenter?: () => void;
   onToggleMaximized?: () => void;
   onToggleToolbarHidden: () => void;
 }
@@ -88,6 +116,19 @@ export function PreviewBrowserTabBar({
 }: PreviewBrowserTabBarProps) {
   const t = useTranslations("preview.toolbar.browserTabs");
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+  const tabsScrollRef = React.useRef<HTMLDivElement>(null);
+  const activeTabRef = React.useRef<HTMLDivElement>(null);
+
+  // Keep the active tab in view — especially after "+" when many tabs overflow.
+  React.useLayoutEffect(() => {
+    const container = tabsScrollRef.current;
+    const activeTab = activeTabRef.current;
+    if (!container || !activeTab) return;
+
+    // Instant on first layout after mount / tab-count jumps; smooth for normal switches.
+    const behavior: ScrollBehavior = tabs.length > 1 ? "smooth" : "auto";
+    scrollTabIntoView(container, activeTab, behavior);
+  }, [activeTabId, tabs.length]);
 
   return (
     <div
@@ -99,6 +140,7 @@ export function PreviewBrowserTabBar({
       )}
     >
       <div
+        ref={tabsScrollRef}
         className={cn(
           "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
           chromeControls?.needsDesktopPreviewSafeInset && "pl-[84px]",
@@ -119,6 +161,7 @@ export function PreviewBrowserTabBar({
           return (
             <div
               key={tab.id}
+              ref={isActive ? activeTabRef : undefined}
               className={cn(
                 // Keep overflow visible so the leading divider (outside the tab box) is not clipped.
                 "desktop-no-drag group/tab relative flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center rounded-md border text-xs transition-colors",
@@ -232,6 +275,17 @@ export function PreviewBrowserTabBar({
               <PanelTopClose className="size-3.5" />
             )}
           </button>
+          {chromeControls.onMoveToCenter ? (
+            <button
+              type="button"
+              aria-label={chromeControls.moveToCenterTitle ?? t("moveToCenter")}
+              title={chromeControls.moveToCenterTitle ?? t("moveToCenter")}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              onClick={chromeControls.onMoveToCenter}
+            >
+              <RotateCcwSquare className="size-3.5" />
+            </button>
+          ) : null}
           {chromeControls.onToggleMaximized ? (
             <button
               type="button"

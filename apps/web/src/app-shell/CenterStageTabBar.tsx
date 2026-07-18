@@ -9,6 +9,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   TabsTab,
   Tooltip,
   TooltipContent,
@@ -18,6 +21,7 @@ import {
 } from "@workspace/ui";
 import {
   BookOpen,
+  Globe,
   LoaderCircle,
   Pencil,
   Plus,
@@ -45,6 +49,12 @@ import {
 } from "@/app-shell/center-stage-shared-tabs";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
+import {
+  getActivePreviewBrowserFaviconUrl,
+  getActivePreviewBrowserLabel,
+  type PreviewBrowserPrefs,
+} from "@/features/run-preview/lib/preview-browser-labels";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -53,11 +63,15 @@ type SessionDisplay = {
 
 interface CenterStageTabBarProps {
   activeValue: string;
+  browserFallbackLabel: string;
+  browserTabs: BrowserCenterTab[];
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
   githubTabs: GithubCenterTab[];
+  isTabGroupItemActive: (tab: TabGroupItem) => boolean;
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
+  previewBrowserPrefs: PreviewBrowserPrefs;
   projectWikiTabVisible: boolean;
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
@@ -69,11 +83,14 @@ interface CenterStageTabBarProps {
   wikiRefreshing: boolean;
   handleCenterStageTabChange: (value: string) => void;
   handleCloseTabGroupItem: (tab: TabGroupItem) => void;
+  handleCloseBrowserTab: (value: string) => void;
   handleCloseFile: (file: OpenFile) => void;
   handleCloseGithubTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
+  handleCreateBrowserCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
+  handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
   pinFile: (path: string, workspaceId?: string) => void;
   setActiveFile: (path: string | null, workspaceId?: string) => void;
@@ -88,11 +105,15 @@ interface CenterStageTabBarProps {
 
 export function CenterStageTabBar({
   activeValue,
+  browserFallbackLabel,
+  browserTabs,
   codeReviewTabVisible,
   effectiveContextId,
   githubTabs,
+  isTabGroupItemActive,
   openFiles,
   orderedGroupedTabItems,
+  previewBrowserPrefs,
   projectWikiTabVisible,
   scrollableTabsRef,
   sessionDisplay,
@@ -102,13 +123,16 @@ export function CenterStageTabBar({
   visibleTerminalTabs,
   wikiCenterEligible,
   wikiRefreshing,
-  handleCenterStageTabChange,
+  handleCenterStageTabChange: _handleCenterStageTabChange,
   handleCloseTabGroupItem,
+  handleCloseBrowserTab,
   handleCloseFile,
   handleCloseGithubTab,
   handleCloseTerminalCenterTab,
+  handleCreateBrowserCenterTab,
   handleCreateTerminalCenterTab,
   handleRenameTerminalCenterTab,
+  handleSelectTabGroupItem,
   handleTabGroupDragEnd,
   pinFile,
   setActiveFile,
@@ -122,17 +146,20 @@ export function CenterStageTabBar({
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
+  const newBrowserLabel = t("centerStageTabBar.newBrowser");
+  const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
 
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem) => {
     return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
 
-  // Open files and GitHub PR/Action tabs share one lane, ordered by when each
-  // was opened (no per-type grouping) so tabs appear in natural open order.
+  // Open files, GitHub, and Browser instances share one lane, ordered by when
+  // each was opened (no per-type grouping) so tabs appear in natural open order.
   const orderedSurfaceTabs = React.useMemo<
     Array<
       | { type: "file"; openedAt: number; file: OpenFile }
       | { type: "github"; openedAt: number; tab: GithubCenterTab }
+      | { type: "browser"; openedAt: number; tab: BrowserCenterTab }
     >
   >(() => {
     const items = [
@@ -142,9 +169,12 @@ export function CenterStageTabBar({
       ...githubTabs.map(
         (tab) => ({ type: "github" as const, openedAt: tab.openedAt, tab }),
       ),
+      ...browserTabs.map(
+        (tab) => ({ type: "browser" as const, openedAt: tab.openedAt, tab }),
+      ),
     ];
     return items.sort((left, right) => left.openedAt - right.openedAt);
-  }, [githubTabs, openFiles]);
+  }, [browserTabs, githubTabs, openFiles]);
 
   return (
     <CenterStageTabList>
@@ -253,20 +283,47 @@ export function CenterStageTabBar({
           />
         ) : null}
 
-        {orderedSurfaceTabs.map((item) =>
-          item.type === "file" ? (
-            <CenterStageOpenFileTab
-              key={item.file.path}
-              file={item.file}
-              sessionDisplay={sessionDisplay}
-              onClose={handleCloseFile}
-              onContextMenuRequest={(event, nextFile) => {
-                setActiveFile(nextFile.path, effectiveContextId);
-                setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
-              }}
-              onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
-            />
-          ) : (
+        {orderedSurfaceTabs.map((item) => {
+          if (item.type === "file") {
+            return (
+              <CenterStageOpenFileTab
+                key={item.file.path}
+                file={item.file}
+                sessionDisplay={sessionDisplay}
+                onClose={handleCloseFile}
+                onContextMenuRequest={(event, nextFile) => {
+                  setActiveFile(nextFile.path, effectiveContextId);
+                  setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
+                }}
+                onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
+              />
+            );
+          }
+
+          if (item.type === "browser") {
+            const browserContext =
+              previewBrowserPrefs.byContext[item.tab.browserContextId];
+            const label = getActivePreviewBrowserLabel(
+              browserContext,
+              browserFallbackLabel,
+            );
+            const faviconUrl = getActivePreviewBrowserFaviconUrl(browserContext);
+            return (
+              <CenterStageSurfaceContentTab
+                key={item.tab.value}
+                closeLabel={t("centerStageTabBar.closeTab", { tab: label })}
+                faviconUrl={faviconUrl}
+                name={label}
+                onClose={() => handleCloseBrowserTab(item.tab.value)}
+                path={label}
+                tooltip={label}
+                value={item.tab.value}
+                variant="browser"
+              />
+            );
+          }
+
+          return (
             <CenterStageSurfaceContentTab
               key={item.tab.value}
               closeLabel={t("centerStageTabBar.closeTab", { tab: item.tab.label })}
@@ -277,17 +334,18 @@ export function CenterStageTabBar({
               value={item.tab.value}
               variant={item.tab.kind}
             />
-          ),
-        )}
+          );
+        })}
       </CenterStageScrollableTabs>
 
       <CenterStageStickyTabActions>
-        {visibleTerminalTabs.length === 0 ? (
-          <EmptyTerminalTabsAddButton
-            onCreateTab={handleCreateTerminalCenterTab}
-            newTerminalTabLabel={newTerminalTabLabel}
-          />
-        ) : null}
+        <CenterStageNewTabMenu
+          browserLabel={newBrowserLabel}
+          menuLabel={newTabMenuLabel}
+          terminalLabel={newTerminalTabLabel}
+          onCreateBrowser={handleCreateBrowserCenterTab}
+          onCreateTerminal={handleCreateTerminalCenterTab}
+        />
         <CenterStageTabGroupPopover
           open={tabGroupPopoverOpen}
           onOpenChange={setTabGroupPopoverOpen}
@@ -295,12 +353,10 @@ export function CenterStageTabBar({
           activeValue={activeValue}
           sensors={tabGroupDndSensors}
           onDragEnd={handleTabGroupDragEnd}
-          onSelect={(value) => {
-            handleCenterStageTabChange(value);
-            setTabGroupPopoverOpen(false);
-          }}
+          onSelect={handleSelectTabGroupItem}
           onClose={handleCloseTabGroupItem}
           isClosable={isTabGroupItemClosable}
+          isItemActive={isTabGroupItemActive}
           renderContent={renderTabGroupItemContent}
         />
       </CenterStageStickyTabActions>
@@ -319,7 +375,8 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "review-diff" ||
     tab.kind === "conflict" ||
     tab.kind === "github-pr" ||
-    tab.kind === "github-action"
+    tab.kind === "github-action" ||
+    tab.kind === "browser"
   );
 }
 
@@ -514,32 +571,97 @@ function TerminalExtraTab({
   );
 }
 
-function EmptyTerminalTabsAddButton({
-  onCreateTab,
-  newTerminalTabLabel,
+function CenterStageNewTabMenu({
+  browserLabel,
+  menuLabel,
+  terminalLabel,
+  onCreateBrowser,
+  onCreateTerminal,
 }: {
-  onCreateTab: () => void;
-  newTerminalTabLabel: string;
+  browserLabel: string;
+  menuLabel: string;
+  terminalLabel: string;
+  onCreateBrowser: () => void;
+  onCreateTerminal: () => void;
 }) {
+  const [open, setOpen] = React.useState(false);
+  const closeTimerRef = React.useRef<number | null>(null);
+
+  const clearCloseTimer = React.useCallback(() => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleClose = React.useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 120);
+  }, [clearCloseTimer]);
+
+  React.useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={newTerminalTabLabel}
-          onClick={onCreateTab}
-          className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          aria-label={menuLabel}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-muted/50 data-[state=open]:text-foreground"
+          onMouseEnter={() => {
+            clearCloseTimer();
+            setOpen(true);
+          }}
+          onMouseLeave={scheduleClose}
+          onFocus={() => {
+            clearCloseTimer();
+            setOpen(true);
+          }}
+          onBlur={scheduleClose}
         >
           <Plus className="size-4" />
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <div className="flex items-center gap-2">
-          <span>{newTerminalTabLabel}</span>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        side="bottom"
+        sideOffset={4}
+        className="w-44 border-border/70 bg-popover/90 p-1 shadow-lg backdrop-blur-xl"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onMouseEnter={clearCloseTimer}
+        onMouseLeave={scheduleClose}
+      >
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          onClick={() => {
+            onCreateTerminal();
+            setOpen(false);
+          }}
+        >
+          <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{terminalLabel}</span>
           <ShortcutHint digit="T" />
-        </div>
-      </TooltipContent>
-    </Tooltip>
+        </button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          onClick={() => {
+            onCreateBrowser();
+            setOpen(false);
+          }}
+        >
+          <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{browserLabel}</span>
+        </button>
+      </PopoverContent>
+    </Popover>
   );
 }
 

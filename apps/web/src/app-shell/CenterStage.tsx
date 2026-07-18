@@ -103,8 +103,22 @@ import {
   type GithubCenterTab,
   useGithubCenterTabsStore,
 } from "@/features/github/store/use-github-center-tabs";
+import {
+  isBrowserCenterTabValue,
+  parseBrowserCenterTabValue,
+  type BrowserCenterTab,
+  useBrowserCenterTabsStore,
+} from "@/features/run-preview/store/use-browser-center-tabs";
+import { useBrowserTabCommandsStore } from "@/features/run-preview/store/use-browser-tab-commands";
+import {
+  DEFAULT_PREVIEW_BROWSER_PREFS,
+  type PreviewBrowserPrefs,
+} from "@/features/run-preview/lib/preview-browser-labels";
+import { useConnectionStore } from "@/features/connection/store/connection-store";
+import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 
 const EMPTY_GITHUB_TABS: GithubCenterTab[] = [];
+const EMPTY_BROWSER_TABS: BrowserCenterTab[] = [];
 
 const CenterStage: React.FC = () => {
   const t = useTranslations("appShell.centerStage");
@@ -157,6 +171,27 @@ const CenterStage: React.FC = () => {
     (state) => state.openActionRun,
   );
   const closeGithubTab = useGithubCenterTabsStore((state) => state.closeTab);
+  const browserTabs = useBrowserCenterTabsStore((state) =>
+    effectiveContextId
+      ? state.tabsByContext[effectiveContextId] ?? EMPTY_BROWSER_TABS
+      : EMPTY_BROWSER_TABS,
+  );
+  const openBrowserCenterTab = useBrowserCenterTabsStore((state) => state.openBrowser);
+  const closeBrowserCenterTab = useBrowserCenterTabsStore((state) => state.closeBrowser);
+  const selectBrowserInternalTab = useBrowserTabCommandsStore((state) => state.selectTab);
+  const closeBrowserInternalTab = useBrowserTabCommandsStore((state) => state.closeTab);
+  const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
+  React.useEffect(() => {
+    useUiPrefStore
+      .getState()
+      .readSlice(activeInstanceId, "previewBrowser", DEFAULT_PREVIEW_BROWSER_PREFS);
+  }, [activeInstanceId]);
+  const previewBrowserPrefs = useUiPrefStore((state) => {
+    const cached = state.byInstance[activeInstanceId]?.previewBrowser;
+    return (cached as PreviewBrowserPrefs | undefined) ?? DEFAULT_PREVIEW_BROWSER_PREFS;
+  });
+  const browserTabsT = useTranslations("appShell.centerStageTabGroups");
+  const browserFallbackLabel = browserTabsT("browser.newTab");
   const {
     terminalTabs,
     createTerminalTab,
@@ -258,6 +293,13 @@ const CenterStage: React.FC = () => {
         ? tabFromUrl
         : fallbackCenterTab;
     }
+    if (isBrowserCenterTabValue(tabFromUrl)) {
+      const target = parseBrowserCenterTabValue(tabFromUrl);
+      return target?.contextId === effectiveContextId &&
+        browserTabs.some((tab) => tab.value === tabFromUrl)
+        ? tabFromUrl
+        : fallbackCenterTab;
+    }
     return tabFromUrl;
   }, [
     tabFromUrl,
@@ -268,6 +310,7 @@ const CenterStage: React.FC = () => {
     effectiveContextId,
     fallbackCenterTab,
     visibleTerminalTabs,
+    browserTabs,
   ]);
 
   React.useEffect(() => {
@@ -442,6 +485,37 @@ const CenterStage: React.FC = () => {
     ],
   );
 
+  const handleCloseBrowserTab = React.useCallback(
+    (value: string) => {
+      if (!effectiveContextId) return;
+      const closingIndex = browserTabs.findIndex((tab) => tab.value === value);
+      const nextTab =
+        browserTabs[closingIndex + 1] ?? browserTabs[closingIndex - 1] ?? null;
+      closeBrowserCenterTab(effectiveContextId, value);
+      if (activeValue === value) {
+        setUrlParams({
+          tab: nextTab?.value ?? fallbackCenterTab,
+          wikiPage: null,
+        });
+      }
+    },
+    [
+      activeValue,
+      browserTabs,
+      closeBrowserCenterTab,
+      effectiveContextId,
+      fallbackCenterTab,
+      setUrlParams,
+    ],
+  );
+
+  const handleCreateBrowserCenterTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    const tab = openBrowserCenterTab(effectiveContextId);
+    setActiveFile(null, effectiveContextId);
+    void setUrlParams({ tab: tab.value, wikiPage: null });
+  }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
+
   useTerminalTabMountLifecycle({
     activeValue,
     effectiveContextId,
@@ -521,11 +595,15 @@ const CenterStage: React.FC = () => {
       setUrlParams({ tab: last, wikiPage: null });
       return;
     }
+    if (browserTabs.some((tab) => tab.value === last)) {
+      setUrlParams({ tab: last, wikiPage: null });
+      return;
+    }
     const exists = openFiles.some((f) => f.path === last);
     if (exists) {
       setActiveFile(last, effectiveContextId);
     }
-  }, [effectiveContextId, activeFilePath, activeValue, githubTabs, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
+  }, [effectiveContextId, activeFilePath, activeValue, browserTabs, githubTabs, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
 
   const { defaultAgentId, terminalQuickOpenAgents } = useCenterStageTerminalAgents(isSetupBlocking);
 
@@ -1089,6 +1167,9 @@ const CenterStage: React.FC = () => {
     } else if (isGithubCenterTabValue(val)) {
       setUrlParams({ tab: val, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
+    } else if (isBrowserCenterTabValue(val)) {
+      setUrlParams({ tab: val, wikiPage: null });
+      setActiveFile(null, effectiveContextId || undefined);
     } else if (FIXED_TABS.has(val)) {
       setFixedTab(val as FixedTab);
       setActiveFile(null, effectiveContextId || undefined);
@@ -1118,9 +1199,11 @@ const CenterStage: React.FC = () => {
     handleTabGroupDragEnd,
     orderedGroupedTabItems,
   } = useCenterStageTabGroups({
+    browserTabs,
     effectiveContextId,
     githubTabs,
     openFiles,
+    previewBrowserPrefs,
   });
 
   const currentRepoPath = centerStageRepoPath;
@@ -1130,6 +1213,14 @@ const CenterStage: React.FC = () => {
       void invalidateGitQueries(currentRepoPath);
     }
   }, [currentRepoPath]);
+
+  const handleSelectTabGroupItem = React.useCallback((tab: TabGroupItem) => {
+    if (tab.kind === "browser" && tab.browserContextId && tab.browserTabId) {
+      selectBrowserInternalTab(tab.browserContextId, tab.browserTabId);
+    }
+    handleCenterStageTabChange(tab.value);
+    setTabGroupPopoverOpen(false);
+  }, [handleCenterStageTabChange, selectBrowserInternalTab]);
 
   const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {
     if (tab.kind === "terminal") {
@@ -1152,10 +1243,47 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (tab.kind === "browser") {
+      if (tab.browserContextId && tab.browserTabId) {
+        const context = previewBrowserPrefs.byContext[tab.browserContextId];
+        const tabCount = context?.tabs?.length ?? 0;
+        if (tabCount <= 1) {
+          handleCloseBrowserTab(tab.value);
+          return;
+        }
+        closeBrowserInternalTab(tab.browserContextId, tab.browserTabId);
+        return;
+      }
+      handleCloseBrowserTab(tab.value);
+      return;
+    }
+
     if (tab.file) {
       handleCloseFile(tab.file);
     }
-  }, [handleCloseFile, handleCloseGithubTab, handleCloseTerminalCenterTab]);
+  }, [
+    closeBrowserInternalTab,
+    handleCloseBrowserTab,
+    handleCloseFile,
+    handleCloseGithubTab,
+    handleCloseTerminalCenterTab,
+    previewBrowserPrefs,
+  ]);
+
+  const isTabGroupItemActive = React.useCallback(
+    (tab: TabGroupItem) => {
+      if (tab.kind !== "browser") {
+        return activeValue === tab.value;
+      }
+      if (activeValue !== tab.value || !tab.browserContextId || !tab.browserTabId) {
+        return false;
+      }
+      const context = previewBrowserPrefs.byContext[tab.browserContextId];
+      const activeTabId = context?.activeTabId ?? context?.tabs?.[0]?.id;
+      return activeTabId === tab.browserTabId;
+    },
+    [activeValue, previewBrowserPrefs],
+  );
 
   const { currentProject, currentWorkspace } = resolveCenterStageProjectContext(
     projects,
@@ -1235,11 +1363,15 @@ const CenterStage: React.FC = () => {
         {/* Top Tab Bar */}
         <CenterStageTabBar
           activeValue={activeValue}
+          browserFallbackLabel={browserFallbackLabel}
+          browserTabs={browserTabs}
           codeReviewTabVisible={codeReviewTabVisible}
           effectiveContextId={effectiveContextId}
           githubTabs={githubTabs}
+          isTabGroupItemActive={isTabGroupItemActive}
           openFiles={openFiles}
           orderedGroupedTabItems={orderedGroupedTabItems}
+          previewBrowserPrefs={previewBrowserPrefs}
           projectWikiTabVisible={projectWikiTabVisible}
           scrollableTabsRef={scrollableTabsRef}
           sessionDisplay={sessionDisplay}
@@ -1251,11 +1383,14 @@ const CenterStage: React.FC = () => {
           wikiRefreshing={wikiRefreshing}
           handleCenterStageTabChange={handleCenterStageTabChange}
           handleCloseTabGroupItem={handleCloseTabGroupItem}
+          handleCloseBrowserTab={handleCloseBrowserTab}
           handleCloseFile={handleCloseFile}
           handleCloseGithubTab={handleCloseGithubTab}
           handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
+          handleCreateBrowserCenterTab={handleCreateBrowserCenterTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
           handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
+          handleSelectTabGroupItem={handleSelectTabGroupItem}
           handleTabGroupDragEnd={handleTabGroupDragEnd}
           pinFile={pinFile}
           setActiveFile={setActiveFile}
@@ -1270,6 +1405,7 @@ const CenterStage: React.FC = () => {
 
         <CenterStagePanels
           activeValue={activeValue}
+          browserTabs={browserTabs}
           codeReviewTabVisible={codeReviewTabVisible}
           codeReviewTerminalGridRef={codeReviewTerminalGridRef}
           currentBranch={currentBranch}

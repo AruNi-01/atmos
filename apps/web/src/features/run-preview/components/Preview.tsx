@@ -5,7 +5,7 @@ import { createTranslator, useTranslations } from 'next-intl';
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
@@ -76,6 +76,7 @@ interface PreviewProps {
   canvasViewportControllerRef?: React.MutableRefObject<PreviewCanvasViewportController | null>;
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
+  onMoveToCenter?: () => void;
 }
 
 export interface PreviewCanvasViewportController {
@@ -146,11 +147,11 @@ export const Preview: React.FC<PreviewProps> = ({
   canvasViewportControllerRef,
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
+  onMoveToCenter,
 }) => {
   const previewToolbarT = useTranslations("preview.toolbar");
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
-  const { isRightCollapsed } = useSidebarLayout();
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeSrc, setIframeSrc] = useState(activeUrl);
   const [requestedIframeUrl, setRequestedIframeUrl] = useState(activeUrl);
@@ -177,13 +178,15 @@ export const Preview: React.FC<PreviewProps> = ({
   const [{
     pvView: viewModeParam,
     pvToolbar: isToolbarHiddenParam,
-    pvPick: isElementPickerEnabledParam,
-  }, setPreviewToolbarParams] = useQueryStates(previewToolbarParams);
+  }, setPreviewToolbarParams] = useQueryStates({
+    pvView: previewToolbarParams.pvView,
+    pvToolbar: previewToolbarParams.pvToolbar,
+  });
   const viewMode: ViewMode = viewModeParam === "mobile" ? "mobile" : "desktop";
   const isToolbarHidden = isToolbarHiddenParam;
-  const [localIsElementPickerEnabled, setLocalIsElementPickerEnabled] = useState(isElementPickerEnabledParam);
-  const isElementPickerEnabled = localIsElementPickerEnabled;
-  const isElementPickerEnabledRef = useRef(isElementPickerEnabled);
+  // Element pick is per Preview instance (one per browser tab) — never shared via URL.
+  const [isElementPickerEnabled, setLocalIsElementPickerEnabled] = useState(false);
+  const isElementPickerEnabledRef = useRef(false);
   isElementPickerEnabledRef.current = isElementPickerEnabled;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const desktopViewportRef = useRef<HTMLDivElement | null>(null);
@@ -252,13 +255,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
     isElementPickerEnabledRef.current = nextIsElementPickerEnabled;
     setLocalIsElementPickerEnabled(nextIsElementPickerEnabled);
-    void setPreviewToolbarParams({ pvPick: nextIsElementPickerEnabled });
-  }, [setPreviewToolbarParams]);
-
-  useEffect(() => {
-    setLocalIsElementPickerEnabled(isElementPickerEnabledParam);
-    isElementPickerEnabledRef.current = isElementPickerEnabledParam;
-  }, [isElementPickerEnabledParam]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -333,14 +330,16 @@ export const Preview: React.FC<PreviewProps> = ({
     surfaceRef: desktopViewportRef,
     ignoredRootRef: previewRootRef,
   });
+  // NOTE: Do not suspend based on right-sidebar collapse — that used to hide
+  // *every* desktop-native surface (including center browsers). Sidebar
+  // visibility is handled via BrowserPanel `isActive` in RightSidebar instead.
   const shouldSuspendDesktopPreview =
       preferredTransportMode === 'desktop-native' && (
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
         isPreviewLoading ||
         (!disableNativePreviewOcclusion && !suppressNativePreviewOcclusion && isDesktopNativePreviewOccluded) ||
         favoritesListOpen || favoritePopoverOpen ||
-        headerHasOpenOverlay || isGlobalSearchOpen ||
-        isRightCollapsed
+        headerHasOpenOverlay || isGlobalSearchOpen
       );
   const {
     checkExtensionUpdate,
@@ -1092,6 +1091,7 @@ export const Preview: React.FC<PreviewProps> = ({
     if (!normalizedActiveUrlRef.current) return;
 
     if (isElementPickerEnabledRef.current) {
+      // Flip UI first so the pressed state clears immediately.
       isElementPickerEnabledRef.current = false;
       setIsElementPickerEnabled(false);
       const viewport = desktopViewportRef.current;
@@ -1101,25 +1101,27 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
 
+    // Flip UI first so the toolbar stays highlighted even if enterPickMode is slow.
+    isElementPickerEnabledRef.current = true;
+    setIsElementPickerEnabled(true);
+
     if (preferredTransportMode === 'desktop-native') {
       if (!transportControllerRef.current) {
         await syncDesktopPreview();
       }
       await Promise.resolve(transportControllerRef.current?.enterPickMode());
-      isElementPickerEnabledRef.current = true;
-      setIsElementPickerEnabled(true);
       return;
     }
 
     if (transportControllerRef.current && transportState.connected) {
       await Promise.resolve(transportControllerRef.current.enterPickMode());
-      isElementPickerEnabledRef.current = true;
-      setIsElementPickerEnabled(true);
       return;
     }
 
     const installed = await connectIframeTransport();
     if (!installed) {
+      isElementPickerEnabledRef.current = false;
+      setIsElementPickerEnabled(false);
       toastManager.add({
         type: "error",
         title: previewT('elementPicker.title.unavailable', 'Element picker unavailable'),
@@ -1131,8 +1133,6 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
 
-    isElementPickerEnabledRef.current = true;
-    setIsElementPickerEnabled(true);
     void checkExtensionUpdate();
   }, [
     checkExtensionUpdate,
@@ -1398,9 +1398,12 @@ export const Preview: React.FC<PreviewProps> = ({
               needsDesktopPreviewSafeInset,
               openInWindowTitle: previewToolbarT("actions.openPreviewBrowserWindow"),
               returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
+              moveToCenterTitle: previewToolbarT("browserTabs.moveToCenter"),
               toolbarToggleTitle,
               onOpenInWindow: canOpenPreviewBrowserWindow ? handleOpenPreviewBrowserWindow : undefined,
               onReturnToEmbedded: isStandaloneBrowserWindow ? handleCloseStandalonePreviewWindow : undefined,
+              onMoveToCenter:
+                onMoveToCenter && !isStandaloneBrowserWindow ? onMoveToCenter : undefined,
               onToggleMaximized:
                 allowMaximize && !isStandaloneBrowserWindow
                   ? handleToggleMaximized

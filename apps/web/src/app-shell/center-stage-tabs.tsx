@@ -56,8 +56,19 @@ export type TabGroupItem = {
     | "review-diff"
     | "conflict"
     | "github-pr"
-    | "github-action";
+    | "github-action"
+    | "browser";
   file?: OpenFile;
+  /** Center browser instance id (for kind === "browser"). */
+  browserId?: string;
+  /** Internal preview browser tab id (for kind === "browser"). */
+  browserTabId?: string;
+  /** Preview browser prefs context key (for kind === "browser"). */
+  browserContextId?: string;
+  /** Favicon URL for browser internal tabs (kind === "browser"). */
+  faviconUrl?: string;
+  /** Draw a horizontal rule above this item (e.g. between different browsers). */
+  separatorBefore?: boolean;
 };
 
 export type TabGroupOrderByContext = CenterStageUiPrefs["tabGroupOrderByContext"];
@@ -154,7 +165,11 @@ export function SortableTabGroupItem({
     isDragging,
   } = useSortable({
     id: tab.id,
-    data: { groupKey },
+    data: {
+      groupKey,
+      // Browser internal tabs only reorder within the same browser instance.
+      browserId: tab.browserId,
+    },
   });
 
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -275,6 +290,7 @@ export function CenterStageTabGroupPopover({
   onSelect,
   onClose,
   isClosable,
+  isItemActive,
   renderContent,
 }: {
   open: boolean;
@@ -283,9 +299,11 @@ export function CenterStageTabGroupPopover({
   activeValue: string;
   sensors: React.ComponentProps<typeof DndContext>["sensors"];
   onDragEnd: (event: DragEndEvent) => void;
-  onSelect: (value: string) => void;
+  onSelect: (tab: TabGroupItem) => void;
   onClose: (tab: TabGroupItem) => void;
   isClosable: (tab: TabGroupItem) => boolean;
+  /** Optional override for active highlighting (e.g. browser internal tabs). */
+  isItemActive?: (tab: TabGroupItem) => boolean;
   renderContent: (tab: TabGroupItem) => React.ReactNode;
 }) {
   const t = useTranslations("AppShell.chrome");
@@ -334,33 +352,51 @@ export function CenterStageTabGroupPopover({
                     </div>
                   </header>
                   <div className="scrollbar-on-hover min-h-0 w-full min-w-0 flex-1 space-y-1 overflow-y-auto p-2 pt-0">
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      modifiers={[restrictToVerticalAxis]}
-                      onDragEnd={onDragEnd}
-                    >
-                      <SortableContext
-                        items={group.tabs.map((tab) => tab.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="w-full min-w-0">
-                          {group.tabs.map((tab) => (
-                            <SortableTabGroupItem
-                              key={tab.id}
-                              groupKey={group.key}
-                              tab={tab}
-                              isActive={activeValue === tab.value}
-                              closable={isClosable(tab)}
-                              onSelect={() => onSelect(tab.value)}
-                              onClose={() => onClose(tab)}
-                            >
-                              {renderContent(tab)}
-                            </SortableTabGroupItem>
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
+                    {splitTabGroupSections(group).map((section, sectionIndex) => (
+                      <React.Fragment key={section.key}>
+                        {sectionIndex > 0 ? (
+                          <div
+                            aria-hidden
+                            className="my-1.5 border-t border-border/60"
+                          />
+                        ) : null}
+                        {/*
+                          Each browser instance gets its own DndContext so tabs
+                          cannot be dragged across the horizontal separator.
+                        */}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          modifiers={[restrictToVerticalAxis]}
+                          onDragEnd={onDragEnd}
+                        >
+                          <SortableContext
+                            items={section.tabs.map((tab) => tab.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="w-full min-w-0">
+                              {section.tabs.map((tab) => (
+                                <SortableTabGroupItem
+                                  key={tab.id}
+                                  groupKey={section.sortableKey}
+                                  tab={tab}
+                                  isActive={
+                                    typeof isItemActive === "function"
+                                      ? isItemActive(tab)
+                                      : activeValue === tab.value
+                                  }
+                                  closable={isClosable(tab)}
+                                  onSelect={() => onSelect(tab)}
+                                  onClose={() => onClose(tab)}
+                                >
+                                  {renderContent(tab)}
+                                </SortableTabGroupItem>
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+                      </React.Fragment>
+                    ))}
                   </div>
                 </section>
               ))}
@@ -370,6 +406,50 @@ export function CenterStageTabGroupPopover({
       </PopoverContent>
     </Popover>
   );
+}
+
+/**
+ * Split a group column into independent sortable sections.
+ * Browser tabs are partitioned by browser instance so DnD cannot cross separators.
+ */
+function splitTabGroupSections(group: {
+  key: string;
+  tabs: TabGroupItem[];
+}): Array<{ key: string; sortableKey: string; tabs: TabGroupItem[] }> {
+  if (group.key !== "browser") {
+    return [{ key: group.key, sortableKey: group.key, tabs: group.tabs }];
+  }
+
+  const sections: Array<{ key: string; sortableKey: string; tabs: TabGroupItem[] }> = [];
+  let currentBrowserId: string | undefined;
+  let currentTabs: TabGroupItem[] = [];
+
+  for (const tab of group.tabs) {
+    if (tab.browserId !== currentBrowserId) {
+      if (currentTabs.length > 0 && currentBrowserId) {
+        sections.push({
+          key: `browser-instance:${currentBrowserId}`,
+          sortableKey: `browser-instance:${currentBrowserId}`,
+          tabs: currentTabs,
+        });
+      }
+      currentBrowserId = tab.browserId;
+      currentTabs = [tab];
+    } else {
+      currentTabs.push(tab);
+    }
+  }
+
+  if (currentTabs.length > 0) {
+    const browserId = currentBrowserId ?? "unknown";
+    sections.push({
+      key: `browser-instance:${browserId}`,
+      sortableKey: `browser-instance:${browserId}`,
+      tabs: currentTabs,
+    });
+  }
+
+  return sections;
 }
 
 export function isTerminalCenterTabValue(value: string | null | undefined): value is string {

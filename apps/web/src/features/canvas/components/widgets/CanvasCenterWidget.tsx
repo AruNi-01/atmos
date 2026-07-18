@@ -384,8 +384,8 @@ function CanvasCenterWidgetBody({
               activeValue={activeTabId}
               sensors={tabGroupDndSensors}
               onDragEnd={handleTabGroupDragEnd}
-              onSelect={(value) => {
-                handleTabChange(value);
+              onSelect={(tab) => {
+                handleTabChange(tab.value);
                 setTabGroupPopoverOpen(false);
               }}
               onClose={handleCloseTabGroupItem}

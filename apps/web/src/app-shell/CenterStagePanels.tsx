@@ -34,6 +34,7 @@ import type { Project, Workspace } from "@/shared/types/domain";
 import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
+import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
 
 function TerminalGridLoadingFallback() {
   const t = useTranslations("appShell.centerStagePanels");
@@ -113,6 +114,14 @@ const TerminalGrid = dynamic(
   },
 );
 
+const BrowserPanel = dynamic(
+  () =>
+    import("@/features/run-preview/components/BrowserPanel").then(
+      (mod) => mod.BrowserPanel,
+    ),
+  { ssr: false },
+);
+
 type TerminalQuickOpenAgent = {
   agent: TerminalPaneAgent;
   command: string;
@@ -120,6 +129,7 @@ type TerminalQuickOpenAgent = {
 
 interface CenterStagePanelsProps {
   activeValue: string;
+  browserTabs: BrowserCenterTab[];
   codeReviewTabVisible: boolean;
   codeReviewTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
   currentBranch?: string | null;
@@ -160,6 +170,7 @@ interface CenterStagePanelsProps {
 
 export function CenterStagePanels({
   activeValue,
+  browserTabs,
   codeReviewTabVisible,
   codeReviewTerminalGridRef,
   currentBranch,
@@ -394,6 +405,30 @@ export function CenterStagePanels({
               runId={tab.runId}
             />
           )}
+        </div>
+      ))}
+
+      {browserTabs.map((tab) => (
+        <div
+          key={tab.value}
+          className={cn(
+            "flex-1 min-h-0 min-w-0",
+            activeValue !== tab.value && "hidden",
+          )}
+        >
+          <BrowserPanel
+            workspaceId={
+              currentView === "workspace" ? currentWorkspace?.id ?? null : null
+            }
+            projectId={currentProject?.id}
+            isActive={activeValue === tab.value}
+            browserContextId={tab.browserContextId}
+            allowStandaloneWindow
+            allowMaximize
+            keepInactiveTabsMounted
+            // Center browsers keep their own state; do not fight the shared ?pvUrl query.
+            syncUrlQueryParam={false}
+          />
         </div>
       ))}
 

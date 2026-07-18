@@ -67,6 +67,7 @@ import { ReviewActions } from "@/features/diff/components/review/ReviewActions";
 import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
 
 const AgentChatPanel = dynamic(
   () => import("@/features/agent/components/AgentChatPanel").then((m) => m.AgentChatPanel),
@@ -159,6 +160,7 @@ interface RightSidebarProps {
 
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const t = useTranslations("AppShell.chrome");
+  const { isRightCollapsed } = useSidebarLayout();
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
@@ -929,7 +931,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             <BrowserPanel
               workspaceId={workspaceId ?? null}
               projectId={runProjectId ?? undefined}
-              isActive={activeTab === "browser"}
+              // When the right sidebar is collapsed, keep the panel mounted but
+              // inactive so its native child webview does not cover center stage.
+              isActive={activeTab === "browser" && !isRightCollapsed}
+              allowMoveToCenter
             />
           </div>
           )}

@@ -9,18 +9,16 @@ import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 import { previewUrlParams } from "@/shared/lib/nuqs/searchParams";
 
 import type { PreviewBrowserTab } from "../components/PreviewBrowserTabBar";
+import {
+  createInitialBrowserContext,
+  createPreviewBrowserTab,
+  DEFAULT_PREVIEW_BROWSER_PREFS,
+  type PreviewBrowserContextPrefs,
+  type PreviewBrowserPrefs,
+} from "../lib/preview-browser-labels";
 import { canonicalizeUrl } from "../lib/preview-utils";
+import { useBrowserTabCommandsStore } from "../store/use-browser-tab-commands";
 
-interface PreviewBrowserContextPrefs {
-  tabs: PreviewBrowserTab[];
-  activeTabId: string;
-}
-
-interface PreviewBrowserPrefs {
-  byContext: Record<string, PreviewBrowserContextPrefs>;
-}
-
-const DEFAULT_PREVIEW_BROWSER_PREFS: PreviewBrowserPrefs = { byContext: {} };
 const MAX_PREVIEW_BROWSER_TABS = 10;
 
 function readPreviewBrowserPrefs(instanceId: ConnectionInstanceId): PreviewBrowserPrefs {
@@ -28,27 +26,6 @@ function readPreviewBrowserPrefs(instanceId: ConnectionInstanceId): PreviewBrows
     instKey(instanceId, "previewBrowser"),
     DEFAULT_PREVIEW_BROWSER_PREFS,
   );
-}
-
-function createBrowserTab(
-  url = "",
-  lastAccessedAt = Date.now(),
-): PreviewBrowserTab {
-  const normalizedUrl = canonicalizeUrl(url) || url.trim();
-  const id =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `browser-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-  return {
-    id,
-    url: normalizedUrl,
-    activeUrl: normalizedUrl,
-    title: "",
-    titleUrl: "",
-    faviconUrl: "",
-    lastAccessedAt,
-  };
 }
 
 function getFiniteAccessedAt(value: unknown, fallback: number): number {
@@ -131,7 +108,7 @@ function normalizeBrowserContext(
       : [];
 
   const normalizedTabs =
-    tabs.length > 0 ? tabs : [createBrowserTab(fallbackUrl, now)];
+    tabs.length > 0 ? tabs : [createPreviewBrowserTab(fallbackUrl, now)];
   const activeTabId =
     value?.activeTabId &&
     normalizedTabs.some((tab) => tab.id === value.activeTabId)
@@ -411,7 +388,7 @@ export function usePreviewBrowserState({
 
   const handleAddBrowserTab = useCallback(() => {
     const now = Date.now();
-    const nextTab = createBrowserTab("", now + 1);
+    const nextTab = createPreviewBrowserTab("", now + 1);
     setBrowserState((current) => ({
       ...pruneLeastRecentlyAccessed({
         tabs: [...touchTab(current.tabs, current.activeTabId, now), nextTab],
@@ -425,7 +402,7 @@ export function usePreviewBrowserState({
     if (!normalizedUrl) return;
 
     const now = Date.now();
-    const nextTab = createBrowserTab(normalizedUrl, now + 1);
+    const nextTab = createPreviewBrowserTab(normalizedUrl, now + 1);
     setBrowserState((current) => {
       const touchedTabs = touchTab(current.tabs, current.activeTabId, now);
       const activeIndex = touchedTabs.findIndex((tab) => tab.id === current.activeTabId);
@@ -479,8 +456,39 @@ export function usePreviewBrowserState({
     });
   }, []);
 
+  const pendingCommand = useBrowserTabCommandsStore(
+    (state) => state.commandsByContext[browserContextId] ?? null,
+  );
+  const clearCommand = useBrowserTabCommandsStore((state) => state.clearCommand);
+
+  useEffect(() => {
+    if (!pendingCommand) return;
+
+    if (pendingCommand.type === "select") {
+      handleSelectBrowserTab(pendingCommand.tabId);
+    } else if (pendingCommand.type === "close") {
+      handleCloseBrowserTab(pendingCommand.tabId);
+    }
+
+    clearCommand(browserContextId, pendingCommand.token);
+  }, [
+    browserContextId,
+    clearCommand,
+    handleCloseBrowserTab,
+    handleSelectBrowserTab,
+    pendingCommand,
+  ]);
+
+  const resetBrowserState = useCallback((url = "") => {
+    const next = createInitialBrowserContext(url);
+    setBrowserState(next);
+    persistBrowserState(next);
+    return next;
+  }, [persistBrowserState]);
+
   return {
     activeBrowserTab,
+    browserContextId,
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
@@ -489,6 +497,7 @@ export function usePreviewBrowserState({
     handlePreviewIconChange,
     persistBrowserState,
     reloadBrowserStateFromPrefs,
+    resetBrowserState,
     handleSelectBrowserTab,
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,

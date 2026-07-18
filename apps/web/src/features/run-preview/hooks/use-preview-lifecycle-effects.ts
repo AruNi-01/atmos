@@ -315,12 +315,28 @@ export function usePreviewLifecycleEffects({
     transportControllerRef,
   ]);
 
+  // Keep pick mode aligned with this tab only (each browser tab has its own Preview).
+  useEffect(() => {
+    const controller = transportControllerRef.current;
+    if (!controller) return;
+
+    if (!isActive) {
+      // Hidden tabs should not intercept pointer events in pick mode.
+      if (isElementPickerEnabled) {
+        void Promise.resolve(controller.exitPickMode());
+      }
+      return;
+    }
+
+    if (isElementPickerEnabled) {
+      void Promise.resolve(controller.enterPickMode());
+    } else {
+      void Promise.resolve(controller.exitPickMode());
+    }
+  }, [isActive, isElementPickerEnabled, transportControllerRef]);
+
   useEffect(() => {
     if (transportControllerRef.current?.mode === "desktop-native") return;
-
-    if (!isElementPickerEnabled && transportControllerRef.current) {
-      void Promise.resolve(transportControllerRef.current.exitPickMode());
-    }
 
     if (preferredTransportMode !== "unavailable") {
       return;
@@ -329,12 +345,15 @@ export function usePreviewLifecycleEffects({
     if (transportControllerRef.current) {
       teardownTransport(false);
     }
-    if (isElementPickerEnabled) {
+    // Clear only this tab's local pick state when active and transport is gone
+    // (e.g. empty URL). Other tabs keep their own pick state.
+    if (isElementPickerEnabled && isActive) {
       setIsElementPickerEnabled(false);
     }
   }, [
     iframeKey,
     iframeSrc,
+    isActive,
     isElementPickerEnabled,
     preferredTransportMode,
     setIsElementPickerEnabled,

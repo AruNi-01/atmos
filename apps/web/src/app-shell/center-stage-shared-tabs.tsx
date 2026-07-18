@@ -19,6 +19,7 @@ import {
   FileCheckCorner,
   GitPullRequest,
   GitMergeIcon,
+  Globe,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
@@ -49,7 +50,8 @@ export type CenterStageSurfaceTabVariant =
   | "review-diff"
   | "conflict"
   | "github-pr"
-  | "github-action";
+  | "github-action"
+  | "browser";
 
 export function CenterStageTabList({
   children,
@@ -163,8 +165,43 @@ export function getCenterStageSurfaceTabVariant(path: string): CenterStageSurfac
   return "file";
 }
 
+export function BrowserTabFavicon({
+  className,
+  faviconUrl,
+}: {
+  className?: string;
+  faviconUrl?: string | null;
+}) {
+  const resolvedFaviconUrl = faviconUrl?.trim() || "";
+
+  return (
+    <span className={cn("relative size-3.5 shrink-0", className)}>
+      <Globe
+        className={cn(
+          "size-3.5 absolute inset-0 text-muted-foreground/70",
+          resolvedFaviconUrl && "hidden",
+        )}
+      />
+      {resolvedFaviconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains.
+        <img
+          key={resolvedFaviconUrl}
+          src={resolvedFaviconUrl}
+          alt=""
+          className="size-3.5 absolute inset-0 rounded-[2px]"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+            event.currentTarget.previousElementSibling?.classList.remove("hidden");
+          }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 export function CenterStageSurfaceContentTab({
   closeLabel,
+  faviconUrl,
   isDirty = false,
   isPreview = false,
   name,
@@ -177,6 +214,7 @@ export function CenterStageSurfaceContentTab({
   variant = "file",
 }: {
   closeLabel?: string;
+  faviconUrl?: string;
   isDirty?: boolean;
   isPreview?: boolean;
   name: string;
@@ -210,6 +248,8 @@ export function CenterStageSurfaceContentTab({
             <GitPullRequest className="size-3.5 shrink-0" />
           ) : variant === "github-action" ? (
             <Workflow className="size-3.5 shrink-0" />
+          ) : variant === "browser" ? (
+            <BrowserTabFavicon faviconUrl={faviconUrl} />
           ) : (
             <CenterStageFileIcon name={name} className="size-3.5 shrink-0" />
           )}
@@ -329,6 +369,15 @@ export function CenterStageTabGroupItemContent({
         ) : (
           <Workflow className="size-3.5 shrink-0" />
         )}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "browser") {
+    return (
+      <>
+        <BrowserTabFavicon faviconUrl={tab.faviconUrl} />
         {label(tab.label)}
       </>
     );

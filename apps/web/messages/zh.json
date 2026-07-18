@@ -163,7 +163,9 @@
       "collapse": "收起"
     },
     "centerStageTabBar": {
-      "newTerminalTab": "新建终端标签页",
+      "newTerminalTab": "终端",
+      "newBrowser": "浏览器",
+      "newTabMenu": "新建标签页",
       "overview": "总览",
       "refreshWiki": "刷新 Wiki",
       "projectWiki": "项目 Wiki",
@@ -923,7 +925,12 @@
         "review": "Review",
         "conflict": "冲突解决",
         "github": "GitHub",
+        "browser": "浏览器",
         "other": "标签页"
+      },
+      "browser": {
+        "newTab": "新标签页",
+        "browser": "浏览器"
       }
     },
     "globalSearchParts": {
@@ -7379,6 +7386,7 @@
         "newTab": "新标签页",
         "closeTab": "关闭标签页",
         "closeTabAria": "关闭 {label}",
+        "moveToCenter": "移动浏览器到中间区域",
         "maximize": "最大化",
         "maximizePreview": "最大化浏览器",
         "minimize": "还原",
