@@ -279,6 +279,34 @@ describe("canvas-agent-lint", () => {
     expect(dx).toBe(24);
   });
 
+  it("suggestOverlapSeparation remediates near-touching boxes (1–2px gap)", () => {
+    // Lint reports these as overlap via boxesOverlap padding=2; fix must
+    // still produce a move even though penX is negative (not pure overlap).
+    const a = {
+      minX: 0,
+      minY: 0,
+      maxX: 100,
+      maxY: 100,
+      width: 100,
+      height: 100,
+      midX: 50,
+      midY: 50,
+    };
+    const b = {
+      minX: 102, // 2px gap
+      minY: 0,
+      maxX: 202,
+      maxY: 100,
+      width: 100,
+      height: 100,
+      midX: 152,
+      midY: 50,
+    };
+    const { dx, dy } = suggestOverlapSeparation(a, b, 24);
+    expect(dy).toBe(0);
+    expect(dx).toBe(22); // gap shortfall: 24 - 2
+  });
+
   it("buildLintFixSuggestions emits move for overlaps", () => {
     const editor = makeEditor([
       {

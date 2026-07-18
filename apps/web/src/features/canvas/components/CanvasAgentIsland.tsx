@@ -163,6 +163,7 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
                   ? (snapshot.activeEntryId ?? current.requestId)
                   : snapshot.activeEntryId
               }
+              reducedMotion={reducedMotion}
             />
           </motion.div>
         ) : null}
@@ -203,9 +204,11 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
 function ExpandedPanel({
   batches,
   shimmerEntryId,
+  reducedMotion,
 }: {
   batches: CanvasAgentFeedBatch[];
   shimmerEntryId: string | null;
+  reducedMotion: boolean;
 }) {
   const t = useTranslations("Canvas.chrome");
   const visibleBatches = buildVisibleHistoryBatches(batches);
@@ -223,13 +226,17 @@ function ExpandedPanel({
               <div className="my-2 border-t border-dashed border-border/60" aria-hidden />
             ) : null}
             <ul className="flex flex-col gap-1">
-              {batch.rows.map(row => (
-                <HistoryRow
-                  key={row.id}
-                  row={row}
-                  shimmer={row.id === shimmerEntryId || row.status === "active"}
-                />
-              ))}
+              {batch.rows.map(row => {
+                const wantsShimmer =
+                  row.id === shimmerEntryId || row.status === "active";
+                return (
+                  <HistoryRow
+                    key={row.id}
+                    row={row}
+                    shimmer={wantsShimmer && !reducedMotion}
+                  />
+                );
+              })}
             </ul>
           </React.Fragment>
         ))}
@@ -266,15 +273,17 @@ function HistoryRow({
       />
       <span
         className={cn(
-          "min-w-0 flex-1",
-          shimmer ? "text-foreground" : "truncate text-foreground/85",
+          // Keep truncate in both states so long labels never cover the
+          // screenshot control / timestamp while shimmering.
+          "min-w-0 flex-1 truncate",
+          shimmer ? "text-foreground" : "text-foreground/85",
         )}
       >
         {shimmer ? (
           <TextShimmer
             as="span"
             duration={1.5}
-            className="text-xs font-medium"
+            className="block truncate text-xs font-medium"
           >
             {label}
           </TextShimmer>
@@ -299,7 +308,7 @@ function HistoryRow({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={shot.dataUrl}
-            alt=""
+            alt={t("agentIsland.screenshotPreviewAlt")}
             width={shot.width || 28}
             height={shot.height || 28}
             className="size-full object-cover object-top"

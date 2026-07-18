@@ -2,7 +2,10 @@ import type {
   CanvasAgentFeedEntry,
   CanvasAgentFeedScreenshot,
 } from "./canvas-agent-feed";
-import type { CanvasAgentFeedKind } from "./canvas-agent-feed-labels";
+import {
+  normalizeCanvasAgentCommand,
+  type CanvasAgentFeedKind,
+} from "./canvas-agent-feed-labels";
 
 export interface SummarizedFeedRow {
   id: string;
@@ -28,7 +31,8 @@ export function summarizeConsecutiveEntries(
     const last = rows.at(-1);
     // Never merge screenshot rows — each keeps its own thumbnail.
     const isScreenshot =
-      normalizeVerb(entry.command) === "screenshot" || Boolean(entry.screenshot);
+      normalizeCanvasAgentCommand(entry.command) === "screenshot" ||
+      Boolean(entry.screenshot);
     const canMerge =
       last &&
       !isScreenshot &&
@@ -56,8 +60,4 @@ export function summarizeConsecutiveEntries(
   }
 
   return rows;
-}
-
-function normalizeVerb(command: string): string {
-  return command.trim().toLowerCase().replace(/_/g, "-");
 }

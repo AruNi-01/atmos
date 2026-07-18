@@ -2693,8 +2693,6 @@
         "canvasAgentActivity": "Canvas Agent 活动",
         "canvasAgentActivityHistory": "Canvas Agent 活动历史",
         "openScreenshotPreview": "打开 Agent 截图预览",
-        "screenshotThumbLabel": "预览",
-        "screenshotPreviewTitle": "Agent 画布截图",
         "screenshotPreviewAlt": "Agent 绘制区域的截图"
       },
       "settingsStore": {

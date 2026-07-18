@@ -39,7 +39,8 @@ function canvasAgentFeedT(key: string, values?: Record<string, unknown>): string
   return cachedCanvasAgentFeedTranslator(key as never, values);
 }
 
-function normalizeCommand(command: string): string {
+/** Normalize CLI/WS verb aliases (`create_note` → `create-note`). */
+export function normalizeCanvasAgentCommand(command: string): string {
   return command.trim().toLowerCase().replace(/_/g, "-");
 }
 
@@ -85,7 +86,7 @@ export function describeCanvasAgentCommand(
   command: string,
   args?: Record<string, unknown> | null,
 ): CanvasAgentCommandDescriptor {
-  const verb = normalizeCommand(command);
+  const verb = normalizeCanvasAgentCommand(command);
 
   if (verb === "get-state" || verb === "status" || verb === "lint") {
     return { kind: "read", label: canvasAgentFeedT("readingCanvas") };

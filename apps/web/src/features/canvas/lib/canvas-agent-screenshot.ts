@@ -223,10 +223,14 @@ function selectShapesForRegion(
   explicitIds?: string[],
 ): TLShape[] {
   if (explicitIds && explicitIds.length) {
-    // Already validated as current-page shapes in resolveRegion / call site.
+    // Validate page + filter chrome, then apply the same region rule as the
+    // auto-selected path so ids outside an explicit crop do not pad the
+    // result with blank / clipped shapes while still reporting shape_count.
     return requireScreenshotableIds(editor, explicitIds).filter((s) => {
       if (!includeChrome && ATMOS_CHROME_TYPES.has(s.type)) return false;
-      return true;
+      const bb = getShapePageBoundsBox(editor, s.id);
+      if (!bb) return false;
+      return shapeQualifiesForRegion(bb, region);
     });
   }
 
@@ -311,21 +315,26 @@ export async function runCanvasAgentScreenshot(
     );
   }
 
+  // Optional size-reduction pass — keep the first valid image if it fails.
   const approxBytes = Math.ceil((result.url.length * 3) / 4);
   if (approxBytes > 900_000 && size !== "small") {
-    const retry = await editor.toImageDataUrl(
-      selected.map((s) => s.id as TLShapeId),
-      {
-        format: "jpeg",
-        quality: 0.72,
-        background: true,
-        padding: 8,
-        pixelRatio: Math.min(1.25, MAX_EDGE.small / longest),
-        bounds: new Box(region.x, region.y, region.w, region.h),
-      },
-    );
-    if (retry?.url?.startsWith("data:")) {
-      result = retry;
+    try {
+      const retry = await editor.toImageDataUrl(
+        selected.map((s) => s.id as TLShapeId),
+        {
+          format: "jpeg",
+          quality: 0.72,
+          background: true,
+          padding: 8,
+          pixelRatio: Math.min(1.25, MAX_EDGE.small / longest),
+          bounds: new Box(region.x, region.y, region.w, region.h),
+        },
+      );
+      if (retry?.url?.startsWith("data:")) {
+        result = retry;
+      }
+    } catch {
+      // Best-effort only; initial export already succeeded.
     }
   }
 

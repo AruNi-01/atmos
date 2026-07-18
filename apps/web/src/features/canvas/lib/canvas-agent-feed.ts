@@ -85,6 +85,8 @@ export class CanvasAgentFeedStore {
       existing.status = "active";
       existing.startedAt = Date.now();
       existing.completedAt = null;
+      // Clear stale thumb when reusing a completed screenshot request id.
+      existing.screenshot = null;
       this.emit();
       return;
     }
@@ -144,36 +146,34 @@ export class CanvasAgentFeedStore {
    * Optional `screenshot` is attached to the same entry so the Island timeline
    * can show a thumb on the "Capturing screenshot" row (HMR-safe: no new
    * method call sites required beyond this existing finalize path).
+   *
+   * Always emits when screenshot metadata is attached, even if the entry was
+   * already finalized (race / double-complete paths still refresh the Island).
    */
   finalizeRequest(
     requestId: string,
     success: boolean,
     extras?: { screenshot?: CanvasAgentFeedScreenshot | null },
   ) {
+    let attachedScreenshot = false;
+    let wasActive = false;
     if (extras?.screenshot?.dataUrl?.startsWith("data:")) {
       const entry = this.findEntry(requestId);
       if (entry) {
+        wasActive = entry.status === "active";
         entry.screenshot = {
           dataUrl: extras.screenshot.dataUrl,
           width: extras.screenshot.width,
           height: extras.screenshot.height,
         };
+        attachedScreenshot = true;
       }
     }
     this.complete(requestId, success);
     this.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
-  }
-
-  /**
-   * Attach a region screenshot JPEG to a feed entry.
-   * Prefer `finalizeRequest(..., { screenshot })` from the bridge so a single
-   * code path always runs (avoids HMR stale instances missing this method).
-   */
-  attachScreenshot(
-    requestId: string,
-    screenshot: CanvasAgentFeedScreenshot,
-  ) {
-    this.finalizeRequest(requestId, true, { screenshot });
+    // `complete` only emits when an active entry flips; late screenshot attach
+    // onto an already-done row needs its own notify so the Island thumb updates.
+    if (attachedScreenshot && !wasActive) this.emit();
   }
 
   /** Close orphaned `active` rows (missed complete, duplicate WS, tab race). */

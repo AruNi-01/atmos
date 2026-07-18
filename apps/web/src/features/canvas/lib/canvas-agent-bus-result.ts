@@ -1,4 +1,5 @@
 import type { CanvasAgentErrorCode } from "./canvas-agent-errors";
+import type { CanvasAgentBounds } from "./canvas-agent-view-bounds";
 
 export interface CanvasAgentDispatchInput {
   request_id: string;
@@ -41,12 +42,7 @@ export interface CanvasAgentBusOptions {
    * Used by `screenshot --use-agent-view` so verification crops to the
    * agent-drawn region and ignores other canvas chrome.
    */
-  getAgentViewBounds?: () => {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null;
+  getAgentViewBounds?: () => CanvasAgentBounds | null;
 }
 
 export function ok(data: unknown): CanvasAgentSuccess {

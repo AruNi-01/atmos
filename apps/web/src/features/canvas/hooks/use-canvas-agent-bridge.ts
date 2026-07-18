@@ -210,20 +210,14 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
               data_url?: string;
               width?: number;
               height?: number;
-              region?: CanvasAgentBounds;
             };
             if (typeof shot.data_url === "string" && shot.data_url.startsWith("data:")) {
+              // Island thumb comes from the feed entry (finalizeRequest extras).
               screenshotForFeed = {
                 dataUrl: shot.data_url,
                 width: typeof shot.width === "number" ? shot.width : 0,
                 height: typeof shot.height === "number" ? shot.height : 0,
               };
-              if (typeof activity.setLastScreenshot === "function") {
-                activity.setLastScreenshot({
-                  ...screenshotForFeed,
-                  region: shot.region ?? null,
-                });
-              }
             }
           } else if (success) {
             activity.record(payload.command, editor, touchedShapeIds);
