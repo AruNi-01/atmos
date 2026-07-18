@@ -36,7 +36,7 @@ Atmos 的 tmux-backed terminal 统一改为 **tmux control mode** transport：
 - 用户输入用 `send-keys -H` hex command 写入目标 pane；terminal report 用 `refresh-client` report path 回传给 tmux/pane。
 - resize 用 `resize-window` 固定目标 tmux window grid，再用 `refresh-client -C <cols>x<rows>` 同步 control client 尺寸。
 - reattach 时只用 snapshot 做 hydration，不再做命令结束后的 scrollback resync。snapshot 包含当前可见 grid、cursor、cols/rows、alternate flag。
-- 如果 snapshot 是 alternate screen，前端在重放后恢复 TUI mouse tracking mode；收到 `CMD_END` 时关闭这些 mode，避免影响普通 shell。
+- 如果 snapshot 需要 TUI 鼠标交互，前端在重放后恢复 TUI mouse tracking mode：`alternate` 为真，或前台命令命中 **inline mouse TUI 白名单**（当前为 `grok`——在 control mode / inline 策略下不进 alt-screen 但仍启用 mouse reporting）。不对任意非 shell 进程开 mouse，否则 `npm run dev`、无 alt 的 agent 输出等会丢掉滚轮 scrollback。收到 `CMD_END` 时关闭这些 mode，避免影响普通 shell。
 
 核心原则是：**live path 必须是唯一可信的 terminal state 来源；snapshot 只用于刷新/重连时的初始可见画面。**
 
@@ -147,7 +147,7 @@ API terminal WebSocket 改为：
   - 根据 `snapshot.alternate` 进入/退出 alternate screen。
   - 写入 snapshot data。
   - 恢复 cursor。
-  - alternate screen 下恢复 mouse tracking mode。
+  - 当 `restore_mouse_tracking`（或兼容旧字段时的 `alternate`）为真时恢复 mouse tracking mode。
   - CMD_END 时关闭 TUI mouse tracking mode。
 
 ### 5. Snapshot 策略
@@ -184,7 +184,7 @@ snapshot 只用于刷新/重连 hydration：
 | snapshot reattach 与 live state 不一致 | 中 | 中 | snapshot 只做 hydration；live output 仍是唯一可信状态来源；alternate screen 特化 viewport capture |
 | WebSocket binary/text 混用导致前端处理遗漏 | 中 | 低 | WS hook 明确区分 binary terminal output 和 JSON control message |
 | 多 client resize 互相影响 | 中 | 中 | 使用 per-connection client session；窗口尺寸策略保持显式，后续可加 active-client policy |
-| TUI mouse mode 在 reattach 后丢失 | 中 | 中 | alternate snapshot hydration 后恢复 mouse tracking，CMD_END 时关闭 |
+| TUI mouse mode 在 reattach 后丢失 | 中 | 中 | snapshot 在 alternate 或 inline mouse TUI 白名单前台时设置 `restore_mouse_tracking`；hydration 后恢复 mouse tracking，CMD_END 时关闭 |
 
 ## 验证 (Validation)
 

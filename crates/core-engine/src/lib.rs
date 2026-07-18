@@ -26,6 +26,7 @@ pub use local_services::{
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{
-    TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxSessionInfo,
-    TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
+    is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
+    should_restore_tui_mouse_tracking, TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage,
+    TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
 };

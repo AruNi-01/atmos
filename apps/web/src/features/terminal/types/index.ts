@@ -225,6 +225,8 @@ export interface TerminalSnapshot {
   cols: number;
   rows: number;
   alternate?: boolean;
+  /** Re-enable TUI mouse tracking after reattach (backend-computed). */
+  restore_mouse_tracking?: boolean;
 }
 
 export interface WsTerminalCreated {

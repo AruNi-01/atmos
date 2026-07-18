@@ -1,6 +1,8 @@
 use crate::error::Result;
 
-use super::{TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot};
+use super::{
+    should_restore_tui_mouse_tracking, TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct PaneMetadata {
@@ -226,6 +228,11 @@ impl TmuxEngine {
             && lines_returned > 0
             && lines_returned >= take as u32
             && (history_size == 0 || consumed < history_size as i32);
+        let current_command = self
+            .get_pane_current_command(session_name, window_index)
+            .unwrap_or_default();
+        let restore_mouse_tracking =
+            should_restore_tui_mouse_tracking(metadata.alternate, &current_command);
 
         Ok(TmuxPaneCapturePage {
             snapshot: TmuxPaneSnapshot {
@@ -235,6 +242,7 @@ impl TmuxEngine {
                 cols: metadata.cols,
                 rows: metadata.rows,
                 alternate: metadata.alternate,
+                restore_mouse_tracking,
             },
             skip_from_bottom: skip,
             lines_returned,
@@ -270,6 +278,11 @@ impl TmuxEngine {
             capture_lines,
             metadata.alternate,
         )?;
+        let current_command = self
+            .get_pane_current_command(session_name, window_index)
+            .unwrap_or_default();
+        let restore_mouse_tracking =
+            should_restore_tui_mouse_tracking(metadata.alternate, &current_command);
 
         Ok(TmuxPaneSnapshot {
             data,
@@ -278,6 +291,7 @@ impl TmuxEngine {
             cols: metadata.cols,
             rows: metadata.rows,
             alternate: metadata.alternate,
+            restore_mouse_tracking,
         })
     }
 }
