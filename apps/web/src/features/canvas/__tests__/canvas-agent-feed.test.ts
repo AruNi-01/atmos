@@ -96,4 +96,56 @@ describe("CanvasAgentFeedStore", () => {
     const { batches } = store.getSnapshot();
     expect(batches[0]?.entries).toHaveLength(1);
   });
+
+  it("finalizeRequest attaches screenshot onto the feed entry", () => {
+    const store = new CanvasAgentFeedStore();
+    store.begin("r-shot", "screenshot");
+    store.finalizeRequest("r-shot", true, {
+      screenshot: {
+        dataUrl: "data:image/jpeg;base64,abc",
+        width: 100,
+        height: 80,
+      },
+    });
+    const entry = store.getCurrentEntry();
+    expect(entry?.status).toBe("done");
+    expect(entry?.screenshot?.dataUrl).toContain("data:image/jpeg");
+    expect(entry?.screenshot?.width).toBe(100);
+    expect(entry?.screenshot?.height).toBe(80);
+  });
+
+  it("begin clears a previous screenshot when reusing request_id", () => {
+    const store = new CanvasAgentFeedStore();
+    store.begin("r-reuse", "screenshot");
+    store.finalizeRequest("r-reuse", true, {
+      screenshot: {
+        dataUrl: "data:image/jpeg;base64,old",
+        width: 100,
+        height: 80,
+      },
+    });
+    store.begin("r-reuse", "create-note");
+    const entry = store.getCurrentEntry();
+    expect(entry?.status).toBe("active");
+    expect(entry?.screenshot).toBeNull();
+  });
+
+  it("finalizeRequest emits when attaching screenshot to an already-completed entry", () => {
+    const store = new CanvasAgentFeedStore();
+    store.begin("r-late", "screenshot");
+    store.complete("r-late", true);
+    let emits = 0;
+    store.subscribe(() => {
+      emits += 1;
+    });
+    store.finalizeRequest("r-late", true, {
+      screenshot: {
+        dataUrl: "data:image/jpeg;base64,late",
+        width: 50,
+        height: 40,
+      },
+    });
+    expect(emits).toBeGreaterThan(0);
+    expect(store.getCurrentEntry()?.screenshot?.dataUrl).toContain("base64,late");
+  });
 });

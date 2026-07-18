@@ -23,8 +23,9 @@ use crate::error::{EngineError, Result};
 use locale::apply_utf8_env;
 
 pub use types::{
-    TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion,
-    TmuxWindowAtmosMetadata, TmuxWindowInfo,
+    is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
+    should_restore_tui_mouse_tracking, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot,
+    TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
 };
 
 /// Default socket path for Atmos tmux server

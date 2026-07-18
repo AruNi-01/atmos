@@ -8,6 +8,14 @@ export type TerminalSnapshot = TerminalSize & {
   cursor_x: number;
   cursor_y: number;
   alternate: boolean;
+  /**
+   * Re-enable TUI mouse tracking after reattach hydration.
+   * Set by the backend when the pane is on the alternate screen, or the
+   * foreground is a known inline mouse TUI (e.g. Grok). Not set for arbitrary
+   * non-shell processes so wheel scrollback stays usable.
+   * Older servers omit this; clients fall back to `alternate`.
+   */
+  restore_mouse_tracking?: boolean;
 };
 
 export type TerminalOpenMessage = {

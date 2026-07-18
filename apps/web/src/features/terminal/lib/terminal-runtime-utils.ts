@@ -19,6 +19,15 @@ const MIN_TERMINAL_ROWS = 8;
 export const ENABLE_TUI_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
 export const DISABLE_TUI_MOUSE_TRACKING = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l";
 
+/** Keep in sync with @atmos/shared and core-engine inline mouse TUI whitelist. */
+export function isInlineMouseTuiCommand(cmd: string): boolean {
+  const trimmed = cmd.trim();
+  if (!trimmed) return false;
+  const parts = trimmed.split(/[/\\]/);
+  const name = parts[parts.length - 1] || trimmed;
+  return name === "grok" || name.startsWith("grok-");
+}
+
 let terminalFontLoadPromise: Promise<void> | null = null;
 
 export class SafeClipboardProvider implements IClipboardProvider {

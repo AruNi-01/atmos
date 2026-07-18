@@ -2337,6 +2337,10 @@
         "descriptionSuffix": "commands to interact with this canvas.",
         "aria": "Enable Canvas Agent Bridge"
       },
+      "follow": {
+        "title": "Follow Agent",
+        "aria": "Follow Agent"
+      },
       "snippet": {
         "label": "Command",
         "copied": "Copied",
@@ -2584,6 +2588,7 @@
     },
     "agentFeedLabels": {
       "readingCanvas": "Reading canvas",
+      "capturingScreenshot": "Capturing screenshot",
       "extractingShapeText": "Extracting shape text",
       "creatingStickyNote": "Creating sticky note",
       "creatingFrame": "Creating frame",
@@ -2686,7 +2691,9 @@
       "agentIsland": {
         "agentWorkingOnCanvas": "Agent working on canvas",
         "canvasAgentActivity": "Canvas agent activity",
-        "canvasAgentActivityHistory": "Canvas agent activity history"
+        "canvasAgentActivityHistory": "Canvas agent activity history",
+        "openScreenshotPreview": "Open agent screenshot preview",
+        "screenshotPreviewAlt": "Screenshot of the agent-drawn canvas region"
       },
       "settingsStore": {
         "settingsLoadFailed": "Settings Load Failed",

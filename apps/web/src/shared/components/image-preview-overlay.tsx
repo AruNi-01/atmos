@@ -33,6 +33,7 @@ export function ImagePreviewOverlay({
       role="dialog"
       aria-modal="true"
       aria-label={alt}
+      data-image-preview-overlay=""
       className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >

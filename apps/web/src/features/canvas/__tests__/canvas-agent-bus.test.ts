@@ -131,12 +131,59 @@ describe("CanvasAgentBus", () => {
     expect(res.success).toBe(true);
   });
 
-  it("set_status works without an accepting bridge", async () => {
-    const { bus } = busFromEditor({ acceptsCommands: false });
+  it("set_status works without an accepting bridge and reports lint readiness", async () => {
+    const { editor, bus } = busFromEditor({ acceptsCommands: false });
+    // Overlapping pair so ready_to_idle is false while status can still be idle.
+    editor.createShape({
+      id: "shape:a",
+      type: "geo",
+      x: 0,
+      y: 0,
+      props: { w: 100, h: 100 },
+    });
+    editor.createShape({
+      id: "shape:b",
+      type: "geo",
+      x: 40,
+      y: 40,
+      props: { w: 100, h: 100 },
+    });
     const res = await bus.handleDispatch(call("set_status", { status: "idle" }));
     expect(res.success).toBe(true);
     if (res.success) {
-      expect(res.data).toEqual({ status: "idle" });
+      const data = res.data as {
+        status: string;
+        ready_to_idle: boolean;
+        lints_summary: { clean: boolean; error_count: number };
+      };
+      expect(data.status).toBe("idle");
+      expect(data.ready_to_idle).toBe(false);
+      expect(data.lints_summary.clean).toBe(false);
+      expect(data.lints_summary.error_count).toBeGreaterThan(0);
+    }
+  });
+
+  it("create_geo returns bounds and can warn on text overflow", async () => {
+    const { bus } = busFromEditor();
+    const res = await bus.handleDispatch(
+      call("create_geo", {
+        kind: "rectangle",
+        x: 0,
+        y: 0,
+        w: 60,
+        h: 30,
+        text: "This label is intentionally much too long for the tiny box",
+      }),
+    );
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const data = res.data as {
+        id: string;
+        bounds: { min_x: number; w: number } | null;
+        warnings?: string[];
+      };
+      expect(data.bounds?.w).toBe(60);
+      expect(data.warnings).toContain("text_may_overflow");
     }
   });
 

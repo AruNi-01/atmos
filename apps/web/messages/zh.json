@@ -2337,6 +2337,10 @@
         "descriptionSuffix": "命令与当前画布交互。",
         "aria": "启用 Canvas Agent Bridge"
       },
+      "follow": {
+        "title": "跟随 Agent",
+        "aria": "跟随 Agent"
+      },
       "snippet": {
         "label": "命令",
         "copied": "已复制",
@@ -2584,6 +2588,7 @@
     },
     "agentFeedLabels": {
       "readingCanvas": "读取画布",
+      "capturingScreenshot": "正在截图",
       "extractingShapeText": "提取图形文本",
       "creatingStickyNote": "创建便签",
       "creatingFrame": "创建画框",
@@ -2686,7 +2691,9 @@
       "agentIsland": {
         "agentWorkingOnCanvas": "Agent 正在操作画布",
         "canvasAgentActivity": "Canvas Agent 活动",
-        "canvasAgentActivityHistory": "Canvas Agent 活动历史"
+        "canvasAgentActivityHistory": "Canvas Agent 活动历史",
+        "openScreenshotPreview": "打开 Agent 截图预览",
+        "screenshotPreviewAlt": "Agent 绘制区域的截图"
       },
       "settingsStore": {
         "settingsLoadFailed": "设置加载失败",
