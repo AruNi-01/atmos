@@ -1272,6 +1272,16 @@ export const CanvasView: React.FC = () => {
         </Button>
         <CanvasAnimatedToolbarGroup isCollapsed={isToolbarCollapsed}>
           <div className="ml-0.5 flex items-center gap-0.5">
+            {/* Agent canvas first — immediately right of the collapse control. */}
+            <CanvasAgentBridgeControls
+              bridge={canvasAgentBridge}
+              iconButtonClass={sharePanelIconButtonClass}
+              onJump={() => {
+                const editor = editorRef.current;
+                if (!editor) return;
+                canvasAgentBridge.activity.jumpToLast(editor);
+              }}
+            />
             <CanvasDocumentsControl
               title={documentTitle}
               fileName={fileName}
@@ -1317,23 +1327,6 @@ export const CanvasView: React.FC = () => {
               <Frame className="size-3.5" />
               <span className="text-xs font-medium">{t("frameButton.label")}</span>
             </Button>
-            {/*
-              Import-terminal modal & "Refresh active sessions" button were
-              removed: picking a terminal from a context-less list was hard
-              to reason about (you can't tell what each terminal is doing
-              from its name alone). The pin-to-canvas flow on the Terminal
-              tab itself remains the supported way to bring a pane onto the
-              canvas, since at pin time the user can see the live pane.
-            */}
-            <CanvasAgentBridgeControls
-              bridge={canvasAgentBridge}
-              iconButtonClass={sharePanelIconButtonClass}
-              onJump={() => {
-                const editor = editorRef.current;
-                if (!editor) return;
-                canvasAgentBridge.activity.jumpToLast(editor);
-              }}
-            />
             {/*
               StylePanel toggle (sits where the old "collapse" minimize button was).
               OFF: tldraw's StylePanel is fully suppressed via `StylePanel: () => null`.
