@@ -259,18 +259,25 @@ export function CenterStageTabGroupItemContent({
   tab: TabGroupItem;
 }) {
   const textClassName = cn(
-    "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
+    "min-w-0 flex-1 truncate text-[13px] font-medium whitespace-nowrap",
     (tab.kind === "diff" || tab.kind === "diff-group") && "text-emerald-500",
     tab.kind === "review-diff" && "text-blue-400",
     tab.kind === "conflict" && "text-amber-500",
     tab.file?.isPreview && "italic",
   );
 
+  // data-tab-group-label is measured by SortableTabGroupItem for truncation tooltips.
+  const label = (text: string) => (
+    <span data-tab-group-label className={textClassName}>
+      {text}
+    </span>
+  );
+
   if (tab.kind === "overview") {
     return (
       <>
         <LayoutDashboard className="size-3.5 shrink-0" />
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
       </>
     );
   }
@@ -279,7 +286,7 @@ export function CenterStageTabGroupItemContent({
     return (
       <>
         <BookOpen className="size-3.5 shrink-0" />
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
       </>
     );
   }
@@ -288,7 +295,7 @@ export function CenterStageTabGroupItemContent({
     return (
       <>
         <TerminalIcon className="size-3.5 shrink-0" />
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
       </>
     );
   }
@@ -297,7 +304,7 @@ export function CenterStageTabGroupItemContent({
     return (
       <>
         <TerminalIcon className="size-3.5 shrink-0 text-primary" />
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
       </>
     );
   }
@@ -306,7 +313,7 @@ export function CenterStageTabGroupItemContent({
     return (
       <>
         <TerminalIcon className="size-3.5 shrink-0" />
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
         {effectiveContextId ? (
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
         ) : null}
@@ -322,7 +329,7 @@ export function CenterStageTabGroupItemContent({
         ) : (
           <Workflow className="size-3.5 shrink-0" />
         )}
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
       </>
     );
   }
@@ -339,7 +346,7 @@ export function CenterStageTabGroupItemContent({
         ) : (
           <CenterStageFileIcon name={tab.label} className="size-3.5 shrink-0" />
         )}
-        <span className={textClassName}>{tab.label}</span>
+        {label(tab.label)}
       </>
     );
   }
@@ -355,7 +362,7 @@ export function CenterStageTabGroupItemContent({
       ) : (
         <CenterStageFileIcon name={tab.file.name} className="size-3.5 shrink-0" />
       )}
-      <span className={textClassName}>{tab.file.name}</span>
+      {label(tab.file.name)}
       <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
         {tab.file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground" /> : null}
       </span>

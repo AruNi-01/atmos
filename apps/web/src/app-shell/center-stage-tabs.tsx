@@ -10,6 +10,9 @@ import {
   PopoverContent,
   PopoverTrigger,
   SortableContext,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   X,
   closestCenter,
   getFileIconProps,
@@ -30,6 +33,9 @@ import {
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import { cn } from "@/shared/lib/utils";
+
+/** Cap each group column so long labels truncate instead of stretching the popover. */
+const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
 export const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
@@ -118,6 +124,8 @@ export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { conte
   return <TerminalTabAgentIndicator stablePaneIds={stablePaneIds} />;
 }
 
+const TAB_GROUP_LABEL_SELECTOR = "[data-tab-group-label]";
+
 export function SortableTabGroupItem({
   groupKey,
   tab,
@@ -149,61 +157,111 @@ export function SortableTabGroupItem({
     data: { groupKey },
   });
 
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [isLabelTruncated, setIsLabelTruncated] = React.useState(false);
+  const [tooltipOpen, setTooltipOpen] = React.useState(false);
+  const tooltipLabel = tab.file?.path ?? tab.label;
+
+  React.useLayoutEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      const labelEl = root.querySelector<HTMLElement>(TAB_GROUP_LABEL_SELECTOR);
+      if (!labelEl) {
+        setIsLabelTruncated(false);
+        return;
+      }
+      // Sub-pixel rounding can leave a 1px gap between scroll and client width.
+      setIsLabelTruncated(labelEl.scrollWidth > labelEl.clientWidth + 1);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    const labelEl = root.querySelector<HTMLElement>(TAB_GROUP_LABEL_SELECTOR);
+    if (labelEl) observer.observe(labelEl);
+    return () => observer.disconnect();
+  }, [tab.id, tab.label, tab.file?.name, tab.file?.path, children]);
+
+  React.useEffect(() => {
+    if (!isLabelTruncated) setTooltipOpen(false);
+  }, [isLabelTruncated]);
+
   return (
-    <div
-      ref={setNodeRef}
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onSelect();
+    <Tooltip
+      open={isLabelTruncated ? tooltipOpen : false}
+      onOpenChange={(next) => {
+        if (isLabelTruncated) setTooltipOpen(next);
       }}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-      className={cn(
-        "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors",
-        "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
-        isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
-        isDragging && "z-10 opacity-70 shadow-md"
-      )}
     >
-      <span
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        className="-ml-0.5 -mr-1.5 flex size-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground opacity-0 transition-colors hover:text-foreground active:cursor-grabbing group-hover/tab-item:opacity-100"
-        aria-label={t("centerStageTabs.dragTab", { label: tab.label })}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <GripVertical className="size-3" />
-      </span>
-      {children}
-      {closable ? (
-        <span
+      <TooltipTrigger asChild>
+        <div
+          ref={setNodeRef}
           role="button"
           tabIndex={0}
-          aria-label={t("centerStageTabs.closeTab", { label: tab.label })}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            onClose();
-          }}
+          onClick={onSelect}
           onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault();
-            event.stopPropagation();
-            onClose();
+            onSelect();
           }}
-          className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
+          style={{
+            transform: CSS.Transform.toString(transform),
+            transition,
+          }}
+          className={cn(
+            "group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors",
+            "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
+            isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
+            isDragging && "z-10 opacity-70 shadow-md"
+          )}
         >
-          <X className="size-3" />
-        </span>
+          <span
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
+            className="-ml-0.5 -mr-1.5 flex size-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground opacity-0 transition-colors hover:text-foreground active:cursor-grabbing group-hover/tab-item:opacity-100"
+            aria-label={t("centerStageTabs.dragTab", { label: tab.label })}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <GripVertical className="size-3" />
+          </span>
+          <div
+            ref={contentRef}
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
+          >
+            {children}
+          </div>
+          {closable ? (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={t("centerStageTabs.closeTab", { label: tab.label })}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                onClose();
+              }}
+              className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
+            >
+              <X className="size-3" />
+            </span>
+          ) : null}
+        </div>
+      </TooltipTrigger>
+      {isLabelTruncated ? (
+        <TooltipContent side="bottom" className="max-w-md break-all">
+          {tooltipLabel}
+        </TooltipContent>
       ) : null}
-    </div>
+    </Tooltip>
   );
 }
 
@@ -243,7 +301,10 @@ export function CenterStageTabGroupPopover({
           <List className="size-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] border-border/70 bg-popover/68 p-2 shadow-xl backdrop-blur-2xl">
+      <PopoverContent
+        align="end"
+        className="w-auto max-w-[calc(100vw-2rem)] overflow-hidden border-border/70 bg-popover/68 p-2 shadow-xl backdrop-blur-2xl"
+      >
         {groups.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 py-5 text-center">
             <Inbox className="size-8 text-muted-foreground/50" />
@@ -255,19 +316,24 @@ export function CenterStageTabGroupPopover({
             </p>
           </div>
         ) : (
-          <div className="scrollbar-on-hover max-h-[420px] overflow-auto">
-            <div className="grid min-w-max grid-flow-col auto-cols-max gap-2">
+          // Keep columns at their natural width (capped per column). When the
+          // combined groups exceed the popover max width, scroll horizontally.
+          <div className="scrollbar-on-hover max-h-[420px] max-w-full overflow-x-auto overflow-y-auto">
+            <div className="grid w-max min-w-max grid-flow-col auto-cols-max gap-2">
               {groups.map((group) => (
                 <section
                   key={group.key}
-                  className="flex max-h-[396px] min-h-0 w-fit flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72"
+                  className={cn(
+                    "flex max-h-[396px] min-h-0 w-max shrink-0 flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72",
+                    TAB_GROUP_COLUMN_MAX_WIDTH_CLASS,
+                  )}
                 >
                   <header className="sticky top-0 z-10 h-10 shrink-0 px-3">
                     <div className="flex h-full items-center text-[11px] font-semibold tracking-wide text-muted-foreground">
                       {group.label}
                     </div>
                   </header>
-                  <div className="scrollbar-on-hover min-h-0 flex-1 w-full space-y-1 overflow-y-auto p-2 pt-0">
+                  <div className="scrollbar-on-hover min-h-0 w-full min-w-0 flex-1 space-y-1 overflow-y-auto p-2 pt-0">
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -278,7 +344,7 @@ export function CenterStageTabGroupPopover({
                         items={group.tabs.map((tab) => tab.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <div className="w-fit">
+                        <div className="w-full min-w-0">
                           {group.tabs.map((tab) => (
                             <SortableTabGroupItem
                               key={tab.id}
