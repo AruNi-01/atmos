@@ -985,7 +985,9 @@
         "pinned": "Pinned",
         "workspaces": "Workspaces",
         "clearWorkspaceFiltersBeforeReordering": "Clear workspace filters before reordering.",
-        "noWorkspaces": "No workspaces"
+        "noWorkspaces": "No workspaces",
+        "showMore": "Show more",
+        "showLess": "less"
       },
       "leftSidebarTabsHeader": {
         "projects": "Projects"

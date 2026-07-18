@@ -47,6 +47,10 @@ import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import { ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
+import {
+  useWorkspaceListVisibleCount,
+  WorkspaceListShowMoreLess,
+} from "./workspace-list-pagination";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
@@ -197,6 +201,16 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
   const [logoInput, setLogoInput] = useState("");
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
+
+  const unpinnedWorkspaces = project.workspaces.filter((workspace) => !workspace.isPinned);
+  const {
+    visibleCount,
+    canShowMore,
+    canShowLess,
+    showMore,
+    showLess,
+  } = useWorkspaceListVisibleCount(unpinnedWorkspaces.length, project.id);
+  const visibleUnpinnedWorkspaces = unpinnedWorkspaces.slice(0, visibleCount);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -612,8 +626,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
             )}
           >
-            <SortableContext items={project.workspaces.filter(w => !w.isPinned).map(w => w.id)} strategy={verticalListSortingStrategy}>
-              {project.workspaces.filter(w => !w.isPinned).map((ws) => (
+            <SortableContext
+              items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {visibleUnpinnedWorkspaces.map((ws) => (
                 <WorkspaceItem
                   key={ws.id}
                   workspace={ws}
@@ -641,6 +658,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 />
               ))}
             </SortableContext>
+            <WorkspaceListShowMoreLess
+              canShowMore={canShowMore}
+              canShowLess={canShowLess}
+              onShowMore={showMore}
+              onShowLess={showLess}
+              className="ml-4"
+            />
             {project.workspaces.length === 0 && (
               <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
             )}

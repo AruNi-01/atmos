@@ -31,6 +31,10 @@ import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectI
 import { SortableProject } from "@/app-shell/sidebar/SortableProject";
 import { WorkspaceContent } from "@/app-shell/sidebar/WorkspaceContent";
 import {
+  useWorkspaceListVisibleCount,
+  WorkspaceListShowMoreLess,
+} from "@/app-shell/sidebar/workspace-list-pagination";
+import {
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
@@ -395,6 +399,14 @@ function SortableWorkspaceGroupSection({
     transition,
     isDragging,
   } = useSortable({ id: group.key, disabled: !isSortableLabel });
+  const {
+    visibleCount,
+    canShowMore,
+    canShowLess,
+    showMore,
+    showLess,
+  } = useWorkspaceListVisibleCount(group.items.length, group.key);
+  const visibleItems = group.items.slice(0, visibleCount);
 
   return (
     <section
@@ -449,9 +461,15 @@ function SortableWorkspaceGroupSection({
       >
         <div className="overflow-hidden">
           <div className="space-y-1 pl-3 pt-0.5">
-            {group.items.map((entry) =>
+            {visibleItems.map((entry) =>
               renderWorkspaceContentRow(entry, { showProjectName: true })
             )}
+            <WorkspaceListShowMoreLess
+              canShowMore={canShowMore}
+              canShowLess={canShowLess}
+              onShowMore={showMore}
+              onShowLess={showLess}
+            />
           </div>
         </div>
       </div>
@@ -600,6 +618,15 @@ export function GroupedWorkspaceTwoColumnRightContent({
   onTogglePrimaryPanel: () => void;
 }) {
   const t = useTranslations("AppShell.chrome");
+  const groupItems = selectedGroup?.items ?? [];
+  const {
+    visibleCount,
+    canShowMore,
+    canShowLess,
+    showMore,
+    showLess,
+  } = useWorkspaceListVisibleCount(groupItems.length, selectedGroup?.key);
+  const visibleItems = groupItems.slice(0, visibleCount);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -627,7 +654,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
           </div>
         ) : (
           <div className={cn("space-y-1", secondColumnKanban && "space-y-2")}>
-            {selectedGroup.items.map((entry) =>
+            {visibleItems.map((entry) =>
               secondColumnKanban ? (
                 <div key={entry.workspace.id}>
                   {renderWorkspaceKanbanCard(entry)}
@@ -636,6 +663,12 @@ export function GroupedWorkspaceTwoColumnRightContent({
                 renderWorkspaceContentRow(entry, { showProjectName: true })
               ),
             )}
+            <WorkspaceListShowMoreLess
+              canShowMore={canShowMore}
+              canShowLess={canShowLess}
+              onShowMore={showMore}
+              onShowLess={showLess}
+            />
           </div>
         )}
       </div>
@@ -729,6 +762,17 @@ export function ProjectWorkspaceTwoColumnRightContent({
   onWorkspacesExpandedChange: (open: boolean) => void;
 }) {
   const t = useTranslations("AppShell.chrome");
+  const {
+    visibleCount,
+    canShowMore,
+    canShowLess,
+    showMore,
+    showLess,
+  } = useWorkspaceListVisibleCount(
+    selectedProjectUnpinnedWorkspaces.length,
+    selectedProject?.id,
+  );
+  const visibleUnpinnedWorkspaces = selectedProjectUnpinnedWorkspaces.slice(0, visibleCount);
 
   const renderProjectWorkspaceEntry = (workspace: Workspace): FlattenedWorkspaceEntry | null => {
     if (!selectedProject) return null;
@@ -748,9 +792,9 @@ export function ProjectWorkspaceTwoColumnRightContent({
       onDragEnd={onDragEnd}
       modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
     >
-      <SortableContext items={selectedProjectUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
         <div className={cn("space-y-0.5", secondColumnKanban && "space-y-2")}>
-          {selectedProjectUnpinnedWorkspaces.map((workspace) => {
+          {visibleUnpinnedWorkspaces.map((workspace) => {
             const entry = renderProjectWorkspaceEntry(workspace);
             if (!entry) return null;
             return secondColumnKanban ? (
@@ -766,6 +810,12 @@ export function ProjectWorkspaceTwoColumnRightContent({
           })}
         </div>
       </SortableContext>
+      <WorkspaceListShowMoreLess
+        canShowMore={canShowMore}
+        canShowLess={canShowLess}
+        onShowMore={showMore}
+        onShowLess={showLess}
+      />
     </DndContext>
   );
 

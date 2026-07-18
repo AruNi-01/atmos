@@ -985,7 +985,9 @@
         "pinned": "已固定",
         "workspaces": "工作区",
         "clearWorkspaceFiltersBeforeReordering": "请先清除工作区筛选条件后再重新排序。",
-        "noWorkspaces": "暂无工作区"
+        "noWorkspaces": "暂无工作区",
+        "showMore": "显示更多",
+        "showLess": "更少"
       },
       "leftSidebarTabsHeader": {
         "projects": "项目"
