@@ -123,7 +123,14 @@ export function useCanvasAgentBridge(
           label:
             typeof document !== "undefined" ? document.title || "Atmos Canvas" : "Atmos Canvas",
           accepts_commands: acceptsCommands,
-          capabilities: ["canvas.v1", "canvas-documents.1"],
+          // Advertise what this tab's CanvasAgentBus actually implements so
+          // agents can avoid script/exec against stale clients (canvas.v1 only).
+          capabilities: [
+            "canvas.v1",
+            "canvas-documents.1",
+            "document-scripts.1",
+            "exec.1",
+          ],
           active_document_file_name: activeDocumentFileName,
         });
       } catch (err) {

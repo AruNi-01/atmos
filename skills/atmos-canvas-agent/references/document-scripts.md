@@ -34,8 +34,18 @@ Atmos equivalent of tldraw offline **script-workspace** + **`/exec`**.
 ## Prerequisites
 
 1. Canvas open, bridge **enabled**, `status` shows accepting client.  
-2. `script-get` first if a script may already exist — **extend, do not clobber**.  
-3. After `script-put`, remind user to **Save** if the board is dirty / Untitled.
+2. **Capabilities check** — required:
+
+```bash
+atmos canvas status
+# bridge.clients[].capabilities must include "document-scripts.1" (and "exec.1" for exec).
+# If you only see ["canvas.v1"], the open tab is a STALE frontend: script/exec will fail
+# with UNSUPPORTED_COMMAND or the agent should refuse. User must run this branch's web
+# (just dev-web / rebuild desktop sidecar), open Canvas, re-enable bridge.
+```
+
+3. `script-get` first if a script may already exist — **extend, do not clobber**.  
+4. After `script-put`, remind user to **Save** if the board is dirty / Untitled.
 
 ```bash
 atmos canvas status

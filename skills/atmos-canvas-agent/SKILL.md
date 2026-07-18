@@ -28,6 +28,9 @@ Only if needed: documents CLI · document scripts · exec
 1. `atmos` on `PATH` (`atmos --version`).
 2. Canvas open against local Atmos Server.
 3. `atmos canvas status` — for **live editor** work: `bridge.accepting_count >= 1` and bridge **enabled** (Canvas Bot). Document-only `docs` / `doc-*` do **not** need the bridge.
+4. **Check client capabilities** before `script-*` / `exec`:
+   - Supported: `document-scripts.1` and/or `exec.1` in `bridge.clients[].capabilities`
+   - Stale UI (Desktop static build / old web): often only `canvas.v1` → **do not** call `script-put` / `exec`; tell the user to rebuild/restart Canvas on the APP-037 branch so the bridge advertises script support.
 
 Fresh shell per tool call — re-run full commands; do not rely on exported env vars.
 
