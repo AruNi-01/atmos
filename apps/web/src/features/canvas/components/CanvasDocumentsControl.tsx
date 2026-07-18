@@ -173,7 +173,7 @@ export function CanvasDocumentsControl({
               {working ? <Loader2 className="size-3.5 animate-spin" /> : t("new")}
             </Button>
           </div>
-          <div className="max-h-72 overflow-y-auto p-1">
+          <div className="max-h-72 overflow-y-auto p-1.5">
             {documentList.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground">
                 {t("empty")}
@@ -185,8 +185,11 @@ export function CanvasDocumentsControl({
                   <div
                     key={item.file_name}
                     className={cn(
-                      "group flex items-center gap-1 rounded-md",
-                      active && "bg-muted",
+                      // One fused row: hover/active paint the full item including ···
+                      "group flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition-colors",
+                      active
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-muted/70",
                     )}
                   >
                     <button
@@ -194,15 +197,20 @@ export function CanvasDocumentsControl({
                       disabled={working || isBusy}
                       onClick={() => requestOpen(item.file_name)}
                       className={cn(
-                        "flex min-w-0 flex-1 flex-col rounded-md px-3 py-2 text-left text-sm transition-colors",
-                        "hover:bg-muted",
+                        "flex min-w-0 flex-1 flex-col rounded-md px-2 py-1.5 text-left text-sm",
+                        "outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       )}
                     >
-                      <span className="font-medium">
+                      <span className="truncate font-medium">
                         {item.title}
                         {active && dirty ? " •" : ""}
                       </span>
-                      <span className="text-[11px] text-muted-foreground">
+                      <span
+                        className={cn(
+                          "text-[11px]",
+                          active ? "text-accent-foreground/70" : "text-muted-foreground",
+                        )}
+                      >
                         {formatSavedAt(item.modified_at, locale)}
                       </span>
                     </button>
@@ -212,7 +220,15 @@ export function CanvasDocumentsControl({
                           type="button"
                           size="icon"
                           variant="ghost"
-                          className="mr-1 size-7 shrink-0"
+                          className={cn(
+                            "size-7 shrink-0 rounded-md text-muted-foreground",
+                            // Blend into the row; no separate “chip” background
+                            "bg-transparent shadow-none",
+                            "hover:bg-foreground/10 hover:text-foreground",
+                            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+                            "data-[state=open]:opacity-100 data-[state=open]:bg-foreground/10",
+                            active && "opacity-70 group-hover:opacity-100",
+                          )}
                           disabled={working || isBusy}
                           aria-label={t("rowMenuAria")}
                           onClick={(e) => e.stopPropagation()}
