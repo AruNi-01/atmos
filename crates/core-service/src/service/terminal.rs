@@ -973,9 +973,6 @@ impl TerminalService {
         window_index: u32,
         output_tx: &mpsc::UnboundedSender<Vec<u8>>,
     ) {
-        // Known shell names — if pane_current_command matches one of these, the shell is idle
-        const SHELLS: &[&str] = &["zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh", "csh"];
-
         let current_cmd = match self
             .tmux_engine
             .get_pane_current_command(tmux_session, window_index)
@@ -987,7 +984,7 @@ impl TerminalService {
             }
         };
 
-        let osc = if SHELLS.contains(&current_cmd.as_str()) {
+        let osc = if core_engine::is_shell_command(&current_cmd) {
             // Shell is idle at prompt — show the current working directory
             match self
                 .tmux_engine
