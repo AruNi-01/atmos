@@ -1,6 +1,6 @@
 ---
 name: atmos-canvas-agent
-version: "2.1.0"
+version: "2.2.0"
 description: >-
   Drive the user's open Atmos Canvas via `atmos canvas` CLI: diagrams, layout,
   screenshots, local .atmos.tldr documents, and (when needed) durable document
@@ -85,10 +85,16 @@ Fill: `none`, `semi`, `solid`, `pattern`, `fill`, `lined-fill`. Size: `s` `m` `l
 
 Only then:
 
-1. Read [`references/document-scripts.md`](references/document-scripts.md).
+1. Read [`references/document-scripts.md`](references/document-scripts.md) **before writing any game script**.
 2. `script-get` first if a script may already exist — **extend, don’t clobber**.
-3. `script-put --file …` or `--code …` → `script-status` → screenshot if useful.
-4. Remind the user to **Save** the document so the script lands on disk in the `.atmos.tldr`.
+3. **Games / keyboard boards (hard rules):**
+   - Create a **tldraw `frame`** as the play surface.
+   - Parent board / HUD / Start / pieces with `parentId: surfaceId`.
+   - Use **`helpers.claimInputScope({ surfaceId, lockShapeIds, onKeyDown, signal })`** on mount.
+   - **Never** invent `window` keydown / `focusCanvas` / terminal focus hacks.
+   - Do **not** bind game keys to the Agent’s canvas-terminal.
+4. `script-put --file …` or `--code …` → `script-status` → screenshot if useful.
+5. Remind the user to **Save** the document so the script lands on disk in the `.atmos.tldr`.
 
 One-shot probes: `atmos canvas exec --code 'return editor.getCurrentPageShapes().length'` (not durable).
 
@@ -112,7 +118,10 @@ Never hex-edit an **open** document file; use live CLI or `doc-*` on closed file
 - ❌ `set-status idle` mid-turn after a partial lint  
 - ❌ Screenshot full page with terminals when verifying a diagram  
 - ❌ Inventing color tokens  
-- ❌ Assuming `config.js` / custom ShapeUtil exists (not shipped)
+- ❌ Assuming `config.js` / custom ShapeUtil exists (not shipped)  
+- ❌ **Game as free-floating geoms without a `frame` surface**  
+- ❌ **Keyboard via bare `window`/`container` keydown or `focusCanvas` instead of `claimInputScope`**  
+- ❌ **Treating the Agent canvas-terminal as the game input target**
 
 ---
 
