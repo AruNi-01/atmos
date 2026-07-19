@@ -17,7 +17,10 @@ import {
   shapeIdsFromAgentResult,
   type CanvasAgentBounds,
 } from "../lib/canvas-agent-view-bounds";
-import { focusCanvasShapes } from "../lib/canvas-shape-focus";
+import {
+  centerCameraOnPageBounds,
+  focusCanvasShapes,
+} from "../lib/canvas-shape-focus";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 
 const DISPATCH_EVENT = "canvas_agent_dispatch";
@@ -202,9 +205,6 @@ export function useCanvasAgentBridge(
               // Follow agent-view: center at 100% zoom (no fit-zoom).
               if (agentFollowRef.current && editor && view.w > 0 && view.h > 0) {
                 try {
-                  const { centerCameraOnPageBounds } = await import(
-                    "../lib/canvas-shape-focus"
-                  );
                   centerCameraOnPageBounds(
                     editor,
                     { x: view.x, y: view.y, w: view.w, h: view.h },
