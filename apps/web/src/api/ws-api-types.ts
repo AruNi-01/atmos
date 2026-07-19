@@ -276,19 +276,12 @@ export interface AppOpenResponse {
   path: string;
 }
 
-export interface CanvasBoardResponse {
-  guid: string;
-  slug: string;
-  name: string;
-  document_json: string;
-  updated_at: string;
-}
-
 export interface CanvasBridgeRegisterPayload {
   client_id: string;
   label?: string;
   accepts_commands?: boolean;
   capabilities?: string[];
+  active_document_file_name?: string | null;
 }
 
 export interface CanvasAgentDispatchResultPayload {

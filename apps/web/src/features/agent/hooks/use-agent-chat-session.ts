@@ -67,6 +67,9 @@ export function useAgentChatSession({
   historyListActive = false,
   contextOverride,
   transformPrompt,
+  instanceKey = null,
+  initialSessionBinding = null,
+  onSessionBindingChange,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
   const t = useTranslations("agent.chatSessionTypes");
   const urlContext = useContextParams();
@@ -165,13 +168,14 @@ export function useAgentChatSession({
   const sessionWorkspaceId = workspaceId;
   const sessionProjectId = projectId;
   const skipNextAutoConnectRef = useRef(false);
-  const contextKey = React.useMemo(
-    () => getSessionContextKey(sessionWorkspaceId, sessionProjectId, chatMode),
-    [sessionWorkspaceId, sessionProjectId, chatMode]
-  );
+  const contextKey = React.useMemo(() => {
+    const base = getSessionContextKey(sessionWorkspaceId, sessionProjectId, chatMode);
+    const instance = instanceKey?.trim();
+    return instance ? `instance:${instance}:${base}` : base;
+  }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
   const queueKey = React.useMemo(
-    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode),
-    [sessionWorkspaceId, sessionProjectId, chatMode]
+    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode, instanceKey),
+    [sessionWorkspaceId, sessionProjectId, chatMode, instanceKey]
   );
   const queuedPrompts = useMemo(
     () => agentChatPromptQueues[queueKey] ?? [],
@@ -461,19 +465,26 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (!isConnected || !acpSessionId || !registryId) return;
+    const cwd = sessionCwd ?? localPath;
     writeAgentLastSession(contextKey, {
       registryId,
       acpSessionId,
-      cwd: sessionCwd ?? localPath,
+      cwd,
       workspaceId: sessionWorkspaceId,
       projectId: sessionProjectId,
       updatedAt: Date.now(),
+    });
+    onSessionBindingChange?.({
+      acpSessionId,
+      registryId,
+      sessionCwd: cwd,
     });
   }, [
     acpSessionId,
     contextKey,
     isConnected,
     localPath,
+    onSessionBindingChange,
     registryId,
     sessionCwd,
     sessionProjectId,
@@ -813,7 +824,20 @@ export function useAgentChatSession({
   // Auto-connect / restore
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const lastSession = readAgentLastSession(contextKey);
+    // Prefer document-persisted binding (canvas widget) over UI-pref last session.
+    const storedLast = readAgentLastSession(contextKey);
+    const binding = initialSessionBinding;
+    const lastSession =
+      binding?.acpSessionId && binding.registryId
+        ? {
+            registryId: binding.registryId,
+            acpSessionId: binding.acpSessionId,
+            cwd: binding.sessionCwd ?? null,
+            workspaceId: sessionWorkspaceId,
+            projectId: sessionProjectId,
+            updatedAt: Date.now(),
+          }
+        : storedLast;
     const lastSessionAgentInstalled = lastSession
       ? installedAgents.some((agent) => agent.id === lastSession.registryId)
       : false;
@@ -927,6 +951,7 @@ export function useAgentChatSession({
     contextKey,
     defaultRegistryId,
     canUseCurrentMode,
+    initialSessionBinding,
     isPanelOpen,
     registryId,
     installedAgents,
@@ -999,6 +1024,7 @@ export function useAgentChatSession({
     enqueueAgentChatPrompt,
     entriesLength: entries.length,
     isConnected,
+    instanceKey,
     localPath,
     queuedPromptCount: queuedPrompts.length,
     sessionCwd,

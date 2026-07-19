@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { create } from 'zustand';
 import { fsApi } from '@/api/ws-api';
+import { canSaveWorkspaceNote } from '@/features/workspace/lib/workspace-note';
 
 // ===== 类型定义 =====
 
@@ -42,7 +43,12 @@ interface WorkspaceContextStore {
 
   // Note 相关
   loadNote: (workspaceId: string, projectPath: string) => Promise<void>;
-  saveNote: (workspaceId: string, projectPath: string, content: string) => Promise<void>;
+  saveNote: (
+    workspaceId: string,
+    projectPath: string,
+    content: string,
+    expectedContent?: string,
+  ) => Promise<boolean>;
 
   // 辅助方法
   getRequirement: (workspaceId: string) => string | null;
@@ -344,10 +350,18 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
     }));
   },
 
-  saveNote: async (workspaceId: string, projectPath: string, content: string) => {
-    const filePath = getNotePath(projectPath);
-    await fsApi.writeFile(filePath, content);
+  saveNote: async (
+    workspaceId: string,
+    projectPath: string,
+    content: string,
+    expectedContent?: string,
+  ) => {
+    const currentNote = get().workspaceStates[workspaceId]?.note ?? '';
+    if (!canSaveWorkspaceNote(currentNote, expectedContent)) {
+      return false;
+    }
 
+    const filePath = getNotePath(projectPath);
     set((state) => ({
       workspaceStates: {
         ...state.workspaceStates,
@@ -358,6 +372,29 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         },
       },
     }));
+
+    try {
+      await fsApi.writeFile(filePath, content);
+    } catch (error) {
+      set((state) => {
+        if (state.workspaceStates[workspaceId]?.note !== content) {
+          return state;
+        }
+        return {
+          workspaceStates: {
+            ...state.workspaceStates,
+            [workspaceId]: {
+              requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
+              tasks: state.workspaceStates[workspaceId]?.tasks ?? [],
+              note: currentNote,
+            },
+          },
+        };
+      });
+      throw error;
+    }
+
+    return true;
   },
 }));
 
@@ -428,7 +465,10 @@ export function useWorkspaceContext(workspaceId: string | null) {
     [workspaceId, storeLoadNote],
   );
   const saveNote = useCallback(
-    (projectPath: string, content: string) => workspaceId ? storeSaveNote(workspaceId, projectPath, content) : Promise.resolve(),
+    (projectPath: string, content: string, expectedContent?: string) =>
+      workspaceId
+        ? storeSaveNote(workspaceId, projectPath, content, expectedContent)
+        : Promise.resolve(false),
     [workspaceId, storeSaveNote],
   );
 

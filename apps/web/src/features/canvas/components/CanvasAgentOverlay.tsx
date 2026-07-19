@@ -311,10 +311,14 @@ function BridgePopoverBody({
         </pre>
       </div>
 
-      <div className="mx-4 border-t border-border" />
-      <div className="px-4 py-3">
-        <LastActivityRow activity={activity} onJump={onJump} />
-      </div>
+      {activity && (
+        <>
+          <div className="mx-4 border-t border-border" />
+          <div className="px-4 py-3">
+            <LastActivityRow activity={activity} onJump={onJump} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -323,7 +327,7 @@ function LastActivityRow({
   activity,
   onJump,
 }: {
-  activity: CanvasAgentActivity | null;
+  activity: CanvasAgentActivity;
   onJump: () => void;
 }) {
   const t = useTranslations("canvas.agentBridge");
@@ -334,8 +338,6 @@ function LastActivityRow({
   );
   const lastChangeLabel = tr("activity.lastChange");
   const jumpLabel = tr("activity.jump");
-  const emptyPrefix = tr("activity.emptyPrefix");
-  const emptySuffix = tr("activity.emptySuffix");
   const separator = React.useCallback(
     (label: string) => tr("activity.separator", { relativeLabel: label }),
     [tr],
@@ -344,26 +346,12 @@ function LastActivityRow({
   // Owned by an effect (not derived in render) so render stays pure.
   const [relativeLabel, setRelativeLabel] = React.useState("");
   React.useEffect(() => {
-    if (!activity) {
-      setRelativeLabel("");
-      return;
-    }
     setRelativeLabel(formatRelativeTime(activity.at, tr));
     const intervalId = setInterval(() => {
       setRelativeLabel(formatRelativeTime(activity.at, tr));
     }, 1_000);
     return () => clearInterval(intervalId);
   }, [activity, tr]);
-
-  if (!activity) {
-    return (
-      <div className="text-xs text-muted-foreground">
-        {emptyPrefix}{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">atmos canvas</code>{" "}
-        {emptySuffix}
-      </div>
-    );
-  }
 
   const canJump = activity.bounds !== null || activity.shapeIds.length > 0;
 

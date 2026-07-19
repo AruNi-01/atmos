@@ -173,6 +173,11 @@ export class CanvasAgentBus {
       if (command === "set_status" || command === "set-status") {
         return ok(runCanvasAgentSetStatus(editor, input.args ?? {}));
       }
+      // Non-sensitive: runtime state only (no script source).
+      if (command === "script_status" || command === "script-status") {
+        const { getLiveDocumentScriptStatus } = await import("./document-script-session");
+        return ok(getLiveDocumentScriptStatus());
+      }
 
       if (!this.bridgeAccepting) {
         return fail(
@@ -180,6 +185,72 @@ export class CanvasAgentBus {
           canvasBusT("agentBus.userHasDisabledAllowTerminalCliControlForThisCanvasTab"),
           true,
         );
+      }
+
+      // Sensitive: returns durable script source — same gate as put/exec.
+      if (command === "script_get" || command === "script-get") {
+        const { getDocumentScriptSession } = await import("./document-script-session");
+        const session = getDocumentScriptSession();
+        return ok({
+          script: session?.getScript() ?? null,
+          status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+        });
+      }
+
+      if (command === "exec") {
+        const code = String((input.args ?? {}).code ?? "").trim();
+        if (!code) {
+          return fail("VALIDATION_ARG", "exec requires args.code", false);
+        }
+        const { runDocumentScriptExec } = await import("./document-script-host");
+        const result = await runDocumentScriptExec(editor, code);
+        return ok({ result: result ?? null });
+      }
+      if (command === "script_put" || command === "script-put") {
+        const args = input.args ?? {};
+        const session = (await import("./document-script-session")).getDocumentScriptSession();
+        if (!session) {
+          return fail("EDITOR_NOT_READY", "Document script session is not registered", true);
+        }
+        if (args.clear === true || args.script === null) {
+          await session.setScript(null);
+          return ok({
+            cleared: true,
+            status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+          });
+        }
+        const entry = String(args.entry ?? "main.js");
+        const filesRaw = args.files;
+        let files: Record<string, string> = {};
+        if (filesRaw && typeof filesRaw === "object" && !Array.isArray(filesRaw)) {
+          files = Object.fromEntries(
+            Object.entries(filesRaw as Record<string, unknown>).map(([k, v]) => [
+              k,
+              String(v ?? ""),
+            ]),
+          );
+        } else if (typeof args.code === "string") {
+          files = { [entry]: args.code };
+        } else {
+          return fail(
+            "VALIDATION_ARG",
+            "script-put requires args.files or args.code (and optional entry)",
+            false,
+          );
+        }
+        if (Object.keys(files).length === 0) {
+          return fail(
+            "VALIDATION_ARG",
+            "script-put files map is empty — use script-clear to remove a script",
+            false,
+          );
+        }
+        await session.setScript({ entry, files });
+        return ok({
+          entry,
+          files: Object.keys(files),
+          status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+        });
       }
 
       if (command === "apply") {

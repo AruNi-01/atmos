@@ -115,6 +115,8 @@
       "fallbackWorkspace": "Workspace",
       "loadingTasks": "Loading tasks",
       "taskMeta": "{activeCount} active · {doneCount}/{totalCount} done",
+      "loadingNote": "Loading note",
+      "emptyNote": "No note yet",
       "mergeConflictsNeedAttention": "Merge conflicts need attention",
       "changed": "{count} changed",
       "unpushed": "{count} unpushed",
@@ -122,6 +124,7 @@
       "openWorkspaceSummary": "Open workspace summary",
       "workspaceSummary": "Workspace Summary",
       "task": "TASK",
+      "note": "NOTE",
       "commitPush": "Commit & Push"
     },
     "hotkeys": {
@@ -2020,7 +2023,7 @@
           "name": "My Agent",
           "command": "/usr/local/bin/agent",
           "args": "--stdio",
-          "env": "{\"API_KEY\":\"...\"}"
+          "env": "'{\"API_KEY\":\"...\"}'"
         },
         "actions": {
           "editJson": "Edit JSON",
@@ -2033,7 +2036,7 @@
         "jsonEditor": {
           "label": "custom_agents",
           "fileHint": "(acp_servers.json)",
-          "placeholder": "{}"
+          "placeholder": "'{}'"
         },
         "toast": {
           "failedToLoadJsonTitle": "Failed to load custom agents JSON",
@@ -2347,8 +2350,6 @@
         "copy": "Copy"
       },
       "activity": {
-        "emptyPrefix": "Run",
-        "emptySuffix": "and the latest canvas change will appear here.",
         "lastChange": "Last change",
         "separator": " · {relativeLabel}",
         "jump": "Jump"
@@ -2368,7 +2369,8 @@
       "toast": {
         "title": "Canvas",
         "savedSuccessfully": "Saved successfully",
-        "saveFailed": "Failed to save"
+        "saveFailed": "Failed to save",
+        "saveAsRequired": "Save As is required for an untitled board. Use the Documents menu."
       },
       "loadError": {
         "title": "Failed to load Canvas",
@@ -2723,6 +2725,44 @@
         "patchMustBeJsonObject": "patch must be a JSON object.",
         "provideBothXAndYOrOmitBoth": "Provide both x and y, or omit both."
       }
+    },
+    "documents": {
+      "buttonTitle": "Documents",
+      "buttonAria": "Open canvas documents",
+      "popoverTitle": "Canvas documents",
+      "popoverHint": "Stored in ~/.atmos/canvas as .atmos.tldr files",
+      "empty": "No documents yet. Click New to create one.",
+      "new": "New",
+      "save": "Save",
+      "saveAs": "Save As",
+      "dirtyTitle": "Unsaved changes",
+      "dirtyBody": "Save changes before switching documents?",
+      "dirtyCancel": "Cancel",
+      "dirtyDiscard": "Don't Save",
+      "dirtySave": "Save",
+      "saveAsTitle": "Save canvas document",
+      "saveAsHint": "Name is used for the file under ~/.atmos/canvas/",
+      "saveAsPlaceholder": "Document name",
+      "saveAsConfirm": "Save",
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "copyPath": "Copy path",
+      "delete": "Delete",
+      "rowMenuAria": "Document actions",
+      "renameTitle": "Rename document",
+      "renameConfirm": "Rename",
+      "deleteTitle": "Delete document?",
+      "deleteBody": "Delete {name}? This cannot be undone.",
+      "deleteConfirm": "Delete",
+      "copiedTitle": "Path copied",
+      "copyFailed": "Could not copy path",
+      "nameConflict": "A document with this name already exists. Choose a different name."
+    },
+    "script": {
+      "runningTitle": "Document script running",
+      "running": "Script · {entry}",
+      "errorTitle": "Document script error",
+      "errorUnknown": "Unknown script error"
     }
   },
   "Welcome": {
@@ -3577,7 +3617,9 @@
           "placeholder": "No note yet.",
           "emptyTitle": "No note yet",
           "emptyDescription": "Add notes for this workspace.",
-          "add": "Add Note"
+          "add": "Add Note",
+          "conflict": "This note changed elsewhere. Reload before saving your draft.",
+          "reload": "Reload"
         }
       }
     }
@@ -4778,9 +4820,11 @@
       "globalSearchTitle": "Global search button",
       "globalSearchDescription": "Show the search box that opens global search. The ⌘K shortcut still works when hidden.",
       "summaryButtonTitle": "Workspace summary button",
-      "summaryButtonDescription": "Show one compact icon button with project, task, and commit shortcuts.",
+      "summaryButtonDescription": "Show one compact icon button with project, task, note, and commit shortcuts.",
       "taskTitle": "TASK section",
       "taskDescription": "Show task counts in the summary popover and expose the full task panel as a nested popover.",
+      "noteTitle": "NOTE section",
+      "noteDescription": "Show a note preview in the summary popover and expose the full note panel as a nested popover.",
       "commitTitle": "Commit & Push section",
       "commitDescription": "Show repository change status and expose the shared Commit & Push controls as a nested popover.",
       "remoteAccessTitle": "Remote Access button",

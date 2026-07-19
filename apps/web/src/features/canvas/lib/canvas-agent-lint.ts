@@ -40,7 +40,7 @@ function plainTextFromProps(props: Record<string, unknown>): string | undefined 
 }
 
 /**
- * Canvas-agent lint model (aligned with tldraw offline helpers.getLints intent):
+ * Canvas-agent lint model (helpers.getLints):
  *
  * - **overlap** — two *content* shapes unexpectedly collide (not parent/child,
  *   not containment, not arrows). Severity `error`.
@@ -146,7 +146,7 @@ function shapesAreRelated(
 
 /**
  * Heuristic: does the geo's label text likely overflow its fixed box?
- * Mirrors the offline `growY-on-shape` intent without requiring DOM measure.
+ * Estimates without requiring DOM measure.
  */
 function geoTextMetrics(shape: TLShape): {
   text: string;

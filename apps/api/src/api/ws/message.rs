@@ -211,10 +211,6 @@ pub enum WsAction {
     AppOpen,
 
     // ===== Canvas 操作 =====
-    /// 获取默认 canvas board
-    CanvasGetDefaultBoard,
-    /// 更新默认 canvas board
-    CanvasUpdateDefaultBoard,
     /// Register this browser tab as a terminal-agent bridge target (APP-015)
     CanvasBridgeRegister,
     /// Unregister this browser tab from the terminal-agent bridge (APP-015)

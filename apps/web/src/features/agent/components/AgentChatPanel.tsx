@@ -58,6 +58,10 @@ interface AgentChatPanelProps {
   allowFullscreen?: boolean;
   contextOverride?: UseAgentChatSessionOptions["contextOverride"];
   transformPrompt?: (prompt: string) => string;
+  /** Isolate session storage (canvas widgets: shape instance id). */
+  instanceKey?: string | null;
+  initialSessionBinding?: UseAgentChatSessionOptions["initialSessionBinding"];
+  onSessionBindingChange?: UseAgentChatSessionOptions["onSessionBindingChange"];
 }
 
 const WIDE_HISTORY_LAYOUT_MIN_WIDTH = 900;
@@ -70,6 +74,9 @@ export function AgentChatPanel({
   allowFullscreen,
   contextOverride,
   transformPrompt,
+  instanceKey = null,
+  initialSessionBinding = null,
+  onSessionBindingChange,
 }: AgentChatPanelProps = {}) {
   const t = useTranslations("Agent.components.chatPanel");
   const canFullscreen = variant !== "standalone" && (allowFullscreen ?? true);
@@ -92,6 +99,9 @@ export function AgentChatPanel({
     historyListActive: showsWideHistoryLayout,
     contextOverride,
     transformPrompt,
+    instanceKey,
+    initialSessionBinding,
+    onSessionBindingChange,
   });
 
   // ---------------------------------------------------------------------------
@@ -822,6 +832,7 @@ export function AgentChatPanel({
             canUseCurrentMode={canUseCurrentMode}
             isConnected={isConnected}
             chatMode={chatMode}
+            instanceKey={instanceKey}
             sessionWorkspaceId={sessionWorkspaceId}
             sessionProjectId={sessionProjectId}
             loadingAgents={loadingAgents}

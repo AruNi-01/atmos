@@ -3,8 +3,12 @@
 import React from "react";
 import { createTranslator } from "next-intl";
 
-import { canvasApi } from "@/api/rest-api";
-import { createCanvasSnapshot, createDefaultCanvasSession, createDefaultDocument, parseBoardDocument } from "@/features/canvas/hooks/use-canvas-board";
+import {
+  createCanvasSnapshot,
+  createDefaultCanvasSession,
+  loadPinTargetDocument,
+  savePinTargetDocument,
+} from "@/features/canvas/hooks/use-canvas-board";
 import {
   buildCanvasTerminalPinKey,
   CANVAS_TERMINAL_PIN_STATE_EVENT,
@@ -72,10 +76,7 @@ export function useTerminalGridCanvasPins({
 
     const loadPinnedPaneKeys = async () => {
       try {
-        const board = await canvasApi.getDefaultBoard();
-        const document = board.document_json
-          ? parseBoardDocument(board.document_json)
-          : createDefaultDocument();
+        const { document } = await loadPinTargetDocument();
 
         if (!cancelled) {
           setPinnedPaneKeys(
@@ -143,14 +144,11 @@ export function useTerminalGridCanvasPins({
     }
 
     try {
-      const board = await canvasApi.getDefaultBoard();
-      const document = board.document_json
-        ? parseBoardDocument(board.document_json)
-        : createDefaultDocument();
+      const { fileName, document } = await loadPinTargetDocument();
       const result = pinCanvasTerminalShapeInSnapshot(
         createCanvasSnapshot(
           document.tldrawDocument,
-          readCanvasSession(board.guid) ?? createDefaultCanvasSession(),
+          readCanvasSession(fileName) ?? createDefaultCanvasSession(),
         ),
         createCanvasTerminalShapeProps({
           contextScope,
@@ -189,13 +187,11 @@ export function useTerminalGridCanvasPins({
         }),
       );
 
-      await canvasApi.updateDefaultBoard(
-        JSON.stringify({
-          ...document,
-          tldrawDocument: result.snapshot.document,
-        }),
-      );
-      rememberLastPinnedTerminal(board.guid, pinKey, result.shapeId);
+      await savePinTargetDocument(fileName, {
+        ...document,
+        tldrawDocument: result.snapshot.document as typeof document.tldrawDocument,
+      });
+      rememberLastPinnedTerminal(fileName, pinKey, result.shapeId);
       dispatchCanvasTerminalPinStateChange(pinKey, true);
 
       toastManager.add({

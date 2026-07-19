@@ -17,6 +17,7 @@ import {
   PanelTop,
   Search,
   SquareDashedMousePointer,
+  StickyNote,
 } from 'lucide-react';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
@@ -40,6 +41,7 @@ export function HeaderLayoutSettingsSection({
     showHeaderGlobalSearch,
     showHeaderSummary,
     showHeaderSummaryTask,
+    showHeaderSummaryNote,
     showHeaderSummaryCommit,
     showHeaderRemoteAccess,
     showHeaderAppshot,
@@ -48,6 +50,7 @@ export function HeaderLayoutSettingsSection({
     setHeaderShowGlobalSearch,
     setHeaderShowSummary,
     setHeaderShowSummaryTask,
+    setHeaderShowSummaryNote,
     setHeaderShowSummaryCommit,
     setHeaderShowRemoteAccess,
     setHeaderShowAppshot,
@@ -123,6 +126,14 @@ export function HeaderLayoutSettingsSection({
             checked={showHeaderSummaryTask}
             disabled={!showHeaderSummary}
             onCheckedChange={(value) => void setHeaderShowSummaryTask(value)}
+          />
+          <SettingsToggleRow
+            icon={<StickyNote className="size-4" />}
+            title={t('noteTitle')}
+            description={t('noteDescription')}
+            checked={showHeaderSummaryNote}
+            disabled={!showHeaderSummary}
+            onCheckedChange={(value) => void setHeaderShowSummaryNote(value)}
           />
           <SettingsToggleRow
             icon={<GitCommit className="size-4" />}

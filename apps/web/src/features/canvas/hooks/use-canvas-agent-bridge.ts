@@ -17,7 +17,10 @@ import {
   shapeIdsFromAgentResult,
   type CanvasAgentBounds,
 } from "../lib/canvas-agent-view-bounds";
-import { focusCanvasShapes } from "../lib/canvas-shape-focus";
+import {
+  centerCameraOnPageBounds,
+  focusCanvasShapes,
+} from "../lib/canvas-shape-focus";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 
 const DISPATCH_EVENT = "canvas_agent_dispatch";
@@ -73,7 +76,11 @@ export interface CanvasAgentBridgeState {
   failInflight: (message: string) => Promise<void>;
 }
 
-export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeState {
+export function useCanvasAgentBridge(
+  editor: Editor | null,
+  options?: { activeDocumentFileName?: string | null },
+): CanvasAgentBridgeState {
+  const activeDocumentFileName = options?.activeDocumentFileName ?? null;
   const isConnected = useWebSocketStore((s) => s.connectionState === "connected");
   const onEvent = useWebSocketStore((s) => s.onEvent);
 
@@ -119,7 +126,15 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
           label:
             typeof document !== "undefined" ? document.title || "Atmos Canvas" : "Atmos Canvas",
           accepts_commands: acceptsCommands,
-          capabilities: ["canvas.v1"],
+          // Advertise what this tab's CanvasAgentBus actually implements so
+          // agents can avoid script/exec against stale clients (canvas.v1 only).
+          capabilities: [
+            "canvas.v1",
+            "canvas-documents.1",
+            "document-scripts.1",
+            "exec.1",
+          ],
+          active_document_file_name: activeDocumentFileName,
         });
       } catch (err) {
         if (!cancelled) {
@@ -130,7 +145,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     return () => {
       cancelled = true;
     };
-  }, [clientId, acceptsCommands, isConnected]);
+  }, [clientId, acceptsCommands, isConnected, activeDocumentFileName]);
 
   const isConnectedRef = React.useRef(isConnected);
   React.useEffect(() => {
@@ -187,10 +202,11 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
             const view = (result.data as { view?: CanvasAgentBounds }).view;
             if (view) {
               activity.setAgentView(view, true);
-              // Follow agent-view frames when Follow is on (CLI --zoom is independent).
+              // Follow agent-view: fit in viewport, never zoom past 100%.
               if (agentFollowRef.current && editor && view.w > 0 && view.h > 0) {
                 try {
-                  editor.zoomToBounds(
+                  centerCameraOnPageBounds(
+                    editor,
                     { x: view.x, y: view.y, w: view.w, h: view.h },
                     { animation: { duration: 320 } },
                   );

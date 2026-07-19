@@ -97,12 +97,42 @@ export interface TerminalLayoutResponse {
   maximized_terminal_id?: string | null;
 }
 
-export interface CanvasBoardResponse {
-  guid: string;
-  slug: string;
-  name: string;
-  document_json: string;
-  updated_at: string;
+export interface AtmosCanvasScript {
+  entry: string;
+  files: Record<string, string>;
+}
+
+export interface AtmosCanvasFile {
+  schema: string;
+  title: string;
+  tldrawDocument?: unknown | null;
+  session?: unknown | null;
+  script?: AtmosCanvasScript | null;
+}
+
+export interface CanvasDocumentListItem {
+  file_name: string;
+  title: string;
+  modified_at: string;
+  size_bytes: number;
+}
+
+export interface CanvasDocumentListResponse {
+  dir: string;
+  items: CanvasDocumentListItem[];
+}
+
+export interface CanvasDocumentFileResponse {
+  file_name: string;
+  title: string;
+  modified_at: string;
+  size_bytes: number;
+  absolute_path?: string | null;
+  body: AtmosCanvasFile;
+}
+
+export interface CanvasDocumentWriteResponse {
+  item: CanvasDocumentListItem;
 }
 
 // ===== API Response wrapper =====
@@ -871,14 +901,76 @@ export const workspaceLayoutApi = {
 };
 
 export const canvasApi = {
-  getDefaultBoard: async (): Promise<CanvasBoardResponse> => {
-    return fetchApi<CanvasBoardResponse>("/api/canvas/default");
+  listDocuments: async (): Promise<CanvasDocumentListResponse> => {
+    return fetchApi<CanvasDocumentListResponse>("/api/canvas/documents");
   },
 
-  updateDefaultBoard: async (documentJson: string): Promise<CanvasBoardResponse> => {
-    return fetchApi<CanvasBoardResponse>("/api/canvas/default", {
-      method: "PUT",
-      body: JSON.stringify({ document_json: documentJson }),
+  createNewDocument: async (): Promise<CanvasDocumentWriteResponse> => {
+    return fetchApi<CanvasDocumentWriteResponse>("/api/canvas/documents/new", {
+      method: "POST",
+      body: JSON.stringify({}),
     });
+  },
+
+  getDocument: async (fileName: string): Promise<CanvasDocumentFileResponse> => {
+    return fetchApi<CanvasDocumentFileResponse>(
+      `/api/canvas/documents/${encodeURIComponent(fileName)}`,
+    );
+  },
+
+  putDocument: async (
+    fileName: string,
+    body: AtmosCanvasFile,
+    options?: { overwrite?: boolean },
+  ): Promise<CanvasDocumentWriteResponse> => {
+    const overwrite = options?.overwrite === true;
+    const qs = overwrite ? "?overwrite=true" : "";
+    return fetchApi<CanvasDocumentWriteResponse>(
+      `/api/canvas/documents/${encodeURIComponent(fileName)}${qs}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(body),
+      },
+    );
+  },
+
+  sanitizeName: async (name: string): Promise<{ file_name: string }> => {
+    return fetchApi<{ file_name: string }>("/api/canvas/documents/sanitize-name", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  deleteDocument: async (fileName: string): Promise<{ deleted: string }> => {
+    return fetchApi<{ deleted: string }>(
+      `/api/canvas/documents/${encodeURIComponent(fileName)}`,
+      { method: "DELETE" },
+    );
+  },
+
+  renameDocument: async (
+    fileName: string,
+    name: string,
+  ): Promise<CanvasDocumentWriteResponse> => {
+    return fetchApi<CanvasDocumentWriteResponse>(
+      `/api/canvas/documents/${encodeURIComponent(fileName)}/rename`,
+      {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      },
+    );
+  },
+
+  duplicateDocument: async (
+    fileName: string,
+    name?: string,
+  ): Promise<CanvasDocumentWriteResponse> => {
+    return fetchApi<CanvasDocumentWriteResponse>(
+      `/api/canvas/documents/${encodeURIComponent(fileName)}/duplicate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ name: name ?? null }),
+      },
+    );
   },
 };

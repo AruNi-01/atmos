@@ -23,6 +23,13 @@ import type { CurrentView } from "@/shared/hooks/use-context-params";
 // Display fallback before an ACP agent reports a title through session_info_update.
 export const DEFAULT_SESSION_TITLE = "新会话";
 
+/** ACP session pointer persisted by a host surface (e.g. canvas widget shape). */
+export type AgentChatSessionBinding = {
+  acpSessionId?: string | null;
+  registryId?: string | null;
+  sessionCwd?: string | null;
+};
+
 export interface UseAgentChatSessionOptions {
   variant: "modal" | "sidebar" | "standalone";
   mode: AgentChatMode;
@@ -36,6 +43,20 @@ export interface UseAgentChatSessionOptions {
     currentView: CurrentView;
   };
   transformPrompt?: (prompt: string) => string;
+  /**
+   * Isolates session storage / last-session / handoff from other chat panels.
+   * Canvas agent-chat widgets pass `shapeId` (or instanceId) so each card and
+   * each document keeps its own ACP session.
+   */
+  instanceKey?: string | null;
+  /** Prefer restoring this binding (from persisted widget source) over UI prefs. */
+  initialSessionBinding?: AgentChatSessionBinding | null;
+  /** Called when the live ACP session binding changes (persist to document). */
+  onSessionBindingChange?: (binding: {
+    acpSessionId: string | null;
+    registryId: string | null;
+    sessionCwd: string | null;
+  }) => void;
 }
 
 export interface UseAgentChatSessionReturn {

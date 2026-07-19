@@ -26,6 +26,7 @@ import {
   type CanvasAgentBounds,
   unionBounds,
 } from "./canvas-agent-view-bounds";
+import { centerCameraOnPageBounds } from "./canvas-shape-focus";
 
 export type CanvasAgentSessionStatus = "active" | "idle";
 
@@ -220,9 +221,8 @@ export class CanvasAgentActivityStore {
   }
 
   /**
-   * Pan/zoom the editor so the latest agent activity is in view. No-op when
-   * we have no bounds (the most recent verb was read-only) or the shapes
-   * have since been deleted by the user.
+   * Center the latest agent activity in view (fit if large, cap at 100% zoom).
+   * No-op when we have no bounds (read-only verb) or shapes were deleted.
    */
   jumpToLast(editor: Editor) {
     const last = this.last;
@@ -231,7 +231,8 @@ export class CanvasAgentActivityStore {
       last.shapeIds.length > 0 ? unionShapePageBounds(editor, last.shapeIds) : last.bounds;
     if (!bounds || bounds.w <= 0 || bounds.h <= 0) return;
     try {
-      editor.zoomToBounds(
+      centerCameraOnPageBounds(
+        editor,
         { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
         { animation: { duration: 200 } },
       );
