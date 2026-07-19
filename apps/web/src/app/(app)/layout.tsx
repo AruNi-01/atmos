@@ -14,6 +14,7 @@ import { WorkspaceCreationOverlay } from "@/app-shell/WorkspaceCreationOverlay";
 import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
 import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
 import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
+import { OnboardingGate } from "@/app-shell/OnboardingGate";
 
 type Props = {
   children: React.ReactNode;
@@ -47,25 +48,27 @@ export default function AppLayout({ children }: Props) {
           <DiffWorkerPoolProvider>
             <ConnectionBootstrapper />
             <HostedBootstrapBoundary>
-              <Header />
+              <OnboardingGate>
+                <Header />
 
-              <PanelLayout
-                leftSidebar={<LeftSidebar />}
-                centerStage={<CenterStage />}
-                rightSidebar={<RightSidebar />}
-              />
+                <PanelLayout
+                  leftSidebar={<LeftSidebar />}
+                  centerStage={<CenterStage />}
+                  rightSidebar={<RightSidebar />}
+                />
 
-              <Footer />
+                <Footer />
 
-              <GlobalSearch />
+                <GlobalSearch />
 
-              <ModalAgentChatPanel />
+                <ModalAgentChatPanel />
 
-              <DocumentTitle />
+                <DocumentTitle />
 
-              <WorkspaceCreationOverlay />
+                <WorkspaceCreationOverlay />
 
-              <CanvasOverlay />
+                <CanvasOverlay />
+              </OnboardingGate>
             </HostedBootstrapBoundary>
           </DiffWorkerPoolProvider>
         </SidebarLayoutProvider>

@@ -49,6 +49,7 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   --animate-shine: shine var(--duration) infinite linear;
+  --color-destructive-foreground: var(--destructive-foreground);
   @keyframes shine {
   0% {
     background-position: 0% 0%;
@@ -101,6 +102,7 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0 0 0 / 10%);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  --destructive-foreground: var(--color-red-700);
 }
 
 .dark {
@@ -139,6 +141,7 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  --destructive-foreground: var(--color-red-400);
 }
 
 @layer base {

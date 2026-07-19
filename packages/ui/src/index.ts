@@ -143,3 +143,8 @@ export * from "@dnd-kit/core";
 export * from "@dnd-kit/sortable";
 export * from "@dnd-kit/utilities";
 export * from "@dnd-kit/modifiers";
+
+// Auth & Particle Field Components
+export * from "./components/particle-field";
+export * from "./components/auth-shell";
+export * from "./components/auth-split-layout";

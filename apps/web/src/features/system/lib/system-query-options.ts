@@ -16,6 +16,7 @@ export function tmuxStatusQueryOptions(
     enabled: options?.enabled,
     queryKey: queryKeys.computer.tmuxStatus(scope),
     queryFn: () => systemApi.getTmuxStatus(),
+    ignoreActiveInstance: true,
   });
 }
 
@@ -44,6 +45,22 @@ export function ghCliStatusQueryOptions(
     enabled: options?.enabled,
     queryKey: queryKeys.computer.ghCliStatus(scope),
     queryFn: () => systemApi.getGhCliStatus(),
+    ignoreActiveInstance: true,
+  });
+}
+
+export function gitStatusQueryOptions(
+  scope: ComputerQueryScope,
+  runtimeReady: boolean,
+  options?: { enabled?: boolean },
+) {
+  return restComputerQueryOptions({
+    scope,
+    runtimeReady,
+    enabled: options?.enabled,
+    queryKey: queryKeys.computer.gitStatusSystem(scope),
+    queryFn: () => systemApi.getGitStatus(),
+    ignoreActiveInstance: true,
   });
 }
 

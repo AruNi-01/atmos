@@ -1,4 +1,62 @@
 {
+  "onboarding": {
+    "steps": {
+      "intro": "Welcome",
+      "check": "Environment",
+      "project": "First Project",
+      "ready": "All Set"
+    },
+    "intro": {
+      "title": "Welcome to Atmos",
+      "subtitle": "Your local-first agentic coding cockpit. Let's set up your workspace in a few simple steps.",
+      "features": {
+        "agent": "Agentic Software Engineering",
+        "agentDesc": "Equip autonomous AI agents to code, debug, refactor, and run terminal tools directly in your workspace.",
+        "tmux": "Terminal Multiplexing",
+        "tmuxDesc": "Seamless, persistent terminal panels running on tmux. Background work remains active even if you close the tab.",
+        "canvas": "Canvas & Visual Scripting",
+        "canvasDesc": "Organize, design, and script flows graphically on an infinite interactive canvas. Keep track of logic and agent runs visually."
+      },
+      "next": "Get Started"
+    },
+    "check": {
+      "title": "System Check",
+      "subtitle": "We require a few key developer utilities to run terminals, connect agents, and manage code repositories.",
+      "statusInstalled": "Installed",
+      "statusMissing": "Missing",
+      "tmuxDesc": "Terminal Multiplexer (Required for terminal sessions and tabs)",
+      "gitDesc": "Version Control System (Required to manage code workspaces)",
+      "ghDesc": "GitHub CLI (Required for issue/PR synchronizations)",
+      "actionInstall": "Run this command in your shell to install:",
+      "recheck": "Re-check status",
+      "next": "Next Step",
+      "skip": "Skip for now"
+    },
+    "project": {
+      "title": "Your First Project",
+      "subtitle": "Select a local directory to import. Atmos works local-first directly on your files.",
+      "fields": {
+        "path": "Directory Path",
+        "pathPlaceholder": "e.g. /Users/username/projects/my-app",
+        "name": "Project Name",
+        "namePlaceholder": "e.g. my-app",
+        "browse": "Browse..."
+      },
+      "validation": {
+        "validating": "Validating path...",
+        "gitRepo": "Git repository detected",
+        "notGitRepo": "Warning: Directory is not a Git repository",
+        "invalid": "Invalid directory path"
+      },
+      "submit": "Import and Open",
+      "next": "Continue"
+    },
+    "ready": {
+      "title": "You are ready!",
+      "subtitle": "Everything is set up. You can now launch workspaces, assign tasks to agents, and manage terminals.",
+      "action": "Enter Atmos"
+    }
+  },
   "header": {
     "leftSidebar": {
       "expand": "Expand left sidebar",
@@ -5014,6 +5072,24 @@
         "authentication": {
           "authenticatedAsLabel": "Authenticated as",
           "notAuthenticated": "Not authenticated with GitHub"
+        }
+      },
+      "git": {
+        "title": "Git",
+        "description": "Atmos uses Git to track project codebases, branches, commits, and diff status in real-time.",
+        "status": {
+          "installed": "Installed {version}"
+        },
+        "installation": {
+          "installed": "Git {version} is installed",
+          "notInstalled": "Git is not installed on this system"
+        },
+        "actions": {
+          "install": "Install Git"
+        },
+        "configuration": {
+          "title": "Git User Configuration",
+          "description": "Configured user: {username} ({email})"
         }
       },
       "tmux": {

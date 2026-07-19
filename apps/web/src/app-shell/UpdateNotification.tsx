@@ -72,16 +72,16 @@ export default function UpdateNotification() {
           <Button
             size="sm"
             className="gap-1.5 text-xs"
-            asChild
+            render={
+              <a
+                href={releaseNotesUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
           >
-            <a
-              href={releaseNotesUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="size-3.5" />
-              {t('updateNotification.openGitHub')}
-            </a>
+            <ExternalLink className="size-3.5" />
+            {t('updateNotification.openGitHub')}
           </Button>
         </div>
       ) : (
@@ -90,16 +90,16 @@ export default function UpdateNotification() {
             variant="ghost"
             size="sm"
             className="gap-1.5 text-xs"
-            asChild
+            render={
+              <a
+                href={releaseNotesUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
           >
-            <a
-              href={releaseNotesUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="size-3.5" />
-              {t('updateNotification.whatsNew')}
-            </a>
+            <ExternalLink className="size-3.5" />
+            {t('updateNotification.whatsNew')}
           </Button>
 
           <Button

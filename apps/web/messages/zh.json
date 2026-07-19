@@ -1,4 +1,62 @@
 {
+  "onboarding": {
+    "steps": {
+      "intro": "欢迎",
+      "check": "环境检测",
+      "project": "首个项目",
+      "ready": "准备就绪"
+    },
+    "intro": {
+      "title": "欢迎使用 Atmos",
+      "subtitle": "您的本地优先 AI 智能编程工作台。只需几个简单的步骤，即可配置好您的开发环境。",
+      "features": {
+        "agent": "AI 智能体自主编程",
+        "agentDesc": "配备功能强大的 AI 智能体，直接在您的工作区中编写代码、调试、重构和运行终端命令。",
+        "tmux": "终端复用管理器",
+        "tmuxDesc": "基于 tmux 的持久化终端面板。即使您关闭了网页标签，后台运行的任务依然会继续执行。",
+        "canvas": "无限画布与可视化脚本",
+        "canvasDesc": "在无限的交互式画布上进行图形化管理、设计和编写脚本。直观追踪逻辑与智能体运行过程。"
+      },
+      "next": "开始使用"
+    },
+    "check": {
+      "title": "环境与依赖检测",
+      "subtitle": "我们需要一些核心的开发者工具来运行终端、连接智能体和管理代码库。",
+      "statusInstalled": "已安装",
+      "statusMissing": "未检测到",
+      "tmuxDesc": "终端复用器 (运行终端会话和标签页所必需)",
+      "gitDesc": "版本控制系统 (管理代码工作区所必需)",
+      "ghDesc": "GitHub 命令行工具 (同步 Issue/PR 所必需)",
+      "actionInstall": "请在您的终端中运行以下命令进行安装：",
+      "recheck": "重新检测",
+      "next": "下一步",
+      "skip": "暂且跳过"
+    },
+    "project": {
+      "title": "导入首个项目",
+      "subtitle": "选择您本地的一个目录进行导入。Atmos 本地优先，直接在您的本地文件上工作。",
+      "fields": {
+        "path": "目录路径",
+        "pathPlaceholder": "例如 /Users/username/projects/my-app",
+        "name": "项目名称",
+        "namePlaceholder": "例如 my-app",
+        "browse": "浏览..."
+      },
+      "validation": {
+        "validating": "正在验证路径...",
+        "gitRepo": "已检测到 Git 仓库",
+        "notGitRepo": "警告：该目录不是 Git 仓库",
+        "invalid": "无效的目录路径"
+      },
+      "submit": "导入并打开",
+      "next": "继续"
+    },
+    "ready": {
+      "title": "一切准备就绪！",
+      "subtitle": "环境配置已完成。现在您可以创建工作区、将任务交给 AI 智能体并管理终端了。",
+      "action": "进入 Atmos"
+    }
+  },
   "header": {
     "leftSidebar": {
       "expand": "展开左侧边栏",
@@ -5014,6 +5072,24 @@
         "authentication": {
           "authenticatedAsLabel": "认证用户",
           "notAuthenticated": "尚未认证 GitHub"
+        }
+      },
+      "git": {
+        "title": "Git",
+        "description": "Atmos 使用 Git 实时追踪项目代码库、分支、提交以及差异状态。",
+        "status": {
+          "installed": "已安装 {version}"
+        },
+        "installation": {
+          "installed": "已安装 Git {version}",
+          "notInstalled": "当前系统未安装 Git"
+        },
+        "actions": {
+          "install": "安装 Git"
+        },
+        "configuration": {
+          "title": "Git 用户配置",
+          "description": "已配置用户: {username} ({email})"
         }
       },
       "tmux": {

@@ -358,13 +358,11 @@ export function BreakoutErrorPage({
       </Button>
     ) : (
       <Button
-        asChild
         variant="secondary"
         className="h-11 rounded-full bg-[#9b9b9b] px-7 text-[18px] font-normal uppercase text-white shadow-none transition-colors group-hover:bg-[#111112] group-hover:text-[#fbfbfa] hover:bg-[#111112] dark:bg-[#5b5b62] dark:text-[#09090b] dark:group-hover:bg-[#f5f5f7] dark:group-hover:text-[#09090b] dark:hover:bg-[#f5f5f7]"
+        render={<Link href="/" onPointerDown={stopActionPointer} />}
       >
-        <Link href="/" onPointerDown={stopActionPointer}>
-          {t("notFound.home")}
-        </Link>
+        {t("notFound.home")}
       </Button>
     );
 

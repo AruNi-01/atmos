@@ -5,6 +5,7 @@ import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useComputerRuntimeReady } from "@/features/connection/lib/computer-runtime-ready";
 import {
   ghCliStatusQueryOptions,
+  gitStatusQueryOptions,
   runtimeInfoQueryOptions,
   terminalOverviewQueryOptions,
   tmuxStatusQueryOptions,
@@ -27,6 +28,12 @@ export function useGhCliStatusQuery(options?: { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const runtimeReady = useComputerRuntimeReady();
   return useQuery(ghCliStatusQueryOptions(scope, runtimeReady, options));
+}
+
+export function useGitStatusQuery(options?: { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const runtimeReady = useComputerRuntimeReady();
+  return useQuery(gitStatusQueryOptions(scope, runtimeReady, options));
 }
 
 export function useTerminalOverviewQuery(options?: { enabled?: boolean }) {

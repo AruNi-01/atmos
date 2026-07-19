@@ -42,6 +42,8 @@ export const queryKeys = {
       [...queryKeys.computer.system(scope), "runtimeInfo"] as const,
     ghCliStatus: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.system(scope), "ghCliStatus"] as const,
+    gitStatusSystem: (scope: ComputerQueryScope) =>
+      [...queryKeys.computer.system(scope), "gitStatusSystem"] as const,
     terminalOverview: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.system(scope), "terminalOverview"] as const,
     wsConnections: (scope: ComputerQueryScope) =>
