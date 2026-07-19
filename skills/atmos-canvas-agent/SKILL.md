@@ -1,12 +1,12 @@
 ---
 name: atmos-canvas-agent
-version: "2.2.0"
+version: "2.3.0"
 description: >-
   Drive the user's open Atmos Canvas via `atmos canvas` CLI: diagrams, layout,
   screenshots, local .atmos.tldr documents, and (when needed) durable document
   scripts or one-shot exec. Use for sketch/draw/diagram/layout requests, and
-  for interactive boards, games, or clickable UI only when the user asks for
-  that behavior.
+  for interactive surfaces or clickable UI only when the user asks for that
+  behavior.
 license: MIT
 ---
 
@@ -42,7 +42,7 @@ Fresh shell per tool call — re-run full commands; do not rely on exported env 
 |-------------|------------|----------------|
 | Diagram, architecture, cards, labels, arrange | Structured verbs below | *(this file only)* |
 | List / save-as style file ops / rename boards | `docs` / `doc-*` | [`references/documents.md`](references/documents.md) |
-| Clickable UI, game, animation, run-on-open | Durable **document script** | [`references/document-scripts.md`](references/document-scripts.md) |
+| Clickable UI, keyboard surface, animation, run-on-open | Durable **document script** | [`references/document-scripts.md`](references/document-scripts.md) |
 | One-shot JS probe on live editor | `exec` | [`references/document-scripts.md`](references/document-scripts.md) |
 | Full flag tables / error codes | — | [`references/command-reference.md`](references/command-reference.md) |
 
@@ -85,14 +85,13 @@ Fill: `none`, `semi`, `solid`, `pattern`, `fill`, `lined-fill`. Size: `s` `m` `l
 
 Only then:
 
-1. Read [`references/document-scripts.md`](references/document-scripts.md) **before writing any game script**.
+1. Read [`references/document-scripts.md`](references/document-scripts.md) **before writing any durable script**.
 2. `script-get` first if a script may already exist — **extend, don’t clobber**.
-3. **Games / keyboard boards (hard rules):**
-   - Create a **tldraw `frame`** as the play surface.
-   - Parent board / HUD / Start / pieces with `parentId: surfaceId`.
-   - Use **`helpers.claimInputScope({ surfaceId, lockShapeIds, onKeyDown, signal })`** on mount.
-   - **Never** invent `window` keydown / `focusCanvas` / terminal focus hacks.
-   - Do **not** bind game keys to the Agent’s canvas-terminal.
+3. **Interactive system rules (general):**
+   - Put related interactive shapes in a **tldraw `frame`** (`parentId: surfaceId`).
+   - **Keyboard** → only `helpers.claimInputScope({ surfaceId, … })` (never bare `window` keydown / focus hacks).
+   - **Pointer-only** → `editor.on('event')` hit-tests are OK; upgrade to frame + scope if keys are added later.
+   - Do **not** use `canvas-terminal` / Agent chat as the script input target; skip chrome with `isAtmosChromeShape`.
 4. `script-put --file …` or `--code …` → `script-status` → screenshot if useful.
 5. Remind the user to **Save** the document so the script lands on disk in the `.atmos.tldr`.
 
@@ -112,16 +111,16 @@ Never hex-edit an **open** document file; use live CLI or `doc-*` on closed file
 
 ## Anti-patterns (default path)
 
-- ❌ `script-put` / games for plain diagram asks  
+- ❌ `script-put` for plain diagram asks  
 - ❌ Same `(x,y)` for many shapes then “layout later”  
 - ❌ Unbound diagram arrows  
 - ❌ `set-status idle` mid-turn after a partial lint  
 - ❌ Screenshot full page with terminals when verifying a diagram  
 - ❌ Inventing color tokens  
 - ❌ Assuming `config.js` / custom ShapeUtil exists (not shipped)  
-- ❌ **Game as free-floating geoms without a `frame` surface**  
-- ❌ **Keyboard via bare `window`/`container` keydown or `focusCanvas` instead of `claimInputScope`**  
-- ❌ **Treating the Agent canvas-terminal as the game input target**
+- ❌ Interactive system as free-floating shapes with no **frame** surface  
+- ❌ Keyboard via bare `window`/`container` keydown or focus stealing instead of **`claimInputScope`**  
+- ❌ Using product chrome (`canvas-terminal` / chat) as the script’s input surface
 
 ---
 
@@ -150,7 +149,7 @@ More codes: [`references/command-reference.md`](references/command-reference.md)
 
 | File | Load when |
 |------|-----------|
-| [`references/document-scripts.md`](references/document-scripts.md) | Interactive UI, games, animation, `exec`, script API/helpers |
+| [`references/document-scripts.md`](references/document-scripts.md) | Interactive surfaces, keyboard scope, animation, `exec`, script API/helpers |
 | [`references/documents.md`](references/documents.md) | Multi-board files, `docs` / `doc-*` |
 | [`references/command-reference.md`](references/command-reference.md) | Full flag tables, lint semantics, full error list |
 

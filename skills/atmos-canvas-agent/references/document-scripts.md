@@ -1,9 +1,11 @@
 # Document scripts & exec (on-demand)
 
-Load this file only when the user wants **durable interaction**, games, animation,
-run-on-open behavior, or one-shot **exec** — not for ordinary diagrams.
+Load this file only when the user wants **durable interaction** on the canvas
+(clickable UI, keyboard-driven boards, animation, run-on-open behavior) or
+one-shot **exec** — not for ordinary static diagrams.
 
-Durable interaction lives on the open document’s `script` field (`main.js` and optional siblings). One-shot probes use `exec`.
+Durable interaction lives on the open document’s `script` field (`main.js` and
+optional siblings). One-shot probes use `exec`.
 
 | Concern | How |
 |---------|-----|
@@ -19,7 +21,7 @@ Durable interaction lives on the open document’s `script` field (`main.js` and
 
 | Need | Command | Survives reopen? |
 |------|---------|------------------|
-| Click / keyboard / game loop / “works after reopen” | `script-put` | Yes (after Save) |
+| Click / keyboard / loop / “works after reopen” | `script-put` | Yes (after Save) |
 | One probe or one-off mutation | `exec` | No (listeners die) |
 | Static boxes and arrows | structured `create-*` only | Shapes after Save |
 
@@ -59,12 +61,13 @@ atmos canvas script-get
 export default function ({ editor, helpers, signal }) {
   // mount
   signal.addEventListener('abort', () => {
-    // clear intervals, editor.off(...), scope.release()
+    // clear intervals, editor.off(...), release input scope if any
   })
 }
 ```
 
-Async default export is allowed. On `script-put` or document switch the host **aborts** the previous run — always honor `signal`.
+Async default export is allowed. On `script-put` or document switch the host
+**aborts** the previous run — always honor `signal`.
 
 ### `helpers`
 
@@ -77,157 +80,199 @@ Async default export is allowed. On `script-put` or document switch the host **a
 | `onShapeTranslate(id, ({dx,dy}) => …, { signal })` | Follow user-dragged anchor |
 | `createArrowBetweenShapes(fromId, toId, opts?)` | Bound arrow |
 | `getLints()` | `{ lints }` |
-| `richTextToPlainText(rt)` | Button label hit-tests |
-| `isAtmosChromeShape(shape)` | Skip terminal/widget |
-| **`claimInputScope(opts)`** | **Only allowed keyboard API for games** |
+| `richTextToPlainText(rt)` | Label hit-tests |
+| `isAtmosChromeShape(shape)` | Skip product chrome (terminal / widget) |
+| **`claimInputScope(opts)`** | **Platform keyboard ownership for a surface** |
 | `hasActiveInputScope()` | Whether keyboard is currently claimed |
+
+Prefer helpers + `editor.*`. Do not assume `import('tldraw')` works inside the
+script host.
 
 ---
 
-## Games / keyboard boards — **mandatory layout**
+## Interactive systems — general rules
 
-Interactive games (snake, tetris, d-pad, arrow keys, Space to start) are **not** free-floating geoms on the page.
+Treat any durable scripted UI as an **interactive system**: a bounded region of
+shapes plus optional input and timers. Applies to dashboards, controls, demos,
+simulations, tools, and similar — not only entertainment.
 
-### Must
+### 1. Own a surface (frame)
 
-1. **Create one tldraw `frame` as the play surface** (stable id, e.g. `shape:snake-surface`).
-2. **Put all interactive furniture inside that frame** (`parentId: surfaceId` on board, HUD, Start button, segments, food, walls).
-3. **Call `helpers.claimInputScope` on mount** with `surfaceId` = that frame id (and lock furniture ids).
-4. **Handle keys only in `claimInputScope({ onKeyDown })`** — never invent a second global key system.
-5. Place the frame in **agent-view** space, **away from canvas-terminals** (do not cover the terminal that is running the Agent).
+**Rule:** Scripted interactive content lives inside a **tldraw `frame`** (stable
+id). Child shapes use `parentId: surfaceId`.
 
-### Must not
+| Why | Effect |
+|-----|--------|
+| Bounds | Click-outside and hit-tests have a clear region |
+| Grouping | Move / lock / lint / screenshots treat the system as one unit |
+| Input scope | `claimInputScope({ surfaceId })` needs a surface to attach to |
+| Separation | System is not mixed with free page clutter or product chrome |
 
-| Anti-pattern | Why it fails |
-|--------------|--------------|
-| Loose geoms only, “no frames / page-space only” | No surface boundary; scope cannot isolate; user thinks keys are “for the terminal” |
-| `window.addEventListener('keydown', …)` without `claimInputScope` | Fights SelectTool nudge **and** steals keys from Agent chat / xterm |
-| `focusCanvas()` / `container.focus()` / `tabindex` hacks | Does not own keyboard vs terminal; re-focuses wrong surface |
-| Binding keys to `canvas-terminal` or assuming terminal has focus | Terminal is chrome (`isAtmosChromeShape`); games must not own it |
-| Claiming keys only after Start click and never on mount | Pre-start arrows still nudge shapes |
-| Deleting `canvas-terminal` / `canvas-widget` | Chrome shapes are product UI |
+**Do not** leave interactive furniture as free-floating page shapes when the
+system is meant to be one product (controls + content + labels that belong
+together).
 
-### Why a frame
+Stable ids via `helpers.createShapeId('…')` + `createShapeIfMissing` so reruns
+do not duplicate furniture.
 
-- **Surface bounds** for `claimInputScope({ surfaceId })` (click outside → release keys).
-- **Parenting** groups the game so move/lock/lint treat it as one unit.
-- **Clear ownership**: keys are for the frame’s game, not the terminal where the Agent runs.
+Place the surface in **agent-view** page space. Keep it **off** existing
+`canvas-terminal` / `canvas-widget` chrome (especially the terminal running the
+Agent).
 
-### Canonical game skeleton
+### 2. Own input correctly
+
+| Input kind | Rule |
+|------------|------|
+| **Pointer only** (buttons, toggles, hit-tests) | `editor.on('event', …)` + page-space hit-test is enough |
+| **Keyboard** (arrows, WASD, Space, hotkeys, shortcuts) | **Must** use `helpers.claimInputScope` — no bare `window` / container listeners |
+| **Both** | Frame surface + `claimInputScope` for keys + pointer handlers for clicks |
+
+#### Keyboard ownership (`claimInputScope`)
+
+Bare `window.addEventListener('keydown')` is **too late** for tldraw: SelectTool
+already nudges selection. It also **steals** keys from Agent chat and terminals.
+
+**Platform API only** for script keyboard:
+
+```js
+const scope = helpers.claimInputScope({
+  surfaceId,                    // frame id (required for outside-click release)
+  lockShapeIds: [/* furniture */],
+  signal,
+  captureKeys: [/* optional; defaults cover arrows/WASD/Space/Enter/Escape */],
+  onKeyDown(e) { /* handle e.code / e.key */ },
+  onKeyUp(e) { /* optional */ },
+})
+// claim when the system should own keys (often on mount, or when user activates it)
+// scope.release() on deactivate / signal abort
+```
+
+Platform behavior:
+
+- Capture-phase handling, `markEventAsHandled`, blocks editor nudge tools  
+- **Does not** steal keys while focus is in xterm, Agent chat, or form fields  
+- Escape / click outside surface can release (configurable)  
+- One active scope per editor  
+
+**Forbidden** for keyboard:
+
+- `window` / `document` / editor-container keydown **without** `claimInputScope`  
+- `focus()` / `tabindex` / “steal focus from terminal” hacks  
+- Treating `canvas-terminal` or Agent chat as the script’s input target  
+- Leaving a permanent global keydown after the system should be idle  
+
+### 3. Respect product chrome
+
+- **Never** delete or repurpose `canvas-terminal` / `canvas-widget`.  
+- Use `helpers.isAtmosChromeShape(shape)` to skip chrome in hit-tests and layout.  
+- Scripts run on the **document canvas**, not inside the Agent’s terminal process.
+  Terminal keystrokes are for the shell/agent; canvas input scope is for the surface.
+
+### 4. Lifecycle
+
+- Honor `signal` abort: clear timers, `editor.off`, `scope.release()`.  
+- Script-owned motion / per-frame updates: `editor.run(fn, { history: 'ignore' })`
+  or `helpers.translateShapes`.  
+- Prefer mount-time setup + event/tick loops over rewriting all shapes every save.
+
+### 5. Capability matrix (quick)
+
+| System needs | Layout | Input |
+|--------------|--------|--------|
+| Static diagram | No script | CLI `create-*` only |
+| Click controls only | Prefer frame + children | `editor.on('event')` |
+| Keyboard shortcuts / continuous control | **Frame required** | **`claimInputScope` required** |
+| Animation / simulation | Frame or anchored furniture | tick / interval + `history: 'ignore'` |
+| Follow user-dragged piece | Stable anchor id | `onShapeTranslate` |
+
+---
+
+## Skeleton (generic interactive surface)
 
 ```js
 export default function ({ editor, helpers, signal }) {
-  const surfaceId = helpers.createShapeId('game-surface')
-  const boardId = helpers.createShapeId('game-board')
-  const startId = helpers.createShapeId('game-start')
-  // … more stable ids
+  const surfaceId = helpers.createShapeId('ui-surface')
+  const panelId = helpers.createShapeId('ui-panel')
+  const actionId = helpers.createShapeId('ui-action')
 
-  // 1) Frame first
   helpers.createShapeIfMissing({
     id: surfaceId,
     type: 'frame',
     x: 80,
     y: 80,
-    props: { w: 520, h: 420, name: 'Snake' },
+    props: { w: 480, h: 360, name: 'Interactive' },
   })
 
-  // 2) All interactive shapes parented under the frame (local coords inside frame)
   helpers.createShapesIfMissing([
     {
-      id: boardId,
+      id: panelId,
       type: 'geo',
       parentId: surfaceId,
       x: 16,
       y: 40,
       props: {
         geo: 'rectangle',
-        w: 480,
-        h: 320,
+        w: 440,
+        h: 240,
         color: 'grey',
-        fill: 'solid',
+        fill: 'semi',
         richText: helpers.toRichText(''),
       },
     },
     {
-      id: startId,
+      id: actionId,
       type: 'geo',
       parentId: surfaceId,
       x: 16,
-      y: 370,
+      y: 300,
       props: {
         geo: 'rectangle',
-        w: 120,
-        h: 36,
-        color: 'green',
+        w: 140,
+        h: 40,
+        color: 'light-blue',
         fill: 'solid',
-        richText: helpers.toRichText('▶ Start'),
+        richText: helpers.toRichText('Action'),
       },
     },
   ])
 
   let scope = null
-  function claimKeys() {
+
+  function activateInput() {
+    // Only if this system uses keyboard. Click-only UIs can skip claimInputScope.
     scope?.release?.()
     scope = helpers.claimInputScope({
       surfaceId,
-      lockShapeIds: [surfaceId, boardId, startId /* + HUD labels */],
+      lockShapeIds: [surfaceId, panelId, actionId],
       signal,
-      // keep keys while playing; Escape still releases by default
-      releaseOnOutsidePointer: true,
       onKeyDown(e) {
-        // ONLY place that reads Arrow*/WASD/Space for the game
-        if (e.code === 'ArrowUp' || e.code === 'KeyW') { /* turn */ }
-        // …
+        // handle shortcuts for this surface only
       },
     })
   }
 
-  claimKeys() // on mount — do not wait for Start
+  function onPointer(info) {
+    if (info?.name !== 'pointer_down') return
+    const point = editor.inputs?.currentPagePoint
+    if (!point) return
+    // hit-test children; on primary action, activateInput() if keyboard is needed
+  }
 
-  // pointer: Start button hit-test in page space; then start game loop
-  // segments/food: create with parentId: surfaceId, history: 'ignore'
-
+  activateInput() // or only after user engages the surface
+  editor.on('event', onPointer)
   signal.addEventListener('abort', () => {
     scope?.release?.()
-    // clear intervals, editor.off(...)
+    editor.off('event', onPointer)
   })
 }
 ```
 
-Optional CLI bootstrap before `script-put`:
-
-```bash
-# Draw the frame shell in the agent view (script will createShapeIfMissing the same stable ids)
-atmos canvas create-frame --w 520 --h 420 --title Snake --x 80 --y 80
-atmos canvas set-agent-view --x 40 --y 40 --w 640 --h 520
-```
-
-Prefer **stable ids in the script** via `helpers.createShapeId('…')` so reruns do not duplicate furniture.
-
-### Input scope behavior (platform)
-
-| Scope behavior | Effect |
-|----------------|--------|
-| Claim | Clears selection, **hand** tool, locks listed shapes, **window capture-phase** keydown |
-| Capture keys (default) | Arrows, WASD, Space, Enter, Escape |
-| Blocks editor tools | `preventDefault` + stopPropagation + `markEventAsHandled` + dispatch guard |
-| Skips terminal / inputs | Does **not** steal keys while focus is in xterm, Agent chat, or form fields |
-| Escape / click outside frame | Releases scope |
-| Only one active scope | New claim releases the previous |
-
-**Do not** listen only on `window` without `claimInputScope`.  
-**Do not** reimplement focus stealing.
-
-Prefer helpers + `editor.*`. Do not assume `import('tldraw')` works inside the script host.
-
-**Do not** delete `canvas-terminal` / `canvas-widget` shapes from scripts.
+Optional CLI: `atmos canvas create-frame --w … --h … --title … --x … --y …` then
+script uses the same stable ids via `createShapeIfMissing`.
 
 ---
 
-## Minimal toggle example (non-game click UI)
-
-Click-only boards (no arrows) may use loose geoms + `editor.on('event')`.  
-**If the board needs keyboard, upgrade to the frame + `claimInputScope` pattern above.**
+## Minimal pointer-only example
 
 ```bash
 atmos canvas apply --commands '[
@@ -272,15 +317,19 @@ EOF
 
 atmos canvas script-put --file /tmp/canvas-toggle.js
 atmos canvas script-status
-# Tell user to Save the Canvas document so script persists in .atmos.tldr
+# Tell user to Save so script persists in .atmos.tldr
 ```
+
+If this UI later needs keyboard, **add a frame surface and `claimInputScope`** —
+do not bolt on a global keydown.
 
 ---
 
 ## Persistence reminder
 
 `script-put` updates the **open editor session** and runs the host immediately.  
-The `.atmos.tldr` on disk updates when the user **Saves** (or you rewrite via `doc-put` with a full envelope including `script`).
+The `.atmos.tldr` on disk updates when the user **Saves** (or you rewrite via
+`doc-put` with a full envelope including `script`).
 
 ---
 
