@@ -1,5 +1,5 @@
 /**
- * Document script host — tldraw-offline style durable scripts.
+ * Document script host — durable per-document scripts.
  *
  * ```js
  * export default function ({ editor, helpers, signal }) {
@@ -8,7 +8,7 @@
  * ```
  *
  * Multi-file: list sources under `files`. Relative imports from the entry
- * module are rewritten to blob URLs of sibling files. Prefer a single
+ * module are rewritten to blob/data URLs of sibling files. Prefer a single
  * `main.js` for simple boards.
  */
 import type { Editor } from "tldraw";
@@ -128,33 +128,42 @@ export class DocumentScriptHost {
     const helpers = createDocumentScriptHelpers(editor);
 
     try {
-      // data: URLs so every file has a stable absolute import target before rewrite.
-      const pathToDataUrl = new Map<string, string>();
+      // Multipass rewrite so nested relative imports resolve to rewritten modules,
+      // not raw sources (A → B → C).
+      let pathToUrl = new Map<string, string>();
       for (const [path, code] of Object.entries(bundle.files)) {
         const dataUrl =
           "data:text/javascript;charset=utf-8," + encodeURIComponent(code);
-        pathToDataUrl.set(path, dataUrl);
-        pathToDataUrl.set(path.replace(/^\.\//, ""), dataUrl);
+        pathToUrl.set(path, dataUrl);
+        pathToUrl.set(path.replace(/^\.\//, ""), dataUrl);
       }
 
-      // Rewrite all modules so relative imports resolve, then re-encode entry.
-      const rewrittenEntry = rewriteRelativeImports(source, entry, pathToDataUrl);
-      // Also rewrite non-entry modules into blob URLs for cleaner stack traces.
+      for (let pass = 0; pass < 4; pass++) {
+        const next = new Map<string, string>();
+        for (const [path, code] of Object.entries(bundle.files)) {
+          const rewritten = rewriteRelativeImports(code, path, pathToUrl);
+          const dataUrl =
+            "data:text/javascript;charset=utf-8," + encodeURIComponent(rewritten);
+          next.set(path, dataUrl);
+          next.set(path.replace(/^\.\//, ""), dataUrl);
+        }
+        pathToUrl = next;
+      }
+
+      // Prefer blob URLs for stack traces; rewrite once more against final map.
       for (const [path, code] of Object.entries(bundle.files)) {
-        if (path === entry) continue;
-        const rewritten = rewriteRelativeImports(code, path, pathToDataUrl);
+        const rewritten = rewriteRelativeImports(code, path, pathToUrl);
         const url = URL.createObjectURL(
           new Blob([rewritten], { type: "text/javascript" }),
         );
         this.blobUrls.push(url);
-        pathToDataUrl.set(path, url);
-        pathToDataUrl.set(path.replace(/^\.\//, ""), url);
+        pathToUrl.set(path, url);
+        pathToUrl.set(path.replace(/^\.\//, ""), url);
       }
-      const entryFinal = rewriteRelativeImports(source, entry, pathToDataUrl);
+
+      const entryFinal = rewriteRelativeImports(source, entry, pathToUrl);
       const entryUrl = URL.createObjectURL(
-        new Blob([entryFinal.length ? entryFinal : rewrittenEntry], {
-          type: "text/javascript",
-        }),
+        new Blob([entryFinal], { type: "text/javascript" }),
       );
       this.blobUrls.push(entryUrl);
 
@@ -175,7 +184,19 @@ export class DocumentScriptHost {
         );
       }
 
-      await run({ editor, helpers, signal });
+      // Do not await a long-lived async default export — scripts mount listeners
+      // and stay alive until signal abort. Surface late rejections as errors.
+      void Promise.resolve(run({ editor, helpers, signal })).catch((err) => {
+        if (signal.aborted) return;
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[document-script]", err);
+        this.setStatus({
+          state: "error",
+          entry,
+          error: message,
+          startedAt: this.status.startedAt,
+        });
+      });
     } catch (err) {
       if (signal.aborted) return;
       const message = err instanceof Error ? err.message : String(err);
@@ -190,21 +211,43 @@ export class DocumentScriptHost {
   }
 }
 
-function rewriteRelativeImports(
+/**
+ * Rewrite relative module specifiers to absolute data/blob URLs.
+ * Covers: `from "…"`, `import("…")`, side-effect `import "…"`,
+ * and `export … from "…"`.
+ */
+export function rewriteRelativeImports(
   code: string,
   fromPath: string,
   pathToUrl: Map<string, string>,
 ): string {
-  return code.replace(
-    /(\bfrom\s+|import\s*\(\s*)(['"])(\.[^'"]+)\2/g,
-    (full, prefix: string, quote: string, rel: string) => {
-      const resolved = resolveRelative(fromPath, rel);
-      const url =
-        pathToUrl.get(resolved) ?? pathToUrl.get(resolved.replace(/^\.\//, ""));
-      if (!url) return full;
-      return `${prefix}${quote}${url}${quote}`;
-    },
+  const replaceSpec = (quote: string, rel: string, prefix: string, suffix = "") => {
+    const resolved = resolveRelative(fromPath, rel);
+    const url =
+      pathToUrl.get(resolved) ?? pathToUrl.get(resolved.replace(/^\.\//, ""));
+    if (!url) return `${prefix}${quote}${rel}${quote}${suffix}`;
+    return `${prefix}${quote}${url}${quote}${suffix}`;
+  };
+
+  // export … from './x'  /  from './x'
+  let out = code.replace(
+    /(\bfrom\s+)(['"])(\.[^'"]+)\2/g,
+    (_full, prefix: string, quote: string, rel: string) =>
+      replaceSpec(quote, rel, prefix),
   );
+  // import('./x')
+  out = out.replace(
+    /(\bimport\s*\(\s*)(['"])(\.[^'"]+)\2(\s*\))/g,
+    (_full, prefix: string, quote: string, rel: string, suffix: string) =>
+      replaceSpec(quote, rel, prefix, suffix),
+  );
+  // side-effect: import './x'
+  out = out.replace(
+    /(\bimport\s+)(['"])(\.[^'"]+)\2/g,
+    (_full, prefix: string, quote: string, rel: string) =>
+      replaceSpec(quote, rel, prefix),
+  );
+  return out;
 }
 
 function resolveRelative(fromPath: string, rel: string): string {
@@ -225,7 +268,7 @@ export function getDocumentScriptHost(): DocumentScriptHost {
   return sharedHost;
 }
 
-/** One-shot exec (offline /exec equivalent) against the live editor. */
+/** One-shot exec against the live editor. */
 export async function runDocumentScriptExec(
   editor: Editor,
   code: string,
@@ -234,7 +277,7 @@ export async function runDocumentScriptExec(
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
     ...args: string[]
   ) => (...args: unknown[]) => Promise<unknown>;
-  // code is wrapped like offline: top-level await ok
+  // code is wrapped so top-level await works
   const fn = new AsyncFunction("editor", "helpers", code);
   return fn(editor, helpers);
 }

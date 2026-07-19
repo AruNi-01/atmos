@@ -3,19 +3,15 @@
 Load this file only when the user wants **durable interaction**, games, animation,
 run-on-open behavior, or one-shot **exec** — not for ordinary diagrams.
 
-Atmos equivalent of tldraw offline **script-workspace** + **`/exec`**.
+Durable interaction lives on the open document’s `script` field (`main.js` and optional siblings). One-shot probes use `exec`.
 
----
-
-## Offline ↔ Atmos map
-
-| tldraw offline | Atmos |
-|----------------|--------|
-| `script/main.js` + watcher | `atmos canvas script-put` → open document `script` field |
-| `script-status` | `atmos canvas script-status` |
-| `/api/doc/:id/exec` | `atmos canvas exec --code` / `--file` |
-| Durable after reopen | Yes, **after user Save** (or `doc-put` of full file) |
-| `config.js` ShapeUtil | **Not shipped** — approximate with shapes + `main.js` |
+| Concern | How |
+|---------|-----|
+| Durable `main.js` | `atmos canvas script-put` → open document `script` field |
+| Status | `atmos canvas script-status` |
+| One-shot JS | `atmos canvas exec --code` / `--file` |
+| Survives reopen | Yes, **after user Save** (or `doc-put` of full file) |
+| Custom ShapeUtil / `config.js` | **Not shipped** — approximate with shapes + `main.js` |
 
 ---
 
@@ -90,19 +86,33 @@ Async default export is allowed. On `script-put` or document switch the host **a
 
 **Problem without scope:** Space/arrows go to tldraw (nudge selection, tools). Clicking Start selects the button; arrow keys then move the button, not the snake.
 
-**Pattern:** put the board in a **frame** (`surfaceId`), lock furniture, claim keys on Start / board click:
+**Why a bare `window` keydown is not enough:** SelectTool nudges only after the
+editor **container** hears `keydown` (`useDocumentEvents`) and
+`editor.dispatch({ type: 'keyboard', name: 'key_down' })`. A bubble-phase
+listener with only `preventDefault` runs **after** that path — the game and
+the nudge both fire. Capture on `window` + `stopPropagation` for game keys
+stops the event before the container.
+
+**Fix:** use `helpers.claimInputScope` (platform helper). It installs capture-phase
+handlers, calls `editor.markEventAsHandled(e)`, clears selection, switches to
+hand tool, and can lock furniture shapes.
+
+**Pattern:** claim keys for the interactive surface (prefer on script mount for
+game boards so idle arrows also don't nudge furniture), lock furniture, handle
+keys in `onKeyDown`:
 
 ```js
 export default function ({ editor, helpers, signal }) {
   let scope = null
   const boardId = /* shape:snake-board frame id */
 
-  function startGame() {
+  function claimKeys() {
     scope?.release()
     scope = helpers.claimInputScope({
       surfaceId: boardId,
       lockShapeIds: [boardId, /* start button, walls, labels… */],
       signal,
+      // optional: releaseOnOutsidePointer: false for always-on game keys
       onKeyDown(e) {
         if (e.code === 'ArrowUp' || e.code === 'KeyW') { /* turn up */ }
         // …
@@ -110,77 +120,27 @@ export default function ({ editor, helpers, signal }) {
     })
   }
 
-  // Click Start label → startGame()
-  // Escape or click outside the frame → scope releases; tldraw tools work again
+  claimKeys() // claim on mount, not only after Start
+  // Click Start label → startGame() still works; keys already isolated
+  // Escape (default) releases scope so normal canvas tools work again
   signal.addEventListener('abort', () => scope?.release())
 }
 ```
 
 | Scope behavior | Effect |
 |----------------|--------|
-| Claim | Clears selection, switches to **hand** tool, locks listed shapes, capture-phase keydown |
+| Claim | Clears selection, switches to **hand** tool, locks listed shapes, **window capture-phase** keydown |
 | Capture keys (default) | Arrows, WASD, Space, Enter, Escape |
-| Escape / click outside frame | Release scope — no global permanent hijack |
+| Blocks editor tools | `preventDefault` + `stopPropagation` + `stopImmediatePropagation` + `editor.markEventAsHandled` + drops leaked `key_down` via `dispatch` guard |
+| Escape / click outside frame | Release scope — no global permanent hijack (disable with `releaseOnOutsidePointer: false`) |
 | Only one active scope | New claim releases the previous (multiple frames don't fight) |
 
-**Do not** listen only on `window` without `claimInputScope` — you will fight tldraw selection.
-**Do not** leave a permanent global keydown — use scope + `signal` abort.
+**Do not** listen only on `window` without capture / without `claimInputScope` — you will fight selection nudge.
+**Do not** leave a permanent bare global keydown — use scope + `signal` abort.
 
 Prefer helpers + `editor.*`. Do not assume `import('tldraw')` works inside the script host.
 
 **Do not** delete `canvas-terminal` / `canvas-widget` shapes from scripts.
-
----
-
-## CLI
-
-| Verb | Args | Notes |
-|------|------|-------|
-| `script-get` | — | Script + status |
-| `script-status` | — | `idle` \| `running` \| `error` \| `stopped` |
-| `script-put` | `--file main.js` or `--code '…'` `[--entry main.js]` | Install + run now |
-| `script-clear` | — | Remove script + stop |
-| `exec` | `--code` or `--file` | One-shot; `editor` + `helpers` in scope |
-
-```bash
-atmos canvas script-put --file /tmp/canvas-main.js
-atmos canvas script-status
-# expect state: "running" (or read error)
-
-atmos canvas exec --code 'return editor.getCurrentPageShapes().length'
-```
-
-Multi-file: current CLI uploads one entry file. Prefer a **single `main.js`** unless you build a full `files` map via lower-level invoke JSON.
-
----
-
-## Patterns (offline recipes)
-
-### Clickable button UI
-
-1. Furniture geo with stable text labels (`create-geo` or `createShapeIfMissing`).  
-2. `editor.on('event', …)` on `pointer_down`.  
-3. Hit-test `editor.inputs.currentPagePoint` vs shape bounds.  
-4. Keep state in props/meta so `get-state` can verify.  
-5. Cleanup on `signal` abort.
-
-### Animation / simulation
-
-1. Physics state in **script locals**.  
-2. Render with `helpers.translateShapes` or `editor.run(fn, { history: 'ignore' })`.  
-3. `editor.on('tick')` or `setInterval` — clear on abort.  
-4. Do not store every substep only in shape props if it fights undo/perf.
-
-### Editable furniture + anchored pieces
-
-1. `createShapeIfMissing` for user-movable board.  
-2. `onShapeTranslate(boardId, ({ dx, dy }) => helpers.translateShapes(pieces, dx, dy), { signal })`.  
-3. Never delete+recreate furniture on every rerun.
-
-### Connection-dependent logic
-
-Use real arrow bindings (`createArrowBetweenShapes` or CLI `--from-id/--to-id`).  
-Do not treat “near” as connected.
 
 ---
 

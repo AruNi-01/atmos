@@ -43,7 +43,7 @@ pub struct AtmosCanvasFile {
     pub tldraw_document: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<Value>,
-    /// Durable document script (tldraw-offline style). Runs when the doc opens.
+    /// Durable document script. Runs when the doc opens.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub script: Option<AtmosCanvasScript>,
 }
@@ -187,13 +187,23 @@ impl CanvasDocumentService {
     }
 
     /// Create a new empty Untitled document on disk and return its list item.
+    /// Retries name allocation if a concurrent create claims the same path.
     pub fn create_untitled_document(&self) -> Result<CanvasDocumentListItem> {
-        let file_name = self.next_untitled_file_name()?;
-        let stem = file_name
-            .strip_suffix(CANVAS_FILE_EXTENSION)
-            .unwrap_or(&file_name)
-            .to_string();
-        self.write_document(&file_name, &Self::empty_document(&stem), false)
+        for _ in 0..32 {
+            let file_name = self.next_untitled_file_name()?;
+            let stem = file_name
+                .strip_suffix(CANVAS_FILE_EXTENSION)
+                .unwrap_or(&file_name)
+                .to_string();
+            match self.write_document(&file_name, &Self::empty_document(&stem), false) {
+                Ok(item) => return Ok(item),
+                Err(ServiceError::Validation(msg)) if msg.contains("already exists") => continue,
+                Err(e) => return Err(e),
+            }
+        }
+        Err(ServiceError::Processing(
+            "Could not allocate an Untitled document name".into(),
+        ))
     }
 
     /// Write a canvas document. When `overwrite` is false and the file already
@@ -217,12 +227,24 @@ impl CanvasDocumentService {
         let json = serde_json::to_string_pretty(body).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize canvas document: {e}"))
         })?;
-        let tmp = path.with_extension("atmos.tldr.tmp");
+        // Unique temp path avoids concurrent saves clobbering each other's temp file.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let tmp = path.with_extension(format!(
+            "atmos.tldr.tmp.{}.{}",
+            std::process::id(),
+            nanos
+        ));
         fs::write(&tmp, json.as_bytes()).map_err(|e| {
             ServiceError::Processing(format!("Failed to write canvas document temp file: {e}"))
         })?;
         fs::rename(&tmp, &path).map_err(|e| {
-            ServiceError::Processing(format!("Failed to finalize canvas document `{file_name}`: {e}"))
+            let _ = fs::remove_file(&tmp);
+            ServiceError::Processing(format!(
+                "Failed to finalize canvas document `{file_name}`: {e}"
+            ))
         })?;
         list_item_for_path(file_name, &path)
     }
@@ -424,8 +446,18 @@ fn sanitize_stem(name: &str) -> Result<String> {
         ));
     }
     if stem.len() > MAX_STEM_LEN {
-        stem.truncate(MAX_STEM_LEN);
+        // `String::truncate` panics mid-UTF-8; cut on a char boundary.
+        let mut end = MAX_STEM_LEN.min(stem.len());
+        while end > 0 && !stem.is_char_boundary(end) {
+            end -= 1;
+        }
+        stem.truncate(end);
         stem = stem.trim().to_string();
+        if stem.is_empty() {
+            return Err(ServiceError::Validation(
+                "Canvas document name is invalid after sanitization".into(),
+            ));
+        }
     }
     Ok(stem)
 }
@@ -544,6 +576,17 @@ mod tests {
         assert_eq!(name, "Ops Desk.atmos.tldr");
         let slashy = CanvasDocumentService::sanitize_file_name("a/b").unwrap();
         assert_eq!(slashy, "a-b.atmos.tldr");
+    }
+
+    #[test]
+    fn sanitize_truncates_on_char_boundary() {
+        // Multibyte chars near MAX_STEM_LEN must not panic.
+        let long = "名".repeat(200);
+        let name = CanvasDocumentService::sanitize_file_name(&long).unwrap();
+        assert!(name.ends_with(CANVAS_FILE_EXTENSION));
+        let stem = name.strip_suffix(CANVAS_FILE_EXTENSION).unwrap();
+        assert!(stem.len() <= MAX_STEM_LEN);
+        assert!(!stem.is_empty());
     }
 
     #[test]

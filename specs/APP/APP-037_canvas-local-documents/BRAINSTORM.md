@@ -6,7 +6,7 @@
 
 Canvas today (APP-014) persists a single logical board as `canvas_board.document_json` in SQLite: a `canvas.v1` wrapper around a tldraw snapshot. Users cannot name boards, keep multiple boards, or browse local canvas files. That model blocks a file-first workflow (multiple named boards under a known directory, open/switch like documents) and diverges from how people already think about tldraw-style files.
 
-Atmos is local-first (Desktop + local Atmos Server). Product direction: **documents on disk are the source of truth**; no dual-write to DB JSON; no “filesystem-less” product path. Related longer-term ideas (document scripts like tldraw offline, richer agent exec) depend on a clean document identity first — this spec owns that foundation.
+Atmos is local-first (Desktop + local Atmos Server). Product direction: **documents on disk are the source of truth**; no dual-write to DB JSON; no “filesystem-less” product path. Related longer-term ideas (document scripts, richer agent exec) depend on a clean document identity first — this spec owns that foundation.
 
 ## Goals (draft)
 
@@ -73,7 +73,7 @@ Files + full JSON copy in DB.
 
 - Existing code: `crates/core-service/src/service/canvas.rs`, `crates/infra/.../canvas_board*`, `apps/web/src/features/canvas/hooks/use-canvas-board.ts`, `apps/web/src/features/canvas/components/CanvasView.tsx`, `CanvasToolbarChrome.tsx`
 - Related specs: `../APP-014_canvas/`, `../APP-015_canvas-terminal-agent-integration/`, `../APP-027_canvas-workspace-surfaces/`
-- External: tldraw document / multi-page model; tldraw offline file-backed documents (inspiration only)
+- External: tldraw document / multi-page model; file-backed canvas documents
 
 ## Ready to promote
 

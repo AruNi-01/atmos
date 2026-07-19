@@ -1,9 +1,15 @@
 /**
- * Helpers bag exposed to document scripts (aligned with tldraw offline recipes).
+ * Helpers bag exposed to document scripts.
  *
  * Input scoping: games/interactive boards should call `claimInputScope` so
  * arrow keys / space are not stolen by tldraw selection nudging, and only the
  * focused surface receives keyboard while active.
+ *
+ * Why bare window keydown fails: SelectTool nudges on Arrow* only after the
+ * editor container's keydown handler (useDocumentEvents) dispatches key_down.
+ * Capture-phase listeners on window + stopPropagation run first, so the
+ * container never sees game keys. Bubble-only listeners + preventDefault alone
+ * are too late — both the game and the nudge run.
  */
 import {
   createShapeId,
@@ -105,13 +111,16 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
     if (typeof richText === "string") return richText;
     try {
       const root = richText as { content?: Array<{ content?: Array<{ text?: string }> }> };
-      const parts: string[] = [];
+      const blocks: string[] = [];
       for (const block of root.content ?? []) {
+        const parts: string[] = [];
         for (const span of block.content ?? []) {
           if (span.text) parts.push(span.text);
         }
+        const line = parts.join("");
+        if (line.length) blocks.push(line);
       }
-      return parts.join("");
+      return blocks.join("\n");
     } catch {
       return "";
     }
@@ -120,6 +129,35 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
   const isAtmosChromeShape = (shape: TLShape | null | undefined) => {
     if (!shape) return false;
     return shape.type === "canvas-terminal" || shape.type === "canvas-widget";
+  };
+
+  const shouldIgnoreKeyboardTarget = (target: EventTarget | null) => {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    return Boolean(
+      el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.isContentEditable ||
+        el.closest?.("[data-canvas-terminal], .xterm"),
+    );
+  };
+
+  const restoreShapeLocks = (prior: Map<TLShapeId, boolean>) => {
+    editor.run(
+      () => {
+        for (const [id, locked] of prior) {
+          const shape = editor.getShape(id);
+          if (!shape || isAtmosChromeShape(shape)) continue;
+          if (Boolean(shape.isLocked) === locked) continue;
+          editor.updateShape({
+            id,
+            type: shape.type,
+            isLocked: locked,
+          });
+        }
+      },
+      { history: "ignore" },
+    );
   };
 
   const setShapesLocked = (ids: TLShapeId[], locked: boolean) => {
@@ -146,9 +184,9 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
     if (!box) return false;
     return (
       pagePoint.x >= box.minX &&
-      pagePoint.x <= box.minX + box.w &&
+      pagePoint.x <= box.minX + box.width &&
       pagePoint.y >= box.minY &&
-      pagePoint.y <= box.minY + box.h
+      pagePoint.y <= box.minY + box.height
     );
   };
 
@@ -241,10 +279,10 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
       if (!fromBox || !toBox) {
         throw new Error("createArrowBetweenShapes: missing shape bounds");
       }
-      const x1 = fromBox.minX + fromBox.w / 2;
-      const y1 = fromBox.minY + fromBox.h / 2;
-      const x2 = toBox.minX + toBox.w / 2;
-      const y2 = toBox.minY + toBox.h / 2;
+      const x1 = fromBox.minX + fromBox.width / 2;
+      const y1 = fromBox.minY + fromBox.height / 2;
+      const x2 = toBox.minX + toBox.width / 2;
+      const y2 = toBox.minY + toBox.height / 2;
       return createArrowShapeWithBindings(editor, {
         x1,
         y1,
@@ -278,6 +316,44 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
 
       let active = true;
       const previousTool = editor.getCurrentToolId();
+      // Remember lock state so release does not unlock user-protected shapes.
+      const priorLocks = new Map<TLShapeId, boolean>();
+      for (const id of lockIds) {
+        const shape = editor.getShape(id);
+        if (shape) priorLocks.set(id, Boolean(shape.isLocked));
+      }
+      // SelectTool nudges selected shapes on Arrow* via editor.dispatch(key_down).
+      // Window capture + stopPropagation runs before the editor container sees the
+      // event (useDocumentEvents listens on container, not window). markEventAsHandled
+      // and a dispatch guard cover any remaining leaks.
+      const originalDispatch = editor.dispatch.bind(editor);
+
+      const isCapturedKey = (e: { code?: string; key?: string }) =>
+        Boolean(
+          (e.code && captureKeys.has(e.code)) ||
+            (e.key && captureKeys.has(e.key)),
+        );
+
+      /** Block keys from reaching SelectTool nudge / other editor keyboard tools. */
+      const suppressEditorKeyEvent = (e: KeyboardEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        try {
+          // Official tldraw API: skip useDocumentEvents → editor.dispatch(key_down).
+          editor.markEventAsHandled(e);
+        } catch {
+          // ignore
+        }
+        // Belt-and-suspenders: empty selection so even a leaked key_down cannot nudge.
+        try {
+          if (editor.getSelectedShapeIds().length > 0) {
+            editor.setSelectedShapes([]);
+          }
+        } catch {
+          // ignore
+        }
+      };
 
       // Enter "play mode": no selection, hand tool so arrows aren't select-nudge.
       editor.setSelectedShapes([]);
@@ -290,41 +366,53 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
         setShapesLocked(lockIds, true);
       }
 
+      // Drop key_down / key_repeat that still reach the editor (e.g. synthetic dispatch).
+      editor.dispatch = ((info: unknown, ...rest: unknown[]) => {
+        if (
+          active &&
+          info &&
+          typeof info === "object" &&
+          (info as { type?: string }).type === "keyboard"
+        ) {
+          const k = info as { name?: string; code?: string; key?: string };
+          if (
+            (k.name === "key_down" || k.name === "key_repeat") &&
+            isCapturedKey(k)
+          ) {
+            return editor;
+          }
+        }
+        return (originalDispatch as (...args: unknown[]) => unknown)(info, ...rest);
+      }) as typeof editor.dispatch;
+
       const onKeyDown = (e: KeyboardEvent) => {
         if (!active) return;
         // Don't steal keys from real form fields / terminals.
-        const target = e.target as HTMLElement | null;
-        if (
-          target &&
-          (target.tagName === "INPUT" ||
-            target.tagName === "TEXTAREA" ||
-            target.isContentEditable ||
-            target.closest?.("[data-canvas-terminal], .xterm"))
-        ) {
+        if (shouldIgnoreKeyboardTarget(e.target)) {
           return;
         }
 
         if (e.code === "Escape" && releaseOnEscape) {
-          e.preventDefault();
-          e.stopPropagation();
+          suppressEditorKeyEvent(e);
           release();
           return;
         }
 
-        if (!captureKeys.has(e.code) && !captureKeys.has(e.key)) {
+        if (!isCapturedKey(e)) {
           return;
         }
 
-        e.preventDefault();
-        e.stopPropagation();
+        suppressEditorKeyEvent(e);
         options.onKeyDown?.(e);
       };
 
       const onKeyUp = (e: KeyboardEvent) => {
         if (!active) return;
-        if (!captureKeys.has(e.code) && !captureKeys.has(e.key)) return;
-        e.preventDefault();
-        e.stopPropagation();
+        if (shouldIgnoreKeyboardTarget(e.target)) {
+          return;
+        }
+        if (!isCapturedKey(e)) return;
+        suppressEditorKeyEvent(e);
         options.onKeyUp?.(e);
       };
 
@@ -340,7 +428,8 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
         }
       };
 
-      // Capture phase so we run before tldraw's nudge handlers.
+      // Capture phase on window — runs before the editor container keydown
+      // (useDocumentEvents: container.addEventListener('keydown', ...)).
       window.addEventListener("keydown", onKeyDown, true);
       window.addEventListener("keyup", onKeyUp, true);
       editor.on("event", onPointerDown);
@@ -355,8 +444,14 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
         } catch {
           // ignore
         }
-        if (lockIds.length) {
-          setShapesLocked(lockIds, false);
+        // Restore dispatch
+        try {
+          editor.dispatch = originalDispatch;
+        } catch {
+          // ignore
+        }
+        if (priorLocks.size) {
+          restoreShapeLocks(priorLocks);
         }
         try {
           editor.setCurrentTool(previousTool || "select");

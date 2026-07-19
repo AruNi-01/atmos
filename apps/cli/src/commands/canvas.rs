@@ -236,7 +236,7 @@ pub enum CanvasCommand {
     ScriptPut(ScriptPutArgs),
     /// Clear the open document's script and stop the host.
     ScriptClear,
-    /// Run one-shot JS against the live editor (offline `/exec` equivalent).
+    /// Run one-shot JS against the live editor.
     Exec(ExecArgs),
 }
 

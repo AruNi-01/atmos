@@ -48,9 +48,6 @@ Fresh shell per tool call — re-run full commands; do not rely on exported env 
 
 **Do not** start with `script-put` or `exec` for a normal “draw a flowchart” request.
 
-**Offline mapping** (when you already know tldraw offline):  
-`exec` ≈ `/exec` · `script-put` ≈ script-workspace `main.js` · `get-state` ≈ getShapes · `~/.atmos/canvas/*.atmos.tldr` ≈ document file. Details in the scripts reference.
-
 ---
 
 ## Default workflow — static diagram

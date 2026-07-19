@@ -82,10 +82,23 @@ export function CanvasDocumentsControl({
   const [working, setWorking] = React.useState(false);
 
   React.useEffect(() => {
-    if (open) {
-      void onRefreshList();
-    }
-  }, [open, onRefreshList]);
+    if (!open) return;
+    void Promise.resolve(onRefreshList()).catch((err) => {
+      toastManager.add({
+        title: t("popoverTitle"),
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
+    });
+  }, [open, onRefreshList, t]);
+
+  const reportError = (title: string, err: unknown) => {
+    toastManager.add({
+      title,
+      description: err instanceof Error ? err.message : String(err),
+      type: "error",
+    });
+  };
 
   const displayTitle = dirty ? `${title} •` : title;
 
@@ -255,6 +268,7 @@ export function CanvasDocumentsControl({
                             setWorking(true);
                             void onDuplicate(item.file_name)
                               .then(() => onRefreshList())
+                              .catch((err) => reportError(t("duplicate"), err))
                               .finally(() => setWorking(false));
                           }}
                         >
@@ -285,8 +299,14 @@ export function CanvasDocumentsControl({
             value={renameName}
             onChange={(e) => setRenameName(e.target.value)}
             autoFocus
+            disabled={working}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && renameTarget && renameName.trim()) {
+              if (
+                e.key === "Enter" &&
+                !working &&
+                renameTarget &&
+                renameName.trim()
+              ) {
                 e.preventDefault();
                 setWorking(true);
                 void onRename(renameTarget, renameName.trim())
@@ -318,7 +338,7 @@ export function CanvasDocumentsControl({
               size="sm"
               disabled={working || !renameName.trim() || !renameTarget}
               onClick={() => {
-                if (!renameTarget) return;
+                if (!renameTarget || working) return;
                 setWorking(true);
                 void onRename(renameTarget, renameName.trim())
                   .then(() => {
@@ -370,6 +390,7 @@ export function CanvasDocumentsControl({
                     setDeleteTarget(null);
                     return onRefreshList();
                   })
+                  .catch((err) => reportError(t("deleteTitle"), err))
                   .finally(() => setWorking(false));
               }}
             >

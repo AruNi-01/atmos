@@ -527,7 +527,7 @@ export const apiOperationInventory = [
     domain: "canvas",
     operation: "canvasBoardLoad",
     transport: "rest",
-    classification: "mutation",
+    classification: "query",
     legacyOwner: "use-canvas-board + /api/canvas/documents",
     phase: "extended",
     status: "complete",

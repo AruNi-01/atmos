@@ -1300,6 +1300,11 @@ export const CanvasView: React.FC = () => {
                 setLastSavedAt(new Date());
               }}
               onRename={async (target, name) => {
+                // Flush live editor to disk before rename so remount reloads
+                // the correct snapshot (React state alone can lag the editor).
+                if (target === fileName && dirty) {
+                  await persistEditorSnapshot();
+                }
                 await renameDocument(target, name);
               }}
               onDelete={async (target) => {

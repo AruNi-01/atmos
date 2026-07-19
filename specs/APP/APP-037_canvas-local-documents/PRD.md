@@ -66,10 +66,10 @@
 - **N4**: Reveal in Finder/Explorer / copy path.
 - **N5**: `atmos canvas` status/docs verbs reporting active path and listing `~/.atmos/canvas/`.
 - **N6**: Remember last-opened document path across app restarts (small local preference, not board content in DB).
+- **N7**: Durable document scripts (`script` on `.atmos.tldr`, host + `script-*` / `exec` CLI) for interactive boards.
 
 ## Out of Scope
 
-- **Document script runtime / offline-style `main.js`** — separate future APP; this spec is storage + open/save/switch.
 - **Cloud sync / multi-device document library**.
 - **Import/export of third-party `.tldr` as a first-class format guarantee** — may round-trip internally; public import UX is not required.
 - **Multiple documents open side-by-side or document tabs**.

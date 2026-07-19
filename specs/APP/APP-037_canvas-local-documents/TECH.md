@@ -6,7 +6,7 @@
 
 Replace APP-014’s SQLite `canvas_board.document_json` persistence with **file-backed** documents under `~/.atmos/canvas/*.atmos.tldr`. Add Canvas chrome for listing and switching documents. **No** migration, **no** dual-write, **no** filesystem-less mode.
 
-**Also ships (post-PRD expansion):** durable **document scripts** (`script` on `AtmosCanvasFile`), browser `DocumentScriptHost` (offline-style `export default function ({ editor, helpers, signal })`), agent/CLI `script-get|put|status|clear` and one-shot `exec`. Cloud docs remain out of scope.
+**Also ships (post-PRD expansion):** durable **document scripts** (`script` on `AtmosCanvasFile`), browser `DocumentScriptHost` (`export default function ({ editor, helpers, signal })`), agent/CLI `script-get|put|status|clear` and one-shot `exec`. Cloud docs remain out of scope.
 
 ## Architecture overview
 
@@ -103,9 +103,14 @@ Replace old canvas board routes under `apps/api/src/api/canvas/`:
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/api/canvas/documents` | List `*.atmos.tldr` in canvas dir |
+| `POST` | `/api/canvas/documents/new` | Create Untitled / Untitled-N |
+| `POST` | `/api/canvas/documents/sanitize-name` | Sanitize display name → file name |
 | `GET` | `/api/canvas/documents/:file_name` | Read file JSON body |
-| `PUT` | `/api/canvas/documents/:file_name` | Write full file (create or overwrite) |
-| ~~GET/PUT~~ | ~~`/api/canvas/default`~~ | **Remove** |
+| `PUT` | `/api/canvas/documents/:file_name` | Write full file (`overwrite` query) |
+| `DELETE` | `/api/canvas/documents/:file_name` | Delete file |
+| `POST` | `/api/canvas/documents/:file_name/rename` | Rename file |
+| `POST` | `/api/canvas/documents/:file_name/duplicate` | Duplicate file |
+| ~~GET/PUT~~ | ~~`/api/canvas/default`~~ | **Removed** (no legacy clients) |
 
 Auth: same as existing local API auth for canvas board routes.
 

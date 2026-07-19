@@ -43,6 +43,19 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Alias::new("document_json")).text().not_null())
                     .to_owned(),
             )
+            .await?;
+
+        // Match original create migration unique index so re-up does not leave
+        // a table without the slug constraint.
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-canvas_board-slug")
+                    .table(Alias::new("canvas_board"))
+                    .col(Alias::new("slug"))
+                    .unique()
+                    .to_owned(),
+            )
             .await
     }
 }

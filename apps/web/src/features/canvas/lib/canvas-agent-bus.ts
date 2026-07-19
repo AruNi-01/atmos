@@ -235,6 +235,13 @@ export class CanvasAgentBus {
             false,
           );
         }
+        if (Object.keys(files).length === 0) {
+          return fail(
+            "VALIDATION_ARG",
+            "script-put files map is empty — use script-clear to remove a script",
+            false,
+          );
+        }
         await session.setScript({ entry, files });
         return ok({
           entry,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { TLEditorSnapshot } from "tldraw";
 import {
   canvasApi,
@@ -158,7 +158,19 @@ export async function loadPinTargetDocument(): Promise<{
   const fileName = DEFAULT_PIN_DOCUMENT_FILE;
   const document = createDefaultDocument("Default");
   // Create only — never clobber an existing Default board from pin bootstrap.
-  await canvasApi.putDocument(fileName, toAtmosCanvasFile(document), { overwrite: false });
+  // Concurrent first pins can race: one create-only PUT may lose; re-read.
+  try {
+    await canvasApi.putDocument(fileName, toAtmosCanvasFile(document), { overwrite: false });
+  } catch {
+    try {
+      const res = await canvasApi.getDocument(fileName);
+      writeActiveCanvasDocumentFileName(fileName);
+      return { fileName: res.file_name, document: parseAtmosCanvasFile(res.body) };
+    } catch {
+      // fall through to rethrow original create path failure below
+    }
+    await canvasApi.putDocument(fileName, toAtmosCanvasFile(document), { overwrite: false });
+  }
   writeActiveCanvasDocumentFileName(fileName);
   return { fileName, document };
 }
@@ -181,15 +193,12 @@ export function useCanvasBoard() {
   const [error, setError] = useState<string | null>(null);
   const [documentList, setDocumentList] = useState<CanvasDocumentListItem[]>([]);
   const [canvasDir, setCanvasDir] = useState<string | null>(null);
-  const dirtyRef = useRef(false);
 
   const markDirty = useCallback(() => {
-    dirtyRef.current = true;
     setDirty(true);
   }, []);
 
   const clearDirty = useCallback(() => {
-    dirtyRef.current = false;
     setDirty(false);
   }, []);
 
@@ -272,8 +281,20 @@ export function useCanvasBoard() {
               ? {
                   ...prev,
                   title: payload.title,
-                  script: nextDocument.script ?? prev.script,
-                  session: nextDocument.session ?? prev.session,
+                  // Explicit null must clear the script (do not use ??).
+                  script:
+                    nextDocument.script !== undefined
+                      ? nextDocument.script
+                      : prev.script,
+                  session:
+                    nextDocument.session !== undefined
+                      ? nextDocument.session
+                      : prev.session,
+                  // Keep last known snapshot in memory for rename/remount safety.
+                  tldrawDocument:
+                    nextDocument.tldrawDocument !== undefined
+                      ? nextDocument.tldrawDocument
+                      : prev.tldrawDocument,
                 }
               : prev,
           );
@@ -373,28 +394,21 @@ export function useCanvasBoard() {
     }
   }, [applyLoaded, refreshDocumentList]);
 
+  /**
+   * Rename a document on disk. For the open document, caller should flush a
+   * live editor snapshot first; we re-read the renamed file so remount uses
+   * disk truth (not a stale React snapshot).
+   */
   const renameDocument = useCallback(
     async (targetFileName: string, displayName: string) => {
       const res = await canvasApi.renameDocument(targetFileName, displayName);
       if (fileName === targetFileName) {
-        applyLoaded(res.item.file_name, {
-          schema: ATMOS_CANVAS_FILE_SCHEMA,
-          title: res.item.title,
-          tldrawDocument: document?.tldrawDocument ?? null,
-          session: document?.session ?? null,
-          script: document?.script ?? null,
-        });
+        const got = await canvasApi.getDocument(res.item.file_name);
+        applyLoaded(got.file_name, parseAtmosCanvasFile(got.body));
       }
       await refreshDocumentList();
     },
-    [
-      applyLoaded,
-      document?.script,
-      document?.session,
-      document?.tldrawDocument,
-      fileName,
-      refreshDocumentList,
-    ],
+    [applyLoaded, fileName, refreshDocumentList],
   );
 
   const deleteDocumentFile = useCallback(
