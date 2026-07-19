@@ -128,38 +128,9 @@ export class DocumentScriptHost {
     const helpers = createDocumentScriptHelpers(editor);
 
     try {
-      // Multipass rewrite so nested relative imports resolve to rewritten modules,
-      // not raw sources (A → B → C).
-      let pathToUrl = new Map<string, string>();
-      for (const [path, code] of Object.entries(bundle.files)) {
-        const dataUrl =
-          "data:text/javascript;charset=utf-8," + encodeURIComponent(code);
-        pathToUrl.set(path, dataUrl);
-        pathToUrl.set(path.replace(/^\.\//, ""), dataUrl);
-      }
-
-      for (let pass = 0; pass < 4; pass++) {
-        const next = new Map<string, string>();
-        for (const [path, code] of Object.entries(bundle.files)) {
-          const rewritten = rewriteRelativeImports(code, path, pathToUrl);
-          const dataUrl =
-            "data:text/javascript;charset=utf-8," + encodeURIComponent(rewritten);
-          next.set(path, dataUrl);
-          next.set(path.replace(/^\.\//, ""), dataUrl);
-        }
-        pathToUrl = next;
-      }
-
-      // Prefer blob URLs for stack traces; rewrite once more against final map.
-      for (const [path, code] of Object.entries(bundle.files)) {
-        const rewritten = rewriteRelativeImports(code, path, pathToUrl);
-        const url = URL.createObjectURL(
-          new Blob([rewritten], { type: "text/javascript" }),
-        );
+      const pathToUrl = buildResolvedModuleUrls(bundle.files, (url) => {
         this.blobUrls.push(url);
-        pathToUrl.set(path, url);
-        pathToUrl.set(path.replace(/^\.\//, ""), url);
-      }
+      });
 
       const entryFinal = rewriteRelativeImports(source, entry, pathToUrl);
       const entryUrl = URL.createObjectURL(
@@ -212,42 +183,204 @@ export class DocumentScriptHost {
 }
 
 /**
+ * Resolve a multi-file script graph to stable module URLs.
+ * Iterates rewrite passes until sources converge (any nesting depth), then
+ * prefers blob URLs for stack traces.
+ */
+function buildResolvedModuleUrls(
+  files: Record<string, string>,
+  trackBlob: (url: string) => void,
+): Map<string, string> {
+  let pathToUrl = new Map<string, string>();
+  for (const [path, code] of Object.entries(files)) {
+    const dataUrl = "data:text/javascript;charset=utf-8," + encodeURIComponent(code);
+    pathToUrl.set(path, dataUrl);
+    pathToUrl.set(path.replace(/^\.\//, ""), dataUrl);
+  }
+
+  // Converge: each pass rewrites imports against the previous pass's URLs so
+  // A→B→C… chains fully resolve regardless of depth.
+  let rewrittenByPath = new Map<string, string>();
+  for (let pass = 0; pass < 64; pass++) {
+    const nextUrls = new Map<string, string>();
+    const nextRewritten = new Map<string, string>();
+    let changed = false;
+    for (const [path, code] of Object.entries(files)) {
+      const rewritten = rewriteRelativeImports(code, path, pathToUrl);
+      nextRewritten.set(path, rewritten);
+      if (rewrittenByPath.get(path) !== rewritten) changed = true;
+      const dataUrl =
+        "data:text/javascript;charset=utf-8," + encodeURIComponent(rewritten);
+      nextUrls.set(path, dataUrl);
+      nextUrls.set(path.replace(/^\.\//, ""), dataUrl);
+    }
+    pathToUrl = nextUrls;
+    rewrittenByPath = nextRewritten;
+    if (!changed) break;
+  }
+
+  // Blob URLs for stack traces; rewrite once more so imports prefer blobs.
+  for (const [path, rewritten] of rewrittenByPath) {
+    const url = URL.createObjectURL(new Blob([rewritten], { type: "text/javascript" }));
+    trackBlob(url);
+    pathToUrl.set(path, url);
+    pathToUrl.set(path.replace(/^\.\//, ""), url);
+  }
+
+  // Final rewrite of each module so imports point at blob URLs, not data: chains.
+  for (const [path, code] of Object.entries(files)) {
+    const rewritten = rewriteRelativeImports(code, path, pathToUrl);
+    const url = URL.createObjectURL(new Blob([rewritten], { type: "text/javascript" }));
+    trackBlob(url);
+    pathToUrl.set(path, url);
+    pathToUrl.set(path.replace(/^\.\//, ""), url);
+  }
+
+  return pathToUrl;
+}
+
+/**
  * Rewrite relative module specifiers to absolute data/blob URLs.
- * Covers: `from "…"`, `import("…")`, side-effect `import "…"`,
- * and `export … from "…"`.
+ * Skips string / template / comment regions so ordinary source text is unchanged.
  */
 export function rewriteRelativeImports(
   code: string,
   fromPath: string,
   pathToUrl: Map<string, string>,
 ): string {
-  const replaceSpec = (quote: string, rel: string, prefix: string, suffix = "") => {
+  const replaceSpec = (quote: string, rel: string) => {
     const resolved = resolveRelative(fromPath, rel);
     const url =
       pathToUrl.get(resolved) ?? pathToUrl.get(resolved.replace(/^\.\//, ""));
-    if (!url) return `${prefix}${quote}${rel}${quote}${suffix}`;
-    return `${prefix}${quote}${url}${quote}${suffix}`;
+    if (!url) return null;
+    return `${quote}${url}${quote}`;
   };
 
-  // export … from './x'  /  from './x'
-  let out = code.replace(
-    /(\bfrom\s+)(['"])(\.[^'"]+)\2/g,
-    (_full, prefix: string, quote: string, rel: string) =>
-      replaceSpec(quote, rel, prefix),
-  );
-  // import('./x')
-  out = out.replace(
-    /(\bimport\s*\(\s*)(['"])(\.[^'"]+)\2(\s*\))/g,
-    (_full, prefix: string, quote: string, rel: string, suffix: string) =>
-      replaceSpec(quote, rel, prefix, suffix),
-  );
-  // side-effect: import './x'
-  out = out.replace(
-    /(\bimport\s+)(['"])(\.[^'"]+)\2/g,
-    (_full, prefix: string, quote: string, rel: string) =>
-      replaceSpec(quote, rel, prefix),
-  );
+  let out = "";
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i]!;
+
+    // Line comment
+    if (ch === "/" && code[i + 1] === "/") {
+      const end = code.indexOf("\n", i);
+      const slice = end === -1 ? code.slice(i) : code.slice(i, end + 1);
+      out += slice;
+      i += slice.length;
+      continue;
+    }
+
+    // Block comment
+    if (ch === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      const slice = end === -1 ? code.slice(i) : code.slice(i, end + 2);
+      out += slice;
+      i += slice.length;
+      continue;
+    }
+
+    // String or template literal — copy whole lexeme (no import rewrite inside).
+    if (ch === "'" || ch === '"' || ch === "`") {
+      const end = scanStringLike(code, i);
+      out += code.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    const rest = code.slice(i);
+
+    // export … from './x'  /  from './x'
+    const fromMatch = rest.match(/^from\s*(['"])(\.[^'"]+)\1/);
+    if (fromMatch && isKeywordBoundary(code, i, "from")) {
+      const replaced = replaceSpec(fromMatch[1]!, fromMatch[2]!);
+      if (replaced) {
+        out += `from ${replaced}`;
+        i += fromMatch[0].length;
+        continue;
+      }
+    }
+
+    // import('./x')
+    const dynMatch = rest.match(/^import\s*\(\s*(['"])(\.[^'"]+)\1\s*\)/);
+    if (dynMatch && isKeywordBoundary(code, i, "import")) {
+      const replaced = replaceSpec(dynMatch[1]!, dynMatch[2]!);
+      if (replaced) {
+        out += `import(${replaced})`;
+        i += dynMatch[0].length;
+        continue;
+      }
+    }
+
+    // side-effect import './x' only (not import x from / import {)
+    const sideMatch = rest.match(/^import\s*(['"])(\.[^'"]+)\1/);
+    if (
+      sideMatch &&
+      isKeywordBoundary(code, i, "import") &&
+      /^\s*['"]/.test(code.slice(i + "import".length))
+    ) {
+      const replaced = replaceSpec(sideMatch[1]!, sideMatch[2]!);
+      if (replaced) {
+        out += `import ${replaced}`;
+        i += sideMatch[0].length;
+        continue;
+      }
+    }
+
+    out += ch;
+    i++;
+  }
   return out;
+}
+
+/** End index (exclusive) of a JS string or template starting at `start`. */
+function scanStringLike(code: string, start: number): number {
+  const quote = code[start]!;
+  let j = start + 1;
+  while (j < code.length) {
+    const c = code[j]!;
+    if (c === "\\") {
+      j += 2;
+      continue;
+    }
+    if (quote === "`" && c === "$" && code[j + 1] === "{") {
+      // Skip ${…} with nested string awareness
+      j += 2;
+      let depth = 1;
+      while (j < code.length && depth > 0) {
+        const inner = code[j]!;
+        if (inner === "'" || inner === '"' || inner === "`") {
+          j = scanStringLike(code, j);
+          continue;
+        }
+        if (inner === "/" && code[j + 1] === "/") {
+          const nl = code.indexOf("\n", j);
+          j = nl === -1 ? code.length : nl + 1;
+          continue;
+        }
+        if (inner === "/" && code[j + 1] === "*") {
+          const end = code.indexOf("*/", j + 2);
+          j = end === -1 ? code.length : end + 2;
+          continue;
+        }
+        if (inner === "{") depth++;
+        else if (inner === "}") depth--;
+        j++;
+      }
+      continue;
+    }
+    if (c === quote) {
+      return j + 1;
+    }
+    j++;
+  }
+  return code.length;
+}
+
+function isKeywordBoundary(code: string, index: number, keyword: string): boolean {
+  if (!code.startsWith(keyword, index)) return false;
+  const before = index === 0 ? "" : code[index - 1]!;
+  if (/[A-Za-z0-9_$]/.test(before)) return false;
+  return true;
 }
 
 function resolveRelative(fromPath: string, rel: string): string {

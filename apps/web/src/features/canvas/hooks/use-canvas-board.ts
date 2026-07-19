@@ -403,12 +403,31 @@ export function useCanvasBoard() {
     async (targetFileName: string, displayName: string) => {
       const res = await canvasApi.renameDocument(targetFileName, displayName);
       if (fileName === targetFileName) {
-        const got = await canvasApi.getDocument(res.item.file_name);
-        applyLoaded(got.file_name, parseAtmosCanvasFile(got.body));
+        // Rename already removed the old path — never leave fileName on the
+        // deleted name if re-read fails (would recreate it on next autosave).
+        try {
+          const got = await canvasApi.getDocument(res.item.file_name);
+          applyLoaded(got.file_name, parseAtmosCanvasFile(got.body));
+        } catch {
+          applyLoaded(res.item.file_name, {
+            schema: ATMOS_CANVAS_FILE_SCHEMA,
+            title: res.item.title,
+            tldrawDocument: document?.tldrawDocument ?? null,
+            session: document?.session ?? null,
+            script: document?.script ?? null,
+          });
+        }
       }
       await refreshDocumentList();
     },
-    [applyLoaded, fileName, refreshDocumentList],
+    [
+      applyLoaded,
+      document?.script,
+      document?.session,
+      document?.tldrawDocument,
+      fileName,
+      refreshDocumentList,
+    ],
   );
 
   const deleteDocumentFile = useCallback(

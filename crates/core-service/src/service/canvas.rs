@@ -2,7 +2,9 @@
 
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Mutex;
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
@@ -69,16 +71,22 @@ pub struct CanvasDocumentFileDto {
 pub struct CanvasDocumentService {
     /// Optional override root (tests). Production uses `canvas_dir()`.
     root_override: Option<PathBuf>,
+    /// Serializes create/overwrite so existence checks and final renames cannot race.
+    write_lock: Mutex<()>,
 }
 
 impl CanvasDocumentService {
     pub fn new() -> Self {
-        Self { root_override: None }
+        Self {
+            root_override: None,
+            write_lock: Mutex::new(()),
+        }
     }
 
     pub fn with_root(root: PathBuf) -> Self {
         Self {
             root_override: Some(root),
+            write_lock: Mutex::new(()),
         }
     }
 
@@ -208,6 +216,10 @@ impl CanvasDocumentService {
 
     /// Write a canvas document. When `overwrite` is false and the file already
     /// exists, returns a validation error (Save As must not clobber).
+    ///
+    /// All writers take `write_lock` so concurrent autosave / CLI / Save As
+    /// cannot interleave existence checks with finalization. Create-if-absent
+    /// uses `create_new` so two Save As to the same name cannot both succeed.
     pub fn write_document(
         &self,
         file_name: &str,
@@ -218,17 +230,47 @@ impl CanvasDocumentService {
         let path = self.resolve_document_path(file_name)?;
         self.ensure_canvas_dir()?;
 
-        if path.is_file() && !overwrite {
-            return Err(ServiceError::Validation(format!(
-                "Canvas document `{file_name}` already exists"
-            )));
-        }
-
         let json = serde_json::to_string_pretty(body).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize canvas document: {e}"))
         })?;
-        // Unique temp path avoids concurrent saves clobbering each other's temp file.
-        let nanos = std::time::SystemTime::now()
+
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        if !overwrite {
+            // Atomic create: only one concurrent Save As can create the path.
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(mut file) => {
+                    file.write_all(json.as_bytes()).map_err(|e| {
+                        let _ = fs::remove_file(&path);
+                        ServiceError::Processing(format!(
+                            "Failed to write canvas document `{file_name}`: {e}"
+                        ))
+                    })?;
+                    let _ = file.sync_all();
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    return Err(ServiceError::Validation(format!(
+                        "Canvas document `{file_name}` already exists"
+                    )));
+                }
+                Err(e) => {
+                    return Err(ServiceError::Processing(format!(
+                        "Failed to create canvas document `{file_name}`: {e}"
+                    )));
+                }
+            }
+            return list_item_for_path(file_name, &path);
+        }
+
+        // Overwrite: unique temp + rename under the write lock (serialized last-writer-wins).
+        let nanos = SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
@@ -653,6 +695,20 @@ mod tests {
         assert!(svc
             .write_document("Ops Desk.atmos.tldr", &body, true)
             .is_ok());
+    }
+
+    #[test]
+    fn create_new_is_exclusive() {
+        let dir = tempdir().unwrap();
+        let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        let a = CanvasDocumentService::empty_document("a");
+        let b = CanvasDocumentService::empty_document("b");
+        svc.write_document("race.atmos.tldr", &a, false).unwrap();
+        // Second create-if-absent must fail rather than clobber.
+        let err = svc.write_document("race.atmos.tldr", &b, false).unwrap_err();
+        assert!(format!("{err}").contains("already exists"));
+        let loaded = svc.read_document("race.atmos.tldr").unwrap();
+        assert_eq!(loaded.body.title, "a");
     }
 
     #[test]
