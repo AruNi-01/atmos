@@ -1309,6 +1309,9 @@ export const CanvasView: React.FC = () => {
               }}
               onDelete={async (target) => {
                 await deleteDocumentFile(target);
+                if (target === fileName) {
+                  setTldrawRemountKey((key) => key + 1);
+                }
               }}
               onDuplicate={async (target) => {
                 await duplicateDocumentFile(target);
