@@ -10,6 +10,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::error::{Result, ServiceError};
 
@@ -423,6 +424,7 @@ impl CanvasDocumentService {
             .to_string();
         let mut body = src.body;
         body.title = stem;
+        reset_duplicated_agent_chat_widgets(&mut body);
         self.write_document(&target_name, &body, false)
     }
 
@@ -455,6 +457,43 @@ impl CanvasDocumentService {
             // join on dir with a flat name should always have parent == dir
         }
         Ok(candidate)
+    }
+}
+
+fn reset_duplicated_agent_chat_widgets(body: &mut AtmosCanvasFile) {
+    let Some(store) = body
+        .tldraw_document
+        .as_mut()
+        .and_then(Value::as_object_mut)
+        .and_then(|document| document.get_mut("store"))
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+
+    for record in store.values_mut() {
+        let Some(record) = record.as_object_mut() else {
+            continue;
+        };
+        if record.get("type").and_then(Value::as_str) != Some("canvas-widget") {
+            continue;
+        }
+        let Some(props) = record.get_mut("props").and_then(Value::as_object_mut) else {
+            continue;
+        };
+        let Some(source) = props.get_mut("source").and_then(Value::as_object_mut) else {
+            continue;
+        };
+        if source.get("type").and_then(Value::as_str) != Some("agent-chat") {
+            continue;
+        }
+
+        let instance_id = Uuid::new_v4().to_string();
+        source.insert("instanceId".into(), Value::String(instance_id.clone()));
+        source.insert("acpSessionId".into(), Value::Null);
+        source.insert("registryId".into(), Value::Null);
+        source.insert("sessionCwd".into(), Value::Null);
+        props.insert("pinKey".into(), Value::String(format!("agent-chat:{instance_id}")));
     }
 }
 
@@ -777,9 +816,32 @@ mod tests {
     fn rename_delete_duplicate() {
         let dir = tempdir().unwrap();
         let svc = CanvasDocumentService::with_root(dir.path().to_path_buf());
+        let agent_chat_document = AtmosCanvasFile {
+            schema: ATMOS_CANVAS_FILE_SCHEMA.into(),
+            title: "a".into(),
+            tldraw_document: Some(serde_json::json!({
+                "store": {
+                    "shape:agent-chat": {
+                        "type": "canvas-widget",
+                        "props": {
+                            "pinKey": "agent-chat:original-instance",
+                            "source": {
+                                "type": "agent-chat",
+                                "instanceId": "original-instance",
+                                "acpSessionId": "acp-session-1",
+                                "registryId": "codex",
+                                "sessionCwd": "/repo"
+                            }
+                        }
+                    }
+                }
+            })),
+            session: None,
+            script: None,
+        };
         svc.write_document(
             "a.atmos.tldr",
-            &CanvasDocumentService::empty_document("a"),
+            &agent_chat_document,
             false,
         )
         .unwrap();
@@ -789,6 +851,23 @@ mod tests {
         let dup = svc.duplicate_document("b.atmos.tldr", None).unwrap();
         assert!(dup.file_name.contains("copy"));
         assert_eq!(svc.list_documents().unwrap().len(), 2);
+        let original = svc.read_document("b.atmos.tldr").unwrap();
+        let duplicate = svc.read_document(&dup.file_name).unwrap();
+        let original_source = &original.body.tldraw_document.as_ref().unwrap()["store"]
+            ["shape:agent-chat"]["props"]["source"];
+        let duplicate_props = &duplicate.body.tldraw_document.as_ref().unwrap()["store"]
+            ["shape:agent-chat"]["props"];
+        let duplicate_source = &duplicate_props["source"];
+        let duplicate_instance_id = duplicate_source["instanceId"].as_str().unwrap();
+        assert_eq!(original_source["instanceId"].as_str(), Some("original-instance"));
+        assert_ne!(duplicate_instance_id, "original-instance");
+        assert_eq!(duplicate_source["acpSessionId"], Value::Null);
+        assert_eq!(duplicate_source["registryId"], Value::Null);
+        assert_eq!(duplicate_source["sessionCwd"], Value::Null);
+        assert_eq!(
+            duplicate_props["pinKey"],
+            format!("agent-chat:{duplicate_instance_id}")
+        );
         svc.delete_document(&dup.file_name).unwrap();
         assert_eq!(svc.list_documents().unwrap().len(), 1);
     }

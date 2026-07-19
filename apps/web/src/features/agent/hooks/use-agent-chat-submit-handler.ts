@@ -21,10 +21,12 @@ interface UseAgentChatSubmitHandlerOptions {
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
+    instanceKey?: string | null,
   ) => void;
   enqueueAgentChatPrompt: (data: Omit<QueuedAgentPrompt, "id" | "createdAt">) => string;
   entriesLength: number;
   isConnected: boolean;
+  instanceKey?: string | null;
   localPath: string | null;
   queuedPromptCount: number;
   sessionCwd: string | null;
@@ -45,6 +47,7 @@ export function useAgentChatSubmitHandler({
   enqueueAgentChatPrompt,
   entriesLength,
   isConnected,
+  instanceKey,
   localPath,
   queuedPromptCount,
   sessionCwd,
@@ -98,9 +101,10 @@ export function useAgentChatSubmitHandler({
         workspaceId: sessionWorkspaceId,
         projectId: sessionProjectId,
         mode: chatMode,
+        instanceKey,
         origin: "panel",
       });
-      clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode);
+      clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode, instanceKey);
     },
     [
       canUseCurrentMode,
@@ -109,6 +113,7 @@ export function useAgentChatSubmitHandler({
       enqueueAgentChatPrompt,
       entriesLength,
       isConnected,
+      instanceKey,
       localPath,
       queuedPromptCount,
       sessionCwd,

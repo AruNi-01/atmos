@@ -2350,8 +2350,6 @@
         "copy": "复制"
       },
       "activity": {
-        "emptyPrefix": "运行",
-        "emptySuffix": "后，最近一次画布修改会显示在这里。",
         "lastChange": "最近一次修改",
         "separator": " · {relativeLabel}",
         "jump": "跳转"

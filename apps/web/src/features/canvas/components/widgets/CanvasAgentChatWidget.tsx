@@ -13,12 +13,22 @@ import { isGlobalCanvasContext } from "@/features/canvas/lib/canvas-widget-shape
 type CanvasAgentChatWidgetSource = Extract<CanvasWidgetSourceRef, { type: "agent-chat" }>;
 
 export function CanvasAgentChatWidget({ shape }: { shape: CanvasWidgetShape }) {
-  const editor = useEditor();
-  const source = shape.props.source as CanvasAgentChatWidgetSource;
+  const source = shape.props.source;
   if (source.type !== "agent-chat") {
     return null;
   }
 
+  return <CanvasAgentChatWidgetContent shape={shape} source={source} />;
+}
+
+function CanvasAgentChatWidgetContent({
+  shape,
+  source,
+}: {
+  shape: CanvasWidgetShape;
+  source: CanvasAgentChatWidgetSource;
+}) {
+  const editor = useEditor();
   const context = source.context;
   const contextId = context.contextScope === "project" ? context.projectId : context.workspaceId;
   const contextOverride = isGlobalCanvasContext(context)

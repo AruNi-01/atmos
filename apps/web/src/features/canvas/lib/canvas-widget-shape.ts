@@ -482,7 +482,14 @@ export function normalizeCanvasWidgetShapePropsInDocument(
     }
 
     const size = CANVAS_WIDGET_DEFAULT_SIZES[widgetType];
-    const normalizedSource = sanitizeCanvasWidgetSource(rawProps.source);
+    const sanitizedSource = sanitizeCanvasWidgetSource(rawProps.source);
+    const normalizedSource =
+      sanitizedSource.type === "agent-chat"
+        ? {
+            ...sanitizedSource,
+            instanceId: sanitizedSource.instanceId?.trim() || recordId,
+          }
+        : sanitizedSource;
     const rawTitle =
       typeof rawProps.title === "string" && rawProps.title.trim()
         ? rawProps.title
@@ -500,9 +507,11 @@ export function normalizeCanvasWidgetShapePropsInDocument(
       source: normalizedSource,
       isPinned: rawProps.isPinned ?? false,
       pinKey:
-        typeof rawProps.pinKey === "string" && rawProps.pinKey
-          ? rawProps.pinKey
-          : buildCanvasWidgetPinKey(normalizedSource),
+        normalizedSource.type === "agent-chat"
+          ? buildCanvasWidgetPinKey(normalizedSource)
+          : typeof rawProps.pinKey === "string" && rawProps.pinKey
+            ? rawProps.pinKey
+            : buildCanvasWidgetPinKey(normalizedSource),
       lastActivatedAt: normalizeLastActivatedAt(rawProps.lastActivatedAt),
       displayMode: normalizeDisplayMode(rawProps.displayMode),
     };

@@ -8,7 +8,9 @@ import {
   getCanvasWidgetIndicatorCornerRadius,
   getCanvasContextLabel,
   isGlobalCanvasContext,
+  normalizeCanvasWidgetShapePropsInDocument,
   type CanvasContextRef,
+  type CanvasWidgetShape,
 } from "../lib/canvas-widget-shape";
 import { CANVAS_CARD_CORNER_RADIUS } from "../lib/canvas-shape-indicator";
 import {
@@ -135,6 +137,59 @@ describe("canvas-widget shape helpers", () => {
         },
       }).pinKey,
     ).toBe("agent-chat:widget-instance-1");
+  });
+
+  it("backfills distinct agent-chat instance ids for legacy shapes", () => {
+    const document = {
+      store: {
+        "shape:agent-one": {
+          id: "shape:agent-one",
+          typeName: "shape",
+          type: "canvas-widget",
+          props: {
+            w: 520,
+            h: 680,
+            widgetType: "agent-chat",
+            title: "Agent Chat",
+            source: { type: "agent-chat", context },
+            isPinned: false,
+            pinKey: "agent-chat:workspace:workspace-1",
+            lastActivatedAt: null,
+            displayMode: "auto",
+          },
+        },
+        "shape:agent-two": {
+          id: "shape:agent-two",
+          typeName: "shape",
+          type: "canvas-widget",
+          props: {
+            w: 520,
+            h: 680,
+            widgetType: "agent-chat",
+            title: "Agent Chat",
+            source: { type: "agent-chat", context },
+            isPinned: false,
+            pinKey: "agent-chat:workspace:workspace-1",
+            lastActivatedAt: null,
+            displayMode: "auto",
+          },
+        },
+      },
+    } as never;
+
+    const normalized = normalizeCanvasWidgetShapePropsInDocument(document);
+    const store = normalized.store as Record<string, { props: CanvasWidgetShape["props"] }>;
+    const first = store["shape:agent-one"].props;
+    const second = store["shape:agent-two"].props;
+
+    expect(first.source.type).toBe("agent-chat");
+    expect(second.source.type).toBe("agent-chat");
+    if (first.source.type === "agent-chat" && second.source.type === "agent-chat") {
+      expect(first.source.instanceId).toBe("shape:agent-one");
+      expect(second.source.instanceId).toBe("shape:agent-two");
+    }
+    expect(first.pinKey).toBe("agent-chat:shape:agent-one");
+    expect(second.pinKey).toBe("agent-chat:shape:agent-two");
   });
 
   it("does not treat an empty default context as global", () => {

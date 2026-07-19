@@ -2350,8 +2350,6 @@
         "copy": "Copy"
       },
       "activity": {
-        "emptyPrefix": "Run",
-        "emptySuffix": "and the latest canvas change will appear here.",
         "lastChange": "Last change",
         "separator": " · {relativeLabel}",
         "jump": "Jump"

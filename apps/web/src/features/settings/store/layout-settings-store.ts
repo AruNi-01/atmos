@@ -16,6 +16,7 @@ export interface FooterLayoutPrefs {
 export interface HeaderLayoutPrefs {
   showHeaderSummary: boolean;
   showHeaderSummaryTask: boolean;
+  showHeaderSummaryNote: boolean;
   showHeaderSummaryCommit: boolean;
   showHeaderQuickOpen: boolean;
   showHeaderGitToolbar: boolean;
@@ -58,6 +59,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setFooterShowAgentStatus: (value: boolean) => Promise<void>;
   setHeaderShowSummary: (value: boolean) => Promise<void>;
   setHeaderShowSummaryTask: (value: boolean) => Promise<void>;
+  setHeaderShowSummaryNote: (value: boolean) => Promise<void>;
   setHeaderShowSummaryCommit: (value: boolean) => Promise<void>;
   setHeaderShowQuickOpen: (value: boolean) => Promise<void>;
   setHeaderShowGitToolbar: (value: boolean) => Promise<void>;
@@ -94,6 +96,7 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
       typeof layout?.header_summary_show_task === 'boolean'
         ? layout.header_summary_show_task
         : legacyTodo !== false,
+    showHeaderSummaryNote: layout?.header_summary_show_note !== false,
     showHeaderSummaryCommit: layout?.header_summary_show_commit !== false,
     showHeaderQuickOpen: layout?.header_show_quick_open !== false,
     showHeaderGitToolbar: layout?.header_show_git_toolbar !== false,
@@ -143,6 +146,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     showAgentStatus: true,
     showHeaderSummary: true,
     showHeaderSummaryTask: true,
+    showHeaderSummaryNote: true,
     showHeaderSummaryCommit: true,
     showHeaderQuickOpen: true,
     showHeaderGitToolbar: true,
@@ -253,6 +257,9 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setHeaderShowSummaryTask: (value) =>
       updateLayoutSetting({ showHeaderSummaryTask: value }, 'header_summary_show_task', value),
+
+    setHeaderShowSummaryNote: (value) =>
+      updateLayoutSetting({ showHeaderSummaryNote: value }, 'header_summary_show_note', value),
 
     setHeaderShowSummaryCommit: (value) =>
       updateLayoutSetting({ showHeaderSummaryCommit: value }, 'header_summary_show_commit', value),

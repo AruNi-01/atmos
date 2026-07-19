@@ -832,6 +832,7 @@ export function AgentChatPanel({
             canUseCurrentMode={canUseCurrentMode}
             isConnected={isConnected}
             chatMode={chatMode}
+            instanceKey={instanceKey}
             sessionWorkspaceId={sessionWorkspaceId}
             sessionProjectId={sessionProjectId}
             loadingAgents={loadingAgents}

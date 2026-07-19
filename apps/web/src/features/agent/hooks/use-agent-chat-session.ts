@@ -174,8 +174,8 @@ export function useAgentChatSession({
     return instance ? `instance:${instance}:${base}` : base;
   }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
   const queueKey = React.useMemo(
-    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode),
-    [sessionWorkspaceId, sessionProjectId, chatMode]
+    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode, instanceKey),
+    [sessionWorkspaceId, sessionProjectId, chatMode, instanceKey]
   );
   const queuedPrompts = useMemo(
     () => agentChatPromptQueues[queueKey] ?? [],
@@ -1024,6 +1024,7 @@ export function useAgentChatSession({
     enqueueAgentChatPrompt,
     entriesLength: entries.length,
     isConnected,
+    instanceKey,
     localPath,
     queuedPromptCount: queuedPrompts.length,
     sessionCwd,
