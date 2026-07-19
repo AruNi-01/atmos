@@ -226,6 +226,21 @@ impl CanvasDocumentService {
         body: &AtmosCanvasFile,
         overwrite: bool,
     ) -> Result<CanvasDocumentListItem> {
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        self.write_document_locked(file_name, body, overwrite)
+    }
+
+    /// Caller must hold `write_lock`. Used by rename so create+unlink is atomic
+    /// w.r.t. concurrent saves of the old path.
+    fn write_document_locked(
+        &self,
+        file_name: &str,
+        body: &AtmosCanvasFile,
+        overwrite: bool,
+    ) -> Result<CanvasDocumentListItem> {
         validate_atmos_canvas_file(body)?;
         let path = self.resolve_document_path(file_name)?;
         self.ensure_canvas_dir()?;
@@ -233,11 +248,6 @@ impl CanvasDocumentService {
         let json = serde_json::to_string_pretty(body).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize canvas document: {e}"))
         })?;
-
-        let _guard = self
-            .write_lock
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
 
         if !overwrite {
             // Atomic create: only one concurrent Save As can create the path.
@@ -314,6 +324,10 @@ impl CanvasDocumentService {
 
     pub fn delete_document(&self, file_name: &str) -> Result<()> {
         let path = self.resolve_document_path(file_name)?;
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if !path.is_file() {
             return Err(ServiceError::NotFound(format!(
                 "Canvas document `{file_name}` not found"
@@ -326,36 +340,58 @@ impl CanvasDocumentService {
     }
 
     /// Rename on disk (and update body.title to the new stem).
+    ///
+    /// Holds `write_lock` across write-new + remove-old so a concurrent save of
+    /// the old path cannot succeed and then be deleted by `remove_file`.
     pub fn rename_document(
         &self,
         file_name: &str,
         new_name: &str,
     ) -> Result<CanvasDocumentListItem> {
         let from = self.resolve_document_path(file_name)?;
+        let new_file_name = Self::sanitize_file_name(new_name)?;
+        if new_file_name == validate_file_name(file_name)? {
+            if !from.is_file() {
+                return Err(ServiceError::NotFound(format!(
+                    "Canvas document `{file_name}` not found"
+                )));
+            }
+            return list_item_for_path(&new_file_name, &from);
+        }
+        let to = self.resolve_document_path(&new_file_name)?;
+
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
         if !from.is_file() {
             return Err(ServiceError::NotFound(format!(
                 "Canvas document `{file_name}` not found"
             )));
         }
-        let new_file_name = Self::sanitize_file_name(new_name)?;
-        if new_file_name == validate_file_name(file_name)? {
-            return list_item_for_path(&new_file_name, &from);
-        }
-        let to = self.resolve_document_path(&new_file_name)?;
         if to.exists() {
             return Err(ServiceError::Validation(format!(
                 "Canvas document `{}` already exists",
                 new_file_name
             )));
         }
-        let mut doc = self.read_document(file_name)?;
+
+        // Read under the lock so we snapshot the latest content.
+        let raw = fs::read_to_string(&from).map_err(|e| {
+            ServiceError::Processing(format!("Failed to read canvas document `{file_name}`: {e}"))
+        })?;
+        let mut body: AtmosCanvasFile = serde_json::from_str(&raw).map_err(|e| {
+            ServiceError::Validation(format!("Invalid canvas document JSON: {e}"))
+        })?;
+        validate_atmos_canvas_file(&body)?;
         let stem = new_file_name
             .strip_suffix(CANVAS_FILE_EXTENSION)
             .unwrap_or(&new_file_name)
             .to_string();
-        doc.body.title = stem;
-        // New name must not exist (checked above); write without overwrite.
-        self.write_document(&new_file_name, &doc.body, false)?;
+        body.title = stem;
+
+        self.write_document_locked(&new_file_name, &body, false)?;
         fs::remove_file(&from).map_err(|e| {
             ServiceError::Processing(format!(
                 "Renamed to `{new_file_name}` but failed to remove old file: {e}"

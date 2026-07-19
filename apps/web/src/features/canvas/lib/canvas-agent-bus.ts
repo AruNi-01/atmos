@@ -173,17 +173,10 @@ export class CanvasAgentBus {
       if (command === "set_status" || command === "set-status") {
         return ok(runCanvasAgentSetStatus(editor, input.args ?? {}));
       }
+      // Non-sensitive: runtime state only (no script source).
       if (command === "script_status" || command === "script-status") {
         const { getLiveDocumentScriptStatus } = await import("./document-script-session");
         return ok(getLiveDocumentScriptStatus());
-      }
-      if (command === "script_get" || command === "script-get") {
-        const { getDocumentScriptSession } = await import("./document-script-session");
-        const session = getDocumentScriptSession();
-        return ok({
-          script: session?.getScript() ?? null,
-          status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
-        });
       }
 
       if (!this.bridgeAccepting) {
@@ -192,6 +185,16 @@ export class CanvasAgentBus {
           canvasBusT("agentBus.userHasDisabledAllowTerminalCliControlForThisCanvasTab"),
           true,
         );
+      }
+
+      // Sensitive: returns durable script source — same gate as put/exec.
+      if (command === "script_get" || command === "script-get") {
+        const { getDocumentScriptSession } = await import("./document-script-session");
+        const session = getDocumentScriptSession();
+        return ok({
+          script: session?.getScript() ?? null,
+          status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+        });
       }
 
       if (command === "exec") {

@@ -135,7 +135,8 @@ export function toAtmosCanvasFile(document: CanvasBoardDocument): AtmosCanvasFil
 
 /**
  * Load the document used for pin-to-canvas / cleanup when Canvas UI may be closed.
- * Prefer active preference; fall back to Default.atmos.tldr (create empty if missing).
+ * Prefer **this tab’s** active document (sessionStorage), then last-opened
+ * (localStorage), then Default.atmos.tldr — never a sibling tab’s open file.
  */
 export async function loadPinTargetDocument(): Promise<{
   fileName: string;
