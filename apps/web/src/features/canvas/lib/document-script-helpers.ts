@@ -27,7 +27,7 @@ import { computeCanvasLints, type CanvasAgentLint } from "./canvas-agent-lint";
 export type DocumentScriptInputScope = {
   /** Whether this scope currently owns keyboard/pointer game input. */
   isActive: () => boolean;
-  /** Release keyboard claim, unlock shapes, restore tool. */
+  /** Release keyboard claim. */
   release: () => void;
 };
 
@@ -37,11 +37,6 @@ export type ClaimInputScopeOptions = {
    * (or Escape) releases the scope so other canvas tools work again.
    */
   surfaceId?: TLShapeId;
-  /**
-   * Shapes to lock while scoped (Start button, walls, etc.) so arrow keys
-   * cannot select/nudge them. Defaults to [surfaceId] when surfaceId is set.
-   */
-  lockShapeIds?: TLShapeId[];
   /**
    * Key codes to preventDefault + deliver when scoped.
    * Default: arrows, WASD, Space, Enter, Escape (Escape also releases).
@@ -142,42 +137,6 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
     );
   };
 
-  const restoreShapeLocks = (prior: Map<TLShapeId, boolean>) => {
-    editor.run(
-      () => {
-        for (const [id, locked] of prior) {
-          const shape = editor.getShape(id);
-          if (!shape || isAtmosChromeShape(shape)) continue;
-          if (Boolean(shape.isLocked) === locked) continue;
-          editor.updateShape({
-            id,
-            type: shape.type,
-            isLocked: locked,
-          });
-        }
-      },
-      { history: "ignore" },
-    );
-  };
-
-  const setShapesLocked = (ids: TLShapeId[], locked: boolean) => {
-    editor.run(
-      () => {
-        for (const id of ids) {
-          const shape = editor.getShape(id);
-          if (!shape || isAtmosChromeShape(shape)) continue;
-          if (Boolean(shape.isLocked) === locked) continue;
-          editor.updateShape({
-            id,
-            type: shape.type,
-            isLocked: locked,
-          });
-        }
-      },
-      { history: "ignore" },
-    );
-  };
-
   const pointInSurface = (surfaceId: TLShapeId | undefined, pagePoint: { x: number; y: number }) => {
     if (!surfaceId) return true;
     const box = getShapePageBoundsBox(editor, surfaceId);
@@ -250,7 +209,7 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
       );
     },
     onShapeTranslate(shapeId, cb, options) {
-      let last = editor.getShape(shapeId);
+      const last = editor.getShape(shapeId);
       let lastX = last?.x ?? 0;
       let lastY = last?.y ?? 0;
       const unsub = editor.store.listen(
@@ -310,22 +269,12 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
       const captureKeys = new Set(options.captureKeys ?? DEFAULT_CAPTURE_KEYS);
       const releaseOnEscape = options.releaseOnEscape !== false;
       const releaseOnOutsidePointer = options.releaseOnOutsidePointer !== false;
-      const lockIds =
-        options.lockShapeIds ??
-        (options.surfaceId ? [options.surfaceId] : []);
 
       let active = true;
-      const previousTool = editor.getCurrentToolId();
-      // Remember lock state so release does not unlock user-protected shapes.
-      const priorLocks = new Map<TLShapeId, boolean>();
-      for (const id of lockIds) {
-        const shape = editor.getShape(id);
-        if (shape) priorLocks.set(id, Boolean(shape.isLocked));
-      }
       // SelectTool nudges selected shapes on Arrow* via editor.dispatch(key_down).
       // Window capture + stopPropagation runs before the editor container sees the
-      // event (useDocumentEvents listens on container, not window). markEventAsHandled
-      // and a dispatch guard cover any remaining leaks.
+      // event (useDocumentEvents listens on container, not window). A dispatch
+      // guard covers any remaining leaks without changing selection, locks, or tools.
       const originalDispatch = editor.dispatch.bind(editor);
 
       const isCapturedKey = (e: { code?: string; key?: string }) =>
@@ -345,26 +294,7 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
         } catch {
           // ignore
         }
-        // Belt-and-suspenders: empty selection so even a leaked key_down cannot nudge.
-        try {
-          if (editor.getSelectedShapeIds().length > 0) {
-            editor.setSelectedShapes([]);
-          }
-        } catch {
-          // ignore
-        }
       };
-
-      // Enter "play mode": no selection, hand tool so arrows aren't select-nudge.
-      editor.setSelectedShapes([]);
-      try {
-        editor.setCurrentTool("hand");
-      } catch {
-        // tool may be unavailable; continue
-      }
-      if (lockIds.length) {
-        setShapesLocked(lockIds, true);
-      }
 
       // Drop key_down / key_repeat that still reach the editor (e.g. synthetic dispatch).
       editor.dispatch = ((info: unknown, ...rest: unknown[]) => {
@@ -447,14 +377,6 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
         // Restore dispatch
         try {
           editor.dispatch = originalDispatch;
-        } catch {
-          // ignore
-        }
-        if (priorLocks.size) {
-          restoreShapeLocks(priorLocks);
-        }
-        try {
-          editor.setCurrentTool(previousTool || "select");
         } catch {
           // ignore
         }

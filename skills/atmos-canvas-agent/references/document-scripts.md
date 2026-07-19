@@ -136,8 +136,7 @@ already nudges selection. It also **steals** keys from Agent chat and terminals.
 
 ```js
 const scope = helpers.claimInputScope({
-  surfaceId,                    // frame id (required for outside-click release)
-  lockShapeIds: [/* furniture */],
+  surfaceId,                    // frame id, used for outside-click release
   signal,
   captureKeys: [/* optional; defaults cover arrows/WASD/Space/Enter/Escape */],
   onKeyDown(e) { /* handle e.code / e.key */ },
@@ -150,6 +149,7 @@ const scope = helpers.claimInputScope({
 Platform behavior:
 
 - Capture-phase handling, `markEventAsHandled`, blocks editor nudge tools  
+- Does not change tldraw's selected shapes, active tool, locks, or pointer behavior
 - **Does not** steal keys while focus is in xterm, Agent chat, or form fields  
 - Escape / click outside surface can release (configurable)  
 - One active scope per editor  
@@ -243,7 +243,6 @@ export default function ({ editor, helpers, signal }) {
     scope?.release?.()
     scope = helpers.claimInputScope({
       surfaceId,
-      lockShapeIds: [surfaceId, panelId, actionId],
       signal,
       onKeyDown(e) {
         // handle shortcuts for this surface only
