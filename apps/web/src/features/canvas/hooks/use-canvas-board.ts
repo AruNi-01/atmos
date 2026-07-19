@@ -121,7 +121,7 @@ export function parseBoardDocument(documentJson: string): CanvasBoardDocument {
   if (!isPlainJsonObject(parsed)) {
     throw new Error("The saved Canvas board must be a JSON object");
   }
-  return parseAtmosCanvasFile(parsed as AtmosCanvasFile);
+  return parseAtmosCanvasFile(parsed as unknown as AtmosCanvasFile);
 }
 
 export function toAtmosCanvasFile(document: CanvasBoardDocument): AtmosCanvasFile {

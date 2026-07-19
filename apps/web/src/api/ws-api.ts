@@ -301,6 +301,7 @@ export interface CanvasBridgeRegisterPayload {
   label?: string;
   accepts_commands?: boolean;
   capabilities?: string[];
+  active_document_file_name?: string | null;
 }
 
 export interface CanvasAgentDispatchResultPayload {

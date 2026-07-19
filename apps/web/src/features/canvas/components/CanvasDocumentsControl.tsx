@@ -266,7 +266,7 @@ export function CanvasDocumentsControl({
                         <DropdownMenuItem
                           onSelect={() => {
                             setWorking(true);
-                            void onDuplicate(item.file_name)
+                            void Promise.resolve(onDuplicate(item.file_name))
                               .then(() => onRefreshList())
                               .catch((err) => reportError(t("duplicate"), err))
                               .finally(() => setWorking(false));
@@ -309,7 +309,7 @@ export function CanvasDocumentsControl({
               ) {
                 e.preventDefault();
                 setWorking(true);
-                void onRename(renameTarget, renameName.trim())
+                void Promise.resolve(onRename(renameTarget, renameName.trim()))
                   .then(() => {
                     setRenameTarget(null);
                     return onRefreshList();
@@ -340,7 +340,7 @@ export function CanvasDocumentsControl({
               onClick={() => {
                 if (!renameTarget || working) return;
                 setWorking(true);
-                void onRename(renameTarget, renameName.trim())
+                void Promise.resolve(onRename(renameTarget, renameName.trim()))
                   .then(() => {
                     setRenameTarget(null);
                     return onRefreshList();
@@ -385,7 +385,7 @@ export function CanvasDocumentsControl({
               onClick={() => {
                 if (!deleteTarget) return;
                 setWorking(true);
-                void onDelete(deleteTarget)
+                void Promise.resolve(onDelete(deleteTarget))
                   .then(() => {
                     setDeleteTarget(null);
                     return onRefreshList();
