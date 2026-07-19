@@ -1,10 +1,10 @@
 /**
  * Active canvas document preference.
  *
- * - **sessionStorage** (`TAB_ACTIVE_KEY`): this browser tab’s open document —
- *   used for pin / cleanup so two Canvas tabs do not clobber each other.
- * - **localStorage** (`ACTIVE_DOCUMENT_KEY`): last-opened document for cold
- *   start restore when this tab has no session value yet.
+ * - **sessionStorage** (`TAB_ACTIVE_KEY`): this browser tab’s open document.
+ *   Pin / cleanup **must only** use this — never localStorage (avoids sibling tabs).
+ * - **localStorage** (`ACTIVE_DOCUMENT_KEY`): last-opened document for cold-start
+ *   restore when opening Canvas in a tab that has no session value yet.
  */
 
 const ACTIVE_DOCUMENT_KEY = "atmos.canvas.activeDocumentFileName";
@@ -52,15 +52,22 @@ function localStorageSafe(): Storage | undefined {
   }
 }
 
+/** This tab’s open document only (pin / terminal cleanup). No cross-tab fallback. */
+export function readTabActiveCanvasDocumentFileName(): string | null {
+  return readStorage(sessionStorageSafe(), TAB_ACTIVE_KEY);
+}
+
+/** Last-opened document across sessions (Canvas cold start restore only). */
+export function readLastOpenedCanvasDocumentFileName(): string | null {
+  return readStorage(localStorageSafe(), ACTIVE_DOCUMENT_KEY);
+}
+
 /**
- * Document this tab should pin to / open next.
- * Prefers tab-scoped session value, then cross-session last-opened.
+ * Document to open when Canvas loads in this tab.
+ * Tab session first, then last-opened (never used for pin).
  */
 export function readActiveCanvasDocumentFileName(): string | null {
-  return (
-    readStorage(sessionStorageSafe(), TAB_ACTIVE_KEY) ??
-    readStorage(localStorageSafe(), ACTIVE_DOCUMENT_KEY)
-  );
+  return readTabActiveCanvasDocumentFileName() ?? readLastOpenedCanvasDocumentFileName();
 }
 
 /**
@@ -71,5 +78,5 @@ export function writeActiveCanvasDocumentFileName(fileName: string | null): void
   writeStorage(localStorageSafe(), ACTIVE_DOCUMENT_KEY, fileName);
 }
 
-/** Well-known pin target when no active document is set (matches core-service). */
+/** Well-known pin target when this tab has no open canvas document. */
 export const DEFAULT_PIN_DOCUMENT_FILE = "Default.atmos.tldr";

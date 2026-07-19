@@ -12,6 +12,7 @@ import type { CanvasTldrawDocument, CanvasTldrawSession } from "@/shared/types/c
 import {
   DEFAULT_PIN_DOCUMENT_FILE,
   readActiveCanvasDocumentFileName,
+  readTabActiveCanvasDocumentFileName,
   writeActiveCanvasDocumentFileName,
 } from "../lib/canvas-document-prefs";
 import { normalizeCanvasTerminalShapePropsInDocument } from "../lib/canvas-terminal-shape";
@@ -135,14 +136,14 @@ export function toAtmosCanvasFile(document: CanvasBoardDocument): AtmosCanvasFil
 
 /**
  * Load the document used for pin-to-canvas / cleanup when Canvas UI may be closed.
- * Prefer **this tab’s** active document (sessionStorage), then last-opened
- * (localStorage), then Default.atmos.tldr — never a sibling tab’s open file.
+ * Uses **only this tab’s** session active document — never localStorage (another
+ * tab’s last-opened). If this tab has not opened Canvas yet, use Default.
  */
 export async function loadPinTargetDocument(): Promise<{
   fileName: string;
   document: CanvasBoardDocument;
 }> {
-  const preferred = readActiveCanvasDocumentFileName();
+  const preferred = readTabActiveCanvasDocumentFileName();
   const candidates = preferred
     ? [preferred, DEFAULT_PIN_DOCUMENT_FILE]
     : [DEFAULT_PIN_DOCUMENT_FILE];
