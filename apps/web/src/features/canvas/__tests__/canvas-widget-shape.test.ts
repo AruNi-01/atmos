@@ -131,9 +131,10 @@ describe("canvas-widget shape helpers", () => {
         source: {
           type: "agent-chat",
           context: globalContext,
+          instanceId: "widget-instance-1",
         },
       }).pinKey,
-    ).toBe("agent-chat:global");
+    ).toBe("agent-chat:widget-instance-1");
   });
 
   it("does not treat an empty default context as global", () => {

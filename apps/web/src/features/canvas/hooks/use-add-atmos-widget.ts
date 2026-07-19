@@ -92,6 +92,13 @@ function createSourceForWidgetType(
       return {
         type: "agent-chat",
         context,
+        instanceId:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `agent-chat-${Date.now().toString(36)}`,
+        acpSessionId: null,
+        registryId: null,
+        sessionCwd: null,
       };
   }
 }
