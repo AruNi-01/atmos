@@ -3617,7 +3617,9 @@
           "placeholder": "还没有备注。",
           "emptyTitle": "还没有备注",
           "emptyDescription": "为这个工作区添加备注。",
-          "add": "添加备注"
+          "add": "添加备注",
+          "conflict": "此备注已在其他位置更改。请先重新加载，再保存草稿。",
+          "reload": "重新加载"
         }
       }
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Button,
@@ -15,7 +15,7 @@ export interface NotePanelProps {
   note: string | null;
   noteLoading: boolean;
   effectivePath: string | null | undefined;
-  saveNote: (path: string, content: string) => Promise<void>;
+  saveNote: (path: string, content: string, expectedContent?: string) => Promise<boolean>;
   /** Show the title + edit/save header row. Defaults to true. */
   showHeader?: boolean;
   className?: string;
@@ -35,30 +35,43 @@ export const NotePanel: React.FC<NotePanelProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [draftNote, setDraftNote] = useState(note ?? '');
   const [isSaving, setIsSaving] = useState(false);
+  const [hasConflict, setHasConflict] = useState(false);
   const saveRef = useRef(false);
-
-  useEffect(() => {
-    if (!isEditing && !isSaving) {
-      setDraftNote(note ?? '');
-    }
-  }, [isEditing, isSaving, note]);
+  const editSessionRef = useRef<{
+    baseContent: string;
+    path: string;
+    save: NotePanelProps['saveNote'];
+  } | null>(null);
 
   const handleStartEdit = useCallback(() => {
     if (!effectivePath) return;
-    setDraftNote(note ?? '');
+    const baseContent = note ?? '';
+    editSessionRef.current = { baseContent, path: effectivePath, save: saveNote };
+    setDraftNote(baseContent);
+    setHasConflict(false);
     setIsEditing(true);
-  }, [effectivePath, note]);
+  }, [effectivePath, note, saveNote]);
 
   const handleSave = useCallback(async () => {
-    if (!effectivePath || saveRef.current) return;
-    if (draftNote === (note ?? '')) {
+    const editSession = editSessionRef.current;
+    if (!editSession || saveRef.current) return;
+    if (draftNote === editSession.baseContent) {
       setIsEditing(false);
       return;
     }
     saveRef.current = true;
     setIsSaving(true);
     try {
-      await saveNote(effectivePath, draftNote);
+      const saved = await editSession.save(
+        editSession.path,
+        draftNote,
+        editSession.baseContent,
+      );
+      if (!saved) {
+        setHasConflict(true);
+        return;
+      }
+      editSessionRef.current = null;
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save note', error);
@@ -66,7 +79,14 @@ export const NotePanel: React.FC<NotePanelProps> = ({
       saveRef.current = false;
       setIsSaving(false);
     }
-  }, [draftNote, effectivePath, note, saveNote]);
+  }, [draftNote]);
+
+  const handleReload = useCallback(() => {
+    editSessionRef.current = null;
+    setDraftNote(note ?? '');
+    setHasConflict(false);
+    setIsEditing(false);
+  }, [note]);
 
   return (
     <div className={cn('flex min-h-0 min-w-0 flex-col', className)}>
@@ -81,7 +101,7 @@ export const NotePanel: React.FC<NotePanelProps> = ({
             size="sm"
             className="h-7 cursor-pointer gap-1.5 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={isEditing ? () => void handleSave() : handleStartEdit}
-            disabled={!effectivePath || isSaving}
+            disabled={!effectivePath || isSaving || hasConflict}
           >
             {isSaving ? <Loader2 className="size-3 animate-spin" /> : null}
             {isEditing ? t('actions.save') : t('actions.edit')}
@@ -90,6 +110,19 @@ export const NotePanel: React.FC<NotePanelProps> = ({
       ) : null}
 
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden p-4', contentClassName)}>
+        {hasConflict ? (
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
+            <span>{t('note.conflict')}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              onClick={handleReload}
+            >
+              {t('note.reload')}
+            </Button>
+          </div>
+        ) : null}
         {noteLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-4 w-2/3" />

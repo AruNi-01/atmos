@@ -3617,7 +3617,9 @@
           "placeholder": "No note yet.",
           "emptyTitle": "No note yet",
           "emptyDescription": "Add notes for this workspace.",
-          "add": "Add Note"
+          "add": "Add Note",
+          "conflict": "This note changed elsewhere. Reload before saving your draft.",
+          "reload": "Reload"
         }
       }
     }

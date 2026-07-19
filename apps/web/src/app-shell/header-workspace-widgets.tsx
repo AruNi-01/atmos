@@ -91,8 +91,8 @@ function useHeaderNote(contextId: string | null, effectivePath?: string | null, 
   return {
     note,
     noteLoading,
-    saveNote: React.useCallback((path: string, content: string) => (
-      contextId ? saveNote(contextId, path, content) : Promise.resolve()
+    saveNote: React.useCallback((path: string, content: string, expectedContent?: string) => (
+      contextId ? saveNote(contextId, path, content, expectedContent) : Promise.resolve(false)
     ), [contextId, saveNote]),
   };
 }
@@ -347,6 +347,7 @@ export function HeaderWorkspaceSummaryButton({
             >
               <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-md bg-popover">
                 <NotePanel
+                  key={effectivePath}
                   note={note}
                   noteLoading={noteLoading}
                   effectivePath={effectivePath}

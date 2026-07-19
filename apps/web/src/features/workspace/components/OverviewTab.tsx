@@ -950,6 +950,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           <Card className="flex h-[420px] min-w-0 flex-col overflow-hidden border border-border bg-background">
             <NotePanel
+              key={effectivePath}
               note={note}
               noteLoading={noteLoading}
               effectivePath={effectivePath}
