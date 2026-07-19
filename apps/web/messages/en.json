@@ -115,6 +115,8 @@
       "fallbackWorkspace": "Workspace",
       "loadingTasks": "Loading tasks",
       "taskMeta": "{activeCount} active · {doneCount}/{totalCount} done",
+      "loadingNote": "Loading note",
+      "emptyNote": "No note yet",
       "mergeConflictsNeedAttention": "Merge conflicts need attention",
       "changed": "{count} changed",
       "unpushed": "{count} unpushed",
@@ -122,6 +124,7 @@
       "openWorkspaceSummary": "Open workspace summary",
       "workspaceSummary": "Workspace Summary",
       "task": "TASK",
+      "note": "NOTE",
       "commitPush": "Commit & Push"
     },
     "hotkeys": {
@@ -2020,7 +2023,7 @@
           "name": "My Agent",
           "command": "/usr/local/bin/agent",
           "args": "--stdio",
-          "env": "{\"API_KEY\":\"...\"}"
+          "env": "'{\"API_KEY\":\"...\"}'"
         },
         "actions": {
           "editJson": "Edit JSON",
@@ -2033,7 +2036,7 @@
         "jsonEditor": {
           "label": "custom_agents",
           "fileHint": "(acp_servers.json)",
-          "placeholder": "{}"
+          "placeholder": "'{}'"
         },
         "toast": {
           "failedToLoadJsonTitle": "Failed to load custom agents JSON",
@@ -4817,9 +4820,11 @@
       "globalSearchTitle": "Global search button",
       "globalSearchDescription": "Show the search box that opens global search. The ⌘K shortcut still works when hidden.",
       "summaryButtonTitle": "Workspace summary button",
-      "summaryButtonDescription": "Show one compact icon button with project, task, and commit shortcuts.",
+      "summaryButtonDescription": "Show one compact icon button with project, task, note, and commit shortcuts.",
       "taskTitle": "TASK section",
       "taskDescription": "Show task counts in the summary popover and expose the full task panel as a nested popover.",
+      "noteTitle": "NOTE section",
+      "noteDescription": "Show a note preview in the summary popover and expose the full note panel as a nested popover.",
       "commitTitle": "Commit & Push section",
       "commitDescription": "Show repository change status and expose the shared Commit & Push controls as a nested popover.",
       "remoteAccessTitle": "Remote Access button",

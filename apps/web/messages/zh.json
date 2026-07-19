@@ -115,6 +115,8 @@
       "fallbackWorkspace": "工作区",
       "loadingTasks": "正在加载任务",
       "taskMeta": "{activeCount} 个进行中 · 完成 {doneCount}/{totalCount}",
+      "loadingNote": "正在加载笔记",
+      "emptyNote": "暂无笔记",
       "mergeConflictsNeedAttention": "存在待处理冲突",
       "changed": "{count} 个变更",
       "unpushed": "{count} 个未推送",
@@ -122,6 +124,7 @@
       "openWorkspaceSummary": "打开工作区摘要",
       "workspaceSummary": "工作区摘要",
       "task": "任务",
+      "note": "笔记",
       "commitPush": "提交并推送"
     },
     "hotkeys": {
@@ -2020,7 +2023,7 @@
           "name": "我的 Agent",
           "command": "/usr/local/bin/agent",
           "args": "--stdio",
-          "env": "{\"API_KEY\":\"...\"}"
+          "env": "'{\"API_KEY\":\"...\"}'"
         },
         "actions": {
           "editJson": "编辑 JSON",
@@ -2033,7 +2036,7 @@
         "jsonEditor": {
           "label": "custom_agents",
           "fileHint": "(acp_servers.json)",
-          "placeholder": "{}"
+          "placeholder": "'{}'"
         },
         "toast": {
           "failedToLoadJsonTitle": "加载自定义 Agent JSON 失败",
@@ -4817,9 +4820,11 @@
       "globalSearchTitle": "全局搜索按钮",
       "globalSearchDescription": "显示打开全局搜索的搜索框。隐藏后仍可使用 ⌘K 快捷键。",
       "summaryButtonTitle": "工作区摘要按钮",
-      "summaryButtonDescription": "显示一个紧凑图标按钮，提供项目、任务和提交快捷入口。",
+      "summaryButtonDescription": "显示一个紧凑图标按钮，提供项目、任务、笔记和提交快捷入口。",
       "taskTitle": "TASK 区块",
       "taskDescription": "在摘要弹层中显示任务计数，并通过嵌套弹层展示完整任务面板。",
+      "noteTitle": "NOTE 区块",
+      "noteDescription": "在摘要弹层中显示笔记预览，并通过嵌套弹层展示完整笔记面板。",
       "commitTitle": "Commit & Push 区块",
       "commitDescription": "显示仓库变更状态，并通过嵌套弹层展示共享的 Commit & Push 控件。",
       "remoteAccessTitle": "远程访问按钮",
