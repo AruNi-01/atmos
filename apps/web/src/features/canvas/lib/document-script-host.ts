@@ -300,14 +300,19 @@ export function rewriteRelativeImports(
       }
     }
 
-    // import('./x')
-    const dynMatch = rest.match(/^import\s*\(\s*(['"])(\.[^'"]+)\1\s*\)/);
+    // import('./x') / import("./x") / import(`./x`) — literal relative only
+    // (no ${…} interpolation; those stay raw and will fail at load if used).
+    const dynMatch = rest.match(/^import\s*\(\s*(['"`])(\.(?:[^'"`$\\]|\\.)*)\1\s*\)/);
     if (dynMatch && isKeywordBoundary(code, i, "import")) {
-      const replaced = replaceSpec(dynMatch[1]!, dynMatch[2]!);
-      if (replaced) {
-        out += `import(${replaced})`;
-        i += dynMatch[0].length;
-        continue;
+      const rel = dynMatch[2]!;
+      // Reject interpolated or empty-looking templates
+      if (!rel.includes("${")) {
+        const replaced = replaceSpec(dynMatch[1]!, rel);
+        if (replaced) {
+          out += `import(${replaced})`;
+          i += dynMatch[0].length;
+          continue;
+        }
       }
     }
 
