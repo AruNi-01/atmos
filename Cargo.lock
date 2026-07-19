@@ -514,6 +514,7 @@ dependencies = [
 name = "atmos"
 version = "2026.7.2"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "clap",
  "dirs 5.0.1",
@@ -523,6 +524,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tokio",
+ "urlencoding",
 ]
 
 [[package]]

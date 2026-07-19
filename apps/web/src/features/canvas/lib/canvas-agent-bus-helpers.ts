@@ -1,14 +1,12 @@
 import type { Editor, TLShapeId } from "tldraw";
 
 import { CanvasAgentError } from "./canvas-agent-errors";
+import { findNonOverlappingSpawn } from "./canvas-agent-spawn";
 
 export const MAX_LAYOUT_GRID = 24;
 export const MAX_LAYOUT_IDS = 256;
-export const MAX_APPLY_STEPS = 32;
-
-const SPAWN_GRID_COLS = 4;
-const SPAWN_CELL_W = 120;
-const SPAWN_CELL_H = 80;
+/** Raised from 32 so a full intro diagram can ship in one apply. */
+export const MAX_APPLY_STEPS = 64;
 
 export function requireString(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.length) {
@@ -163,17 +161,16 @@ export function shallowFilterProps(
   return out;
 }
 
+/**
+ * @deprecated Prefer `findNonOverlappingSpawn` from canvas-agent-spawn.
+ * Kept as a thin adapter for any remaining call sites / tests.
+ */
 export function resolveAutoSpawnPosition(
   editor: Editor,
-  slot: number,
+  _slot?: number,
+  size: { w: number; h: number } = { w: 200, h: 200 },
 ): { x: number; y: number } {
-  const center = editor.getViewportPageBounds().center;
-  const col = slot % SPAWN_GRID_COLS;
-  const row = Math.floor(slot / SPAWN_GRID_COLS);
-  return {
-    x: center.x - 100 + col * SPAWN_CELL_W,
-    y: center.y - 100 + row * SPAWN_CELL_H,
-  };
+  return findNonOverlappingSpawn(editor, size);
 }
 
 export function requireExistingShapes(editor: Editor, ids: readonly string[]) {

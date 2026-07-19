@@ -32,7 +32,6 @@ use core_engine::{FsEngine, GitEngine};
 use core_service::service::canvas_agent_relay::{
     CanvasAgentDispatchOutcome, CanvasAgentRelay, CompleteDispatchResult,
 };
-use core_service::{CanvasService, SaveCanvasBoardReq};
 use local_model_runtime::LocalRuntimeManager;
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
@@ -58,7 +57,6 @@ pub struct WsMessageService {
     automation_service: Arc<AutomationService>,
     review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
-    canvas_service: Arc<CanvasService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
     notification_service: Arc<NotificationService>,
@@ -78,7 +76,6 @@ impl WsMessageService {
         automation_service: Arc<AutomationService>,
         review_service: Arc<ReviewService>,
         usage_service: Arc<UsageService>,
-        canvas_service: Arc<CanvasService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
@@ -101,7 +98,6 @@ impl WsMessageService {
             automation_service,
             review_service,
             usage_service,
-            canvas_service,
             canvas_agent_relay,
             local_services_service,
             notification_service,
@@ -169,11 +165,6 @@ impl WsMessageService {
             WsAction::AppOpen => self.handle_app_open(parse_request(request.data)?),
 
             // Canvas
-            WsAction::CanvasGetDefaultBoard => self.handle_canvas_get_default_board().await,
-            WsAction::CanvasUpdateDefaultBoard => {
-                self.handle_canvas_update_default_board(parse_request(request.data)?)
-                    .await
-            }
             WsAction::CanvasBridgeRegister => {
                 self.handle_canvas_bridge_register(conn_id, parse_request(request.data)?)
             }
@@ -878,38 +869,6 @@ impl WsMessageService {
 
     // ===== App Handlers =====
 
-    // ===== Canvas Handlers =====
-
-    async fn handle_canvas_get_default_board(&self) -> Result<Value> {
-        let board = self.canvas_service.get_default_board().await?;
-        Ok(json!(CanvasBoardResponse {
-            guid: board.guid,
-            slug: board.slug,
-            name: board.name,
-            document_json: board.document_json,
-            updated_at: board.updated_at,
-        }))
-    }
-
-    async fn handle_canvas_update_default_board(
-        &self,
-        req: CanvasUpdateDefaultBoardRequest,
-    ) -> Result<Value> {
-        let board = self
-            .canvas_service
-            .save_default_board(SaveCanvasBoardReq {
-                document_json: req.document_json,
-            })
-            .await?;
-        Ok(json!(CanvasBoardResponse {
-            guid: board.guid,
-            slug: board.slug,
-            name: board.name,
-            document_json: board.document_json,
-            updated_at: board.updated_at,
-        }))
-    }
-
     // ===== APP-015: Canvas terminal-agent bridge =====
 
     fn handle_canvas_bridge_register(
@@ -923,6 +882,7 @@ impl WsMessageService {
             req.label,
             req.accepts_commands,
             req.capabilities,
+            req.active_document_file_name,
         );
         Ok(json!({
             "ok": true,

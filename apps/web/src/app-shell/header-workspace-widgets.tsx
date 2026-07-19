@@ -10,11 +10,12 @@ import {
   TooltipTrigger,
   cn,
 } from '@workspace/ui';
-import { ChevronRight, GitCommit, ListTodo, PanelTop } from 'lucide-react';
+import { ChevronRight, GitCommit, ListTodo, PanelTop, StickyNote } from 'lucide-react';
 import {
   TaskListPanel,
   type TaskListPanelTask,
 } from '@/features/workspace/components/TaskListPanel';
+import { NotePanel } from '@/features/workspace/components/NotePanel';
 import { useWorkspaceContextStore } from '@/features/workspace/hooks/use-workspace-context';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
@@ -71,6 +72,41 @@ function useHeaderTasks(contextId: string | null, effectivePath?: string | null,
       contextId ? deleteTask(contextId, path, idx) : Promise.resolve()
     ), [contextId, deleteTask]),
   };
+}
+
+function useHeaderNote(contextId: string | null, effectivePath?: string | null, enabled = true) {
+  const note = useWorkspaceContextStore((state) =>
+    contextId ? state.workspaceStates[contextId]?.note ?? null : null,
+  );
+  const noteLoading = useWorkspaceContextStore((state) => state.noteLoading);
+  const loadNote = useWorkspaceContextStore((state) => state.loadNote);
+  const saveNote = useWorkspaceContextStore((state) => state.saveNote);
+
+  React.useEffect(() => {
+    if (!enabled) return;
+    if (!contextId || !effectivePath) return;
+    void loadNote(contextId, effectivePath);
+  }, [contextId, effectivePath, enabled, loadNote]);
+
+  return {
+    note,
+    noteLoading,
+    saveNote: React.useCallback((path: string, content: string, expectedContent?: string) => (
+      contextId ? saveNote(contextId, path, content, expectedContent) : Promise.resolve(false)
+    ), [contextId, saveNote]),
+  };
+}
+
+function formatNoteMeta(
+  note: string | null,
+  noteLoading: boolean,
+  labels: { loading: string; empty: string },
+) {
+  if (noteLoading && note == null) return labels.loading;
+  const trimmed = note?.trim() ?? '';
+  if (!trimmed) return labels.empty;
+  const firstLine = trimmed.split('\n').find((line) => line.trim())?.trim() ?? trimmed;
+  return firstLine.length > 64 ? `${firstLine.slice(0, 64)}…` : firstLine;
 }
 
 type SummaryRowProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -172,6 +208,7 @@ export function HeaderWorkspaceSummaryButton({
 }: HeaderWorkspaceSummaryButtonProps) {
   const t = useTranslations("header");
   const showTask = useLayoutSettingsStore((state) => state.showHeaderSummaryTask);
+  const showNote = useLayoutSettingsStore((state) => state.showHeaderSummaryNote);
   const showCommit = useLayoutSettingsStore((state) => state.showHeaderSummaryCommit);
   const statusQuery = useGitStatusQuery(effectivePath ?? null);
   const hasMergeConflicts = statusQuery.data?.has_merge_conflicts ?? false;
@@ -187,6 +224,11 @@ export function HeaderWorkspaceSummaryButton({
     updateTaskContent,
     deleteTask,
   } = useHeaderTasks(contextId, effectivePath, showTask);
+  const {
+    note,
+    noteLoading,
+    saveNote,
+  } = useHeaderNote(contextId, effectivePath, showNote);
 
   if (!contextId || !effectivePath) return null;
 
@@ -203,6 +245,10 @@ export function HeaderWorkspaceSummaryButton({
   const taskMeta = tasksLoading && tasks.length === 0
     ? t("summary.loadingTasks")
     : t("summary.taskMeta", { activeCount: activeTaskCount, doneCount, totalCount: tasks.length });
+  const noteMeta = formatNoteMeta(note, noteLoading, {
+    loading: t("summary.loadingNote"),
+    empty: t("summary.emptyNote"),
+  });
   const commitMeta = hasMergeConflicts
     ? t("summary.mergeConflictsNeedAttention")
     : [
@@ -282,6 +328,31 @@ export function HeaderWorkspaceSummaryButton({
                   updateTaskStatus={updateTaskStatus}
                   updateTaskContent={updateTaskContent}
                   deleteTask={deleteTask}
+                />
+              </div>
+            </NestedSummaryPopover>
+          ) : null}
+
+          {showNote ? (
+            <NestedSummaryPopover
+              widthClassName="w-[430px]"
+              row={(
+                <SummaryRow
+                  icon={<StickyNote className="size-4" />}
+                  label={noteMeta}
+                  meta={noteMeta}
+                  title={t("summary.note")}
+                />
+              )}
+            >
+              <div className="flex h-[min(560px,76vh)] flex-col overflow-hidden rounded-md bg-popover">
+                <NotePanel
+                  key={effectivePath}
+                  note={note}
+                  noteLoading={noteLoading}
+                  effectivePath={effectivePath}
+                  saveNote={saveNote}
+                  className="h-full"
                 />
               </div>
             </NestedSummaryPopover>

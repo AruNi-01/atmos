@@ -103,7 +103,11 @@ pub async fn execute(
             let body = args.body();
             invoke(&api, &canvas, "place", body).await
         }
-        CanvasCommand::Lint => invoke(&api, &canvas, "lint", json!({})).await,
+        CanvasCommand::Lint(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "lint", body).await
+        }
+        CanvasCommand::Screenshot(args) => screenshot(&api, &canvas, args).await,
         CanvasCommand::Apply(args) => {
             let body = args.body()?;
             invoke(&api, &canvas, "apply", body).await
@@ -115,6 +119,37 @@ pub async fn execute(
         CanvasCommand::SetStatus(args) => {
             let body = args.body();
             invoke(&api, &canvas, "set_status", body).await
+        }
+        // APP-037 document verbs (REST, not agent bridge)
+        CanvasCommand::Docs => docs_list(&api).await,
+        CanvasCommand::DocGet(args) => docs_get(&api, &args.file).await,
+        CanvasCommand::DocPut(args) => docs_put(&api, &args).await,
+        CanvasCommand::DocDelete(args) => docs_delete(&api, &args.file, args.confirm).await,
+        CanvasCommand::DocRename(args) => docs_rename(&api, &args.file, &args.name).await,
+        CanvasCommand::DocDuplicate(args) => {
+            docs_duplicate(&api, &args.file, args.name.as_deref()).await
+        }
+        CanvasCommand::DocSanitize(args) => docs_sanitize(&api, &args.name).await,
+        CanvasCommand::ScriptGet => {
+            invoke(&api, &canvas, "script_get", json!({})).await
+        }
+        CanvasCommand::ScriptStatus => {
+            invoke(&api, &canvas, "script_status", json!({})).await
+        }
+        CanvasCommand::ScriptPut(args) => script_put(&api, &canvas, args).await,
+        CanvasCommand::ScriptClear => {
+            invoke(&api, &canvas, "script_put", json!({ "clear": true })).await
+        }
+        CanvasCommand::Exec(args) => {
+            let code = if let Some(inline) = &args.code {
+                inline.clone()
+            } else if let Some(path) = &args.file {
+                std::fs::read_to_string(path)
+                    .map_err(|err| format!("failed to read {}: {err}", path.display()))?
+            } else {
+                return Err("exec requires --code or --file".into());
+            };
+            invoke(&api, &canvas, "exec", json!({ "code": code })).await
         }
     }
 }
@@ -167,9 +202,11 @@ pub enum CanvasCommand {
     Distribute(DistributeArgs),
     /// Place one shape relative to another (page-bounds math).
     Place(PlaceArgs),
-    /// Report overlap / unbound-arrow lints on the current page.
-    Lint,
-    /// Run up to 32 mutating commands in one request (stops on first failure).
+    /// Report layout lints (bad overlaps, text overflow, unbound arrows).
+    Lint(LintArgs),
+    /// Export a JPEG of the agent-drawn region only (excludes Atmos chrome widgets/terminals).
+    Screenshot(ScreenshotArgs),
+    /// Run up to 64 mutating commands in one request (stops on first failure).
     Apply(ApplyArgs),
     /// Set the dashed agent-view frame (explicit page-space rect or shape union).
     SetAgentView(SetAgentViewArgs),
@@ -177,6 +214,104 @@ pub enum CanvasCommand {
     /// Send `--status idle` as the very last command of every canvas turn so
     /// the top-right green dot and bottom-right island stop immediately.
     SetStatus(SetStatusArgs),
+    /// List local canvas documents (APP-037).
+    Docs,
+    /// Read one document file (JSON body).
+    DocGet(DocFileArgs),
+    /// Write/create a document from a JSON file on disk.
+    DocPut(DocPutArgs),
+    /// Delete a document (requires --confirm).
+    DocDelete(DocDeleteArgs),
+    /// Rename a document (display name → sanitized file name).
+    DocRename(DocRenameArgs),
+    /// Duplicate a document (optional --name for the copy).
+    DocDuplicate(DocDuplicateArgs),
+    /// Sanitize a display name to a `.atmos.tldr` file name.
+    DocSanitize(DocSanitizeArgs),
+    /// Read the open document's durable script (requires live Canvas + bridge for status).
+    ScriptGet,
+    /// Document script runtime status (running / error / idle).
+    ScriptStatus,
+    /// Install or replace the open document's script (runs immediately; save to persist).
+    ScriptPut(ScriptPutArgs),
+    /// Clear the open document's script and stop the host.
+    ScriptClear,
+    /// Run one-shot JS against the live editor.
+    Exec(ExecArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ScriptPutArgs {
+    /// Path to main.js (or pass --code).
+    #[arg(long)]
+    pub file: Option<PathBuf>,
+    /// Inline script source for main.js.
+    #[arg(long)]
+    pub code: Option<String>,
+    /// Entry file name inside the script package (default main.js).
+    #[arg(long, default_value = "main.js")]
+    pub entry: String,
+}
+
+#[derive(Debug, Args)]
+pub struct ExecArgs {
+    /// Inline JS body (async top-level; `editor` and `helpers` in scope).
+    #[arg(long)]
+    pub code: Option<String>,
+    /// Read JS from a file instead of --code.
+    #[arg(long)]
+    pub file: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct DocFileArgs {
+    /// File name under the canvas dir, e.g. `Ops Desk.atmos.tldr`.
+    #[arg(long)]
+    pub file: String,
+}
+
+#[derive(Debug, Args)]
+pub struct DocPutArgs {
+    /// Target file name under the canvas dir.
+    #[arg(long)]
+    pub file: String,
+    /// Path to a JSON file matching `atmos-canvas-file.1`.
+    #[arg(long)]
+    pub from: PathBuf,
+    /// Allow replacing an existing document (default refuses name conflicts).
+    #[arg(long, default_value_t = false)]
+    pub force: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct DocDeleteArgs {
+    #[arg(long)]
+    pub file: String,
+    #[arg(long, default_value_t = false)]
+    pub confirm: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct DocRenameArgs {
+    #[arg(long)]
+    pub file: String,
+    /// New display name (will be sanitized to a file name).
+    #[arg(long)]
+    pub name: String,
+}
+
+#[derive(Debug, Args)]
+pub struct DocDuplicateArgs {
+    #[arg(long)]
+    pub file: String,
+    #[arg(long)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct DocSanitizeArgs {
+    #[arg(long)]
+    pub name: String,
 }
 
 #[derive(Debug, Args, Clone)]
@@ -212,26 +347,156 @@ fn skill_dir() -> Result<Value, String> {
 }
 
 async fn status(api: &ApiClientArgs) -> Result<Value, String> {
-    let endpoint = build_url(api, "/api/canvas/agent/status")?;
+    canvas_http_json(api, reqwest::Method::GET, "/api/canvas/agent/status", None).await
+}
+
+async fn docs_list(api: &ApiClientArgs) -> Result<Value, String> {
+    canvas_http_json(api, reqwest::Method::GET, "/api/canvas/documents", None).await
+}
+
+async fn docs_get(api: &ApiClientArgs, file: &str) -> Result<Value, String> {
+    let path = format!(
+        "/api/canvas/documents/{}",
+        urlencoding::encode(file)
+    );
+    canvas_http_json(api, reqwest::Method::GET, &path, None).await
+}
+
+async fn docs_put(api: &ApiClientArgs, args: &DocPutArgs) -> Result<Value, String> {
+    let raw = std::fs::read_to_string(&args.from)
+        .map_err(|err| format!("failed to read {}: {err}", args.from.display()))?;
+    let body: Value = serde_json::from_str(&raw)
+        .map_err(|err| format!("--from must be valid JSON: {err}"))?;
+    let mut path = format!(
+        "/api/canvas/documents/{}",
+        urlencoding::encode(&args.file)
+    );
+    if args.force {
+        path.push_str("?overwrite=true");
+    }
+    canvas_http_json(api, reqwest::Method::PUT, &path, Some(body)).await
+}
+
+async fn docs_delete(api: &ApiClientArgs, file: &str, confirm: bool) -> Result<Value, String> {
+    if !confirm {
+        return Err("doc-delete requires --confirm".into());
+    }
+    let path = format!(
+        "/api/canvas/documents/{}",
+        urlencoding::encode(file)
+    );
+    canvas_http_json(api, reqwest::Method::DELETE, &path, None).await
+}
+
+async fn docs_rename(api: &ApiClientArgs, file: &str, name: &str) -> Result<Value, String> {
+    let path = format!(
+        "/api/canvas/documents/{}/rename",
+        urlencoding::encode(file)
+    );
+    canvas_http_json(
+        api,
+        reqwest::Method::POST,
+        &path,
+        Some(json!({ "name": name })),
+    )
+    .await
+}
+
+async fn docs_duplicate(
+    api: &ApiClientArgs,
+    file: &str,
+    name: Option<&str>,
+) -> Result<Value, String> {
+    let path = format!(
+        "/api/canvas/documents/{}/duplicate",
+        urlencoding::encode(file)
+    );
+    canvas_http_json(
+        api,
+        reqwest::Method::POST,
+        &path,
+        Some(json!({ "name": name })),
+    )
+    .await
+}
+
+async fn docs_sanitize(api: &ApiClientArgs, name: &str) -> Result<Value, String> {
+    canvas_http_json(
+        api,
+        reqwest::Method::POST,
+        "/api/canvas/documents/sanitize-name",
+        Some(json!({ "name": name })),
+    )
+    .await
+}
+
+async fn script_put(
+    api: &ApiClientArgs,
+    canvas: &CanvasOpts,
+    args: ScriptPutArgs,
+) -> Result<Value, String> {
+    let code = if let Some(inline) = args.code {
+        inline
+    } else if let Some(path) = args.file {
+        std::fs::read_to_string(&path)
+            .map_err(|err| format!("failed to read {}: {err}", path.display()))?
+    } else {
+        return Err("script-put requires --file or --code".into());
+    };
+    let entry = args.entry;
+    let mut files = serde_json::Map::new();
+    files.insert(entry.clone(), json!(code));
+    invoke(
+        api,
+        canvas,
+        "script_put",
+        json!({
+            "entry": entry,
+            "files": files,
+        }),
+    )
+    .await
+}
+
+async fn canvas_http_json(
+    api: &ApiClientArgs,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<Value>,
+) -> Result<Value, String> {
+    let endpoint = build_url(api, path)?;
     let client = http_client(api)?;
-    let mut req = client.get(&endpoint);
+    let mut req = client.request(method, &endpoint);
     if let Some(token) = resolve_token(api) {
         req = req.header(AUTHORIZATION, format!("Bearer {}", token));
+    }
+    if let Some(body) = body {
+        req = req.json(&body);
     }
     let resp = req
         .send()
         .await
-        .map_err(|err| format!("status request failed ({endpoint}): {err}"))?;
+        .map_err(|err| format!("request failed ({endpoint}): {err}"))?;
     let status_code = resp.status();
     let value = resp
         .json::<Value>()
         .await
-        .map_err(|err| format!("failed to parse status response from {endpoint}: {err}"))?;
+        .map_err(|err| format!("failed to parse response from {endpoint}: {err}"))?;
     if !status_code.is_success() {
         if let Some(hint) = auth_hint_for_status(status_code) {
             return Err(hint.to_string());
         }
-        return Err(format!("status returned HTTP {}: {}", status_code, value));
+        // Unwrap API envelope error if present
+        if let Some(err) = value.get("error").and_then(|e| e.as_str()) {
+            return Err(err.to_string());
+        }
+        return Err(format!("HTTP {}: {}", status_code, value));
+    }
+    // Prefer unwrapped `data` when ApiResponse envelope is used
+    if value.get("success").and_then(|s| s.as_bool()) == Some(true) {
+        if let Some(data) = value.get("data") {
+            return Ok(data.clone());
+        }
     }
     Ok(value)
 }
@@ -759,6 +1024,161 @@ impl CanvasSessionStatus {
             Self::Idle => "idle",
         }
     }
+}
+
+#[derive(Debug, Args)]
+pub struct LintArgs {
+    /// Include CLI-ready `fix_suggestions` (move / update_shape) for each remediable lint.
+    #[arg(long, default_value_t = false)]
+    pub fix_suggestions: bool,
+}
+
+impl LintArgs {
+    fn body(&self) -> Value {
+        if self.fix_suggestions {
+            json!({ "fix_suggestions": true })
+        } else {
+            json!({})
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "kebab-case")]
+pub enum ScreenshotSize {
+    Small,
+    Medium,
+    Large,
+}
+
+impl ScreenshotSize {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Small => "small",
+            Self::Medium => "medium",
+            Self::Large => "large",
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ScreenshotArgs {
+    /// Comma-separated shape ids — region is their page-bounds union (chrome still excluded).
+    #[arg(long)]
+    pub ids: Option<String>,
+    /// Explicit page-space crop box (use with --y --w --h).
+    #[arg(long)]
+    pub x: Option<f64>,
+    #[arg(long)]
+    pub y: Option<f64>,
+    #[arg(long)]
+    pub w: Option<f64>,
+    #[arg(long)]
+    pub h: Option<f64>,
+    /// Use the dashed agent-view frame from `set-agent-view` (recommended for turn-end verify).
+    #[arg(long, default_value_t = false)]
+    pub use_agent_view: bool,
+    /// Extra padding around the region when using --ids or --x/--y/--w/--h (default 48).
+    #[arg(long)]
+    pub padding: Option<f64>,
+    /// Export resolution preset.
+    #[arg(long, value_enum, default_value_t = ScreenshotSize::Medium)]
+    pub size: ScreenshotSize,
+    /// Include Atmos canvas-widget / canvas-terminal chrome (default off).
+    #[arg(long, default_value_t = false)]
+    pub include_widgets: bool,
+    /// Write the JPEG to this path (decoded from data_url). Prints the path on success.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+}
+
+impl ScreenshotArgs {
+    fn body(&self) -> Result<Value, String> {
+        let mut body = json!({
+            "size": self.size.as_str(),
+        });
+        if self.use_agent_view {
+            body["use_agent_view"] = json!(true);
+        }
+        if self.include_widgets {
+            body["include_widgets"] = json!(true);
+        }
+        if let Some(padding) = self.padding {
+            body["padding"] = json!(padding);
+        }
+        if let Some(ids) = &self.ids {
+            body["ids"] = json!(split_ids(ids));
+        }
+        let has_box = self.x.is_some() || self.y.is_some() || self.w.is_some() || self.h.is_some();
+        if has_box {
+            let x = self.x.ok_or("screenshot --x is required with y,w,h")?;
+            let y = self.y.ok_or("screenshot --y is required with x,w,h")?;
+            let w = self.w.ok_or("screenshot --w is required with x,y,h")?;
+            let h = self.h.ok_or("screenshot --h is required with x,y,w")?;
+            body["x"] = json!(x);
+            body["y"] = json!(y);
+            body["w"] = json!(w);
+            body["h"] = json!(h);
+        }
+        Ok(body)
+    }
+}
+
+async fn screenshot(
+    api: &ApiClientArgs,
+    canvas: &CanvasOpts,
+    args: ScreenshotArgs,
+) -> Result<Value, String> {
+    let body = args.body()?;
+    let result = invoke(api, canvas, "screenshot", body).await?;
+    if let Some(out) = &args.out {
+        let data = result
+            .get("data")
+            .cloned()
+            .unwrap_or(Value::Null);
+        let data_url = data
+            .get("data_url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "screenshot response missing data_url".to_string())?;
+        write_data_url_to_file(data_url, out)?;
+        return Ok(json!({
+            "ok": true,
+            "request_id": result.get("request_id").cloned().unwrap_or(Value::Null),
+            "data": {
+                "file_path": out,
+                "width": data.get("width"),
+                "height": data.get("height"),
+                "region": data.get("region"),
+                "shape_count": data.get("shape_count"),
+                "shape_ids": data.get("shape_ids"),
+                "excluded_chrome": data.get("excluded_chrome"),
+                "size": data.get("size"),
+                // Omit the huge data_url when writing to disk.
+            },
+        }));
+    }
+    Ok(result)
+}
+
+fn write_data_url_to_file(data_url: &str, path: &PathBuf) -> Result<(), String> {
+    const PREFIX: &str = "base64,";
+    let idx = data_url
+        .find(PREFIX)
+        .ok_or_else(|| "data_url is not base64-encoded".to_string())?;
+    let b64 = &data_url[idx + PREFIX.len()..];
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|err| format!("failed to decode screenshot base64: {err}"))?;
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+        }
+    }
+    std::fs::write(path, bytes)
+        .map_err(|err| format!("failed to write {}: {err}", path.display()))?;
+    Ok(())
 }
 
 #[derive(Debug, Args)]

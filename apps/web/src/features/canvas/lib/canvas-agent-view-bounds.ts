@@ -52,6 +52,26 @@ export function shapeIdsFromAgentResult(data: unknown): string[] {
   if (!data || typeof data !== "object") return [];
   const d = data as Record<string, unknown>;
   if (typeof d.id === "string") return [d.id];
+
+  // `apply` returns `{ results: [{ data: { id } }, …] }`.
+  if (Array.isArray(d.results)) {
+    const fromApply: string[] = [];
+    for (const step of d.results) {
+      if (!step || typeof step !== "object") continue;
+      const stepData = (step as { data?: unknown }).data;
+      if (stepData && typeof stepData === "object") {
+        const id = (stepData as { id?: unknown }).id;
+        if (typeof id === "string" && id.length) fromApply.push(id);
+      }
+    }
+    if (fromApply.length) return fromApply;
+  }
+
+  // `screenshot` returns the shapes that were rendered.
+  if (Array.isArray(d.shape_ids)) {
+    return d.shape_ids.filter((v): v is string => typeof v === "string" && v.length > 0);
+  }
+
   const arrayKeys = [
     "ids",
     "laid_out",

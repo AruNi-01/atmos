@@ -1,5 +1,11 @@
-import type { CanvasAgentFeedEntry } from "./canvas-agent-feed";
-import type { CanvasAgentFeedKind } from "./canvas-agent-feed-labels";
+import type {
+  CanvasAgentFeedEntry,
+  CanvasAgentFeedScreenshot,
+} from "./canvas-agent-feed";
+import {
+  normalizeCanvasAgentCommand,
+  type CanvasAgentFeedKind,
+} from "./canvas-agent-feed-labels";
 
 export interface SummarizedFeedRow {
   id: string;
@@ -9,6 +15,9 @@ export interface SummarizedFeedRow {
   status: CanvasAgentFeedEntry["status"];
   /** Latest timestamp among merged entries. */
   time: number;
+  /** Screenshot thumb for a successful capture row (not merged). */
+  screenshot?: CanvasAgentFeedScreenshot | null;
+  command?: string;
 }
 
 /** Merge consecutive identical labels (agent often issues many `create-*` in a row). */
@@ -20,7 +29,18 @@ export function summarizeConsecutiveEntries(
   for (const entry of entries) {
     const time = entry.completedAt ?? entry.startedAt;
     const last = rows.at(-1);
-    if (last && last.label === entry.label && last.kind === entry.kind) {
+    // Never merge screenshot rows — each keeps its own thumbnail.
+    const isScreenshot =
+      normalizeCanvasAgentCommand(entry.command) === "screenshot" ||
+      Boolean(entry.screenshot);
+    const canMerge =
+      last &&
+      !isScreenshot &&
+      !last.screenshot &&
+      last.label === entry.label &&
+      last.kind === entry.kind;
+
+    if (canMerge && last) {
       last.count += 1;
       if (entry.status === "active") last.status = "active";
       else if (entry.status === "error") last.status = "error";
@@ -34,6 +54,8 @@ export function summarizeConsecutiveEntries(
       count: 1,
       status: entry.status,
       time,
+      screenshot: entry.screenshot ?? null,
+      command: entry.command,
     });
   }
 

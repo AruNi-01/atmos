@@ -23,7 +23,11 @@ pub use service::automation::{
     ExternalTriggerRejectReason, ExternalTriggerRejection, GithubEventFamily, GithubTriggerConfig,
     GithubTriggerEvent, GithubTriggerFilters, SchedulePreview,
 };
-pub use service::canvas::{CanvasBoardDto, CanvasService, SaveCanvasBoardReq};
+pub use service::canvas::{
+    AtmosCanvasFile, AtmosCanvasScript, CanvasDocumentFileDto, CanvasDocumentListItem,
+    CanvasDocumentService, ATMOS_CANVAS_FILE_SCHEMA, CANVAS_FILE_EXTENSION,
+    DEFAULT_PIN_DOCUMENT_FILE,
+};
 pub use service::canvas_agent_relay::{
     CanvasAgentDispatchOutcome, CanvasAgentRelay, CanvasBridgeClientSummary, CanvasBridgeStatus,
     CompleteDispatchResult, DuplicateRequestError, ResolveTarget, DEFAULT_RELAY_TIMEOUT_MS,

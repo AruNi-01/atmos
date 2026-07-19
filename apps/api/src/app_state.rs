@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::ws::{WsMessageService, WsService};
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, AutomationService, CanvasAgentRelay,
-    CanvasService, MessagePushService, NotificationService, ProjectService, ReviewService,
+    CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
     TerminalService, TestService, WorkspaceService,
 };
 use token_usage::TokenUsageService;
@@ -13,7 +13,7 @@ use crate::relay::RelaySupervisor;
 pub struct AppServices {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
-    pub canvas_service: Arc<CanvasService>,
+    pub canvas_service: Arc<CanvasDocumentService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
     pub agent_session_service: Arc<AgentSessionService>,
@@ -31,7 +31,7 @@ pub struct AppServices {
 pub struct AppState {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
-    pub canvas_service: Arc<CanvasService>,
+    pub canvas_service: Arc<CanvasDocumentService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
     pub agent_session_service: Arc<AgentSessionService>,

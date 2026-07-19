@@ -57,7 +57,6 @@ import {
   requireNumber,
   requirePositiveInt,
   requireString,
-  resolveAutoSpawnPosition,
 } from "./canvas-agent-bus-helpers";
 import {
   runCanvasAgentExtractText,
@@ -77,6 +76,14 @@ import {
   runCanvasAgentSetAgentView,
   runCanvasAgentViewport,
 } from "./canvas-agent-bus-viewport";
+import { getShapePageBoundsBox } from "./canvas-agent-bounds";
+import { estimateGeoTextOverflow } from "./canvas-agent-lint";
+import { runCanvasAgentScreenshot } from "./canvas-agent-screenshot";
+import {
+  DEFAULT_FRAME_SIZE,
+  DEFAULT_GEO_SIZE,
+  findNonOverlappingSpawn,
+} from "./canvas-agent-spawn";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -110,8 +117,6 @@ function canvasBusT(key: string, values?: Record<string, string | number>): stri
 export class CanvasAgentBus {
   private editor: Editor | null = null;
   private bridgeAccepting: boolean;
-  /** Stagger default spawn positions when x/y are omitted. */
-  private spawnSlot = 0;
 
   constructor(private readonly options: CanvasAgentBusOptions) {
     this.bridgeAccepting = options.isBridgeAccepting ?? false;
@@ -145,8 +150,7 @@ export class CanvasAgentBus {
     }
 
     try {
-      // `status`, `get_state`, and `extract_text` are always available — diagnostics
-      // and on-demand shape reads must work even while the bridge is disabled.
+      // Read-only / session diagnostics work even while the bridge is disabled.
       if (command === "status") {
         return ok(runCanvasAgentStatus(editor, this.bridgeAccepting));
       }
@@ -157,10 +161,22 @@ export class CanvasAgentBus {
         return ok(await runCanvasAgentExtractText(editor, input.args ?? {}));
       }
       if (command === "lint") {
-        return ok(runCanvasAgentLint(editor));
+        return ok(runCanvasAgentLint(editor, input.args ?? {}));
+      }
+      if (command === "screenshot") {
+        return ok(
+          await runCanvasAgentScreenshot(editor, input.args ?? {}, {
+            getAgentViewBounds: this.options.getAgentViewBounds,
+          }),
+        );
       }
       if (command === "set_status" || command === "set-status") {
-        return ok(runCanvasAgentSetStatus(input.args ?? {}));
+        return ok(runCanvasAgentSetStatus(editor, input.args ?? {}));
+      }
+      // Non-sensitive: runtime state only (no script source).
+      if (command === "script_status" || command === "script-status") {
+        const { getLiveDocumentScriptStatus } = await import("./document-script-session");
+        return ok(getLiveDocumentScriptStatus());
       }
 
       if (!this.bridgeAccepting) {
@@ -169,6 +185,72 @@ export class CanvasAgentBus {
           canvasBusT("agentBus.userHasDisabledAllowTerminalCliControlForThisCanvasTab"),
           true,
         );
+      }
+
+      // Sensitive: returns durable script source — same gate as put/exec.
+      if (command === "script_get" || command === "script-get") {
+        const { getDocumentScriptSession } = await import("./document-script-session");
+        const session = getDocumentScriptSession();
+        return ok({
+          script: session?.getScript() ?? null,
+          status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+        });
+      }
+
+      if (command === "exec") {
+        const code = String((input.args ?? {}).code ?? "").trim();
+        if (!code) {
+          return fail("VALIDATION_ARG", "exec requires args.code", false);
+        }
+        const { runDocumentScriptExec } = await import("./document-script-host");
+        const result = await runDocumentScriptExec(editor, code);
+        return ok({ result: result ?? null });
+      }
+      if (command === "script_put" || command === "script-put") {
+        const args = input.args ?? {};
+        const session = (await import("./document-script-session")).getDocumentScriptSession();
+        if (!session) {
+          return fail("EDITOR_NOT_READY", "Document script session is not registered", true);
+        }
+        if (args.clear === true || args.script === null) {
+          await session.setScript(null);
+          return ok({
+            cleared: true,
+            status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+          });
+        }
+        const entry = String(args.entry ?? "main.js");
+        const filesRaw = args.files;
+        let files: Record<string, string> = {};
+        if (filesRaw && typeof filesRaw === "object" && !Array.isArray(filesRaw)) {
+          files = Object.fromEntries(
+            Object.entries(filesRaw as Record<string, unknown>).map(([k, v]) => [
+              k,
+              String(v ?? ""),
+            ]),
+          );
+        } else if (typeof args.code === "string") {
+          files = { [entry]: args.code };
+        } else {
+          return fail(
+            "VALIDATION_ARG",
+            "script-put requires args.files or args.code (and optional entry)",
+            false,
+          );
+        }
+        if (Object.keys(files).length === 0) {
+          return fail(
+            "VALIDATION_ARG",
+            "script-put files map is empty — use script-clear to remove a script",
+            false,
+          );
+        }
+        await session.setScript({ entry, files });
+        return ok({
+          entry,
+          files: Object.keys(files),
+          status: (await import("./document-script-session")).getLiveDocumentScriptStatus(),
+        });
       }
 
       if (command === "apply") {
@@ -278,10 +360,12 @@ export class CanvasAgentBus {
         false,
       );
     }
-    const spawn = this.resolveSpawn(editor, args.x, args.y);
+    const w = positiveNumberOr(args.w, NOTE_BASE_WIDTH);
+    // Reserve content-driven height for collision spawn (notes grow with text).
+    const spawnSize = estimateNoteSpawnSize(text, w);
+    const spawn = this.resolveSpawn(editor, args.x, args.y, spawnSize);
     const x = spawn.x;
     const y = spawn.y;
-    const w = positiveNumberOr(args.w, NOTE_BASE_WIDTH);
     const color = optionalString(args.color);
     const id = createShapeId();
     // tldraw v5 notes use `richText`, not legacy `text`; they have no w/h props.
@@ -291,13 +375,13 @@ export class CanvasAgentBus {
       props.scale = w / NOTE_BASE_WIDTH;
     }
     mutateEditor(editor, () => editor.createShape({ id, type: "note", x, y, props }));
-    return { id, type: "note" };
+    return this.shapeCreateResult(editor, id, "note");
   }
 
   private runCreateFrame(editor: Editor, args: Record<string, unknown>) {
-    const w = positiveNumberOr(args.w, 640);
-    const h = positiveNumberOr(args.h, 440);
-    const spawn = this.resolveSpawn(editor, args.x, args.y);
+    const w = positiveNumberOr(args.w, DEFAULT_FRAME_SIZE.w);
+    const h = positiveNumberOr(args.h, DEFAULT_FRAME_SIZE.h);
+    const spawn = this.resolveSpawn(editor, args.x, args.y, { w, h });
     const x = spawn.x;
     const y = spawn.y;
     const name = optionalString(args.title) ?? optionalString(args.name);
@@ -305,16 +389,16 @@ export class CanvasAgentBus {
     const props: Record<string, unknown> = { w, h };
     if (name) props.name = name;
     mutateEditor(editor, () => editor.createShape({ id, type: "frame", x, y, props }));
-    return { id, type: "frame" };
+    return this.shapeCreateResult(editor, id, "frame");
   }
 
   private runCreateGeo(editor: Editor, args: Record<string, unknown>) {
     const kind = optionalString(args.kind) ?? "rectangle";
-    const spawn = this.resolveSpawn(editor, args.x, args.y);
+    const w = positiveNumberOr(args.w, DEFAULT_GEO_SIZE.w);
+    const h = positiveNumberOr(args.h, DEFAULT_GEO_SIZE.h);
+    const spawn = this.resolveSpawn(editor, args.x, args.y, { w, h });
     const x = spawn.x;
     const y = spawn.y;
-    const w = positiveNumberOr(args.w, 200);
-    const h = positiveNumberOr(args.h, 200);
     const id = createShapeId();
     const props: Record<string, unknown> = { geo: kind, w, h };
     const text = optionalString(args.text);
@@ -323,7 +407,12 @@ export class CanvasAgentBus {
     applyOptionalFill(props, optionalString(args.fill));
     applyOptionalSize(props, optionalString(args.size));
     mutateEditor(editor, () => editor.createShape({ id, type: "geo", x, y, props }));
-    return { id, type: "geo" };
+    const shape = editor.getShape(id);
+    const warnings: string[] = [];
+    if (shape && estimateGeoTextOverflow(shape)) {
+      warnings.push("text_may_overflow");
+    }
+    return this.shapeCreateResult(editor, id, "geo", warnings);
   }
 
   private runCreateArrow(editor: Editor, args: Record<string, unknown>) {
@@ -607,10 +696,28 @@ export class CanvasAgentBus {
 
   // ===== helpers =====
 
+  private shapeCreateResult(
+    editor: Editor,
+    id: TLShapeId,
+    type: string,
+    warnings: string[] = [],
+  ) {
+    const bb = getShapePageBoundsBox(editor, id);
+    return {
+      id,
+      type,
+      bounds: bb
+        ? { min_x: bb.minX, min_y: bb.minY, w: bb.width, h: bb.height }
+        : null,
+      ...(warnings.length ? { warnings } : {}),
+    };
+  }
+
   private resolveSpawn(
     editor: Editor,
     xArg: unknown,
     yArg: unknown,
+    size: { w: number; h: number },
   ): { x: number; y: number } {
     if (xArg !== undefined && xArg !== null && yArg !== undefined && yArg !== null) {
       return { x: requireNumber(xArg, "x"), y: requireNumber(yArg, "y") };
@@ -625,8 +732,7 @@ export class CanvasAgentBus {
         false,
       );
     }
-    const slot = this.spawnSlot++;
-    return resolveAutoSpawnPosition(editor, slot);
+    return findNonOverlappingSpawn(editor, size);
   }
 
   private log(message: string, payload?: unknown) {
@@ -636,4 +742,18 @@ export class CanvasAgentBus {
       console.debug(message, payload);
     }
   }
+}
+
+/** Rough page-space size for note collision spawn (notes auto-grow with text). */
+function estimateNoteSpawnSize(text: string, w: number): { w: number; h: number } {
+  const scale = w / NOTE_BASE_WIDTH;
+  const lineH = 22 * scale;
+  const pad = 40 * scale;
+  let lines = 0;
+  for (const line of text.split("\n")) {
+    const charsPerLine = Math.max(1, Math.floor(w / (8 * scale)));
+    lines += Math.max(1, Math.ceil(Math.max(1, line.length) / charsPerLine));
+  }
+  const h = Math.max(w, Math.ceil(lines * lineH + pad));
+  return { w, h };
 }

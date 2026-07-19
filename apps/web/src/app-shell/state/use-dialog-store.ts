@@ -13,6 +13,7 @@ export interface QueuedAgentPrompt {
   workspaceId?: string | null;
   projectId?: string | null;
   mode: AgentChatMode;
+  instanceKey?: string | null;
   registryId?: string;
   forceNewSession?: boolean;
   sessionTitle?: string;
@@ -27,10 +28,15 @@ export function getAgentPromptQueueKey(
   workspaceId: string | null | undefined,
   projectId: string | null | undefined,
   _mode: AgentChatMode,
+  instanceKey?: string | null,
 ): string {
-  if (workspaceId) return `workspace:${workspaceId}`;
-  if (projectId) return `project:${projectId}`;
-  return "temp";
+  const contextKey = workspaceId
+    ? `workspace:${workspaceId}`
+    : projectId
+      ? `project:${projectId}`
+      : "temp";
+  const instance = instanceKey?.trim();
+  return instance ? `${contextKey}:instance:${instance}` : contextKey;
 }
 
 export function buildQueuedAgentPromptContent(prompt: string, attachmentPaths?: string[]): string {
@@ -73,33 +79,39 @@ interface DialogStore {
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
+    instanceKey?: string | null,
   ) => string;
   setAgentChatDraft: (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
     value: string,
+    instanceKey?: string | null,
   ) => void;
   appendAgentChatDraft: (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
     value: string,
+    instanceKey?: string | null,
   ) => void;
   clearAgentChatDraft: (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
+    instanceKey?: string | null,
   ) => void;
   peekQueuedAgentChatPrompt: (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
+    instanceKey?: string | null,
   ) => QueuedAgentPrompt | null;
   shiftQueuedAgentChatPrompt: (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     mode: AgentChatMode,
+    instanceKey?: string | null,
   ) => QueuedAgentPrompt | null;
   removeQueuedAgentChatPrompt: (id: string) => void;
   updateQueuedAgentChatPrompt: (
@@ -155,7 +167,12 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
       createdAt: Date.now(),
     };
     set((state) => {
-      const queueKey = getAgentPromptQueueKey(item.workspaceId, item.projectId, item.mode);
+      const queueKey = getAgentPromptQueueKey(
+        item.workspaceId,
+        item.projectId,
+        item.mode,
+        item.instanceKey,
+      );
       const existing = state.agentChatPromptQueues[queueKey] ?? [];
       return {
         agentChatPromptQueues: {
@@ -166,17 +183,19 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
     });
     return item.id;
   },
-  getAgentChatDraft: (workspaceId, projectId, mode) => {
-    return get().agentChatDrafts[getAgentPromptQueueKey(workspaceId, projectId, mode)] ?? "";
+  getAgentChatDraft: (workspaceId, projectId, mode, instanceKey) => {
+    return get().agentChatDrafts[
+      getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey)
+    ] ?? "";
   },
-  setAgentChatDraft: (workspaceId, projectId, mode, value) => set((state) => ({
+  setAgentChatDraft: (workspaceId, projectId, mode, value, instanceKey) => set((state) => ({
     agentChatDrafts: {
       ...state.agentChatDrafts,
-      [getAgentPromptQueueKey(workspaceId, projectId, mode)]: value,
+      [getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey)]: value,
     },
   })),
-  appendAgentChatDraft: (workspaceId, projectId, mode, value) => set((state) => {
-    const key = getAgentPromptQueueKey(workspaceId, projectId, mode);
+  appendAgentChatDraft: (workspaceId, projectId, mode, value, instanceKey) => set((state) => {
+    const key = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);
     const existing = state.agentChatDrafts[key]?.trim();
     const nextValue = existing ? `${existing}\n\n${value}` : value;
     return {
@@ -186,21 +205,21 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
       },
     };
   }),
-  clearAgentChatDraft: (workspaceId, projectId, mode) => set((state) => {
-    const key = getAgentPromptQueueKey(workspaceId, projectId, mode);
+  clearAgentChatDraft: (workspaceId, projectId, mode, instanceKey) => set((state) => {
+    const key = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);
     if (!(key in state.agentChatDrafts)) return state;
     const nextDrafts = { ...state.agentChatDrafts };
     delete nextDrafts[key];
     return { agentChatDrafts: nextDrafts };
   }),
-  peekQueuedAgentChatPrompt: (workspaceId, projectId, mode) => {
-    const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode);
+  peekQueuedAgentChatPrompt: (workspaceId, projectId, mode, instanceKey) => {
+    const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);
     return get().agentChatPromptQueues[queueKey]?.[0] ?? null;
   },
-  shiftQueuedAgentChatPrompt: (workspaceId, projectId, mode) => {
+  shiftQueuedAgentChatPrompt: (workspaceId, projectId, mode, instanceKey) => {
     let item: QueuedAgentPrompt | null = null;
     set((state) => {
-      const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode);
+      const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);
       const queue = state.agentChatPromptQueues[queueKey] ?? [];
       item = queue[0] ?? null;
       if (!item) return state;

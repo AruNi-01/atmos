@@ -53,7 +53,6 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
   Github,
-  StickyNote,
 } from 'lucide-react';
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
@@ -67,6 +66,7 @@ import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/fea
 import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { fsApi, type GithubIssuePayload } from '@/api/ws-api';
 import { TaskListPanel, renderStatusIcon } from '@/features/workspace/components/TaskListPanel';
+import { NotePanel } from '@/features/workspace/components/NotePanel';
 import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/shared/types/domain';
 import {
   WorkspaceLabelBadges,
@@ -286,14 +286,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const { openActionRunTab, openPullRequestTab } = useOpenGithubCenterTab();
   const [requirementExpanded, setRequirementExpanded] = useState(false);
   const [isEditingRequirement, setIsEditingRequirement] = useState(false);
-  const [isEditingNote, setIsEditingNote] = useState(false);
   const [draftRequirement, setDraftRequirement] = useState(requirement ?? '');
-  const [draftNote, setDraftNote] = useState(note ?? '');
   const [isSavingRequirement, setIsSavingRequirement] = useState(false);
-  const [isSavingNote, setIsSavingNote] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const requirementSaveRef = React.useRef(false);
-  const noteSaveRef = React.useRef(false);
 
   const [reviewFiles, setReviewFiles] = useState<{ name: string, path: string }[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -343,12 +339,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       setDraftRequirement(requirement ?? '');
     }
   }, [isEditingRequirement, requirement]);
-
-  useEffect(() => {
-    if (!isEditingNote && !isSavingNote) {
-      setDraftNote(note ?? '');
-    }
-  }, [isEditingNote, isSavingNote, note]);
 
   // DnD: drag tasks between status sections
   const sensors = useSensors(
@@ -405,12 +395,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     setIsEditingRequirement(true);
   }, [effectivePath, requirement, t]);
 
-  const handleStartNoteEdit = useCallback(() => {
-    if (!effectivePath) return;
-    setDraftNote(note ?? '');
-    setIsEditingNote(true);
-  }, [effectivePath, note]);
-
   const handleSaveRequirement = useCallback(async () => {
     if (!effectivePath || requirementSaveRef.current) return;
     const nextRequirement = draftRequirement;
@@ -431,25 +415,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       setIsSavingRequirement(false);
     }
   }, [draftRequirement, effectivePath, requirement, saveRequirement]);
-
-  const handleSaveNote = useCallback(async () => {
-    if (!effectivePath || noteSaveRef.current) return;
-    if (draftNote === (note ?? '')) {
-      setIsEditingNote(false);
-      return;
-    }
-    noteSaveRef.current = true;
-    setIsSavingNote(true);
-    try {
-      await saveNote(effectivePath, draftNote);
-      setIsEditingNote(false);
-    } catch (error) {
-      console.error('Failed to save note', error);
-    } finally {
-      noteSaveRef.current = false;
-      setIsSavingNote(false);
-    }
-  }, [draftNote, effectivePath, note, saveNote]);
 
   const handleOpenPullRequest = useCallback(
     (pr: OverviewPullRequest) => {
@@ -983,71 +948,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </CardContent>
           </Card>
 
-          <Card className="flex h-[420px] min-w-0 flex-col border border-border bg-background">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
-              <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
-                <StickyNote className="size-3.5" />
-                {t('note.title')}
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-                onClick={isEditingNote ? handleSaveNote : handleStartNoteEdit}
-                disabled={!effectivePath || isSavingNote}
-              >
-                {isSavingNote ? <Loader2 className="size-3 animate-spin" /> : null}
-                {isEditingNote ? t('actions.save') : t('actions.edit')}
-              </Button>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
-              {noteLoading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-4/5" />
-                </div>
-              ) : isEditingNote ? (
-                <Textarea
-                  value={draftNote}
-                  onChange={(event) => setDraftNote(event.target.value)}
-                  onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                      event.preventDefault();
-                      void handleSaveNote();
-                    }
-                  }}
-                  autoFocus
-                  placeholder={t('note.placeholder')}
-                  disabled={!effectivePath}
-                  className="min-h-0 h-full max-h-full flex-1 resize-none overflow-y-auto !field-sizing-fixed rounded-md border-border bg-muted/30 text-[13px] leading-relaxed"
-                />
-              ) : note ? (
-                <div className="min-h-0 flex-1 overflow-y-auto pr-2 scrollbar-on-hover">
-                  <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
-                    {note}
-                  </MarkdownRenderer>
-                </div>
-              ) : (
-                <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
-                  <StickyNote className="size-5 text-muted-foreground/30 mb-2" />
-                  <h3 className="text-[13px] text-muted-foreground mb-1">{t('note.emptyTitle')}</h3>
-                  <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
-                    {t('note.emptyDescription')}
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleStartNoteEdit}
-                    disabled={!effectivePath}
-                    className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer"
-                  >
-                    <Plus className="size-3.5" />
-                    {t('note.add')}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
+          <Card className="flex h-[420px] min-w-0 flex-col overflow-hidden border border-border bg-background">
+            <NotePanel
+              key={effectivePath}
+              note={note}
+              noteLoading={noteLoading}
+              effectivePath={effectivePath}
+              saveNote={saveNote}
+              className="h-full"
+            />
           </Card>
         </div>
 

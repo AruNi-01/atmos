@@ -23,7 +23,7 @@ function queryAgentTextarea(
 ): HTMLTextAreaElement | null {
   if (typeof document === "undefined") return null;
 
-  const modeSelector = `[data-agent-chat-mode="${escapeSelectorValue(mode)}"]`;
+  const modeSelector = `[data-agent-chat-mode="${escapeSelectorValue(mode)}"]:not([data-agent-chat-instance-key])`;
   const selectors: string[] = [];
 
   if (workspaceId) {
@@ -61,8 +61,9 @@ export function registerActiveAgentComposer(
   projectId: string | null | undefined,
   mode: AgentChatMode,
   handle: ActiveComposerHandle,
+  instanceKey?: string | null,
 ) {
-  const key = getAgentPromptQueueKey(workspaceId, projectId, mode);
+  const key = getAgentPromptQueueKey(workspaceId, projectId, mode, instanceKey);
   activeComposers.set(key, handle);
 
   return () => {

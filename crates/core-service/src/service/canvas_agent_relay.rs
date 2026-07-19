@@ -41,6 +41,8 @@ struct BridgeEntry {
     label: Option<String>,
     accepts_commands: bool,
     capabilities: Vec<String>,
+    /// Active APP-037 document file name in this tab, if any.
+    active_document_file_name: Option<String>,
     updated_at: SystemTime,
 }
 
@@ -54,6 +56,8 @@ pub struct CanvasBridgeClientSummary {
     /// Seconds since the registry entry was last touched.
     pub age_secs: u64,
     pub capabilities: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_document_file_name: Option<String>,
 }
 
 /// Aggregate state returned by `status`.
@@ -145,6 +149,7 @@ impl CanvasAgentRelay {
         label: Option<String>,
         accepts_commands: bool,
         capabilities: Vec<String>,
+        active_document_file_name: Option<String>,
     ) {
         let conn_id = conn_id.into();
         let client_id = client_id.into();
@@ -161,6 +166,7 @@ impl CanvasAgentRelay {
             label,
             accepts_commands,
             capabilities,
+            active_document_file_name,
             updated_at: SystemTime::now(),
         });
     }
@@ -196,6 +202,7 @@ impl CanvasAgentRelay {
                     accepts_commands: entry.accepts_commands,
                     age_secs,
                     capabilities: entry.capabilities.clone(),
+                    active_document_file_name: entry.active_document_file_name.clone(),
                 }
             })
             .collect();
@@ -252,6 +259,7 @@ impl CanvasAgentRelay {
                             accepts_commands: entry.accepts_commands,
                             age_secs,
                             capabilities: entry.capabilities.clone(),
+                            active_document_file_name: entry.active_document_file_name.clone(),
                         }
                     })
                     .collect();
@@ -339,8 +347,8 @@ mod tests {
     #[test]
     fn register_and_status_count() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", Some("Tab A".into()), true, vec![]);
-        relay.register("conn-2", "client-b", None, true, vec![]);
+        relay.register("conn-1", "client-a", Some("Tab A".into()), true, vec![], None);
+        relay.register("conn-2", "client-b", None, true, vec![], None);
 
         let status = relay.status();
         assert_eq!(status.bridge_registered_count, 2);
@@ -352,7 +360,7 @@ mod tests {
     #[test]
     fn resolve_target_single() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", None, true, vec![]);
+        relay.register("conn-1", "client-a", None, true, vec![], None);
         match relay.resolve_target(None) {
             ResolveTarget::Single { client_id, .. } => assert_eq!(client_id, "client-a"),
             other => panic!("expected Single, got {:?}", other),
@@ -362,8 +370,8 @@ mod tests {
     #[test]
     fn resolve_target_ambiguous_without_hint() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", None, true, vec![]);
-        relay.register("conn-2", "client-b", None, true, vec![]);
+        relay.register("conn-1", "client-a", None, true, vec![], None);
+        relay.register("conn-2", "client-b", None, true, vec![], None);
         match relay.resolve_target(None) {
             ResolveTarget::Ambiguous { clients } => assert_eq!(clients.len(), 2),
             other => panic!("expected Ambiguous, got {:?}", other),
@@ -373,8 +381,8 @@ mod tests {
     #[test]
     fn resolve_target_pinned_by_client_id() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", None, true, vec![]);
-        relay.register("conn-2", "client-b", None, true, vec![]);
+        relay.register("conn-1", "client-a", None, true, vec![], None);
+        relay.register("conn-2", "client-b", None, true, vec![], None);
         match relay.resolve_target(Some("client-b")) {
             ResolveTarget::Single { conn_id, .. } => assert_eq!(conn_id, "conn-2"),
             other => panic!("expected Single, got {:?}", other),
@@ -384,7 +392,7 @@ mod tests {
     #[test]
     fn resolve_target_unknown_client_id() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", None, true, vec![]);
+        relay.register("conn-1", "client-a", None, true, vec![], None);
         assert!(matches!(
             relay.resolve_target(Some("nope")),
             ResolveTarget::NotFound
@@ -400,8 +408,8 @@ mod tests {
     #[test]
     fn unregister_conn_purges_all_clients_for_connection() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", None, true, vec![]);
-        relay.register("conn-1", "client-b", None, true, vec![]);
+        relay.register("conn-1", "client-a", None, true, vec![], None);
+        relay.register("conn-1", "client-b", None, true, vec![], None);
         relay.unregister_conn("conn-1");
         assert_eq!(relay.status().bridge_registered_count, 0);
     }
@@ -507,8 +515,8 @@ mod tests {
         // client_id; resolve_target(Some(client_id)) must route to the live
         // connection, never the stale one.
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-old", "client-a", None, true, vec![]);
-        relay.register("conn-new", "client-a", None, true, vec![]);
+        relay.register("conn-old", "client-a", None, true, vec![], None);
+        relay.register("conn-new", "client-a", None, true, vec![], None);
         let status = relay.status();
         assert_eq!(status.bridge_registered_count, 1);
         match relay.resolve_target(Some("client-a")) {

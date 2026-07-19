@@ -57,7 +57,10 @@
       "skills/atmos-review-fix/references/atmos-review-cli.md"
     ],
     "atmos-canvas-agent": [
-      "skills/atmos-canvas-agent/SKILL.md"
+      "skills/atmos-canvas-agent/SKILL.md",
+      "skills/atmos-canvas-agent/references/document-scripts.md",
+      "skills/atmos-canvas-agent/references/documents.md",
+      "skills/atmos-canvas-agent/references/command-reference.md"
     ]
   }
 }

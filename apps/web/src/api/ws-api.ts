@@ -225,28 +225,6 @@ export const appApi = {
   },
 };
 
-// ===== Canvas API =====
-
-export interface CanvasBoardResponse {
-  guid: string;
-  slug: string;
-  name: string;
-  document_json: string;
-  updated_at: string;
-}
-
-export const canvasWsApi = {
-  getDefaultBoard: async (): Promise<CanvasBoardResponse> => {
-    return wsRequest<CanvasBoardResponse>("canvas_get_default_board");
-  },
-
-  updateDefaultBoard: async (documentJson: string): Promise<CanvasBoardResponse> => {
-    return wsRequest<CanvasBoardResponse>("canvas_update_default_board", {
-      document_json: documentJson,
-    });
-  },
-};
-
 // ===== Terminal side chat API (APP-030) =====
 
 export interface TerminalSideContextCaptureResponse {

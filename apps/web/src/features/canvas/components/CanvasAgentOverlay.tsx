@@ -26,8 +26,11 @@ const SKILL_PATH = "~/.atmos/skills/.system/atmos-canvas-agent/SKILL.md";
 
 /** Window after activity within which the bridge is rendered as "Active". */
 const ACTIVE_WINDOW_MS = 30_000;
-/** How long the transient ring around just-touched shapes stays visible. */
-const RING_DURATION_MS = 1_500;
+/**
+ * How long the agent-touched shape ring stays visible.
+ * Keep in sync with `FOCUS_PULSE_MS` in canvas-shape-focus (CanvasFocusPulse).
+ */
+const RING_DURATION_MS = 2_400;
 
 /**
  * Renders a soft pulsing ring around the shapes the agent most recently
@@ -108,9 +111,10 @@ function ShapeRing({
         height: height + 8,
       }}
       className={cn(
-        "absolute rounded-lg border border-emerald-400/80",
-        "shadow-[0_0_0_2px_rgba(52,211,153,0.16),0_0_12px_2px_rgba(52,211,153,0.28)]",
-        "animate-[canvas-agent-ring_1500ms_ease-out_forwards]",
+        "absolute rounded-lg border border-emerald-400/90",
+        "shadow-[0_0_0_3px_rgba(52,211,153,0.18),0_0_14px_2px_rgba(52,211,153,0.30)]",
+        // Reuse the multi-peak flash from canvas-focus-pulse (terminal / pin focus).
+        "animate-[canvas-focus-pulse_2400ms_ease-in-out_forwards]",
       )}
     />
   );
@@ -275,8 +279,19 @@ function BridgePopoverBody({
         />
       </div>
 
+      <div className="mx-4 border-t border-border" />
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="text-sm font-medium">{t("follow.title")}</div>
+        <Switch
+          checked={bridge.agentFollow}
+          onCheckedChange={(value) => bridge.setAgentFollow(Boolean(value))}
+          disabled={!bridge.acceptsCommands}
+          aria-label={t("follow.aria")}
+        />
+      </div>
+
+      <div className="mx-4 border-t border-border" />
       <div className="px-4 py-3">
-        <div className="mb-3 border-t border-border" />
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="text-xs font-medium text-muted-foreground">
             {t("snippet.label")}
@@ -296,10 +311,14 @@ function BridgePopoverBody({
         </pre>
       </div>
 
-      <div className="px-4 py-3">
-        <div className="mb-3 border-t border-border" />
-        <LastActivityRow activity={activity} onJump={onJump} />
-      </div>
+      {activity && (
+        <>
+          <div className="mx-4 border-t border-border" />
+          <div className="px-4 py-3">
+            <LastActivityRow activity={activity} onJump={onJump} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -308,7 +327,7 @@ function LastActivityRow({
   activity,
   onJump,
 }: {
-  activity: CanvasAgentActivity | null;
+  activity: CanvasAgentActivity;
   onJump: () => void;
 }) {
   const t = useTranslations("canvas.agentBridge");
@@ -319,8 +338,6 @@ function LastActivityRow({
   );
   const lastChangeLabel = tr("activity.lastChange");
   const jumpLabel = tr("activity.jump");
-  const emptyPrefix = tr("activity.emptyPrefix");
-  const emptySuffix = tr("activity.emptySuffix");
   const separator = React.useCallback(
     (label: string) => tr("activity.separator", { relativeLabel: label }),
     [tr],
@@ -329,26 +346,12 @@ function LastActivityRow({
   // Owned by an effect (not derived in render) so render stays pure.
   const [relativeLabel, setRelativeLabel] = React.useState("");
   React.useEffect(() => {
-    if (!activity) {
-      setRelativeLabel("");
-      return;
-    }
     setRelativeLabel(formatRelativeTime(activity.at, tr));
     const intervalId = setInterval(() => {
       setRelativeLabel(formatRelativeTime(activity.at, tr));
     }, 1_000);
     return () => clearInterval(intervalId);
   }, [activity, tr]);
-
-  if (!activity) {
-    return (
-      <div className="text-xs text-muted-foreground">
-        {emptyPrefix}{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">atmos canvas</code>{" "}
-        {emptySuffix}
-      </div>
-    );
-  }
 
   const canJump = activity.bounds !== null || activity.shapeIds.length > 0;
 

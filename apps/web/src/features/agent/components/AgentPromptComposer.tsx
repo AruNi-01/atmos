@@ -57,6 +57,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   canUseCurrentMode,
   isConnected,
   chatMode,
+  instanceKey,
   sessionWorkspaceId,
   sessionProjectId,
   loadingAgents,
@@ -85,6 +86,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   canUseCurrentMode: boolean;
   isConnected: boolean;
   chatMode: AgentChatMode;
+  instanceKey?: string | null;
   sessionWorkspaceId: string | null;
   sessionProjectId: string | null;
   loadingAgents: boolean;
@@ -110,6 +112,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       sessionWorkspaceId,
       sessionProjectId,
       chatMode,
+      instanceKey,
     ),
   );
   const persistedDraftRef = useRef(localDraft);
@@ -126,8 +129,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           );
         },
       },
+      instanceKey,
     );
-  }, [chatMode, sessionProjectId, sessionWorkspaceId]);
+  }, [chatMode, instanceKey, sessionProjectId, sessionWorkspaceId]);
 
   useEffect(() => {
     if (localDraft === persistedDraftRef.current) return;
@@ -137,7 +141,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         sessionWorkspaceId,
         sessionProjectId,
         chatMode,
-        localDraft
+        localDraft,
+        instanceKey,
       );
       persistedDraftRef.current = localDraft;
     }, 180);
@@ -145,6 +150,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     return () => window.clearTimeout(timer);
   }, [
     chatMode,
+    instanceKey,
     localDraft,
     sessionProjectId,
     sessionWorkspaceId,
@@ -184,6 +190,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           <PromptInputTextarea
             data-agent-chat-input="true"
             data-agent-chat-mode={chatMode}
+            data-agent-chat-instance-key={instanceKey?.trim() || undefined}
             data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
             data-agent-chat-project-id={sessionProjectId ?? undefined}
             placeholder={

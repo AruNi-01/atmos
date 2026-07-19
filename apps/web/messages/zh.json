@@ -115,6 +115,8 @@
       "fallbackWorkspace": "工作区",
       "loadingTasks": "正在加载任务",
       "taskMeta": "{activeCount} 个进行中 · 完成 {doneCount}/{totalCount}",
+      "loadingNote": "正在加载笔记",
+      "emptyNote": "暂无笔记",
       "mergeConflictsNeedAttention": "存在待处理冲突",
       "changed": "{count} 个变更",
       "unpushed": "{count} 个未推送",
@@ -122,6 +124,7 @@
       "openWorkspaceSummary": "打开工作区摘要",
       "workspaceSummary": "工作区摘要",
       "task": "任务",
+      "note": "笔记",
       "commitPush": "提交并推送"
     },
     "hotkeys": {
@@ -2020,7 +2023,7 @@
           "name": "我的 Agent",
           "command": "/usr/local/bin/agent",
           "args": "--stdio",
-          "env": "{\"API_KEY\":\"...\"}"
+          "env": "'{\"API_KEY\":\"...\"}'"
         },
         "actions": {
           "editJson": "编辑 JSON",
@@ -2033,7 +2036,7 @@
         "jsonEditor": {
           "label": "custom_agents",
           "fileHint": "(acp_servers.json)",
-          "placeholder": "{}"
+          "placeholder": "'{}'"
         },
         "toast": {
           "failedToLoadJsonTitle": "加载自定义 Agent JSON 失败",
@@ -2337,14 +2340,16 @@
         "descriptionSuffix": "命令与当前画布交互。",
         "aria": "启用 Canvas Agent Bridge"
       },
+      "follow": {
+        "title": "跟随 Agent",
+        "aria": "跟随 Agent"
+      },
       "snippet": {
         "label": "命令",
         "copied": "已复制",
         "copy": "复制"
       },
       "activity": {
-        "emptyPrefix": "运行",
-        "emptySuffix": "后，最近一次画布修改会显示在这里。",
         "lastChange": "最近一次修改",
         "separator": " · {relativeLabel}",
         "jump": "跳转"
@@ -2364,7 +2369,8 @@
       "toast": {
         "title": "画布",
         "savedSuccessfully": "保存成功",
-        "saveFailed": "保存失败"
+        "saveFailed": "保存失败",
+        "saveAsRequired": "未命名文档需要先「另存为」。请使用文档菜单。"
       },
       "loadError": {
         "title": "加载 Canvas 失败",
@@ -2584,6 +2590,7 @@
     },
     "agentFeedLabels": {
       "readingCanvas": "读取画布",
+      "capturingScreenshot": "正在截图",
       "extractingShapeText": "提取图形文本",
       "creatingStickyNote": "创建便签",
       "creatingFrame": "创建画框",
@@ -2686,7 +2693,9 @@
       "agentIsland": {
         "agentWorkingOnCanvas": "Agent 正在操作画布",
         "canvasAgentActivity": "Canvas Agent 活动",
-        "canvasAgentActivityHistory": "Canvas Agent 活动历史"
+        "canvasAgentActivityHistory": "Canvas Agent 活动历史",
+        "openScreenshotPreview": "打开 Agent 截图预览",
+        "screenshotPreviewAlt": "Agent 绘制区域的截图"
       },
       "settingsStore": {
         "settingsLoadFailed": "设置加载失败",
@@ -2716,6 +2725,44 @@
         "patchMustBeJsonObject": "patch 必须是 JSON 对象。",
         "provideBothXAndYOrOmitBoth": "x 和 y 要么同时提供，要么同时省略。"
       }
+    },
+    "documents": {
+      "buttonTitle": "文档",
+      "buttonAria": "打开 Canvas 文档列表",
+      "popoverTitle": "Canvas 文档",
+      "popoverHint": "保存在 ~/.atmos/canvas，后缀为 .atmos.tldr",
+      "empty": "还没有文档，点击「新建」创建一个。",
+      "new": "新建",
+      "save": "保存",
+      "saveAs": "另存为",
+      "dirtyTitle": "有未保存的更改",
+      "dirtyBody": "切换文档前是否保存当前更改？",
+      "dirtyCancel": "取消",
+      "dirtyDiscard": "不保存",
+      "dirtySave": "保存",
+      "saveAsTitle": "保存 Canvas 文档",
+      "saveAsHint": "名称会用于 ~/.atmos/canvas/ 下的文件名",
+      "saveAsPlaceholder": "文档名称",
+      "saveAsConfirm": "保存",
+      "rename": "重命名",
+      "duplicate": "复制",
+      "copyPath": "复制路径",
+      "delete": "删除",
+      "rowMenuAria": "文档操作",
+      "renameTitle": "重命名文档",
+      "renameConfirm": "重命名",
+      "deleteTitle": "删除文档？",
+      "deleteBody": "确定删除 {name}？此操作无法撤销。",
+      "deleteConfirm": "删除",
+      "copiedTitle": "已复制路径",
+      "copyFailed": "无法复制路径",
+      "nameConflict": "已存在同名文档，请换一个名称。"
+    },
+    "script": {
+      "runningTitle": "文档脚本运行中",
+      "running": "脚本 · {entry}",
+      "errorTitle": "文档脚本错误",
+      "errorUnknown": "未知脚本错误"
     }
   },
   "Welcome": {
@@ -3570,7 +3617,9 @@
           "placeholder": "还没有备注。",
           "emptyTitle": "还没有备注",
           "emptyDescription": "为这个工作区添加备注。",
-          "add": "添加备注"
+          "add": "添加备注",
+          "conflict": "此备注已在其他位置更改。请先重新加载，再保存草稿。",
+          "reload": "重新加载"
         }
       }
     }
@@ -4771,9 +4820,11 @@
       "globalSearchTitle": "全局搜索按钮",
       "globalSearchDescription": "显示打开全局搜索的搜索框。隐藏后仍可使用 ⌘K 快捷键。",
       "summaryButtonTitle": "工作区摘要按钮",
-      "summaryButtonDescription": "显示一个紧凑图标按钮，提供项目、任务和提交快捷入口。",
+      "summaryButtonDescription": "显示一个紧凑图标按钮，提供项目、任务、笔记和提交快捷入口。",
       "taskTitle": "TASK 区块",
       "taskDescription": "在摘要弹层中显示任务计数，并通过嵌套弹层展示完整任务面板。",
+      "noteTitle": "NOTE 区块",
+      "noteDescription": "在摘要弹层中显示笔记预览，并通过嵌套弹层展示完整笔记面板。",
       "commitTitle": "Commit & Push 区块",
       "commitDescription": "显示仓库变更状态，并通过嵌套弹层展示共享的 Commit & Push 控件。",
       "remoteAccessTitle": "远程访问按钮",
