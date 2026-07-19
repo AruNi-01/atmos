@@ -10,7 +10,7 @@ import {
 /**
  * Hand-rolled editor stub covering just the surface CanvasAgentActivityStore
  * touches: `getShapePageBounds` for bounds aggregation and `setCamera` /
- * `getViewportScreenBounds` for `jumpToLast` (100% pan, no fit-zoom).
+ * `getViewportScreenBounds` for `jumpToLast` (fit with max 100% zoom).
  */
 function makeFakeEditor() {
   const shapes = new Map<string, { x: number; y: number; w: number; h: number }>();
@@ -123,7 +123,7 @@ describe("CanvasAgentActivityStore", () => {
     expect(listener.mock.calls.length).toBe(0);
   });
 
-  it("jumpToLast() centers union bounds at 100% zoom", () => {
+  it("jumpToLast() centers small unions at max 100% zoom", () => {
     const editor = makeFakeEditor();
     editor.addShape("a", 0, 0, 100, 100);
     editor.addShape("b", 200, 50, 80, 80);
@@ -136,10 +136,26 @@ describe("CanvasAgentActivityStore", () => {
     const [cameraArg] = editor._calls.setCamera.mock.calls[0] as [
       { x: number; y: number; z: number },
     ];
-    // Union center: x=140, y=65; screen 1000x800 → page 1000x800 at z=1
+    // Union 280x130 fits in 1000x800 easily → cap at z=1
     expect(cameraArg.z).toBe(1);
     expect(cameraArg.x).toBeCloseTo(-(140 - 500));
     expect(cameraArg.y).toBeCloseTo(-(65 - 400));
+  });
+
+  it("jumpToLast() zooms out when union exceeds the viewport at 100%", () => {
+    const editor = makeFakeEditor();
+    // Screen 1000x800, inset 64*2 → avail 872x672. Bounds 2000x100 → zoom by width.
+    editor.addShape("a", 0, 0, 2000, 100);
+    const store = new CanvasAgentActivityStore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.record("create-geo", editor as any, ["a"]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.jumpToLast(editor as any);
+    const [cameraArg] = editor._calls.setCamera.mock.calls[0] as [
+      { x: number; y: number; z: number },
+    ];
+    expect(cameraArg.z).toBeLessThan(1);
+    expect(cameraArg.z).toBeCloseTo(872 / 2000, 5);
   });
 
   it("jumpToLast() is a no-op when activity has no shape ids", () => {

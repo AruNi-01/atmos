@@ -221,7 +221,7 @@ export class CanvasAgentActivityStore {
   }
 
   /**
-   * Pan the editor so the latest agent activity is centered at 100% zoom.
+   * Center the latest agent activity in view (fit if large, cap at 100% zoom).
    * No-op when we have no bounds (read-only verb) or shapes were deleted.
    */
   jumpToLast(editor: Editor) {

@@ -202,7 +202,7 @@ export function useCanvasAgentBridge(
             const view = (result.data as { view?: CanvasAgentBounds }).view;
             if (view) {
               activity.setAgentView(view, true);
-              // Follow agent-view: center at 100% zoom (no fit-zoom).
+              // Follow agent-view: fit in viewport, never zoom past 100%.
               if (agentFollowRef.current && editor && view.w > 0 && view.h > 0) {
                 try {
                   centerCameraOnPageBounds(
