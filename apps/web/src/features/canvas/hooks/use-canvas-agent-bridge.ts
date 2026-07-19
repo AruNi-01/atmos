@@ -199,10 +199,14 @@ export function useCanvasAgentBridge(
             const view = (result.data as { view?: CanvasAgentBounds }).view;
             if (view) {
               activity.setAgentView(view, true);
-              // Follow agent-view frames when Follow is on (CLI --zoom is independent).
+              // Follow agent-view: center at 100% zoom (no fit-zoom).
               if (agentFollowRef.current && editor && view.w > 0 && view.h > 0) {
                 try {
-                  editor.zoomToBounds(
+                  const { centerCameraOnPageBounds } = await import(
+                    "../lib/canvas-shape-focus"
+                  );
+                  centerCameraOnPageBounds(
+                    editor,
                     { x: view.x, y: view.y, w: view.w, h: view.h },
                     { animation: { duration: 320 } },
                   );

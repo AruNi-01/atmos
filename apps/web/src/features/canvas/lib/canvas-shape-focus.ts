@@ -1,6 +1,10 @@
 import type { Editor, TLShapeId } from "tldraw";
 
 const FOCUS_PULSE_MS = 2_400;
+/** Default camera zoom for focus/pulse — 100%, pan only (no fit-zoom). */
+const FOCUS_CAMERA_ZOOM = 1;
+const FOCUS_CAMERA_MS = 320;
+
 let focusPulseGeneration = 0;
 
 function uniqueShapeIds(shapeIds: TLShapeId[]) {
@@ -44,6 +48,35 @@ function getShapeIdsBounds(editor: Editor, shapeIds: TLShapeId[]) {
   };
 }
 
+/**
+ * Pan the camera so `bounds` is centered at a fixed zoom (default 100%).
+ * Avoids `zoomToBounds`, which over-zooms small widgets/terminals on focus pulse.
+ */
+export function centerCameraOnPageBounds(
+  editor: Editor,
+  bounds: { x: number; y: number; w: number; h: number },
+  options?: {
+    zoom?: number;
+    animation?: { duration: number };
+  },
+): void {
+  if (bounds.w <= 0 || bounds.h <= 0) return;
+  const zoom = options?.zoom ?? FOCUS_CAMERA_ZOOM;
+  const centerX = bounds.x + bounds.w / 2;
+  const centerY = bounds.y + bounds.h / 2;
+  const screen = editor.getViewportScreenBounds();
+  const pageW = screen.width / zoom;
+  const pageH = screen.height / zoom;
+  editor.setCamera(
+    {
+      x: -(centerX - pageW / 2),
+      y: -(centerY - pageH / 2),
+      z: zoom,
+    },
+    options?.animation ? { animation: options.animation } : undefined,
+  );
+}
+
 export function focusCanvasShapes(
   editor: Editor,
   shapeIds: TLShapeId[],
@@ -70,9 +103,9 @@ export function focusCanvasShapes(
   const bounds = getShapeIdsBounds(editor, ids);
   if (bounds && options.animateCamera !== false) {
     try {
-      editor.zoomToBounds(bounds, {
-        inset: ids.length === 1 ? 96 : 72,
-        animation: { duration: 320 },
+      centerCameraOnPageBounds(editor, bounds, {
+        zoom: FOCUS_CAMERA_ZOOM,
+        animation: { duration: FOCUS_CAMERA_MS },
       });
     } catch {
       // Transient camera failures should not suppress the focus pulse.

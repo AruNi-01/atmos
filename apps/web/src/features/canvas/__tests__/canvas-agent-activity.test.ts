@@ -9,13 +9,13 @@ import {
 
 /**
  * Hand-rolled editor stub covering just the surface CanvasAgentActivityStore
- * touches: `getShapePageBounds` for bounds aggregation and `zoomToBounds`
- * for `jumpToLast`.
+ * touches: `getShapePageBounds` for bounds aggregation and `setCamera` /
+ * `getViewportScreenBounds` for `jumpToLast` (100% pan, no fit-zoom).
  */
 function makeFakeEditor() {
   const shapes = new Map<string, { x: number; y: number; w: number; h: number }>();
   const calls = {
-    zoomToBounds: mock((...args: unknown[]) => args),
+    setCamera: mock((...args: unknown[]) => args),
   };
   return {
     _calls: calls,
@@ -34,7 +34,8 @@ function makeFakeEditor() {
         height: s.h,
       };
     },
-    zoomToBounds: (...args: unknown[]) => calls.zoomToBounds(...args),
+    getViewportScreenBounds: () => ({ width: 1000, height: 800, x: 0, y: 0 }),
+    setCamera: (...args: unknown[]) => calls.setCamera(...args),
   };
 }
 
@@ -122,7 +123,7 @@ describe("CanvasAgentActivityStore", () => {
     expect(listener.mock.calls.length).toBe(0);
   });
 
-  it("jumpToLast() zooms to the union bounds of last shape ids", () => {
+  it("jumpToLast() centers union bounds at 100% zoom", () => {
     const editor = makeFakeEditor();
     editor.addShape("a", 0, 0, 100, 100);
     editor.addShape("b", 200, 50, 80, 80);
@@ -131,9 +132,14 @@ describe("CanvasAgentActivityStore", () => {
     store.record("layout-row", editor as any, ["a", "b"]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     store.jumpToLast(editor as any);
-    expect(editor._calls.zoomToBounds).toHaveBeenCalledTimes(1);
-    const [boundsArg] = editor._calls.zoomToBounds.mock.calls[0];
-    expect(boundsArg).toEqual({ x: 0, y: 0, w: 280, h: 130 });
+    expect(editor._calls.setCamera).toHaveBeenCalledTimes(1);
+    const [cameraArg] = editor._calls.setCamera.mock.calls[0] as [
+      { x: number; y: number; z: number },
+    ];
+    // Union center: x=140, y=65; screen 1000x800 → page 1000x800 at z=1
+    expect(cameraArg.z).toBe(1);
+    expect(cameraArg.x).toBeCloseTo(-(140 - 500));
+    expect(cameraArg.y).toBeCloseTo(-(65 - 400));
   });
 
   it("jumpToLast() is a no-op when activity has no shape ids", () => {
@@ -142,7 +148,7 @@ describe("CanvasAgentActivityStore", () => {
     store.record("status", null, []);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     store.jumpToLast(editor as any);
-    expect(editor._calls.zoomToBounds).not.toHaveBeenCalled();
+    expect(editor._calls.setCamera).not.toHaveBeenCalled();
   });
 
   it("jumpToLast() is a no-op when last shapes have been deleted", () => {
@@ -155,7 +161,7 @@ describe("CanvasAgentActivityStore", () => {
     const editor2 = makeFakeEditor();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     store.jumpToLast(editor2 as any);
-    expect(editor2._calls.zoomToBounds).not.toHaveBeenCalled();
+    expect(editor2._calls.setCamera).not.toHaveBeenCalled();
   });
 
   it("jumpToLast() is a no-op when nothing has been recorded yet", () => {
@@ -163,7 +169,7 @@ describe("CanvasAgentActivityStore", () => {
     const store = new CanvasAgentActivityStore();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     store.jumpToLast(editor as any);
-    expect(editor._calls.zoomToBounds).not.toHaveBeenCalled();
+    expect(editor._calls.setCamera).not.toHaveBeenCalled();
   });
 
   it("setStatus(idle) clears inflight and pins session idle", () => {
