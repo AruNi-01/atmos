@@ -10,6 +10,7 @@ import {
   type Editor,
   type TLComponents,
   type TLEditorSnapshot,
+  type TLUiOverrides,
   type TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
@@ -29,6 +30,17 @@ import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traff
 import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
+
+const TL_DRAW_TRANSLATION_OVERRIDES: TLUiOverrides = {
+  translations: {
+    "zh-cn": {
+      "action.copy-hovered-styles": "复制悬停样式",
+      "action.frame-selection": "为选区创建框架",
+      "page-menu.max-pages-reached": "已达到页面数量上限",
+      "page-menu.resize": "调整页面列表大小",
+    },
+  },
+};
 import {
   getTerminalWorkspaceScopeKey,
   useTerminalStore,
@@ -1402,6 +1414,7 @@ export const CanvasView: React.FC = () => {
                   snapshot={initialSnapshot ?? undefined}
                   shapeUtils={shapeUtils}
                   components={tldrawComponents}
+                  overrides={TL_DRAW_TRANSLATION_OVERRIDES}
                   onMount={(nextEditor) => {
                     editorRef.current = nextEditor;
                     setEditorReady(true);
