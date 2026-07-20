@@ -56,6 +56,7 @@ type FeatureDefinition = {
   icon: LucideIcon
   placement: FeaturePlacement
   gridAreaClass: string
+  videoUrl?: string
 }
 
 type Feature = {
@@ -67,10 +68,25 @@ type Feature = {
   icon: LucideIcon
   placement: FeaturePlacement
   gridAreaClass: string
+  videoUrl: string
 }
 
 const FEATURE_VIDEO_URL = '/videos/atmos-intro-editorial.mp4'
 const FEATURE_POSTER_URL = '/videos/atmos-intro-editorial-poster.jpg'
+
+const FEATURE_VIDEOS: Partial<Record<FeatureKey, string>> = {
+  agent: '/videos/agent-terminal-use-flow.mp4',
+  terminal: '/videos/terminal-side-chat.mp4',
+  run: '/videos/built-in-terminal-agents.mp4',
+  files: '/videos/built-in-lightweight-editor.mp4',
+  search: '/videos/global-search-command-panel.mp4',
+  git: '/videos/integrated-git-workflow.mp4',
+  work: '/videos/multi-workspace-dev.mp4',
+  skills: '/videos/skill-manager.mp4',
+  kanban: '/videos/Kanban-View.mp4',
+  usage: '/videos/Usage-Analytics-Dashboard.mp4',
+  hooks: '/videos/Agent-Status-Notifications.mp4',
+}
 
 const featureDefinitions = [
   {
@@ -183,16 +199,12 @@ const featureDefinitions = [
   },
 ] satisfies FeatureDefinition[]
 
-const DURATION = 5000 // 5 seconds per slide
-
 export default function FeatureShowcase() {
   const t = useTranslations('featureShowcase')
   const [activeIndex, setActiveIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isHovering, setIsHovering] = useState(false)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Track the actual video element to control playback if needed
   const videoRef = useRef<HTMLVideoElement>(null)
   const features = featureDefinitions.map((feature, index) => ({
     ...feature,
@@ -200,39 +212,27 @@ export default function FeatureShowcase() {
     title: t(`features.${feature.key}.title`),
     label: t(`features.${feature.key}.label`),
     description: t(`features.${feature.key}.description`),
+    videoUrl: FEATURE_VIDEOS[feature.key] ?? FEATURE_VIDEO_URL,
   })) satisfies Feature[]
   const topFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'top')
   const rightFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'right')
   const bottomFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'bottom').reverse()
   const leftFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'left').reverse()
 
-  // Combined effect: manage timer and auto-advance slides
-  useEffect(() => {
-    if (isHovering) {
-      if (timerRef.current) clearInterval(timerRef.current)
-      return
+  // Video-driven progress: update progress bar based on actual video playback
+  const handleTimeUpdate = (currentTime: number, duration: number) => {
+    if (!isHovering && duration > 0) {
+      setProgress((currentTime / duration) * 100)
     }
+  }
 
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const nextProgress = prev + (100 / (DURATION / 50))
-        if (nextProgress >= 100) {
-          // Use setTimeout to defer state update and avoid cascading renders
-          setTimeout(() => {
-            setActiveIndex((idx) => (idx + 1) % featureDefinitions.length)
-          }, 0)
-          return 0
-        }
-        return nextProgress
-      })
-    }, 50)
-
-    timerRef.current = interval
-
-    return () => {
-      clearInterval(interval)
+  // Auto-advance to next feature when video ends
+  const handleVideoEnded = () => {
+    if (!isHovering) {
+      setProgress(0)
+      setActiveIndex((idx) => (idx + 1) % featureDefinitions.length)
     }
-  }, [isHovering])
+  }
 
   // Reset progress when active index changes manually
   const handleManualChange = (index: number) => {
@@ -283,8 +283,8 @@ export default function FeatureShowcase() {
                   })}
                 </div>
 
-                <div className="grid min-h-0 grid-cols-[3rem_minmax(0,1fr)_3rem] gap-2">
-                  <div className="grid grid-rows-3 gap-2">
+                <div className="grid min-h-0 grid-cols-[3rem_minmax(0,1fr)_3rem] gap-2 items-center">
+                  <div className="flex flex-col gap-2 justify-center">
                     {leftFeatures.map((feature) => {
                       return (
                         <FeatureActionButton
@@ -300,11 +300,15 @@ export default function FeatureShowcase() {
 
                   <FeaturePreview
                     videoRef={videoRef}
+                    videoUrl={features[activeIndex]?.videoUrl ?? FEATURE_VIDEO_URL}
+                    isHovering={isHovering}
                     onMouseEnter={() => setIsHovering(true)}
                     onMouseLeave={() => setIsHovering(false)}
+                    onTimeUpdate={handleTimeUpdate}
+                    onEnded={handleVideoEnded}
                   />
 
-                  <div className="grid grid-rows-3 gap-2">
+                  <div className="flex flex-col gap-2 justify-center">
                     {rightFeatures.map((feature) => {
                       return (
                         <FeatureActionButton
@@ -337,8 +341,12 @@ export default function FeatureShowcase() {
               <div className="lg:hidden">
                 <FeaturePreview
                   videoRef={videoRef}
+                  videoUrl={features[activeIndex]?.videoUrl ?? FEATURE_VIDEO_URL}
+                  isHovering={isHovering}
                   onMouseEnter={() => setIsHovering(true)}
                   onMouseLeave={() => setIsHovering(false)}
+                  onTimeUpdate={handleTimeUpdate}
+                  onEnded={handleVideoEnded}
                 />
                 <div className="-mx-2 mt-2 flex snap-x gap-2 overflow-x-auto px-2 pb-1">
                   {features.map((feature) => (
@@ -365,13 +373,69 @@ export default function FeatureShowcase() {
 
 function FeaturePreview({
   videoRef,
+  videoUrl,
+  isHovering,
   onMouseEnter,
   onMouseLeave,
+  onTimeUpdate,
+  onEnded,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>
+  videoUrl: string
+  isHovering: boolean
   onMouseEnter: () => void
   onMouseLeave: () => void
+  onTimeUpdate: (currentTime: number, duration: number) => void
+  onEnded: () => void
 }) {
+  const [src, setSrc] = useState(videoUrl)
+  const [opacity, setOpacity] = useState(1)
+  const lastUrlRef = useRef(videoUrl)
+
+  // 1. Single-video transition loop
+  useEffect(() => {
+    if (videoUrl === lastUrlRef.current) return
+    lastUrlRef.current = videoUrl
+
+    // Fade out first
+    setOpacity(0)
+
+    // Wait 150ms, swap src, fade in
+    const t = setTimeout(() => {
+      setSrc(videoUrl)
+      setOpacity(1)
+    }, 150)
+
+    return () => clearTimeout(t)
+  }, [videoUrl])
+
+  // 2. Playback control
+  useEffect(() => {
+    const vid = videoRef.current
+    if (!vid) return
+    if (isHovering) {
+      vid.pause()
+    } else {
+      vid.play().catch(() => {})
+    }
+  }, [isHovering, src, videoRef])
+
+  // 3. Smooth progress tracking using requestAnimationFrame
+  useEffect(() => {
+    let rafId: number
+    const update = () => {
+      const vid = videoRef.current
+      if (vid && !vid.paused && vid.duration && opacity === 1) {
+        if (vid.src.endsWith(videoUrl)) {
+          onTimeUpdate(vid.currentTime, vid.duration)
+        }
+      }
+      rafId = requestAnimationFrame(update)
+    }
+    rafId = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(rafId)
+  }, [videoUrl, opacity, onTimeUpdate, videoRef])
+
   return (
     <div
       className="relative aspect-video min-h-0 w-full overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl shadow-black/10 group"
@@ -380,14 +444,15 @@ function FeaturePreview({
     >
       <video
         ref={videoRef}
-        src={FEATURE_VIDEO_URL}
+        src={src}
         poster={FEATURE_POSTER_URL}
         autoPlay
         muted
-        loop
-        className="size-full object-cover"
+        className="absolute inset-0 size-full object-cover transition-opacity duration-150"
+        style={{ opacity }}
         playsInline
         suppressHydrationWarning
+        onEnded={onEnded}
       />
     </div>
   )
@@ -411,7 +476,52 @@ function FeatureActionButton({
   const isLeftSide = edgePlacement === 'left' && !isMobile
   const isRightSide = edgePlacement === 'right' && !isMobile
   const isSide = isLeftSide || isRightSide
-  const toneClass = 'bg-background text-foreground shadow-sm dark:bg-zinc-900'
+  const toneClass = 'bg-background text-foreground shadow-sm dark:bg-zinc-900 border border-border/40'
+
+  if (isSide) {
+    // Rotation Wrapper: visually rotates a horizontal button to be vertical
+    // Width becomes height (104px) and height becomes width (48px)
+    const sideBtnWidth = 'w-[6.5rem]'
+    const sideContainerHeight = 'h-[6.5rem]'
+
+    return (
+      <div className={cn("relative w-12 flex items-center justify-center shrink-0", sideContainerHeight)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={feature.title}
+          aria-pressed={isActive}
+          onClick={onClick}
+          className={cn(
+            'absolute flex cursor-pointer overflow-hidden text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
+            toneClass,
+            !isActive && 'hover:bg-muted/60 dark:hover:bg-white/[0.07]',
+            'h-12 items-center justify-center gap-2 rounded-xl px-3',
+            sideBtnWidth,
+            isLeftSide ? '-rotate-90' : 'rotate-90'
+          )}
+        >
+          {isActive && (
+            <span className="absolute inset-0">
+              <motion.span
+                className="block h-full bg-foreground/[0.08] dark:bg-white/[0.08]"
+                style={{ width: `${progress}%` }}
+                transition={{ duration: 0, ease: 'linear' }}
+              />
+            </span>
+          )}
+
+          <span className="relative z-10 flex items-center gap-1.5 min-w-0 w-full justify-center">
+            <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="text-xs font-semibold leading-none truncate select-none">
+              {feature.label}
+            </span>
+          </span>
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <Button
@@ -422,43 +532,26 @@ function FeatureActionButton({
       aria-pressed={isActive}
       onClick={onClick}
       className={cn(
-        'relative isolate flex cursor-pointer overflow-hidden border-0 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
+        'relative isolate flex cursor-pointer overflow-hidden text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
         toneClass,
         !isActive && 'hover:bg-muted/60 dark:hover:bg-white/[0.07]',
-        isMobile
-          ? 'h-12 min-w-[10.5rem] snap-start items-center gap-2 rounded-lg px-3'
-          : cn(
-            'min-h-0',
-            isSide
-              ? 'h-full w-full items-center justify-center rounded-xl px-0'
-              : 'h-12 items-center justify-center gap-2 rounded-xl px-3'
-          )
+        isMobile ? 'h-12 min-w-[10.5rem] snap-start' : 'h-12 w-full',
+        'items-center gap-2 rounded-xl px-3'
       )}
     >
       {isActive && (
         <span className="absolute inset-0">
           <motion.span
-            className={cn('block bg-foreground/[0.08] dark:bg-white/[0.08]', isSide ? 'w-full' : 'h-full')}
-            style={isSide ? { height: `${progress}%` } : { width: `${progress}%` }}
+            className="block h-full bg-foreground/[0.08] dark:bg-white/[0.08]"
+            style={{ width: `${progress}%` }}
             transition={{ duration: 0, ease: 'linear' }}
           />
         </span>
       )}
 
-      <span
-        className={cn(
-          'relative z-10 flex items-center gap-1.5',
-          isSide ? 'w-24 justify-center' : 'min-w-0',
-          isLeftSide && 'rotate-90',
-          isRightSide && 'rotate-90'
-        )}
-      >
-        <span
-          className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/50"
-        >
-          <Icon className="size-3.5" aria-hidden="true" />
-        </span>
-        <span className={cn('text-xs font-semibold leading-none', isSide ? 'shrink-0' : 'min-w-0 truncate')}>
+      <span className="relative z-10 flex items-center gap-1.5 min-w-0 w-full justify-center">
+        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="text-xs font-semibold leading-none truncate select-none">
           {feature.label}
         </span>
       </span>

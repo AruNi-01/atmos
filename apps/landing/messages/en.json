@@ -26,8 +26,8 @@
     "title": "See Atmos in Action",
     "features": {
       "agent": {
-        "title": "AI Agent Workspace",
-        "label": "Agent",
+        "title": "Agent Terminal Use Flow",
+        "label": "Agent Terminal Use Flow",
         "description": "Streaming responses, tool-call updates, permissions, and custom ACP agents in one workspace."
       },
       "wiki": {
@@ -36,13 +36,13 @@
         "description": "URL-synced project knowledge that agents can generate, refresh, and use as working context."
       },
       "search": {
-        "title": "Global Search",
-        "label": "Search",
+        "title": "Global Search Command Panel",
+        "label": "Global Search Command Panel",
         "description": "A command surface for jumping between workspaces, files, actions, and app-level tools."
       },
       "git": {
         "title": "Integrated Git Workflow",
-        "label": "Git",
+        "label": "Integrated Git Workflow",
         "description": "Diff review, branch state, AI-assisted commits, and PR context stay in the same cockpit."
       },
       "review": {
@@ -51,18 +51,18 @@
         "description": "Inline review comments, threaded revisions, and terminal fix runners for agent handoff."
       },
       "run": {
-        "title": "Run Preview",
-        "label": "Run",
+        "title": "Built In Terminal Agents",
+        "label": "Built In Terminal Agents",
         "description": "Run scripts, preview output, and verify changes without leaving the development surface."
       },
       "terminal": {
-        "title": "Terminal & Tmux",
-        "label": "Terminal",
+        "title": "Terminal Side Chat",
+        "label": "Terminal Side Chat",
         "description": "Persistent tmux-backed terminals survive reloads, reconnect cleanly, and keep agent work alive."
       },
       "usage": {
-        "title": "Usage Analytics",
-        "label": "Usage",
+        "title": "Usage Analytics Dashboard",
+        "label": "Usage Analytics Dashboard",
         "description": "Provider-specific token usage, subscription quota tracking, and cost estimates for AI work."
       },
       "auto": {
@@ -81,13 +81,13 @@
         "description": "Run lightweight llama-server models locally for TODO extraction and commit-message help."
       },
       "hooks": {
-        "title": "Agent Hooks",
-        "label": "Hooks",
+        "title": "Agent Status Notifications",
+        "label": "Agent Status Notifications",
         "description": "Hook-based lifecycle sync shows running, idle, waiting, and done states across the UI."
       },
       "kanban": {
-        "title": "Workspace Kanban",
-        "label": "Kanban",
+        "title": "Kanban View",
+        "label": "Kanban View",
         "description": "Drag workspace cards through status, priority, labels, issues, and PR-linked workflows."
       },
       "canvas": {
@@ -101,18 +101,18 @@
         "description": "Expo mobile surfaces keep remote workspaces, git state, and terminal follow-up within reach."
       },
       "files": {
-        "title": "Live File Tree",
-        "label": "Files",
+        "title": "Built In Lightweight Editor",
+        "label": "Built In Lightweight Editor",
         "description": "Live file status, inline previews, and quick edits keep manual coding close to agent work."
       },
       "skills": {
-        "title": "Skill Management",
-        "label": "Skills",
+        "title": "Skill Manager",
+        "label": "Skill Manager",
         "description": "Discover, enable, disable, and tune skills and custom agent definitions from settings."
       },
       "work": {
-        "title": "Multi-Workspace Isolation",
-        "label": "Work",
+        "title": "Multi Workspace Dev",
+        "label": "Multi Workspace Dev",
         "description": "Git worktree isolation lets multiple agents operate in parallel without trampling changes."
       }
     }
