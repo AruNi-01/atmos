@@ -434,8 +434,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       <div className="relative z-10 flex h-full w-full flex-col md:flex-row">
         
         {/* Left: primary column — no scroll; capped so art can sit closer */}
-        <div className="flex h-full min-h-0 w-full flex-col justify-center overflow-hidden px-8 py-12 md:w-[60%] md:px-16 md:py-20 border-r border-border/10 bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-2xl space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
+        <div className="flex h-full min-h-0 w-full flex-col justify-center overflow-hidden px-8 py-12 md:w-[60%] md:px-20 md:py-20 border-r border-border/10 bg-background/80 backdrop-blur-sm">
+          <div className="mx-auto w-full max-w-2xl space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
             
             <div className="flex justify-start">
               <AtmosWordmark 
