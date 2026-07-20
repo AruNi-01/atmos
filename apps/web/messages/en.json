@@ -3,12 +3,11 @@
     "steps": {
       "intro": "Welcome",
       "check": "Environment",
-      "project": "First Project",
-      "ready": "All Set"
+      "project": "First Project"
     },
     "intro": {
       "title": "Welcome to Atmos",
-      "subtitle": "Your local-first agentic coding cockpit. Let's set up your workspace in a few simple steps.",
+      "subtitle": "Your local-first agentic coding cockpit. Three quick steps and you are on the home screen.",
       "features": {
         "agent": "Agentic Software Engineering",
         "agentDesc": "Equip autonomous AI agents to code, debug, refactor, and run terminal tools directly in your workspace.",
@@ -107,13 +106,8 @@
         "notGitRepo": "Warning: Directory is not a Git repository",
         "invalid": "Invalid directory path"
       },
-      "submit": "Import and Open",
-      "next": "Continue"
-    },
-    "ready": {
-      "title": "You are ready!",
-      "subtitle": "Everything is set up. You can now launch workspaces, assign tasks to agents, and manage terminals.",
-      "action": "Enter Atmos"
+      "submit": "Import and Enter Atmos",
+      "next": "Skip and enter home"
     }
   },
   "header": {

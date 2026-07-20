@@ -3,12 +3,11 @@
     "steps": {
       "intro": "欢迎",
       "check": "环境检测",
-      "project": "首个项目",
-      "ready": "准备就绪"
+      "project": "首个项目"
     },
     "intro": {
       "title": "欢迎使用 Atmos",
-      "subtitle": "您的本地优先 AI 智能编程工作台。只需几个简单的步骤，即可配置好您的开发环境。",
+      "subtitle": "您的本地优先 AI 智能编程工作台。三步完成后即可进入首页。",
       "features": {
         "agent": "AI 智能体自主编程",
         "agentDesc": "配备功能强大的 AI 智能体，直接在您的工作区中编写代码、调试、重构和运行终端命令。",
@@ -107,13 +106,8 @@
         "notGitRepo": "警告：该目录不是 Git 仓库",
         "invalid": "无效的目录路径"
       },
-      "submit": "导入并打开",
-      "next": "继续"
-    },
-    "ready": {
-      "title": "一切准备就绪！",
-      "subtitle": "环境配置已完成。现在您可以创建工作区、将任务交给 AI 智能体并管理终端了。",
-      "action": "进入 Atmos"
+      "submit": "导入并进入 Atmos",
+      "next": "跳过并进入首页"
     }
   },
   "header": {
