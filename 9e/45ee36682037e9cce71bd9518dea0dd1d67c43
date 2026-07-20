@@ -1,0 +1,24 @@
+apps/web/messages/en.json
+  s_0f526d12108092::t_9f7534f9e4dc78 33-37
+apps/web/messages/zh.json
+  s_0f526d12108092::t_74ad91aa97ced1 33-37
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_1154ad4d19097a 296
+  s_0f526d12108092::t_740dacfcc18634 619,632-674
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9e45ee36682037e9cce71bd9518dea0dd1d67c43",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
