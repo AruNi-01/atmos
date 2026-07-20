@@ -1,0 +1,20 @@
+crates/core-engine/src/agent_hooks/grok_build.rs
+  s_0f526d12108092::t_9dbe0ba5d660fe 548-552
+  s_0f526d12108092::t_9481900e14d8ea 543-544,546-547,553,556
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "390e9af43b2e9f6f07a77f79d039695eb98cebf7",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
