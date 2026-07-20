@@ -1,0 +1,28 @@
+apps/web/src/features/welcome/components/PackageInstallTerminalDialog.tsx
+  s_0f526d12108092::t_6fcac9d075b08f 1-505
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_7ce113d9ee6386 44-47
+  s_0f526d12108092::t_3a1cc5e7fc626d 591,613,635
+  s_0f526d12108092::t_cbd2e42d175c97 114,116,119,122,133-153,155-204,206-230,232-235,237-238,240-260
+  s_0f526d12108092::t_834f5041c444d2 35
+apps/web/messages/zh.json
+  s_0f526d12108092::t_c7f18973c35cea 42-44,51-90
+apps/web/messages/en.json
+  s_0f526d12108092::t_e394e9125e2224 42-44,51-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a87582a62902ea7c9cfc3e5cc04c68140364edbc",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
