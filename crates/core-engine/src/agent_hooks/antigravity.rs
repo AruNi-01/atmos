@@ -154,7 +154,10 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
     }
 
     // If the config is empty now, we can delete the file, otherwise write it back
-    let is_empty = hooks_config.as_object().map(|o| o.is_empty()).unwrap_or(true);
+    let is_empty = hooks_config
+        .as_object()
+        .map(|o| o.is_empty())
+        .unwrap_or(true);
     if is_empty {
         let _ = std::fs::remove_file(&path);
         AgentHookToolStatus::detected_uninstalled(&path_str)

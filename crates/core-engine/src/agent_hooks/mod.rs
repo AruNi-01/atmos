@@ -406,12 +406,9 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
         disabled.contains("claude_code"),
         || claude_code::install(port),
     );
-    let codex = ensure_hook_for_tool(
-        "codex",
-        codex::check(),
-        disabled.contains("codex"),
-        || codex::install(port),
-    );
+    let codex = ensure_hook_for_tool("codex", codex::check(), disabled.contains("codex"), || {
+        codex::install(port)
+    });
     let cursor = ensure_hook_for_tool(
         "cursor",
         cursor::check(),
@@ -436,12 +433,10 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
         disabled.contains("factory_droid"),
         || factory_droid::install(port),
     );
-    let kiro_status = ensure_hook_for_tool(
-        "kiro",
-        kiro::check(),
-        disabled.contains("kiro"),
-        || kiro::install(port),
-    );
+    let kiro_status =
+        ensure_hook_for_tool("kiro", kiro::check(), disabled.contains("kiro"), || {
+            kiro::install(port)
+        });
     let opencode = ensure_hook_for_tool(
         "opencode",
         opencode::check(),
@@ -454,12 +449,9 @@ pub fn sync_installed_hooks(port: u16) -> AgentHookInstallReport {
         disabled.contains("ampcode"),
         || ampcode::install(port),
     );
-    let pi_status = ensure_hook_for_tool(
-        "pi",
-        pi::check(),
-        disabled.contains("pi"),
-        || pi::install(port),
-    );
+    let pi_status = ensure_hook_for_tool("pi", pi::check(), disabled.contains("pi"), || {
+        pi::install(port)
+    });
     let hermes_status = ensure_hook_for_tool(
         "hermes",
         hermes::check(),
@@ -520,7 +512,10 @@ struct DisabledHooksFile {
 }
 
 fn disabled_hooks_path() -> Result<PathBuf> {
-    Ok(home_dir()?.join(".atmos").join("agent-hooks").join("disabled.json"))
+    Ok(home_dir()?
+        .join(".atmos")
+        .join("agent-hooks")
+        .join("disabled.json"))
 }
 
 fn load_disabled_tools_from(path: &Path) -> BTreeSet<String> {

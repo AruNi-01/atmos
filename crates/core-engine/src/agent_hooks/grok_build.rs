@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tracing::debug;
 
 use super::{
@@ -175,7 +175,10 @@ fn executable_candidates(directory: &Path, command: &str) -> Vec<PathBuf> {
 /// Path fingerprint only — bare `agent` is contested with Cursor and must not
 /// alone mean Grok is installed (APP-036 REV-001).
 fn path_looks_like_grok(path: &std::path::Path) -> bool {
-    let path_str = path.to_string_lossy().to_ascii_lowercase().replace('\\', "/");
+    let path_str = path
+        .to_string_lossy()
+        .to_ascii_lowercase()
+        .replace('\\', "/");
     let file_name = path
         .file_name()
         .and_then(|n| n.to_str())

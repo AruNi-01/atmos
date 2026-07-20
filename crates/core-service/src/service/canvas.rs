@@ -160,9 +160,8 @@ impl CanvasDocumentService {
         let raw = fs::read_to_string(&path).map_err(|e| {
             ServiceError::Processing(format!("Failed to read canvas document `{file_name}`: {e}"))
         })?;
-        let body: AtmosCanvasFile = serde_json::from_str(&raw).map_err(|e| {
-            ServiceError::Validation(format!("Invalid canvas document JSON: {e}"))
-        })?;
+        let body: AtmosCanvasFile = serde_json::from_str(&raw)
+            .map_err(|e| ServiceError::Validation(format!("Invalid canvas document JSON: {e}")))?;
         validate_atmos_canvas_file(&body)?;
         let meta = list_item_for_path(file_name, &path)?;
         Ok(CanvasDocumentFileDto {
@@ -285,11 +284,7 @@ impl CanvasDocumentService {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        let tmp = path.with_extension(format!(
-            "atmos.tldr.tmp.{}.{}",
-            std::process::id(),
-            nanos
-        ));
+        let tmp = path.with_extension(format!("atmos.tldr.tmp.{}.{}", std::process::id(), nanos));
         fs::write(&tmp, json.as_bytes()).map_err(|e| {
             ServiceError::Processing(format!("Failed to write canvas document temp file: {e}"))
         })?;
@@ -335,7 +330,9 @@ impl CanvasDocumentService {
             )));
         }
         fs::remove_file(&path).map_err(|e| {
-            ServiceError::Processing(format!("Failed to delete canvas document `{file_name}`: {e}"))
+            ServiceError::Processing(format!(
+                "Failed to delete canvas document `{file_name}`: {e}"
+            ))
         })?;
         Ok(())
     }
@@ -382,9 +379,8 @@ impl CanvasDocumentService {
         let raw = fs::read_to_string(&from).map_err(|e| {
             ServiceError::Processing(format!("Failed to read canvas document `{file_name}`: {e}"))
         })?;
-        let mut body: AtmosCanvasFile = serde_json::from_str(&raw).map_err(|e| {
-            ServiceError::Validation(format!("Invalid canvas document JSON: {e}"))
-        })?;
+        let mut body: AtmosCanvasFile = serde_json::from_str(&raw)
+            .map_err(|e| ServiceError::Validation(format!("Invalid canvas document JSON: {e}")))?;
         validate_atmos_canvas_file(&body)?;
         let stem = new_file_name
             .strip_suffix(CANVAS_FILE_EXTENSION)
@@ -493,7 +489,10 @@ fn reset_duplicated_agent_chat_widgets(body: &mut AtmosCanvasFile) {
         source.insert("acpSessionId".into(), Value::Null);
         source.insert("registryId".into(), Value::Null);
         source.insert("sessionCwd".into(), Value::Null);
-        props.insert("pinKey".into(), Value::String(format!("agent-chat:{instance_id}")));
+        props.insert(
+            "pinKey".into(),
+            Value::String(format!("agent-chat:{instance_id}")),
+        );
     }
 }
 
@@ -757,7 +756,8 @@ mod tests {
                 )]),
             }),
         };
-        svc.write_document("Ops Desk.atmos.tldr", &body, false).unwrap();
+        svc.write_document("Ops Desk.atmos.tldr", &body, false)
+            .unwrap();
         let loaded = svc.read_document("Ops Desk.atmos.tldr").unwrap();
         assert_eq!(loaded.body, body);
         assert_eq!(loaded.title, "Ops Desk");
@@ -780,7 +780,9 @@ mod tests {
         let b = CanvasDocumentService::empty_document("b");
         svc.write_document("race.atmos.tldr", &a, false).unwrap();
         // Second create-if-absent must fail rather than clobber.
-        let err = svc.write_document("race.atmos.tldr", &b, false).unwrap_err();
+        let err = svc
+            .write_document("race.atmos.tldr", &b, false)
+            .unwrap_err();
         assert!(format!("{err}").contains("already exists"));
         let loaded = svc.read_document("race.atmos.tldr").unwrap();
         assert_eq!(loaded.body.title, "a");
@@ -839,12 +841,8 @@ mod tests {
             session: None,
             script: None,
         };
-        svc.write_document(
-            "a.atmos.tldr",
-            &agent_chat_document,
-            false,
-        )
-        .unwrap();
+        svc.write_document("a.atmos.tldr", &agent_chat_document, false)
+            .unwrap();
         let renamed = svc.rename_document("a.atmos.tldr", "b").unwrap();
         assert_eq!(renamed.file_name, "b.atmos.tldr");
         assert!(!dir.path().join("a.atmos.tldr").exists());
@@ -855,11 +853,14 @@ mod tests {
         let duplicate = svc.read_document(&dup.file_name).unwrap();
         let original_source = &original.body.tldraw_document.as_ref().unwrap()["store"]
             ["shape:agent-chat"]["props"]["source"];
-        let duplicate_props = &duplicate.body.tldraw_document.as_ref().unwrap()["store"]
-            ["shape:agent-chat"]["props"];
+        let duplicate_props =
+            &duplicate.body.tldraw_document.as_ref().unwrap()["store"]["shape:agent-chat"]["props"];
         let duplicate_source = &duplicate_props["source"];
         let duplicate_instance_id = duplicate_source["instanceId"].as_str().unwrap();
-        assert_eq!(original_source["instanceId"].as_str(), Some("original-instance"));
+        assert_eq!(
+            original_source["instanceId"].as_str(),
+            Some("original-instance")
+        );
         assert_ne!(duplicate_instance_id, "original-instance");
         assert_eq!(duplicate_source["acpSessionId"], Value::Null);
         assert_eq!(duplicate_source["registryId"], Value::Null);

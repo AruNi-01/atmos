@@ -78,26 +78,26 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     // Main loop: Receive messages and delegate to WsService
     while let Some(result) = receiver.next().await {
         match result {
-            Ok(msg) => {
-                match msg {
-                    Message::Text(text) => {
-                        let tx = tx.clone();
-                        let state = state.clone();
-                        let conn_id = conn_id.clone();
-                        tokio::spawn(async move {
-                            if let Some(response) = state.ws_service.handle_message(&conn_id, &text).await {
-                                if let Err(e) = tx.send(response).await {
-                                    tracing::warn!("Failed to send response to {}: {}", conn_id, e);
-                                }
+            Ok(msg) => match msg {
+                Message::Text(text) => {
+                    let tx = tx.clone();
+                    let state = state.clone();
+                    let conn_id = conn_id.clone();
+                    tokio::spawn(async move {
+                        if let Some(response) =
+                            state.ws_service.handle_message(&conn_id, &text).await
+                        {
+                            if let Err(e) = tx.send(response).await {
+                                tracing::warn!("Failed to send response to {}: {}", conn_id, e);
                             }
-                        });
-                    }
-                    Message::Close(_) => {
-                        break;
-                    }
-                    _ => {}
+                        }
+                    });
                 }
-            }
+                Message::Close(_) => {
+                    break;
+                }
+                _ => {}
+            },
             Err(e) => {
                 tracing::error!("WebSocket error: {}", e);
                 break;

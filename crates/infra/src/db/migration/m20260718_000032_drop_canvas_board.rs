@@ -30,8 +30,16 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Alias::new("created_at")).date_time().not_null())
-                    .col(ColumnDef::new(Alias::new("updated_at")).date_time().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("created_at"))
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Alias::new("updated_at"))
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(Alias::new("is_deleted"))
                             .boolean()
@@ -40,7 +48,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Alias::new("slug")).string().not_null())
                     .col(ColumnDef::new(Alias::new("name")).string().not_null())
-                    .col(ColumnDef::new(Alias::new("document_json")).text().not_null())
+                    .col(
+                        ColumnDef::new(Alias::new("document_json"))
+                            .text()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;

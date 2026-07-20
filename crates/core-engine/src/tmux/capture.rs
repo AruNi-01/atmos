@@ -1,8 +1,6 @@
 use crate::error::Result;
 
-use super::{
-    should_restore_tui_mouse_tracking, TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot,
-};
+use super::{should_restore_tui_mouse_tracking, TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct PaneMetadata {

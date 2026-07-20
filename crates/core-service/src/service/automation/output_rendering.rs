@@ -7,10 +7,10 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, warn};
 
-use super::AutomationEvent;
 use super::agents::StdoutParser;
 #[cfg(test)]
 use super::runner;
+use super::AutomationEvent;
 
 pub(crate) struct OutputChunk {
     pub stream: &'static str,
@@ -660,14 +660,12 @@ mod tests {
     fn codex_jsonl_parser_buffers_partial_lines_and_extracts_deltas() {
         let mut renderer = OutputRenderer::new(StdoutParser::CodexJsonl);
 
-        assert!(
-            renderer
-                .push(OutputChunk {
-                    stream: "stdout",
-                    bytes: br#"{"type":"item.delta","text":"hel"#.to_vec(),
-                })
-                .is_empty()
-        );
+        assert!(renderer
+            .push(OutputChunk {
+                stream: "stdout",
+                bytes: br#"{"type":"item.delta","text":"hel"#.to_vec(),
+            })
+            .is_empty());
         let rendered = renderer.push(OutputChunk {
             stream: "stdout",
             bytes: b"lo\"}\n".to_vec(),
@@ -771,14 +769,12 @@ mod tests {
             .expect("fixture contains emoji");
         let split = emoji_start + 2;
 
-        assert!(
-            renderer
-                .push(OutputChunk {
-                    stream: "stdout",
-                    bytes: line[..split].to_vec(),
-                })
-                .is_empty()
-        );
+        assert!(renderer
+            .push(OutputChunk {
+                stream: "stdout",
+                bytes: line[..split].to_vec(),
+            })
+            .is_empty());
         let rendered = renderer.push(OutputChunk {
             stream: "stdout",
             bytes: line[split..].to_vec(),

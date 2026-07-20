@@ -45,7 +45,11 @@ impl WsMessageService {
             project_path: None,
         };
 
-        match self.notification_service.test_push(server, &test_payload).await {
+        match self
+            .notification_service
+            .test_push(server, &test_payload)
+            .await
+        {
             Ok(()) => Ok(json!({ "ok": true })),
             Err(e) => Ok(json!({ "ok": false, "error": e })),
         }

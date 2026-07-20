@@ -347,7 +347,14 @@ mod tests {
     #[test]
     fn register_and_status_count() {
         let relay = CanvasAgentRelay::new();
-        relay.register("conn-1", "client-a", Some("Tab A".into()), true, vec![], None);
+        relay.register(
+            "conn-1",
+            "client-a",
+            Some("Tab A".into()),
+            true,
+            vec![],
+            None,
+        );
         relay.register("conn-2", "client-b", None, true, vec![], None);
 
         let status = relay.status();

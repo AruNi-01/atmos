@@ -55,10 +55,13 @@ pub async fn get_document(
             title: doc.body.title,
             tldraw_document: doc.body.tldraw_document,
             session: doc.body.session,
-            script: doc.body.script.map(|s| crate::api::dto::AtmosCanvasScriptPayload {
-                entry: s.entry,
-                files: s.files,
-            }),
+            script: doc
+                .body
+                .script
+                .map(|s| crate::api::dto::AtmosCanvasScriptPayload {
+                    entry: s.entry,
+                    files: s.files,
+                }),
         },
     })))
 }

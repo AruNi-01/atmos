@@ -14,15 +14,16 @@ fn run_gh_with_timeout(path: &Path, args: &[&str], timeout: Duration) -> Result<
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let mut child = cmd.spawn().map_err(|e| {
-        EngineError::Git(format!("Failed to execute gh: {}", e))
-    })?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| EngineError::Git(format!("Failed to execute gh: {}", e)))?;
 
     let start = std::time::Instant::now();
     loop {
-        match child.try_wait().map_err(|e| {
-            EngineError::Git(format!("Failed to wait for gh: {}", e))
-        })? {
+        match child
+            .try_wait()
+            .map_err(|e| EngineError::Git(format!("Failed to wait for gh: {}", e)))?
+        {
             Some(status) => {
                 let mut stdout = Vec::new();
                 let mut stderr = Vec::new();
