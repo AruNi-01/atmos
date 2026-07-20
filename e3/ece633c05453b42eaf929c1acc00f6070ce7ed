@@ -1,0 +1,20 @@
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_92c22747ab1fa0 433-438
+  s_0f526d12108092::t_1f9fec63825b4d 826-845
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e3ece633c05453b42eaf929c1acc00f6070ce7ed",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
