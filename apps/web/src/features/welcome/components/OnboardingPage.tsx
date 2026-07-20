@@ -279,14 +279,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const pathname = usePathname();
 
   const rawStep = searchParams.get('step');
-  // Legacy bookmarks used a fourth "ready" step; send them back through the wizard.
-  useEffect(() => {
-    if (rawStep !== 'ready') return;
-    const params = new URLSearchParams(window.location.search);
-    params.set('step', 'intro');
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [rawStep, pathname, router]);
-
   const currentStep: Step =
     rawStep === 'intro' || rawStep === 'check' || rawStep === 'project' ? rawStep : 'intro';
 
