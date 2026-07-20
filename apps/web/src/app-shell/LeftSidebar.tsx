@@ -213,7 +213,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         isCreateProjectOpen,
         setCreateProjectOpen,
         setSelectedProjectId,
-        selectedProjectId: launcherSelectedProjectId,
+        pendingSidebarProjectId,
+        setPendingSidebarProjectId,
     } = useDialogStore();
 
     // Projects are now loaded by the TanStack Query bootstrap — no manual fetch needed.
@@ -356,23 +357,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         (s) => (s.phase === 'opening' ? s.pendingWorkspaceId : null),
     );
 
-    // Apply welcome/onboarding launcher project selection into the two-column sidebar.
-    const appliedLauncherSidebarProjectRef = useRef<string | null>(null);
+    // One-shot: onboarding/import asks the sidebar to highlight a project without
+    // colliding with Add Workspace / ⌘N / GlobalSearch reuse of selectedProjectId.
     useEffect(() => {
-        if (!launcherSelectedProjectId) {
-            appliedLauncherSidebarProjectRef.current = null;
+        if (!pendingSidebarProjectId) return;
+        if (!projects.some((project) => project.id === pendingSidebarProjectId)) {
             return;
         }
-        if (!projects.some((project) => project.id === launcherSelectedProjectId)) {
-            return;
-        }
-        if (appliedLauncherSidebarProjectRef.current === launcherSelectedProjectId) {
-            return;
-        }
-        appliedLauncherSidebarProjectRef.current = launcherSelectedProjectId;
-        setSelectedProjectSidebarId(launcherSelectedProjectId);
+        setSelectedProjectSidebarId(pendingSidebarProjectId);
         setProjectSidebarSelectionRouteKey(currentSidebarRouteKey);
-    }, [currentSidebarRouteKey, launcherSelectedProjectId, projects]);
+        setPendingSidebarProjectId(null);
+    }, [
+        currentSidebarRouteKey,
+        pendingSidebarProjectId,
+        projects,
+        setPendingSidebarProjectId,
+    ]);
 
     useEffect(() => {
         if (currentProjectId && currentEffectivePath) {

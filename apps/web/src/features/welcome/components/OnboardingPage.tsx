@@ -272,18 +272,20 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const t = useTranslations('onboarding');
   const addProject = useProjectStore(s => s.addProject);
   const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
+  const setPendingSidebarProjectId = useDialogStore(s => s.setPendingSidebarProjectId);
 
   const router = useAppRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
   const rawStep = searchParams.get('step');
-  // Legacy bookmarks used a fourth "ready" step; enter home immediately.
+  // Legacy bookmarks used a fourth "ready" step; send them back through the wizard.
   useEffect(() => {
-    if (rawStep === 'ready') {
-      onComplete();
-    }
-  }, [rawStep, onComplete]);
+    if (rawStep !== 'ready') return;
+    const params = new URLSearchParams(window.location.search);
+    params.set('step', 'intro');
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [rawStep, pathname, router]);
 
   const currentStep: Step =
     rawStep === 'intro' || rawStep === 'check' || rawStep === 'project' ? rawStep : 'intro';
@@ -397,17 +399,19 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   const handleFileBrowserSelect = (
     selectedPath: string,
-    isRepo: boolean,
+    _isRepo: boolean,
     suggestedName: string | null
   ) => {
+    // Invalidate any in-flight/browser metadata result and let the path
+    // debounce effect run wsProjectApi.validatePath for this exact directory.
     pathValidationSeq.current += 1;
     setPath(selectedPath);
     if (suggestedName) {
       setName(suggestedName);
     }
-    setIsGitRepo(isRepo);
-    setIsValidating(false);
-    setValidationError(isRepo ? null : t('project.validation.notGitRepo'));
+    setIsGitRepo(null);
+    setIsValidating(true);
+    setValidationError(null);
     setShowFileBrowser(false);
   };
 
@@ -420,8 +424,10 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         name,
         mainFilePath: path,
       });
-      // Select the imported project on the welcome / sidebar surfaces after redirect.
+      // Welcome composer uses selectedProjectId; sidebar uses a one-shot pending id
+      // so Add Workspace / ⌘N / GlobalSearch do not fight this selection.
       setSelectedProjectId(newProjectId);
+      setPendingSidebarProjectId(newProjectId);
       // Import finishes onboarding — go straight to the home shell.
       onComplete();
     } catch (err) {

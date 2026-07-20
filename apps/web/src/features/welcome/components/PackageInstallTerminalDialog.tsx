@@ -36,6 +36,40 @@ function commandForPackageManager(
   toolId: OnboardingInstallToolId,
   packageManager: string | null | undefined,
 ): { command: string; requiresSudo: boolean } | null {
+  // GitHub CLI package names / install recipes differ by distro.
+  if (toolId === 'gh') {
+    switch (packageManager) {
+      case 'brew':
+        return { command: 'brew install gh', requiresSudo: false };
+      case 'apt-get':
+        return {
+          command:
+            'sudo mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && sudo apt-get update && sudo apt-get install -y gh',
+          requiresSudo: true,
+        };
+      case 'dnf':
+        return {
+          command:
+            'sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && sudo dnf install -y gh',
+          requiresSudo: true,
+        };
+      case 'yum':
+        return {
+          command:
+            'sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && sudo yum install -y gh',
+          requiresSudo: true,
+        };
+      case 'pacman':
+        return { command: 'sudo pacman -S --noconfirm github-cli', requiresSudo: true };
+      case 'zypper':
+        return { command: 'sudo zypper install -y gh', requiresSudo: true };
+      case 'apk':
+        return { command: 'sudo apk add github-cli', requiresSudo: true };
+      default:
+        return null;
+    }
+  }
+
   switch (packageManager) {
     case 'brew':
       return { command: `brew install ${toolId}`, requiresSudo: false };
