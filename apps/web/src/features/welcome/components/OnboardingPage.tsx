@@ -430,12 +430,12 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       {/* Background decoration */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,rgba(120,119,198,0.04),transparent_50%)]" />
 
-      {/* Split container: full width/height split-screen */}
-      <div className="relative z-10 flex h-full w-full flex-col md:flex-row">
-        
-        {/* Left: primary column — no scroll; capped so art can sit closer */}
-        <div className="flex h-full min-h-0 w-full flex-col justify-center overflow-hidden px-8 py-12 md:w-[60%] md:px-20 md:py-20 border-r border-border/10 bg-background/80 backdrop-blur-sm">
-          <div className="mx-auto w-full max-w-2xl space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
+      {/* Centered split: form + art hug the middle instead of stretching to the edges */}
+      <div className="relative z-10 flex h-full w-full justify-center">
+        <div className="flex h-full w-full max-w-6xl flex-col md:flex-row">
+          {/* Left: form column — no scroll */}
+          <div className="flex h-full min-h-0 w-full flex-col justify-center overflow-hidden px-8 py-12 md:w-[58%] md:px-10 md:py-20 md:pr-6 border-r border-border/10 bg-background/80 backdrop-blur-sm">
+            <div className="w-full max-w-xl space-y-10 animate-in fade-in slide-in-from-left-4 duration-300 md:ml-auto">
             
             <div className="flex justify-start">
               <AtmosWordmark 
@@ -823,27 +823,27 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           </div>
         </div>
 
-        {/* Right: particle art — starts further left to close the mid-page gap */}
-        <div className="relative hidden h-full w-[40%] md:flex items-center justify-center bg-[#09090b] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
-          <ParticleField
-            src={imageSrc}
-            sampleStep={3}
-            threshold={34}
-            dotSize={1}
-            renderScale={1.1}
-            align="bottom"
-            className="w-full h-full"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(900px 600px at 55% 50%, transparent 40%, color-mix(in srgb, var(--background) 88%, transparent) 92%)",
-            }}
-          />
+          {/* Right: particle art — sits next to the form inside the centered cluster */}
+          <div className="relative hidden h-full w-[42%] md:flex items-center justify-center bg-[#09090b] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+            <ParticleField
+              src={imageSrc}
+              sampleStep={3}
+              threshold={34}
+              dotSize={1}
+              renderScale={1.1}
+              align="bottom"
+              className="w-full h-full"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(900px 600px at 55% 50%, transparent 40%, color-mix(in srgb, var(--background) 88%, transparent) 92%)",
+              }}
+            />
+          </div>
         </div>
-
       </div>
     </div>
   );
