@@ -45,6 +45,7 @@ import {
   PackageInstallTerminalDialog,
   type OnboardingInstallToolId,
 } from '@/features/welcome/components/PackageInstallTerminalDialog';
+import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 
 type OS = 'macos' | 'linux' | 'windows';
 
@@ -265,18 +266,27 @@ interface OnboardingPageProps {
   onComplete: () => void;
 }
 
-type Step = 'intro' | 'check' | 'project' | 'ready';
+type Step = 'intro' | 'check' | 'project';
 
 export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const t = useTranslations('onboarding');
   const addProject = useProjectStore(s => s.addProject);
+  const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
 
   const router = useAppRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
   const rawStep = searchParams.get('step');
-  const currentStep: Step = (rawStep === 'intro' || rawStep === 'check' || rawStep === 'project' || rawStep === 'ready') ? rawStep : 'intro';
+  // Legacy bookmarks used a fourth "ready" step; enter home immediately.
+  useEffect(() => {
+    if (rawStep === 'ready') {
+      onComplete();
+    }
+  }, [rawStep, onComplete]);
+
+  const currentStep: Step =
+    rawStep === 'intro' || rawStep === 'check' || rawStep === 'project' ? rawStep : 'intro';
 
   const setCurrentStep = (step: Step) => {
     const params = new URLSearchParams(window.location.search);
@@ -406,11 +416,14 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     if (!name || !path || isValidating || isGitRepo === null || (validationError && isGitRepo === null)) return;
     setIsSubmitting(true);
     try {
-      await addProject({
+      const newProjectId = await addProject({
         name,
         mainFilePath: path,
       });
-      setCurrentStep('ready');
+      // Select the imported project on the welcome / sidebar surfaces after redirect.
+      setSelectedProjectId(newProjectId);
+      // Import finishes onboarding — go straight to the home shell.
+      onComplete();
     } catch (err) {
       setValidationError(err instanceof Error ? err.message : 'Failed to import project');
     } finally {
@@ -431,7 +444,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     { id: 'intro', label: t('steps.intro') },
     { id: 'check', label: t('steps.check') },
     { id: 'project', label: t('steps.project') },
-    { id: 'ready', label: t('steps.ready') },
   ];
 
   const imageSrc = '/figures/welcome.png';
@@ -793,7 +805,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => setCurrentStep('ready')}
+                        onClick={onComplete}
                         className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         {t('project.next')}
@@ -809,35 +821,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     selectLabel={t('project.submit')}
                     dirsOnly={true}
                   />
-                </div>
-              )}
-
-              {/* STEP 4: READY */}
-              {currentStep === 'ready' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8 text-left">
-                  <div className="flex justify-start">
-                    <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      <CheckCircle2 className="size-8" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                      {t('ready.title')}
-                    </h2>
-                    <p className="text-muted-foreground text-xs leading-relaxed max-w-md">
-                      {t('ready.subtitle')}
-                    </p>
-                  </div>
-
-                  <div className="pt-2">
-                    <Button
-                      onClick={onComplete}
-                      className="rounded-full px-8 py-6 text-sm font-semibold cursor-pointer"
-                    >
-                      {t('ready.action')}
-                    </Button>
-                  </div>
                 </div>
               )}
             </div>

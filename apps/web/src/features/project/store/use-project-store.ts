@@ -177,6 +177,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         ...current,
         projects: [...current.projects, newProject],
       }));
+
+      return newProject.id;
     } catch (error) {
       console.error('Error adding project:', error);
       toastManager.add({
