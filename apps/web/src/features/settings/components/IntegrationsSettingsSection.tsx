@@ -87,7 +87,7 @@ export function IntegrationsSettingsSection() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open('https://cli.github.com/', '_blank')}
+                    onClick={() => window.open('https://cli.github.com/', '_blank', 'noopener,noreferrer')}
                     className="cursor-pointer"
                   >
                     <ExternalLink className="mr-2 size-4" />
@@ -119,7 +119,7 @@ export function IntegrationsSettingsSection() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank')}
+                      onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank', 'noopener,noreferrer')}
                       className="cursor-pointer"
                     >
                       <ExternalLink className="mr-2 size-4" />
@@ -261,7 +261,7 @@ export function IntegrationsSettingsSection() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open('https://github.com/tmux/tmux/wiki', '_blank')}
+                    onClick={() => window.open('https://github.com/tmux/tmux/wiki', '_blank', 'noopener,noreferrer')}
                     className="cursor-pointer"
                   >
                     <ExternalLink className="mr-2 size-4" />

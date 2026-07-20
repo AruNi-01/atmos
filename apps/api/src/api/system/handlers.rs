@@ -212,17 +212,20 @@ pub async fn get_git_status() -> ApiResult<Json<ApiResponse<GitStatusResponse>>>
             .map(|output| output.status.success())
             .unwrap_or(false);
 
-        let version = version_output.and_then(|output| {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            stdout.lines().next().map(|line| {
-                let version_str = line.strip_prefix("git version ").unwrap_or(line).trim();
-                version_str
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or(version_str)
-                    .to_string()
-            })
-        });
+        let version = None;
+        if installed {
+            if let Some(output) = version_output {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                version = stdout.lines().next().map(|line| {
+                    let version_str = line.strip_prefix("git version ").unwrap_or(line).trim();
+                    version_str
+                        .split_whitespace()
+                        .next()
+                        .unwrap_or(version_str)
+                        .to_string()
+                });
+            }
+        }
 
         let username = if installed {
             Command::new("git")

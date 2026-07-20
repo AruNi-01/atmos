@@ -102,7 +102,7 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0 0 0 / 10%);
   --sidebar-ring: oklch(0.705 0.015 286.067);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: var(--color-red-700);
 }
 
 .dark {

@@ -39,7 +39,8 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
     getClientMountedSnapshot,
     getServerMountedSnapshot,
   );
-  // Local completion override for the current session when storage write fails.
+  // Forces the gate closed for this session after onComplete (also covers
+  // private-mode cases where localStorage.setItem throws).
   const [sessionCompleted, setSessionCompleted] = useState(false);
 
   if (!mounted) {
