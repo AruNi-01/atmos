@@ -252,21 +252,12 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-
   // Step 2: Env check states
   const [tmuxData, setTmuxData] = useState<{ installed: boolean; version: string | null } | null>(null);
   const [gitData, setGitData] = useState<{ installed: boolean; version: string | null } | null>(null);
   const [ghData, setGhData] = useState<{ installed: boolean; version: string | null; username: string | null } | null>(null);
   const [envChecking, setEnvChecking] = useState(false);
   const [envCheckError, setEnvCheckError] = useState<string | null>(null);
-  const [detectedOs] = useState<OS>(() => {
-    if (typeof navigator === 'undefined') return 'macos';
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('win')) return 'windows';
-    if (ua.includes('linux')) return 'linux';
-    return 'macos';
-  });
 
   const runEnvChecks = async () => {
     setEnvChecking(true);
@@ -302,6 +293,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const isTmuxInstalled = tmuxData?.installed ?? false;
   const isGitInstalled = gitData?.installed ?? false;
   const isGhInstalled = ghData?.installed ?? false;
+  const hasMissingDeps = !isTmuxInstalled || !isGitInstalled || !isGhInstalled;
 
   const handleRecheck = () => {
     void runEnvChecks();
@@ -393,19 +385,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setIsSubmitting(false);
     }
   };
-
-  const handleCopyCommand = (cmd: string) => {
-    navigator.clipboard.writeText(cmd);
-    setCopiedText(cmd);
-    setTimeout(() => setCopiedText(null), 2000);
-  };
-
-  const bulkInstallCommand =
-    detectedOs === 'linux'
-      ? 'sudo apt update && sudo apt install -y tmux git gh'
-      : detectedOs === 'windows'
-        ? 'winget install --id Git.Git -e --source winget && winget install --id GitHub.cli'
-        : 'brew install tmux git gh';
 
   const canSubmitProject =
     Boolean(name && path) &&
@@ -632,37 +611,12 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       {envCheckError}
                     </p>
                   )}
-                   {!envChecking && !envCheckError && (!isTmuxInstalled || !isGitInstalled || !isGhInstalled) && (
-                    <div className="space-y-3 bg-muted/10 border border-border/40 p-4 rounded-xl">
-                      <h4 className="text-xs font-semibold text-foreground flex items-center gap-2">
-                        <AlertCircle className="size-4 text-amber-500" />
-                        {t('check.actionInstall')}
-                      </h4>
-                      <div className="relative">
-                        <pre className="text-xs font-mono bg-muted/40 p-3 rounded-lg border border-border/40 pr-12 text-muted-foreground overflow-x-auto">
-                          {bulkInstallCommand}
-                        </pre>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleCopyCommand(bulkInstallCommand)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-muted-foreground/60 hover:text-foreground cursor-pointer"
-                        >
-                          {copiedText === bulkInstallCommand ? (
-                            <Check className="size-4 text-emerald-500" />
-                          ) : (
-                            <Copy className="size-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex flex-wrap items-center gap-3 pt-2">
                     <Button
                       onClick={() => setCurrentStep('project')}
                       className="rounded-full px-6 font-medium cursor-pointer"
-                      disabled={envChecking}
+                      disabled={envChecking || hasMissingDeps}
                     >
                       {t('check.next')}
                     </Button>
@@ -675,13 +629,49 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       <RefreshCw className={cn("size-3.5", envChecking && "animate-spin")} />
                       {t('check.recheck')}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setCurrentStep('project')}
-                      className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      {t('check.skip')}
-                    </Button>
+                    {hasMissingDeps && !envChecking ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                          >
+                            {t('check.skip')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          className="w-72 space-y-3 p-4 border border-border bg-popover text-popover-foreground rounded-2xl shadow-xl"
+                        >
+                          <div className="space-y-1.5">
+                            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                              <AlertCircle className="size-3.5 text-amber-500 shrink-0" />
+                              {t('check.skipWarning.title')}
+                            </p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {t('check.skipWarning.description')}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCurrentStep('project')}
+                            className="w-full rounded-full text-xs cursor-pointer"
+                          >
+                            {t('check.skipWarning.confirm')}
+                          </Button>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setCurrentStep('project')}
+                        disabled={envChecking}
+                        className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {t('check.skip')}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}

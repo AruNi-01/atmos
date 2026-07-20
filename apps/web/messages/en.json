@@ -27,10 +27,14 @@
       "tmuxDesc": "Terminal Multiplexer (Required for terminal sessions and tabs)",
       "gitDesc": "Version Control System (Required to manage code workspaces)",
       "ghDesc": "GitHub CLI (Required for issue/PR synchronizations)",
-      "actionInstall": "Run this command in your shell to install:",
       "recheck": "Re-check status",
       "next": "Next Step",
       "skip": "Skip for now",
+      "skipWarning": {
+        "title": "Some tools are still missing",
+        "description": "Terminals, git workspaces, or GitHub sync may not work until you install the remaining tools. You can continue and install them later.",
+        "confirm": "Skip anyway"
+      },
       "checkFailed": "Could not reach the local Atmos Server to check tools. Make sure it is running, then re-check.",
       "install": {
         "button": "Install",
