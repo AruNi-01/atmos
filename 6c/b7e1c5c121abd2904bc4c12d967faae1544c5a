@@ -1,0 +1,21 @@
+crates/runtime-manager/src/cli_update.rs
+  s_0f526d12108092::t_ad77153f84e798 611
+apps/web/tsconfig.json
+  s_0f526d12108092::t_dc6b670b88503b 39-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "6cb7e1c5c121abd2904bc4c12d967faae1544c5a",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
