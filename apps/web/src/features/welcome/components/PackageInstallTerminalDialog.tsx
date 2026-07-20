@@ -127,7 +127,7 @@ export function PackageInstallTerminalDialog({
   toolName,
   onInstalled,
 }: PackageInstallTerminalDialogProps) {
-  const t = useTranslations('onboarding.check.installTerminal');
+  const t = useTranslations('onboarding.check.install.installTerminal');
   const terminalRef = React.useRef<TerminalRef | null>(null);
   const startedRef = React.useRef(false);
   const commandStartTimerRef = React.useRef<number | null>(null);
