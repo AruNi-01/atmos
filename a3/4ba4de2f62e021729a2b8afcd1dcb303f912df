@@ -1,0 +1,19 @@
+apps/web/src/providers/app/workbench-intl-provider.tsx
+  s_0f526d12108092::t_fa67e4d3b8e60d 85-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a34ba4de2f62e021729a2b8afcd1dcb303f912df",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
