@@ -433,22 +433,21 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       {/* Split container: full width/height split-screen */}
       <div className="relative z-10 flex h-full w-full flex-col md:flex-row">
         
-        {/* Left Side: Form content, occupies 55% width on desktop, scrollable, vertically centered */}
-        <div className="flex h-full w-full flex-col justify-center overflow-y-auto px-8 py-12 md:w-[55%] md:px-16 md:py-20 border-r border-border/10 bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-xl mx-auto space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
+        {/* Left: primary column — fill viewport without scrolling; right art stays narrow */}
+        <div className="flex h-full min-h-0 w-full flex-1 flex-col justify-center overflow-hidden px-8 py-8 md:px-14 md:py-10 border-r border-border/10 bg-background/80 backdrop-blur-sm">
+          <div className="mx-auto w-full max-w-2xl space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
             
-            {/* AtmosWordmark styled significantly larger */}
             <div className="flex justify-start">
               <AtmosWordmark 
                 layout="compact" 
-                letterClassName="text-8xl md:text-[7rem] font-semibold tracking-tight" 
-                logoClassName="size-24 md:size-28"
+                letterClassName="text-5xl md:text-6xl font-semibold tracking-tight" 
+                logoClassName="size-14 md:size-16"
                 sloganClassName="hidden"
               />
             </div>
 
             {/* Stepper displayed horizontally right above step content */}
-            <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-border/40 pb-4">
+            <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-border/40 pb-3">
               {stepsList.map((step, idx) => {
                 const isActive = currentStep === step.id;
                 const isPast = stepsList.findIndex(s => s.id === currentStep) > idx;
@@ -487,9 +486,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
             <div className="w-full">
               {/* STEP 1: INTRO */}
               {currentStep === 'intro' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
-                  <div className="space-y-3">
-                    <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-5">
+                  <div className="space-y-2">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                       {t('intro.title')}
                     </h1>
                     <p className="text-muted-foreground text-xs leading-relaxed max-w-md">
@@ -498,12 +497,12 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   </div>
 
                   {/* Feature Columns */}
-                  <div className="grid gap-6 py-2">
-                    <div className="flex gap-4 items-start">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0 mt-1">
-                        <Sparkles className="size-5" />
+                  <div className="grid gap-4">
+                    <div className="flex gap-3 items-start">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0">
+                        <Sparkles className="size-4" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         <h3 className="text-sm font-semibold text-foreground">{t('intro.features.agent')}</h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {t('intro.features.agentDesc')}
@@ -511,11 +510,11 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </div>
                     </div>
 
-                    <div className="flex gap-4 items-start">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0 mt-1">
-                        <TerminalIcon className="size-5" />
+                    <div className="flex gap-3 items-start">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0">
+                        <TerminalIcon className="size-4" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         <h3 className="text-sm font-semibold text-foreground">{t('intro.features.tmux')}</h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {t('intro.features.tmuxDesc')}
@@ -523,11 +522,11 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </div>
                     </div>
 
-                    <div className="flex gap-4 items-start">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0 mt-1">
-                        <GitBranch className="size-5" />
+                    <div className="flex gap-3 items-start">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0">
+                        <GitBranch className="size-4" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         <h3 className="text-sm font-semibold text-foreground">{t('intro.features.canvas')}</h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {t('intro.features.canvasDesc')}
@@ -536,7 +535,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </div>
                   </div>
 
-                  <div className="pt-2">
+                  <div>
                     <Button
                       onClick={() => setCurrentStep('check')}
                       className="rounded-full px-6 font-medium gap-2 group cursor-pointer"
@@ -550,9 +549,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
               {/* STEP 2: DEPENDENCY CHECK */}
               {currentStep === 'check' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-5">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">
                       {t('check.title')}
                     </h2>
                     <p className="text-muted-foreground text-xs leading-relaxed">
@@ -560,11 +559,11 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </p>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-2.5">
                     <Card className="bg-muted/10 border-border/40 overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <CardContent className="p-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <TerminalIcon className="size-5 text-muted-foreground" />
+                          <TerminalIcon className="size-4 text-muted-foreground" />
                           <div>
                             <h4 className="text-xs font-semibold text-foreground">tmux</h4>
                             <p className="text-[10px] text-muted-foreground">{t('check.tmuxDesc')}</p>
@@ -584,9 +583,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </Card>
  
                     <Card className="bg-muted/10 border-border/40 overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <CardContent className="p-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <GitBranch className="size-5 text-muted-foreground" />
+                          <GitBranch className="size-4 text-muted-foreground" />
                           <div>
                             <h4 className="text-xs font-semibold text-foreground">Git</h4>
                             <p className="text-[10px] text-muted-foreground">{t('check.gitDesc')}</p>
@@ -606,9 +605,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </Card>
  
                     <Card className="bg-muted/10 border-border/40 overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <CardContent className="p-3 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <Github className="size-5 text-muted-foreground" />
+                          <Github className="size-4 text-muted-foreground" />
                           <div>
                             <h4 className="text-xs font-semibold text-foreground">GitHub CLI (gh)</h4>
                             <p className="text-[10px] text-muted-foreground">{t('check.ghDesc')}</p>
@@ -634,32 +633,32 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </p>
                   )}
                    {!envChecking && !envCheckError && (!isTmuxInstalled || !isGitInstalled || !isGhInstalled) && (
-                    <div className="space-y-3 bg-muted/10 border border-border/40 p-4 rounded-xl">
+                    <div className="space-y-2 bg-muted/10 border border-border/40 p-3 rounded-xl">
                       <h4 className="text-xs font-semibold text-foreground flex items-center gap-2">
-                        <AlertCircle className="size-4 text-amber-500" />
+                        <AlertCircle className="size-3.5 text-amber-500" />
                         {t('check.actionInstall')}
                       </h4>
                       <div className="relative">
-                        <pre className="text-xs font-mono bg-muted/40 p-3 rounded-lg border border-border/40 pr-12 text-muted-foreground overflow-x-auto">
+                        <pre className="text-[11px] font-mono bg-muted/40 p-2.5 rounded-lg border border-border/40 pr-12 text-muted-foreground overflow-x-auto whitespace-nowrap">
                           {bulkInstallCommand}
                         </pre>
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => handleCopyCommand(bulkInstallCommand)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-muted-foreground/60 hover:text-foreground cursor-pointer"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 size-7 text-muted-foreground/60 hover:text-foreground cursor-pointer"
                         >
                           {copiedText === bulkInstallCommand ? (
-                            <Check className="size-4 text-emerald-500" />
+                            <Check className="size-3.5 text-emerald-500" />
                           ) : (
-                            <Copy className="size-4" />
+                            <Copy className="size-3.5" />
                           )}
                         </Button>
                       </div>
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button
                       onClick={() => setCurrentStep('project')}
                       className="rounded-full px-6 font-medium cursor-pointer"
@@ -689,9 +688,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
               {/* STEP 3: FIRST PROJECT */}
               {currentStep === 'project' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-5">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">
                       {t('project.title')}
                     </h2>
                     <p className="text-muted-foreground text-xs leading-relaxed">
@@ -699,7 +698,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </p>
                   </div>
 
-                  <form onSubmit={handleProjectSubmit} className="space-y-5">
+                  <form onSubmit={handleProjectSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="path" className="text-xs font-semibold text-foreground">
                         {t('project.fields.path')}
@@ -758,7 +757,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Button
                         type="submit"
                         disabled={!canSubmitProject}
@@ -793,15 +792,15 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
               {/* STEP 4: READY */}
               {currentStep === 'ready' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8 text-left">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-5 text-left">
                   <div className="flex justify-start">
-                    <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      <CheckCircle2 className="size-8" />
+                    <div className="flex size-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      <CheckCircle2 className="size-7" />
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">
                       {t('ready.title')}
                     </h2>
                     <p className="text-muted-foreground text-xs leading-relaxed max-w-md">
@@ -809,10 +808,10 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </p>
                   </div>
 
-                  <div className="pt-2">
+                  <div>
                     <Button
                       onClick={onComplete}
-                      className="rounded-full px-8 py-6 text-sm font-semibold cursor-pointer"
+                      className="rounded-full px-8 py-5 text-sm font-semibold cursor-pointer"
                     >
                       {t('ready.action')}
                     </Button>
@@ -824,8 +823,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           </div>
         </div>
 
-        {/* Right Side: Full-Bleed Authentic Particle Field Animation */}
-        <div className="relative hidden h-full md:flex md:w-[45%] items-center justify-center bg-[#09090b] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+        {/* Right: narrow particle art strip */}
+        <div className="relative hidden h-full w-[28%] min-w-[240px] max-w-[360px] md:flex items-center justify-center bg-[#09090b] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
           <ParticleField
             src={imageSrc}
             sampleStep={3}
