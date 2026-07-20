@@ -32,6 +32,7 @@ import {
   Sparkles,
   Loader2,
   ExternalLink,
+  SquareTerminal,
 } from 'lucide-react';
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { FileBrowser } from '@/features/files/components/FileBrowser';
@@ -40,7 +41,10 @@ import { wsProjectApi } from '@/api/ws-api';
 import { systemApi } from '@/api/rest-api';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
-
+import {
+  PackageInstallTerminalDialog,
+  type OnboardingInstallToolId,
+} from '@/features/welcome/components/PackageInstallTerminalDialog';
 
 type OS = 'macos' | 'linux' | 'windows';
 
@@ -107,13 +111,15 @@ const INSTALL_GUIDES: Record<string, Record<OS, InstallMethod[]>> = {
 };
 
 interface InstallPopoverProps {
-  toolId: 'tmux' | 'git' | 'gh';
+  toolId: OnboardingInstallToolId;
   toolName: string;
+  onInstalled: () => void | Promise<void>;
 }
 
-function InstallPopover({ toolId, toolName }: InstallPopoverProps) {
+function InstallPopover({ toolId, toolName, onInstalled }: InstallPopoverProps) {
   const t = useTranslations('onboarding');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -124,108 +130,134 @@ function InstallPopover({ toolId, toolName }: InstallPopoverProps) {
   const guides = INSTALL_GUIDES[toolId];
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full px-3 py-1 text-[11px] font-semibold h-7 border-border/40 hover:bg-muted/20 text-foreground cursor-pointer"
-        >
-          {t('check.install.button')}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[420px] p-5 border border-border bg-popover text-popover-foreground rounded-2xl shadow-xl z-50">
-        <div className="space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold text-foreground">
-              {t('check.install.title', { toolName })}
-            </h4>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('check.install.description')}
-            </p>
-          </div>
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full px-3 py-1 text-[11px] font-semibold h-7 border-border/40 hover:bg-muted/20 text-foreground cursor-pointer"
+          >
+            {t('check.install.button')}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-[420px] p-5 border border-border bg-popover text-popover-foreground rounded-2xl shadow-xl z-50">
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">
+                {t('check.install.title', { toolName })}
+              </h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('check.install.description')}
+              </p>
+            </div>
 
-          <Tabs defaultValue="macos" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-muted/40 p-1 rounded-xl">
-              <TabsTrigger value="macos" className="rounded-lg text-xs py-1.5 cursor-pointer">
-                {t('check.install.os.macos')}
-              </TabsTrigger>
-              <TabsTrigger value="linux" className="rounded-lg text-xs py-1.5 cursor-pointer">
-                {t('check.install.os.linux')}
-              </TabsTrigger>
-              <TabsTrigger value="windows" className="rounded-lg text-xs py-1.5 cursor-pointer">
-                {t('check.install.os.windows')}
-              </TabsTrigger>
-            </TabsList>
+            <Button
+              size="sm"
+              className="w-full rounded-xl gap-2 cursor-pointer"
+              onClick={() => setTerminalOpen(true)}
+            >
+              <SquareTerminal className="size-3.5" />
+              {t('check.install.runInTerminal')}
+            </Button>
 
-            {(['macos', 'linux', 'windows'] as OS[]).map((os) => {
-              const methods = guides[os];
-              return (
-                <TabsContent key={os} value={os} className="mt-4 space-y-4">
-                  {methods.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{t('check.install.empty')}</p>
-                  ) : (
-                    <Tabs defaultValue={methods[0].label} className="w-full">
-                      {methods.length > 1 && (
-                        <TabsList className="flex flex-wrap gap-1 bg-transparent p-0 border-b border-border/40 pb-2 mb-3">
-                          {methods.map((m) => (
-                            <TabsTrigger
-                              key={m.label}
-                              value={m.label}
-                              className="text-[11px] px-2.5 py-1 rounded-md border border-transparent data-[state=active]:bg-muted/40 data-[state=active]:border-border/40 cursor-pointer"
-                            >
-                              {m.label}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                      )}
+            <div className="relative">
+              <div className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
+              <p className="relative mx-auto w-fit bg-popover px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                {t('check.install.orManual')}
+              </p>
+            </div>
 
-                      {methods.map((m, idx) => (
-                        <TabsContent key={m.label} value={m.label} className="space-y-3 outline-none">
-                          {m.notes && (
-                            <p className="text-xs text-muted-foreground leading-relaxed">{m.notes}</p>
-                          )}
-                          {m.command && (
-                            <div className="relative group">
-                              <pre className="text-[11px] font-mono bg-muted/40 p-3 pr-10 rounded-xl border border-border/40 overflow-x-auto leading-relaxed text-foreground max-h-[160px] whitespace-pre-wrap break-all">
-                                {m.command}
-                              </pre>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="absolute right-2 top-2 h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg"
-                                onClick={() => handleCopy(m.command!, `${os}-${idx}`)}
+            <Tabs defaultValue="macos" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-muted/40 p-1 rounded-xl">
+                <TabsTrigger value="macos" className="rounded-lg text-xs py-1.5 cursor-pointer">
+                  {t('check.install.os.macos')}
+                </TabsTrigger>
+                <TabsTrigger value="linux" className="rounded-lg text-xs py-1.5 cursor-pointer">
+                  {t('check.install.os.linux')}
+                </TabsTrigger>
+                <TabsTrigger value="windows" className="rounded-lg text-xs py-1.5 cursor-pointer">
+                  {t('check.install.os.windows')}
+                </TabsTrigger>
+              </TabsList>
+
+              {(['macos', 'linux', 'windows'] as OS[]).map((os) => {
+                const methods = guides[os];
+                return (
+                  <TabsContent key={os} value={os} className="mt-4 space-y-4">
+                    {methods.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t('check.install.empty')}</p>
+                    ) : (
+                      <Tabs defaultValue={methods[0].label} className="w-full">
+                        {methods.length > 1 && (
+                          <TabsList className="flex flex-wrap gap-1 bg-transparent p-0 border-b border-border/40 pb-2 mb-3">
+                            {methods.map((m) => (
+                              <TabsTrigger
+                                key={m.label}
+                                value={m.label}
+                                className="text-[11px] px-2.5 py-1 rounded-md border border-transparent data-[state=active]:bg-muted/40 data-[state=active]:border-border/40 cursor-pointer"
                               >
-                                {copiedId === `${os}-${idx}` ? (
-                                  <Check className="size-3.5 text-emerald-500" />
-                                ) : (
-                                  <Copy className="size-3.5" />
-                                )}
+                                {m.label}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                        )}
+
+                        {methods.map((m, idx) => (
+                          <TabsContent key={m.label} value={m.label} className="space-y-3 outline-none">
+                            {m.notes && (
+                              <p className="text-xs text-muted-foreground leading-relaxed">{m.notes}</p>
+                            )}
+                            {m.command && (
+                              <div className="relative group">
+                                <pre className="text-[11px] font-mono bg-muted/40 p-3 pr-10 rounded-xl border border-border/40 overflow-x-auto leading-relaxed text-foreground max-h-[160px] whitespace-pre-wrap break-all">
+                                  {m.command}
+                                </pre>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="absolute right-2 top-2 h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg"
+                                  onClick={() => handleCopy(m.command!, `${os}-${idx}`)}
+                                >
+                                  {copiedId === `${os}-${idx}` ? (
+                                    <Check className="size-3.5 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="size-3.5" />
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                            {m.link && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs font-medium cursor-pointer rounded-xl"
+                                onClick={() => window.open(m.link, '_blank', 'noopener,noreferrer')}
+                              >
+                                <ExternalLink className="mr-2 size-3.5" />
+                                {t('check.install.download')}
                               </Button>
-                            </div>
-                          )}
-                          {m.link && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-xs font-medium cursor-pointer rounded-xl"
-                              onClick={() => window.open(m.link, '_blank', 'noopener,noreferrer')}
-                            >
-                              <ExternalLink className="mr-2 size-3.5" />
-                              {t('check.install.download')}
-                            </Button>
-                          )}
-                        </TabsContent>
-                      ))}
-                    </Tabs>
-                  )}
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        </div>
-      </PopoverContent>
-    </Popover>
+                            )}
+                          </TabsContent>
+                        ))}
+                      </Tabs>
+                    )}
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <PackageInstallTerminalDialog
+        open={terminalOpen}
+        onOpenChange={setTerminalOpen}
+        toolId={toolId}
+        toolName={toolName}
+        onInstalled={onInstalled}
+      />
+    </>
   );
 }
 
@@ -556,7 +588,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {t('check.statusInstalled')} {tmuxData?.version && `(${tmuxData.version})`}
                           </span>
                         ) : (
-                          <InstallPopover toolId="tmux" toolName="tmux" />
+                          <InstallPopover toolId="tmux" toolName="tmux" onInstalled={handleRecheck} />
                         )}
                       </CardContent>
                     </Card>
@@ -578,7 +610,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {t('check.statusInstalled')} {gitData?.version && `(${gitData.version})`}
                           </span>
                         ) : (
-                          <InstallPopover toolId="git" toolName="Git" />
+                          <InstallPopover toolId="git" toolName="Git" onInstalled={handleRecheck} />
                         )}
                       </CardContent>
                     </Card>
@@ -600,7 +632,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {t('check.statusInstalled')} {ghData?.username && `(@${ghData.username})`}
                           </span>
                         ) : (
-                          <InstallPopover toolId="gh" toolName="GitHub CLI (gh)" />
+                          <InstallPopover toolId="gh" toolName="GitHub CLI (gh)" onInstalled={handleRecheck} />
                         )}
                       </CardContent>
                     </Card>

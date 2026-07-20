@@ -39,13 +39,55 @@
       "install": {
         "button": "安装",
         "title": "安装 {toolName}",
-        "description": "选择你的操作系统和安装方式。",
+        "description": "可在 Atmos 临时终端中直接安装，或复制对应系统的手动安装命令。",
+        "runInTerminal": "在终端中安装",
+        "orManual": "或复制命令",
         "empty": "暂无可用安装说明。",
         "download": "官方下载页面",
         "os": {
           "macos": "macOS",
           "linux": "Linux",
           "windows": "Windows"
+        },
+        "installTerminal": {
+          "title": "安装 {toolName}",
+          "descriptionGuide": "Atmos 已检测本机包管理器，可在临时终端中执行安装。",
+          "descriptionTerminalWithCommand": "正在执行：{command}",
+          "descriptionTerminalFallback": "请在临时终端中完成安装，然后点击重新检测。",
+          "detectingOptions": "正在检测安装方式…",
+          "detectedHostTitle": "检测到的主机",
+          "detectedHostUnavailable": "无法检测主机包管理器。",
+          "recommendedCommandTitle": "推荐命令",
+          "recommendedCommandDescription": "该命令会自动输入到 Atmos 临时终端中。",
+          "recommendedCommandSudo": "安装过程中可能需要输入密码。",
+          "homebrewFirst": "请先安装 Homebrew，然后重新检测，再用 brew 安装 {toolId}。",
+          "noAutomaticCommand": "当前主机没有可用的自动安装命令，请改用手动命令。",
+          "temporaryTerminalTitle": "临时安装终端",
+          "cwdLabel": "工作目录：",
+          "completeInShell": "在终端中完成安装提示后，点击重新检测。",
+          "apiHostShell": "API 主机 Shell",
+          "keepDialogOpen": "安装完成前请保持此对话框打开。",
+          "systemProjectName": "系统",
+          "installWorkspaceName": "安装",
+          "actions": {
+            "installTool": "安装 {toolName}",
+            "installHomebrew": "安装 Homebrew",
+            "copyCommand": "复制命令",
+            "checkAgain": "重新检测",
+            "openBrew": "打开 brew.sh",
+            "back": "返回",
+            "close": "关闭"
+          },
+          "errors": {
+            "detectCommand": "无法检测此主机的安装命令。",
+            "resolveHomeDir": "无法解析用于安装终端的用户主目录。"
+          },
+          "toast": {
+            "copySuccessTitle": "命令已复制",
+            "copySuccessDescription": "如需手动安装，可粘贴到 Shell 中执行。",
+            "copyFailedTitle": "复制失败",
+            "copyFailedDescription": "无法将安装命令复制到剪贴板。"
+          }
         }
       }
     },

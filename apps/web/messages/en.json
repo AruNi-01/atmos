@@ -39,13 +39,55 @@
       "install": {
         "button": "Install",
         "title": "Install {toolName}",
-        "description": "Select your operating system and preferred installation method.",
+        "description": "Install in an Atmos temporary terminal, or copy a manual command for your OS.",
+        "runInTerminal": "Install in Terminal",
+        "orManual": "Or copy a command",
         "empty": "No instructions available.",
         "download": "Official Download Page",
         "os": {
           "macos": "macOS",
           "linux": "Linux",
           "windows": "Windows"
+        },
+        "installTerminal": {
+          "title": "Install {toolName}",
+          "descriptionGuide": "Atmos detected the package manager on this machine and can run the install in a temporary shell.",
+          "descriptionTerminalWithCommand": "Running: {command}",
+          "descriptionTerminalFallback": "Complete the install in the temporary shell, then check again.",
+          "detectingOptions": "Detecting install options…",
+          "detectedHostTitle": "Detected host",
+          "detectedHostUnavailable": "Could not detect the host package manager.",
+          "recommendedCommandTitle": "Recommended command",
+          "recommendedCommandDescription": "This command will be typed into a temporary Atmos terminal.",
+          "recommendedCommandSudo": "You may be prompted for your password.",
+          "homebrewFirst": "Install Homebrew first, then check again to install {toolId} with brew.",
+          "noAutomaticCommand": "No automatic install command is available for this host. Use a manual command instead.",
+          "temporaryTerminalTitle": "Temporary install terminal",
+          "cwdLabel": "Working directory:",
+          "completeInShell": "Finish any prompts in the shell, then click Check again.",
+          "apiHostShell": "API host shell",
+          "keepDialogOpen": "Keep this dialog open until the install finishes.",
+          "systemProjectName": "System",
+          "installWorkspaceName": "Install",
+          "actions": {
+            "installTool": "Install {toolName}",
+            "installHomebrew": "Install Homebrew",
+            "copyCommand": "Copy command",
+            "checkAgain": "Check again",
+            "openBrew": "Open brew.sh",
+            "back": "Back",
+            "close": "Close"
+          },
+          "errors": {
+            "detectCommand": "Could not detect an install command for this host.",
+            "resolveHomeDir": "Could not resolve the home directory for the install terminal."
+          },
+          "toast": {
+            "copySuccessTitle": "Command copied",
+            "copySuccessDescription": "Paste it into a shell if you prefer to install manually.",
+            "copyFailedTitle": "Copy failed",
+            "copyFailedDescription": "Could not copy the install command to the clipboard."
+          }
         }
       }
     },
