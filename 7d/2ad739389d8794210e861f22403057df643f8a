@@ -1,0 +1,19 @@
+apps/web/src/features/welcome/components/PackageInstallTerminalDialog.tsx
+  s_0f526d12108092::t_cf85a493c28c2b 130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "7d2ad739389d8794210e861f22403057df643f8a",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
