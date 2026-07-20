@@ -1,0 +1,31 @@
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  s_0f526d12108092::t_f878d265ffc7b4 90
+  s_0f526d12108092::t_d6ddfd82c9de5f 122
+  s_0f526d12108092::t_580be770ae8c21 264
+packages/ui/src/components/theme-toggle.tsx
+  s_0f526d12108092::t_942f087dc12727 37-41
+packages/ui/src/styles/globals.css
+  s_0f526d12108092::t_20dbaf913998a3 105
+apps/api/src/api/system/handlers.rs
+  s_0f526d12108092::t_ff4a3155b4b383 215-228
+apps/web/src/app-shell/OnboardingGate.tsx
+  s_0f526d12108092::t_f34908c976a027 42-43
+packages/ui/src/components/ui/button.tsx
+  s_0f526d12108092::t_11591d7d987136 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3162753343662231bdf7a7f8c0af7b39c2c99c62",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
