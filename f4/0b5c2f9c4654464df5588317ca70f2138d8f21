@@ -1,0 +1,65 @@
+apps/api/src/main.rs
+  s_0f526d12108092::t_c14731b5dcf844 32-33
+apps/api/src/api/canvas/handlers.rs
+  s_0f526d12108092::t_c14731b5dcf844 58-64
+crates/core-engine/src/agent_hooks/antigravity.rs
+  s_0f526d12108092::t_c14731b5dcf844 157-160
+crates/core-engine/src/tmux/capture.rs
+  s_0f526d12108092::t_c14731b5dcf844 3
+crates/core-engine/src/git/commits.rs
+  s_0f526d12108092::t_c14731b5dcf844 17-19,23-26
+crates/core-service/src/service/automation/output_rendering.rs
+  s_0f526d12108092::t_c14731b5dcf844 13,663-668,772-777
+crates/ai-usage/src/providers/antigravity.rs
+  s_0f526d12108092::t_c14731b5dcf844 312-313,447-451
+crates/core-engine/src/local_services/scanner.rs
+  s_0f526d12108092::t_c14731b5dcf844 95-96
+crates/ai-usage/src/providers/grok.rs
+  s_0f526d12108092::t_c14731b5dcf844 148-150,585-588
+apps/api/src/api/ws/handlers.rs
+  s_0f526d12108092::t_c14731b5dcf844 81-91,93-94,96-100
+apps/desktop/src-tauri/src/commands.rs
+  s_0f526d12108092::t_c14731b5dcf844 232-237,542-545
+crates/core-engine/src/tmux/types.rs
+  s_0f526d12108092::t_c14731b5dcf844 198
+crates/core-service/src/service/canvas.rs
+  s_0f526d12108092::t_c14731b5dcf844 163-164,287,333-335,382-383,492-495,759-760,783-785,844-845,856-857,860-863
+apps/api/src/api/hooks/mod.rs
+  s_0f526d12108092::t_c14731b5dcf844 6
+apps/api/src/api/ws/router/settings.rs
+  s_0f526d12108092::t_c14731b5dcf844 48-52
+crates/core-engine/src/agent_hooks/grok_build.rs
+  s_0f526d12108092::t_c14731b5dcf844 4,178-181
+apps/api/src/api/system/handlers.rs
+  s_0f526d12108092::t_595ea2fea8bf31 215-216,218,225-229
+crates/infra/src/db/migration/m20260718_000032_drop_canvas_board.rs
+  s_0f526d12108092::t_c14731b5dcf844 33-42,51-55
+crates/agent/src/manager/mod.rs
+  s_0f526d12108092::t_c8a1985135bfa3 301
+apps/web/src/features/canvas/components/CanvasView.tsx
+  s_0f526d12108092::t_4b7ad59edddb2a 403,405,410
+packages/shared/tsconfig.json
+  s_0f526d12108092::t_34afc0ea1e6861 8
+apps/cli/src/commands/canvas.rs
+  s_0f526d12108092::t_c14731b5dcf844 133-134,354,361-363,374,379,1119
+crates/core-service/src/service/canvas_agent_relay.rs
+  s_0f526d12108092::t_c14731b5dcf844 350-357
+crates/core-engine/src/agent_hooks/mod.rs
+  s_0f526d12108092::t_c14731b5dcf844 409-411,436-439,452-454,515-518
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f40b5c2f9c4654464df5588317ca70f2138d8f21",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
