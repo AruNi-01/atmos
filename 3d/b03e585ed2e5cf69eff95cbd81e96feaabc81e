@@ -1,0 +1,66 @@
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_d81deb0274acae 409-419,424
+  s_0f526d12108092::t_6240a9aa671b8e 420-423
+  s_0f526d12108092::t_b2e98f8cfd1740 115,134,140-145,150-158,166,212,215
+  s_0f526d12108092::t_a3178b836db60a 388
+  s_0f526d12108092::t_b9c72be19b8b32 317,321,323-326,333-336,339-341,347-348,361,364-366
+  s_0f526d12108092::t_baad3633a83115 262-270,274,286-289
+  s_0f526d12108092::t_cc5d55394953f2 375,381-382
+  s_0f526d12108092::t_e41bc834c8e20c 3
+  s_0f526d12108092::t_13c16bb64f5791 636-642,650,655,658
+  s_0f526d12108092::t_d0d319bf81ed23 770
+  s_0f526d12108092::t_228c89b39a0ba6 322,328-332
+packages/ui/src/components/ui/spinner.tsx
+  s_0f526d12108092::t_2ef1533e5328d9 12
+packages/ui/src/components/theme-provider.tsx
+  s_0f526d12108092::t_157410e1bfde8c 62
+apps/web/messages/en.json
+  s_0f526d12108092::t_52a92eaea0aade 33-46
+specs/APP/APP-038_onboarding-page/TEST.md
+  s_0f526d12108092::t_20f8bcd69b8917 7-8,14,18-29,32-33,35-38,42,44-46,49,52-63
+specs/APP/APP-038_onboarding-page/TECH.md
+  s_0f526d12108092::t_8b7e23c4394e3d 6,15-16,20,30,34-35,42-43,46,48,50,54,60,64-74
+packages/ui/src/components/theme-toggle.tsx
+  s_0f526d12108092::t_2e8bda36b4ed59 3,6,12-21,23-46,55
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  s_0f526d12108092::t_116ac17e4f922c 188
+  s_0f526d12108092::t_4c2b1a1796e0dc 201-202
+packages/ui/src/lib/themes/palettes.ts
+  s_0f526d12108092::t_063252bee8e772 54
+packages/ui/src/components/auth-shell.tsx
+  s_0f526d12108092::t_8b19d6c066e32c 62
+apps/api/src/api/system/handlers.rs
+  s_0f526d12108092::t_cc7ff3e6c9392b 272
+  s_0f526d12108092::t_1dd11a895712d5 208-213,215-226,228,230-245,247-262,264-271,274
+  s_0f526d12108092::t_80e5efde508103 273
+packages/ui/src/components/ui/button.tsx
+  s_0f526d12108092::t_981b5bf5c0bf36 94
+apps/web/src/app-shell/OnboardingGate.tsx
+  s_0f526d12108092::t_586e9f07beeeb4 3-8,14-29,33,37-43,51-56,59,63-64
+apps/web/src/app/onboarding/OnboardingClientPage.tsx
+  s_0f526d12108092::t_eaecd0e8b6ff73 16-20
+packages/ui/src/components/particle-field.tsx
+  s_0f526d12108092::t_cc83d73ba0eeb1 555-558
+  s_0f526d12108092::t_a2b6e09c9c7db7 20
+apps/web/messages/zh.json
+  s_0f526d12108092::t_a609b69cc98b43 33-46
+packages/ui/src/styles/globals.css
+  s_0f526d12108092::t_cf421742e71419 105
+  s_0f526d12108092::t_3bf2827154390e 144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3db03e585ed2e5cf69eff95cbd81e96feaabc81e",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
