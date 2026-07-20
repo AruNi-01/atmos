@@ -1,0 +1,44 @@
+apps/web/src/features/workspace/components/CreateWorkspaceDialog.tsx
+  s_0f526d12108092::t_659cb7077ebc9c 199-201,203-206,208-249
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_0f526d12108092::t_38d510b0dbfd77 215-216
+  s_0f526d12108092::t_73f58381ce6cb6 359-376
+apps/web/src/features/project/store/use-project-store.ts
+  s_0f526d12108092::t_0c7a60f9f3db38 180-181
+apps/web/src/features/project/store/project-store-types.ts
+  s_0f526d12108092::t_70be50351afbe1 19
+apps/web/src/features/project/hooks/use-project-bootstrap-query.ts
+  s_0f526d12108092::t_6cf7aec3bb5039 19-21
+  s_0f526d12108092::t_55c1c69c76b37d 76,81
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_49c6222efaabe2 419,423-424
+  s_0f526d12108092::t_ca5ca92d126f15 48
+  s_1d89256bf84ca7::t_4d63a0014f869f 425-426
+  s_1d89256bf84ca7::t_6aa172ebcdc416 269,281-289
+  s_1d89256bf84ca7::t_f9562430026e75 808
+  s_0f526d12108092::t_bfa15402d89e59 274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f03ae91eb98998bfbce9466688a758d1dc55295c",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_1d89256bf84ca7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d0efcc05-5ce8-4ffc-a9e7-b0fe315796fb",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
