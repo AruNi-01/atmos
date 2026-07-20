@@ -1,4 +1,115 @@
 {
+  "onboarding": {
+    "steps": {
+      "intro": "Welcome",
+      "check": "Environment",
+      "project": "First Project"
+    },
+    "intro": {
+      "title": "Welcome to Atmos",
+      "subtitle": "Your local-first agentic coding cockpit. Three quick steps and you are on the home screen.",
+      "features": {
+        "agent": "Agentic Software Engineering",
+        "agentDesc": "Equip autonomous AI agents to code, debug, refactor, and run terminal tools directly in your workspace.",
+        "tmux": "Terminal Multiplexing",
+        "tmuxDesc": "Seamless, persistent terminal panels running on tmux. Background work remains active even if you close the tab.",
+        "canvas": "Canvas & Visual Scripting",
+        "canvasDesc": "Organize, design, and script flows graphically on an infinite interactive canvas. Keep track of logic and agent runs visually."
+      },
+      "next": "Get Started"
+    },
+    "check": {
+      "title": "System Check",
+      "subtitle": "We require a few key developer utilities to run terminals, connect agents, and manage code repositories.",
+      "statusInstalled": "Installed",
+      "statusMissing": "Missing",
+      "tmuxDesc": "Terminal Multiplexer (Required for terminal sessions and tabs)",
+      "gitDesc": "Version Control System (Required to manage code workspaces)",
+      "ghDesc": "GitHub CLI (Required for issue/PR synchronizations)",
+      "recheck": "Re-check status",
+      "next": "Next Step",
+      "skip": "Skip for now",
+      "skipWarning": {
+        "title": "Some tools are still missing",
+        "description": "Terminals, git workspaces, or GitHub sync may not work until you install the remaining tools. You can continue and install them later.",
+        "confirm": "Skip anyway"
+      },
+      "checkFailed": "Could not reach the local Atmos Server to check tools. Make sure it is running, then re-check.",
+      "install": {
+        "button": "Install",
+        "title": "Install {toolName}",
+        "description": "Install in an Atmos temporary terminal, or copy a manual command for your OS.",
+        "runInTerminal": "Install in Terminal",
+        "orManual": "Or copy a command",
+        "empty": "No instructions available.",
+        "download": "Official Download Page",
+        "os": {
+          "macos": "macOS",
+          "linux": "Linux",
+          "windows": "Windows"
+        },
+        "installTerminal": {
+          "title": "Install {toolName}",
+          "descriptionGuide": "Atmos detected the package manager on this machine and can run the install in a temporary shell.",
+          "descriptionTerminalWithCommand": "Running: {command}",
+          "descriptionTerminalFallback": "Complete the install in the temporary shell, then check again.",
+          "detectingOptions": "Detecting install options…",
+          "detectedHostTitle": "Detected host",
+          "detectedHostUnavailable": "Could not detect the host package manager.",
+          "recommendedCommandTitle": "Recommended command",
+          "recommendedCommandDescription": "This command will be typed into a temporary Atmos terminal.",
+          "recommendedCommandSudo": "You may be prompted for your password.",
+          "homebrewFirst": "Install Homebrew first, then check again to install {toolId} with brew.",
+          "noAutomaticCommand": "No automatic install command is available for this host. Use a manual command instead.",
+          "temporaryTerminalTitle": "Temporary install terminal",
+          "cwdLabel": "Working directory:",
+          "completeInShell": "Finish any prompts in the shell, then click Check again.",
+          "apiHostShell": "API host shell",
+          "keepDialogOpen": "Keep this dialog open until the install finishes.",
+          "systemProjectName": "System",
+          "installWorkspaceName": "Install",
+          "actions": {
+            "installTool": "Install {toolName}",
+            "installHomebrew": "Install Homebrew",
+            "copyCommand": "Copy command",
+            "checkAgain": "Check again",
+            "openBrew": "Open brew.sh",
+            "back": "Back",
+            "close": "Close"
+          },
+          "errors": {
+            "detectCommand": "Could not detect an install command for this host.",
+            "resolveHomeDir": "Could not resolve the home directory for the install terminal."
+          },
+          "toast": {
+            "copySuccessTitle": "Command copied",
+            "copySuccessDescription": "Paste it into a shell if you prefer to install manually.",
+            "copyFailedTitle": "Copy failed",
+            "copyFailedDescription": "Could not copy the install command to the clipboard."
+          }
+        }
+      }
+    },
+    "project": {
+      "title": "Your First Project",
+      "subtitle": "Select a local directory to import. Atmos works local-first directly on your files.",
+      "fields": {
+        "path": "Directory Path",
+        "pathPlaceholder": "e.g. /Users/username/projects/my-app",
+        "name": "Project Name",
+        "namePlaceholder": "e.g. my-app",
+        "browse": "Browse..."
+      },
+      "validation": {
+        "validating": "Validating path...",
+        "gitRepo": "Git repository detected",
+        "notGitRepo": "Warning: Directory is not a Git repository",
+        "invalid": "Invalid directory path"
+      },
+      "submit": "Import and Enter Atmos",
+      "next": "Skip and enter home"
+    }
+  },
   "header": {
     "leftSidebar": {
       "expand": "Expand left sidebar",
@@ -5014,6 +5125,24 @@
         "authentication": {
           "authenticatedAsLabel": "Authenticated as",
           "notAuthenticated": "Not authenticated with GitHub"
+        }
+      },
+      "git": {
+        "title": "Git",
+        "description": "Atmos uses Git to track project codebases, branches, commits, and diff status in real-time.",
+        "status": {
+          "installed": "Installed {version}"
+        },
+        "installation": {
+          "installed": "Git {version} is installed",
+          "notInstalled": "Git is not installed on this system"
+        },
+        "actions": {
+          "install": "Install Git"
+        },
+        "configuration": {
+          "title": "Git User Configuration",
+          "description": "Configured user: {username} ({email})"
         }
       },
       "tmux": {

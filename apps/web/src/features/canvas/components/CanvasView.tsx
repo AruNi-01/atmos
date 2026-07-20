@@ -400,13 +400,14 @@ export const CanvasView: React.FC = () => {
 
   // Only remount when the open document *identity* changes (or crash remount).
   // Do not key off `document` content — autosave would flash/reload the editor.
+  const hasDocument = document != null;
   const canvasRenderKey = React.useMemo(() => {
-    if (!connectionBootstrapReady || !document) {
+    if (!connectionBootstrapReady || !hasDocument) {
       return null;
     }
 
     return [boardIdentity, fileName ?? "untitled", tldrawRemountKey].join(":");
-  }, [boardIdentity, connectionBootstrapReady, document != null, fileName, tldrawRemountKey]);
+  }, [boardIdentity, connectionBootstrapReady, hasDocument, fileName, tldrawRemountKey]);
 
   if (previousCanvasRenderKeyRef.current !== canvasRenderKey) {
     previousCanvasRenderKeyRef.current = canvasRenderKey;

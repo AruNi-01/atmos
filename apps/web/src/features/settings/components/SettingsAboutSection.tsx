@@ -161,15 +161,18 @@ export function renderDesktopUpdateAvailableToast(
         <p className="text-xs text-muted-foreground">
           {copy.manualDescription}
         </p>
-        <Button size="sm" asChild>
-          <a
-            href={getUpdateReleaseNotesUrl(info)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink className="mr-1.5 size-3.5" />
-            {copy.openGitHub}
-          </a>
+        <Button
+          size="sm"
+          render={
+            <a
+              href={getUpdateReleaseNotesUrl(info)}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          }
+        >
+          <ExternalLink className="mr-1.5 size-3.5" />
+          {copy.openGitHub}
         </Button>
       </div>
     );
@@ -181,15 +184,19 @@ export function renderDesktopUpdateAvailableToast(
         {copy.automaticDescription}
       </p>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <a
-            href={getUpdateReleaseNotesUrl(info)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink className="mr-1.5 size-3.5" />
-            {copy.whatsNew}
-          </a>
+        <Button
+          variant="outline"
+          size="sm"
+          render={
+            <a
+              href={getUpdateReleaseNotesUrl(info)}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          }
+        >
+          <ExternalLink className="mr-1.5 size-3.5" />
+          {copy.whatsNew}
         </Button>
         <Button size="sm" onClick={onInstall}>
           <Download className="mr-1.5 size-3.5" />

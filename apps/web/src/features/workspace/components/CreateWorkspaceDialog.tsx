@@ -196,50 +196,57 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
   }, [defaultWorkflowStatus, isOpen]);
 
+  // Reset only when the dialog closes — do not depend on `projects` identity
+  // (useProjects can return a fresh `[]` while loading and would loop forever).
+  const wasOpenRef = useRef(isOpen);
   useEffect(() => {
-    if (!isOpen) {
-      setProjectId(
-        defaultProjectId || (!requireProjectSelection && projects.length > 0 ? projects[0].id : ''),
-      );
-      setName('');
-      setBranch('');
-      setBaseBranch('main');
-      setRemoteBranches([]);
-      setBaseBranchFilter('');
-      setIsBaseBranchOpen(false);
-      setIssueUrl('');
-      setSelectedIssueNumber('');
-      setIssuePreview(null);
-      setIssues([]);
-      setPrUrl('');
-      setSelectedPrNumber('');
-      setPrPreview(null);
-      setLocalPrError(null);
-      setIsPrPreviewLoading(false);
-      setIsRepoLoading(false);
-      setIsBaseBranchesLoading(false);
-      setIsIssuesLoading(false);
-      setIsIssuePreviewLoading(false);
-      setIsLlmRoutingLoading(false);
-      setHasSetupScript(false);
-      setIssueError(null);
-      setBranchError(null);
-      setSubmitError(null);
-      setAutoExtractTodos(false);
-      setAutoExtractTodosPr(false);
-      setLinkType('none');
-      setDisplayedLinkType('issue');
-      setTodoProviderLabel(null);
-      setIsSubmitting(false);
-      setPriority('no_priority');
-      setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
-      setSelectedLabels([]);
-      // Reset refs
-      nameTouchedRef.current = false;
-      branchTouchedRef.current = false;
-      generatedBranchRef.current = null;
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+    if (!wasOpen || isOpen) {
+      return;
     }
-  }, [defaultProjectId, isOpen, projects, requireProjectSelection, defaultWorkflowStatus]);
+
+    setProjectId(
+      defaultProjectId || (!requireProjectSelection && projects.length > 0 ? projects[0].id : ''),
+    );
+    setName('');
+    setBranch('');
+    setBaseBranch('main');
+    setRemoteBranches([]);
+    setBaseBranchFilter('');
+    setIsBaseBranchOpen(false);
+    setIssueUrl('');
+    setSelectedIssueNumber('');
+    setIssuePreview(null);
+    setIssues([]);
+    setPrUrl('');
+    setSelectedPrNumber('');
+    setPrPreview(null);
+    setLocalPrError(null);
+    setIsPrPreviewLoading(false);
+    setIsRepoLoading(false);
+    setIsBaseBranchesLoading(false);
+    setIsIssuesLoading(false);
+    setIsIssuePreviewLoading(false);
+    setIsLlmRoutingLoading(false);
+    setHasSetupScript(false);
+    setIssueError(null);
+    setBranchError(null);
+    setSubmitError(null);
+    setAutoExtractTodos(false);
+    setAutoExtractTodosPr(false);
+    setLinkType('none');
+    setDisplayedLinkType('issue');
+    setTodoProviderLabel(null);
+    setIsSubmitting(false);
+    setPriority('no_priority');
+    setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
+    setSelectedLabels([]);
+    // Reset refs
+    nameTouchedRef.current = false;
+    branchTouchedRef.current = false;
+    generatedBranchRef.current = null;
+  }, [defaultProjectId, defaultWorkflowStatus, isOpen, projects, requireProjectSelection]);
 
   // Handle preselectedIssue for Build from Issue Only mode
   useEffect(() => {

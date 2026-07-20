@@ -99,11 +99,15 @@ export function restComputerQueryOptions<
   options: UseQueryOptions<TQueryFnData, TError, TData, TQueryKey> & {
     scope: ComputerQueryScope;
     runtimeReady: boolean;
+    ignoreActiveInstance?: boolean;
   },
 ): UseQueryOptions<TQueryFnData, TError, TData, TQueryKey> {
-  const { scope, runtimeReady, enabled, ...rest } = options;
+  const { scope, runtimeReady, enabled, ignoreActiveInstance, ...rest } = options;
+  const isEnabled = ignoreActiveInstance
+    ? runtimeReady
+    : (Boolean(scope?.activeInstanceId) && runtimeReady);
   return {
     ...rest,
-    enabled: (enabled ?? true) && restComputerQueryEnabled(scope, runtimeReady),
+    enabled: (enabled ?? true) && isEnabled,
   };
 }

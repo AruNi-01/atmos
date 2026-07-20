@@ -195,10 +195,7 @@ mod tests {
             false,
             "/Users/me/.grok/bin/grok"
         ));
-        assert!(should_restore_tui_mouse_tracking(
-            false,
-            "grok-0.2.103-ma"
-        ));
+        assert!(should_restore_tui_mouse_tracking(false, "grok-0.2.103-ma"));
         assert!(should_restore_tui_mouse_tracking(
             false,
             "grok-0.2.103-macos-aarch64"

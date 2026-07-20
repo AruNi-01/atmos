@@ -16,7 +16,7 @@ export interface ProjectStore {
   fetchProjects: () => Promise<void>;
   ensureWorkspaceVisible: (workspaceId: string) => Promise<boolean>;
   resetForConnectionChange: () => void;
-  addProject: (data: { name: string; mainFilePath: string; sidebarOrder?: number; borderColor?: string }) => Promise<void>;
+  addProject: (data: { name: string; mainFilePath: string; sidebarOrder?: number; borderColor?: string }) => Promise<string>;
   updateProject: (
     id: string,
     data: Partial<Omit<Project, "borderColor" | "logoPath">> & {

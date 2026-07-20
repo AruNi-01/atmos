@@ -92,7 +92,8 @@ fn scan_macos() -> Result<Vec<LocalTcpListener>> {
     let mut records = Vec::new();
     let mut pid: Option<u32> = None;
     let mut command: Option<String> = None;
-    let mut metadata_cache: std::collections::HashMap<u32, Option<ProcessMetadata>> = std::collections::HashMap::new();
+    let mut metadata_cache: std::collections::HashMap<u32, Option<ProcessMetadata>> =
+        std::collections::HashMap::new();
 
     for line in text.lines() {
         let Some((tag, value)) = line.split_at_checked(1) else {

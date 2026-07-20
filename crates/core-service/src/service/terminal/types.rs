@@ -33,17 +33,12 @@ pub enum SessionType {
     Simple,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TerminalKind {
+    #[default]
     Standard,
     SideChat,
-}
-
-impl Default for TerminalKind {
-    fn default() -> Self {
-        Self::Standard
-    }
 }
 
 impl TerminalKind {

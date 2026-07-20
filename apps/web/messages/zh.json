@@ -1,4 +1,115 @@
 {
+  "onboarding": {
+    "steps": {
+      "intro": "欢迎",
+      "check": "环境检测",
+      "project": "首个项目"
+    },
+    "intro": {
+      "title": "欢迎使用 Atmos",
+      "subtitle": "您的本地优先 AI 智能编程工作台。三步完成后即可进入首页。",
+      "features": {
+        "agent": "AI 智能体自主编程",
+        "agentDesc": "配备功能强大的 AI 智能体，直接在您的工作区中编写代码、调试、重构和运行终端命令。",
+        "tmux": "终端复用管理器",
+        "tmuxDesc": "基于 tmux 的持久化终端面板。即使您关闭了网页标签，后台运行的任务依然会继续执行。",
+        "canvas": "无限画布与可视化脚本",
+        "canvasDesc": "在无限的交互式画布上进行图形化管理、设计和编写脚本。直观追踪逻辑与智能体运行过程。"
+      },
+      "next": "开始使用"
+    },
+    "check": {
+      "title": "环境与依赖检测",
+      "subtitle": "我们需要一些核心的开发者工具来运行终端、连接智能体和管理代码库。",
+      "statusInstalled": "已安装",
+      "statusMissing": "未检测到",
+      "tmuxDesc": "终端复用器 (运行终端会话和标签页所必需)",
+      "gitDesc": "版本控制系统 (管理代码工作区所必需)",
+      "ghDesc": "GitHub 命令行工具 (同步 Issue/PR 所必需)",
+      "recheck": "重新检测",
+      "next": "下一步",
+      "skip": "暂且跳过",
+      "skipWarning": {
+        "title": "仍有依赖未安装",
+        "description": "在安装剩余工具之前，终端、Git 工作区或 GitHub 同步可能无法正常使用。你可以先继续，稍后再安装。",
+        "confirm": "仍然跳过"
+      },
+      "checkFailed": "无法连接本地 Atmos Server 检测工具。请确认服务已启动后重新检测。",
+      "install": {
+        "button": "安装",
+        "title": "安装 {toolName}",
+        "description": "可在 Atmos 临时终端中直接安装，或复制对应系统的手动安装命令。",
+        "runInTerminal": "在终端中安装",
+        "orManual": "或复制命令",
+        "empty": "暂无可用安装说明。",
+        "download": "官方下载页面",
+        "os": {
+          "macos": "macOS",
+          "linux": "Linux",
+          "windows": "Windows"
+        },
+        "installTerminal": {
+          "title": "安装 {toolName}",
+          "descriptionGuide": "Atmos 已检测本机包管理器，可在临时终端中执行安装。",
+          "descriptionTerminalWithCommand": "正在执行：{command}",
+          "descriptionTerminalFallback": "请在临时终端中完成安装，然后点击重新检测。",
+          "detectingOptions": "正在检测安装方式…",
+          "detectedHostTitle": "检测到的主机",
+          "detectedHostUnavailable": "无法检测主机包管理器。",
+          "recommendedCommandTitle": "推荐命令",
+          "recommendedCommandDescription": "该命令会自动输入到 Atmos 临时终端中。",
+          "recommendedCommandSudo": "安装过程中可能需要输入密码。",
+          "homebrewFirst": "请先安装 Homebrew，然后重新检测，再用 brew 安装 {toolId}。",
+          "noAutomaticCommand": "当前主机没有可用的自动安装命令，请改用手动命令。",
+          "temporaryTerminalTitle": "临时安装终端",
+          "cwdLabel": "工作目录：",
+          "completeInShell": "在终端中完成安装提示后，点击重新检测。",
+          "apiHostShell": "API 主机 Shell",
+          "keepDialogOpen": "安装完成前请保持此对话框打开。",
+          "systemProjectName": "系统",
+          "installWorkspaceName": "安装",
+          "actions": {
+            "installTool": "安装 {toolName}",
+            "installHomebrew": "安装 Homebrew",
+            "copyCommand": "复制命令",
+            "checkAgain": "重新检测",
+            "openBrew": "打开 brew.sh",
+            "back": "返回",
+            "close": "关闭"
+          },
+          "errors": {
+            "detectCommand": "无法检测此主机的安装命令。",
+            "resolveHomeDir": "无法解析用于安装终端的用户主目录。"
+          },
+          "toast": {
+            "copySuccessTitle": "命令已复制",
+            "copySuccessDescription": "如需手动安装，可粘贴到 Shell 中执行。",
+            "copyFailedTitle": "复制失败",
+            "copyFailedDescription": "无法将安装命令复制到剪贴板。"
+          }
+        }
+      }
+    },
+    "project": {
+      "title": "导入首个项目",
+      "subtitle": "选择您本地的一个目录进行导入。Atmos 本地优先，直接在您的本地文件上工作。",
+      "fields": {
+        "path": "目录路径",
+        "pathPlaceholder": "例如 /Users/username/projects/my-app",
+        "name": "项目名称",
+        "namePlaceholder": "例如 my-app",
+        "browse": "浏览..."
+      },
+      "validation": {
+        "validating": "正在验证路径...",
+        "gitRepo": "已检测到 Git 仓库",
+        "notGitRepo": "警告：该目录不是 Git 仓库",
+        "invalid": "无效的目录路径"
+      },
+      "submit": "导入并进入 Atmos",
+      "next": "跳过并进入首页"
+    }
+  },
   "header": {
     "leftSidebar": {
       "expand": "展开左侧边栏",
@@ -5014,6 +5125,24 @@
         "authentication": {
           "authenticatedAsLabel": "认证用户",
           "notAuthenticated": "尚未认证 GitHub"
+        }
+      },
+      "git": {
+        "title": "Git",
+        "description": "Atmos 使用 Git 实时追踪项目代码库、分支、提交以及差异状态。",
+        "status": {
+          "installed": "已安装 {version}"
+        },
+        "installation": {
+          "installed": "已安装 Git {version}",
+          "notInstalled": "当前系统未安装 Git"
+        },
+        "actions": {
+          "install": "安装 Git"
+        },
+        "configuration": {
+          "title": "Git 用户配置",
+          "description": "已配置用户: {username} ({email})"
         }
       },
       "tmux": {

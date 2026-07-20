@@ -229,16 +229,12 @@ pub fn open_preview_browser_window(
         return Ok(());
     }
 
-    let mut builder = WebviewWindowBuilder::new(
-        &app,
-        &window_label,
-        app_window_webview_url(&url),
-    )
-    .title("Atmos Browser")
-    .inner_size(1280.0, 860.0)
-    .min_inner_size(760.0, 520.0)
-    .resizable(true)
-    .decorations(true);
+    let mut builder = WebviewWindowBuilder::new(&app, &window_label, app_window_webview_url(&url))
+        .title("Atmos Browser")
+        .inner_size(1280.0, 860.0)
+        .min_inner_size(760.0, 520.0)
+        .resizable(true)
+        .decorations(true);
 
     #[cfg(target_os = "macos")]
     {
@@ -543,7 +539,10 @@ fn agent_chat_window_url(
 /// Stable Tauri window label for a browser instance.
 /// Must stay in sync with `makePreviewBrowserWindowLabel` in the web app.
 pub fn preview_browser_window_label(browser_context_id: Option<&str>) -> String {
-    let Some(raw) = browser_context_id.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(raw) = browser_context_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
         return PREVIEW_BROWSER_WINDOW_LABEL_PREFIX.to_string();
     };
 

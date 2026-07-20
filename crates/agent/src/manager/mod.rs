@@ -298,7 +298,7 @@ impl AgentManager {
             }
 
             let mut found_by_name = None;
-            for (name, _) in m.custom_agents.iter() {
+            for name in m.custom_agents.keys() {
                 if name.to_lowercase() == reg_id.to_lowercase() {
                     found_by_name = Some(name.clone());
                     break;

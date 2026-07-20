@@ -50,6 +50,13 @@ export interface GhCliStatusResponse {
   username: string | null;
 }
 
+export interface GitStatusResponse {
+  installed: boolean;
+  version: string | null;
+  username: string | null;
+  email: string | null;
+}
+
 export interface TmuxInstallPlanResponse {
   installed: boolean;
   supported: boolean;
@@ -372,6 +379,13 @@ export const systemApi = {
    */
   getGhCliStatus: async (): Promise<GhCliStatusResponse> => {
     return fetchApi<GhCliStatusResponse>('/api/system/gh-cli-status');
+  },
+
+  /**
+   * Check Git installation status and user settings.
+   */
+  getGitStatus: async (): Promise<GitStatusResponse> => {
+    return fetchApi<GitStatusResponse>('/api/system/git-status');
   },
 
   /**

@@ -145,7 +145,9 @@ fn map_credits_config(config: GrokBillingConfig, auth: &GrokAuth) -> LiveFetchRe
             continue;
         };
         // GrokBuild percent already drives the primary window row when present.
-        if name.eq_ignore_ascii_case("GrokBuild") && product_percent.is_some() && product_percent == percent
+        if name.eq_ignore_ascii_case("GrokBuild")
+            && product_percent.is_some()
+            && product_percent == percent
         {
             continue;
         }
@@ -580,8 +582,10 @@ mod tests {
             .expect("usage section");
         assert_eq!(usage.rows[0].label, "Weekly");
         assert!(usage.rows[0].value.contains("13% used"));
-        assert!(usage.rows.iter().any(|row| row.label == "Extra usage"
-            && row.value == "Disabled"));
+        assert!(usage
+            .rows
+            .iter()
+            .any(|row| row.label == "Extra usage" && row.value == "Disabled"));
         assert_eq!(result.plan_label.as_deref(), Some("SuperGrok"));
         assert!(result.fetch_message.contains("cli-chat-proxy"));
     }

@@ -183,7 +183,7 @@ impl TerminalService {
         if params
             .source_surface_ref_json
             .as_ref()
-            .map_or(false, |value| value.len() > 4096)
+            .is_some_and(|value| value.len() > 4096)
         {
             return Err(ServiceError::Validation(
                 "source_surface_ref_json is too large".into(),
@@ -192,7 +192,7 @@ impl TerminalService {
         if params
             .agent_ref_json
             .as_ref()
-            .map_or(false, |value| value.len() > 4096)
+            .is_some_and(|value| value.len() > 4096)
         {
             return Err(ServiceError::Validation(
                 "agent_ref_json is too large".into(),

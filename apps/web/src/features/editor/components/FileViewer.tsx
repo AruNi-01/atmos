@@ -56,11 +56,16 @@ const UnsupportedView: React.FC<{ fileName: string; uri: string; ext?: string }>
             : t("fileViewer.thisFileCannotPreview")}
         </p>
       </div>
-      <Button variant="outline" size="sm" className="gap-2" asChild>
-        <a href={uri} download={fileName} target="_blank" rel="noopener noreferrer">
-          <Download className="size-4" />
-          {t("fileViewer.downloadFile")}
-        </a>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        render={
+          <a href={uri} download={fileName} target="_blank" rel="noopener noreferrer" />
+        }
+      >
+        <Download className="size-4" />
+        {t("fileViewer.downloadFile")}
       </Button>
     </div>
   );

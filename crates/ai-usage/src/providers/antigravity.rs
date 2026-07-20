@@ -309,7 +309,8 @@ pub(crate) async fn fetch_antigravity_live() -> Result<LiveFetchResult, Provider
                             title: "Note".to_string(),
                             rows: vec![DetailRow {
                                 label: "Language Server".to_string(),
-                                value: "Not running (Quota tracking requires Antigravity IDE)".to_string(),
+                                value: "Not running (Quota tracking requires Antigravity IDE)"
+                                    .to_string(),
                                 tone: RowTone::Muted,
                             }],
                         },
@@ -443,7 +444,11 @@ mod tests {
         let result = fetch_antigravity_live().await;
         std::env::remove_var("GEMINI_API_KEY");
 
-        assert!(result.is_ok(), "Expected LiveFetchResult from fallback, got {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Expected LiveFetchResult from fallback, got {:?}",
+            result
+        );
         let live_res = result.unwrap();
         assert_eq!(live_res.plan_label, Some("Antigravity CLI".to_string()));
         assert!(live_res.usage_summary.is_none());

@@ -61,6 +61,10 @@ interface DialogStore {
   
   selectedProjectId: string;
   setSelectedProjectId: (id: string) => void;
+
+  /** One-shot: onboarding/import asks LeftSidebar to highlight this project, then clears. */
+  pendingSidebarProjectId: string | null;
+  setPendingSidebarProjectId: (id: string | null) => void;
   
   isGlobalSearchOpen: boolean;
   setGlobalSearchOpen: (open: boolean) => void;
@@ -138,6 +142,9 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
   
   selectedProjectId: '',
   setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+
+  pendingSidebarProjectId: null,
+  setPendingSidebarProjectId: (id) => set({ pendingSidebarProjectId: id }),
   
   isGlobalSearchOpen: false,
   setGlobalSearchOpen: (open) => set({ isGlobalSearchOpen: open }),

@@ -130,12 +130,8 @@ pub async fn execute(
             docs_duplicate(&api, &args.file, args.name.as_deref()).await
         }
         CanvasCommand::DocSanitize(args) => docs_sanitize(&api, &args.name).await,
-        CanvasCommand::ScriptGet => {
-            invoke(&api, &canvas, "script_get", json!({})).await
-        }
-        CanvasCommand::ScriptStatus => {
-            invoke(&api, &canvas, "script_status", json!({})).await
-        }
+        CanvasCommand::ScriptGet => invoke(&api, &canvas, "script_get", json!({})).await,
+        CanvasCommand::ScriptStatus => invoke(&api, &canvas, "script_status", json!({})).await,
         CanvasCommand::ScriptPut(args) => script_put(&api, &canvas, args).await,
         CanvasCommand::ScriptClear => {
             invoke(&api, &canvas, "script_put", json!({ "clear": true })).await
@@ -355,22 +351,16 @@ async fn docs_list(api: &ApiClientArgs) -> Result<Value, String> {
 }
 
 async fn docs_get(api: &ApiClientArgs, file: &str) -> Result<Value, String> {
-    let path = format!(
-        "/api/canvas/documents/{}",
-        urlencoding::encode(file)
-    );
+    let path = format!("/api/canvas/documents/{}", urlencoding::encode(file));
     canvas_http_json(api, reqwest::Method::GET, &path, None).await
 }
 
 async fn docs_put(api: &ApiClientArgs, args: &DocPutArgs) -> Result<Value, String> {
     let raw = std::fs::read_to_string(&args.from)
         .map_err(|err| format!("failed to read {}: {err}", args.from.display()))?;
-    let body: Value = serde_json::from_str(&raw)
-        .map_err(|err| format!("--from must be valid JSON: {err}"))?;
-    let mut path = format!(
-        "/api/canvas/documents/{}",
-        urlencoding::encode(&args.file)
-    );
+    let body: Value =
+        serde_json::from_str(&raw).map_err(|err| format!("--from must be valid JSON: {err}"))?;
+    let mut path = format!("/api/canvas/documents/{}", urlencoding::encode(&args.file));
     if args.force {
         path.push_str("?overwrite=true");
     }
@@ -381,18 +371,12 @@ async fn docs_delete(api: &ApiClientArgs, file: &str, confirm: bool) -> Result<V
     if !confirm {
         return Err("doc-delete requires --confirm".into());
     }
-    let path = format!(
-        "/api/canvas/documents/{}",
-        urlencoding::encode(file)
-    );
+    let path = format!("/api/canvas/documents/{}", urlencoding::encode(file));
     canvas_http_json(api, reqwest::Method::DELETE, &path, None).await
 }
 
 async fn docs_rename(api: &ApiClientArgs, file: &str, name: &str) -> Result<Value, String> {
-    let path = format!(
-        "/api/canvas/documents/{}/rename",
-        urlencoding::encode(file)
-    );
+    let path = format!("/api/canvas/documents/{}/rename", urlencoding::encode(file));
     canvas_http_json(
         api,
         reqwest::Method::POST,
@@ -1132,10 +1116,7 @@ async fn screenshot(
     let body = args.body()?;
     let result = invoke(api, canvas, "screenshot", body).await?;
     if let Some(out) = &args.out {
-        let data = result
-            .get("data")
-            .cloned()
-            .unwrap_or(Value::Null);
+        let data = result.get("data").cloned().unwrap_or(Value::Null);
         let data_url = data
             .get("data_url")
             .and_then(|v| v.as_str())

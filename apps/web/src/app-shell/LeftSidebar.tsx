@@ -212,7 +212,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const {
         isCreateProjectOpen,
         setCreateProjectOpen,
-        setSelectedProjectId
+        setSelectedProjectId,
+        pendingSidebarProjectId,
+        setPendingSidebarProjectId,
     } = useDialogStore();
 
     // Projects are now loaded by the TanStack Query bootstrap — no manual fetch needed.
@@ -354,6 +356,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const openingWorkspaceId = useWorkspaceCreationStore(
         (s) => (s.phase === 'opening' ? s.pendingWorkspaceId : null),
     );
+
+    // One-shot: onboarding/import asks the sidebar to highlight a project without
+    // colliding with Add Workspace / ⌘N / GlobalSearch reuse of selectedProjectId.
+    useEffect(() => {
+        if (!pendingSidebarProjectId) return;
+        if (!projects.some((project) => project.id === pendingSidebarProjectId)) {
+            return;
+        }
+        setSelectedProjectSidebarId(pendingSidebarProjectId);
+        setProjectSidebarSelectionRouteKey(currentSidebarRouteKey);
+        setPendingSidebarProjectId(null);
+    }, [
+        currentSidebarRouteKey,
+        pendingSidebarProjectId,
+        projects,
+        setPendingSidebarProjectId,
+    ]);
 
     useEffect(() => {
         if (currentProjectId && currentEffectivePath) {

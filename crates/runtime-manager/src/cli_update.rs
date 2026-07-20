@@ -608,7 +608,7 @@ fn release_version(tag: &str) -> String {
 
 fn is_cli_release_tag(tag: &str) -> bool {
     tag.strip_prefix(CLI_RELEASE_TAG_PREFIX)
-        .map_or(false, is_calendar_release_version)
+        .is_some_and(is_calendar_release_version)
 }
 
 fn is_stable_cli_release_tag(tag: &str) -> bool {
