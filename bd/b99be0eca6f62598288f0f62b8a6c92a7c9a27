@@ -1,0 +1,31 @@
+e2e/tests/smoke/support/app-smoke.ts
+  s_0f526d12108092::t_a0bbf938768b1c 181
+  s_0f526d12108092::t_5ae4e7ba60474d 264-265
+  s_0f526d12108092::t_3e6bc597570da2 10,34-50,79
+apps/web/src/app-shell/OnboardingGate.tsx
+  s_0f526d12108092::t_cac34e54683e91 14-19,22,30,37-41
+  s_0f526d12108092::t_22d178f98ee0da 3,42-43,45,50-54,64
+apps/api/src/api/system/handlers.rs
+  s_0f526d12108092::t_658d1ba3649132 218
+apps/web/src/app/onboarding/OnboardingClientPage.tsx
+  s_0f526d12108092::t_47d73cfbde46ed 3
+  s_0f526d12108092::t_eb3d7b02511507 7-10,13-17
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_5abb4def3c0782 263-264,266-269,296,298-299,307,330,336-349,351-356,359-362
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bdb99be0eca6f62598288f0f62b8a6c92a7c9a27",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
