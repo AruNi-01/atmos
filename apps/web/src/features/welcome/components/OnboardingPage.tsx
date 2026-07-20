@@ -433,9 +433,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       {/* Split container: full width/height split-screen */}
       <div className="relative z-10 flex h-full w-full flex-col md:flex-row">
         
-        {/* Left: primary column — no scroll; right art stays narrow */}
-        <div className="flex h-full min-h-0 w-full flex-1 flex-col justify-center overflow-hidden px-8 py-12 md:px-16 md:py-20 border-r border-border/10 bg-background/80 backdrop-blur-sm">
-          <div className="mx-auto w-full max-w-2xl space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
+        {/* Left: primary column — no scroll; capped so art can sit closer */}
+        <div className="flex h-full min-h-0 w-full flex-col justify-center overflow-hidden px-8 py-12 md:w-[60%] md:px-16 md:py-20 border-r border-border/10 bg-background/80 backdrop-blur-sm">
+          <div className="w-full max-w-2xl space-y-10 animate-in fade-in slide-in-from-left-4 duration-300">
             
             <div className="flex justify-start">
               <AtmosWordmark 
@@ -823,8 +823,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           </div>
         </div>
 
-        {/* Right: narrow particle art strip */}
-        <div className="relative hidden h-full w-[28%] min-w-[240px] max-w-[360px] md:flex items-center justify-center bg-[#09090b] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+        {/* Right: particle art — starts further left to close the mid-page gap */}
+        <div className="relative hidden h-full w-[40%] md:flex items-center justify-center bg-[#09090b] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
           <ParticleField
             src={imageSrc}
             sampleStep={3}
@@ -839,7 +839,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                "radial-gradient(900px 600px at 50% 50%, transparent 45%, color-mix(in srgb, var(--background) 88%, transparent) 92%)",
+                "radial-gradient(900px 600px at 55% 50%, transparent 40%, color-mix(in srgb, var(--background) 88%, transparent) 92%)",
             }}
           />
         </div>
