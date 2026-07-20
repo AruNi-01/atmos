@@ -1,0 +1,32 @@
+apps/web/src/app-shell/state/use-dialog-store.ts
+  s_0f526d12108092::t_fa1ad4e7bfc97f 64-67
+  s_0f526d12108092::t_a67326f866a002 145-147
+apps/web/src/features/welcome/components/PackageInstallTerminalDialog.tsx
+  s_0f526d12108092::t_92191b577ea839 39-72
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_0f526d12108092::t_8b68ae3b5dbd45 216-217
+  s_0f526d12108092::t_8010e794d9aa69 360-361,363-364,367,369-375
+packages/ui/src/styles/globals.css
+  s_0f526d12108092::t_ae5db4803b6bff 105-106
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  s_0f526d12108092::t_2aedce341a8bcb 282,284-288
+  s_0f526d12108092::t_9695da3db35807 275
+  s_0f526d12108092::t_f220254d10826b 427-428,430
+  s_0f526d12108092::t_e8d7399272d3e9 402,405-406,412-414
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4e698d39881e2a8b3342d7081d82d3e3e537bd62",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
