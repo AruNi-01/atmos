@@ -30,7 +30,20 @@
       "actionInstall": "请在您的终端中运行以下命令进行安装：",
       "recheck": "重新检测",
       "next": "下一步",
-      "skip": "暂且跳过"
+      "skip": "暂且跳过",
+      "checkFailed": "无法连接本地 Atmos Server 检测工具。请确认服务已启动后重新检测。",
+      "install": {
+        "button": "安装",
+        "title": "安装 {toolName}",
+        "description": "选择你的操作系统和安装方式。",
+        "empty": "暂无可用安装说明。",
+        "download": "官方下载页面",
+        "os": {
+          "macos": "macOS",
+          "linux": "Linux",
+          "windows": "Windows"
+        }
+      }
     },
     "project": {
       "title": "导入首个项目",

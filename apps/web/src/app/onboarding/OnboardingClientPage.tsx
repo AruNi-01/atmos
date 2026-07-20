@@ -13,7 +13,11 @@ export default function OnboardingClientPage() {
   }, []);
 
   const handleComplete = () => {
-    localStorage.setItem('atmos_onboarding_done', 'true');
+    try {
+      localStorage.setItem('atmos_onboarding_done', 'true');
+    } catch {
+      /* private browsing / storage disabled — still leave onboarding */
+    }
     router.replace('/');
   };
 

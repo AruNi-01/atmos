@@ -59,7 +59,7 @@ type ThemeContextValue = {
   toggleLightDark: () => void;
 };
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<OrbitThemePreference>(() =>

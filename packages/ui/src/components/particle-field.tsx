@@ -17,7 +17,7 @@ type Particle = {
   size: number;
   alpha: number;
   phase: number;
-  /** Per-particle spring multiplier (0.75..1.25) — decorrelates arrival times during a morph. */
+  /** Per-particle spring multiplier (0.9..1.1) — decorrelates arrival times during a morph. */
   springJitter: number;
   /** 0 = invisible, 1 = fully painted. Eases toward 1, or toward 0 while fading. */
   appear: number;
@@ -551,6 +551,10 @@ export function ParticleField({
         currentImage = image;
         if (asMorph) morphTo(image);
         else buildFresh(image);
+      };
+      image.onerror = () => {
+        if (destroyed || token !== loadToken) return;
+        // Keep the previous frame rather than leaving a blank canvas.
       };
       image.src = nextSrc;
     };

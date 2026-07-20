@@ -91,7 +91,7 @@ export function Button({
       </>
     ),
     className: cn(buttonVariants({ className, size, variant })),
-    "aria-disabled": loading || undefined,
+    "aria-disabled": isDisabled || undefined,
     "data-loading": loading ? "" : undefined,
     "data-slot": "button",
     disabled: isDisabled,

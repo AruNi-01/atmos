@@ -51,7 +51,7 @@ export const PALETTES: Record<OrbitThemePalette, PaletteDefinition> = {
       "--ring": "var(--color-neutral-500)",
       "--sidebar-primary": "var(--color-neutral-100)",
       "--sidebar-primary-foreground": "var(--color-neutral-800)",
-      "--sidebar-ring": "var(--color-neutral-400)",
+      "--sidebar-ring": "var(--color-neutral-500)",
     },
     swatch: ["#71717a", "#a1a1aa"],
   },

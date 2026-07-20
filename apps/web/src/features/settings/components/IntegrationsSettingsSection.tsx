@@ -185,7 +185,7 @@ export function IntegrationsSettingsSection() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open('https://git-scm.com/', '_blank')}
+                    onClick={() => window.open('https://git-scm.com/', '_blank', 'noopener,noreferrer')}
                     className="cursor-pointer"
                   >
                     <ExternalLink className="mr-2 size-4" />
@@ -198,8 +198,8 @@ export function IntegrationsSettingsSection() {
                   <p className="text-sm font-medium text-foreground">{t('git.configuration.title')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t('git.configuration.description', {
-                      username: gitStatus.username || 'N/A',
-                      email: gitStatus.email || 'N/A',
+                      username: gitStatus.username || t('shared.userFallback'),
+                      email: gitStatus.email || t('shared.userFallback'),
                     })}
                   </p>
                 </div>

@@ -205,58 +205,73 @@ pub struct GitStatusResponse {
 
 /// GET /api/system/git-status
 pub async fn get_git_status() -> ApiResult<Json<ApiResponse<GitStatusResponse>>> {
-    let installed = Command::new("git").arg("--version").output().is_ok();
+    let status = tokio::task::spawn_blocking(|| {
+        let version_output = Command::new("git").arg("--version").output().ok();
+        let installed = version_output
+            .as_ref()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
 
-    let version = if installed {
-        Command::new("git")
-            .arg("--version")
-            .output()
-            .ok()
-            .and_then(|output| {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                stdout.lines().next().map(|line| {
-                    let version_str = line.strip_prefix("git version ")
-                        .unwrap_or(line)
-                        .trim();
-                    version_str.split_whitespace().next().unwrap_or(version_str).to_string()
+        let version = version_output.and_then(|output| {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            stdout.lines().next().map(|line| {
+                let version_str = line
+                    .strip_prefix("git version ")
+                    .unwrap_or(line)
+                    .trim();
+                version_str
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(version_str)
+                    .to_string()
+            })
+        });
+
+        let username = if installed {
+            Command::new("git")
+                .args(["config", "--global", "user.name"])
+                .output()
+                .ok()
+                .and_then(|output| {
+                    let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if val.is_empty() {
+                        None
+                    } else {
+                        Some(val)
+                    }
                 })
-            })
-    } else {
-        None
-    };
+        } else {
+            None
+        };
 
-    let username = if installed {
-        Command::new("git")
-            .args(["config", "user.name"])
-            .output()
-            .ok()
-            .and_then(|output| {
-                let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if val.is_empty() { None } else { Some(val) }
-            })
-    } else {
-        None
-    };
+        let email = if installed {
+            Command::new("git")
+                .args(["config", "--global", "user.email"])
+                .output()
+                .ok()
+                .and_then(|output| {
+                    let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if val.is_empty() {
+                        None
+                    } else {
+                        Some(val)
+                    }
+                })
+        } else {
+            None
+        };
 
-    let email = if installed {
-        Command::new("git")
-            .args(["config", "user.email"])
-            .output()
-            .ok()
-            .and_then(|output| {
-                let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if val.is_empty() { None } else { Some(val) }
-            })
-    } else {
-        None
-    };
+        GitStatusResponse {
+            installed,
+            version,
+            username,
+            email,
+        }
+    })
+    .await
+    .map_err(|err| ApiError::InternalError(format!("git status task failed: {err}")))?;
 
-    Ok(Json(ApiResponse::success(GitStatusResponse {
-        installed,
-        version,
-        username,
-        email,
-    })))
+    Ok(Json(ApiResponse::success(status)))
 }
 
 /// GET /api/system/tmux-install-plan

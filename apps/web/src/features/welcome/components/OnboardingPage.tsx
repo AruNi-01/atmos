@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Button,
@@ -112,6 +112,7 @@ interface InstallPopoverProps {
 }
 
 function InstallPopover({ toolId, toolName }: InstallPopoverProps) {
+  const t = useTranslations('onboarding');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = (text: string, id: string) => {
@@ -130,21 +131,31 @@ function InstallPopover({ toolId, toolName }: InstallPopoverProps) {
           size="sm"
           className="rounded-full px-3 py-1 text-[11px] font-semibold h-7 border-border/40 hover:bg-muted/20 text-foreground cursor-pointer"
         >
-          Install
+          {t('check.install.button')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[420px] p-5 border border-border bg-popover text-popover-foreground rounded-2xl shadow-xl z-50">
         <div className="space-y-4">
           <div>
-            <h4 className="text-sm font-semibold text-foreground">Install {toolName}</h4>
-            <p className="text-xs text-muted-foreground mt-1">Select your operating system and preferred installation method.</p>
+            <h4 className="text-sm font-semibold text-foreground">
+              {t('check.install.title', { toolName })}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('check.install.description')}
+            </p>
           </div>
 
           <Tabs defaultValue="macos" className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-muted/40 p-1 rounded-xl">
-              <TabsTrigger value="macos" className="rounded-lg text-xs py-1.5 cursor-pointer">macOS</TabsTrigger>
-              <TabsTrigger value="linux" className="rounded-lg text-xs py-1.5 cursor-pointer">Linux</TabsTrigger>
-              <TabsTrigger value="windows" className="rounded-lg text-xs py-1.5 cursor-pointer">Windows</TabsTrigger>
+              <TabsTrigger value="macos" className="rounded-lg text-xs py-1.5 cursor-pointer">
+                {t('check.install.os.macos')}
+              </TabsTrigger>
+              <TabsTrigger value="linux" className="rounded-lg text-xs py-1.5 cursor-pointer">
+                {t('check.install.os.linux')}
+              </TabsTrigger>
+              <TabsTrigger value="windows" className="rounded-lg text-xs py-1.5 cursor-pointer">
+                {t('check.install.os.windows')}
+              </TabsTrigger>
             </TabsList>
 
             {(['macos', 'linux', 'windows'] as OS[]).map((os) => {
@@ -152,7 +163,7 @@ function InstallPopover({ toolId, toolName }: InstallPopoverProps) {
               return (
                 <TabsContent key={os} value={os} className="mt-4 space-y-4">
                   {methods.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No instructions available.</p>
+                    <p className="text-xs text-muted-foreground">{t('check.install.empty')}</p>
                   ) : (
                     <Tabs defaultValue={methods[0].label} className="w-full">
                       {methods.length > 1 && (
@@ -198,10 +209,10 @@ function InstallPopover({ toolId, toolName }: InstallPopoverProps) {
                               variant="outline"
                               size="sm"
                               className="w-full text-xs font-medium cursor-pointer rounded-xl"
-                              onClick={() => window.open(m.link, '_blank')}
+                              onClick={() => window.open(m.link, '_blank', 'noopener,noreferrer')}
                             >
                               <ExternalLink className="mr-2 size-3.5" />
-                              Official Download Page
+                              {t('check.install.download')}
                             </Button>
                           )}
                         </TabsContent>
@@ -248,9 +259,19 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [gitData, setGitData] = useState<{ installed: boolean; version: string | null } | null>(null);
   const [ghData, setGhData] = useState<{ installed: boolean; version: string | null; username: string | null } | null>(null);
   const [envChecking, setEnvChecking] = useState(false);
+  const [envCheckError, setEnvCheckError] = useState<string | null>(null);
+  const [detectedOs, setDetectedOs] = useState<OS>('macos');
+
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('win')) setDetectedOs('windows');
+    else if (ua.includes('linux')) setDetectedOs('linux');
+    else setDetectedOs('macos');
+  }, []);
 
   const runEnvChecks = async () => {
     setEnvChecking(true);
+    setEnvCheckError(null);
     try {
       const [tmux, git, gh] = await Promise.all([
         systemApi.getTmuxStatus(),
@@ -262,6 +283,10 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setGhData({ installed: gh.installed, version: gh.version, username: gh.username ?? null });
     } catch (err) {
       console.error('Failed to run environment checks:', err);
+      setTmuxData(null);
+      setGitData(null);
+      setGhData(null);
+      setEnvCheckError(t('check.checkFailed'));
     } finally {
       setEnvChecking(false);
     }
@@ -289,25 +314,38 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isGitRepo, setIsGitRepo] = useState<boolean | null>(null);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const pathValidationSeq = useRef(0);
 
   // Validate path when it changes
   useEffect(() => {
-    if (path) {
-      const timeoutId = setTimeout(() => {
-        handleValidatePath();
-      }, 500);
-      return () => clearTimeout(timeoutId);
+    if (!path) {
+      pathValidationSeq.current += 1;
+      setIsValidating(false);
+      setValidationError(null);
+      setIsGitRepo(null);
+      return;
     }
+    // Invalidate previous result immediately so submit cannot use stale validation.
+    pathValidationSeq.current += 1;
+    setIsValidating(true);
+    setValidationError(null);
+    setIsGitRepo(null);
+    const timeoutId = setTimeout(() => {
+      void handleValidatePath(path);
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [path]);
 
-  const handleValidatePath = async () => {
-    if (!path) return;
+  const handleValidatePath = async (pathToValidate: string) => {
+    if (!pathToValidate) return;
+    const seq = ++pathValidationSeq.current;
     setIsValidating(true);
     setValidationError(null);
     setIsGitRepo(null);
 
     try {
-      const result = await wsProjectApi.validatePath(path);
+      const result = await wsProjectApi.validatePath(pathToValidate);
+      if (seq !== pathValidationSeq.current) return;
       if (result.is_valid) {
         if (result.suggested_name && !name) {
           setName(result.suggested_name);
@@ -320,9 +358,12 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         setValidationError(result.error || t('project.validation.invalid'));
       }
     } catch (err) {
+      if (seq !== pathValidationSeq.current) return;
       setValidationError(err instanceof Error ? err.message : t('project.validation.invalid'));
     } finally {
-      setIsValidating(false);
+      if (seq === pathValidationSeq.current) {
+        setIsValidating(false);
+      }
     }
   };
 
@@ -331,17 +372,20 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     isRepo: boolean,
     suggestedName: string | null
   ) => {
+    pathValidationSeq.current += 1;
     setPath(selectedPath);
     if (suggestedName) {
       setName(suggestedName);
     }
     setIsGitRepo(isRepo);
+    setIsValidating(false);
+    setValidationError(isRepo ? null : t('project.validation.notGitRepo'));
     setShowFileBrowser(false);
   };
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !path) return;
+    if (!name || !path || isValidating || isGitRepo === null || (validationError && isGitRepo === null)) return;
     setIsSubmitting(true);
     try {
       await addProject({
@@ -361,6 +405,22 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     setCopiedText(cmd);
     setTimeout(() => setCopiedText(null), 2000);
   };
+
+  const bulkInstallCommand =
+    detectedOs === 'linux'
+      ? 'sudo apt update && sudo apt install -y tmux git gh'
+      : detectedOs === 'windows'
+        ? 'winget install --id Git.Git -e --source winget && winget install --id GitHub.cli'
+        : 'brew install tmux git gh';
+
+  const canSubmitProject =
+    Boolean(name && path) &&
+    !isSubmitting &&
+    !isValidating &&
+    // Allow non-git directories (warning only); block until a validation result exists.
+    isGitRepo !== null &&
+    // Hard failures leave isGitRepo null; the not-git case sets isGitRepo=false with a warning.
+    !(validationError && isGitRepo === null);
 
   const stepsList: { id: Step; label: string }[] = [
     { id: 'intro', label: t('steps.intro') },
@@ -573,7 +633,13 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </CardContent>
                     </Card>
                   </div>
-                   {!envChecking && (!isTmuxInstalled || !isGitInstalled || !isGhInstalled) && (
+                  {envCheckError && (
+                    <p className="text-xs text-amber-500 flex items-center gap-1.5">
+                      <AlertCircle className="size-3.5" />
+                      {envCheckError}
+                    </p>
+                  )}
+                   {!envChecking && !envCheckError && (!isTmuxInstalled || !isGitInstalled || !isGhInstalled) && (
                     <div className="space-y-3 bg-muted/10 border border-border/40 p-4 rounded-xl">
                       <h4 className="text-xs font-semibold text-foreground flex items-center gap-2">
                         <AlertCircle className="size-4 text-amber-500" />
@@ -581,15 +647,15 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       </h4>
                       <div className="relative">
                         <pre className="text-xs font-mono bg-muted/40 p-3 rounded-lg border border-border/40 pr-12 text-muted-foreground overflow-x-auto">
-                          brew install tmux git gh
+                          {bulkInstallCommand}
                         </pre>
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => handleCopyCommand('brew install tmux git gh')}
+                          onClick={() => handleCopyCommand(bulkInstallCommand)}
                           className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-muted-foreground/60 hover:text-foreground cursor-pointer"
                         >
-                          {copiedText === 'brew install tmux git gh' ? (
+                          {copiedText === bulkInstallCommand ? (
                             <Check className="size-4 text-emerald-500" />
                           ) : (
                             <Copy className="size-4" />
@@ -701,7 +767,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     <div className="flex flex-wrap items-center gap-3 pt-2">
                       <Button
                         type="submit"
-                        disabled={isSubmitting || !name || !path || Boolean(validationError && isGitRepo === null)}
+                        disabled={!canSubmitProject}
                         className="rounded-full px-6 font-medium cursor-pointer"
                       >
                         {isSubmitting ? (

@@ -59,7 +59,7 @@ export function AuthShell({
             <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-12">
               <div className="pointer-events-auto flex items-center gap-2 font-mono text-sm">
                 <span className="inline-block h-2 w-2 rounded-full bg-foreground" />
-                <span className="tracking-[0.2em] uppercase">Sean's scratch pad</span>
+                <span className="tracking-[0.2em] uppercase">Atmos</span>
               </div>
               {variant === "request-access" ? (
                 <div className="max-w-md">
