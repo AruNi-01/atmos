@@ -232,7 +232,7 @@ impl TerminalService {
             validate_side_chat_id(side_chat_id)?;
             if source_tmux_window_name
                 .as_deref()
-                .map_or(true, |value| value.trim().is_empty())
+                .is_none_or(|value| value.trim().is_empty())
             {
                 return Err(ServiceError::Validation(
                     "source_tmux_window_name is required for side chat terminals".into(),
