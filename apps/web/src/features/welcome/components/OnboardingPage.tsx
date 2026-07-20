@@ -260,14 +260,13 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [ghData, setGhData] = useState<{ installed: boolean; version: string | null; username: string | null } | null>(null);
   const [envChecking, setEnvChecking] = useState(false);
   const [envCheckError, setEnvCheckError] = useState<string | null>(null);
-  const [detectedOs, setDetectedOs] = useState<OS>('macos');
-
-  useEffect(() => {
+  const [detectedOs] = useState<OS>(() => {
+    if (typeof navigator === 'undefined') return 'macos';
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('win')) setDetectedOs('windows');
-    else if (ua.includes('linux')) setDetectedOs('linux');
-    else setDetectedOs('macos');
-  }, []);
+    if (ua.includes('win')) return 'windows';
+    if (ua.includes('linux')) return 'linux';
+    return 'macos';
+  });
 
   const runEnvChecks = async () => {
     setEnvChecking(true);
@@ -294,8 +293,10 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   useEffect(() => {
     if (currentStep === 'check') {
-      runEnvChecks();
+      void runEnvChecks();
     }
+    // Intentionally only re-run when the step changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runEnvChecks closes over step-local setters
   }, [currentStep]);
 
   const isTmuxInstalled = tmuxData?.installed ?? false;
@@ -303,7 +304,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const isGhInstalled = ghData?.installed ?? false;
 
   const handleRecheck = () => {
-    runEnvChecks();
+    void runEnvChecks();
   };
 
   // Step 3: Project import states
@@ -325,47 +326,40 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setIsGitRepo(null);
       return;
     }
-    // Invalidate previous result immediately so submit cannot use stale validation.
-    pathValidationSeq.current += 1;
-    setIsValidating(true);
-    setValidationError(null);
-    setIsGitRepo(null);
-    const timeoutId = setTimeout(() => {
-      void handleValidatePath(path);
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [path]);
 
-  const handleValidatePath = async (pathToValidate: string) => {
-    if (!pathToValidate) return;
+    // Invalidate previous result immediately so submit cannot use stale validation.
     const seq = ++pathValidationSeq.current;
     setIsValidating(true);
     setValidationError(null);
     setIsGitRepo(null);
 
-    try {
-      const result = await wsProjectApi.validatePath(pathToValidate);
-      if (seq !== pathValidationSeq.current) return;
-      if (result.is_valid) {
-        if (result.suggested_name && !name) {
-          setName(result.suggested_name);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await wsProjectApi.validatePath(path);
+        if (seq !== pathValidationSeq.current) return;
+        if (result.is_valid) {
+          if (result.suggested_name) {
+            setName((current) => current || result.suggested_name || '');
+          }
+          setIsGitRepo(result.is_git_repo);
+          if (!result.is_git_repo) {
+            setValidationError(t('project.validation.notGitRepo'));
+          }
+        } else {
+          setValidationError(result.error || t('project.validation.invalid'));
         }
-        setIsGitRepo(result.is_git_repo);
-        if (!result.is_git_repo) {
-          setValidationError(t('project.validation.notGitRepo'));
+      } catch (err) {
+        if (seq !== pathValidationSeq.current) return;
+        setValidationError(err instanceof Error ? err.message : t('project.validation.invalid'));
+      } finally {
+        if (seq === pathValidationSeq.current) {
+          setIsValidating(false);
         }
-      } else {
-        setValidationError(result.error || t('project.validation.invalid'));
       }
-    } catch (err) {
-      if (seq !== pathValidationSeq.current) return;
-      setValidationError(err instanceof Error ? err.message : t('project.validation.invalid'));
-    } finally {
-      if (seq === pathValidationSeq.current) {
-        setIsValidating(false);
-      }
-    }
-  };
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [path, t]);
 
   const handleFileBrowserSelect = (
     selectedPath: string,

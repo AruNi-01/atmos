@@ -215,10 +215,7 @@ pub async fn get_git_status() -> ApiResult<Json<ApiResponse<GitStatusResponse>>>
         let version = version_output.and_then(|output| {
             let stdout = String::from_utf8_lossy(&output.stdout);
             stdout.lines().next().map(|line| {
-                let version_str = line
-                    .strip_prefix("git version ")
-                    .unwrap_or(line)
-                    .trim();
+                let version_str = line.strip_prefix("git version ").unwrap_or(line).trim();
                 version_str
                     .split_whitespace()
                     .next()
@@ -848,4 +845,3 @@ pub async fn list_ws_connections(
         "count": items.len(),
     }))))
 }
-

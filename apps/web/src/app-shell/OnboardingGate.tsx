@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState, useSyncExternalStore } from 'react';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
 
 const OnboardingPage = lazy(
@@ -11,9 +11,15 @@ interface OnboardingGateProps {
   children: React.ReactNode;
 }
 
+const ONBOARDING_DONE_KEY = 'atmos_onboarding_done';
+
+const subscribeMounted = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
+
 function readOnboardingDone(): boolean {
   try {
-    return localStorage.getItem('atmos_onboarding_done') === 'true';
+    return localStorage.getItem(ONBOARDING_DONE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -21,32 +27,30 @@ function readOnboardingDone(): boolean {
 
 function writeOnboardingDone(): void {
   try {
-    localStorage.setItem('atmos_onboarding_done', 'true');
+    localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
   } catch {
     /* private browsing / storage disabled */
   }
 }
 
 export function OnboardingGate({ children }: OnboardingGateProps) {
-  const [isMounted, setIsMounted] = useState(false);
-  const [isOnboardingDone, setIsOnboardingDone] = useState(false);
-  const [skipOnboarding, setSkipOnboarding] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeMounted,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot,
+  );
+  // Local completion override for the current session when storage write fails.
+  const [sessionCompleted, setSessionCompleted] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-    // Hosted Atmos is a remote Computer client — local dependency onboarding
-    // (tmux/git/gh) does not apply after HostedWelcomeGate connection setup.
-    if (isHostedAtmosOrigin()) {
-      setSkipOnboarding(true);
-      return;
-    }
-    setIsOnboardingDone(readOnboardingDone());
-  }, []);
-
-  if (!isMounted) {
+  if (!mounted) {
     // Prevent SSR hydration mismatch
     return <div className="min-h-screen w-full bg-background" />;
   }
+
+  // Hosted Atmos is a remote Computer client — local dependency onboarding
+  // (tmux/git/gh) does not apply after HostedWelcomeGate connection setup.
+  const skipOnboarding = isHostedAtmosOrigin();
+  const isOnboardingDone = sessionCompleted || readOnboardingDone();
 
   if (skipOnboarding || isOnboardingDone) {
     return <>{children}</>;
@@ -57,7 +61,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
       <OnboardingPage
         onComplete={() => {
           writeOnboardingDone();
-          setIsOnboardingDone(true);
+          setSessionCompleted(true);
         }}
       />
     </Suspense>

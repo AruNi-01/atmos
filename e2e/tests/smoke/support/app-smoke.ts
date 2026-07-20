@@ -7,6 +7,7 @@ export const locales = ["en", "zh"] as const;
 export type WorkbenchLocale = (typeof locales)[number];
 
 const WORKBENCH_LOCALE_STORAGE_KEY = "atmos:v1:global:locale";
+const ONBOARDING_DONE_STORAGE_KEY = "atmos_onboarding_done";
 const configuredSeedProjectPath = process.env.E2E_SEED_PROJECT_PATH?.trim();
 
 type ProjectRecord = { guid: string; main_file_path?: string | null; name?: string | null };
@@ -29,6 +30,23 @@ export function normalizePathname(pathname: string): string {
 }
 
 let smokeProjectSeed: Promise<SmokeProjectSeed> | null = null;
+
+/**
+ * Skip APP-038 first-run onboarding so smoke can reach the IDE shell.
+ * Dedicated onboarding coverage lives under `/onboarding` and APP-038 TEST.md.
+ */
+export async function seedOnboardingComplete(page: Page): Promise<void> {
+  await page.addInitScript(
+    ({ key, value }) => {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        // Ignore quota / private-mode failures in smoke.
+      }
+    },
+    { key: ONBOARDING_DONE_STORAGE_KEY, value: "true" },
+  );
+}
 
 /**
  * Seed runtime locale before the first document load (APP-028).
@@ -58,6 +76,7 @@ export async function expectHealthyRoute(
   const expectedLocale = options?.locale ?? "en";
   // Always seed before navigation so a prior zh preference cannot leak into
   // default-en route boots (APP-028 persists locale in localStorage).
+  await seedOnboardingComplete(page);
   await seedWorkbenchLocale(page, expectedLocale);
 
   const response = await page.goto(route, {
@@ -159,6 +178,7 @@ export async function connectLocalComputer(
   options?: { locale?: WorkbenchLocale },
 ): Promise<void> {
   const locale = options?.locale ?? "en";
+  await seedOnboardingComplete(page);
   if (locale !== "en") {
     await seedWorkbenchLocale(page, locale);
   }
@@ -241,6 +261,8 @@ export async function gotoContextRoute(
   options?: { locale?: WorkbenchLocale },
 ): Promise<void> {
   const expectedLocale = options?.locale ?? "en";
+  await seedOnboardingComplete(page);
+  await seedWorkbenchLocale(page, expectedLocale);
   const response = await page.goto(url, {
     waitUntil: "domcontentloaded",
   });
