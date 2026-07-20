@@ -540,11 +540,20 @@ mod tests {
             "detached hook shell should not wait for the sender"
         );
 
+        // `cat > file` creates/truncates the file before writing; wait for the
+        // full payload rather than mere existence to avoid a TOCTOU empty read.
         let deadline = Instant::now() + Duration::from_secs(3);
-        while !capture.exists() && Instant::now() < deadline {
+        let mut captured = String::new();
+        while Instant::now() < deadline {
+            if let Ok(contents) = std::fs::read_to_string(&capture) {
+                if contents == payload {
+                    captured = contents;
+                    break;
+                }
+            }
             std::thread::sleep(Duration::from_millis(20));
         }
-        assert_eq!(std::fs::read_to_string(&capture).unwrap(), payload);
+        assert_eq!(captured, payload);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
