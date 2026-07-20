@@ -82,7 +82,13 @@ export function WorkbenchIntlProvider({
 
   return (
     <WorkbenchIntlContext.Provider value={value}>
-      <NextIntlClientProvider locale={locale} messages={messagesByLocale[locale]}>
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messagesByLocale[locale]}
+        // Match apps/web/src/i18n/request.ts — client provider does not inherit
+        // server request config when mounted from a Client Component.
+        timeZone="UTC"
+      >
         {children}
       </NextIntlClientProvider>
     </WorkbenchIntlContext.Provider>
