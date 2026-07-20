@@ -1,0 +1,23 @@
+crates/core-service/src/service/terminal/management.rs
+  s_0f526d12108092::t_e096ab2fb6092a 186,195
+crates/core-service/src/service/terminal/types.rs
+  s_0f526d12108092::t_39ebe392cee2d7 36,39
+crates/core-service/src/service/terminal.rs
+  s_0f526d12108092::t_9de92129426712 235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bb63b5f2102fa8e0c02e18399d77bca80986c0b3",
+  "prompts": {},
+  "sessions": {
+    "s_0f526d12108092": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6efa6349-4c32-421d-ba07-9151d20a2ccc",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
