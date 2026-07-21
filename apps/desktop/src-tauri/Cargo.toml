@@ -28,6 +28,7 @@ dirs = "5"
 runtime-manager = { path = "../../../crates/runtime-manager", features = ["supervisor"] }
 chrono = { version = "0.4", features = ["serde", "clock"] }
 tunnel-connector = { path = "../../../crates/tunnel-connector" }
+browser-cookies = { path = "../../../crates/browser-cookies" }
 keyring = "3"
 uuid = { version = "1", features = ["v4"] }
 
@@ -36,3 +37,21 @@ core-foundation = "0.10"
 core-graphics = "0.24"
 objc2 = "0.6.4"
 objc2-app-kit = "0.3.2"
+objc2-foundation = { version = "0.3.2", features = [
+    "NSString",
+    "NSDictionary",
+    "NSArray",
+    "NSSet",
+    "NSDate",
+    "NSHTTPCookie",
+    "NSUUID",
+    "NSProcessInfo",
+    "NSObject",
+    "block2",
+] }
+objc2-web-kit = { version = "0.3.2", features = [
+    "WKWebsiteDataStore",
+    "WKHTTPCookieStore",
+    "block2",
+] }
+block2 = "0.6"

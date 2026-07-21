@@ -1,4 +1,5 @@
 mod appshot;
+mod browser_cookies;
 mod commands;
 mod logging;
 mod preview_bridge;
@@ -66,6 +67,7 @@ fn main() {
                 tunnel_connector_manager: tunnel_connector::manager::TunnelConnectorManager::new(
                     tunnel_connector_state_path,
                 ),
+                browser_cookies: browser_cookies::BrowserCookieCoordinator::new(),
             });
             appshot::start_trigger_listener(app.handle().clone());
 
@@ -322,6 +324,10 @@ fn main() {
             tunnel_connector::commands::tunnel_connector_provider_guide,
             tunnel_connector::commands::tunnel_connector_save_credential,
             tunnel_connector::commands::tunnel_connector_clear_credential,
+            browser_cookies::list_importable_browsers,
+            browser_cookies::import_browser_cookies,
+            browser_cookies::clear_browser_cache,
+            browser_cookies::clear_browser_site_data,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

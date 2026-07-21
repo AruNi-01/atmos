@@ -581,6 +581,12 @@ fn open_preview_child(
                 WebviewUrl::External(url.parse::<Url>().map_err(|error| error.to_string())?),
             )
             .devtools(true)
+            // Target-site content lives in a dedicated WebKit data store so
+            // cookie import / clear never touch Atmos's own app state. macOS 14+
+            // only; on older macOS wry falls back to the default store, but the
+            // cookie commands are gated to 14+ and refuse to run there, so no
+            // import/clear ever targets the default store.
+            .data_store_identifier(crate::browser_cookies::PREVIEW_DATA_STORE_ID)
             .initialization_script(desktop_bridge_script(bridge_token))
             .on_page_load(move |webview, payload| {
                 handle_page_load(&app_handle, &webview, &page_load_session_id, payload);
@@ -621,6 +627,8 @@ fn open_preview_detached_window(
     .resizable(true)
     .decorations(true)
     .devtools(true)
+    // Same dedicated data store as the embedded child (see open_preview_child).
+    .data_store_identifier(crate::browser_cookies::PREVIEW_DATA_STORE_ID)
     .initialization_script(desktop_bridge_script(bridge_token))
     .on_page_load(move |webview, payload| {
         handle_page_load(

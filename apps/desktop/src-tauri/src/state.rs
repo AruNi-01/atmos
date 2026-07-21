@@ -43,4 +43,5 @@ pub struct AppState {
     pub startup_failed: AtomicBool,
     pub main_hidden_by_close: AtomicBool,
     pub tunnel_connector_manager: TunnelConnectorManager,
+    pub browser_cookies: crate::browser_cookies::BrowserCookieCoordinator,
 }

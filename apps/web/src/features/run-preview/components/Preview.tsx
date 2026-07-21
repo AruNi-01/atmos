@@ -29,6 +29,8 @@ import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewViewport } from "./PreviewViewport";
 import { PreviewBrowserTabBar, type PreviewBrowserTabBarProps } from "./PreviewBrowserTabBar";
 import { PreviewFavoritesListPopover } from "./PreviewFavoritesListPopover";
+import { BrowserCookieImportDialog } from "./BrowserCookieImportDialog";
+import { clearBrowserCache, clearBrowserSiteData } from "../lib/browser-cookie-commands";
 import { usePreviewExtensionDownloads } from "../hooks/use-preview-extension-downloads";
 import { usePreviewFavorites } from "../hooks/use-preview-favorites";
 import { usePreviewIframeLoad } from "../hooks/use-preview-iframe-load";
@@ -1180,6 +1182,35 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsMaximized((current) => !current);
   }, [setIsMaximized]);
 
+  // APP-040 Browser Cookie Sync — desktop + macOS only. The exact macOS 14+ gate
+  // is enforced by the desktop layer (returns `UnsupportedPlatform`, surfaced in
+  // the dialog); here we only decide whether the menu items are eligible to show.
+  const cookieToolsAvailable = useMemo(
+    () =>
+      isTauriRuntime() &&
+      typeof navigator !== "undefined" &&
+      /Mac/i.test(navigator.userAgent),
+    [],
+  );
+  const [importCookiesDialogOpen, setImportCookiesDialogOpen] = useState(false);
+
+  const handleImportCookies = useCallback(() => {
+    setImportCookiesDialogOpen(true);
+  }, []);
+
+  // Clear handlers invoke the command then reload the active surface (reload
+  // contract). They rethrow so the confirm popover can render an inline error;
+  // there is intentionally no success toast (repo Inline-Feedback rule).
+  const handleClearCache = useCallback(async () => {
+    await clearBrowserCache();
+    handleRefresh();
+  }, [handleRefresh]);
+
+  const handleClearSiteData = useCallback(async () => {
+    await clearBrowserSiteData();
+    handleRefresh();
+  }, [handleRefresh]);
+
   const canOpenPreviewBrowserWindow = useMemo(
     () => isTauriRuntime() && !isStandaloneBrowserWindow && Boolean(onOpenPreviewBrowserWindow),
     [isStandaloneBrowserWindow, onOpenPreviewBrowserWindow],
@@ -1370,7 +1401,8 @@ export const Preview: React.FC<PreviewProps> = ({
   };
 
   return (
-    <PreviewContent
+    <>
+      <PreviewContent
       browserTabBar={
         browserTabBarProps ? (
           <PreviewBrowserTabBar
@@ -1409,6 +1441,10 @@ export const Preview: React.FC<PreviewProps> = ({
                   ? handleToggleMaximized
                   : undefined,
               onToggleToolbarHidden: handleToggleToolbarHidden,
+              cookieToolsAvailable,
+              onImportCookies: cookieToolsAvailable ? handleImportCookies : undefined,
+              onClearCache: cookieToolsAvailable ? handleClearCache : undefined,
+              onClearSiteData: cookieToolsAvailable ? handleClearSiteData : undefined,
             }}
           />
         ) : null
@@ -1425,5 +1461,13 @@ export const Preview: React.FC<PreviewProps> = ({
       toolbarHoverSuppressed={toolbarHoverSuppressed}
       viewportProps={viewportProps}
     />
+      {cookieToolsAvailable ? (
+        <BrowserCookieImportDialog
+          open={importCookiesDialogOpen}
+          onOpenChange={setImportCookiesDialogOpen}
+          onReloadActiveTab={handleRefresh}
+        />
+      ) : null}
+    </>
   );
 };
