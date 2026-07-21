@@ -1,0 +1,19 @@
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  s_20ec35afe63135::t_10b7f6f4056d1e 31,342-357,867,940
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "88f7c96abeba48af347e60be314dca6955442ca2",
+  "prompts": {},
+  "sessions": {
+    "s_20ec35afe63135": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "dcdec5c0-338d-471a-ad72-0dd8716c7155",
+        "model": "cursor-grok-4.5-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
