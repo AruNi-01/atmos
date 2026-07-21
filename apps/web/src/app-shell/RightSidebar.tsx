@@ -62,12 +62,22 @@ import {
 import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import { RightSidebarCreatePrDialog } from "@/app-shell/sidebar/RightSidebarCreatePrDialog";
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
-import type { ReviewTarget } from "@/api/ws-api";
+import type { GitChangedFile, ReviewTarget } from "@/api/ws-api";
 import { ReviewActions } from "@/features/diff/components/review/ReviewActions";
 import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+
+function sumChangeCounts(files: GitChangedFile[]) {
+  return files.reduce(
+    (totals, file) => ({
+      additions: totals.additions + file.additions,
+      deletions: totals.deletions + file.deletions,
+    }),
+    { additions: 0, deletions: 0 },
+  );
+}
 
 const AgentChatPanel = dynamic(
   () => import("@/features/agent/components/AgentChatPanel").then((m) => m.AgentChatPanel),
@@ -258,11 +268,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     isCompareQueryEnabled(compareMode, defaultBranch) ? currentProjectPath : null,
     compareParams,
   );
+  const branchRecommendationQuery = useGitChangedFilesQuery(
+    currentProjectPath,
+    computeCompareParams("branch", defaultBranch, null),
+  );
 
   const stagedFiles = worktreeQuery.data?.staged_files ?? EMPTY_CHANGED_FILES;
   const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
   const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
   const { files: compareFiles, compareRef } = selectCompareChangedFiles(compareQuery.data);
+  const { files: branchRecommendationFiles } = selectCompareChangedFiles(
+    branchRecommendationQuery.data,
+  );
   const gitStatus = statusQuery.data ?? null;
   const isLoading = isMutating || worktreeQuery.isFetching || compareQuery.isFetching;
 
@@ -397,6 +414,39 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       : changesScope === "staged"
         ? displayedStagedFiles.length > 0
         : displayedUnstagedFiles.length > 0 || displayedUntrackedFiles.length > 0;
+  const changeScopeRecommendations = useMemo(() => {
+    if (changesScope === "commit") return [];
+
+    const candidates: Array<{
+      scope: Exclude<ChangesDiffScope, "commit">;
+      files: GitChangedFile[];
+    }> = [
+      { scope: "branch", files: branchRecommendationFiles },
+      { scope: "staged", files: displayedStagedFiles },
+      {
+        scope: "unstaged",
+        files: [...displayedUnstagedFiles, ...displayedUntrackedFiles],
+      },
+    ];
+
+    return candidates
+      .filter(({ scope, files }) => scope !== changesScope && files.length > 0)
+      .map(({ scope, files }) => ({
+        scope,
+        ...sumChangeCounts(files),
+      }));
+  }, [
+    branchRecommendationFiles,
+    changesScope,
+    displayedStagedFiles,
+    displayedUnstagedFiles,
+    displayedUntrackedFiles,
+  ]);
+  const isEmptyStateLoading =
+    isLoading ||
+    (changesScope !== "branch" &&
+      changesScope !== "commit" &&
+      branchRecommendationQuery.isFetching);
   const showAgentChatSidebar = activeCenterTab === "wiki";
   const transformWikiChatPrompt = useCallback(
     (prompt: string) =>
@@ -633,30 +683,92 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     changesSubTab !== "commits" && "p-2",
                     changesSubTab !== "commits" &&
                       !hasDisplayedChanges &&
-                      !isLoading &&
+                      !isEmptyStateLoading &&
                       "flex items-center justify-center",
                   )}
                 >
                   <div className={cn(changesSubTab === "commits" && "hidden")}>
-                    {!hasDisplayedChanges && !isLoading ? (
-                      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50 gap-3">
-                        <Check className="size-8 opacity-20 mb-2" />
-                        <span className="text-xs">
-                          {changesScope === "commit" && selectedCommitLabel
-                            ? t("rightSidebar.changes.noCommitChanges", {
-                                commit: selectedCommitLabel,
-                              })
-                            : emptyCompareLabel
-                            ? t("rightSidebar.changes.noChangesAgainst", {
-                                compareRef: emptyCompareLabel,
-                              })
-                            : t("rightSidebar.changes.noChangesDetected")}
-                        </span>
+                    {!hasDisplayedChanges && !isEmptyStateLoading ? (
+                      <div
+                        className={cn(
+                          "flex min-h-40 w-full flex-col justify-center gap-2",
+                          changeScopeRecommendations.length > 0
+                            ? "px-1"
+                            : "items-center text-muted-foreground/50",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "flex gap-2",
+                            changeScopeRecommendations.length > 0
+                              ? "items-center px-2 text-muted-foreground/60"
+                              : "flex-col items-center",
+                          )}
+                        >
+                          {changeScopeRecommendations.length === 0 ? (
+                            <Check className="mb-2 size-8 opacity-20" />
+                          ) : null}
+                          <span className="text-xs">
+                            {changesScope === "commit" && selectedCommitLabel
+                              ? t("rightSidebar.changes.noCommitChanges", {
+                                  commit: selectedCommitLabel,
+                                })
+                              : emptyCompareLabel
+                              ? t("rightSidebar.changes.noChangesAgainst", {
+                                  compareRef: emptyCompareLabel,
+                                })
+                              : t("rightSidebar.changes.noChangesDetected")}
+                          </span>
+                        </div>
+
+                        {changeScopeRecommendations.length > 0 ? (
+                          <div className="flex flex-col gap-0.5">
+                            {changeScopeRecommendations.map((recommendation) => {
+                              const label =
+                                recommendation.scope === "branch"
+                                  ? t("rightSidebar.changes.branchChanges")
+                                  : recommendation.scope === "staged"
+                                    ? t("rightSidebar.changes.stagedChanges")
+                                    : t("rightSidebar.changes.unstagedChanges");
+                              const ScopeIcon =
+                                recommendation.scope === "branch" ? GitBranch : FileDiff;
+
+                              return (
+                                <button
+                                  key={recommendation.scope}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSelectChangesScope(recommendation.scope)
+                                  }
+                                  className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left transition-colors duration-200 hover:bg-sidebar-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <ScopeIcon className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-foreground" />
+                                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                                    {label}
+                                  </span>
+                                  <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-medium tabular-nums">
+                                    {recommendation.additions > 0 ? (
+                                      <span className="text-emerald-500">
+                                        +{recommendation.additions}
+                                      </span>
+                                    ) : null}
+                                    {recommendation.deletions > 0 ? (
+                                      <span className="text-red-500">
+                                        -{recommendation.deletions}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+
                         {changesScope === "branch" && !compareRef && gitStatus?.default_branch ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 px-2 text-[11px]"
+                            className="h-7 self-center px-2 text-[11px]"
                             onClick={() => {
                               void compareAgainstDefaultBranch();
                             }}
