@@ -96,7 +96,7 @@ pub(crate) fn with_snapshot<T>(
         for ext in ["-wal", "-shm"] {
             let sidecar = with_suffix(path, ext);
             let dest_sidecar = with_suffix(&dest, ext);
-            copy_if_exists(&sidecar, &dest_sidecar).ok();
+            copy_if_exists(&sidecar, &dest_sidecar)?;
         }
         let conn = Connection::open(&dest).map_err(map_open_error)?;
         f(&conn)
