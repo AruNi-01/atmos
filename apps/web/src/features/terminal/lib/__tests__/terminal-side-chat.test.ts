@@ -195,4 +195,49 @@ describe("side chat context prompt routing", () => {
     expect(filePrompt).toContain("It also includes terminal text explicitly selected by the user");
     expect(filePrompt).not.toContain("selected stack trace line");
   });
+
+  it("produces distinct spawn copy and a spawn-prefixed context file", () => {
+    const sidePrompt = buildSideChatPrompt({
+      capture,
+      sourceTmuxWindowName: "main",
+      userPrompt: "What should I do next?",
+    });
+    const spawnPrompt = buildSideChatPrompt({
+      capture,
+      sourceTmuxWindowName: "main",
+      userPrompt: "What should I do next?",
+      kind: "spawn",
+    });
+
+    expect(sidePrompt).toContain("side chat forked");
+    expect(spawnPrompt).toContain("new terminal spawned");
+    expect(spawnPrompt).not.toContain("side chat");
+
+    expect(
+      buildSideChatContextFilePath({
+        rootPath: "/repo/workspace/",
+        workspaceId: "workspace:one",
+        timestampMs: 1234567890,
+        kind: "spawn",
+      }),
+    ).toBe("/repo/workspace/.atmos/tmp/context/workspace_one/spawn_1234567890.txt");
+
+    const spawnFileContent = buildSideChatContextFileContent({
+      capture,
+      sourceTmuxWindowName: "main",
+      kind: "spawn",
+    });
+    expect(spawnFileContent).toContain("Atmos terminal spawn context");
+    expect(spawnFileContent).not.toContain("side chat");
+
+    const spawnFilePrompt = buildSideChatPromptWithContextFile({
+      capture,
+      contextFilePath: "/repo/.atmos/tmp/context/workspace-1/spawn_123.txt",
+      sourceTmuxWindowName: "main",
+      userPrompt: "What should I do next?",
+      kind: "spawn",
+    });
+    expect(spawnFilePrompt).toContain("new terminal spawned");
+    expect(spawnFilePrompt).not.toContain("side chat");
+  });
 });

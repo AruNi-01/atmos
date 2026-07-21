@@ -7831,12 +7831,16 @@
         "noAgent": "没有可运行的 Agent。",
         "cancel": "取消"
       },
+      "spawnCommand": {
+        "description": "带上此终端上下文 spawn 出一个新的终端面板"
+      },
       "selectionContext": {
         "copy": "复制",
         "addAsContext": "添加为上下文",
         "sideChatForSelection": "为选区打开 side chat",
         "selectionChip": "选区",
         "sideChip": "Side",
+        "spawnChip": "Spawn",
         "selectionTooltip": "用户选择的终端上下文",
         "sideMissingContext": "这个 side chat 上下文已不可用。",
         "selectionTruncated": "选区已被截断。"

@@ -34,6 +34,35 @@ const BRIGHT_SIDE_CHAT_COLORS = [
 
 export const SIDE_CHAT_INLINE_PROMPT_MAX_LINES = 30;
 
+/**
+ * A terminal "fork" reuses the same capture + prompt machinery but produces
+ * distinct copy and context-file names so a side chat and a spawned terminal
+ * stay clearly separated.
+ */
+export type TerminalForkKind = "side" | "spawn";
+
+type TerminalForkCopy = {
+  /** Intro line for the inline prompt and the context-file prompt. */
+  intro: string;
+  /** Title line at the top of the written context file. */
+  contextFileTitle: string;
+  /** File name prefix under `.atmos/tmp/context/<workspace>/`. */
+  contextFilePrefix: string;
+};
+
+const TERMINAL_FORK_COPY: Record<TerminalForkKind, TerminalForkCopy> = {
+  side: {
+    intro: "You are continuing in a side chat forked from an Atmos terminal.",
+    contextFileTitle: "Atmos terminal side chat context",
+    contextFilePrefix: "side",
+  },
+  spawn: {
+    intro: "You are continuing in a new terminal spawned from an Atmos terminal.",
+    contextFileTitle: "Atmos terminal spawn context",
+    contextFilePrefix: "spawn",
+  },
+};
+
 export function sideChatTabLabel(
   record: LocalSideChatRecord,
   index: number,
@@ -153,16 +182,18 @@ export function buildSideChatPrompt({
   selectedContexts = [],
   sourceTmuxWindowName,
   userPrompt,
+  kind = "side",
 }: {
   capture: TerminalSideContextCaptureResponse;
   selectedContexts?: TerminalSelectionPromptContext[];
   sourceTmuxWindowName: string;
   userPrompt: string;
+  kind?: TerminalForkKind;
 }) {
   const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
 
   return [
-    "You are continuing in a side chat forked from an Atmos terminal.",
+    TERMINAL_FORK_COPY[kind].intro,
     "Use the captured terminal context below as background. Do not assume it is complete.",
     "",
     metadata.join("\n"),
@@ -189,10 +220,12 @@ export function buildSideChatContextFilePath({
   rootPath,
   workspaceId,
   timestampMs,
+  kind = "side",
 }: {
   rootPath: string;
   workspaceId: string;
   timestampMs: number;
+  kind?: TerminalForkKind;
 }): string {
   return joinLocalPath(
     rootPath,
@@ -200,7 +233,7 @@ export function buildSideChatContextFilePath({
     "tmp",
     "context",
     sanitizeSideChatContextId(workspaceId),
-    `side_${timestampMs}.txt`,
+    `${TERMINAL_FORK_COPY[kind].contextFilePrefix}_${timestampMs}.txt`,
   );
 }
 
@@ -208,15 +241,17 @@ export function buildSideChatContextFileContent({
   capture,
   selectedContexts = [],
   sourceTmuxWindowName,
+  kind = "side",
 }: {
   capture: TerminalSideContextCaptureResponse;
   selectedContexts?: TerminalSelectionPromptContext[];
   sourceTmuxWindowName: string;
+  kind?: TerminalForkKind;
 }): string {
   const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
 
   return [
-    "Atmos terminal side chat context",
+    TERMINAL_FORK_COPY[kind].contextFileTitle,
     "",
     metadata.join("\n"),
     "",
@@ -235,17 +270,19 @@ export function buildSideChatPromptWithContextFile({
   selectedContexts = [],
   sourceTmuxWindowName,
   userPrompt,
+  kind = "side",
 }: {
   capture: TerminalSideContextCaptureResponse;
   contextFilePath: string;
   selectedContexts?: TerminalSelectionPromptContext[];
   sourceTmuxWindowName: string;
   userPrompt: string;
+  kind?: TerminalForkKind;
 }): string {
   const metadata = buildSideChatContextMetadata(capture, sourceTmuxWindowName);
 
   return [
-    "You are continuing in a side chat forked from an Atmos terminal.",
+    TERMINAL_FORK_COPY[kind].intro,
     "The captured terminal context is stored in a local file instead of this prompt.",
     selectedContexts.length > 0
       ? "Read the file before relying on the terminal context. It also includes terminal text explicitly selected by the user. Do not assume either context is complete."

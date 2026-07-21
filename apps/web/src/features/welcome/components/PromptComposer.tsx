@@ -7,8 +7,10 @@ import { cn, getFileIconProps } from "@workspace/ui";
 import { parseAppshotProtocol } from "@/features/appshot/lib/appshot-protocol";
 import {
   formatSideChatProtocol,
+  formatSpawnProtocol,
   formatTerminalSelectionProtocol,
   parseSideChatProtocolToken,
+  parseSpawnProtocolToken,
   parseTerminalSelectionProtocolToken,
 } from "@/features/terminal/lib/terminal-ai-context-protocol";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
@@ -59,6 +61,8 @@ export interface ComposerHandle {
   insertTerminalSelectionContext: (contextId: string) => void;
   insertSideChatCommand: (contextId: string) => void;
   applySideCommandAtRange: (slashOffset: number, queryLength: number, contextId: string) => void;
+  insertSpawnCommand: (contextId: string) => void;
+  applySpawnCommandAtRange: (slashOffset: number, queryLength: number, contextId: string) => void;
   removeContextToken: (contextId: string) => void;
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
@@ -84,7 +88,7 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -186,6 +190,31 @@ function buildMessageCircleMoreIcon(): SVGSVGElement {
   return svg;
 }
 
+function buildMessagesSquareIcon(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.flexShrink = "0";
+
+  for (const d of [
+    "M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2Z",
+    "M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1",
+  ]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+
+  return svg;
+}
+
 function tokenForMention(mention: MentionRef): string {
   if (mention.kind === "file") {
     return `@file:${mention.relativePath}`;
@@ -267,6 +296,14 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.appendChild(buildMessageCirclePlusIcon());
     const label = document.createElement("span");
     label.textContent = promptComposerT("selectionContext.sideChip");
+    span.appendChild(label);
+  } else if (parseSpawnProtocolToken(token)) {
+    span.dataset.kind = "spawn";
+    span.dataset.tooltip = promptComposerT("spawnCommand.description");
+    span.className += " border-green-500/35 bg-green-500/10 text-green-700 dark:text-green-400";
+    span.appendChild(buildMessagesSquareIcon());
+    const label = document.createElement("span");
+    label.textContent = promptComposerT("selectionContext.spawnChip");
     span.appendChild(label);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
@@ -810,11 +847,37 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const nextCaretOffset = replaceFrom + insertText.length;
         setCaretAtOffsetAndRemember(nextCaretOffset);
       },
+      insertSpawnCommand: (contextId) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token = formatSpawnProtocol(contextId);
+        insertNodeAtCaret(editorRef.current, buildChipNode(token));
+        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+        rememberCaretOffset();
+      },
+      applySpawnCommandAtRange: (slashOffset, queryLength, contextId) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(slashOffset - 1, 0);
+        const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
+        const insertText = `${formatSpawnProtocol(contextId)}${CHIP_TRAILING_SPACER}`;
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          insertText +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        const nextCaretOffset = replaceFrom + insertText.length;
+        setCaretAtOffsetAndRemember(nextCaretOffset);
+      },
       removeContextToken: (contextId) => {
         if (!editorRef.current) return;
         const tokens = [
           formatTerminalSelectionProtocol(contextId),
           formatSideChatProtocol(contextId),
+          formatSpawnProtocol(contextId),
         ];
         for (const token of tokens) {
           const nodes = editorRef.current.querySelectorAll(`[data-token="${CSS.escape(token)}"]`);

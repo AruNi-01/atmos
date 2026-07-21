@@ -2,6 +2,7 @@ import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
 
 export const TERMINAL_SELECTION_PROTOCOL_PREFIX = "atmos://terminal-selection/";
 export const SIDE_CHAT_PROTOCOL_PREFIX = "atmos://side-chat/";
+export const SPAWN_PROTOCOL_PREFIX = "atmos://spawn/";
 export const TERMINAL_SELECTION_MAX_BYTES = 64 * 1024;
 
 const PROTOCOL_ID_PATTERN = /^[a-zA-Z0-9_.:-]+$/;
@@ -37,12 +38,21 @@ export function formatSideChatProtocol(contextId: string): string {
   return `${SIDE_CHAT_PROTOCOL_PREFIX}${contextId}`;
 }
 
+export function formatSpawnProtocol(contextId: string): string {
+  assertValidContextId(contextId);
+  return `${SPAWN_PROTOCOL_PREFIX}${contextId}`;
+}
+
 export function parseTerminalSelectionProtocolToken(token: string): { contextId: string } | null {
   return parseProtocolToken(token, TERMINAL_SELECTION_PROTOCOL_PREFIX);
 }
 
 export function parseSideChatProtocolToken(token: string): { contextId: string } | null {
   return parseProtocolToken(token, SIDE_CHAT_PROTOCOL_PREFIX);
+}
+
+export function parseSpawnProtocolToken(token: string): { contextId: string } | null {
+  return parseProtocolToken(token, SPAWN_PROTOCOL_PREFIX);
 }
 
 export function createTerminalCaptureContextId(): string {
@@ -97,6 +107,10 @@ export function extractTerminalSelectionContextIds(text: string): string[] {
 
 export function extractSideChatContextIds(text: string): string[] {
   return extractContextIds(text, SIDE_CHAT_PROTOCOL_PREFIX);
+}
+
+export function extractSpawnContextIds(text: string): string[] {
+  return extractContextIds(text, SPAWN_PROTOCOL_PREFIX);
 }
 
 export function stripTerminalAiProtocolTokens(text: string): string {
@@ -185,6 +199,14 @@ export function hasKnownSideChatCommand(
   return extractSideChatContextIds(text).some((id) => knownContextIds.has(id));
 }
 
+export function hasKnownSpawnCommand(
+  text: string,
+  contexts: TerminalPromptContext[],
+): boolean {
+  const knownContextIds = new Set(contexts.map((context) => context.contextId));
+  return extractSpawnContextIds(text).some((id) => knownContextIds.has(id));
+}
+
 export function createOpaqueId(): string {
   const globalCrypto = globalThis.crypto;
   if (globalCrypto?.randomUUID) return globalCrypto.randomUUID();
@@ -218,6 +240,9 @@ function stripTerminalAiProtocolTokensMatching(
     )
     .replace(protocolTokenRegex(SIDE_CHAT_PROTOCOL_PREFIX), (token) =>
       shouldStrip(token, SIDE_CHAT_PROTOCOL_PREFIX) ? " " : token,
+    )
+    .replace(protocolTokenRegex(SPAWN_PROTOCOL_PREFIX), (token) =>
+      shouldStrip(token, SPAWN_PROTOCOL_PREFIX) ? " " : token,
     )
     .replace(/\u00A0/g, " ")
     .replace(/[ \t]+\n/g, "\n")

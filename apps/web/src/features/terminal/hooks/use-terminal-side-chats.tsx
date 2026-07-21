@@ -24,6 +24,7 @@ import {
   shouldInlineSideChatPrompt,
   type LocalSideChatRecord,
   type SourceSurfaceKind,
+  type TerminalForkKind,
 } from "@/features/terminal/lib/terminal-side-chat";
 import type { TerminalPromptContext } from "@/features/terminal/lib/terminal-ai-context-protocol";
 import type { TerminalPaneAgent } from "@/features/terminal/types";
@@ -42,6 +43,31 @@ export interface UseTerminalSideChatsOptions {
   sourceSurfaceRef?: unknown;
   sourceTmuxWindowName?: string | null;
   terminalScale?: number;
+  /**
+   * Spawns a brand-new terminal panel (not a side-chat modal) that runs the
+   * built launch command. Supplied by the terminal grid. When omitted, the
+   * `/spawn` command is unavailable for this surface.
+   */
+  onSpawnTerminal?: (request: SpawnTerminalRequest) => void;
+}
+
+export interface SpawnTerminalRequest {
+  agent: TerminalPaneAgent;
+  /** Display title for the spawned pane, already suffixed with " · By Spawn". */
+  title: string;
+  launchCommand: string;
+  agentId: string;
+  tuiFollowUpPrompt?: string;
+}
+
+/** Fixed number of user-prompt characters kept in a spawned pane title. */
+const SPAWN_TITLE_PROMPT_MAX_CHARS = 24;
+const SPAWN_TITLE_SUFFIX = " · By Spawn";
+
+function buildSpawnTerminalTitle(userPrompt: string): string {
+  const normalized = userPrompt.trim().replace(/\s+/g, " ");
+  const head = normalized.slice(0, SPAWN_TITLE_PROMPT_MAX_CHARS).trim();
+  return `${head || "Spawn"}${SPAWN_TITLE_SUFFIX}`;
 }
 
 export function useTerminalSideChats({
@@ -57,6 +83,7 @@ export function useTerminalSideChats({
   sourceSurfaceRef,
   sourceTmuxWindowName,
   terminalScale,
+  onSpawnTerminal,
 }: UseTerminalSideChatsOptions) {
   const t = useTranslations("terminal.sideChat");
   const terminalRefs = React.useRef<Map<string, TerminalRef>>(new Map());
@@ -211,6 +238,92 @@ export function useTerminalSideChats({
     ],
   );
 
+  const startSpawn = React.useCallback(
+    async (
+      userPrompt: string,
+      agent: TerminalPaneAgent,
+      runConfig?: TerminalAgentRunConfigInput | null,
+      contexts: TerminalPromptContext[] = [],
+    ) => {
+      if (!onSpawnTerminal) return;
+      if (!sourceTmuxWindowName) {
+        toastManager.add({
+          title: t("errorTitle"),
+          description: t("sourceNotReady"),
+          type: "error",
+        });
+        return;
+      }
+      setIsStarting(true);
+      try {
+        const capture = await terminalSideChatApi.captureContext({
+          workspace_id: workspaceId,
+          project_name: projectName,
+          workspace_name: workspaceName,
+          source_session_id: sourceSessionId,
+          source_tmux_window_name: sourceTmuxWindowName,
+          max_prompt_bytes: sideContextPromptBudgetBytes,
+        });
+        const resolvedSourceTmuxWindowName = capture.tmux_window_name || sourceTmuxWindowName;
+        const selectedContexts = contexts.filter(
+          (context): context is TerminalPromptContext & { kind: "terminal_selection" } =>
+            context.kind === "terminal_selection",
+        );
+        const directPrompt = buildSideChatPrompt({
+          capture,
+          selectedContexts,
+          sourceTmuxWindowName: resolvedSourceTmuxWindowName,
+          userPrompt,
+          kind: "spawn",
+        });
+        const spawnPrompt = await resolveSideChatPrompt({
+          capture,
+          directSidePrompt: directPrompt,
+          rootPath: localPath?.trim() || projectRootPath?.trim() || null,
+          selectedContexts,
+          sourceTmuxWindowName: resolvedSourceTmuxWindowName,
+          userPrompt,
+          workspaceId,
+          kind: "spawn",
+        });
+        const plan = buildInteractiveAgentRunPlan({
+          agentId: agent.id,
+          launchCommand: agent.command,
+          prompt: spawnPrompt,
+          runConfig,
+        });
+        onSpawnTerminal({
+          agent,
+          title: buildSpawnTerminalTitle(userPrompt),
+          launchCommand: plan.launchCommand,
+          agentId: agent.id,
+          tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
+        });
+      } catch (error) {
+        console.error("Failed to spawn terminal panel:", error);
+        toastManager.add({
+          title: t("errorTitle"),
+          description: t("startFailed"),
+          type: "error",
+        });
+      } finally {
+        setIsStarting(false);
+      }
+    },
+    [
+      localPath,
+      onSpawnTerminal,
+      projectName,
+      projectRootPath,
+      sideContextPromptBudgetBytes,
+      sourceSessionId,
+      sourceTmuxWindowName,
+      t,
+      workspaceId,
+      workspaceName,
+    ],
+  );
+
   const sideChatLayer = (
     <TerminalSideChatLayer
       localPath={localPath}
@@ -286,6 +399,7 @@ export function useTerminalSideChats({
     sideChatDots,
     sideChatLayer,
     startSideChat,
+    startSpawn,
   };
 }
 
@@ -297,6 +411,7 @@ async function resolveSideChatPrompt({
   sourceTmuxWindowName,
   userPrompt,
   workspaceId,
+  kind = "side",
 }: {
   capture: TerminalSideContextCaptureResponse;
   directSidePrompt: string;
@@ -305,6 +420,7 @@ async function resolveSideChatPrompt({
   sourceTmuxWindowName: string;
   userPrompt: string;
   workspaceId: string;
+  kind?: TerminalForkKind;
 }): Promise<string> {
   if (shouldInlineSideChatPrompt(directSidePrompt) || !rootPath) {
     return directSidePrompt;
@@ -314,6 +430,7 @@ async function resolveSideChatPrompt({
     rootPath,
     workspaceId,
     timestampMs: Date.now(),
+    kind,
   });
 
   try {
@@ -323,6 +440,7 @@ async function resolveSideChatPrompt({
         capture,
         selectedContexts,
         sourceTmuxWindowName,
+        kind,
       }),
     );
     return buildSideChatPromptWithContextFile({
@@ -331,9 +449,10 @@ async function resolveSideChatPrompt({
       selectedContexts,
       sourceTmuxWindowName,
       userPrompt,
+      kind,
     });
   } catch (error) {
-    console.warn("Failed to write terminal side chat context file; falling back to inline prompt", error);
+    console.warn("Failed to write terminal context file; falling back to inline prompt", error);
     return directSidePrompt;
   }
 }

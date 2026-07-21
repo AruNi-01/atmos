@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { cn } from "@workspace/ui";
-import { Folder, Loader2, MessageCirclePlus, Puzzle } from "lucide-react";
+import { Folder, Loader2, MessageCirclePlus, MessagesSquare, Puzzle } from "lucide-react";
 
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -141,7 +141,11 @@ export function SlashCommandPopover({
                   onSelectCommand?.(command);
                 }}
               >
-                <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
+                {command.id === "spawn" ? (
+                  <MessagesSquare className="size-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{command.label}</span>
                   {command.description ? (

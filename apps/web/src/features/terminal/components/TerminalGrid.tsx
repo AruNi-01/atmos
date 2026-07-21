@@ -28,6 +28,7 @@ import {
 } from "./terminal-mosaic-workspace-pane-window";
 import { TerminalMosaicScopedPaneWindow } from "./terminal-mosaic-scoped-pane-window";
 import type { TerminalAgentInputOverlayHandle } from "./TerminalAgentInputOverlay";
+import type { SpawnTerminalRequest } from "../hooks/use-terminal-side-chats";
 import {
   TerminalGridContextMenu,
   type TerminalGridContextMenuAction,
@@ -337,6 +338,22 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }
     return result;
   }, [addCodeReviewTerminal, addProjectWikiTerminal, addTerminalToStore, focusPane, isCodeReview, isProjectWiki, terminalTabId, workspaceId]);
+
+  const spawnTerminalWithRun = useCallback((request: SpawnTerminalRequest) => {
+    // /spawn always opens a fresh pane (never reuses), then sets the custom
+    // title "<prompt head> · By Spawn" and queues the reused-context run.
+    // We intentionally do NOT touch the title flags: like Rename terminal,
+    // keepAgentName/keepCwd default to on, so the display becomes
+    // "<title> · <agent>" (or "<title> · <cwd>" when no agent is running).
+    const paneId = addTerminal(request.agent.label, request.agent);
+    if (!paneId) return;
+    const tabId = terminalTabId ?? FIXED_TERMINAL_TAB_VALUE;
+    setPaneCustomLabel(workspaceId, paneId, request.title, tabId);
+    queuePendingRun(paneId, request.launchCommand, {
+      agentId: request.agentId,
+      tuiFollowUpPrompt: request.tuiFollowUpPrompt,
+    });
+  }, [addTerminal, queuePendingRun, setPaneCustomLabel, terminalTabId, workspaceId]);
 
   const setPaneAgentForCurrentGrid = useCallback((paneId: string, agent: TerminalPaneAgent) => {
     if (isCodeReview) {
@@ -847,6 +864,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           pendingRunsRef={pendingRunsRef}
           deliverPendingRunForPane={deliverPendingRunForPane}
           markPaneAttached={markPaneAttached}
+          spawnTerminalWithRun={spawnTerminalWithRun}
         />
       );
     }
@@ -919,6 +937,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     pinPaneToCanvas,
     deliverPendingRunForPane,
     pendingRunsRef,
+    spawnTerminalWithRun,
   ]);
 
   // Wait for workspace to be ready before rendering any Terminal components

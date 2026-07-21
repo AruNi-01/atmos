@@ -25,7 +25,7 @@ import {
 import { TerminalTitleWithAgent } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalToolbarTitle } from "../hooks/use-terminal-toolbar-title";
-import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
+import { useTerminalSideChats, type SpawnTerminalRequest } from "../hooks/use-terminal-side-chats";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import {
@@ -94,6 +94,7 @@ type TerminalMosaicWorkspacePaneWindowProps = {
   pendingRunsRef: React.MutableRefObject<Map<string, PendingTerminalRun>>;
   deliverPendingRunForPane: (paneId: string) => void;
   markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
+  spawnTerminalWithRun: (request: SpawnTerminalRequest) => void;
 };
 
 /** Center-grid terminal tile: shared title hook + mosaic chrome (default scope only). */
@@ -132,6 +133,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     pendingRunsRef,
     deliverPendingRunForPane,
     markPaneAttached,
+    spawnTerminalWithRun,
   } = props;
 
   const storeWrite = useMemo(
@@ -192,6 +194,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     sideChatDots,
     sideChatLayer,
     startSideChat,
+    startSpawn,
   } = useTerminalSideChats({
     workspaceId,
     projectName: workspaceInfo?.projectName ?? null,
@@ -207,6 +210,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
       terminalTabId,
     },
     sourceTmuxWindowName: pane.tmuxWindowName ?? null,
+    onSpawnTerminal: spawnTerminalWithRun,
   });
   const pinButtonLabel = isPanePinned
     ? t.has("pin.alreadyPinnedTitle")
@@ -484,6 +488,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
             terminalRefsMap.current.get(id)?.focus();
           }}
           onStartSideChat={startSideChat}
+          onSpawn={startSpawn}
           onSendEnter={() => {
             terminalRefsMap.current.get(id)?.sendEnter();
           }}
