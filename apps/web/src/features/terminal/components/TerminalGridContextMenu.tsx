@@ -170,6 +170,7 @@ export function TerminalGridContextMenu({
         <DropdownMenuSubTrigger
           className="cursor-pointer"
           onPointerEnter={() => onContextSplitSubmenuEnter(direction)}
+          onPointerLeave={onContextSplitSubmenuLeave}
         >
           {icon}
           <span>{label}</span>
