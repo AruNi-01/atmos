@@ -1,0 +1,29 @@
+apps/desktop/src-tauri/Cargo.toml
+  s_b17626f9642d7b::t_78150fb2a22ec0 31,40-57
+crates/browser-cookies/src/keychain.rs
+  s_7560aad90b4692::t_d3b93d42910aa5 1-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "18b5ab848aca1afb4538281c60f92a8338f5add4",
+  "prompts": {},
+  "sessions": {
+    "s_7560aad90b4692": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "cfa7ba96-2b44-4f40-a1ce-0505aaddddee",
+        "model": "gpt-5.6-sol-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b17626f9642d7b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6bd9c201-7071-443d-b3af-ec723d0f8d1c",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
