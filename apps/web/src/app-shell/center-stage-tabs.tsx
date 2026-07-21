@@ -313,7 +313,7 @@ export function CenterStageTabGroupPopover({
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="h-full rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="h-full! rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           aria-label={t("centerStageTabs.openTabGroups")}
         >
           <List className="size-4" />
