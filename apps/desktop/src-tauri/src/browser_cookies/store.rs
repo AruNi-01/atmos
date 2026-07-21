@@ -26,8 +26,8 @@ mod imp {
     use objc2::MainThreadMarker;
     use objc2_foundation::{
         NSArray, NSDate, NSDictionary, NSHTTPCookie, NSHTTPCookieDomain, NSHTTPCookieExpires,
-        NSHTTPCookieName, NSHTTPCookiePath, NSHTTPCookieSameSitePolicy, NSHTTPCookieSecure,
-        NSHTTPCookieValue, NSProcessInfo, NSSet, NSString, NSUUID,
+        NSHTTPCookieName, NSHTTPCookieOriginURL, NSHTTPCookiePath, NSHTTPCookieSameSitePolicy,
+        NSHTTPCookieSecure, NSHTTPCookieValue, NSProcessInfo, NSSet, NSString, NSUUID,
     };
     use objc2_web_kit::WKWebsiteDataStore;
     use std::collections::HashSet;
@@ -55,6 +55,7 @@ mod imp {
         // + storage + cookies
         "WKWebsiteDataTypeCookies",
         "WKWebsiteDataTypeLocalStorage",
+        "WKWebsiteDataTypeSessionStorage",
         "WKWebsiteDataTypeIndexedDBDatabases",
         "WKWebsiteDataTypeServiceWorkerRegistrations",
         "WKWebsiteDataTypeWebSQLDatabases",
@@ -81,6 +82,19 @@ mod imp {
         domain.strip_prefix('.').unwrap_or(domain).to_ascii_lowercase()
     }
 
+    /// Build the origin URL string used to bind a **host-only** cookie to a
+    /// single host via `NSHTTPCookieOriginURL`. Scheme is `https` when the
+    /// cookie is secure else `http`; the host is the stored domain with any
+    /// leading dot stripped; the path is the cookie's path. WebKit derives a
+    /// host-only `Domain` from this origin, so the cookie never leaks to
+    /// subdomains and `__Host-` cookies (which forbid an explicit Domain) are
+    /// accepted.
+    fn host_only_origin_url(secure: bool, domain: &str, path: &str) -> String {
+        let scheme = if secure { "https" } else { "http" };
+        let host = domain.strip_prefix('.').unwrap_or(domain);
+        format!("{scheme}://{host}{path}")
+    }
+
     /// Build an `NSHTTPCookie` from the high-fidelity model, or `None` if WebKit
     /// rejects the property set (illegal shape). Rejected cookies simply never
     /// round-trip and are counted as `failed_injection` by the caller.
@@ -98,10 +112,25 @@ mod imp {
         keys.push(unsafe { NSHTTPCookieValue });
         objects.push(erase(NSString::from_str(&cookie.value)));
 
-        // Domain carries the leading dot for domain cookies and none for
-        // host-only cookies, so WebKit derives host-only vs domain match itself.
-        keys.push(unsafe { NSHTTPCookieDomain });
-        objects.push(erase(NSString::from_str(&cookie.identity.domain)));
+        // Host-only vs domain binding. Host-only source cookies must NOT carry
+        // an explicit Domain: an NSHTTPCookieDomain attribute would widen them
+        // into domain cookies (leaking to subdomains), and `__Host-` cookies are
+        // rejected outright by WebKit if a Domain is present. Instead we bind
+        // them to a single origin via NSHTTPCookieOriginURL, from which WebKit
+        // derives a host-only Domain. Domain (non-host-only) cookies keep their
+        // stored Domain, including its leading dot, so WebKit treats them as
+        // subdomain-spanning.
+        if cookie.host_only {
+            keys.push(unsafe { NSHTTPCookieOriginURL });
+            objects.push(erase(NSString::from_str(&host_only_origin_url(
+                cookie.secure,
+                &cookie.identity.domain,
+                &cookie.identity.path,
+            ))));
+        } else {
+            keys.push(unsafe { NSHTTPCookieDomain });
+            objects.push(erase(NSString::from_str(&cookie.identity.domain)));
+        }
 
         keys.push(unsafe { NSHTTPCookiePath });
         objects.push(erase(NSString::from_str(&cookie.identity.path)));
@@ -119,8 +148,8 @@ mod imp {
         // SameSite: only Lax / Strict have property-dict values ("lax" / "strict",
         // the values of NSHTTPCookieSameSite{Lax,Strict}). None and Unspecified
         // cannot be distinguished here, so the key is omitted for both; read-back
-        // verification keys on identity (name/domain/path), so counting is
-        // unaffected.
+        // verification keys on (name, domain, path, value), which does not include
+        // SameSite, so counting is unaffected.
         match cookie.same_site {
             SameSite::Lax => {
                 keys.push(unsafe { NSHTTPCookieSameSitePolicy });
@@ -154,11 +183,16 @@ mod imp {
         NSSet::from_slice(&refs)
     }
 
+    /// Count how many injected cookies round-tripped. The read-back key includes
+    /// the cookie VALUE — `(name, normalized_domain, path, value)` — so a cookie
+    /// counts as verified only when the *injected value* is what WebKit stored.
+    /// On re-import, if WebKit rejects a replacement, a stale cookie with the same
+    /// name/domain/path but a different value no longer masks the failure.
     fn count_verified(
         cookies: &NSArray<NSHTTPCookie>,
-        expected: &HashSet<(String, String, String)>,
+        expected: &HashSet<(String, String, String, String)>,
     ) -> usize {
-        let mut matched: HashSet<(String, String, String)> = HashSet::new();
+        let mut matched: HashSet<(String, String, String, String)> = HashSet::new();
         let count = cookies.count();
         for index in 0..count {
             let cookie = cookies.objectAtIndex(index);
@@ -166,6 +200,7 @@ mod imp {
                 cookie.name().to_string(),
                 normalize_domain(&cookie.domain().to_string()),
                 cookie.path().to_string(),
+                cookie.value().to_string(),
             );
             if expected.contains(&identity) {
                 matched.insert(identity);
@@ -175,13 +210,14 @@ mod imp {
     }
 
     pub fn inject(app: &AppHandle, cookies: &[ImportedCookie]) -> Result<usize, CookieCmdError> {
-        let expected: HashSet<(String, String, String)> = cookies
+        let expected: HashSet<(String, String, String, String)> = cookies
             .iter()
             .map(|c| {
                 (
                     c.identity.name.clone(),
                     normalize_domain(&c.identity.domain),
                     c.identity.path.clone(),
+                    c.value.clone(),
                 )
             })
             .collect();
@@ -268,6 +304,51 @@ mod imp {
 
     pub fn clear_site_data(app: &AppHandle) -> Result<(), CookieCmdError> {
         remove_data(app, SITE_DATA_TYPES)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{host_only_origin_url, normalize_domain, SITE_DATA_TYPES};
+
+        #[test]
+        fn normalize_domain_strips_leading_dot_and_lowercases() {
+            assert_eq!(normalize_domain(".Example.com"), "example.com");
+            assert_eq!(normalize_domain("Example.com"), "example.com");
+            // Only a single leading dot is stripped.
+            assert_eq!(normalize_domain("..example.com"), ".example.com");
+        }
+
+        #[test]
+        fn normalize_domain_matches_host_only_readback_to_expected() {
+            // Read-back domain for a host-only cookie is the bare host; the
+            // expected side may still carry a stored dot. Both normalize equal so
+            // count_verified matches them.
+            assert_eq!(normalize_domain("example.com"), normalize_domain(".example.com"));
+        }
+
+        #[test]
+        fn host_only_origin_url_uses_secure_scheme_and_strips_dot() {
+            assert_eq!(
+                host_only_origin_url(true, "example.com", "/"),
+                "https://example.com/"
+            );
+            assert_eq!(
+                host_only_origin_url(false, "example.com", "/app"),
+                "http://example.com/app"
+            );
+            // A stored leading dot is stripped from the origin host.
+            assert_eq!(
+                host_only_origin_url(true, ".example.com", "/"),
+                "https://example.com/"
+            );
+        }
+
+        #[test]
+        fn site_data_types_include_session_storage() {
+            // Clear Site Data must wipe HTML Session Storage so an open preview
+            // cannot retain session state.
+            assert!(SITE_DATA_TYPES.contains(&"WKWebsiteDataTypeSessionStorage"));
+        }
     }
 }
 

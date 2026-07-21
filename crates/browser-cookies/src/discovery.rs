@@ -112,10 +112,15 @@ fn chromium_profile_priority(profile_name: &str) -> (usize, String) {
     let lower = profile_name.to_lowercase();
     let rank = match lower.as_str() {
         "default" => 0,
-        "profile 1" => 1,
-        "profile 2" => 2,
-        "guest profile" => 90,
-        _ => 10,
+        // Guest always sorts last.
+        "guest profile" => usize::MAX,
+        // `Profile <N>` ranks by its numeric suffix so `Profile 3` sorts before
+        // `Profile 10` (a plain lexicographic fallback would invert them and
+        // change which profile ai-usage's first-match selection picks).
+        other => other
+            .strip_prefix("profile ")
+            .and_then(|n| n.trim().parse::<usize>().ok())
+            .unwrap_or(usize::MAX - 1),
     };
     (rank, lower)
 }
@@ -277,4 +282,24 @@ pub fn firefox_profile_candidates() -> Vec<FirefoxProfileCandidate> {
             cookie_db: p.cookie_db,
         })
         .collect()
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::chromium_profile_priority;
+
+    #[test]
+    fn profile_priority_orders_numerically_not_lexicographically() {
+        let mut names = vec!["Profile 10", "Profile 3", "Profile 1", "Default"];
+        names.sort_by_key(|n| chromium_profile_priority(n));
+        assert_eq!(names, vec!["Default", "Profile 1", "Profile 3", "Profile 10"]);
+    }
+
+    #[test]
+    fn default_first_and_guest_last() {
+        let mut names = vec!["Guest Profile", "Profile 2", "Default"];
+        names.sort_by_key(|n| chromium_profile_priority(n));
+        assert_eq!(names, vec!["Default", "Profile 2", "Guest Profile"]);
+    }
 }

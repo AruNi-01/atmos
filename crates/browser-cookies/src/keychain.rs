@@ -67,7 +67,9 @@ fn map_framework_error(code: i32) -> ExtractError {
 fn passphrase_via_cli(service: &str) -> Result<String, ExtractError> {
     use std::process::Command;
 
-    let output = Command::new("security")
+    // Use the absolute system path (not PATH-relative) for the Keychain-reading
+    // binary so a hijacked PATH cannot substitute a different `security`.
+    let output = Command::new("/usr/bin/security")
         .args(["find-generic-password", "-s", service, "-w"])
         .output()
         .map_err(|e| ExtractError::Io(format!("security: {e}")))?;

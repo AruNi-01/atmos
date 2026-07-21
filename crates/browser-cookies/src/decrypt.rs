@@ -64,7 +64,11 @@ pub fn decrypt_chromium_value(
 /// Newer Chromium prepends `SHA-256(host_key)` (32 bytes) to the plaintext.
 /// Strip it if present (tries both the dotted and undotted host).
 fn strip_host_hash_prefix(host_key: &str, plaintext: Vec<u8>) -> Vec<u8> {
-    if plaintext.len() <= 32 {
+    // Must be `< 32` (not `<= 32`): a plaintext of exactly 32 bytes can be a
+    // bare host-hash prefix followed by an EMPTY value. Bailing out at 32 would
+    // leak the 32 digest bytes as the cookie value. Reaching the digest compare
+    // lets the empty-value case return an empty `Vec` via `plaintext[32..]`.
+    if plaintext.len() < 32 {
         return plaintext;
     }
 
@@ -138,6 +142,15 @@ mod tests {
         // host_key with leading dot; strip should match trimmed host digest.
         let out = decrypt_chromium_value(&enc, ".example.com", "pw").unwrap();
         assert_eq!(out, "tok");
+    }
+
+    #[test]
+    fn empty_value_with_host_hash_returns_empty_not_digest() {
+        // A 32-byte plaintext == host-hash prefix + EMPTY value. The digest
+        // bytes must be stripped, yielding "" rather than leaking the digest.
+        let enc = encrypt_chromium_value_v10("", "example.com", "pw", true);
+        let out = decrypt_chromium_value(&enc, "example.com", "pw").unwrap();
+        assert_eq!(out, "");
     }
 
     #[test]

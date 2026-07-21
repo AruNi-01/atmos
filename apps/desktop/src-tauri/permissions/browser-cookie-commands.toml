@@ -1,3 +1,5 @@
+"$schema" = "../gen/schemas/desktop-schema.json"
+
 [[permission]]
 identifier = "browser-cookie-commands"
 description = "Allows exactly the four local browser cookie sync commands. Kept separate from desktop-app-commands so these Keychain-touching / destructive commands are only reachable from the dedicated, webview-scoped browser-cookie-commands capability."

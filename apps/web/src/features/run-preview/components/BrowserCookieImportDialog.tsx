@@ -157,7 +157,11 @@ export function BrowserCookieImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (isImporting ? undefined : onOpenChange(next))}>
-      <DialogContent className="sm:max-w-md" onEscapeKeyDown={(event) => isImporting && event.preventDefault()}>
+      <DialogContent
+        data-atmos-preview-overlay="true"
+        className="sm:max-w-md"
+        onEscapeKeyDown={(event) => isImporting && event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t("import.title")}</DialogTitle>
           <DialogDescription>{t("import.description")}</DialogDescription>
@@ -225,7 +229,7 @@ export function BrowserCookieImportDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {selectedProfile ? (
+              {selectedProfile?.running ? (
                 <p className="text-xs text-muted-foreground">
                   {t("import.runningHint", { browser: browserLabel(selectedProfile.browser) })}
                 </p>

@@ -6,9 +6,11 @@
 //!     check is classified as `DatabaseBusy` by the caller. `immutable=1` is
 //!     deliberately NOT used (it ignores the WAL and can miss newest cookies).
 //!   * [`with_snapshot`] — used by the `ai-usage` reuse path, which must keep
-//!     working while the browser is open. Copies `Cookies` + `-wal` + `-shm`
-//!     into a throwaway temp dir, opens the copy so the WAL is applied to a
-//!     consistent snapshot, then deletes the copy.
+//!     working while the browser is open. Opens the source read-only and uses
+//!     SQLite's online backup API to copy a CONSISTENT snapshot into a throwaway
+//!     temp database (never a torn multi-file copy), then queries the copy. If
+//!     the read-only open fails it falls back to copying `Cookies` + `-wal` +
+//!     `-shm` and opening that copy so the WAL is applied.
 
 use std::path::{Path, PathBuf};
 
@@ -63,6 +65,10 @@ pub(crate) struct FirefoxFullRow {
     pub is_secure: bool,
     pub is_httponly: bool,
     pub same_site: i64,
+    /// `moz_cookies.originAttributes`. Non-empty for CONTAINER
+    /// (`^userContextId=...`) and PARTITIONED (`^partitionKey=...`) cookies.
+    /// Older schemas lack this column, so it defaults to empty.
+    pub origin_attributes: String,
 }
 
 // --- Open strategies ------------------------------------------------------
@@ -79,9 +85,18 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, ExtractError> {
     Ok(conn)
 }
 
-/// Copy `path` (+ `-wal`/`-shm` sidecars) into a fresh temp dir, open the copy,
-/// hand it to `f`, then delete the copy. Works whether or not the browser is
-/// open. The temp copy is opened read-write (we own it) so the WAL is applied.
+/// Produce a CONSISTENT snapshot of `path` and hand the opened copy to `f`.
+///
+/// Preferred path: open the source database strictly read-only and use SQLite's
+/// online backup API to copy a consistent snapshot into a fresh temp database.
+/// The backup runs inside a single read transaction on the source, so it can
+/// never observe a torn write even if the browser writes concurrently — unlike
+/// three independent `fs::copy` calls of `Cookies`/`-wal`/`-shm`, which could
+/// capture mismatched file states mid-write.
+///
+/// Fallback path: if the read-only open fails, fall back to copying the DB and
+/// its `-wal`/`-shm` sidecars into the temp dir and opening the copy. The temp
+/// copy is opened read-write (we own it) so the WAL is applied.
 pub(crate) fn with_snapshot<T>(
     path: &Path,
     f: impl FnOnce(&Connection) -> Result<T, ExtractError>,
@@ -92,18 +107,51 @@ pub(crate) fn with_snapshot<T>(
             .file_name()
             .ok_or_else(|| ExtractError::Io("cookie path has no file name".to_string()))?;
         let dest = dir.join(file_name);
-        copy_if_exists(path, &dest)?;
-        for ext in ["-wal", "-shm"] {
-            let sidecar = with_suffix(path, ext);
-            let dest_sidecar = with_suffix(&dest, ext);
-            copy_if_exists(&sidecar, &dest_sidecar)?;
+
+        match snapshot_via_backup(path, &dest) {
+            Ok(conn) => f(&conn),
+            // Read-only open / backup unavailable: fall back to file copy.
+            // `copy_if_exists` returns Ok when a `-wal`/`-shm` sidecar is
+            // absent, so propagating the error (`?`) only surfaces a genuine
+            // copy failure of a file that does exist.
+            Err(_) => {
+                copy_if_exists(path, &dest)?;
+                for ext in ["-wal", "-shm"] {
+                    let sidecar = with_suffix(path, ext);
+                    let dest_sidecar = with_suffix(&dest, ext);
+                    copy_if_exists(&sidecar, &dest_sidecar)?;
+                }
+                let conn = Connection::open(&dest).map_err(map_open_error)?;
+                f(&conn)
+            }
         }
-        let conn = Connection::open(&dest).map_err(map_open_error)?;
-        f(&conn)
     })();
     // Best-effort cleanup regardless of outcome.
     let _ = std::fs::remove_dir_all(&dir);
     result
+}
+
+/// Open `src_path` read-only and back it up (online backup API) into a fresh
+/// database at `dest`, returning the opened backup copy. Any failure (e.g. a
+/// read-only open that cannot access the WAL index) is returned so the caller
+/// can fall back to the file-copy path.
+fn snapshot_via_backup(src_path: &Path, dest: &Path) -> Result<Connection, ExtractError> {
+    let src = Connection::open_with_flags(
+        src_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(map_open_error)?;
+    src.busy_timeout(std::time::Duration::from_millis(250))
+        .map_err(map_open_error)?;
+
+    let mut dst = Connection::open(dest).map_err(map_open_error)?;
+    {
+        let backup = rusqlite::backup::Backup::new(&src, &mut dst).map_err(map_query_error)?;
+        backup
+            .run_to_completion(100, std::time::Duration::from_millis(0), None)
+            .map_err(map_query_error)?;
+    }
+    Ok(dst)
 }
 
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
@@ -265,9 +313,12 @@ pub(crate) fn read_firefox_full(conn: &Connection) -> Result<Vec<FirefoxFullRow>
     let secure_col = if has("isSecure") { "isSecure" } else { "0" };
     let httponly_col = if has("isHttpOnly") { "isHttpOnly" } else { "0" };
     let samesite_col = if has("sameSite") { "sameSite" } else { "0" };
+    // Defensive: older Firefox schemas may lack `originAttributes`.
+    let origin_attributes_col = if has("originAttributes") { "originAttributes" } else { "''" };
 
     let sql = format!(
-        "SELECT host, name, value, path, {expiry_col}, {secure_col}, {httponly_col}, {samesite_col} \
+        "SELECT host, name, value, path, {expiry_col}, {secure_col}, {httponly_col}, \
+         {samesite_col}, {origin_attributes_col} \
          FROM moz_cookies"
     );
     let mut stmt = conn.prepare(&sql).map_err(map_query_error)?;
@@ -282,6 +333,7 @@ pub(crate) fn read_firefox_full(conn: &Connection) -> Result<Vec<FirefoxFullRow>
                 is_secure: row.get::<_, i64>(5).unwrap_or(0) != 0,
                 is_httponly: row.get::<_, i64>(6).unwrap_or(0) != 0,
                 same_site: row.get::<_, i64>(7).unwrap_or(0),
+                origin_attributes: row.get::<_, String>(8).unwrap_or_default(),
             })
         })
         .map_err(map_query_error)?;

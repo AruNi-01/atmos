@@ -63,12 +63,21 @@ fn prefix_rules_ok(name: &str, host_only: bool, secure: bool, path: &str) -> boo
 
 /// Normalize decrypted Chromium rows into an [`ExtractionResult`]. Pure and
 /// unit-testable: every row lands in `cookies` or exactly one `skipped_*`.
+///
+/// The Safe Storage passphrase is fetched LAZILY through `fetch_passphrase`,
+/// and only when a row that will actually be imported needs decryption (a
+/// non-empty `encrypted_value` with an empty `value_plain`). Profiles whose
+/// importable rows are all plaintext / expired / unsupported never invoke the
+/// provider, so no Keychain prompt is triggered. The result is memoized: the
+/// provider is called at most once per profile. A provider error (e.g. a denied
+/// Keychain) aborts the whole extraction.
 pub(crate) fn normalize_chromium_rows(
     rows: Vec<ChromiumFullRow>,
-    passphrase: &str,
+    mut fetch_passphrase: impl FnMut() -> Result<String, ExtractError>,
     now: i64,
-) -> ExtractionResult {
+) -> Result<ExtractionResult, ExtractError> {
     let mut result = ExtractionResult::default();
+    let mut passphrase: Option<String> = None;
 
     for row in rows {
         // 1. Partitioned / CHIPS: safe-skip (never downgrade).
@@ -100,11 +109,20 @@ pub(crate) fn normalize_chromium_rows(
             continue;
         }
 
-        // 4. Value: prefer plaintext column, else decrypt the BLOB.
+        // 4. Value: prefer plaintext column, else decrypt the BLOB. The
+        //    passphrase is fetched only here, on first actual decryption need.
         let value = if !row.value_plain.is_empty() {
             row.value_plain.clone()
         } else if !row.encrypted_value.is_empty() {
-            match decrypt_chromium_value(&row.encrypted_value, &row.host_key, passphrase) {
+            let pass = match &passphrase {
+                Some(p) => p.clone(),
+                None => {
+                    let fetched = fetch_passphrase()?;
+                    passphrase = Some(fetched.clone());
+                    fetched
+                }
+            };
+            match decrypt_chromium_value(&row.encrypted_value, &row.host_key, &pass) {
                 Ok(v) => v,
                 Err(DecryptError::Utf8) => {
                     result.skipped_parse += 1;
@@ -138,7 +156,7 @@ pub(crate) fn normalize_chromium_rows(
         });
     }
 
-    result
+    Ok(result)
 }
 
 /// Normalize Firefox rows (plaintext values, no decryption).
@@ -146,6 +164,15 @@ pub(crate) fn normalize_firefox_rows(rows: Vec<FirefoxFullRow>, now: i64) -> Ext
     let mut result = ExtractionResult::default();
 
     for row in rows {
+        // Container (`^userContextId=...`) / partitioned (`^partitionKey=...`)
+        // cookies carry a non-empty originAttributes. Safe-skip them (mirror the
+        // Chromium partitioned skip) so their narrower send scope is never
+        // widened by importing them into the unpartitioned store.
+        if !row.origin_attributes.is_empty() {
+            result.skipped_unsupported += 1;
+            continue;
+        }
+
         let host_only = !row.host.starts_with('.');
         let same_site = firefox_same_site(row.same_site);
         let has_expires = row.expiry != 0;
@@ -163,10 +190,8 @@ pub(crate) fn normalize_firefox_rows(rows: Vec<FirefoxFullRow>, now: i64) -> Ext
             continue;
         }
 
-        if row.value.is_empty() {
-            result.skipped_parse += 1;
-            continue;
-        }
+        // An empty value is a legal Firefox cookie value (stored as plaintext),
+        // so it is retained rather than counted as a parse failure.
 
         result.cookies.push(ImportedCookie {
             identity: CookieIdentity {
@@ -238,8 +263,12 @@ pub fn extract(handle: &ProfileHandle) -> Result<ExtractionResult, ExtractError>
         }
         let conn = open_readonly(&p.cookie_db)?;
         let rows = read_chromium_full(&conn)?;
-        let passphrase = safe_storage_passphrase(&p.safe_storage_service)?;
-        return Ok(normalize_chromium_rows(rows, &passphrase, now_unix()));
+        let service = p.safe_storage_service.clone();
+        return normalize_chromium_rows(
+            rows,
+            || safe_storage_passphrase(&service),
+            now_unix(),
+        );
     }
 
     // Then Firefox.
@@ -293,7 +322,7 @@ mod tests {
         for (raw, expected) in states {
             let mut row = chromium_row("c", "example.com", "v");
             row.samesite = raw;
-            let out = normalize_chromium_rows(vec![row], PASS, NOW);
+            let out = normalize_chromium_rows(vec![row], || Ok(PASS.to_string()), NOW).unwrap();
             assert_eq!(out.cookies.len(), 1, "raw={raw}");
             assert_eq!(out.cookies[0].same_site, expected, "raw={raw}");
         }
@@ -311,7 +340,7 @@ mod tests {
         let mut unsupported = chromium_row("weird", "example.com", "x");
         unsupported.encrypted_value = b"v20-abe-only".to_vec();
 
-        let out = normalize_chromium_rows(vec![good, bad, unsupported], PASS, NOW);
+        let out = normalize_chromium_rows(vec![good, bad, unsupported], || Ok(PASS.to_string()), NOW).unwrap();
         assert_eq!(out.cookies.len(), 1);
         assert_eq!(out.cookies[0].identity.name, "good");
         assert_eq!(out.skipped_decrypt, 2);
@@ -328,7 +357,7 @@ mod tests {
         // legal __Host- cookie: host-only, secure, path "/".
         let legal = chromium_row("__Host-ok", "example.com", "v");
 
-        let out = normalize_chromium_rows(vec![illegal, legal], PASS, NOW);
+        let out = normalize_chromium_rows(vec![illegal, legal], || Ok(PASS.to_string()), NOW).unwrap();
         assert_eq!(out.skipped_unsupported, 1);
         assert_eq!(out.cookies.len(), 1);
         assert_eq!(out.cookies[0].identity.name, "__Host-ok");
@@ -338,7 +367,7 @@ mod tests {
     fn secure_prefix_requires_secure_flag() {
         let mut insecure = chromium_row("__Secure-tok", "example.com", "v");
         insecure.is_secure = false;
-        let out = normalize_chromium_rows(vec![insecure], PASS, NOW);
+        let out = normalize_chromium_rows(vec![insecure], || Ok(PASS.to_string()), NOW).unwrap();
         assert_eq!(out.skipped_unsupported, 1);
         assert!(out.cookies.is_empty());
     }
@@ -347,7 +376,7 @@ mod tests {
     fn partitioned_cookies_are_safe_skipped_not_downgraded() {
         let mut partitioned = chromium_row("pc", "example.com", "v");
         partitioned.has_partition = true;
-        let out = normalize_chromium_rows(vec![partitioned], PASS, NOW);
+        let out = normalize_chromium_rows(vec![partitioned], || Ok(PASS.to_string()), NOW).unwrap();
         assert_eq!(out.skipped_unsupported, 1);
         assert!(out.cookies.is_empty());
     }
@@ -368,7 +397,7 @@ mod tests {
         expired.is_persistent = true;
         expired.expires_utc = ((NOW - 1000) + CHROMIUM_EPOCH_OFFSET_SECS) * 1_000_000;
 
-        let out = normalize_chromium_rows(vec![session, future, expired], PASS, NOW);
+        let out = normalize_chromium_rows(vec![session, future, expired], || Ok(PASS.to_string()), NOW).unwrap();
         assert_eq!(out.skipped_expired, 1);
         assert_eq!(out.cookies.len(), 2);
 
@@ -385,7 +414,7 @@ mod tests {
     fn host_only_derived_from_leading_dot() {
         let host_only = chromium_row("a", "example.com", "v");
         let domain = chromium_row("b", ".example.com", "v");
-        let out = normalize_chromium_rows(vec![host_only, domain], PASS, NOW);
+        let out = normalize_chromium_rows(vec![host_only, domain], || Ok(PASS.to_string()), NOW).unwrap();
         let a = out.cookies.iter().find(|c| c.identity.name == "a").unwrap();
         let b = out.cookies.iter().find(|c| c.identity.name == "b").unwrap();
         assert!(a.host_only);
@@ -404,6 +433,7 @@ mod tests {
                 is_secure: false,
                 is_httponly: true,
                 same_site: 1,
+                origin_attributes: String::new(),
             },
             FirefoxFullRow {
                 host: "example.com".into(),
@@ -414,6 +444,7 @@ mod tests {
                 is_secure: false,
                 is_httponly: false,
                 same_site: 0,
+                origin_attributes: String::new(),
             },
             FirefoxFullRow {
                 host: "example.com".into(),
@@ -424,6 +455,7 @@ mod tests {
                 is_secure: false,
                 is_httponly: false,
                 same_site: 2,
+                origin_attributes: String::new(),
             },
         ];
         let out = normalize_firefox_rows(rows, NOW);
@@ -439,5 +471,95 @@ mod tests {
         assert_eq!(unspec.same_site, SameSite::Unspecified);
         assert!(unspec.host_only);
         assert!(!unspec.has_expires);
+    }
+
+    fn firefox_row(name: &str, host: &str, value: &str) -> FirefoxFullRow {
+        FirefoxFullRow {
+            host: host.to_string(),
+            name: name.to_string(),
+            value: value.to_string(),
+            path: "/".to_string(),
+            expiry: NOW + 500,
+            is_secure: false,
+            is_httponly: false,
+            same_site: 0,
+            origin_attributes: String::new(),
+        }
+    }
+
+    #[test]
+    fn firefox_origin_attributes_rows_are_safe_skipped() {
+        // Container / partitioned cookies (non-empty originAttributes) must not
+        // be imported into the unpartitioned store.
+        let mut container = firefox_row("cid", "example.com", "v");
+        container.origin_attributes = "^userContextId=2".to_string();
+        let plain = firefox_row("plain", "example.com", "v");
+
+        let out = normalize_firefox_rows(vec![container, plain], NOW);
+        assert_eq!(out.skipped_unsupported, 1);
+        assert_eq!(out.cookies.len(), 1);
+        assert_eq!(out.cookies[0].identity.name, "plain");
+        assert!(!out.cookies.iter().any(|c| c.identity.name == "cid"));
+    }
+
+    #[test]
+    fn firefox_empty_value_is_imported_not_skipped() {
+        // Empty is a legal Firefox cookie value; it must be retained.
+        let empty = firefox_row("consent", "example.com", "");
+        let out = normalize_firefox_rows(vec![empty], NOW);
+        assert_eq!(out.skipped_parse, 0);
+        assert_eq!(out.cookies.len(), 1);
+        assert_eq!(out.cookies[0].identity.name, "consent");
+        assert_eq!(out.cookies[0].value, "");
+    }
+
+    #[test]
+    fn passphrase_not_fetched_when_no_row_needs_decryption() {
+        // A plaintext row (value_plain set, encrypted_value empty).
+        let mut plain = chromium_row("p", "example.com", "");
+        plain.encrypted_value = Vec::new();
+        plain.value_plain = "hello".to_string();
+        // An expired row (skipped before reaching decryption).
+        let mut expired = chromium_row("e", "example.com", "x");
+        expired.is_persistent = true;
+        expired.expires_utc = ((NOW - 1000) + CHROMIUM_EPOCH_OFFSET_SECS) * 1_000_000;
+
+        let mut called = false;
+        let out = normalize_chromium_rows(
+            vec![plain, expired],
+            || {
+                called = true;
+                Ok(PASS.to_string())
+            },
+            NOW,
+        )
+        .unwrap();
+
+        assert!(!called, "passphrase provider must not be invoked");
+        assert_eq!(out.cookies.len(), 1);
+        assert_eq!(out.cookies[0].identity.name, "p");
+        assert_eq!(out.cookies[0].value, "hello");
+        assert_eq!(out.skipped_expired, 1);
+    }
+
+    #[test]
+    fn passphrase_fetched_once_when_a_row_needs_decryption() {
+        // Two encrypted rows: the provider must be memoized (called exactly once).
+        let a = chromium_row("a", "example.com", "one");
+        let b = chromium_row("b", "example.com", "two");
+
+        let mut calls = 0usize;
+        let out = normalize_chromium_rows(
+            vec![a, b],
+            || {
+                calls += 1;
+                Ok(PASS.to_string())
+            },
+            NOW,
+        )
+        .unwrap();
+
+        assert_eq!(calls, 1, "passphrase provider must be memoized");
+        assert_eq!(out.cookies.len(), 2);
     }
 }
