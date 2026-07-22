@@ -1,0 +1,236 @@
+apps/web/messages/zh.json
+  s_ea7b99ae69ed55::t_350d624c823d0e 7878-7879
+  s_70497cc07acbd5::t_ee2ea58cea094c 3114-3115
+  s_ea7b99ae69ed55::t_aeb2e7858cc2f0 7872-7873,7875-7876
+  s_70497cc07acbd5::t_29519bbb0ba4d0 6720,6722
+  s_70497cc07acbd5::t_4e26ce8bd0c746 7866-7867,7870-7871
+  s_ea7b99ae69ed55::t_791ccc9c006be9 7874
+  s_ea7b99ae69ed55::t_b3ca2d9639aa42 3112
+  s_ea7b99ae69ed55::t_d61d704cfd64c6 7877
+  s_ea7b99ae69ed55::t_653429d706fff8 6721
+  s_ea7b99ae69ed55::t_2179426ac379bb 7865,7868-7869,7880
+  s_ea7b99ae69ed55::t_e113446f5931f6 3111,3113,3116
+specs/APP/APP-040_composer-skills-disable/TEST.md
+  s_70497cc07acbd5::t_f4facf8b474a3d 6-8,14-16,19,25-30,34,38-42,44-46,50-51,57-59,61,63,65-66,68,71-78,82-84,93,96-98,100
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  s_ea7b99ae69ed55::t_37b0d668bebe5b 446,456,466,472-473,477-478,484,486-491
+  s_ea7b99ae69ed55::t_829a640fd48267 910
+  s_ea7b99ae69ed55::t_188770fcb02629 1087
+  s_70497cc07acbd5::t_867392ad919233 495
+  s_ea7b99ae69ed55::t_fbe66c5edd29ea 482
+  s_ea7b99ae69ed55::t_ea079c8c326220 551,555,564
+  s_ea7b99ae69ed55::t_5ac1e35abecc52 8
+  s_ea7b99ae69ed55::t_1f9b031fb10706 158-160
+  s_ea7b99ae69ed55::t_867dc8e12331e6 426-427
+  s_ea7b99ae69ed55::t_3cc1bccab47b61 475,479-481,483,485
+  s_ea7b99ae69ed55::t_7faa866891f64b 772
+  s_ea7b99ae69ed55::t_f3fef2d17a2fa4 451,463
+  s_ea7b99ae69ed55::t_489724debdd68c 552,558
+  s_ea7b99ae69ed55::t_721093db697149 474,476
+  s_ea7b99ae69ed55::t_986f952a384e04 1048-1058,1069,1071,1074,1076-1083,1086,1088,1096
+  s_ea7b99ae69ed55::t_2464c8d3f889a1 22,24-25,27,30-31
+  s_ea7b99ae69ed55::t_015f7659c03419 919
+  s_ea7b99ae69ed55::t_98ed33e9c1cdf8 436-437,442-445,447-450,452-455,457-462,464-465,467-471,492-494,496-498,517-544,550,553-554,556-557,559-563,565
+  s_ea7b99ae69ed55::t_8ecfaf26a1f3cb 269,271,273-275
+  s_ea7b99ae69ed55::t_7be1784eefba65 270,276
+  s_ea7b99ae69ed55::t_51315b026a6c6f 156-157,161
+  s_ea7b99ae69ed55::t_a05d7c1b2eeb6c 162-163
+  s_ea7b99ae69ed55::t_e9b0329450806d 974
+  s_ea7b99ae69ed55::t_be117eb0851703 969,973
+  s_ea7b99ae69ed55::t_d546ceb2a81545 566-578
+  s_ea7b99ae69ed55::t_cd13dd1363551b 212-220,238-240,243-248,250-253,255
+  s_ea7b99ae69ed55::t_741d0abe3710ac 967-968,970-971,979,981-995
+  s_ea7b99ae69ed55::t_db51bc349497d4 26,28-29
+  s_70497cc07acbd5::t_a9edfbe944f27d 241-242,249
+specs/APP/APP-040_composer-skills-disable/TECH.md
+  s_70497cc07acbd5::t_21c8515b30d556 7-16,22-25,28,31-44,48,52,57-60,72-82,88,90-91,95,97,99-105
+apps/docs/content/docs/(app)/how-it-works/dynamic-skills.zh.mdx
+  s_6f6cad2db701fd::t_cf9b80526afd1a 1-150
+apps/web/src/features/terminal/components/TerminalAgentInputShell.tsx
+  s_ea7b99ae69ed55::t_87ed6dd30bd6fe 36,59,109
+  s_ea7b99ae69ed55::t_b52d6130b1429d 37,60,110
+apps/web/src/features/welcome/components/SlashCommandPopover.tsx
+  s_70497cc07acbd5::t_6708bb611efa3a 247
+  s_70497cc07acbd5::t_b096c08d54c095 496,499,508-510
+  s_ea7b99ae69ed55::t_03da4279050e80 145-146
+  s_ea7b99ae69ed55::t_8425d9e8b2a3b7 176
+  s_ea7b99ae69ed55::t_bdf1bc6aa528d1 115,133,140-141,165-166,169-171,181
+  s_ea7b99ae69ed55::t_74099c3dba01e2 113-114,116-117,126-132,134-139,142-144,147-164,167-168,172-175,177-180
+  s_ea7b99ae69ed55::t_26f365c50b71f0 277-280,284-285,287-288,290-294,298,302,304-310,313-314
+  s_ea7b99ae69ed55::t_6b734f06f1c3a0 559-564
+  s_ea7b99ae69ed55::t_9091942c5d41ac 4-13,39-48,51,58,64,73-82,87,94,100,109,112,208-209,214-215,218-220,222-246,248-263,265-276,315-351,353,356,359-360,364,367-368,370-397,399-408,410,413,416-417,421,424-431,433-461,463-492,494-495,497-498,500-507,511-520,522-523,525-527,543-558,565-579,581-583,585-621
+  s_ea7b99ae69ed55::t_45226613e07b50 118-125
+  s_ea7b99ae69ed55::t_bb5d042b5635a4 521,524,528-542
+apps/web/messages/en.json
+  s_ea7b99ae69ed55::t_c8a2cdc3078c19 3111,3113,3116
+  s_ea7b99ae69ed55::t_a6eec106c35951 7865,7868-7869,7880
+  s_70497cc07acbd5::t_f8e77868ac0a87 7866-7867,7870-7871
+  s_70497cc07acbd5::t_6f784bc76d5135 3114-3115
+  s_ea7b99ae69ed55::t_46b12333dbc8a3 7872-7873,7875-7876
+  s_ea7b99ae69ed55::t_2150daac78a3b6 7877
+  s_ea7b99ae69ed55::t_e9e18c05e595fa 7878-7879
+  s_ea7b99ae69ed55::t_65c607f84511aa 6721
+  s_70497cc07acbd5::t_9d7af195b02f63 6720,6722
+  s_ea7b99ae69ed55::t_ac1c232e68927a 3112
+  s_ea7b99ae69ed55::t_20187b898de842 7874
+apps/docs/content/docs/(app)/features/skill-management.zh.mdx
+  s_6f6cad2db701fd::t_3956d780b97e8c 32-39
+specs/APP/APP-040_composer-skills-disable/BRAINSTORM.md
+  s_70497cc07acbd5::t_7869dcdae210fa 20-22,45-64,67,74-78
+apps/docs/content/docs/(app)/features/skill-management.mdx
+  s_6f6cad2db701fd::t_ca04a3626eac77 32-39
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  s_70497cc07acbd5::t_1b875f045d7782 501
+  s_ea7b99ae69ed55::t_6a1d48cac5d582 528,532,541
+  s_ea7b99ae69ed55::t_a1b6b80da3e158 226-248,251-259,261-265
+  s_ea7b99ae69ed55::t_ecb1b474ab3013 888-897,900,905-906,908,911,913,917-918
+  s_ea7b99ae69ed55::t_2c611501ace4e4 527,530-531,533-534,536-540
+  s_ea7b99ae69ed55::t_abf2958131cb08 993-994,1008
+  s_ea7b99ae69ed55::t_38b587d6de8f58 543-555
+  s_ea7b99ae69ed55::t_0afcb6181d8740 397
+  s_ea7b99ae69ed55::t_1070737376a72f 144-145
+  s_ea7b99ae69ed55::t_d8aea956e7053a 54,56-57
+  s_ea7b99ae69ed55::t_e22fcb29752b65 703-705
+  s_ea7b99ae69ed55::t_85bb0952b7e50b 1009
+  s_ea7b99ae69ed55::t_9105892462d7f1 488
+  s_ea7b99ae69ed55::t_742b69e1cf8935 27,31
+  s_ea7b99ae69ed55::t_48702b8abaecd3 912
+  s_ea7b99ae69ed55::t_de28787ad260d1 140-142
+  s_ea7b99ae69ed55::t_525cb388f12344 529,535
+  s_ea7b99ae69ed55::t_fbe692005bb62d 992,999
+  s_ea7b99ae69ed55::t_0f3a5a7af675de 452,462,472,478-480,482-484,490,492-497
+  s_ea7b99ae69ed55::t_fcbeec84d72c31 481,485-487,489,491
+  s_ea7b99ae69ed55::t_b752dcde284ff9 138-139,143
+  s_ea7b99ae69ed55::t_cd0ddd0a727ffe 991,995-996,1006
+  s_ea7b99ae69ed55::t_5d744907aef5ad 49-53,55,58
+  s_ea7b99ae69ed55::t_d1f8b2362a98bf 457,469
+  s_70497cc07acbd5::t_811773e6c90b31 249-250,260
+  s_ea7b99ae69ed55::t_af2ff87becc180 406-407,418-419,436-437,448-451,453-456,458-461,463-468,470-471,473-477,498-500,502-507,515,517,521
+  s_595f0cb1fe6f3a::t_f997675bae90fc 542
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  s_ea7b99ae69ed55::t_c713e2df418c4b 1198-1199
+  s_ea7b99ae69ed55::t_614dc3688fdf00 75-81,83,99
+  s_ea7b99ae69ed55::t_91c3de1fda0c95 744-747,759-762,766-774
+  s_ea7b99ae69ed55::t_32c25e8f47c1ff 74,82,84
+  s_ea7b99ae69ed55::t_6e7b92528bbc44 714-743,763-765,775-780,800-806,809,820-821,823-824,834,843,849-850,861-865,880,903-906,913,917-922,951,955
+  s_ea7b99ae69ed55::t_64eebafa037d2c 16-18,21,23
+  s_ea7b99ae69ed55::t_470d5b5e0000e9 20
+  s_ea7b99ae69ed55::t_0ee678321d5b56 835,851-852
+  s_ea7b99ae69ed55::t_086c48f88ecdff 1149-1150,1152-1155,1157-1162,1165,1174,1209-1210,1212-1218,1220-1222,1224-1229,1231
+  s_ea7b99ae69ed55::t_a88f094f2ad2cf 1442
+  s_ea7b99ae69ed55::t_540ba11f0dde27 1477
+  s_ea7b99ae69ed55::t_b94a336e97dab2 781-799,822
+  s_ea7b99ae69ed55::t_028c556f269e06 1156,1163-1164,1166-1173,1175-1190,1192-1197,1200-1203,1208,1219,1230
+  s_ea7b99ae69ed55::t_4941e614902812 807-808,810-819
+  s_ea7b99ae69ed55::t_69e69a0c084ab9 100-101
+  s_ea7b99ae69ed55::t_60eb9c577d5d26 113
+  s_ea7b99ae69ed55::t_8a3e1b957bb597 356
+  s_ea7b99ae69ed55::t_29c12fed48709f 330-332,335-336,338-339
+  s_ea7b99ae69ed55::t_fd1fd86e016e9d 957-980
+  s_ea7b99ae69ed55::t_060eb72da5a4dd 1421-1424,1432,1435-1438,1441
+  s_ea7b99ae69ed55::t_07fde68fc8b00f 844-848,866-879,881
+  s_ea7b99ae69ed55::t_d3ce2e769989fc 1274-1279,1310,1329,1347-1351
+  s_ea7b99ae69ed55::t_74b8f745608d39 333-334,337,340-355,357
+  s_ea7b99ae69ed55::t_3a05c9a8e6227a 1151
+  s_ea7b99ae69ed55::t_0af0f91511ad79 1020
+  s_ea7b99ae69ed55::t_7aec762b9ae1d8 1191,1204-1207,1211,1223
+  s_ea7b99ae69ed55::t_77b0f09f7f1e39 748-758
+  s_ea7b99ae69ed55::t_6f712d73102a96 19
+  s_ea7b99ae69ed55::t_54a68c613d0261 124,134
+  s_ea7b99ae69ed55::t_0d19166386c39b 22
+  s_ea7b99ae69ed55::t_e67e9d65398260 907-912,914-916,923-950,952-954,956
+  s_ea7b99ae69ed55::t_9340c8f99ba5c9 981
+crates/core-service/src/service/skill/scanner.rs
+  s_ea7b99ae69ed55::t_87f044a3460779 4
+  s_ea7b99ae69ed55::t_fc3139dd778002 342-343
+apps/docs/content/docs/(app)/meta.zh.json
+  s_6f6cad2db701fd::t_29331950d0ea39 13-14
+apps/web/src/features/welcome/components/WelcomeComposerCard.tsx
+  s_ea7b99ae69ed55::t_fcf7d04172d6d3 37,70,108
+  s_ea7b99ae69ed55::t_2d29e08a74fe29 38,71,109
+specs/APP/APP-040_composer-skills-disable/PRD.md
+  s_70497cc07acbd5::t_345525c7281f26 5-11,16,24-29,31,37,39,45-46,50-51,54-61
+apps/web/src/features/skills/lib/skill-disable-protocol.ts
+  s_ea7b99ae69ed55::t_f76dacac551eab 1,3,27-35,39-44,94
+  s_ea7b99ae69ed55::t_1557da5d817b98 2,8-9,20-21,36-38,45-49,56
+  s_ea7b99ae69ed55::t_b21b1a055f7290 10,22-26,51,61,69,76,78-80,83-84,87-93
+  s_ea7b99ae69ed55::t_ddaf5ac57791b4 4-7,11-19,50,52-55,57-60,62-68,70-75,77,81-82,85-86
+apps/web/src/features/welcome/hooks/use-welcome-slash-navigation.ts
+  s_ea7b99ae69ed55::t_352982e4ebef6c 31-32,45
+  s_ea7b99ae69ed55::t_e7fcc64fc6e95f 122,155-164
+  s_ea7b99ae69ed55::t_1486735273c8ff 143
+apps/docs/content/docs/(app)/meta.json
+  s_6f6cad2db701fd::t_e94205b4a3eb0d 13-14
+apps/web/src/features/welcome/lib/slash-skill-context.ts
+  s_ea7b99ae69ed55::t_5323edb3d552b6 2,9
+apps/docs/content/docs/(app)/how-it-works/meta.json
+  s_6f6cad2db701fd::t_605fe52ee2471d 1-4
+apps/docs/content/docs/(app)/how-it-works/meta.zh.json
+  s_6f6cad2db701fd::t_c017e7af48f81e 1-4
+crates/core-service/src/service/skill.rs
+  s_70497cc07acbd5::t_5699804100a894 102,106
+  s_70497cc07acbd5::t_743a0dc15819f2 97-101,107
+  s_70497cc07acbd5::t_f321c06ec9fef6 103-105
+  s_70497cc07acbd5::t_b788436c6cea34 25-37
+  s_70497cc07acbd5::t_6a3be34852fc48 225-283
+  s_70497cc07acbd5::t_da8a52318ef8f9 21
+crates/core-service/src/service/skill/tests.rs
+  s_70497cc07acbd5::t_ce43f36a638148 309-318
+  s_70497cc07acbd5::t_d28f0032220427 377-382
+  s_ea7b99ae69ed55::t_d879c4851b8292 265-269
+  s_70497cc07acbd5::t_61ffa27ad24000 248-257,274-279
+  s_70497cc07acbd5::t_ceff3b57dc0161 369,372-376
+  s_ea7b99ae69ed55::t_9fa56df48e996a 326-330
+  s_ea7b99ae69ed55::t_79dca4c10b1442 383,401-405
+apps/web/src/features/welcome/hooks/use-welcome-slash-search.ts
+  s_ea7b99ae69ed55::t_3cc45d7b898caa 5-6,15-22,35,37-40,102
+apps/web/src/features/skills/hooks/use-composer-disable-skills.ts
+  s_ea7b99ae69ed55::t_bdb4a548c4fc83 1-148
+apps/docs/content/docs/(app)/how-it-works/dynamic-skills.mdx
+  s_6f6cad2db701fd::t_e97f4f2df89750 1-150
+apps/web/src/features/terminal/components/TerminalAgentInputPopovers.tsx
+  s_ea7b99ae69ed55::t_017e20be9a93ce 6-9,17,28,39,48,56,60,71,80,88,107,115,121,128
+  s_ea7b99ae69ed55::t_f0572285c90372 5
+crates/core-service/src/service/skill/support.rs
+  s_70497cc07acbd5::t_2afcc7e87496c9 149-150,161,172,180-191,197-199,202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f2773e9cd5f82c40022c570ae803a7c4c54dd868",
+  "prompts": {},
+  "sessions": {
+    "s_595f0cb1fe6f3a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "cab5d20f-507f-42c6-adfb-17ebf491f3b4",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6f6cad2db701fd": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "5b7b26cd-c510-486b-899c-8f15ccbb8b96",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_70497cc07acbd5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "00b427c5-0348-4ce1-b1f9-773a1ee0a399",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ea7b99ae69ed55": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "dac15e8d-a823-48fb-be8c-869ee8a840c4",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
