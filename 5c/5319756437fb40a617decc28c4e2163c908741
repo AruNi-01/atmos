@@ -1,0 +1,32 @@
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  s_ea7b99ae69ed55::t_6686aead2c1ebf 45,61,89,92-93,103
+apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx
+  s_ea7b99ae69ed55::t_7290748c1bd42f 332
+  s_ea7b99ae69ed55::t_8f15ad011b43c4 76
+  s_ea7b99ae69ed55::t_fd69a3bab5329e 35
+apps/web/src/features/terminal/components/terminal-mosaic-scoped-pane-window.tsx
+  s_ea7b99ae69ed55::t_451adfb73c4dc9 188
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  s_ea7b99ae69ed55::t_b9d3bef15f6a2b 164
+apps/web/src/features/terminal/components/terminal-mosaic-workspace-pane-window.tsx
+  s_ea7b99ae69ed55::t_262c0b76a4d3f7 218
+apps/web/src/features/terminal/components/TerminalSideChatLayer.tsx
+  s_ea7b99ae69ed55::t_0fcb484fe67341 23,38
+  s_ea7b99ae69ed55::t_605e466105d15f 71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5c5319756437fb40a617decc28c4e2163c908741",
+  "prompts": {},
+  "sessions": {
+    "s_ea7b99ae69ed55": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "dac15e8d-a823-48fb-be8c-869ee8a840c4",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
