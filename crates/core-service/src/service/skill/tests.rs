@@ -245,7 +245,16 @@ fn project_disable_moves_skill_into_disabled_storage() {
 
     SkillManager::set_enabled(&project_paths, skill_id, false, None).expect("disable");
 
-    assert!(!project.join(".claude/skills/demo").exists());
+    assert!(
+        project
+            .join(".claude/skills/demo/SKILL_DISABLED.md")
+            .exists(),
+        "live path should keep a non-SKILL.md disabled marker"
+    );
+    assert!(
+        !project.join(".claude/skills/demo/SKILL.md").exists(),
+        "live path must not keep SKILL.md after disable"
+    );
     assert!(project
         .join(".atmos/skills/.disabled/.claude/skills/demo/SKILL.md")
         .exists());
@@ -253,10 +262,21 @@ fn project_disable_moves_skill_into_disabled_storage() {
     let skills = SkillScanner::scan_all(&project_paths);
     let skill = skills.iter().find(|s| s.id == skill_id).expect("skill");
     assert_eq!(skill.status, "disabled");
+    assert!(
+        skills.iter().all(|s| s.name != "SKILL_DISABLED"),
+        "live-path SKILL_DISABLED.md must not appear as a skill, got {:?}",
+        skills.iter().map(|s| &s.name).collect::<Vec<_>>(),
+    );
 
     // Re-enable restores original path.
     SkillManager::set_enabled(&project_paths, skill_id, true, None).expect("enable");
     assert!(project.join(".claude/skills/demo/SKILL.md").exists());
+    assert!(
+        !project
+            .join(".claude/skills/demo/SKILL_DISABLED.md")
+            .exists(),
+        "disabled marker must be removed on enable"
+    );
 }
 
 #[test]
@@ -286,7 +306,16 @@ fn workspace_copy_disable_is_local_to_workplace() {
         project.join(".claude/skills/demo/SKILL.md").exists(),
         "project copy must stay"
     );
-    assert!(!workplace.join(".claude/skills/demo").exists());
+    assert!(
+        workplace
+            .join(".claude/skills/demo/SKILL_DISABLED.md")
+            .exists(),
+        "workplace live path should keep disabled marker"
+    );
+    assert!(
+        !workplace.join(".claude/skills/demo/SKILL.md").exists(),
+        "workplace must not keep SKILL.md after disable"
+    );
     assert!(workplace
         .join(".atmos/skills/.disabled/.claude/skills/demo/SKILL.md")
         .exists());
@@ -294,6 +323,11 @@ fn workspace_copy_disable_is_local_to_workplace() {
     let skills = SkillScanner::scan_root(&root, ScanMode::Lazy);
     let skill = skills.iter().find(|s| s.id == skill_id).expect("skill");
     assert_eq!(skill.status, "disabled");
+    assert!(
+        skills.iter().all(|s| s.name != "SKILL_DISABLED"),
+        "live-path SKILL_DISABLED.md must not appear as a skill, got {:?}",
+        skills.iter().map(|s| &s.name).collect::<Vec<_>>(),
+    );
 }
 
 #[cfg(unix)]
@@ -332,8 +366,20 @@ fn workspace_parent_symlink_disable_does_not_mutate_project() {
         "sibling project skill must remain"
     );
     assert!(
-        !workplace.join(".claude/skills/demo").exists(),
+        !workplace.join(".claude/skills/demo/SKILL.md").exists(),
         "workplace must no longer expose enabled demo skill"
+    );
+    assert!(
+        workplace
+            .join(".claude/skills/demo/SKILL_DISABLED.md")
+            .exists(),
+        "workplace live path should keep disabled marker"
+    );
+    assert!(
+        !project
+            .join(".claude/skills/demo/SKILL_DISABLED.md")
+            .exists(),
+        "project must not receive the workplace disabled marker"
     );
     assert!(
         workplace
@@ -352,4 +398,9 @@ fn workspace_parent_symlink_disable_does_not_mutate_project() {
         .find(|s| s.id == "workspace::ws-1::keep")
         .expect("keep");
     assert_eq!(keep.status, "enabled");
+    assert!(
+        skills.iter().all(|s| s.name != "SKILL_DISABLED"),
+        "live-path SKILL_DISABLED.md must not appear as a skill, got {:?}",
+        skills.iter().map(|s| &s.name).collect::<Vec<_>>(),
+    );
 }

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 import { Bot } from "lucide-react";
 
+import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   buildPipedAgentTerminalInput,
@@ -18,9 +19,16 @@ import {
 } from "@/features/welcome/components/PromptComposer";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import {
-  ComposerSkillsControl,
+  useComposerDisableSkills,
   type ComposerSkillsContext,
-} from "@/features/skills/components/ComposerSkillsControl";
+} from "@/features/skills/hooks/use-composer-disable-skills";
+import {
+  SKILL_DISABLE_DISMISS_SECONDS,
+  stripSkillDisableSession,
+  upsertSkillDisableSessionAction,
+  type SkillDisableSessionAction,
+} from "@/features/skills/lib/skill-disable-protocol";
+import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 import {
   type MentionNavItem,
@@ -145,6 +153,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [flyingMessage, setFlyingMessage] = React.useState<TerminalAgentFlyingMessage | null>(null);
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
+  const [slashPopoverView, setSlashPopoverView] = React.useState<SlashPopoverView>("menu");
+  const [skillDisableFilter, setSkillDisableFilter] = React.useState("");
+  const [skillDisableSessionActions, setSkillDisableSessionActions] = React.useState<
+    SkillDisableSessionAction[]
+  >([]);
+  const suppressSlashCancelRef = React.useRef(false);
+  const slashPopoverViewRef = React.useRef<SlashPopoverView>("menu");
+  slashPopoverViewRef.current = slashPopoverView;
   const [pendingSidePrompt, setPendingSidePrompt] = React.useState<string | null>(null);
   const [pendingSideContexts, setPendingSideContexts] = React.useState<TerminalPromptContext[]>([]);
   const [pendingCommandKind, setPendingCommandKind] = React.useState<"side" | "spawn">("side");
@@ -193,6 +209,15 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const shouldShowSideChatAgentSelector =
     isContextCommandActive && sideChatAgentMenuOptions.length > 0;
 
+  const {
+    error: disableSkillsError,
+    loading: disableSkillsLoading,
+    loadSkills: loadDisableSkills,
+    pendingId: disableSkillsPendingId,
+    setEnabled: setDisableSkillEnabled,
+    skills: disableSkillsList,
+  } = useComposerDisableSkills(skillsContext ?? null);
+
   const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
     const query = slashPopover?.query.trim().toLowerCase() ?? "";
     const commands: SlashCommandOption[] = [];
@@ -210,8 +235,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         description: t("spawnCommand.description"),
       });
     }
+    if (
+      skillsContext &&
+      (!query ||
+        "dynamic-skills".includes(query) ||
+        "dynamic skills".includes(query) ||
+        "disable-skill".includes(query) ||
+        "disable skill".includes(query) ||
+        "disable".includes(query) ||
+        "skill".includes(query))
+    ) {
+      commands.push({
+        id: "dynamic-skills",
+        label: t("disableSkillCommand.label"),
+        description: t("disableSkillCommand.description"),
+      });
+    }
     return commands;
-  }, [onSpawn, onStartSideChat, slashPopover?.query, t]);
+  }, [onSpawn, onStartSideChat, skillsContext, slashPopover?.query, t]);
 
   const focusComposerSoon = React.useCallback(() => {
     window.requestAnimationFrame(() => composerRef.current?.focus());
@@ -225,7 +266,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       return next;
     });
     setMentionPopover(null);
+    if (slashPopoverViewRef.current === "disable_skills") {
+      composerRef.current?.beginSkillDisableChipDismiss(SKILL_DISABLE_DISMISS_SECONDS);
+    }
     setSlashPopover(null);
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
   }, [focusComposerSoon, isSendAnimating, isSendExiting]);
 
   const togglePin = React.useCallback(() => {
@@ -375,7 +423,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   });
 
   const selectSlashSkill = React.useCallback(
-    (skill: { path: string; name: string }) => {
+    (skill: { path: string; name: string; status?: string }) => {
+      if (skill.status === "disabled") return;
       const popover = slashPopover;
       if (!popover) return;
       composerRef.current?.applySlashAtRange(
@@ -384,23 +433,69 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         { kind: "skill", absolutePath: skill.path, name: skill.name },
       );
       setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
     },
     [slashPopover],
   );
 
-  const {
-    activeIndex: activeSlashItemIndex,
-    expandedSections,
-    listRef: slashPopoverListRef,
-    setExpandedSections,
-    setItemRef: setSlashItemRef,
-  } = useWelcomeSlashNavigation({
-    filteredAgents,
-    filteredCommands: slashCommands,
-    filteredProjects,
-    filteredSkills,
-    onSelectAgent: () => setSlashPopover(null),
-    onSelectCommand: (command) => {
+  const enterDisableSkillsView = React.useCallback(() => {
+    const popover = slashPopover;
+    if (!popover || !skillsContext) return;
+    suppressSlashCancelRef.current = true;
+    setSkillDisableSessionActions([]);
+    composerRef.current?.applySkillDisableCommandAtRange(
+      popover.slashOffset,
+      popover.query.length,
+    );
+    slashPopoverViewRef.current = "disable_skills";
+    setSlashPopoverView("disable_skills");
+    setSkillDisableFilter("");
+    void loadDisableSkills();
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focusSkillDisableFilter();
+      suppressSlashCancelRef.current = false;
+    });
+  }, [loadDisableSkills, skillsContext, slashPopover]);
+
+  const backFromDisableSkills = React.useCallback(() => {
+    suppressSlashCancelRef.current = true;
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
+    composerRef.current?.restoreSlashFromSkillDisable();
+    window.requestAnimationFrame(() => {
+      suppressSlashCancelRef.current = false;
+    });
+  }, []);
+
+  const toggleDisableSkill = React.useCallback(
+    async (skill: SkillInfo, enabled: boolean) => {
+      const beforeEnabled = skill.status !== "disabled";
+      const ok = await setDisableSkillEnabled(skill, enabled);
+      if (!ok) return;
+      setSkillDisableSessionActions((current) => {
+        const next = upsertSkillDisableSessionAction(
+          current,
+          skill.id,
+          skill.title || skill.name,
+          beforeEnabled,
+          enabled,
+        );
+        composerRef.current?.setSkillDisableSessionActions(next);
+        return next;
+      });
+    },
+    [setDisableSkillEnabled],
+  );
+
+  const selectSlashCommand = React.useCallback(
+    (command: SlashCommandOption) => {
+      if (command.id === "dynamic-skills") {
+        enterDisableSkillsView();
+        return;
+      }
       if (command.id !== "side" && command.id !== "spawn") return;
       const popover = slashPopover;
       if (!popover) return;
@@ -419,11 +514,67 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         );
       }
       setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
     },
-    onSelectProject: () => setSlashPopover(null),
+    [createCapturePromptContext, enterDisableSkillsView, slashPopover],
+  );
+
+  const {
+    activeIndex: activeSlashItemIndex,
+    expandedSections,
+    listRef: slashPopoverListRef,
+    setExpandedSections,
+    setItemRef: setSlashItemRef,
+  } = useWelcomeSlashNavigation({
+    enabled: slashPopoverView === "menu",
+    filteredAgents,
+    filteredCommands: slashCommands,
+    filteredProjects,
+    filteredSkills,
+    onSelectAgent: () => {
+      setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
+    },
+    onSelectCommand: selectSlashCommand,
+    onSelectProject: () => {
+      setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
+    },
     onSelectSkill: selectSlashSkill,
     popover: slashPopover,
   });
+
+  const closeSlashPopover = React.useCallback(() => {
+    if (slashPopoverViewRef.current === "disable_skills") {
+      composerRef.current?.beginSkillDisableChipDismiss(SKILL_DISABLE_DISMISS_SECONDS);
+    }
+    setSlashPopover(null);
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
+    setExpandedSections({
+      skills: false,
+      projects: false,
+      agents: false,
+    });
+  }, [setExpandedSections]);
+
+  const handleSkillDisableSessionClosed = React.useCallback(() => {
+    setSlashPopover(null);
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
+    setExpandedSections({
+      skills: false,
+      projects: false,
+      agents: false,
+    });
+  }, [setExpandedSections]);
 
   const handleTextChange = React.useCallback(
     (nextText: string) => {
@@ -618,7 +769,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   );
 
   const submit = React.useCallback(async () => {
-    const rawText = composerRef.current?.getText() ?? text;
+    const rawText = stripSkillDisableSession(composerRef.current?.getText() ?? text);
     if (!isTerminalReady || !rawText.trim() || isSending || isSendAnimating || isSendExiting) return;
     setIsSending(true);
     try {
@@ -756,6 +907,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, []);
 
   const handleSlashTrigger = React.useCallback((ctx: SlashTriggerContext) => {
+    if (slashPopoverViewRef.current === "disable_skills") return;
     const position = getTerminalAgentPopoverAboveCaret(ctx.caretRect);
     setMentionPopover(null);
     setSlashPopover({
@@ -764,6 +916,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       slashOffset: ctx.slashOffset,
       query: ctx.query,
     });
+    setSlashPopoverView("menu");
   }, []);
 
   return (
@@ -811,32 +964,35 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           onAtCancel={() => setMentionPopover(null)}
           onAtTrigger={handleAtTrigger}
           onPreviewAttachment={setPreviewAttachment}
-          onSlashCancel={() => setSlashPopover(null)}
+          onSlashCancel={() => {
+            if (suppressSlashCancelRef.current) return;
+            if (slashPopoverViewRef.current === "disable_skills") return;
+            closeSlashPopover();
+          }}
           onSlashTrigger={handleSlashTrigger}
+          onSkillDisableFilterChange={setSkillDisableFilter}
+          onSkillDisableSessionClosed={handleSkillDisableSessionClosed}
           onSubmit={submit}
           placeholder={t("placeholder")}
           startSendExit={startSendExit}
           footerEndControl={
-            skillsContext || shouldShowSideChatAgentSelector ? (
+            shouldShowSideChatAgentSelector ? (
               <div className="flex items-center gap-1">
-                {skillsContext ? <ComposerSkillsControl context={skillsContext} /> : null}
-                {shouldShowSideChatAgentSelector ? (
-                  <div className={agentSelectorAttention ? "terminal-agent-selector-attention" : undefined}>
-                    <WelcomeAgentSelector
-                      availableAgents={sideChatAgentMenuOptions}
-                      contentAlign="end"
-                      onInteraction={onInteraction}
-                      onOpenChange={setSideChatAgentSelectorOpen}
-                      onRunConfigChange={handleSideChatRunConfigChange}
-                      onSelectAgent={handleSideChatAgentSelect}
-                      open={sideChatAgentSelectorOpen}
-                      purpose="interactive"
-                      runConfigByAgentId={sideChatRunConfigs}
-                      selectedAgentId={effectiveSelectedSideChatAgentId}
-                      triggerPlacement="inline"
-                    />
-                  </div>
-                ) : null}
+                <div className={agentSelectorAttention ? "terminal-agent-selector-attention" : undefined}>
+                  <WelcomeAgentSelector
+                    availableAgents={sideChatAgentMenuOptions}
+                    contentAlign="end"
+                    onInteraction={onInteraction}
+                    onOpenChange={setSideChatAgentSelectorOpen}
+                    onRunConfigChange={handleSideChatRunConfigChange}
+                    onSelectAgent={handleSideChatAgentSelect}
+                    open={sideChatAgentSelectorOpen}
+                    purpose="interactive"
+                    runConfigByAgentId={sideChatRunConfigs}
+                    selectedAgentId={effectiveSelectedSideChatAgentId}
+                    triggerPlacement="inline"
+                  />
+                </div>
               </div>
             ) : undefined
           }
@@ -889,6 +1045,17 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       <TerminalAgentInputPopovers
         activeMentionFileIndex={activeMentionFileIndex}
         activeSlashItemIndex={activeSlashItemIndex}
+        disableSkills={
+          slashPopoverView === "disable_skills"
+            ? {
+                filter: skillDisableFilter,
+                loading: disableSkillsLoading,
+                pendingId: disableSkillsPendingId,
+                skills: disableSkillsList,
+                error: disableSkillsError,
+              }
+            : null
+        }
         expandedSections={expandedSections}
         filteredAgents={filteredAgents}
         filteredCommands={slashCommands}
@@ -899,33 +1066,26 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         mentionFiles={mentionFiles}
         mentionPopover={mentionPopover}
         mentionPopoverListRef={mentionPopoverListRef}
+        onBackFromDisableSkills={backFromDisableSkills}
         onCloseMention={() => setMentionPopover(null)}
-        onCloseSlash={() => setSlashPopover(null)}
+        onCloseSlash={closeSlashPopover}
         onSelectMentionFile={selectMentionFile}
         onSelectMentionNavItem={selectMentionNavItem}
-        onSelectSlashAgent={() => setSlashPopover(null)}
-        onSelectSlashCommand={(command) => {
-          if (command.id !== "side" && command.id !== "spawn") return;
-          const popover = slashPopover;
-          if (!popover) return;
-          const context = createCapturePromptContext();
-          if (command.id === "spawn") {
-            composerRef.current?.applySpawnCommandAtRange(
-              popover.slashOffset,
-              popover.query.length,
-              context.contextId,
-            );
-          } else {
-            composerRef.current?.applySideCommandAtRange(
-              popover.slashOffset,
-              popover.query.length,
-              context.contextId,
-            );
-          }
+        onSelectSlashAgent={() => {
           setSlashPopover(null);
+          setSlashPopoverView("menu");
+          setSkillDisableFilter("");
         }}
-        onSelectSlashProject={() => setSlashPopover(null)}
+        onSelectSlashCommand={selectSlashCommand}
+        onSelectSlashProject={() => {
+          setSlashPopover(null);
+          setSlashPopoverView("menu");
+          setSkillDisableFilter("");
+        }}
         onSelectSlashSkill={selectSlashSkill}
+        onToggleDisableSkill={(skill, enabled) => {
+          void toggleDisableSkill(skill, enabled);
+        }}
         onClosePreviewAttachment={() => setPreviewAttachment(null)}
         previewAttachment={previewAttachment}
         setExpandedSections={setExpandedSections}
@@ -933,6 +1093,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         setSlashItemRef={setSlashItemRef}
         slashPopover={slashPopover}
         slashPopoverListRef={slashPopoverListRef}
+        slashPopoverView={slashPopoverView}
       />
       <TerminalAgentFlyingMessagePortal
         message={flyingMessage}

@@ -146,6 +146,8 @@ pub(super) fn move_entry_without_following_symlink(from: &Path, to: &Path) -> Re
 /// local symlink or a real local entry.
 pub(super) fn ensure_entry_local_to_root(root: &Path, path: &Path) -> Result<()> {
     let root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let path = normalize_mac_private_prefix(path);
+    let root = normalize_mac_private_prefix(&root);
     let mut guard = 0usize;
 
     loop {
@@ -156,7 +158,7 @@ pub(super) fn ensure_entry_local_to_root(root: &Path, path: &Path) -> Result<()>
             ));
         }
 
-        let metadata = fs::symlink_metadata(path).map_err(|e| {
+        let metadata = fs::symlink_metadata(&path).map_err(|e| {
             ServiceError::Validation(format!(
                 "Failed to inspect skill entry '{}': {}",
                 path.display(),
@@ -167,11 +169,23 @@ pub(super) fn ensure_entry_local_to_root(root: &Path, path: &Path) -> Result<()>
             return Ok(());
         }
 
-        let Some(ancestor) = find_symlink_ancestor(&root, path)? else {
+        let Some(ancestor) = find_symlink_ancestor(&root, &path)? else {
             return Ok(());
         };
 
         materialize_symlink_dir(&ancestor)?;
+    }
+}
+
+/// macOS often exposes the same directory as both `/var/...` and `/private/var/...`.
+/// `canonicalize(root)` yields the `/private` form while skill paths from scans may not,
+/// which breaks `starts_with` checks and skips parent-symlink materialization.
+fn normalize_mac_private_prefix(path: &Path) -> PathBuf {
+    let raw = path.to_string_lossy();
+    if let Some(stripped) = raw.strip_prefix("/private") {
+        PathBuf::from(stripped)
+    } else {
+        path.to_path_buf()
     }
 }
 
@@ -180,10 +194,12 @@ fn find_symlink_ancestor(root: &Path, path: &Path) -> Result<Option<PathBuf>> {
     let mut found = None;
 
     while let Some(candidate) = current {
-        if candidate == *root {
+        let candidate_norm = normalize_mac_private_prefix(&candidate);
+        let root_norm = normalize_mac_private_prefix(root);
+        if candidate_norm == root_norm {
             break;
         }
-        if !candidate.starts_with(root) {
+        if !candidate_norm.starts_with(&root_norm) {
             break;
         }
 

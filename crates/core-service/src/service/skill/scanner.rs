@@ -1,7 +1,7 @@
 use super::metadata::{extract_description, extract_from_frontmatter, strip_frontmatter};
 use super::support::{build_placement_id, build_skill_id, is_manageable_scope};
 use super::types::{ScanContext, ScanMode, ScanStatus, SkillEntryMeta};
-use super::{SkillScanner, DISABLED_STORAGE_REL_PATH};
+use super::{SkillScanner, DISABLED_STORAGE_REL_PATH, SKILL_DISABLED_MARKER};
 use crate::{SkillFile, SkillInfo, SkillPlacement};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -339,7 +339,8 @@ impl SkillScanner {
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            if entry_name.starts_with('.') {
+            if entry_name.starts_with('.') || entry_name == SKILL_DISABLED_MARKER {
+                // Live-path disable marker must not become a single-file skill.
                 continue;
             }
 

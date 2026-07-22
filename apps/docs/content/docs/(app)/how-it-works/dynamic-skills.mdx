@@ -1,0 +1,150 @@
+---
+title: Dynamic Skills
+description: Temporarily hide skills from Agents without leaving the composer or terminal.
+---
+
+Sometimes a skill is useful tomorrow and noisy today. **Dynamic Skills** lets you turn skills off (and back on) right where you prompt—Welcome / PromptComposer or the terminal AI Input—without opening the Skills page.
+
+It uses the same on-disk enable/disable mechanism as [Skill Management](/features/skill-management). This page explains what that means for Agents, projects, and workspaces.
+
+## When to use it
+
+| Situation | What Dynamic Skills does |
+|-----------|--------------------------|
+| A project skill keeps steering the Agent the wrong way | Disable it for this project; Skills page stays in sync |
+| A workspace synced skills from the project, but this task does not need one | Disable under the **workplace** only; the project copy stays untouched |
+| You already started an Agent session | Disable removes the live `SKILL.md` entrypoint so the current session cannot reload that path |
+
+Global skills remain toggleable when Atmos marks them manageable. System and Inside Project skills stay read-only.
+
+## Open Dynamic Skills
+
+1. Focus the Welcome composer or the terminal AI Input.
+2. Type `/` to open the slash command menu.
+3. Choose **Dynamic Skills**.
+4. Toggle skills in the list. Use **Back** or `Esc` to return to the slash menu.
+
+While the session is open, a red **Dynamic Skills** chip appears in the composer. Filter inside the chip, hover for a short summary of what you changed, and close the session when you are done.
+
+Disabled skills may still show in the `/` skill-insert list with a **Disabled** badge—they are not selectable until you turn them back on.
+
+## Project vs workspace scope
+
+```text
+                ┌─────────────────────┐
+  Welcome /     │  Project context    │  → disable under the project root
+  PromptComposer└─────────────────────┘     (same as Skills page)
+
+                ┌─────────────────────┐
+  Terminal AI   │  Project terminal   │  → project root
+  Input         ├─────────────────────┤
+                │  Workspace terminal │  → this workplace folder only
+                └─────────────────────┘
+```
+
+- **Project toggle** — moves the skill into `project/.atmos/skills/.disabled/...`. Opening Skills later shows the same disabled state.
+- **Workspace toggle** — moves the workplace-visible entry into `workplace/.atmos/skills/.disabled/...`. Other workspaces and the project tree are not the target.
+
+That split matters because workspaces often receive agent folders through **Ignored Folder Sync** (symlink or copy). Disabling “for this worktree” should not silently rewrite the project’s skills.
+
+## What disable looks like on disk
+
+Atmos does not flip a cloud flag. It changes files Agents discover.
+
+```text
+Before (enabled)                         After (disabled)
+
+.claude/skills/demo/                     .claude/skills/demo/
+  SKILL.md                                 SKILL_DISABLED.md   ← marker only
+  references/...                           (no SKILL.md)
+  ...
+
+                                         .atmos/skills/.disabled/
+                                           .claude/skills/demo/
+                                             SKILL.md          ← real skill tree
+                                             references/...
+```
+
+Two ideas to keep straight:
+
+1. **Storage of truth** — the real skill files live under `.atmos/skills/.disabled/...` while disabled.
+2. **Live marker** — the original folder keeps a `SKILL_DISABLED.md` file (never a fake `SKILL.md`). New discovery skips it; a session that still tries the old path no longer finds `SKILL.md`.
+
+Re-enable removes the marker, then moves the skill tree back to the live path.
+
+## Workspace sync: copy vs symlink
+
+### Copy sync
+
+The workplace already has its own files. Disable is a normal local move under the workplace root. The project’s skill directory is unchanged.
+
+```text
+project/.claude/skills/demo/SKILL.md     ← stays
+workplace/.claude/skills/demo/           ← moved to workplace .disabled
+                                           + SKILL_DISABLED.md at live path
+```
+
+### Symlink sync (parent link)
+
+Sync often looks like this at first:
+
+```text
+workplace/
+  .claude  ──────────symlink──────────►  project/.claude
+                                           skills/demo/SKILL.md
+                                           skills/keep/SKILL.md
+```
+
+If Atmos renamed `workplace/.claude/skills/demo` while that path still walked through the parent symlink, the rename would move the **project** folder. To keep the disable workplace-local, Atmos first **materializes** ancestor symlinks:
+
+```text
+Step 1 — replace the big parent link with a real folder + child links
+
+workplace/
+  .claude/                         ← real directory now
+    skills  ──symlink──►  project/.claude/skills
+
+Step 2 — keep splitting until the skill entry itself is a workplace symlink
+
+workplace/
+  .claude/
+    skills/                        ← real directory
+      demo  ──symlink──►  project/.claude/skills/demo
+      keep  ──symlink──►  project/.claude/skills/keep
+
+Step 3 — move only that workplace symlink into .disabled, then write the marker
+
+workplace/.atmos/skills/.disabled/.../demo   ← often still a symlink to project
+workplace/.claude/skills/demo/SKILL_DISABLED.md
+project/.claude/skills/demo/SKILL.md         ← untouched
+```
+
+So “materialize” means: **turn one thick symlink into a local folder skeleton whose leaves still point at the project**, then disable by moving the leaf link—not by editing project files.
+
+### What re-enable restores
+
+Enable moves back whatever was stored under `.disabled`:
+
+| How the skill arrived | What `.disabled` usually holds | After enable |
+|-----------------------|--------------------------------|--------------|
+| Copy | Real skill files | Real files at the live path |
+| Symlink (after materialize) | The symlink node pointing at the project | That symlink again |
+
+Materialized parent folders (for example `workplace/.claude` becoming a real directory) are **not** rebuilt into the original single parent symlink. Only the skill you toggled is restored.
+
+## Project disable and existing workspaces
+
+If a workplace still shares the project tree through a symlink, a **project-level** disable changes the shared live path. Agents in that workplace also stop seeing `SKILL.md` through the link.
+
+Copy-synced workspaces keep their own files until you disable inside that workplace.
+
+## Limits (honest expectations)
+
+- Atmos does not own Agent Runtime memory. Removing the filesystem entrypoint is best-effort for the current session; a model that already baked skill metadata into an earlier turn may still mention it.
+- There is no cloud-synced disable state across machines—the filesystem under each root is the contract.
+- Inside Project (`skills/` read-only tree) skills cannot be toggled here.
+
+## Related
+
+- [Skill Management](/features/skill-management) — browse, enable, disable, and delete from the Skills page
+- [Project & Workspace Manager](/workflows/project-and-workspace-manager) — projects, workspaces, and ignored-folder sync

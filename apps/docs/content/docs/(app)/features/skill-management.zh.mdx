@@ -29,6 +29,14 @@ Skills 是给 Agent 的可复用指令。它们可以记录 Review 清单、写�
 3. 启用符合当前项目的技能。
 4. 禁用或移除会增加噪音的技能。
 
+## Dynamic Skills（Composer 与终端）
+
+不想离开 Welcome 或终端 AI Input，又要临时关掉某个技能？输入 `/`，打开 **Dynamic Skills**。
+
+它和本页使用同一套启用/禁用文件。Project 开关会与这里同步；Workspace 开关只作用于当前 workplace（在 sync dirs 使用 symlink 或 copy 时尤其重要）。
+
+完整说明见 [Dynamic Skills](/zh/how-it-works/dynamic-skills)：作用域、磁盘布局，以及如何让 Workspace symlink 同步保持 workplace 本地。
+
 ## 使用建议
 
 - 一个技能只做一件事；把过大的技能拆小。

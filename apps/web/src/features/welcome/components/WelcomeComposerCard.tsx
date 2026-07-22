@@ -34,6 +34,8 @@ export function WelcomeComposerCard({
   onProjectChange,
   onSlashCancel,
   onSlashTrigger,
+  onSkillDisableFilterChange,
+  onSkillDisableSessionClosed,
   onTextChange,
   placeholder,
   priority,
@@ -65,6 +67,8 @@ export function WelcomeComposerCard({
   onProjectChange?: (projectId: string) => void;
   onSlashCancel?: () => void;
   onSlashTrigger?: (ctx: SlashTriggerContext) => void;
+  onSkillDisableFilterChange?: (filter: string) => void;
+  onSkillDisableSessionClosed?: () => void;
   onTextChange: (text: string) => void;
   placeholder: React.ReactNode;
   priority?: WorkspacePriority;
@@ -101,6 +105,8 @@ export function WelcomeComposerCard({
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}
             onSlashCancel={onSlashCancel}
+            onSkillDisableFilterChange={onSkillDisableFilterChange}
+            onSkillDisableSessionClosed={onSkillDisableSessionClosed}
           />
 
           <AttachmentBar

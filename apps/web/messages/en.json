@@ -3108,7 +3108,12 @@
         "codeAgents": "Code agents",
         "noAgentsAvailable": "No agents available",
         "hidden": "Hidden",
-        "hiddenSummary": "{skills} skills · {projects} projects · {agents} agents hidden"
+        "hiddenSummary": "{skills} skills · {projects} projects · {agents} agents hidden",
+        "disabled": "Disabled",
+        "disableSkill": {
+          "label": "Dynamic Skills",
+          "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+        }
       }
     },
     "projectContext": {
@@ -6712,8 +6717,9 @@
     "composerDisable": {
       "triggerLabel": "Manage skills",
       "triggerShort": "Skills",
-      "title": "Skills",
-      "sessionTip": "Disabling a skill takes effect in a new Agent session. Skills already loaded into the current session’s system prompt stay available until you start a new session.",
+      "title": "Dynamic Skills",
+      "back": "Back",
+      "sessionTip": "Toggles change skill visibility for Agents right away: disabled skills are moved out of discovery paths and leave a SKILL_DISABLED.md marker so the current session cannot load the original SKILL.md entrypoint.",
       "loading": "Loading skills...",
       "empty": "No manageable skills in this context.",
       "scope": {
@@ -7855,6 +7861,22 @@
       },
       "spawnCommand": {
         "description": "Spawn a new terminal panel with this terminal context"
+      },
+      "disableSkillCommand": {
+        "label": "Dynamic Skills",
+        "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+      },
+      "skillDisable": {
+        "chip": "Dynamic Skills",
+        "chipTooltip": "Filter and toggle skills for Agents in this context",
+        "filterPlaceholder": "filter…",
+        "filterAria": "Filter skills",
+        "deleteAgainHint": "Press Delete again to close Dynamic Skills",
+        "actionEnabled": "+",
+        "actionDisabled": "−",
+        "countdown": "{seconds}s",
+        "tooltipEnabled": "Added: {names}",
+        "tooltipDisabled": "Removed: {names}"
       },
       "selectionContext": {
         "copy": "Copy",

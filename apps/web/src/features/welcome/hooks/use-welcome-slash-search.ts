@@ -2,10 +2,8 @@
 
 import React from "react";
 import Fuse from "fuse.js";
-import {
-  skillsApi,
-  type SkillInfo,
-} from "@/api/ws-api";
+import type { SkillInfo } from "@/api/ws-api";
+import { useSkillsListQuery } from "@/features/skills/hooks/use-skills-query";
 import type { WelcomeSlashPopoverState } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import {
   useDebouncedPopoverQuery,
@@ -13,6 +11,14 @@ import {
 } from "@/features/welcome/lib/welcome-page-helpers";
 import { filterSlashSkillsForProject } from "@/features/welcome/lib/slash-skill-context";
 import type { Project } from "@/shared/types/domain";
+
+function isSlashSurfacedSkill(skill: SkillInfo) {
+  return (
+    skill.scope === "global" ||
+    skill.scope === "project" ||
+    skill.scope === "inside_project"
+  );
+}
 
 export function useWelcomeSlashSearch({
   availableAgents,
@@ -26,32 +32,12 @@ export function useWelcomeSlashSearch({
   projects: Project[];
 }) {
   const debouncedSlashQuery = useDebouncedPopoverQuery(popover, 300);
-  const [skills, setSkills] = React.useState<SkillInfo[]>([]);
-  const [isSkillsLoading, setIsSkillsLoading] = React.useState(false);
+  const skillsQuery = useSkillsListQuery();
 
-  React.useEffect(() => {
-    const loadSkills = async () => {
-      setIsSkillsLoading(true);
-      try {
-        const response = await skillsApi.list({ forceRefresh: false });
-        // Only keep skills that can be surfaced from slash commands.
-        const filteredSkills = response.skills.filter(
-          (skill) =>
-            skill.scope === "global" ||
-            skill.scope === "project" ||
-            skill.scope === "inside_project",
-        );
-        setSkills(filteredSkills);
-      } catch (error) {
-        console.error("Failed to load skills:", error);
-        setSkills([]);
-      } finally {
-        setIsSkillsLoading(false);
-      }
-    };
-
-    void loadSkills();
-  }, []);
+  const skills = React.useMemo(
+    () => (skillsQuery.data?.skills ?? []).filter(isSlashSurfacedSkill),
+    [skillsQuery.data?.skills],
+  );
 
   const visibleSkills = React.useMemo(
     () => filterSlashSkillsForProject(skills, activeProjectId ?? null),
@@ -113,6 +99,6 @@ export function useWelcomeSlashSearch({
     filteredAgents,
     filteredProjects,
     filteredSkills,
-    isSkillsLoading,
+    isSkillsLoading: skillsQuery.isPending && !skillsQuery.data,
   };
 }
