@@ -1,0 +1,150 @@
+---
+title: Dynamic Skills
+description: 不用离开 Composer 或终端，就能临时对 Agent 隐藏技能。
+---
+
+有时某个技能明天有用、今天却很吵。**Dynamic Skills** 让你在提问的地方——Welcome / PromptComposer 或终端 AI Input——直接开关技能，而不必打开 Skills 页面。
+
+它和 [技能管理](/zh/features/skill-management) 用的是同一套磁盘启用/禁用机制。这篇说明这对 Agent、Project 和 Workspace 分别意味着什么。
+
+## 什么时候用
+
+| 场景 | Dynamic Skills 会做什么 |
+|------|-------------------------|
+| 项目技能总把 Agent 带偏 | 在项目里禁用；Skills 页面保持同步 |
+| Workspace 从项目同步了技能，但这次任务用不到 | 只在当前 **workplace** 禁用；项目里的副本不动 |
+| Agent session 已经在跑 | 禁用会去掉 live 路径上的 `SKILL.md`，当前 session 无法再加载该入口 |
+
+Global 技能在 Atmos 标记为可管理时仍可开关。System 与 Inside Project 技能保持只读。
+
+## 打开 Dynamic Skills
+
+1. 聚焦 Welcome Composer 或终端 AI Input。
+2. 输入 `/` 打开 slash 命令菜单。
+3. 选择 **Dynamic Skills**。
+4. 在列表里开关技能。用 **Back** 或 `Esc` 回到 slash 菜单。
+
+会话开启时，Composer 里会出现红色 **Dynamic Skills** chip。可在 chip 内筛选，悬停查看本次变更摘要，结束后关闭会话即可。
+
+在 `/` 插入技能列表里，已禁用的技能仍可能出现，并带 **Disabled** 徽章——在重新启用前不可选。
+
+## Project 与 Workspace 作用域
+
+```text
+                ┌─────────────────────┐
+  Welcome /     │  Project 上下文     │  → 禁用落在项目根
+  PromptComposer└─────────────────────┘     （与 Skills 页面一致）
+
+                ┌─────────────────────┐
+  终端 AI       │  Project 终端       │  → 项目根
+  Input         ├─────────────────────┤
+                │  Workspace 终端     │  → 仅当前 workplace 目录
+                └─────────────────────┘
+```
+
+- **Project 开关** — 把技能移到 `project/.atmos/skills/.disabled/...`。之后打开 Skills 会看到相同的禁用状态。
+- **Workspace 开关** — 把 workplace 可见的入口移到 `workplace/.atmos/skills/.disabled/...`。目标不是其他 workspace，也不是项目树本身。
+
+这个区分很重要：Workspace 常通过 **Ignored Folder Sync**（symlink 或 copy）拿到 Agent 目录。「只对这个 worktree 禁用」不应悄悄改写项目技能。
+
+## 禁用后磁盘上长什么样
+
+Atmos 不会拨一个云端开关，而是改 Agent 会发现的文件。
+
+```text
+禁用前                                      禁用后
+
+.claude/skills/demo/                       .claude/skills/demo/
+  SKILL.md                                   SKILL_DISABLED.md   ← 只有标记
+  references/...                             （没有 SKILL.md）
+  ...
+
+                                           .atmos/skills/.disabled/
+                                             .claude/skills/demo/
+                                               SKILL.md          ← 真实技能树
+                                               references/...
+```
+
+记住两件事：
+
+1. **真相来源** — 禁用期间，真实技能文件在 `.atmos/skills/.disabled/...`。
+2. **Live 标记** — 原目录只保留 `SKILL_DISABLED.md`（绝不会留一个假的 `SKILL.md`）。新的发现会跳过它；仍去读旧路径的 session 也找不到 `SKILL.md`。
+
+重新启用会先去掉标记，再把技能树移回 live 路径。
+
+## Workspace 同步：Copy 与 Symlink
+
+### Copy 同步
+
+Workplace 已有自己的文件。禁用就是在 workplace 根下做一次本地移动。项目里的技能目录不变。
+
+```text
+project/.claude/skills/demo/SKILL.md     ← 保留
+workplace/.claude/skills/demo/           ← 移到 workplace 的 .disabled
+                                           + live 路径留下 SKILL_DISABLED.md
+```
+
+### Symlink 同步（父目录链接）
+
+刚同步时经常是这样：
+
+```text
+workplace/
+  .claude  ──────────symlink──────────►  project/.claude
+                                           skills/demo/SKILL.md
+                                           skills/keep/SKILL.md
+```
+
+如果仍穿过父 symlink 去 rename `workplace/.claude/skills/demo`，操作系统会动到 **项目** 里的目录。为了让禁用只作用于 workplace，Atmos 会先 **materialize（物化）** 祖先 symlink：
+
+```text
+步骤 1 — 把「一整棵大 symlink」换成真实目录 + 子项链接
+
+workplace/
+  .claude/                         ← 现在是真实目录
+    skills  ──symlink──►  project/.claude/skills
+
+步骤 2 — 继续拆，直到 skill 入口本身是 workplace 上的 symlink
+
+workplace/
+  .claude/
+    skills/                        ← 真实目录
+      demo  ──symlink──►  project/.claude/skills/demo
+      keep  ──symlink──►  project/.claude/skills/keep
+
+步骤 3 — 只搬走这个 workplace symlink，再写标记
+
+workplace/.atmos/skills/.disabled/.../demo   ← 常常仍是指向 project 的 symlink
+workplace/.claude/skills/demo/SKILL_DISABLED.md
+project/.claude/skills/demo/SKILL.md         ← 不动
+```
+
+所以 materialize 的意思是：**把一层厚 symlink 落成「本地目录骨架，叶子仍指向项目」**，再通过移动叶子链接来禁用——而不是改项目文件。
+
+### 重新启用恢复什么
+
+启用会把 `.disabled` 里存的那一份原样搬回：
+
+| 技能如何进来 | `.disabled` 里通常是什么 | 启用后 |
+|--------------|--------------------------|--------|
+| Copy | 真实技能文件 | Live 路径上的真实文件 |
+| Symlink（物化后） | 指向项目的 symlink 节点 | 还是那个 symlink |
+
+被物化过的父目录（例如 `workplace/.claude` 变成真实目录）**不会**在启用时拼回最初那一个父 symlink。只有你开关过的那个技能会恢复。
+
+## 在项目里禁用，对已有 Workspace 的影响
+
+若某个 workplace 仍通过 symlink 共享项目树，**项目级**禁用会改共享 live 路径。该 workplace 里的 Agent 也会因此看不到 `SKILL.md`。
+
+Copy 同步的 workspace 保留自己的文件，直到你在那个 workplace 里禁用。
+
+## 边界（如实说明）
+
+- Atmos 不拥有 Agent Runtime 内存。去掉文件系统入口对当前 session 是尽力而为；模型若已在更早轮次写入技能元数据，仍可能提到它。
+- 没有跨机器的云端禁用状态——各根目录下的文件系统就是契约。
+- Inside Project（只读 `skills/` 树）不能在这里开关。
+
+## 相关
+
+- [技能管理](/zh/features/skill-management) — 在 Skills 页面浏览、启用、禁用与删除
+- [项目与工作区管理](/zh/workflows/project-and-workspace-manager) — 项目、Workspace 与忽略目录同步

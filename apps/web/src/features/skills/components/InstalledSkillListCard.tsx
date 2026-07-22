@@ -40,6 +40,12 @@ function getScopeMeta(scope: SkillInfo["scope"]) {
         icon: Folder,
         className: "bg-muted text-foreground",
       };
+    case "workspace":
+      return {
+        label: "Workspace",
+        icon: Folder,
+        className: "bg-muted text-foreground",
+      };
     case "system":
       return {
         label: "Atmos Built-in",

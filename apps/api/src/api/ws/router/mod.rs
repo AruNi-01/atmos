@@ -537,6 +537,10 @@ impl WsMessageService {
                 self.handle_skills_set_enabled(parse_request(request.data)?)
                     .await
             }
+            WsAction::SkillsScanRoot => {
+                self.handle_skills_scan_root(parse_request(request.data)?)
+                    .await
+            }
             WsAction::SkillsDelete => {
                 self.handle_skills_delete(parse_request(request.data)?)
                     .await

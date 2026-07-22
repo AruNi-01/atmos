@@ -122,7 +122,7 @@ impl WsMessageService {
         &self,
         req: SkillsSetEnabledRequest,
     ) -> Result<Value> {
-        use core_service::service::skill::SkillManager;
+        use core_service::service::skill::{SkillManager, SkillScopeRoot};
 
         let projects = self.project_service.list_projects().await?;
         let project_paths: Vec<(String, String, String)> = projects
@@ -130,8 +130,20 @@ impl WsMessageService {
             .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
             .collect();
 
-        SkillManager::set_enabled(
+        let extra_roots: Vec<SkillScopeRoot> = req
+            .scope_root
+            .into_iter()
+            .map(|root| SkillScopeRoot {
+                scope: root.scope,
+                id: root.id,
+                name: root.name,
+                path: root.path,
+            })
+            .collect();
+
+        SkillManager::set_enabled_with_extra_roots(
             &project_paths,
+            &extra_roots,
             &req.id,
             req.enabled,
             req.placement_ids.as_deref(),
@@ -139,6 +151,28 @@ impl WsMessageService {
 
         Self::invalidate_skills_cache();
         Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_skills_scan_root(
+        &self,
+        req: SkillsScanRootRequest,
+    ) -> Result<Value> {
+        use core_service::service::skill::{ScanMode, SkillScanner, SkillScopeRoot};
+
+        let root = SkillScopeRoot {
+            scope: req.scope,
+            id: req.id,
+            name: req.name,
+            path: req.path,
+        };
+
+        let skills = tokio::task::spawn_blocking(move || {
+            SkillScanner::scan_root(&root, ScanMode::Lazy)
+        })
+        .await
+        .map_err(|e| ServiceError::Processing(format!("skills scan_root join error: {e}")))?;
+
+        Ok(json!({ "skills": skills }))
     }
 
     pub(super) async fn handle_skills_delete(&self, req: SkillsDeleteRequest) -> Result<Value> {

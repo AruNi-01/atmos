@@ -20,6 +20,7 @@ interface TerminalSideChatLayerProps {
   onInteraction?: (event: Event | React.SyntheticEvent) => void;
   onReady: (record: LocalSideChatRecord) => void;
   onSelectSideChat: (sideChatId: string) => void;
+  projectId?: string | null;
   projectName?: string | null;
   projectRootPath?: string | null;
   records: LocalSideChatRecord[];
@@ -34,6 +35,7 @@ interface TerminalSideChatLayerProps {
 
 export function TerminalSideChatLayer({
   localPath,
+  projectId,
   projectName,
   projectRootPath,
   records,
@@ -66,6 +68,7 @@ export function TerminalSideChatLayer({
     <TerminalSideChatModal
       activeSideChatId={activeRecord.side_chat_id}
       localPath={localPath}
+      projectId={projectId}
       projectName={projectName}
       projectRootPath={projectRootPath}
       records={availableRecords}

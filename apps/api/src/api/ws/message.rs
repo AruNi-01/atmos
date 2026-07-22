@@ -433,6 +433,8 @@ pub enum WsAction {
     SkillsGet,
     /// Enable or disable a managed skill across all placements
     SkillsSetEnabled,
+    /// Scan skills under a single project/workspace root (composer freshness)
+    SkillsScanRoot,
     /// Delete a managed skill across all placements
     SkillsDelete,
     /// 安装 Project Wiki skill 到 ~/.atmos/skills/.system/project-wiki

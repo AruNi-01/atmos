@@ -25,14 +25,33 @@ pub struct SkillsGetRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillsScopeRootDto {
+    pub scope: String,
+    pub id: String,
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillsSetEnabledRequest {
     pub id: String,
     pub enabled: bool,
     pub placement_ids: Option<Vec<String>>,
+    /// Optional extra manageable root (e.g. workspace worktree) for composer toggles.
+    #[serde(default)]
+    pub scope_root: Option<SkillsScopeRootDto>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillsDeleteRequest {
     pub id: String,
     pub placement_ids: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillsScanRootRequest {
+    pub scope: String,
+    pub id: String,
+    pub name: String,
+    pub path: String,
 }

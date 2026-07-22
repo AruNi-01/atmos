@@ -33,6 +33,8 @@ export function TerminalAgentInputShell({
   onPreviewAttachment,
   onSlashCancel,
   onSlashTrigger,
+  onSkillDisableFilterChange,
+  onSkillDisableSessionClosed,
   onSubmit,
   placeholder,
   startSendExit,
@@ -54,6 +56,8 @@ export function TerminalAgentInputShell({
   onPreviewAttachment: AttachmentBarProps["onPreview"];
   onSlashCancel: () => void;
   onSlashTrigger: (ctx: SlashTriggerContext) => void;
+  onSkillDisableFilterChange?: (filter: string) => void;
+  onSkillDisableSessionClosed?: () => void;
   onSubmit: () => void;
   placeholder: string;
   startSendExit: () => void;
@@ -102,6 +106,8 @@ export function TerminalAgentInputShell({
                 onAtCancel={onAtCancel}
                 onSlashTrigger={onSlashTrigger}
                 onSlashCancel={onSlashCancel}
+                onSkillDisableFilterChange={onSkillDisableFilterChange}
+                onSkillDisableSessionClosed={onSkillDisableSessionClosed}
               />
             </div>
             <button

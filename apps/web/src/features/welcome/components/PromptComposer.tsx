@@ -13,6 +13,14 @@ import {
   parseSpawnProtocolToken,
   parseTerminalSelectionProtocolToken,
 } from "@/features/terminal/lib/terminal-ai-context-protocol";
+import {
+  formatSkillDisableProtocol,
+  parseSkillDisableProtocolToken,
+  skillDisableSessionCounts,
+  skillDisableSessionNameLists,
+  stripSkillDisableSession,
+  type SkillDisableSessionAction,
+} from "@/features/skills/lib/skill-disable-protocol";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -63,6 +71,17 @@ export interface ComposerHandle {
   applySideCommandAtRange: (slashOffset: number, queryLength: number, contextId: string) => void;
   insertSpawnCommand: (contextId: string) => void;
   applySpawnCommandAtRange: (slashOffset: number, queryLength: number, contextId: string) => void;
+  applySkillDisableCommandAtRange: (slashOffset: number, queryLength: number) => void;
+  /** Focus the in-chip filter field while the disable popover is open. */
+  focusSkillDisableFilter: () => void;
+  /** Replace in-chip session action pills (enable/disable results this session). */
+  setSkillDisableSessionActions: (actions: SkillDisableSessionAction[]) => void;
+  /** Leave the chip filter, place caret after the chip, then auto-remove after N seconds. */
+  beginSkillDisableChipDismiss: (seconds: number) => void;
+  /** Replace skill-disable chip with a fresh `/` for returning to slash menu. */
+  restoreSlashFromSkillDisable: () => void;
+  /** Drop skill-disable chip immediately. */
+  clearSkillDisableSession: () => void;
   removeContextToken: (contextId: string) => void;
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
@@ -77,6 +96,9 @@ export interface ComposerCallbacks {
   onAtCancel?: () => void;
   onSlashTrigger?: (ctx: SlashTriggerContext) => void;
   onSlashCancel?: () => void;
+  onSkillDisableFilterChange?: (filter: string) => void;
+  /** Fired when the skill-disable chip is removed (e.g. empty-filter double Delete). */
+  onSkillDisableSessionClosed?: () => void;
 }
 
 interface PromptComposerProps extends ComposerCallbacks {
@@ -88,7 +110,7 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -99,7 +121,7 @@ let cachedPromptComposerLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedPromptComposerTranslator: any = null;
 
-function promptComposerT(key: string): string {
+function promptComposerT(key: string, values?: Record<string, string | number | Date>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedPromptComposerTranslator || cachedPromptComposerLocale !== locale) {
     cachedPromptComposerLocale = locale;
@@ -109,7 +131,7 @@ function promptComposerT(key: string): string {
       namespace: "terminal.agentInput",
     });
   }
-  return cachedPromptComposerTranslator(key as never);
+  return cachedPromptComposerTranslator(key as never, values as never);
 }
 
 /**
@@ -305,6 +327,34 @@ function buildChipNode(token: string): HTMLSpanElement {
     const label = document.createElement("span");
     label.textContent = promptComposerT("selectionContext.spawnChip");
     span.appendChild(label);
+  } else if (parseSkillDisableProtocolToken(token)) {
+    span.dataset.kind = "skill-disable";
+    span.dataset.tooltip = promptComposerT("skillDisable.chipTooltip");
+    span.className +=
+      " max-w-full flex-wrap border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300";
+    span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
+    const label = document.createElement("span");
+    label.dataset.sdLabel = "true";
+    label.textContent = promptComposerT("skillDisable.chip");
+    span.appendChild(label);
+    const actions = document.createElement("span");
+    actions.dataset.sdActions = "true";
+    actions.className = "inline-flex max-w-full flex-wrap items-center gap-1";
+    span.appendChild(actions);
+    const filter = document.createElement("span");
+    filter.dataset.sdFilter = "true";
+    filter.setAttribute("contenteditable", "true");
+    filter.setAttribute("role", "textbox");
+    filter.setAttribute("aria-label", promptComposerT("skillDisable.filterAria"));
+    filter.className =
+      "min-w-[1ch] max-w-[12rem] truncate outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-red-700/45 dark:empty:before:text-red-300/45";
+    filter.dataset.placeholder = promptComposerT("skillDisable.filterPlaceholder");
+    span.appendChild(filter);
+    const countdown = document.createElement("span");
+    countdown.dataset.sdCountdown = "true";
+    countdown.hidden = true;
+    countdown.className = "px-0.5 text-[10px] font-semibold tabular-nums text-red-700/80 dark:text-red-300/80";
+    span.appendChild(countdown);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
     span.className += " border-border/70 bg-muted/60 text-foreground";
@@ -661,6 +711,117 @@ function readSlashContextFromSelection(root: HTMLElement): SlashTriggerContext |
   return { caretRect: rect, query, slashOffset: serializeAtIndex + 1 };
 }
 
+function findSkillDisableChip(root: HTMLElement | null): HTMLElement | null {
+  if (!root) return null;
+  return root.querySelector('[data-token][data-kind="skill-disable"]');
+}
+
+function findSkillDisableFilter(chip: HTMLElement | null): HTMLElement | null {
+  if (!chip) return null;
+  return chip.querySelector("[data-sd-filter]");
+}
+
+function isInsideSkillDisableFilter(node: Node | null): boolean {
+  if (!node) return false;
+  const el =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as Element)
+      : node.parentElement;
+  return Boolean(el?.closest?.("[data-sd-filter]"));
+}
+
+function focusSkillDisableFilterElement(filter: HTMLElement) {
+  filter.focus();
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(filter);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function isSkillDisableFilterEmpty(filter: HTMLElement): boolean {
+  return (filter.textContent ?? "").replace(/[\u00A0\s]/g, "").length === 0;
+}
+
+function placeCaretAfterNode(root: HTMLElement, node: Node) {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.setStartAfter(node);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  root.focus();
+}
+
+function placeCaretAtRemovedNode(root: HTMLElement, node: Node) {
+  const parent = node.parentNode;
+  const next = node.nextSibling;
+  node.parentNode?.removeChild(node);
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  if (next && root.contains(next)) {
+    range.setStartBefore(next);
+  } else if (parent && root.contains(parent)) {
+    range.selectNodeContents(parent);
+    range.collapse(false);
+  } else {
+    range.selectNodeContents(root);
+    range.collapse(false);
+  }
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  root.focus();
+}
+
+function formatSkillDisableSessionTooltip(actions: SkillDisableSessionAction[]): string {
+  const { enabled, disabled } = skillDisableSessionNameLists(actions);
+  const lines: string[] = [];
+  if (enabled.length > 0) {
+    lines.push(
+      promptComposerT("skillDisable.tooltipEnabled", { names: enabled.join(", ") }),
+    );
+  }
+  if (disabled.length > 0) {
+    lines.push(
+      promptComposerT("skillDisable.tooltipDisabled", { names: disabled.join(", ") }),
+    );
+  }
+  if (lines.length === 0) {
+    return promptComposerT("skillDisable.chipTooltip");
+  }
+  return lines.join("\n");
+}
+
+function renderSkillDisableSessionActions(
+  chip: HTMLElement,
+  actions: SkillDisableSessionAction[],
+) {
+  const container = chip.querySelector("[data-sd-actions]");
+  if (!container) return;
+  container.replaceChildren();
+  const { enabled, disabled } = skillDisableSessionCounts(actions);
+  if (enabled > 0) {
+    const pill = document.createElement("span");
+    pill.className =
+      "inline-flex items-center rounded-md border border-emerald-500/35 bg-emerald-500/10 px-1.5 py-px text-[10px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300";
+    pill.textContent = `+${enabled}`;
+    container.appendChild(pill);
+  }
+  if (disabled > 0) {
+    const pill = document.createElement("span");
+    pill.className =
+      "inline-flex items-center rounded-md border border-red-500/40 bg-red-500/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-red-700 dark:text-red-300";
+    pill.textContent = `-${disabled}`;
+    container.appendChild(pill);
+  }
+  chip.dataset.tooltip = formatSkillDisableSessionTooltip(actions);
+}
+
 export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerProps>(
   function PromptComposer(props, ref) {
     const {
@@ -670,6 +831,8 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       onAtCancel,
       onSlashTrigger,
       onSlashCancel,
+      onSkillDisableFilterChange,
+      onSkillDisableSessionClosed,
       className,
       editorClassName,
       placeholder,
@@ -677,6 +840,16 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       onSubmit,
     } = props;
     const editorRef = React.useRef<HTMLDivElement | null>(null);
+    const skillDisableDismissTimerRef = React.useRef<number | null>(null);
+    const skillDisableDismissStateRef = React.useRef<{
+      chip: HTMLElement;
+      left: number;
+      paused: boolean;
+    } | null>(null);
+    const onSkillDisableFilterChangeRef = React.useRef(onSkillDisableFilterChange);
+    onSkillDisableFilterChangeRef.current = onSkillDisableFilterChange;
+    const onSkillDisableSessionClosedRef = React.useRef(onSkillDisableSessionClosed);
+    onSkillDisableSessionClosedRef.current = onSkillDisableSessionClosed;
     const [isEmpty, setIsEmpty] = React.useState(true);
     const [chipTooltip, setChipTooltip] = React.useState<{
       text: string;
@@ -684,6 +857,27 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       left: number;
     } | null>(null);
     const savedCaretOffsetRef = React.useRef<number | null>(null);
+
+    const clearSkillDisableDismissTimer = React.useCallback(() => {
+      if (skillDisableDismissTimerRef.current != null) {
+        window.clearInterval(skillDisableDismissTimerRef.current);
+        skillDisableDismissTimerRef.current = null;
+      }
+    }, []);
+
+    const clearSkillDisableDismiss = React.useCallback(() => {
+      clearSkillDisableDismissTimer();
+      skillDisableDismissStateRef.current = null;
+    }, [clearSkillDisableDismissTimer]);
+
+    const updateSkillDisableCountdownLabel = React.useCallback((chip: HTMLElement, left: number) => {
+      const countdown = chip.querySelector("[data-sd-countdown]") as HTMLElement | null;
+      if (!countdown) return;
+      countdown.hidden = false;
+      countdown.textContent = promptComposerT("skillDisable.countdown", {
+        seconds: left,
+      });
+    }, []);
 
     const fireChange = React.useCallback(() => {
       if (!editorRef.current) return;
@@ -705,6 +899,85 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         savedCaretOffsetRef.current = offset;
       }
     }, []);
+
+    const bindSkillDisableFilter = React.useCallback((chip: HTMLElement) => {
+      const filter = findSkillDisableFilter(chip);
+      if (!filter || filter.dataset.sdBound === "1") return;
+      filter.dataset.sdBound = "1";
+
+      const clearDeleteArm = () => {
+        filter.dataset.sdDeleteArmed = "";
+        filter.dataset.placeholder = promptComposerT("skillDisable.filterPlaceholder");
+      };
+
+      filter.addEventListener("input", () => {
+        if (!isSkillDisableFilterEmpty(filter)) {
+          clearDeleteArm();
+        }
+        onSkillDisableFilterChangeRef.current?.(filter.textContent ?? "");
+      });
+      filter.addEventListener("keydown", (event) => {
+        // Keep newlines out of the in-chip filter; Enter is owned by the popover.
+        if (event.key === "Enter") {
+          event.preventDefault();
+          return;
+        }
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
+        if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+        if (!isSkillDisableFilterEmpty(filter)) {
+          clearDeleteArm();
+          return;
+        }
+
+        // Empty filter: never let the caret escape in front of the chip.
+        event.preventDefault();
+        event.stopPropagation();
+        focusSkillDisableFilterElement(filter);
+
+        if (filter.dataset.sdDeleteArmed === "1") {
+          clearSkillDisableDismiss();
+          const editor = editorRef.current;
+          if (editor) {
+            placeCaretAtRemovedNode(editor, chip);
+            fireChange();
+            rememberCaretOffset();
+          } else {
+            chip.remove();
+          }
+          setChipTooltip(null);
+          onSkillDisableFilterChangeRef.current?.("");
+          onSkillDisableSessionClosedRef.current?.();
+          return;
+        }
+
+        filter.dataset.sdDeleteArmed = "1";
+        filter.dataset.placeholder = promptComposerT("skillDisable.deleteAgainHint");
+      });
+    }, [clearSkillDisableDismiss, fireChange, rememberCaretOffset]);
+
+    const startSkillDisableDismissTicker = React.useCallback(() => {
+      clearSkillDisableDismissTimer();
+      skillDisableDismissTimerRef.current = window.setInterval(() => {
+        const state = skillDisableDismissStateRef.current;
+        if (!state || state.paused) return;
+        state.left -= 1;
+        if (state.left <= 0) {
+          clearSkillDisableDismiss();
+          state.chip.remove();
+          fireChange();
+          rememberCaretOffset();
+          setChipTooltip(null);
+          return;
+        }
+        updateSkillDisableCountdownLabel(state.chip, state.left);
+      }, 1000);
+    }, [
+      clearSkillDisableDismiss,
+      clearSkillDisableDismissTimer,
+      fireChange,
+      rememberCaretOffset,
+      updateSkillDisableCountdownLabel,
+    ]);
 
     const focusEditor = React.useCallback(() => {
       const editor = editorRef.current;
@@ -744,6 +1017,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       },
       clear: () => {
         if (!editorRef.current) return;
+        clearSkillDisableDismiss();
         editorRef.current.innerHTML = "";
         savedCaretOffsetRef.current = 0;
         fireChange();
@@ -872,6 +1146,89 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const nextCaretOffset = replaceFrom + insertText.length;
         setCaretAtOffsetAndRemember(nextCaretOffset);
       },
+      applySkillDisableCommandAtRange: (slashOffset, queryLength) => {
+        if (!editorRef.current) return;
+        clearSkillDisableDismiss();
+        editorRef.current.focus();
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(slashOffset - 1, 0);
+        const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
+        // Trailing spacer after the chip so caret can exit into normal input later.
+        const insertText = `${formatSkillDisableProtocol()}${CHIP_TRAILING_SPACER}`;
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          insertText +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        const chip = findSkillDisableChip(editorRef.current);
+        if (chip) bindSkillDisableFilter(chip);
+        fireChange();
+        const filter = findSkillDisableFilter(chip);
+        if (filter) {
+          focusSkillDisableFilterElement(filter);
+          onSkillDisableFilterChangeRef.current?.("");
+        } else {
+          const nextCaretOffset = replaceFrom + insertText.length;
+          setCaretAtOffsetAndRemember(nextCaretOffset);
+        }
+      },
+      focusSkillDisableFilter: () => {
+        const chip = findSkillDisableChip(editorRef.current);
+        if (!chip) return;
+        bindSkillDisableFilter(chip);
+        const filter = findSkillDisableFilter(chip);
+        if (filter && filter.getAttribute("contenteditable") === "true") {
+          focusSkillDisableFilterElement(filter);
+        }
+      },
+      setSkillDisableSessionActions: (actions) => {
+        const chip = findSkillDisableChip(editorRef.current);
+        if (!chip) return;
+        renderSkillDisableSessionActions(chip, actions);
+      },
+      beginSkillDisableChipDismiss: (seconds) => {
+        if (!editorRef.current) return;
+        clearSkillDisableDismiss();
+        const chip = findSkillDisableChip(editorRef.current);
+        if (!chip) return;
+        const filter = findSkillDisableFilter(chip);
+        if (filter) {
+          filter.setAttribute("contenteditable", "false");
+          filter.textContent = "";
+          filter.removeAttribute("data-placeholder");
+          filter.hidden = true;
+          onSkillDisableFilterChangeRef.current?.("");
+        }
+        placeCaretAfterNode(editorRef.current, chip);
+        rememberCaretOffset();
+        const left = Math.max(1, Math.floor(seconds));
+        skillDisableDismissStateRef.current = { chip, left, paused: false };
+        updateSkillDisableCountdownLabel(chip, left);
+        startSkillDisableDismissTicker();
+      },
+      restoreSlashFromSkillDisable: () => {
+        if (!editorRef.current) return;
+        clearSkillDisableDismiss();
+        editorRef.current.focus();
+        const currentText = serialize(editorRef.current);
+        const stripped = stripSkillDisableSession(currentText);
+        const nextText = `${stripped}${stripped && !stripped.endsWith(" ") ? " " : ""}/`;
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        setCaretAtOffsetAndRemember(nextText.length);
+        onSkillDisableFilterChangeRef.current?.("");
+      },
+      clearSkillDisableSession: () => {
+        if (!editorRef.current) return;
+        clearSkillDisableDismiss();
+        editorRef.current.focus();
+        const currentText = serialize(editorRef.current);
+        const nextText = stripSkillDisableSession(currentText);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        setCaretAtOffsetAndRemember(nextText.length);
+        onSkillDisableFilterChangeRef.current?.("");
+      },
       removeContextToken: (contextId) => {
         if (!editorRef.current) return;
         const tokens = [
@@ -914,6 +1271,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     }));
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const selection = window.getSelection();
+      if (isInsideSkillDisableFilter(selection?.anchorNode ?? null)) {
+        // Filter key handling (Enter) is on the filter node; skip chip-deletion
+        // and slash/at bookkeeping while editing inside the chip.
+        return;
+      }
       if (
         (event.key === "Backspace" || event.key === "Delete") &&
         !event.metaKey &&
@@ -944,6 +1307,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
           const range = sel.getRangeAt(0);
           if (!editorRef.current.contains(range.startContainer)) return;
+          if (isInsideSkillDisableFilter(range.startContainer)) return;
           const measuredRect = measureCaretRect(editorRef.current);
           const atCtx = readAtContextFromSelection(editorRef.current);
           if (atCtx) {
@@ -962,6 +1326,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
           const range = sel.getRangeAt(0);
           if (!editorRef.current.contains(range.startContainer)) return;
+          if (isInsideSkillDisableFilter(range.startContainer)) return;
           const measuredRect = measureCaretRect(editorRef.current);
           const slashCtx = readSlashContextFromSelection(editorRef.current);
           if (slashCtx) {
@@ -979,6 +1344,11 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     };
 
     const handleInput = () => {
+      const selection = window.getSelection();
+      if (isInsideSkillDisableFilter(selection?.anchorNode ?? null)) {
+        // Filter updates are handled by the chip's own input listener.
+        return;
+      }
       fireChange();
       rememberCaretOffset();
       if (!editorRef.current) return;
@@ -1048,6 +1418,10 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         top: rect.bottom + 6,
         left: rect.left + rect.width / 2,
       });
+      const dismiss = skillDisableDismissStateRef.current;
+      if (dismiss && dismiss.chip === chip) {
+        dismiss.paused = true;
+      }
     };
 
     const handleEditorMouseOut = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -1055,10 +1429,16 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       const target = event.target as HTMLElement | null;
       const chip = target?.closest?.("[data-tooltip]") as HTMLElement | null;
       if (!chip) return;
-      // Still inside the same chip — keep the tooltip.
+      // Still inside the same chip — keep the tooltip / pause.
       if (related && chip.contains(related)) return;
       setChipTooltip(null);
+      const dismiss = skillDisableDismissStateRef.current;
+      if (dismiss && dismiss.chip === chip) {
+        dismiss.paused = false;
+      }
     };
+
+    React.useEffect(() => () => clearSkillDisableDismiss(), [clearSkillDisableDismiss]);
 
     return (
       <div className={cn("relative", className)}>
@@ -1094,7 +1474,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           ? createPortal(
               <div
                 role="tooltip"
-                className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
+                className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 whitespace-pre-line rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
                 style={{ top: chipTooltip.top, left: chipTooltip.left }}
               >
                 {chipTooltip.text}

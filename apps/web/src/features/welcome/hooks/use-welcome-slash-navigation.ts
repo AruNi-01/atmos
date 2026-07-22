@@ -28,6 +28,8 @@ type SlashNavigationItem<Project> =
   | { type: "show-more"; section: SlashSection };
 
 interface UseWelcomeSlashNavigationArgs<Project> {
+  /** When false, skip arrow/enter handling (e.g. disable-skills morph view). */
+  enabled?: boolean;
   filteredAgents: AgentMenuOption[];
   filteredCommands?: SlashCommandOption[];
   filteredProjects: Project[];
@@ -40,6 +42,7 @@ interface UseWelcomeSlashNavigationArgs<Project> {
 }
 
 export function useWelcomeSlashNavigation<Project>({
+  enabled = true,
   filteredAgents,
   filteredCommands = [],
   filteredProjects,
@@ -116,7 +119,7 @@ export function useWelcomeSlashNavigation<Project>({
   }, [activeIndex, popover]);
 
   React.useEffect(() => {
-    if (!popover) return;
+    if (!popover || !enabled) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowDown") {
         if (visibleItems.length === 0) return;
@@ -137,6 +140,7 @@ export function useWelcomeSlashNavigation<Project>({
       if (item.type === "command") {
         onSelectCommand?.(item.item);
       } else if (item.type === "skill") {
+        if (item.item.status === "disabled") return;
         onSelectSkill(item.item);
       } else if (item.type === "project") {
         onSelectProject(item.item);
@@ -148,7 +152,16 @@ export function useWelcomeSlashNavigation<Project>({
     };
     document.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [activeIndex, onSelectAgent, onSelectCommand, onSelectProject, onSelectSkill, popover, visibleItems]);
+  }, [
+    activeIndex,
+    enabled,
+    onSelectAgent,
+    onSelectCommand,
+    onSelectProject,
+    onSelectSkill,
+    popover,
+    visibleItems,
+  ]);
 
   return {
     activeIndex,

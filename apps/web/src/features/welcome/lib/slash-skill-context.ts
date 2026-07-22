@@ -1,12 +1,12 @@
 export type SlashSkillContextItem = {
-  scope: "global" | "project" | "inside_project" | "system";
+  scope: "global" | "project" | "workspace" | "inside_project" | "system";
   project_id: string | null;
 };
 
 export function filterSlashSkillsForProject<T extends SlashSkillContextItem>(
   skills: T[],
   activeProjectId: string | null,
-) {
+): T[] {
   return skills.filter((skill) => {
     if (skill.scope === "global") return true;
     if (skill.scope !== "project" && skill.scope !== "inside_project") {

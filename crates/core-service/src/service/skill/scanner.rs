@@ -1,7 +1,7 @@
 use super::metadata::{extract_description, extract_from_frontmatter, strip_frontmatter};
 use super::support::{build_placement_id, build_skill_id, is_manageable_scope};
 use super::types::{ScanContext, ScanMode, ScanStatus, SkillEntryMeta};
-use super::{SkillScanner, DISABLED_STORAGE_REL_PATH};
+use super::{SkillScanner, DISABLED_STORAGE_REL_PATH, SKILL_DISABLED_MARKER};
 use crate::{SkillFile, SkillInfo, SkillPlacement};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -71,6 +71,22 @@ impl SkillScanner {
         project_paths: &[(String, String, String)],
         mode: ScanMode,
     ) -> Vec<SkillInfo> {
+        Self::scan_all_with_extra_roots_mode(project_paths, &[], mode)
+    }
+
+    /// Scan global/system/projects plus optional extra manageable roots (e.g. workspace).
+    pub fn scan_all_with_extra_roots(
+        project_paths: &[(String, String, String)],
+        extra_roots: &[super::SkillScopeRoot],
+    ) -> Vec<SkillInfo> {
+        Self::scan_all_with_extra_roots_mode(project_paths, extra_roots, ScanMode::Full)
+    }
+
+    pub fn scan_all_with_extra_roots_mode(
+        project_paths: &[(String, String, String)],
+        extra_roots: &[super::SkillScopeRoot],
+        mode: ScanMode,
+    ) -> Vec<SkillInfo> {
         let mut raw_skills = Vec::new();
 
         if let Some(home_dir) = dirs::home_dir() {
@@ -91,7 +107,44 @@ impl SkillScanner {
             }
         }
 
+        for root in extra_roots {
+            let path = Path::new(&root.path);
+            if !path.exists() {
+                continue;
+            }
+            let scope = root.scope.as_str();
+            if scope != "project" && scope != "workspace" {
+                continue;
+            }
+            raw_skills.extend(Self::scan_scope(
+                path,
+                scope,
+                Some(root.id.clone()),
+                Some(root.name.clone()),
+                mode,
+            ));
+        }
+
         Self::merge_skills(raw_skills)
+    }
+
+    /// Scan a single manageable root (project or workspace) without global/system noise.
+    pub fn scan_root(root: &super::SkillScopeRoot, mode: ScanMode) -> Vec<SkillInfo> {
+        let path = Path::new(&root.path);
+        if !path.exists() {
+            return Vec::new();
+        }
+        let scope = root.scope.as_str();
+        if scope != "project" && scope != "workspace" {
+            return Vec::new();
+        }
+        Self::merge_skills(Self::scan_scope(
+            path,
+            scope,
+            Some(root.id.clone()),
+            Some(root.name.clone()),
+            mode,
+        ))
     }
 
     /// Scan the Atmos system skills directory (`~/.atmos/skills/.system/`).
@@ -286,7 +339,8 @@ impl SkillScanner {
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            if entry_name.starts_with('.') {
+            if entry_name.starts_with('.') || entry_name == SKILL_DISABLED_MARKER {
+                // Live-path disable marker must not become a single-file skill.
                 continue;
             }
 
@@ -449,7 +503,7 @@ impl SkillScanner {
     }
 
     fn normalize_scope(scope: &str, skill_dir: &str) -> String {
-        if scope == "project" && skill_dir == "skills" {
+        if (scope == "project" || scope == "workspace") && skill_dir == "skills" {
             "inside_project".to_string()
         } else {
             scope.to_string()

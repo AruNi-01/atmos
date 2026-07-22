@@ -34,6 +34,8 @@ export function WelcomeComposerCard({
   onProjectChange,
   onSlashCancel,
   onSlashTrigger,
+  onSkillDisableFilterChange,
+  onSkillDisableSessionClosed,
   onTextChange,
   placeholder,
   priority,
@@ -44,6 +46,7 @@ export function WelcomeComposerCard({
   setPriority,
   setSelectedLabels,
   setWorkflowStatus,
+  skillsControl,
   workflowStatus,
   workspaceLabels,
   controls,
@@ -64,6 +67,8 @@ export function WelcomeComposerCard({
   onProjectChange?: (projectId: string) => void;
   onSlashCancel?: () => void;
   onSlashTrigger?: (ctx: SlashTriggerContext) => void;
+  onSkillDisableFilterChange?: (filter: string) => void;
+  onSkillDisableSessionClosed?: () => void;
   onTextChange: (text: string) => void;
   placeholder: React.ReactNode;
   priority?: WorkspacePriority;
@@ -74,6 +79,7 @@ export function WelcomeComposerCard({
   setPriority?: (value: WorkspacePriority) => void;
   setSelectedLabels?: (labels: WorkspaceLabel[]) => void;
   setWorkflowStatus?: (value: WorkspaceWorkflowStatus) => void;
+  skillsControl?: React.ReactNode;
   workflowStatus?: WorkspaceWorkflowStatus;
   workspaceLabels?: WorkspaceLabel[];
   controls?: React.ReactNode;
@@ -99,6 +105,8 @@ export function WelcomeComposerCard({
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}
             onSlashCancel={onSlashCancel}
+            onSkillDisableFilterChange={onSkillDisableFilterChange}
+            onSkillDisableSessionClosed={onSkillDisableSessionClosed}
           />
 
           <AttachmentBar
@@ -123,6 +131,7 @@ export function WelcomeComposerCard({
               setPriority={setPriority!}
               setSelectedLabels={setSelectedLabels!}
               setWorkflowStatus={setWorkflowStatus!}
+              skillsControl={skillsControl}
               workflowStatus={workflowStatus!}
               workspaceLabels={workspaceLabels!}
             />
