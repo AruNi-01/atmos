@@ -1,4 +1,4 @@
-# APP-040 · Browser Cookie Sync — BRAINSTORM
+# APP-041 · Browser Cookie Sync — BRAINSTORM
 
 > Working notes. Settled decisions move to `PRD.md` / `TECH.md`.
 

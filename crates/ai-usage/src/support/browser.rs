@@ -3,7 +3,7 @@
 //! Provider-domain cookie filtering + Cookie-header assembly for `ai-usage`.
 //!
 //! The generic discovery / snapshot / typed-read / Keychain / decrypt
-//! primitives now live in the `browser-cookies` leaf crate (APP-040). This
+//! primitives now live in the `browser-cookies` leaf crate (APP-041). This
 //! module keeps only the `ai-usage`-specific concerns: env/file overrides,
 //! provider domain + cookie-name filtering, session detection, and assembling
 //! the `Cookie:` request header consumed by the usage providers.

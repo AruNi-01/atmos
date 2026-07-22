@@ -1182,7 +1182,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsMaximized((current) => !current);
   }, [setIsMaximized]);
 
-  // APP-040 Browser Cookie Sync — desktop + macOS only. The exact macOS 14+ gate
+  // APP-041 Browser Cookie Sync — desktop + macOS only. The exact macOS 14+ gate
   // is enforced by the desktop layer (returns `UnsupportedPlatform`, surfaced in
   // the dialog); here we only decide whether the menu items are eligible to show.
   const cookieToolsAvailable = useMemo(

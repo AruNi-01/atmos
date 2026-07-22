@@ -1,4 +1,4 @@
-//! Frozen shared contract types for APP-040 Browser Cookie Sync.
+//! Frozen shared contract types for APP-041 Browser Cookie Sync.
 //!
 //! These types are identical across the Rust extraction crate, the desktop
 //! coordinator, and (by mapping) the web UI. Do not change field names or enum

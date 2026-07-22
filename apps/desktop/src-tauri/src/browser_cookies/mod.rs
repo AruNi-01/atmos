@@ -1,4 +1,4 @@
-//! APP-040 Browser Cookie Sync — desktop native layer.
+//! APP-041 Browser Cookie Sync — desktop native layer.
 //!
 //! The [`BrowserCookieCoordinator`] owns the four Tauri commands
 //! (`list_importable_browsers`, `import_browser_cookies`, `clear_browser_cache`,

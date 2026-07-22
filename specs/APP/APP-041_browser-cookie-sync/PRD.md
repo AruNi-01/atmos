@@ -1,4 +1,4 @@
-# APP-040 · Browser Cookie Sync — PRD
+# APP-041 · Browser Cookie Sync — PRD
 
 > **WHAT & WHY.** Architecture lives in [`TECH.md`](./TECH.md); verification in [`TEST.md`](./TEST.md).
 

@@ -3,7 +3,7 @@
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 /**
- * APP-040 Browser Cookie Sync — frontend command bindings.
+ * APP-041 Browser Cookie Sync — frontend command bindings.
  *
  * These wrap the four dedicated Tauri commands exposed by the desktop track. The
  * whole pipeline is local and desktop-only (macOS 14+); there is no REST/WS path

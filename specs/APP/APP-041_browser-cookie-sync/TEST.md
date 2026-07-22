@@ -1,8 +1,8 @@
-# APP-040 · Browser Cookie Sync — TEST
+# APP-041 · Browser Cookie Sync — TEST
 
 > Verification contract. Requirements in [`PRD.md`](./PRD.md); design in [`TECH.md`](./TECH.md).
 >
-> Revised per the APP-040 review: adds the app-state-isolation, dedicated-store, capability
+> Revised per the APP-041 review: adds the app-state-isolation, dedicated-store, capability
 > negative, cookie round-trip, WAL, idempotency/concurrency, persistence, canary, and platform-gate
 > scenarios that the first draft lacked.
 

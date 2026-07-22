@@ -1,9 +1,9 @@
-# APP-040 · Browser Cookie Sync — TECH
+# APP-041 · Browser Cookie Sync — TECH
 
 > **HOW.** Requirements in [`PRD.md`](./PRD.md); verification in [`TEST.md`](./TEST.md).
 > Scope: macOS **14+** MVP. Sources: Chrome / Edge / Brave (Chromium) + Firefox.
 >
-> This revision incorporates the APP-040 architecture review. Key corrections vs the first draft:
+> This revision incorporates the APP-041 architecture review. Key corrections vs the first draft:
 > a **dedicated** WebKit data store (not the default one), a **dedicated Tauri capability** with
 > caller validation, a **high-fidelity cookie model** with read-back verification, a **WAL-safe
 > SQLite snapshot** read via typed BLOB API (no `sqlite3` subprocess), split **Clear Cache /

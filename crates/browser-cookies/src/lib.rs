@@ -1,6 +1,6 @@
 //! `browser-cookies` — local, on-device browser cookie extraction for macOS.
 //!
-//! Leaf crate for APP-040 Browser Cookie Sync. No Tauri, no app dependencies.
+//! Leaf crate for APP-041 Browser Cookie Sync. No Tauri, no app dependencies.
 //! Reads a consistent snapshot of Chromium-family and Firefox cookie stores via
 //! the typed `rusqlite` BLOB API (never a `sqlite3` subprocess), decrypts
 //! Chromium values with the macOS Keychain Safe Storage key, and returns

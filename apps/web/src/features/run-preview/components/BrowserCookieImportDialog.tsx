@@ -39,7 +39,7 @@ interface BrowserCookieImportDialogProps {
 type DialogPhase = "idle" | "loading-profiles" | "importing" | "done" | "error";
 
 /**
- * APP-040 · Atlas-style cookie import dialog (desktop, macOS 14+).
+ * APP-041 · Atlas-style cookie import dialog (desktop, macOS 14+).
  *
  * Lets the user pick a source browser profile (opaque handle) and import its
  * cookies into the dedicated Atmos Browser store. On success it renders the
