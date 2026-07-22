@@ -81,18 +81,17 @@ impl DiskAnalyzerEngine {
         Self
     }
 
-    /// Allocated disk usage for a path (Unix: blocks * 512; Windows: AllocationSize).
-    /// Falls back to logical length when the platform size is unavailable.
-    pub fn allocated_size(path: &Path) -> u64 {
+    /// Allocated disk usage for a path (Unix: blocks * 512; Windows: AllocationSize / GetCompressedFileSizeW).
+    /// Returns None when physical allocation size cannot be queried (avoiding incorrect logical size substitution).
+    pub fn allocated_size(path: &Path) -> Option<u64> {
         #[cfg(windows)]
         {
-            if let Some(size) = windows_allocated_size(path) {
-                return size;
-            }
+            windows_allocated_size(path)
         }
-        match std::fs::symlink_metadata(path) {
-            Ok(meta) => allocated_size_from_metadata(&meta),
-            Err(_) => 0,
+        #[cfg(not(windows))]
+        {
+            let meta = std::fs::symlink_metadata(path).ok()?;
+            allocated_size_from_metadata(&meta)
         }
     }
 
@@ -258,10 +257,11 @@ impl DiskAnalyzerEngine {
                 dirs_scanned.fetch_add(1, Ordering::Relaxed);
 
                 // Directory inode itself occupies blocks.
-                let dir_size = Self::allocated_size(&path);
-                if dir_size > 0 {
-                    add_size_to_ancestors(&mut sizes, &root, &path, dir_size);
-                    bytes_scanned.fetch_add(dir_size, Ordering::Relaxed);
+                if let Some(dir_size) = Self::allocated_size(&path) {
+                    if dir_size > 0 {
+                        add_size_to_ancestors(&mut sizes, &root, &path, dir_size);
+                        bytes_scanned.fetch_add(dir_size, Ordering::Relaxed);
+                    }
                 }
 
                 emit(
@@ -281,10 +281,17 @@ impl DiskAnalyzerEngine {
                 }
             };
             #[cfg(windows)]
-            let size = windows_allocated_size(&path)
-                .unwrap_or_else(|| allocated_size_from_metadata(&meta));
+            let allocated_size = windows_allocated_size(&path);
             #[cfg(not(windows))]
-            let size = allocated_size_from_metadata(&meta);
+            let allocated_size = allocated_size_from_metadata(&meta);
+
+            let size = match allocated_size {
+                Some(s) => s,
+                None => {
+                    error_count.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+            };
 
             let count_size = match file_identity(&path, &meta) {
                 Some(id) => seen_file_ids.insert(id),
@@ -411,7 +418,7 @@ impl DiskAnalyzerEngine {
             // Best-effort: sum allocated sizes under the directory before delete.
             self.quick_size(&canonical)
         } else {
-            Self::allocated_size(&canonical)
+            Self::allocated_size(&canonical).unwrap_or(0)
         };
 
         if permanent {
@@ -451,7 +458,9 @@ impl DiskAnalyzerEngine {
             let Ok(entry) = entry else {
                 continue;
             };
-            total = total.saturating_add(Self::allocated_size(&entry.path()));
+            if let Some(sz) = Self::allocated_size(&entry.path()) {
+                total = total.saturating_add(sz);
+            }
         }
         total
     }
@@ -463,16 +472,21 @@ impl Default for DiskAnalyzerEngine {
     }
 }
 
-fn allocated_size_from_metadata(meta: &std::fs::Metadata) -> u64 {
+fn allocated_size_from_metadata(meta: &std::fs::Metadata) -> Option<u64> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
         let blocks = meta.blocks();
-        if blocks > 0 {
-            return blocks.saturating_mul(512);
+        if blocks > 0 || meta.len() == 0 {
+            return Some(blocks.saturating_mul(512));
         }
+        Some(meta.len())
     }
-    meta.len()
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        None
+    }
 }
 
 /// Stable file identity for hard-link deduplication across a scan.
@@ -504,10 +518,11 @@ fn file_identity(path: &Path, meta: &std::fs::Metadata) -> Option<(u64, u64)> {
 fn windows_allocated_size(path: &Path) -> Option<u64> {
     use std::mem::MaybeUninit;
     use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::Storage::FileSystem::{
-        CreateFileW, FileStandardInfo, GetFileInformationByHandleEx, FILE_FLAG_BACKUP_SEMANTICS,
-        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, OPEN_EXISTING,
+        CreateFileW, FileStandardInfo, GetCompressedFileSizeW, GetFileInformationByHandleEx,
+        FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_STANDARD_INFO, INVALID_FILE_SIZE, OPEN_EXISTING,
     };
 
     let wide: Vec<u16> = path
@@ -527,32 +542,37 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
             std::ptr::null_mut(),
         )
     };
-    if handle == INVALID_HANDLE_VALUE {
-        return None;
+    if handle != INVALID_HANDLE_VALUE {
+        let mut info = MaybeUninit::<FILE_STANDARD_INFO>::uninit();
+        let ok = unsafe {
+            GetFileInformationByHandleEx(
+                handle,
+                FileStandardInfo,
+                info.as_mut_ptr().cast(),
+                std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
+            )
+        };
+        unsafe {
+            CloseHandle(handle);
+        }
+        if ok != 0 {
+            let info = unsafe { info.assume_init() };
+            // AllocationSize is a LARGE_INTEGER (i64).
+            let allocated = info.AllocationSize;
+            if allocated >= 0 {
+                return Some(allocated as u64);
+            }
+        }
     }
 
-    let mut info = MaybeUninit::<FILE_STANDARD_INFO>::uninit();
-    let ok = unsafe {
-        GetFileInformationByHandleEx(
-            handle,
-            FileStandardInfo,
-            info.as_mut_ptr().cast(),
-            std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
-        )
-    };
-    unsafe {
-        CloseHandle(handle);
+    // Secondary Win32 query: GetCompressedFileSizeW queries allocation by path directly
+    let mut high: u32 = 0;
+    let low = unsafe { GetCompressedFileSizeW(wide.as_ptr(), &mut high) };
+    if low != INVALID_FILE_SIZE || unsafe { GetLastError() } == 0 {
+        return Some(((high as u64) << 32) | (low as u64));
     }
-    if ok == 0 {
-        return None;
-    }
-    let info = unsafe { info.assume_init() };
-    // AllocationSize is a LARGE_INTEGER (i64).
-    let allocated = info.AllocationSize;
-    if allocated < 0 {
-        return None;
-    }
-    Some(allocated as u64)
+
+    None
 }
 
 fn add_size_to_ancestors(sizes: &mut HashMap<PathBuf, u64>, root: &Path, path: &Path, size: u64) {
@@ -787,7 +807,7 @@ mod tests {
 
         assert_eq!(stats.files_scanned, 2);
         // Allocated blocks should be counted once, not twice.
-        let single = DiskAnalyzerEngine::allocated_size(&a);
+        let single = DiskAnalyzerEngine::allocated_size(&a).expect("allocated size");
         assert!(
             tree.size < single.saturating_mul(2),
             "tree.size={} single={}",

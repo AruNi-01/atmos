@@ -36,6 +36,7 @@ struct DiskAnalyzerSession {
     stats: Option<ScanStats>,
     suggestions: Option<Vec<CleanupSuggestion>>,
     root_path: PathBuf,
+    started_at: Instant,
     completed_at: Option<Instant>,
 }
 
@@ -107,6 +108,7 @@ impl DiskAnalyzerService {
                     stats: None,
                     suggestions: None,
                     root_path: root.clone(),
+                    started_at: Instant::now(),
                     completed_at: None,
                 },
             );
@@ -322,6 +324,19 @@ impl DiskAnalyzerService {
         project_roots
     }
 
+    /// Cancel and remove all active or completed sessions owned by `owner_conn_id` (e.g. on WS disconnect).
+    pub fn remove_connection_sessions(&self, owner_conn_id: &str) {
+        let mut sessions = self.sessions.lock();
+        sessions.retain(|_, session| {
+            if session.owner_conn_id == owner_conn_id {
+                session.cancel.store(true, Ordering::Relaxed);
+                false
+            } else {
+                true
+            }
+        });
+    }
+
     fn ensure_owner(session: &DiskAnalyzerSession, owner_conn_id: &str) -> Result<()> {
         if session.owner_conn_id != owner_conn_id {
             return Err(ServiceError::Validation(
@@ -334,9 +349,17 @@ impl DiskAnalyzerService {
     fn evict_expired(sessions: &mut HashMap<String, DiskAnalyzerSession>) {
         let now = Instant::now();
         sessions.retain(|_, session| match session.completed_at {
-            // Never TTL-evict an in-flight scan (large drives can exceed SESSION_TTL).
+            // Expire completed sessions after SESSION_TTL.
             Some(completed) => now.duration_since(completed) < SESSION_TTL,
-            None => true,
+            // Evict and cancel in-flight scans if they exceed 2x SESSION_TTL.
+            None => {
+                if now.duration_since(session.started_at) >= SESSION_TTL * 2 {
+                    session.cancel.store(true, Ordering::Relaxed);
+                    false
+                } else {
+                    true
+                }
+            }
         });
     }
 
@@ -390,5 +413,62 @@ mod tests {
         };
         assert!(find_node(&tree, "/r/a").is_some());
         assert!(find_node(&tree, "/missing").is_none());
+    }
+
+    #[test]
+    fn remove_connection_sessions_cancels_and_purges() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut sessions = HashMap::new();
+        sessions.insert(
+            "s1".to_string(),
+            DiskAnalyzerSession {
+                owner_conn_id: "conn-123".to_string(),
+                cancel: Arc::clone(&cancel),
+                tree: None,
+                stats: None,
+                suggestions: None,
+                root_path: PathBuf::from("/tmp"),
+                started_at: Instant::now(),
+                completed_at: None,
+            },
+        );
+
+        let db = Arc::new(sea_orm::DatabaseConnection::default());
+        let service = DiskAnalyzerService {
+            engine: DiskAnalyzerEngine::new(),
+            fs_engine: FsEngine::new(),
+            git_engine: GitEngine::new(),
+            project_service: Arc::new(ProjectService::new(Arc::clone(&db))),
+            workspace_service: Arc::new(WorkspaceService::new(Arc::clone(&db))),
+            sessions: Arc::new(Mutex::new(sessions)),
+            event_tx: broadcast::channel(16).0,
+        };
+
+        service.remove_connection_sessions("conn-123");
+        assert!(cancel.load(Ordering::Relaxed));
+        assert!(service.sessions.lock().is_empty());
+    }
+
+    #[test]
+    fn evict_expired_removes_old_in_flight_sessions() {
+        let mut sessions = HashMap::new();
+        let cancel = Arc::new(AtomicBool::new(false));
+        sessions.insert(
+            "s1".to_string(),
+            DiskAnalyzerSession {
+                owner_conn_id: "conn-1".to_string(),
+                cancel: Arc::clone(&cancel),
+                tree: None,
+                stats: None,
+                suggestions: None,
+                root_path: PathBuf::from("/tmp"),
+                started_at: Instant::now() - (SESSION_TTL * 2 + Duration::from_secs(1)),
+                completed_at: None,
+            },
+        );
+
+        DiskAnalyzerService::evict_expired(&mut sessions);
+        assert!(cancel.load(Ordering::Relaxed));
+        assert!(sessions.is_empty());
     }
 }

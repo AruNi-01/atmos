@@ -1032,5 +1032,6 @@ impl WsMessageHandler for WsMessageService {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
         // APP-015: drop any canvas-bridge registrations associated with this conn
         self.canvas_agent_relay.unregister_conn(conn_id);
+        self.disk_analyzer_service.remove_connection_sessions(conn_id);
     }
 }
