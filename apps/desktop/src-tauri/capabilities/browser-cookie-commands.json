@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "browser-cookie-commands",
+  "description": "Allows only trusted first-party Atmos app-shell webviews to invoke the local browser cookie import/clear commands. Scoped to specific webviews (not windows) and app-protocol content only (no remote.urls) so previewed target-site content cannot reach these Keychain-touching, destructive commands.",
+  "webviews": [
+    "main",
+    "preview-browser",
+    "preview-browser-*"
+  ],
+  "permissions": [
+    "browser-cookie-commands"
+  ]
+}

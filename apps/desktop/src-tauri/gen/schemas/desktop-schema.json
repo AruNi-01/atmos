@@ -555,6 +555,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Allows exactly the four local browser cookie sync commands. Kept separate from desktop-app-commands so these Keychain-touching / destructive commands are only reachable from the dedicated, webview-scoped browser-cookie-commands capability.",
+          "type": "string",
+          "const": "browser-cookie-commands",
+          "markdownDescription": "Allows exactly the four local browser cookie sync commands. Kept separate from desktop-app-commands so these Keychain-touching / destructive commands are only reachable from the dedicated, webview-scoped browser-cookie-commands capability."
+        },
+        {
           "description": "Allows first-party Atmos desktop webviews to call native desktop app commands.",
           "type": "string",
           "const": "desktop-app-commands",

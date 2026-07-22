@@ -7602,6 +7602,76 @@
         "minimize": "Minimize",
         "minimizePreview": "Minimize Browser"
       },
+      "overflow": {
+        "moreActions": "More actions"
+      },
+      "cookieSync": {
+        "menu": {
+          "import": "Import from your browser",
+          "clearCache": "Clear Cache Data",
+          "clearSiteData": "Clear Cookie & Storage"
+        },
+        "browsers": {
+          "Chrome": "Google Chrome",
+          "Edge": "Microsoft Edge",
+          "Brave": "Brave",
+          "Firefox": "Firefox",
+          "unknown": "Browser"
+        },
+        "import": {
+          "title": "Import from your browser",
+          "description": "Bring your existing sign-ins into Atmos Browser by importing cookies from another browser on this Mac. Everything stays on your device.",
+          "fromLabel": "From",
+          "profilePlaceholder": "Choose a browser profile",
+          "loading": "Looking for browsers…",
+          "noBrowsers": "No supported browsers found on this Mac",
+          "runningHint": "Close {browser} completely before importing.",
+          "cookiesToggleLabel": "Cookies",
+          "cookiesToggleHint": "Import saved sign-in cookies for this profile.",
+          "cancel": "Cancel",
+          "import": "Import",
+          "importing": "Importing…",
+          "result": {
+            "verified": "{count, plural, one {# cookie imported and verified} other {# cookies imported and verified}}",
+            "noneImported": "No cookies were imported.",
+            "skippedExpired": "{count, plural, one {# expired cookie skipped} other {# expired cookies skipped}}",
+            "skippedDecrypt": "{count, plural, one {# cookie could not be decrypted} other {# cookies could not be decrypted}}",
+            "skippedParse": "{count, plural, one {# cookie could not be read} other {# cookies could not be read}}",
+            "skippedUnsupported": "{count, plural, one {# unsupported cookie skipped} other {# unsupported cookies skipped}}",
+            "failedInjection": "{count, plural, one {# cookie was rejected by the browser store} other {# cookies were rejected by the browser store}}",
+            "reloadHint": "Reload the active tab to apply your imported session.",
+            "reload": "Reload to apply",
+            "done": "Done"
+          }
+        },
+        "clear": {
+          "cacheTitle": "Clear cache data?",
+          "cacheDescription": "Removes cached files only. Your cookies and sign-ins stay, so you remain logged in.",
+          "siteDataTitle": "Clear cookie & storage?",
+          "siteDataDescription": "Removes cookies and local storage (localStorage, IndexedDB, and more) along with cached files. This will sign you out of sites.",
+          "cancel": "Cancel",
+          "confirmCache": "Clear cache data",
+          "confirmSiteData": "Clear cookie & storage",
+          "retry": "Try again",
+          "clearing": "Clearing…",
+          "clearedCache": "Cache data cleared",
+          "clearedSiteData": "Cookie & storage cleared",
+          "done": "Done"
+        },
+        "errors": {
+          "UnsupportedPlatform": "Cookie import needs macOS 14 or later.",
+          "ProfileNotFound": "That browser profile could not be found. Try choosing it again.",
+          "BrowserRunning": "Close the source browser completely, then try again.",
+          "KeychainDenied": "Keychain access was denied. Allow access to import cookies.",
+          "KeychainUnavailable": "Keychain is unavailable, so cookies can't be decrypted.",
+          "DatabaseBusy": "The browser's cookie database is busy. Close the source browser and try again.",
+          "Busy": "Another cookie operation is still running. Wait for it to finish and try again.",
+          "Forbidden": "This action isn't allowed from here.",
+          "Io": "Something went wrong reading the browser data. Please try again.",
+          "InvalidSchema": "This browser version isn't supported yet.",
+          "Unknown": "Something went wrong. Please try again."
+        }
+      },
       "standalone": {
         "embeddedTitle": "Browser is open in a separate window",
         "embeddedDescription": "The embedded Browser is paused so the standalone Browser stays the only active surface.",
