@@ -335,13 +335,7 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
   const openClearPopover = (target: ClearTarget) => {
     setClearErrorCode(null);
     setClearPhase("confirm");
-    setMenuOpen(false);
-    // Defer mounting the confirm popover until after the dropdown menu has completely closed
-    // and pointer events have finished. Prevents Radix focus restoration and event bubbling from
-    // immediately triggering Popover interactOutside dismissal.
-    setTimeout(() => {
-      setClearTarget(target);
-    }, 50);
+    setClearTarget(target);
   };
 
   const runClear = async () => {
@@ -359,29 +353,36 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
     }
   };
 
+  const handleMenuOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && clearing) return;
+    setMenuOpen(nextOpen);
+    if (!nextOpen) {
+      closeClearPopover();
+    }
+  };
+
   const clearing = clearPhase === "clearing";
   const isSiteData = clearTarget === "site";
 
   return (
-    <div className="relative inline-flex items-center">
-      <Popover
-        open={clearTarget !== null}
-        onOpenChange={(next) => {
-          if (!next && !clearing) closeClearPopover();
-        }}
-      >
-        <PopoverAnchor asChild>
-          <div className="absolute inset-0 pointer-events-none" />
-        </PopoverAnchor>
-        <PopoverContent
-          align="end"
-          sideOffset={8}
-          className="z-[1002] w-[320px] space-y-3 p-3"
-          onInteractOutside={(event) => {
-            if (clearing) event.preventDefault();
-          }}
+    <DropdownMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={t("overflow.moreActions")}
+          title={t("overflow.moreActions")}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground data-[state=open]:bg-background data-[state=open]:text-foreground"
         >
-          {clearPhase === "cleared" ? (
+          <MoreHorizontal className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        data-atmos-native-surface-overlay="true"
+        className="z-[1001] w-72 p-3"
+      >
+        {clearTarget ? (
+          clearPhase === "cleared" ? (
             <div className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
               <div className="space-y-2">
@@ -396,7 +397,7 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
               </div>
             </div>
           ) : (
-            <>
+            <div className="space-y-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">
                   {isSiteData ? t("cookieSync.clear.siteDataTitle") : t("cookieSync.clear.cacheTitle")}
@@ -441,85 +442,78 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
                   )}
                 </Button>
               </div>
-            </>
-          )}
-        </PopoverContent>
-      </Popover>
+            </div>
+          )
+        ) : (
+          <>
+            {controls.onOpenInWindow ? (
+              <DropdownMenuItem onSelect={() => controls.onOpenInWindow?.()}>
+                <PictureInPicture2 className="size-4" />
+                {controls.openInWindowTitle ?? t("actions.openPreviewBrowserWindow")}
+              </DropdownMenuItem>
+            ) : null}
+            {controls.onReturnToEmbedded ? (
+              <DropdownMenuItem onSelect={() => controls.onReturnToEmbedded?.()}>
+                <PictureInPicture className="size-4" />
+                {controls.returnToEmbeddedTitle ?? t("actions.returnToEmbeddedPreview")}
+              </DropdownMenuItem>
+            ) : null}
+            {controls.onMoveToCenter ? (
+              <DropdownMenuItem onSelect={() => controls.onMoveToCenter?.()}>
+                <RotateCcwSquare className="size-4" />
+                {controls.moveToCenterTitle ?? t("browserTabs.moveToCenter")}
+              </DropdownMenuItem>
+            ) : null}
+            {controls.onToggleMaximized ? (
+              <DropdownMenuItem onSelect={() => controls.onToggleMaximized?.()}>
+                {controls.isMaximized ? (
+                  <Minimize className="size-4" />
+                ) : (
+                  <Maximize className="size-4" />
+                )}
+                {controls.isMaximized ? t("browserTabs.minimizePreview") : t("browserTabs.maximizePreview")}
+              </DropdownMenuItem>
+            ) : null}
 
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("overflow.moreActions")}
-            title={t("overflow.moreActions")}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground data-[state=open]:bg-background data-[state=open]:text-foreground"
-          >
-            <MoreHorizontal className="size-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="z-[1001] w-56">
-          {controls.onOpenInWindow ? (
-            <DropdownMenuItem onSelect={() => controls.onOpenInWindow?.()}>
-              <PictureInPicture2 className="size-4" />
-              {controls.openInWindowTitle ?? t("actions.openPreviewBrowserWindow")}
-            </DropdownMenuItem>
-          ) : null}
-          {controls.onReturnToEmbedded ? (
-            <DropdownMenuItem onSelect={() => controls.onReturnToEmbedded?.()}>
-              <PictureInPicture className="size-4" />
-              {controls.returnToEmbeddedTitle ?? t("actions.returnToEmbeddedPreview")}
-            </DropdownMenuItem>
-          ) : null}
-          {controls.onMoveToCenter ? (
-            <DropdownMenuItem onSelect={() => controls.onMoveToCenter?.()}>
-              <RotateCcwSquare className="size-4" />
-              {controls.moveToCenterTitle ?? t("browserTabs.moveToCenter")}
-            </DropdownMenuItem>
-          ) : null}
-          {controls.onToggleMaximized ? (
-            <DropdownMenuItem onSelect={() => controls.onToggleMaximized?.()}>
-              {controls.isMaximized ? (
-                <Minimize className="size-4" />
-              ) : (
-                <Maximize className="size-4" />
-              )}
-              {controls.isMaximized ? t("browserTabs.minimizePreview") : t("browserTabs.maximizePreview")}
-            </DropdownMenuItem>
-          ) : null}
+            {hasSurfaceControls && hasCookieTools ? <DropdownMenuSeparator /> : null}
 
-          {hasSurfaceControls && hasCookieTools ? <DropdownMenuSeparator /> : null}
-
-          {hasImport ? (
-            <DropdownMenuItem onSelect={() => controls.onImportCookies?.()}>
-              <DownloadCloud className="size-4" />
-              {t("cookieSync.menu.import")}
-            </DropdownMenuItem>
-          ) : null}
-          {hasClearCache ? (
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                openClearPopover("cache");
-              }}
-            >
-              <Trash2 className="size-4" />
-              {t("cookieSync.menu.clearCache")}
-            </DropdownMenuItem>
-          ) : null}
-          {hasClearSiteData ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={(event) => {
-                event.preventDefault();
-                openClearPopover("site");
-              }}
-            >
-              <Eraser className="size-4" />
-              {t("cookieSync.menu.clearSiteData")}
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+            {hasImport ? (
+              <DropdownMenuItem
+                onSelect={() => {
+                  setMenuOpen(false);
+                  controls.onImportCookies?.();
+                }}
+              >
+                <DownloadCloud className="size-4" />
+                {t("cookieSync.menu.import")}
+              </DropdownMenuItem>
+            ) : null}
+            {hasClearCache ? (
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  openClearPopover("cache");
+                }}
+              >
+                <Trash2 className="size-4" />
+                {t("cookieSync.menu.clearCache")}
+              </DropdownMenuItem>
+            ) : null}
+            {hasClearSiteData ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  openClearPopover("site");
+                }}
+              >
+                <Eraser className="size-4" />
+                {t("cookieSync.menu.clearSiteData")}
+              </DropdownMenuItem>
+            ) : null}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
