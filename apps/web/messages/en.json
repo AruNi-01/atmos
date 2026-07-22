@@ -870,7 +870,8 @@
       "skills": "Skills - ATMOS",
       "skillDetail": "{skillId} - Skills - ATMOS",
       "terminals": "Terminals - ATMOS",
-      "automations": "Automations - ATMOS"
+      "automations": "Automations - ATMOS",
+      "diskAnalyzer": "Disk Analyzer - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "Downloading runtime",
@@ -910,6 +911,10 @@
         "automations": {
           "title": "Management Center: Automations",
           "description": "Open automation management"
+        },
+        "diskAnalyzer": {
+          "title": "Disk Analyzer",
+          "description": "Scan local disk usage and reclaim space"
         }
       },
       "modalChat": {
@@ -1341,16 +1346,8 @@
         "noChangedFiles": "No changed files"
       }
     },
-    "documentTitle": {
-      "diskAnalyzer": "Disk Analyzer - ATMOS"
-    },
     "globalSearchItems": {
-      "management": {
-        "diskAnalyzer": {
-          "title": "Disk Analyzer",
-          "description": "Scan local disk usage and reclaim space"
-        }
-      }
+      "management": {}
     }
   },
   "automation": {

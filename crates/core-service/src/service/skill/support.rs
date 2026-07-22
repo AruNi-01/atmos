@@ -247,9 +247,7 @@ fn materialize_symlink_dir(link: &Path) -> Result<()> {
     let resolved = if target.is_absolute() {
         target
     } else {
-        link.parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join(target)
+        link.parent().unwrap_or_else(|| Path::new(".")).join(target)
     };
     let resolved = fs::canonicalize(&resolved).unwrap_or(resolved);
 

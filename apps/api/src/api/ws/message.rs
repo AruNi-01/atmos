@@ -14,6 +14,7 @@ where
 use serde_json::Value;
 
 mod agents;
+mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
@@ -21,7 +22,6 @@ mod review;
 mod skills;
 mod terminal;
 mod workspace;
-mod disk_analyzer;
 
 pub use agents::*;
 pub use disk_analyzer::*;

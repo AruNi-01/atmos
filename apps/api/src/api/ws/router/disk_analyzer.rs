@@ -12,7 +12,7 @@ use core_service::{Result, ServiceError};
 
 use super::{
     DiskAnalyzerCancelScanRequest, DiskAnalyzerDeleteRequest, DiskAnalyzerDiskInfoRequest,
-    DiskAnalyzerGetTreeRequest, DiskAnalyzerStartScanRequest, DiskAnalyzerScanSession, WsEvent,
+    DiskAnalyzerGetTreeRequest, DiskAnalyzerScanSession, DiskAnalyzerStartScanRequest, WsEvent,
     WsMessage, WsMessageService,
 };
 

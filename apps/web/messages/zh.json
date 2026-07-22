@@ -870,7 +870,8 @@
       "skills": "技能 - ATMOS",
       "skillDetail": "{skillId} - 技能 - ATMOS",
       "terminals": "终端 - ATMOS",
-      "automations": "自动化 - ATMOS"
+      "automations": "自动化 - ATMOS",
+      "diskAnalyzer": "磁盘分析器 - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "正在下载运行时",
@@ -910,6 +911,10 @@
         "automations": {
           "title": "管理中心：自动化",
           "description": "打开自动化管理"
+        },
+        "diskAnalyzer": {
+          "title": "磁盘分析器",
+          "description": "扫描本机磁盘占用并清理空间"
         }
       },
       "modalChat": {
@@ -1341,16 +1346,8 @@
         "noChangedFiles": "没有变更文件"
       }
     },
-    "documentTitle": {
-      "diskAnalyzer": "磁盘分析器 - ATMOS"
-    },
     "globalSearchItems": {
-      "management": {
-        "diskAnalyzer": {
-          "title": "磁盘分析器",
-          "description": "扫描本机磁盘占用并清理空间"
-        }
-      }
+      "management": {}
     }
   },
   "automation": {

@@ -180,7 +180,11 @@ impl DiskAnalyzerEngine {
             });
         };
 
-        emit(ScanStatus::Running, Some(root.to_string_lossy().to_string()), None);
+        emit(
+            ScanStatus::Running,
+            Some(root.to_string_lossy().to_string()),
+            None,
+        );
 
         // path -> aggregated allocated size
         let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
@@ -301,7 +305,6 @@ impl DiskAnalyzerEngine {
 
         let mut tree = build_tree(
             &root,
-            &root,
             &sizes,
             &file_counts,
             &dir_counts,
@@ -412,12 +415,7 @@ fn allocated_size_from_metadata(meta: &std::fs::Metadata) -> u64 {
     meta.len()
 }
 
-fn add_size_to_ancestors(
-    sizes: &mut HashMap<PathBuf, u64>,
-    root: &Path,
-    path: &Path,
-    size: u64,
-) {
+fn add_size_to_ancestors(sizes: &mut HashMap<PathBuf, u64>, root: &Path, path: &Path, size: u64) {
     let mut cursor = path.to_path_buf();
     loop {
         *sizes.entry(cursor.clone()).or_default() += size;
@@ -438,7 +436,6 @@ fn add_size_to_ancestors(
 
 #[allow(clippy::too_many_arguments)]
 fn build_tree(
-    root: &Path,
     path: &Path,
     sizes: &HashMap<PathBuf, u64>,
     file_counts: &HashMap<PathBuf, u64>,
@@ -461,7 +458,6 @@ fn build_tree(
             for child in sorted {
                 // Skip if child was only a file path already accounted — still include.
                 children.push(build_tree(
-                    root,
                     child,
                     sizes,
                     file_counts,
@@ -500,10 +496,14 @@ pub fn prune_tree(node: &mut DiskNode, max_children: usize) {
         return;
     }
 
-    node.children.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
+    node.children
+        .sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
     let rest: Vec<DiskNode> = node.children.drain(max_children..).collect();
     let other_size: u64 = rest.iter().map(|n| n.size).sum();
-    let other_files: u64 = rest.iter().map(|n| n.file_count + if n.is_dir { 0 } else { 1 }).sum();
+    let other_files: u64 = rest
+        .iter()
+        .map(|n| n.file_count + if n.is_dir { 0 } else { 1 })
+        .sum();
     let other_dirs: u64 = rest.iter().filter(|n| n.is_dir).count() as u64
         + rest.iter().map(|n| n.dir_count).sum::<u64>();
 
@@ -533,7 +533,7 @@ pub fn cleanup_suggestions(tree: &DiskNode) -> Vec<CleanupSuggestion> {
 
     let mut out = Vec::new();
     collect_suggestions(tree, HINTS, &mut out);
-    out.sort_by(|a, b| b.size.cmp(&a.size));
+    out.sort_by_key(|b| std::cmp::Reverse(b.size));
     out.truncate(20);
     out
 }
@@ -546,11 +546,7 @@ pub struct CleanupSuggestion {
     pub reason: String,
 }
 
-fn collect_suggestions(
-    node: &DiskNode,
-    hints: &[(&str, &str)],
-    out: &mut Vec<CleanupSuggestion>,
-) {
+fn collect_suggestions(node: &DiskNode, hints: &[(&str, &str)], out: &mut Vec<CleanupSuggestion>) {
     for (name, reason) in hints {
         if node.name == *name && node.size > 0 {
             out.push(CleanupSuggestion {
@@ -594,11 +590,7 @@ mod tests {
 
         assert!(tree.size >= 6000, "size={}", tree.size);
         assert_eq!(stats.files_scanned, 3);
-        let sub = tree
-            .children
-            .iter()
-            .find(|c| c.name == "sub")
-            .expect("sub");
+        let sub = tree.children.iter().find(|c| c.name == "sub").expect("sub");
         assert!(sub.size >= 5000, "sub.size={}", sub.size);
     }
 
@@ -613,7 +605,14 @@ mod tests {
 
         let engine = DiskAnalyzerEngine::new();
         let (tree, _) = engine
-            .scan_path("t2", &root, &[project.clone()], Some(40), None, None)
+            .scan_path(
+                "t2",
+                &root,
+                std::slice::from_ref(&project),
+                Some(40),
+                None,
+                None,
+            )
             .expect("scan");
 
         assert!(
@@ -714,10 +713,7 @@ mod tests {
     }
 
     fn tempfile_dir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "{label}-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let dir = std::env::temp_dir().join(format!("{label}-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

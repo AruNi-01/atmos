@@ -166,11 +166,12 @@ impl WsMessageService {
             path: req.path,
         };
 
-        let skills = tokio::task::spawn_blocking(move || {
-            SkillScanner::scan_root(&root, ScanMode::Lazy)
-        })
-        .await
-        .map_err(|e| ServiceError::Processing(format!("skills scan_root join error: {e}")))?;
+        let skills =
+            tokio::task::spawn_blocking(move || SkillScanner::scan_root(&root, ScanMode::Lazy))
+                .await
+                .map_err(|e| {
+                    ServiceError::Processing(format!("skills scan_root join error: {e}"))
+                })?;
 
         Ok(json!({ "skills": skills }))
     }
