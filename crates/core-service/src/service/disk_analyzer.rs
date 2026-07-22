@@ -36,7 +36,6 @@ struct DiskAnalyzerSession {
     stats: Option<ScanStats>,
     suggestions: Option<Vec<CleanupSuggestion>>,
     root_path: PathBuf,
-    created_at: Instant,
     completed_at: Option<Instant>,
 }
 
@@ -108,7 +107,6 @@ impl DiskAnalyzerService {
                     stats: None,
                     suggestions: None,
                     root_path: root.clone(),
-                    created_at: Instant::now(),
                     completed_at: None,
                 },
             );
@@ -147,12 +145,8 @@ impl DiskAnalyzerService {
 
             match result {
                 Ok((tree, stats, suggestions)) => {
-                    if let Some(session) = sessions.lock().get_mut(&scan_id_task) {
-                        session.tree = Some(Arc::new(tree.clone()));
-                        session.stats = Some(stats.clone());
-                        session.suggestions = Some(suggestions.clone());
-                        session.completed_at = Some(Instant::now());
-                    }
+                    // Store once under Arc; serialize from that reference (no deep clone).
+                    let tree = Arc::new(tree);
                     let payload = json!({
                         "scan_id": scan_id_task,
                         "status": "completed",
@@ -163,10 +157,16 @@ impl DiskAnalyzerService {
                         "current_path": Value::Null,
                         "percent": 100.0,
                         "error": Value::Null,
-                        "tree": tree,
-                        "stats": stats,
-                        "suggestions": suggestions,
+                        "tree": tree.as_ref(),
+                        "stats": &stats,
+                        "suggestions": &suggestions,
                     });
+                    if let Some(session) = sessions.lock().get_mut(&scan_id_task) {
+                        session.tree = Some(Arc::clone(&tree));
+                        session.stats = Some(stats);
+                        session.suggestions = Some(suggestions);
+                        session.completed_at = Some(Instant::now());
+                    }
                     let _ = event_tx.send(DiskAnalyzerScanEvent {
                         owner_conn_id: owner,
                         payload,
@@ -333,9 +333,10 @@ impl DiskAnalyzerService {
 
     fn evict_expired(sessions: &mut HashMap<String, DiskAnalyzerSession>) {
         let now = Instant::now();
-        sessions.retain(|_, session| {
-            let anchor = session.completed_at.unwrap_or(session.created_at);
-            now.duration_since(anchor) < SESSION_TTL
+        sessions.retain(|_, session| match session.completed_at {
+            // Never TTL-evict an in-flight scan (large drives can exceed SESSION_TTL).
+            Some(completed) => now.duration_since(completed) < SESSION_TTL,
+            None => true,
         });
     }
 

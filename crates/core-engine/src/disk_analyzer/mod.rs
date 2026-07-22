@@ -81,8 +81,15 @@ impl DiskAnalyzerEngine {
         Self
     }
 
-    /// Allocated disk usage for a path (Unix: blocks * 512). Falls back to len.
+    /// Allocated disk usage for a path (Unix: blocks * 512; Windows: AllocationSize).
+    /// Falls back to logical length when the platform size is unavailable.
     pub fn allocated_size(path: &Path) -> u64 {
+        #[cfg(windows)]
+        {
+            if let Some(size) = windows_allocated_size(path) {
+                return size;
+            }
+        }
         match std::fs::symlink_metadata(path) {
             Ok(meta) => allocated_size_from_metadata(&meta),
             Err(_) => 0,
@@ -211,8 +218,8 @@ impl DiskAnalyzerEngine {
                 }
             });
 
-        #[cfg(unix)]
-        let mut seen_inodes: HashSet<(u64, u64)> = HashSet::new();
+        // (device/volume, inode/file-index) — skip double-counting hard links.
+        let mut seen_file_ids: HashSet<(u64, u64)> = HashSet::new();
 
         for entry in walker {
             if cancel
@@ -273,15 +280,17 @@ impl DiskAnalyzerEngine {
                     continue;
                 }
             };
+            #[cfg(windows)]
+            let size = windows_allocated_size(&path)
+                .unwrap_or_else(|| allocated_size_from_metadata(&meta));
+            #[cfg(not(windows))]
             let size = allocated_size_from_metadata(&meta);
 
-            #[cfg(unix)]
-            let count_size = {
-                use std::os::unix::fs::MetadataExt;
-                seen_inodes.insert((meta.dev(), meta.ino()))
+            let count_size = match file_identity(&path, &meta) {
+                Some(id) => seen_file_ids.insert(id),
+                // Identity unavailable: count this path (best-effort).
+                None => true,
             };
-            #[cfg(not(unix))]
-            let count_size = true;
 
             files_scanned.fetch_add(1, Ordering::Relaxed);
             if count_size {
@@ -464,6 +473,86 @@ fn allocated_size_from_metadata(meta: &std::fs::Metadata) -> u64 {
         }
     }
     meta.len()
+}
+
+/// Stable file identity for hard-link deduplication across a scan.
+fn file_identity(path: &Path, meta: &std::fs::Metadata) -> Option<(u64, u64)> {
+    #[cfg(unix)]
+    {
+        let _ = path;
+        use std::os::unix::fs::MetadataExt;
+        Some((meta.dev(), meta.ino()))
+    }
+    #[cfg(windows)]
+    {
+        let _ = meta;
+        // symlink_metadata / FindFirstFile does not populate file index — open by path.
+        let opened = std::fs::metadata(path).ok()?;
+        use std::os::windows::fs::MetadataExt;
+        let volume = opened.volume_serial_number()? as u64;
+        let index = opened.file_index()?;
+        Some((volume, index))
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (path, meta);
+        None
+    }
+}
+
+#[cfg(windows)]
+fn windows_allocated_size(path: &Path) -> Option<u64> {
+    use std::mem::MaybeUninit;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{
+        CreateFileW, FileStandardInfo, GetFileInformationByHandleEx, FILE_FLAG_BACKUP_SEMANTICS,
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_STANDARD_INFO, OPEN_EXISTING,
+    };
+
+    let wide: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    // BACKUP_SEMANTICS allows opening directories; FILE_SHARE_* keeps scan non-disruptive.
+    let handle = unsafe {
+        CreateFileW(
+            wide.as_ptr(),
+            0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            std::ptr::null(),
+            OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS,
+            std::ptr::null_mut(),
+        )
+    };
+    if handle == INVALID_HANDLE_VALUE {
+        return None;
+    }
+
+    let mut info = MaybeUninit::<FILE_STANDARD_INFO>::uninit();
+    let ok = unsafe {
+        GetFileInformationByHandleEx(
+            handle,
+            FileStandardInfo,
+            info.as_mut_ptr().cast(),
+            std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
+        )
+    };
+    unsafe {
+        CloseHandle(handle);
+    }
+    if ok == 0 {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    // AllocationSize is a LARGE_INTEGER (i64).
+    let allocated = info.AllocationSize;
+    if allocated < 0 {
+        return None;
+    }
+    Some(allocated as u64)
 }
 
 fn add_size_to_ancestors(sizes: &mut HashMap<PathBuf, u64>, root: &Path, path: &Path, size: u64) {
