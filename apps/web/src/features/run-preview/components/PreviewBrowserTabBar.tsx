@@ -363,25 +363,100 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
   const isSiteData = clearTarget === "site";
 
   return (
-    <Popover
-      open={clearTarget !== null}
-      onOpenChange={(next) => {
-        if (!next && !clearing) closeClearPopover();
-      }}
-    >
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+    <div className="relative inline-flex items-center">
+      <Popover
+        open={clearTarget !== null}
+        onOpenChange={(next) => {
+          if (!next && !clearing) closeClearPopover();
+        }}
+      >
         <PopoverAnchor asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("overflow.moreActions")}
-              title={t("overflow.moreActions")}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground data-[state=open]:bg-background data-[state=open]:text-foreground"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
+          <div className="absolute inset-0 pointer-events-none" />
         </PopoverAnchor>
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="z-[1002] w-[320px] space-y-3 p-3"
+          onInteractOutside={(event) => {
+            if (clearing) event.preventDefault();
+          }}
+        >
+          {clearPhase === "cleared" ? (
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {isSiteData ? t("cookieSync.clear.clearedSiteData") : t("cookieSync.clear.clearedCache")}
+                </p>
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={closeClearPopover}>
+                    {t("cookieSync.clear.done")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {isSiteData ? t("cookieSync.clear.siteDataTitle") : t("cookieSync.clear.cacheTitle")}
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {isSiteData
+                    ? t("cookieSync.clear.siteDataDescription")
+                    : t("cookieSync.clear.cacheDescription")}
+                </p>
+              </div>
+
+              {clearPhase === "error" && clearErrorCode ? (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                  <p className="text-xs leading-relaxed text-foreground">
+                    {t(`cookieSync.errors.${clearErrorCode}` as never)}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={closeClearPopover} disabled={clearing}>
+                  {t("cookieSync.clear.cancel")}
+                </Button>
+                <Button
+                  variant={isSiteData ? "destructive" : "default"}
+                  size="sm"
+                  onClick={() => void runClear()}
+                  disabled={clearing}
+                >
+                  {clearing ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      {t("cookieSync.clear.clearing")}
+                    </span>
+                  ) : clearPhase === "error" ? (
+                    t("cookieSync.clear.retry")
+                  ) : isSiteData ? (
+                    t("cookieSync.clear.confirmSiteData")
+                  ) : (
+                    t("cookieSync.clear.confirmCache")
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </PopoverContent>
+      </Popover>
+
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={t("overflow.moreActions")}
+            title={t("overflow.moreActions")}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground data-[state=open]:bg-background data-[state=open]:text-foreground"
+          >
+            <MoreHorizontal className="size-3.5" />
+          </button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="z-[1001] w-56">
           {controls.onOpenInWindow ? (
             <DropdownMenuItem onSelect={() => controls.onOpenInWindow?.()}>
@@ -445,86 +520,6 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="z-[1002] w-[320px] space-y-3 p-3"
-        onInteractOutside={(event) => {
-          if (clearing) {
-            event.preventDefault();
-            return;
-          }
-          const target = event.target as Node | null;
-          const trigger = document.querySelector('[aria-label="' + t("overflow.moreActions") + '"]');
-          if (trigger && (trigger === target || trigger.contains(target))) {
-            event.preventDefault();
-          }
-        }}
-      >
-        {clearPhase === "cleared" ? (
-          <div className="flex items-start gap-2">
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                {isSiteData ? t("cookieSync.clear.clearedSiteData") : t("cookieSync.clear.clearedCache")}
-              </p>
-              <div className="flex justify-end">
-                <Button variant="outline" size="sm" onClick={closeClearPopover}>
-                  {t("cookieSync.clear.done")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">
-                {isSiteData ? t("cookieSync.clear.siteDataTitle") : t("cookieSync.clear.cacheTitle")}
-              </p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {isSiteData
-                  ? t("cookieSync.clear.siteDataDescription")
-                  : t("cookieSync.clear.cacheDescription")}
-              </p>
-            </div>
-
-            {clearPhase === "error" && clearErrorCode ? (
-              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2">
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-                <p className="text-xs leading-relaxed text-foreground">
-                  {t(`cookieSync.errors.${clearErrorCode}` as never)}
-                </p>
-              </div>
-            ) : null}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={closeClearPopover} disabled={clearing}>
-                {t("cookieSync.clear.cancel")}
-              </Button>
-              <Button
-                variant={isSiteData ? "destructive" : "default"}
-                size="sm"
-                onClick={() => void runClear()}
-                disabled={clearing}
-              >
-                {clearing ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    {t("cookieSync.clear.clearing")}
-                  </span>
-                ) : clearPhase === "error" ? (
-                  t("cookieSync.clear.retry")
-                ) : isSiteData ? (
-                  t("cookieSync.clear.confirmSiteData")
-                ) : (
-                  t("cookieSync.clear.confirmCache")
-                )}
-              </Button>
-            </div>
-          </>
-        )}
-      </PopoverContent>
-    </Popover>
+    </div>
   );
 }
