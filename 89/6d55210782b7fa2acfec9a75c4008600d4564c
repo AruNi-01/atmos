@@ -1,0 +1,31 @@
+apps/docs/content/docs/(app)/meta.json
+  s_c29f97cec54b6e::t_4e2a66b6109fec 13
+specs/APP/APP-040_composer-skills-disable/BRAINSTORM.md
+  s_c29f97cec54b6e::t_02784527504ece 22-24
+apps/docs/content/docs/(app)/how-it-works/meta.json
+  s_c29f97cec54b6e::t_df6cfb62935803 2
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  s_c29f97cec54b6e::t_27400378ca2ad3 164-167,172-173
+apps/docs/content/docs/(app)/meta.zh.json
+  s_c29f97cec54b6e::t_725cfebb4ca39a 13
+specs/APP/APP-040_composer-skills-disable/TEST.md
+  s_c29f97cec54b6e::t_5ffa44a28c7718 86
+apps/web/src/features/skills/lib/skill-disable-protocol.ts
+  s_c29f97cec54b6e::t_385fbc87a66b88 43-44,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "896d55210782b7fa2acfec9a75c4008600d4564c",
+  "prompts": {},
+  "sessions": {
+    "s_c29f97cec54b6e": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "3985a9e0-c0f0-423d-be26-13aad68cbecf",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
