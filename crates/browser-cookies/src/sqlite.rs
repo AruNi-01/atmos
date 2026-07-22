@@ -255,18 +255,13 @@ pub(crate) fn read_chromium_full(conn: &Connection) -> Result<Vec<ChromiumFullRo
     let httponly_col = if has("is_httponly") { "is_httponly" } else { "0" };
     let samesite_col = if has("samesite") { "samesite" } else { "-1" };
     let persistent_col = if has("is_persistent") { "is_persistent" } else { "0" };
-    // Partition detection: presence of a non-empty top_frame_site_key or a
-    // has_cross_site_ancestor flag marks a partitioned/CHIPS cookie.
-    let partition_expr = match (has("top_frame_site_key"), has("has_cross_site_ancestor")) {
-        (true, true) => {
-            "(CASE WHEN top_frame_site_key IS NOT NULL AND top_frame_site_key != '' THEN 1 \
-              WHEN has_cross_site_ancestor = 1 THEN 1 ELSE 0 END)"
-        }
-        (true, false) => {
-            "(CASE WHEN top_frame_site_key IS NOT NULL AND top_frame_site_key != '' THEN 1 ELSE 0 END)"
-        }
-        (false, true) => "(CASE WHEN has_cross_site_ancestor = 1 THEN 1 ELSE 0 END)",
-        (false, false) => "0",
+    // Partition detection: presence of a non-empty top_frame_site_key marks a partitioned/CHIPS cookie.
+    // Note: `has_cross_site_ancestor` is an access-context flag in Chromium 118+ and must NOT be treated
+    // as a partition key (otherwise all regular cookies set in cross-site contexts are falsely skipped).
+    let partition_expr = if has("top_frame_site_key") {
+        "(CASE WHEN top_frame_site_key IS NOT NULL AND top_frame_site_key != '' THEN 1 ELSE 0 END)"
+    } else {
+        "0"
     };
 
     let sql = format!(
@@ -574,6 +569,30 @@ mod tests {
         }
         let err = read_chromium_filtered(&db, &["example.com"], None).unwrap_err();
         assert!(matches!(err, ExtractError::InvalidSchema(_)));
+        let _ = std::fs::remove_dir_all(db.parent().unwrap());
+    }
+
+    #[test]
+    fn cross_site_ancestor_does_not_mark_cookie_as_partitioned() {
+        let db = temp_db_path("partition");
+        {
+            let conn = Connection::open(&db).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE cookies (
+                    host_key TEXT, name TEXT, encrypted_value BLOB, value TEXT,
+                    path TEXT, expires_utc INTEGER, is_secure INTEGER,
+                    is_httponly INTEGER, samesite INTEGER, is_persistent INTEGER,
+                    top_frame_site_key TEXT, has_cross_site_ancestor INTEGER
+                 );
+                 INSERT INTO cookies VALUES ('example.com','normal', X'','val','/',0,1,1,1,1,'',1);
+                 INSERT INTO cookies VALUES ('example.com','chips', X'','val','/',0,1,1,1,1,'https://top.com',1);",
+            )
+            .unwrap();
+            let rows = read_chromium_full(&conn).unwrap();
+            assert_eq!(rows.len(), 2);
+            assert!(!rows[0].has_partition, "normal cookie with has_cross_site_ancestor must NOT be partitioned");
+            assert!(rows[1].has_partition, "cookie with top_frame_site_key MUST be partitioned");
+        }
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }
 }

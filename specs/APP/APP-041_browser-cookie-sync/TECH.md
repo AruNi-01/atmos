@@ -208,7 +208,7 @@ Two supported modes; MVP uses **(a)**:
 Read via **`rusqlite` typed BLOB API** — never a `sqlite3` subprocess piping plaintext cookies
 through stdout (the current `ai-usage` approach; a value-leak and quoting risk). Columns:
 Chromium `cookies(host_key, name, encrypted_value, path, expires_utc, is_secure, is_httponly,
-samesite, is_persistent[, top_frame_site_key/has_cross_site_ancestor for partition detection])`;
+samesite, is_persistent[, top_frame_site_key for CHIPS partition detection])`;
 Firefox `moz_cookies(host, name, value, path, expiry, isSecure, isHttpOnly, sameSite[,
 originAttributes])`. Convert Chromium `expires_utc` (µs since 1601) → unix secs; detect partitioned
 rows and route to `skipped_unsupported`.
