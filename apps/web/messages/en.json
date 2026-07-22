@@ -1120,7 +1120,8 @@
           "automations": "Automations",
           "canvas": "Canvas",
           "kanban": "Kanban",
-          "newWorkspace": "New Workspace"
+          "newWorkspace": "New Workspace",
+          "diskAnalyzer": "Disk Analyzer"
         }
       },
       "rightSidebar": {
@@ -1338,6 +1339,17 @@
         "unstagedChanges": "Unstaged Changes",
         "untrackedChanges": "Untracked Changes",
         "noChangedFiles": "No changed files"
+      }
+    },
+    "documentTitle": {
+      "diskAnalyzer": "Disk Analyzer - ATMOS"
+    },
+    "globalSearchItems": {
+      "management": {
+        "diskAnalyzer": {
+          "title": "Disk Analyzer",
+          "description": "Scan local disk usage and reclaim space"
+        }
       }
     }
   },
@@ -8127,5 +8139,37 @@
       "replace": "Replace",
       "replaceAll": "Replace all"
     }
+  },
+  "DiskAnalyzer": {
+    "title": "Disk Analyzer",
+    "subtitle": "Scan local folders, visualize disk usage, and safely move large paths to Trash. Atmos projects and workspaces are highlighted.",
+    "pathPlaceholder": "Absolute path to scan (default: home)",
+    "scan": "Scan",
+    "cancel": "Cancel",
+    "sunburst": "Sunburst",
+    "treemap": "Treemap",
+    "freeSpace": "{free} free of {total}",
+    "scanning": "Scanning… {files} files · {bytes} · {path}",
+    "scanningWait": "Scanning disk…",
+    "empty": "Choose a path and start a scan to see disk usage.",
+    "searchPlaceholder": "Filter by name",
+    "minSize": "Minimum size (bytes)",
+    "projectsOnly": "Atmos projects / workspaces only",
+    "sortSize": "Size",
+    "sortName": "Name",
+    "statsTotal": "Total {size}",
+    "statsCounts": "{files} files · {dirs} dirs",
+    "suggestions": "Cleanup suggestions",
+    "details": "Details",
+    "atmosProject": "Atmos project / workspace",
+    "counts": "{files} files · {dirs} dirs under this path",
+    "delete": "Move to Trash…",
+    "selectNode": "Select a folder or file in the chart.",
+    "children": "Children",
+    "deleteTitle": "Delete path?",
+    "deleteDescription": "This will reclaim about {size} from:\n{path}",
+    "permanentDelete": "Permanently delete (do not use Trash)",
+    "confirmTrash": "Move to Trash",
+    "confirmPermanent": "Delete permanently"
   }
 }

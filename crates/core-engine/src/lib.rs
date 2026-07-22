@@ -1,5 +1,6 @@
 pub mod agent_hooks;
 pub mod app;
+pub mod disk_analyzer;
 pub mod error;
 pub mod fs;
 pub mod git;
@@ -11,6 +12,10 @@ pub mod test_engine;
 pub mod tmux;
 
 pub use app::AppEngine;
+pub use disk_analyzer::{
+    cleanup_suggestions, prune_tree, CleanupSuggestion, DiskAnalyzerEngine, DiskNode,
+    DiskVolumeInfo, ProgressCallback, ScanProgress, ScanStats, ScanStatus,
+};
 pub use error::EngineError;
 pub use fs::{
     compensate_path, CompensateStrategy, FileTreeItem, FsEngine, FsEntry, GitValidationResult,

@@ -24,7 +24,7 @@ import {
   toastManager,
   Zap,
 } from "@workspace/ui";
-import { Presentation } from "lucide-react";
+import { HardDrive, Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
@@ -344,6 +344,19 @@ export function buildGlobalSearchItems({
       },
     });
   }
+
+  items.push({
+    id: "management-disk-analyzer",
+    type: "management",
+    title: globalSearchItemsT("management.diskAnalyzer.title"),
+    description: globalSearchItemsT("management.diskAnalyzer.description"),
+    keywords: ["management", "center", "disk", "analyzer", "storage", "usage", "cleanup", "trash", "du"],
+    icon: <HardDrive className="size-4 text-muted-foreground" />,
+    action: () => {
+      router.push("/disk-analyzer");
+      setGlobalSearchOpen(false);
+    },
+  });
 
   items.push(
     {

@@ -249,7 +249,13 @@ export type WsAction =
   | "local_model_status"
   | "local_model_resolve_hf_url"
   | "local_model_custom_add"
-  | "local_model_custom_delete";
+  | "local_model_custom_delete"
+  // Disk Analyzer (APP-042)
+  | "disk_analyzer_start_scan"
+  | "disk_analyzer_cancel_scan"
+  | "disk_analyzer_get_tree"
+  | "disk_analyzer_delete"
+  | "disk_analyzer_disk_info";
 
 export interface WsRequest {
   type: "request";

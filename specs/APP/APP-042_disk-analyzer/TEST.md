@@ -126,4 +126,26 @@
 
 ## Coverage Status
 
-_Pending implementation / test-run._
+_Updated 2026-07-22 during initial implementation._
+
+| Scenario | Status | Evidence |
+|----------|--------|----------|
+| S2 scan aggregates | covered | `cargo test -p core-engine disk_analyzer` — `scan_aggregates_child_sizes` |
+| S3 caches + project mark | covered | `caches_are_not_skipped_and_projects_marked` |
+| S4 cancel | covered | `cancel_flag_stops_scan` |
+| S5 chart adapters | covered | `bun test apps/web/src/features/disk-analyzer/lib/tree-adapters.test.ts` |
+| S6 filters/sort | covered | same bun file |
+| S7 permanent delete | covered | `permanent_delete_removes_file` |
+| S1 / S8 / S9 | partial | Management Center + i18n keys wired; UI exploratory not_run in this environment |
+| S10 disk info / suggestions | partial | engine `disk_info` + `cleanup_suggestions` implemented; UI wired |
+
+Commands run:
+
+```bash
+cargo test -p core-engine disk_analyzer
+cargo check -p api
+bun test apps/web/src/features/disk-analyzer/lib/tree-adapters.test.ts
+cd apps/web && bun run typecheck
+```
+
+Remaining gaps: Playwright/agent-browser smoke for Management Center → chart → delete dialog; trash-mode integration on a desktop session.

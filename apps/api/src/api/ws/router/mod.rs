@@ -5,6 +5,7 @@
 
 mod agents;
 mod automation;
+mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
@@ -23,7 +24,9 @@ mod workspace_gitignore;
 mod workspace_notifications;
 mod workspace_setup;
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 use super::{message::*, WsManager, WsMessageHandler};
 use ai_usage::UsageService;
@@ -42,6 +45,14 @@ use core_service::{
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
+
+struct DiskAnalyzerScanSession {
+    cancel: Arc<AtomicBool>,
+    tree: Option<core_engine::DiskNode>,
+    stats: Option<core_engine::ScanStats>,
+    #[allow(dead_code)]
+    root_path: String,
+}
 
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
@@ -63,6 +74,7 @@ pub struct WsMessageService {
     token_usage_service: Arc<token_usage::TokenUsageService>,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
+    disk_analyzer_sessions: Arc<Mutex<HashMap<String, DiskAnalyzerScanSession>>>,
 }
 
 impl WsMessageService {
@@ -104,6 +116,7 @@ impl WsMessageService {
             token_usage_service,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
+            disk_analyzer_sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -867,6 +880,24 @@ impl WsMessageService {
             WsAction::LocalModelCustomDelete => {
                 self.handle_local_model_custom_delete(parse_request(request.data)?)
                     .await
+            }
+
+            // Disk Analyzer (APP-042)
+            WsAction::DiskAnalyzerStartScan => {
+                self.handle_disk_analyzer_start_scan(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::DiskAnalyzerCancelScan => {
+                self.handle_disk_analyzer_cancel_scan(parse_request(request.data)?)
+            }
+            WsAction::DiskAnalyzerGetTree => {
+                self.handle_disk_analyzer_get_tree(parse_request(request.data)?)
+            }
+            WsAction::DiskAnalyzerDelete => {
+                self.handle_disk_analyzer_delete(parse_request(request.data)?)
+            }
+            WsAction::DiskAnalyzerDiskInfo => {
+                self.handle_disk_analyzer_disk_info(parse_request(request.data)?)
             }
         }
     }

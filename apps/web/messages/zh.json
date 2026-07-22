@@ -1120,7 +1120,8 @@
           "automations": "自动化",
           "canvas": "画布",
           "kanban": "看板",
-          "newWorkspace": "新建工作区"
+          "newWorkspace": "新建工作区",
+          "diskAnalyzer": "磁盘分析器"
         }
       },
       "rightSidebar": {
@@ -1338,6 +1339,17 @@
         "unstagedChanges": "未暂存更改",
         "untrackedChanges": "未跟踪文件",
         "noChangedFiles": "没有变更文件"
+      }
+    },
+    "documentTitle": {
+      "diskAnalyzer": "磁盘分析器 - ATMOS"
+    },
+    "globalSearchItems": {
+      "management": {
+        "diskAnalyzer": {
+          "title": "磁盘分析器",
+          "description": "扫描本机磁盘占用并清理空间"
+        }
       }
     }
   },
@@ -8127,5 +8139,37 @@
       "replace": "替换",
       "replaceAll": "全部替换"
     }
+  },
+  "DiskAnalyzer": {
+    "title": "磁盘分析器",
+    "subtitle": "扫描本机目录、可视化磁盘占用，并安全地将大目录移至回收站。Atmos 项目与 Workspace 会特别标注。",
+    "pathPlaceholder": "要扫描的绝对路径（默认：用户主目录）",
+    "scan": "开始扫描",
+    "cancel": "取消",
+    "sunburst": "旭日图",
+    "treemap": "矩形树图",
+    "freeSpace": "可用 {free} / 共 {total}",
+    "scanning": "扫描中… {files} 个文件 · {bytes} · {path}",
+    "scanningWait": "正在扫描磁盘…",
+    "empty": "选择路径并开始扫描以查看磁盘占用。",
+    "searchPlaceholder": "按名称过滤",
+    "minSize": "最小大小（字节）",
+    "projectsOnly": "仅显示 Atmos 项目 / Workspace",
+    "sortSize": "按大小",
+    "sortName": "按名称",
+    "statsTotal": "合计 {size}",
+    "statsCounts": "{files} 个文件 · {dirs} 个目录",
+    "suggestions": "清理建议",
+    "details": "详情",
+    "atmosProject": "Atmos 项目 / Workspace",
+    "counts": "此路径下 {files} 个文件 · {dirs} 个目录",
+    "delete": "移至回收站…",
+    "selectNode": "在图表中选择文件夹或文件。",
+    "children": "子项",
+    "deleteTitle": "确认删除？",
+    "deleteDescription": "预计释放约 {size}：\n{path}",
+    "permanentDelete": "永久删除（不经过回收站）",
+    "confirmTrash": "移至回收站",
+    "confirmPermanent": "永久删除"
   }
 }

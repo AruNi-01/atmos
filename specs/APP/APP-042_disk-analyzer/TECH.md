@@ -133,7 +133,7 @@ Long-running pattern mirrors `local_model` / workspace setup: start returns imme
 ## Backend module layout
 
 - Prefer `crates/core-engine/src/disk_analyzer/mod.rs` (keep `fs` focused on browse/edit).
-- Dependencies: `jwalk`, `rayon`, `trash`, existing `serde`/`dirs`.
+- Dependencies: `jwalk` (parallel walk; Rayon under the hood), `trash`, `fs2`, existing `serde`/`dirs`.
 - API handlers under `apps/api/src/api/ws/router/disk_analyzer.rs` + message DTOs.
 - Scan sessions: `Arc<Mutex<HashMap<scan_id, ScanSession>>>` on `WsMessageService` or a small dedicated manager in API (no persistence).
 
