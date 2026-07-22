@@ -185,6 +185,7 @@ export function TerminalMosaicScopedPaneWindow({
     startSideChat,
   } = useTerminalSideChats({
     workspaceId,
+    projectId: activeProject?.id ?? null,
     projectName: workspaceInfo?.projectName ?? null,
     workspaceName: workspaceInfo?.workspaceName ?? null,
     localPath: workspaceInfo?.localPath ?? null,

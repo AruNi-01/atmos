@@ -161,6 +161,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     startSideChat,
   } = useTerminalSideChats({
     workspaceId: shape.props.workspaceId,
+    projectId: shape.props.contextScope === "project" ? shape.props.workspaceId : null,
     projectName: shape.props.projectName,
     workspaceName: shape.props.workspaceName,
     localPath: shape.props.localPath || null,

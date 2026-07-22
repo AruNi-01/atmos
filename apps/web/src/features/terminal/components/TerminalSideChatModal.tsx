@@ -42,6 +42,7 @@ export interface TerminalSideChatModalProps {
   onInteraction?: (event: Event | React.SyntheticEvent) => void;
   onReady: (record: LocalSideChatRecord) => void;
   onSelectSideChat: (sideChatId: string) => void;
+  projectId?: string | null;
   projectName?: string | null;
   projectRootPath?: string | null;
   records: LocalSideChatRecord[];
@@ -57,6 +58,7 @@ export interface TerminalSideChatModalProps {
 export function TerminalSideChatModal({
   activeSideChatId,
   localPath,
+  projectId,
   projectName,
   projectRootPath,
   records,
@@ -84,10 +86,11 @@ export function TerminalSideChatModal({
       !!projectRootPath &&
       (localPath === projectRootPath || localPath.replace(/\/$/, "") === projectRootPath.replace(/\/$/, ""));
     if (isProjectRoot) {
+      if (!projectId) return null;
       return {
         mode: "project" as const,
-        id: workspaceId,
-        name: projectName || workspaceId,
+        id: projectId,
+        name: projectName || projectId,
         path: projectRootPath || localPath,
       };
     }
@@ -97,7 +100,7 @@ export function TerminalSideChatModal({
       name: workspaceName || projectName || workspaceId,
       path: localPath,
     };
-  }, [localPath, projectName, projectRootPath, workspaceId, workspaceName]);
+  }, [localPath, projectId, projectName, projectRootPath, workspaceId, workspaceName]);
   const [readySideChatIds, setReadySideChatIds] = React.useState<Set<string>>(() => new Set());
   const [isFocusedWithin, setIsFocusedWithin] = React.useState(true);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
