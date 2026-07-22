@@ -83,6 +83,7 @@ disabled storage holds the moved workplace entry (after materialization).
 - [ ] M6 tip present on Dynamic Skills surfaces (current-session wording)
 - [ ] `/` Dynamic Skills wired on Welcome + terminal
 - [ ] Project toggle remains visible/consistent on Skills page after refresh
+- [ ] S6: disabled skills in the slash insert list show a Disabled badge and cannot be selected as skill chips
 
 ## Coverage Status
 

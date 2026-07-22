@@ -40,9 +40,11 @@ export function parseSkillDisableProtocolToken(token: string): boolean {
 export function stripSkillDisableSession(text: string): string {
   const idx = text.indexOf(SKILL_DISABLE_PROTOCOL);
   if (idx < 0) return text;
+  // Only clear spaces that sat immediately after the protocol token (the seam).
+  // Do not collapse intentional whitespace elsewhere in the prompt.
   const before = text.slice(0, idx);
   const after = text.slice(idx + SKILL_DISABLE_PROTOCOL.length).replace(/^[\u00A0 ]+/, "");
-  return `${before}${after}`.replace(/[ \u00A0]{2,}/g, " ").trimEnd();
+  return `${before}${after}`.trimEnd();
 }
 
 export function upsertSkillDisableSessionAction(

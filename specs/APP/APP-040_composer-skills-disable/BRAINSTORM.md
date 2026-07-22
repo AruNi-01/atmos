@@ -19,7 +19,9 @@ Behavior must match the Skills management page’s move-to-`.atmos/skills/.disab
 mechanism for Project, and reuse that same move for Workspace with the disabled storage
 rooted at the **current workplace directory**. Because Atmos does not own Agent Runtime,
 mid-session effect relies on filesystem entrypoint removal (no `SKILL.md` at the live
-path) plus an optional live-path marker file Agents will not treat as a skill.
+path) **and** recreating the live skill directory with a mandatory `SKILL_DISABLED.md`
+marker (Agents must not treat it as a skill). Alternatives that omit the marker are
+rejected; see Option D and Decision.
 
 ## Options
 
