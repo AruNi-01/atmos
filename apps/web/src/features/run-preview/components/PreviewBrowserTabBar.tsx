@@ -335,13 +335,13 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
   const openClearPopover = (target: ClearTarget) => {
     setClearErrorCode(null);
     setClearPhase("confirm");
-    // Defer mounting the confirm popover until the dropdown has finished closing
-    // and Radix has restored focus. Opening it synchronously from a
-    // DropdownMenuItem `onSelect` races with the menu's focus teardown: focus
-    // lands on the shared trigger (the PopoverAnchor, outside PopoverContent),
-    // the popover's focus-outside dismissal fires, and it closes the instant it
-    // appears — taking the whole `···` menu with it.
-    requestAnimationFrame(() => setClearTarget(target));
+    setMenuOpen(false);
+    // Defer mounting the confirm popover until after the dropdown menu has completely closed
+    // and pointer events have finished. Prevents Radix focus restoration and event bubbling from
+    // immediately triggering Popover interactOutside dismissal.
+    setTimeout(() => {
+      setClearTarget(target);
+    }, 50);
   };
 
   const runClear = async () => {
@@ -421,7 +421,12 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
             </DropdownMenuItem>
           ) : null}
           {hasClearCache ? (
-            <DropdownMenuItem onSelect={() => openClearPopover("cache")}>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                openClearPopover("cache");
+              }}
+            >
               <Trash2 className="size-4" />
               {t("cookieSync.menu.clearCache")}
             </DropdownMenuItem>
@@ -429,7 +434,10 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
           {hasClearSiteData ? (
             <DropdownMenuItem
               variant="destructive"
-              onSelect={() => openClearPopover("site")}
+              onSelect={(event) => {
+                event.preventDefault();
+                openClearPopover("site");
+              }}
             >
               <Eraser className="size-4" />
               {t("cookieSync.menu.clearSiteData")}
@@ -443,7 +451,15 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
         sideOffset={8}
         className="z-[1002] w-[320px] space-y-3 p-3"
         onInteractOutside={(event) => {
-          if (clearing) event.preventDefault();
+          if (clearing) {
+            event.preventDefault();
+            return;
+          }
+          const target = event.target as Node | null;
+          const trigger = document.querySelector('[aria-label="' + t("overflow.moreActions") + '"]');
+          if (trigger && (trigger === target || trigger.contains(target))) {
+            event.preventDefault();
+          }
         }}
       >
         {clearPhase === "cleared" ? (
