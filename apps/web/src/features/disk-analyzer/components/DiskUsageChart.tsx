@@ -4,7 +4,11 @@ import React, { useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { EChartsOption } from "echarts";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
-import { toEChartsTree, type ChartMode } from "@/features/disk-analyzer/lib/tree-adapters";
+import {
+  formatBytes,
+  toEChartsTree,
+  type ChartMode,
+} from "@/features/disk-analyzer/lib/tree-adapters";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
@@ -12,33 +16,44 @@ type Props = {
   node: DiskNode;
   rootSize: number;
   mode: ChartMode;
+  projectLabel: string;
   onSelectPath: (path: string) => void;
   onDrillPath: (path: string) => void;
 };
 
-export function DiskUsageChart({ node, rootSize, mode, onSelectPath, onDrillPath }: Props) {
+export function DiskUsageChart({
+  node,
+  rootSize,
+  mode,
+  projectLabel,
+  onSelectPath,
+  onDrillPath,
+}: Props) {
   const data = useMemo(() => toEChartsTree(node, rootSize || node.size || 1), [node, rootSize]);
 
   const option = useMemo<EChartsOption>(() => {
+    const tooltipFormatter = (params: unknown) => {
+      const p = params as {
+        name?: string;
+        value?: number;
+        data?: { path?: string; isProject?: boolean; fileCount?: number; dirCount?: number };
+      };
+      const size = typeof p.value === "number" ? p.value : 0;
+      const share = rootSize > 0 ? ((size / rootSize) * 100).toFixed(1) : "0";
+      const name = escapeHtml(p.name ?? "");
+      const path = escapeHtml(p.data?.path ?? "");
+      const projectSuffix = p.data?.isProject ? ` · ${escapeHtml(projectLabel)}` : "";
+      return [
+        `<div><b>${name}</b>${projectSuffix}</div>`,
+        `<div>${path}</div>`,
+        `<div>${escapeHtml(formatBytes(size))} · ${share}%</div>`,
+        `<div>files: ${p.data?.fileCount ?? 0} · dirs: ${p.data?.dirCount ?? 0}</div>`,
+      ].join("");
+    };
+
     if (mode === "treemap") {
       return {
-        tooltip: {
-          formatter: (params: unknown) => {
-            const p = params as {
-              name?: string;
-              value?: number;
-              data?: { path?: string; isProject?: boolean; fileCount?: number; dirCount?: number };
-            };
-            const size = typeof p.value === "number" ? p.value : 0;
-            const share = rootSize > 0 ? ((size / rootSize) * 100).toFixed(1) : "0";
-            return [
-              `<div><b>${p.name ?? ""}</b>${p.data?.isProject ? " · Atmos" : ""}</div>`,
-              `<div>${p.data?.path ?? ""}</div>`,
-              `<div>${formatLocal(size)} · ${share}%</div>`,
-              `<div>files: ${p.data?.fileCount ?? 0} · dirs: ${p.data?.dirCount ?? 0}</div>`,
-            ].join("");
-          },
-        },
+        tooltip: { formatter: tooltipFormatter },
         series: [
           {
             type: "treemap",
@@ -69,23 +84,7 @@ export function DiskUsageChart({ node, rootSize, mode, onSelectPath, onDrillPath
     }
 
     return {
-      tooltip: {
-        formatter: (params: unknown) => {
-          const p = params as {
-            name?: string;
-            value?: number;
-            data?: { path?: string; isProject?: boolean; fileCount?: number; dirCount?: number };
-          };
-          const size = typeof p.value === "number" ? p.value : 0;
-          const share = rootSize > 0 ? ((size / rootSize) * 100).toFixed(1) : "0";
-          return [
-            `<div><b>${p.name ?? ""}</b>${p.data?.isProject ? " · Atmos" : ""}</div>`,
-            `<div>${p.data?.path ?? ""}</div>`,
-            `<div>${formatLocal(size)} · ${share}%</div>`,
-            `<div>files: ${p.data?.fileCount ?? 0} · dirs: ${p.data?.dirCount ?? 0}</div>`,
-          ].join("");
-        },
-      },
+      tooltip: { formatter: tooltipFormatter },
       series: [
         {
           type: "sunburst",
@@ -107,7 +106,7 @@ export function DiskUsageChart({ node, rootSize, mode, onSelectPath, onDrillPath
         },
       ],
     };
-  }, [data, mode, rootSize]);
+  }, [data, mode, projectLabel, rootSize]);
 
   return (
     <ReactECharts
@@ -128,10 +127,11 @@ export function DiskUsageChart({ node, rootSize, mode, onSelectPath, onDrillPath
   );
 }
 
-function formatLocal(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** exp;
-  return `${value >= 10 || exp === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[exp]}`;
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

@@ -98,14 +98,14 @@ impl DiskAnalyzerEngine {
                 .unwrap_or_else(|| path.to_path_buf())
         };
 
-        let available = fs2::available_space(&target).map_err(|e| {
+        let available = fs4::available_space(&target).map_err(|e| {
             EngineError::FileSystem(format!(
                 "Failed to read available space for {}: {}",
                 target.display(),
                 e
             ))
         })?;
-        let total = fs2::total_space(&target).map_err(|e| {
+        let total = fs4::total_space(&target).map_err(|e| {
             EngineError::FileSystem(format!(
                 "Failed to read total space for {}: {}",
                 target.display(),
@@ -133,7 +133,7 @@ impl DiskAnalyzerEngine {
         max_children: Option<usize>,
         cancel: Option<Arc<AtomicBool>>,
         on_progress: Option<ProgressCallback>,
-    ) -> Result<(DiskNode, ScanStats)> {
+    ) -> Result<(DiskNode, ScanStats, Vec<CleanupSuggestion>)> {
         if !root.exists() {
             return Err(EngineError::FileSystem(format!(
                 "Path does not exist: {}",
@@ -149,10 +149,10 @@ impl DiskAnalyzerEngine {
 
         let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
         let started = Instant::now();
-        let files_scanned = AtomicU64::new(0);
-        let bytes_scanned = AtomicU64::new(0);
-        let dirs_scanned = AtomicU64::new(0);
-        let error_count = AtomicU64::new(0);
+        let files_scanned = Arc::new(AtomicU64::new(0));
+        let bytes_scanned = Arc::new(AtomicU64::new(0));
+        let dirs_scanned = Arc::new(AtomicU64::new(0));
+        let error_count = Arc::new(AtomicU64::new(0));
         let last_emit = std::sync::Mutex::new(Instant::now() - PROGRESS_MIN_INTERVAL);
 
         let emit = |status: ScanStatus, current: Option<String>, error: Option<String>| {
@@ -199,10 +199,20 @@ impl DiskAnalyzerEngine {
         let walker = WalkDir::new(&root)
             .follow_links(false)
             .skip_hidden(false)
-            .process_read_dir(|_depth, _path, _state, children| {
-                // Keep all children including caches; only drop unreadable errors later.
-                children.retain(|entry| entry.is_ok());
+            .process_read_dir({
+                let error_count = Arc::clone(&error_count);
+                move |_depth, _path, _state, children| {
+                    // Count unreadable entries here — retained-out Err values never reach the loop.
+                    let dropped = children.iter().filter(|e| e.is_err()).count() as u64;
+                    if dropped > 0 {
+                        error_count.fetch_add(dropped, Ordering::Relaxed);
+                    }
+                    children.retain(|entry| entry.is_ok());
+                }
             });
+
+        #[cfg(unix)]
+        let mut seen_inodes: HashSet<(u64, u64)> = HashSet::new();
 
         for entry in walker {
             if cancel
@@ -256,10 +266,31 @@ impl DiskAnalyzerEngine {
             }
 
             // Files and non-directory symlinks.
-            let size = Self::allocated_size(&path);
+            let meta = match std::fs::symlink_metadata(&path) {
+                Ok(m) => m,
+                Err(_) => {
+                    error_count.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+            };
+            let size = allocated_size_from_metadata(&meta);
+
+            #[cfg(unix)]
+            let count_size = {
+                use std::os::unix::fs::MetadataExt;
+                seen_inodes.insert((meta.dev(), meta.ino()))
+            };
+            #[cfg(not(unix))]
+            let count_size = true;
+
             files_scanned.fetch_add(1, Ordering::Relaxed);
-            bytes_scanned.fetch_add(size, Ordering::Relaxed);
-            add_size_to_ancestors(&mut sizes, &root, &path, size);
+            if count_size {
+                bytes_scanned.fetch_add(size, Ordering::Relaxed);
+                add_size_to_ancestors(&mut sizes, &root, &path, size);
+            } else {
+                // Hard link already counted: keep the path in the tree with zero incremental size.
+                sizes.entry(path.clone()).or_insert(0);
+            }
 
             // Count this file against every ancestor directory.
             let mut cursor = path.clone();
@@ -313,6 +344,9 @@ impl DiskAnalyzerEngine {
             &project_set,
         );
 
+        // Suggestions must be computed before prune collapses cache dirs into `__other__`.
+        let suggestions = cleanup_suggestions(&tree);
+
         let max_children = max_children.unwrap_or(DEFAULT_MAX_CHILDREN).max(1);
         prune_tree(&mut tree, max_children);
 
@@ -326,19 +360,36 @@ impl DiskAnalyzerEngine {
         };
 
         emit(ScanStatus::Completed, None, None);
-        Ok((tree, stats))
+        Ok((tree, stats, suggestions))
     }
 
     /// Move path to trash, or permanently delete when `permanent` is true.
-    pub fn delete_path(&self, path: &Path, permanent: bool) -> Result<u64> {
+    ///
+    /// When `allowed_root` is set, the path must canonicalize under that root.
+    pub fn delete_path(
+        &self,
+        path: &Path,
+        permanent: bool,
+        allowed_root: Option<&Path>,
+    ) -> Result<u64> {
         if path.as_os_str().is_empty() {
             return Err(EngineError::FileSystem("Empty path".to_string()));
         }
         let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-        if canonical == Path::new("/") {
+        if canonical.parent().is_none() {
             return Err(EngineError::FileSystem(
                 "Refusing to delete filesystem root".to_string(),
             ));
+        }
+        if let Some(root) = allowed_root {
+            let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+            if !(canonical == root || canonical.starts_with(&root)) {
+                return Err(EngineError::FileSystem(format!(
+                    "Path {} is outside scan root {}",
+                    canonical.display(),
+                    root.display()
+                )));
+            }
         }
         if !canonical.exists() {
             return Err(EngineError::FileSystem(format!(
@@ -584,7 +635,7 @@ mod tests {
         write_file(&root.join("sub/deep/c.txt"), 3000);
 
         let engine = DiskAnalyzerEngine::new();
-        let (tree, stats) = engine
+        let (tree, stats, _) = engine
             .scan_path("t1", &root, &[], Some(40), None, None)
             .expect("scan");
 
@@ -604,7 +655,7 @@ mod tests {
         write_file(&project.join("src/main.rs"), 100);
 
         let engine = DiskAnalyzerEngine::new();
-        let (tree, _) = engine
+        let (tree, _, _) = engine
             .scan_path(
                 "t2",
                 &root,
@@ -629,6 +680,61 @@ mod tests {
             .find(|c| c.name == "my-project")
             .expect("project");
         assert!(proj.is_project);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn hardlinks_counted_once() {
+        let root = tempfile_dir("disk-analyzer-hardlink");
+        let a = root.join("a.txt");
+        let b = root.join("b.txt");
+        write_file(&a, 8192);
+        std::fs::hard_link(&a, &b).expect("hard link");
+
+        let engine = DiskAnalyzerEngine::new();
+        let (tree, stats, _) = engine
+            .scan_path("hl", &root, &[], Some(40), None, None)
+            .expect("scan");
+
+        assert_eq!(stats.files_scanned, 2);
+        // Allocated blocks should be counted once, not twice.
+        let single = DiskAnalyzerEngine::allocated_size(&a);
+        assert!(
+            tree.size < single.saturating_mul(2),
+            "tree.size={} single={}",
+            tree.size,
+            single
+        );
+        assert!(
+            tree.size >= single,
+            "tree.size={} single={}",
+            tree.size,
+            single
+        );
+    }
+
+    #[test]
+    fn suggestions_computed_before_prune() {
+        let root = tempfile_dir("disk-analyzer-suggest-prune");
+        // Many large siblings so node_modules would collapse into __other__ if pruned first.
+        for i in 0..8 {
+            write_file(&root.join(format!("big{i}/data.bin")), 50_000);
+        }
+        write_file(&root.join("node_modules/pkg/index.js"), 10_000);
+
+        let engine = DiskAnalyzerEngine::new();
+        let (tree, _, suggestions) = engine
+            .scan_path("sug", &root, &[], Some(3), None, None)
+            .expect("scan");
+
+        assert!(
+            suggestions.iter().any(|s| s.name == "node_modules"),
+            "suggestions missing node_modules: {suggestions:?}"
+        );
+        assert!(
+            tree.children.iter().any(|c| c.name == OTHER_NAME),
+            "expected prune to create __other__"
+        );
     }
 
     #[test]
@@ -681,9 +787,50 @@ mod tests {
         let file = root.join("gone.txt");
         write_file(&file, 32);
         let engine = DiskAnalyzerEngine::new();
-        let freed = engine.delete_path(&file, true).expect("delete");
+        let freed = engine
+            .delete_path(&file, true, Some(&root))
+            .expect("delete");
         assert!(freed > 0);
         assert!(!file.exists());
+    }
+
+    #[test]
+    fn delete_outside_scan_root_rejected() {
+        let root = tempfile_dir("disk-analyzer-bound");
+        let outsider = tempfile_dir("disk-analyzer-outside");
+        let file = outsider.join("secret.txt");
+        write_file(&file, 16);
+        let engine = DiskAnalyzerEngine::new();
+        let err = engine
+            .delete_path(&file, true, Some(&root))
+            .expect_err("must reject outside root");
+        assert!(err.to_string().contains("outside scan root"));
+        assert!(file.exists());
+    }
+
+    #[test]
+    fn delete_refuses_filesystem_root() {
+        let engine = DiskAnalyzerEngine::new();
+        let err = engine
+            .delete_path(Path::new("/"), true, None)
+            .expect_err("must refuse root");
+        assert!(err.to_string().to_lowercase().contains("root"));
+    }
+
+    #[test]
+    fn trash_delete_does_not_fallback_to_permanent() {
+        // Non-existent path: trash/permanent both fail; ensure no silent "success".
+        let missing =
+            std::env::temp_dir().join(format!("disk-analyzer-missing-{}", uuid::Uuid::new_v4()));
+        let engine = DiskAnalyzerEngine::new();
+        let err = engine
+            .delete_path(&missing, false, None)
+            .expect_err("trash of missing path must fail");
+        assert!(
+            err.to_string().contains("does not exist") || err.to_string().contains("trash"),
+            "unexpected err: {err}"
+        );
+        assert!(!missing.exists());
     }
 
     #[test]

@@ -72,10 +72,20 @@ describe("disk analyzer tree adapters", () => {
     expect(filtered!.children?.map((c) => c.name)).toEqual(["proj"]);
   });
 
-  test("name filter", () => {
+  test("name filter keeps descendants filtered", () => {
     const filters: DiskFilters = { query: "cache", minSize: 0, projectsOnly: false };
     const filtered = filterTree(sample, filters);
     expect(filtered!.children?.map((c) => c.name)).toEqual(["cache"]);
+    // Parent match must not restore unfiltered children.
+    const homeOnly: DiskNode = {
+      ...sample,
+      name: "cache-home",
+      path: "/cache-home",
+      children: sample.children,
+    };
+    const parentMatch = filterTree(homeOnly, { query: "cache-home", minSize: 0, projectsOnly: false });
+    expect(parentMatch).not.toBeNull();
+    expect(parentMatch!.children).toEqual([]);
   });
 
   test("sort by size and name", () => {

@@ -8167,6 +8167,7 @@
     "deleteDescription": "This will reclaim about {size} from:\n{path}",
     "permanentDelete": "Permanently delete (do not use Trash)",
     "confirmTrash": "Move to Trash",
-    "confirmPermanent": "Delete permanently"
+    "confirmPermanent": "Delete permanently",
+    "scanFailed": "Scan failed"
   }
 }

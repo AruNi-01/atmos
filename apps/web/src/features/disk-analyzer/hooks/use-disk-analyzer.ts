@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   diskAnalyzerApi,
@@ -21,8 +22,11 @@ import {
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
 export function useDiskAnalyzer() {
+  const t = useTranslations("DiskAnalyzer");
+  const scanFailedLabel = t("scanFailed");
   const [scanPath, setScanPath] = useState("");
   const [scanId, setScanId] = useState<string | null>(null);
+  const scanIdRef = useRef<string | null>(null);
   const [status, setStatus] = useState<DiskScanProgress["status"] | "idle">("idle");
   const [progress, setProgress] = useState<DiskScanProgress | null>(null);
   const [tree, setTree] = useState<DiskNode | null>(null);
@@ -70,7 +74,8 @@ export function useDiskAnalyzer() {
       "disk_analyzer_scan_progress",
       (raw) => {
         const payload = raw as DiskScanProgress;
-        if (scanId && payload.scan_id !== scanId) return;
+        const activeId = scanIdRef.current;
+        if (!activeId || payload.scan_id !== activeId) return;
         setProgress(payload);
         setStatus(payload.status);
         if (payload.status === "completed" && payload.tree) {
@@ -82,7 +87,7 @@ export function useDiskAnalyzer() {
           setBusy(false);
         }
         if (payload.status === "failed") {
-          setError(payload.error ?? "Scan failed");
+          setError(payload.error ?? scanFailedLabel);
           setBusy(false);
         }
         if (payload.status === "cancelled") {
@@ -91,7 +96,7 @@ export function useDiskAnalyzer() {
       },
     );
     return off;
-  }, [scanId]);
+  }, [scanFailedLabel]);
 
   const startScan = useCallback(async () => {
     setError(null);
@@ -102,10 +107,15 @@ export function useDiskAnalyzer() {
     setStatus("running");
     try {
       const result = await diskAnalyzerApi.startScan(scanPath || undefined);
+      scanIdRef.current = result.scan_id;
       setScanId(result.scan_id);
       setScanPath(result.root_path);
-      const info = await diskAnalyzerApi.diskInfo(result.root_path);
-      setVolume(info);
+      try {
+        const info = await diskAnalyzerApi.diskInfo(result.root_path);
+        setVolume(info);
+      } catch {
+        // Volume lookup is best-effort; do not fail a running scan.
+      }
     } catch (e) {
       setBusy(false);
       setStatus("failed");
@@ -120,11 +130,11 @@ export function useDiskAnalyzer() {
 
   const deleteSelected = useCallback(
     async (permanent: boolean) => {
-      if (!selectedPath) return null;
-      const result = await diskAnalyzerApi.deletePath(selectedPath, permanent);
+      if (!selectedPath || !scanId) return null;
+      const result = await diskAnalyzerApi.deletePath(scanId, selectedPath, permanent);
       return result;
     },
-    [selectedPath],
+    [scanId, selectedPath],
   );
 
   const filteredTree = useMemo(() => {

@@ -44,7 +44,7 @@ export function filterTree(node: DiskNode, filters: DiskFilters): DiskNode | nul
 
   return {
     ...node,
-    children: childResults.length > 0 ? sortNodes(childResults, "size") : node.children,
+    children: sortNodes(childResults, "size"),
   };
 }
 

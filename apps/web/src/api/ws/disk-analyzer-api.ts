@@ -76,13 +76,13 @@ export const diskAnalyzerApi = {
       },
     );
   },
-  deletePath: async (path: string, permanent = false) => {
+  deletePath: async (scanId: string, path: string, permanent = false) => {
     return wsRequest<{
       success: boolean;
       path: string;
       freed_bytes: number;
       permanent: boolean;
-    }>("disk_analyzer_delete", { path, permanent });
+    }>("disk_analyzer_delete", { scan_id: scanId, path, permanent });
   },
   diskInfo: async (path?: string) => {
     return wsRequest<DiskVolumeInfo>("disk_analyzer_disk_info", {

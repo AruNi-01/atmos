@@ -257,6 +257,7 @@ export function DiskAnalyzerPage() {
                 node={analyzer.focusedNode}
                 rootSize={analyzer.stats?.total_size ?? analyzer.focusedNode.size}
                 mode={analyzer.chartMode}
+                projectLabel={t("atmosProject")}
                 onSelectPath={analyzer.setSelectedPath}
                 onDrillPath={analyzer.setFocusPath}
               />

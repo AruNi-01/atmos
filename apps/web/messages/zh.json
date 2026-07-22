@@ -8167,6 +8167,7 @@
     "deleteDescription": "预计释放约 {size}：\n{path}",
     "permanentDelete": "永久删除（不经过回收站）",
     "confirmTrash": "移至回收站",
-    "confirmPermanent": "永久删除"
+    "confirmPermanent": "永久删除",
+    "scanFailed": "扫描失败"
   }
 }

@@ -33,6 +33,7 @@ pub use service::canvas_agent_relay::{
     CompleteDispatchResult, DuplicateRequestError, ResolveTarget, DEFAULT_RELAY_TIMEOUT_MS,
     MAX_RELAY_TIMEOUT_MS,
 };
+pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::local_services::{
     LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus,
     LocalServiceStopRequest, LocalServiceStopResponse, LocalServicesScanRequest,

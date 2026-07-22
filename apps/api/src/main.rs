@@ -114,6 +114,35 @@ fn spawn_agent_hook_forwarder(
     })
 }
 
+fn spawn_disk_analyzer_forwarder(
+    mut rx: tokio::sync::broadcast::Receiver<core_service::DiskAnalyzerScanEvent>,
+    ws_manager: Arc<WsManager>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let message =
+                        WsMessage::notification(WsEvent::DiskAnalyzerScanProgress, event.payload);
+                    if let Err(error) = ws_manager.send_to(&event.owner_conn_id, &message).await {
+                        warn!(
+                            "Failed to unicast disk analyzer progress to {}: {}",
+                            event.owner_conn_id, error
+                        );
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    warn!(
+                        "Lagged on disk analyzer events, skipped {} messages",
+                        skipped
+                    );
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    })
+}
+
 fn spawn_automation_forwarder(
     mut rx: tokio::sync::broadcast::Receiver<AutomationEvent>,
     ws_manager: Arc<WsManager>,
@@ -427,6 +456,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&ws_manager),
     );
     Arc::clone(&automation_service).start_scheduler();
+
+    spawn_disk_analyzer_forwarder(
+        ws_message_service
+            .disk_analyzer_service()
+            .subscribe_events(),
+        Arc::clone(&ws_manager),
+    );
 
     spawn_ws_forwarder(
         notification_service.subscribe_client_notifications(),

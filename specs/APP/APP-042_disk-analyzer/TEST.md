@@ -2,9 +2,9 @@
 
 ## Test strategy
 
-- **Unit (Rust)**: disk usage aggregation, project marking, prune totals, cancel flag, delete mode selection helpers.
-- **Unit (Bun)**: tree → ECharts adapters, filters (name/size/project), sort.
-- **Service/WS**: start scan returns `scan_id`; progress/completion notifications; delete response shape (where harness allows).
+- **Unit (Rust)**: disk usage aggregation, hardlink dedup, project marking, prune totals, suggestions-before-prune, cancel flag, delete root containment / portable root refuse, trash error contract (no permanent fallback).
+- **Unit (Bun)**: tree → ECharts adapters, filters (name/size/project; parent match keeps filtered children), sort.
+- **Service/WS**: start scan returns `scan_id`; progress/completion unicasted to owner; delete requires `scan_id` + ownership (where harness allows).
 - **E2E / agent-browser**: Management Center navigation, chart render, confirm dialog copy — exploratory if harness timing allows.
 - **Manual**: large home scan smoke on Desktop/local Web.
 
@@ -16,7 +16,7 @@
 | M2–M4 | S2, S3, S4 |
 | M5–M7 | S5 |
 | M8–M9 | S6 |
-| M10 | S7, S8 |
+| M10 | S7, S8, S7b, S7c |
 | M11–M12 | S1, S9 |
 | N1–N2 | S10 (optional) |
 | N6 | S4 |
@@ -31,7 +31,9 @@
 | S4 | unit | cargo | progress/cancel primitives | pending |
 | S5 | unit | bun | sunburst/treemap adapter + drill path helpers | pending |
 | S6 | unit | bun | filter project-only / min size / name | pending |
-| S7 | unit | cargo | trash vs permanent flag path | pending |
+| S7 | unit | cargo | permanent delete removes file under allowed root | pending |
+| S7b | unit | cargo | delete outside scan root rejected; filesystem root refused | pending |
+| S7c | unit | cargo | trash mode: missing path fails (no silent permanent success) | pending |
 | S8 | exploratory | agent-browser/manual | confirm dialog shows freed bytes | pending |
 | S9 | unit | bun / messages | i18n keys present en+zh | pending |
 | S10 | unit/manual | cargo/web | disk info + suggestions | pending |
@@ -47,8 +49,9 @@
 ### S2 — Scan reports allocated hierarchical sizes
 - **Given** a fixture tree with nested files of known lengths
 - **When** the engine scans the root
-- **Then** each directory size equals the sum of descendant allocated sizes
-- **Signals**: `DiskNode.size` assertions in `cargo test`
+- **Then** each directory size equals the sum of descendant **allocated** sizes (Unix: blocks×512; hard links counted once)
+- **Signals**: `DiskNode.size` assertions; Unix hardlink fixture must not double-count
+- **Note**: Logical `metadata.len()` alone is insufficient; hardlink / sparse cases distinguish allocated size.
 
 ### S3 — Caches included and Atmos roots marked
 - **Given** fixture contains `node_modules` / `target` and a path matching a project root list
@@ -58,7 +61,7 @@
 
 ### S4 — Progress and cancel
 - **Given** a scan is running
-- **When** cancel is requested
+- **When** cancel is requested by the **session owner**
 - **Then** walk stops and status becomes `cancelled` (or completed race is tolerated once)
 - **Signals**: cancel flag honored in unit test; status enum
 
@@ -71,14 +74,26 @@
 ### S6 — Filters
 - **Given** a mixed tree with project and non-project nodes
 - **When** project-only + min-size + name filters apply
-- **Then** only matching nodes remain (parents retained as needed for hierarchy)
-- **Signals**: bun filter tests
+- **Then** only matching nodes remain (parents retained as needed for hierarchy); matching parents do **not** restore unfiltered children
+- **Signals**: bun filter tests including parent-match empty children
 
 ### S7 — Delete modes
-- **Given** a temp file path
-- **When** delete is invoked with `permanent=false` vs `true`
-- **Then** trash API vs remove API is selected accordingly (or file leaves filesystem in permanent mode)
+- **Given** a temp file path under a scan root
+- **When** delete is invoked with `permanent=true` and `allowed_root=Some(root)`
+- **Then** the file is removed from the filesystem
 - **Signals**: cargo test with temp dirs
+
+### S7b — Delete boundaries
+- **Given** a path outside the scan root, or a filesystem root (`/`, drive root)
+- **When** delete is invoked
+- **Then** the operation fails (outside root / refuse root); target outside root remains
+- **Signals**: cargo assertions on error strings + path still exists
+
+### S7c — Trash failure contract
+- **Given** trash backend cannot delete the target (e.g. missing path)
+- **When** delete is invoked with `permanent=false`
+- **Then** the call returns an error and does **not** report success or silently permanently delete
+- **Signals**: cargo test expecting `Err`; path not created/removed as permanent success
 
 ### S8 — Confirm UI
 - **Given** a selected node with size S
@@ -89,14 +104,14 @@
 ### S9 — i18n
 - **Given** en and zh message files
 - **When** Disk Analyzer keys are read
-- **Then** both locales define Management Center label and page strings (zh localized, not English paste)
+- **Then** both locales define Management Center label and page strings including `scanFailed` / `atmosProject` (zh localized, not English paste)
 - **Signals**: key presence checks / manual spot check
 
 ### S10 — Disk info / suggestions (Nice)
 - **Given** a completed scan
 - **When** disk info is requested
-- **Then** total/available bytes are > 0 on supported platforms; suggestions list may include known heavy dirs
-- **Signals**: optional cargo/web assertions
+- **Then** total/available bytes are > 0 on supported platforms; suggestions list may include known heavy dirs even when prune collapses them into `__other__`
+- **Signals**: optional cargo/web assertions; `suggestions_computed_before_prune`
 
 ## Exploratory agent-browser checks
 
@@ -110,42 +125,47 @@
 - [ ] Existing FS WS actions still work (`fs_list_dir`, `fs_delete_path`).
 - [ ] Management Center other items unaffected.
 - [ ] No new REST endpoints introduced for this feature.
+- [ ] Disk analyzer progress is not broadcast to unrelated WS clients.
 
 ## Acceptance criteria
 
 - M1–M12 implemented or explicitly deferred with PRD amendment.
-- S2, S3, S5, S6, S7 have automated coverage.
+- S2, S3, S5, S6, S7, S7b have automated coverage.
 - Scan of a modest fixture completes with progress and renders a chart.
-- Default delete path uses trash semantics.
+- Default delete path uses trash semantics; trash failures do not fall back to permanent.
 
 ## Non-coverage
 
 - Exhaustive million-file performance benchmarking in CI.
-- Every OS trash backend edge case.
+- Every OS trash backend edge case / full trash-mode integration on headless CI (see Coverage Status).
 - Remote Relay browser-local disk scanning.
 
 ## Coverage Status
 
-_Updated 2026-07-22 during initial implementation._
+_Updated 2026-07-22 during PR review fixes (REV-001–REV-018)._
 
 | Scenario | Status | Evidence |
 |----------|--------|----------|
-| S2 scan aggregates | covered | `cargo test -p core-engine disk_analyzer` — `scan_aggregates_child_sizes` |
+| S2 scan aggregates + hardlink | covered | `cargo test -p core-engine disk_analyzer` — `scan_aggregates_child_sizes`, `hardlinks_counted_once` (Unix) |
 | S3 caches + project mark | covered | `caches_are_not_skipped_and_projects_marked` |
 | S4 cancel | covered | `cancel_flag_stops_scan` |
 | S5 chart adapters | covered | `bun test apps/web/src/features/disk-analyzer/lib/tree-adapters.test.ts` |
-| S6 filters/sort | covered | same bun file |
+| S6 filters/sort + parent-match | covered | same bun file — `name filter keeps descendants filtered` |
 | S7 permanent delete | covered | `permanent_delete_removes_file` |
-| S1 / S8 / S9 | partial | Management Center + i18n keys wired; UI exploratory not_run in this environment |
-| S10 disk info / suggestions | partial | engine `disk_info` + `cleanup_suggestions` implemented; UI wired |
+| S7b delete boundaries | covered | `delete_outside_scan_root_rejected`, `delete_refuses_filesystem_root` |
+| S7c trash failure contract | covered (unit) | `trash_delete_does_not_fallback_to_permanent` — asserts `Err`, no silent permanent success |
+| S10 suggestions before prune | covered | `suggestions_computed_before_prune` |
+| S1 / S8 / S9 | partial | Management Center + i18n keys wired (`scanFailed`); UI exploratory not_run in this environment |
+| Trash-mode happy path on real Desktop trash backend | **partial / gap** | Headless CI lacks a reliable trash backend; S7c covers failure contract only. Full `permanent=false` success remains manual/desktop. |
 
 Commands run:
 
 ```bash
 cargo test -p core-engine disk_analyzer
-cargo check -p api
+cargo test -p core-service disk_analyzer
+cargo clippy -p core-engine -p core-service -p api -- -D warnings
 bun test apps/web/src/features/disk-analyzer/lib/tree-adapters.test.ts
 cd apps/web && bun run typecheck
 ```
 
-Remaining gaps: Playwright/agent-browser smoke for Management Center → chart → delete dialog; trash-mode integration on a desktop session.
+Remaining gaps: Playwright/agent-browser smoke for Management Center → chart → delete dialog; end-to-end trash success on a desktop session.

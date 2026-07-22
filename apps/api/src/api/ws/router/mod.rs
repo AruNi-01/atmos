@@ -24,9 +24,7 @@ mod workspace_gitignore;
 mod workspace_notifications;
 mod workspace_setup;
 
-use std::collections::HashMap;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use super::{message::*, WsManager, WsMessageHandler};
 use ai_usage::UsageService;
@@ -40,19 +38,12 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, LocalServicesService,
-    NotificationService, ProjectService, ReviewService, TerminalService, WorkspaceService,
+    AgentService, AgentSessionService, AutomationService, DiskAnalyzerService,
+    LocalServicesService, NotificationService, ProjectService, ReviewService, TerminalService,
+    WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
-
-struct DiskAnalyzerScanSession {
-    cancel: Arc<AtomicBool>,
-    tree: Option<core_engine::DiskNode>,
-    stats: Option<core_engine::ScanStats>,
-    #[allow(dead_code)]
-    root_path: String,
-}
 
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
@@ -70,11 +61,11 @@ pub struct WsMessageService {
     usage_service: Arc<UsageService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
+    disk_analyzer_service: Arc<DiskAnalyzerService>,
     notification_service: Arc<NotificationService>,
     token_usage_service: Arc<token_usage::TokenUsageService>,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
-    disk_analyzer_sessions: Arc<Mutex<HashMap<String, DiskAnalyzerScanSession>>>,
 }
 
 impl WsMessageService {
@@ -96,6 +87,10 @@ impl WsMessageService {
             Arc::clone(&project_service),
             Arc::clone(&workspace_service),
         ));
+        let disk_analyzer_service = Arc::new(DiskAnalyzerService::new(
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
+        ));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -112,12 +107,16 @@ impl WsMessageService {
             usage_service,
             canvas_agent_relay,
             local_services_service,
+            disk_analyzer_service,
             notification_service,
             token_usage_service,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
-            disk_analyzer_sessions: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    pub fn disk_analyzer_service(&self) -> Arc<DiskAnalyzerService> {
+        Arc::clone(&self.disk_analyzer_service)
     }
 
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) -> Result<()> {
@@ -888,13 +887,14 @@ impl WsMessageService {
                     .await
             }
             WsAction::DiskAnalyzerCancelScan => {
-                self.handle_disk_analyzer_cancel_scan(parse_request(request.data)?)
+                self.handle_disk_analyzer_cancel_scan(conn_id, parse_request(request.data)?)
             }
             WsAction::DiskAnalyzerGetTree => {
-                self.handle_disk_analyzer_get_tree(parse_request(request.data)?)
+                self.handle_disk_analyzer_get_tree(conn_id, parse_request(request.data)?)
             }
             WsAction::DiskAnalyzerDelete => {
-                self.handle_disk_analyzer_delete(parse_request(request.data)?)
+                self.handle_disk_analyzer_delete(conn_id, parse_request(request.data)?)
+                    .await
             }
             WsAction::DiskAnalyzerDiskInfo => {
                 self.handle_disk_analyzer_disk_info(parse_request(request.data)?)

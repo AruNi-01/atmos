@@ -26,6 +26,7 @@ pub struct DiskAnalyzerGetTreeRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskAnalyzerDeleteRequest {
+    pub scan_id: String,
     pub path: String,
     #[serde(default)]
     pub permanent: bool,
