@@ -44,6 +44,7 @@ import type {
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import { WelcomeComposerCard } from "@/features/welcome/components/WelcomeComposerCard";
 import { WelcomeComposerFooter } from "@/features/welcome/components/WelcomeComposerFooter";
+import { ComposerSkillsControl } from "@/features/skills/components/ComposerSkillsControl";
 import {
   WelcomeCloseButton,
   WelcomeComposerPlaceholder,
@@ -852,6 +853,18 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
               setPriority={setPriority}
               setSelectedLabels={setSelectedLabels}
               setWorkflowStatus={setWorkflowStatus}
+              skillsControl={
+                selectedProject?.mainFilePath ? (
+                  <ComposerSkillsControl
+                    context={{
+                      mode: "project",
+                      id: selectedProject.id,
+                      name: selectedProject.name,
+                      path: selectedProject.mainFilePath,
+                    }}
+                  />
+                ) : null
+              }
               workflowStatus={workflowStatus}
               workspaceLabels={workspaceLabels}
               footer={composerFooter}

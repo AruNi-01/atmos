@@ -190,7 +190,11 @@ export function SlashCommandPopover({
                     <Puzzle className="size-4 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{skill.name}</span>
                     <span className="ml-2 shrink-0 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                      {skill.scope === "global" ? t("slashPopover.global") : t("slashPopover.project")}
+                      {skill.scope === "global"
+                        ? t("slashPopover.global")
+                        : skill.scope === "workspace"
+                          ? t("slashPopover.workspace")
+                          : t("slashPopover.project")}
                     </span>
                   </button>
                 ))}

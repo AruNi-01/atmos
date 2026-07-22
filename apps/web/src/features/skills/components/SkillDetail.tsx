@@ -143,6 +143,12 @@ function getScopeMeta(
         icon: Folder,
         className: 'bg-muted text-foreground',
       };
+    case 'workspace':
+      return {
+        label: t('scope.workspace'),
+        icon: Folder,
+        className: 'bg-muted text-foreground',
+      };
     case 'system':
       return {
         label: t('scope.system'),

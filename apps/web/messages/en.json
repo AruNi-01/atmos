@@ -3100,6 +3100,7 @@
         "loadingSkills": "Loading skills...",
         "global": "Global",
         "project": "Project",
+        "workspace": "Workspace",
         "showMore": "Show {count} more",
         "noSkillsAvailable": "No skills available",
         "projects": "Projects",
@@ -6708,6 +6709,26 @@
       },
       "marketplaceFrameTitle": "Skills marketplace"
     },
+    "composerDisable": {
+      "triggerLabel": "Manage skills",
+      "triggerShort": "Skills",
+      "title": "Skills",
+      "sessionTip": "Disabling a skill takes effect in a new Agent session. Skills already loaded into the current session’s system prompt stay available until you start a new session.",
+      "loading": "Loading skills...",
+      "empty": "No manageable skills in this context.",
+      "scope": {
+        "global": "Global",
+        "project": "Project",
+        "workspace": "Workspace"
+      },
+      "enableSkill": "Enable {name}",
+      "disableSkill": "Disable {name}",
+      "toasts": {
+        "enableFailed": "Failed to enable skill",
+        "disableFailed": "Failed to disable skill",
+        "tryAgain": "Please try again."
+      }
+    },
     "installedTab": {
       "empty": {
         "noneInstalledTitle": "No skills installed",
@@ -6720,6 +6741,7 @@
       "scope": {
         "global": "Global",
         "project": "Project",
+        "workspace": "Workspace",
         "system": "System",
         "insideProject": "Inside Project"
       },

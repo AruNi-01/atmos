@@ -123,6 +123,7 @@ export function WelcomeComposerControls({
   setPriority,
   setSelectedLabels,
   setWorkflowStatus,
+  skillsControl,
   workflowStatus,
   workspaceLabels,
 }: {
@@ -140,6 +141,7 @@ export function WelcomeComposerControls({
   setPriority: (value: WorkspacePriority) => void;
   setSelectedLabels: (labels: WorkspaceLabel[]) => void;
   setWorkflowStatus: (value: WorkspaceWorkflowStatus) => void;
+  skillsControl?: React.ReactNode;
   workflowStatus: WorkspaceWorkflowStatus;
   workspaceLabels: WorkspaceLabel[];
 }) {
@@ -226,6 +228,7 @@ export function WelcomeComposerControls({
           />
           <WorkspaceLabelDots labels={selectedLabels} overlap className="pl-1" />
         </div>
+        {skillsControl}
       </div>
 
       <Tooltip>

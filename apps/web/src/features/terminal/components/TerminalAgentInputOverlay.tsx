@@ -17,6 +17,10 @@ import {
   type SlashTriggerContext,
 } from "@/features/welcome/components/PromptComposer";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
+import {
+  ComposerSkillsControl,
+  type ComposerSkillsContext,
+} from "@/features/skills/components/ComposerSkillsControl";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 import {
   type MentionNavItem,
@@ -93,6 +97,7 @@ interface TerminalAgentInputOverlayProps {
   sideChatAgent?: TerminalPaneAgent | null;
   sideChatAgentOptions?: TerminalPaneAgent[];
   sideChatDots?: React.ReactNode;
+  skillsContext?: ComposerSkillsContext | null;
   submitMode?: TerminalAgentSubmitMode;
 }
 
@@ -123,6 +128,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   sideChatAgent,
   sideChatAgentOptions = [],
   sideChatDots,
+  skillsContext = null,
   submitMode = "text-enter",
 }, ref) {
   const t = useTranslations("terminal.agentInput");
@@ -811,21 +817,26 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           placeholder={t("placeholder")}
           startSendExit={startSendExit}
           footerEndControl={
-            shouldShowSideChatAgentSelector ? (
-              <div className={agentSelectorAttention ? "terminal-agent-selector-attention" : undefined}>
-                <WelcomeAgentSelector
-                  availableAgents={sideChatAgentMenuOptions}
-                  contentAlign="end"
-                  onInteraction={onInteraction}
-                  onOpenChange={setSideChatAgentSelectorOpen}
-                  onRunConfigChange={handleSideChatRunConfigChange}
-                  onSelectAgent={handleSideChatAgentSelect}
-                  open={sideChatAgentSelectorOpen}
-                  purpose="interactive"
-                  runConfigByAgentId={sideChatRunConfigs}
-                  selectedAgentId={effectiveSelectedSideChatAgentId}
-                  triggerPlacement="inline"
-                />
+            skillsContext || shouldShowSideChatAgentSelector ? (
+              <div className="flex items-center gap-1">
+                {skillsContext ? <ComposerSkillsControl context={skillsContext} /> : null}
+                {shouldShowSideChatAgentSelector ? (
+                  <div className={agentSelectorAttention ? "terminal-agent-selector-attention" : undefined}>
+                    <WelcomeAgentSelector
+                      availableAgents={sideChatAgentMenuOptions}
+                      contentAlign="end"
+                      onInteraction={onInteraction}
+                      onOpenChange={setSideChatAgentSelectorOpen}
+                      onRunConfigChange={handleSideChatRunConfigChange}
+                      onSelectAgent={handleSideChatAgentSelect}
+                      open={sideChatAgentSelectorOpen}
+                      purpose="interactive"
+                      runConfigByAgentId={sideChatRunConfigs}
+                      selectedAgentId={effectiveSelectedSideChatAgentId}
+                      triggerPlacement="inline"
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : undefined
           }

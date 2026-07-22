@@ -3100,6 +3100,7 @@
         "loadingSkills": "正在加载技能...",
         "global": "全局",
         "project": "项目",
+        "workspace": "工作区",
         "showMore": "再显示 {count} 个",
         "noSkillsAvailable": "没有可用技能",
         "projects": "项目",
@@ -6708,6 +6709,26 @@
       },
       "marketplaceFrameTitle": "技能市场"
     },
+    "composerDisable": {
+      "triggerLabel": "管理技能",
+      "triggerShort": "技能",
+      "title": "技能",
+      "sessionTip": "禁用技能后，需要新的 Agent session 才会生效。当前已初始化的 session 里，技能已经加载进系统提示词，仍会保持可用，直到你开启新的 session。",
+      "loading": "正在加载技能…",
+      "empty": "当前上下文没有可管理的技能。",
+      "scope": {
+        "global": "全局",
+        "project": "项目",
+        "workspace": "工作区"
+      },
+      "enableSkill": "启用 {name}",
+      "disableSkill": "禁用 {name}",
+      "toasts": {
+        "enableFailed": "启用技能失败",
+        "disableFailed": "禁用技能失败",
+        "tryAgain": "请重试。"
+      }
+    },
     "installedTab": {
       "empty": {
         "noneInstalledTitle": "没有已安装技能",
@@ -6720,6 +6741,7 @@
       "scope": {
         "global": "全局",
         "project": "项目",
+        "workspace": "工作区",
         "system": "系统",
         "insideProject": "项目内"
       },

@@ -44,6 +44,7 @@ export function WelcomeComposerCard({
   setPriority,
   setSelectedLabels,
   setWorkflowStatus,
+  skillsControl,
   workflowStatus,
   workspaceLabels,
   controls,
@@ -74,6 +75,7 @@ export function WelcomeComposerCard({
   setPriority?: (value: WorkspacePriority) => void;
   setSelectedLabels?: (labels: WorkspaceLabel[]) => void;
   setWorkflowStatus?: (value: WorkspaceWorkflowStatus) => void;
+  skillsControl?: React.ReactNode;
   workflowStatus?: WorkspaceWorkflowStatus;
   workspaceLabels?: WorkspaceLabel[];
   controls?: React.ReactNode;
@@ -123,6 +125,7 @@ export function WelcomeComposerCard({
               setPriority={setPriority!}
               setSelectedLabels={setSelectedLabels!}
               setWorkflowStatus={setWorkflowStatus!}
+              skillsControl={skillsControl}
               workflowStatus={workflowStatus!}
               workspaceLabels={workspaceLabels!}
             />

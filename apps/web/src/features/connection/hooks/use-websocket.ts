@@ -139,6 +139,7 @@ export type WsAction =
   | "skills_list"
   | "skills_get"
   | "skills_set_enabled"
+  | "skills_scan_root"
   | "skills_delete"
   | "wiki_skill_install"
   | "wiki_skill_system_status"

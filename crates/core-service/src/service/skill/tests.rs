@@ -221,3 +221,135 @@ fn scan_lazy_mode_drops_non_main_file_content() {
         full_extra.content,
     );
 }
+
+fn write_agent_skill(root: &std::path::Path, agent_skills_rel: &str, name: &str) {
+    let skill_dir = root.join(agent_skills_rel).join(name);
+    write_skill(&skill_dir, name);
+}
+
+#[test]
+fn project_disable_moves_skill_into_disabled_storage() {
+    use super::SkillManager;
+
+    let tmp = tempfile::tempdir().expect("create tempdir");
+    let project = tmp.path().join("project");
+    fs::create_dir_all(&project).unwrap();
+    write_agent_skill(&project, ".claude/skills", "demo");
+
+    let project_paths = vec![(
+        "proj-1".to_string(),
+        "Demo".to_string(),
+        project.to_string_lossy().to_string(),
+    )];
+    let skill_id = "project::proj-1::demo";
+
+    SkillManager::set_enabled(&project_paths, skill_id, false, None).expect("disable");
+
+    assert!(!project.join(".claude/skills/demo").exists());
+    assert!(project
+        .join(".atmos/skills/.disabled/.claude/skills/demo/SKILL.md")
+        .exists());
+
+    let skills = SkillScanner::scan_all(&project_paths);
+    let skill = skills.iter().find(|s| s.id == skill_id).expect("skill");
+    assert_eq!(skill.status, "disabled");
+
+    // Re-enable restores original path.
+    SkillManager::set_enabled(&project_paths, skill_id, true, None).expect("enable");
+    assert!(project.join(".claude/skills/demo/SKILL.md").exists());
+}
+
+#[test]
+fn workspace_copy_disable_is_local_to_workplace() {
+    use super::{SkillManager, SkillScopeRoot};
+
+    let tmp = tempfile::tempdir().expect("create tempdir");
+    let project = tmp.path().join("project");
+    let workplace = tmp.path().join("workplace");
+    fs::create_dir_all(&project).unwrap();
+    fs::create_dir_all(&workplace).unwrap();
+    write_agent_skill(&project, ".claude/skills", "demo");
+    write_agent_skill(&workplace, ".claude/skills", "demo");
+
+    let root = SkillScopeRoot {
+        scope: "workspace".into(),
+        id: "ws-1".into(),
+        name: "Work".into(),
+        path: workplace.to_string_lossy().into(),
+    };
+    let skill_id = "workspace::ws-1::demo";
+
+    SkillManager::set_enabled_with_extra_roots(&[], &[root.clone()], skill_id, false, None)
+        .expect("disable workspace copy");
+
+    assert!(
+        project.join(".claude/skills/demo/SKILL.md").exists(),
+        "project copy must stay"
+    );
+    assert!(!workplace.join(".claude/skills/demo").exists());
+    assert!(workplace
+        .join(".atmos/skills/.disabled/.claude/skills/demo/SKILL.md")
+        .exists());
+
+    let skills = SkillScanner::scan_root(&root, ScanMode::Lazy);
+    let skill = skills.iter().find(|s| s.id == skill_id).expect("skill");
+    assert_eq!(skill.status, "disabled");
+}
+
+#[cfg(unix)]
+#[test]
+fn workspace_parent_symlink_disable_does_not_mutate_project() {
+    use super::{SkillManager, SkillScopeRoot};
+
+    let tmp = tempfile::tempdir().expect("create tempdir");
+    let project = tmp.path().join("project");
+    let workplace = tmp.path().join("workplace");
+    fs::create_dir_all(project.join(".claude/skills")).unwrap();
+    fs::create_dir_all(&workplace).unwrap();
+    write_agent_skill(&project, ".claude/skills", "demo");
+    write_agent_skill(&project, ".claude/skills", "keep");
+
+    std::os::unix::fs::symlink(project.join(".claude"), workplace.join(".claude"))
+        .expect("compensate parent symlink");
+
+    let root = SkillScopeRoot {
+        scope: "workspace".into(),
+        id: "ws-1".into(),
+        name: "Work".into(),
+        path: workplace.to_string_lossy().into(),
+    };
+    let skill_id = "workspace::ws-1::demo";
+
+    SkillManager::set_enabled_with_extra_roots(&[], &[root.clone()], skill_id, false, None)
+        .expect("disable via materialized symlink");
+
+    assert!(
+        project.join(".claude/skills/demo/SKILL.md").exists(),
+        "project skill must remain after workplace-only disable"
+    );
+    assert!(
+        project.join(".claude/skills/keep/SKILL.md").exists(),
+        "sibling project skill must remain"
+    );
+    assert!(
+        !workplace.join(".claude/skills/demo").exists(),
+        "workplace must no longer expose enabled demo skill"
+    );
+    assert!(
+        workplace
+            .join(".atmos/skills/.disabled/.claude/skills/demo")
+            .exists(),
+        "disabled storage should hold the moved workplace entry"
+    );
+    // Sibling remains reachable in workplace via materialized child symlink.
+    assert!(workplace.join(".claude/skills/keep/SKILL.md").exists());
+
+    let skills = SkillScanner::scan_root(&root, ScanMode::Lazy);
+    let demo = skills.iter().find(|s| s.id == skill_id).expect("demo");
+    assert_eq!(demo.status, "disabled");
+    let keep = skills
+        .iter()
+        .find(|s| s.id == "workspace::ws-1::keep")
+        .expect("keep");
+    assert_eq!(keep.status, "enabled");
+}

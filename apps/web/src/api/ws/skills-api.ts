@@ -15,7 +15,7 @@ export interface SkillFile {
 export interface SkillPlacement {
   id: string;
   agent: string;
-  scope: "global" | "project" | "inside_project" | "system";
+  scope: "global" | "project" | "workspace" | "inside_project" | "system";
   project_id: string | null;
   project_name: string | null;
   path: string;
@@ -33,7 +33,7 @@ export interface SkillInfo {
   name: string;
   description: string;
   agents: string[];
-  scope: "global" | "project" | "inside_project" | "system";
+  scope: "global" | "project" | "workspace" | "inside_project" | "system";
   project_id: string | null;
   project_name: string | null;
   path: string;
@@ -46,6 +46,13 @@ export interface SkillInfo {
   placements: SkillPlacement[];
 }
 
+export type SkillScopeRoot = {
+  scope: "project" | "workspace";
+  id: string;
+  name: string;
+  path: string;
+};
+
 export const skillsApi = {
   /**
    * 获取已安装的 Skills 列表
@@ -54,6 +61,13 @@ export const skillsApi = {
     return wsRequest<{ skills: SkillInfo[] }>("skills_list", {
       force_refresh: options?.forceRefresh ?? false,
     });
+  },
+
+  /**
+   * Scan a single project/workspace root for composer toggles (no disk cache).
+   */
+  scanRoot: async (root: SkillScopeRoot): Promise<{ skills: SkillInfo[] }> => {
+    return wsRequest<{ skills: SkillInfo[] }>("skills_scan_root", root);
   },
 
   /**
@@ -67,11 +81,13 @@ export const skillsApi = {
     id: string,
     enabled: boolean,
     placementIds?: string[],
+    scopeRoot?: SkillScopeRoot,
   ): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("skills_set_enabled", {
       id,
       enabled,
       placement_ids: placementIds,
+      scope_root: scopeRoot,
     });
   },
 

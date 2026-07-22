@@ -117,6 +117,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-037** | Canvas Local Documents | `specs/APP/APP-037_canvas-local-documents/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-038** | Onboarding Page | `specs/APP/APP-038_onboarding-page/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-039** | Terminal `/spawn` Command | `specs/APP/APP-039_terminal-spawn-command/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-040** | Composer Skills Disable | `specs/APP/APP-040_composer-skills-disable/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

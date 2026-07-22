@@ -78,6 +78,26 @@ export function TerminalSideChatModal({
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
   const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
   const [closeAllConfirmOpen, setCloseAllConfirmOpen] = React.useState(false);
+  const skillsContext = React.useMemo(() => {
+    if (!localPath) return null;
+    const isProjectRoot =
+      !!projectRootPath &&
+      (localPath === projectRootPath || localPath.replace(/\/$/, "") === projectRootPath.replace(/\/$/, ""));
+    if (isProjectRoot) {
+      return {
+        mode: "project" as const,
+        id: workspaceId,
+        name: projectName || workspaceId,
+        path: projectRootPath || localPath,
+      };
+    }
+    return {
+      mode: "workspace" as const,
+      id: workspaceId,
+      name: workspaceName || projectName || workspaceId,
+      path: localPath,
+    };
+  }, [localPath, projectName, projectRootPath, workspaceId, workspaceName]);
   const [readySideChatIds, setReadySideChatIds] = React.useState<Set<string>>(() => new Set());
   const [isFocusedWithin, setIsFocusedWithin] = React.useState(true);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
@@ -350,6 +370,7 @@ export function TerminalSideChatModal({
                   agent={record.agent}
                   isTerminalReady={readySideChatIds.has(record.side_chat_id)}
                   localPath={localPath}
+                  skillsContext={skillsContext}
                   onHide={() => {
                     terminalRefs.current.get(record.side_chat_id)?.focus();
                   }}
