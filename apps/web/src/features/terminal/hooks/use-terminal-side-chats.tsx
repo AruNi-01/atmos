@@ -32,6 +32,7 @@ import { useTerminalSideChatRecords } from "./use-terminal-side-chat-records";
 
 export interface UseTerminalSideChatsOptions {
   workspaceId: string;
+  projectId?: string | null;
   projectName?: string | null;
   workspaceName?: string | null;
   localPath?: string | null;
@@ -72,6 +73,7 @@ function buildSpawnTerminalTitle(userPrompt: string): string {
 
 export function useTerminalSideChats({
   workspaceId,
+  projectId,
   projectName,
   workspaceName,
   localPath,
@@ -327,6 +329,7 @@ export function useTerminalSideChats({
   const sideChatLayer = (
     <TerminalSideChatLayer
       localPath={localPath}
+      projectId={projectId}
       projectName={projectName}
       projectRootPath={projectRootPath}
       records={records}

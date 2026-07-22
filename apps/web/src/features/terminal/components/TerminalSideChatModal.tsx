@@ -42,6 +42,7 @@ export interface TerminalSideChatModalProps {
   onInteraction?: (event: Event | React.SyntheticEvent) => void;
   onReady: (record: LocalSideChatRecord) => void;
   onSelectSideChat: (sideChatId: string) => void;
+  projectId?: string | null;
   projectName?: string | null;
   projectRootPath?: string | null;
   records: LocalSideChatRecord[];
@@ -57,6 +58,7 @@ export interface TerminalSideChatModalProps {
 export function TerminalSideChatModal({
   activeSideChatId,
   localPath,
+  projectId,
   projectName,
   projectRootPath,
   records,
@@ -78,6 +80,27 @@ export function TerminalSideChatModal({
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
   const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
   const [closeAllConfirmOpen, setCloseAllConfirmOpen] = React.useState(false);
+  const skillsContext = React.useMemo(() => {
+    if (!localPath) return null;
+    const isProjectRoot =
+      !!projectRootPath &&
+      (localPath === projectRootPath || localPath.replace(/\/$/, "") === projectRootPath.replace(/\/$/, ""));
+    if (isProjectRoot) {
+      if (!projectId) return null;
+      return {
+        mode: "project" as const,
+        id: projectId,
+        name: projectName || projectId,
+        path: projectRootPath || localPath,
+      };
+    }
+    return {
+      mode: "workspace" as const,
+      id: workspaceId,
+      name: workspaceName || projectName || workspaceId,
+      path: localPath,
+    };
+  }, [localPath, projectId, projectName, projectRootPath, workspaceId, workspaceName]);
   const [readySideChatIds, setReadySideChatIds] = React.useState<Set<string>>(() => new Set());
   const [isFocusedWithin, setIsFocusedWithin] = React.useState(true);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
@@ -350,6 +373,7 @@ export function TerminalSideChatModal({
                   agent={record.agent}
                   isTerminalReady={readySideChatIds.has(record.side_chat_id)}
                   localPath={localPath}
+                  skillsContext={skillsContext}
                   onHide={() => {
                     terminalRefs.current.get(record.side_chat_id)?.focus();
                   }}

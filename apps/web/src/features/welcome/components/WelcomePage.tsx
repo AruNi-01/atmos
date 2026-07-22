@@ -24,9 +24,11 @@ import { useWelcomeProjectContext } from "@/features/welcome/hooks/use-welcome-p
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
+  type SlashCommandOption,
   type WelcomeSlashPopoverState,
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useProjects,
@@ -44,6 +46,16 @@ import type {
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import { WelcomeComposerCard } from "@/features/welcome/components/WelcomeComposerCard";
 import { WelcomeComposerFooter } from "@/features/welcome/components/WelcomeComposerFooter";
+import {
+  useComposerDisableSkills,
+  type ComposerSkillsContext,
+} from "@/features/skills/hooks/use-composer-disable-skills";
+import {
+  SKILL_DISABLE_DISMISS_SECONDS,
+  stripSkillDisableSession,
+  upsertSkillDisableSessionAction,
+  type SkillDisableSessionAction,
+} from "@/features/skills/lib/skill-disable-protocol";
 import {
   WelcomeCloseButton,
   WelcomeComposerPlaceholder,
@@ -123,6 +135,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   } = useWelcomeComposerAttachments(composerRef);
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
+  const [slashPopoverView, setSlashPopoverView] = React.useState<SlashPopoverView>("menu");
+  const [skillDisableFilter, setSkillDisableFilter] = React.useState("");
+  const [skillDisableSessionActions, setSkillDisableSessionActions] = React.useState<
+    SkillDisableSessionAction[]
+  >([]);
+  const suppressSlashCancelRef = React.useRef(false);
+  const slashPopoverViewRef = React.useRef<SlashPopoverView>("menu");
+  slashPopoverViewRef.current = slashPopoverView;
   const [name, setName] = React.useState("");
   const [branch, setBranch] = React.useState("");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -203,6 +223,46 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   );
   const selectedProjectId = selectedProject?.id ?? null;
   const selectedProjectPath = selectedProject?.mainFilePath ?? null;
+  const skillsContext = React.useMemo<ComposerSkillsContext | null>(() => {
+    if (!selectedProject?.mainFilePath) return null;
+    return {
+      mode: "project",
+      id: selectedProject.id,
+      name: selectedProject.name,
+      path: selectedProject.mainFilePath,
+    };
+  }, [selectedProject]);
+  const {
+    error: disableSkillsError,
+    loading: disableSkillsLoading,
+    loadSkills: loadDisableSkills,
+    pendingId: disableSkillsPendingId,
+    setEnabled: setDisableSkillEnabled,
+    skills: disableSkillsList,
+  } = useComposerDisableSkills(skillsContext);
+
+  const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
+    if (!skillsContext) return [];
+    const query = slashPopover?.query.trim().toLowerCase() ?? "";
+    if (
+      query &&
+      !"dynamic-skills".includes(query) &&
+      !"dynamic skills".includes(query) &&
+      !"disable-skill".includes(query) &&
+      !"disable skill".includes(query) &&
+      !"disable".includes(query) &&
+      !"skill".includes(query)
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: "dynamic-skills",
+        label: t("slashPopover.disableSkill.label"),
+        description: t("slashPopover.disableSkill.description"),
+      },
+    ];
+  }, [skillsContext, slashPopover?.query, t]);
   const {
     autoExtractTodos,
     autoExtractTodosPr,
@@ -334,6 +394,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
   const selectSlashSkill = React.useCallback(
     (skill: SkillInfo) => {
+      if (skill.status === "disabled") return;
       const popover = slashPopover;
       if (!popover) return;
       composerRef.current?.applySlashAtRange(
@@ -342,6 +403,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         { kind: "skill", absolutePath: skill.path, name: skill.name },
       );
       setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
     },
     [slashPopover],
   );
@@ -352,6 +415,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       if (!popover) return;
       // Close popover immediately to prevent re-opening from side effects
       setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
       composerRef.current?.removeSlashAtRange(
         popover.slashOffset,
         popover.query.length,
@@ -368,6 +433,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       if (!popover) return;
       // Close popover immediately to prevent re-opening from side effects
       setSlashPopover(null);
+      setSlashPopoverView("menu");
+      setSkillDisableFilter("");
       composerRef.current?.removeSlashAtRange(
         popover.slashOffset,
         popover.query.length,
@@ -378,6 +445,66 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     [slashPopover, setSelectedAgentId],
   );
 
+  const enterDisableSkillsView = React.useCallback(() => {
+    const popover = slashPopover;
+    if (!popover || !skillsContext) return;
+    suppressSlashCancelRef.current = true;
+    setSkillDisableSessionActions([]);
+    composerRef.current?.applySkillDisableCommandAtRange(
+      popover.slashOffset,
+      popover.query.length,
+    );
+    slashPopoverViewRef.current = "disable_skills";
+    setSlashPopoverView("disable_skills");
+    setSkillDisableFilter("");
+    void loadDisableSkills();
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focusSkillDisableFilter();
+      suppressSlashCancelRef.current = false;
+    });
+  }, [loadDisableSkills, skillsContext, slashPopover]);
+
+  const backFromDisableSkills = React.useCallback(() => {
+    suppressSlashCancelRef.current = true;
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
+    composerRef.current?.restoreSlashFromSkillDisable();
+    window.requestAnimationFrame(() => {
+      suppressSlashCancelRef.current = false;
+    });
+  }, []);
+
+  const toggleDisableSkill = React.useCallback(
+    async (skill: SkillInfo, enabled: boolean) => {
+      const beforeEnabled = skill.status !== "disabled";
+      const ok = await setDisableSkillEnabled(skill, enabled);
+      if (!ok) return;
+      setSkillDisableSessionActions((current) => {
+        const next = upsertSkillDisableSessionAction(
+          current,
+          skill.id,
+          skill.title || skill.name,
+          beforeEnabled,
+          enabled,
+        );
+        composerRef.current?.setSkillDisableSessionActions(next);
+        return next;
+      });
+    },
+    [setDisableSkillEnabled],
+  );
+
+  const selectSlashCommand = React.useCallback(
+    (command: SlashCommandOption) => {
+      if (command.id === "dynamic-skills") {
+        enterDisableSkillsView();
+      }
+    },
+    [enterDisableSkillsView],
+  );
+
   const {
     activeIndex: activeSlashItemIndex,
     expandedSections,
@@ -385,14 +512,46 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setExpandedSections,
     setItemRef: setSlashItemRef,
   } = useWelcomeSlashNavigation({
+    enabled: slashPopoverView === "menu",
     filteredAgents,
+    filteredCommands: slashCommands,
     filteredProjects,
     filteredSkills,
     onSelectAgent: selectSlashAgent,
+    onSelectCommand: selectSlashCommand,
     onSelectProject: selectSlashProject,
     onSelectSkill: selectSlashSkill,
     popover: slashPopover,
   });
+
+  const closeSlashPopover = React.useCallback(() => {
+    if (slashPopoverViewRef.current === "disable_skills") {
+      composerRef.current?.beginSkillDisableChipDismiss(SKILL_DISABLE_DISMISS_SECONDS);
+    }
+    setSlashPopover(null);
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
+    setExpandedSections({
+      skills: false,
+      projects: false,
+      agents: false,
+    });
+  }, [setExpandedSections]);
+
+  const handleSkillDisableSessionClosed = React.useCallback(() => {
+    setSlashPopover(null);
+    slashPopoverViewRef.current = "menu";
+    setSlashPopoverView("menu");
+    setSkillDisableFilter("");
+    setSkillDisableSessionActions([]);
+    setExpandedSections({
+      skills: false,
+      projects: false,
+      agents: false,
+    });
+  }, [setExpandedSections]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -541,7 +700,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         }
       }
 
-      const rawPrompt = composerRef.current?.getText() ?? initialRequirement;
+      const rawPrompt = stripSkillDisableSession(
+        composerRef.current?.getText() ?? initialRequirement,
+      );
       const resolvedPrompt = resolvePromptPlaceholders(rawPrompt, attachments);
       const attachmentPayload = await Promise.all(
         attachments.map(async (a) => ({
@@ -724,19 +885,37 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       previewAttachment={previewAttachment}
       slashPopoverProps={{
         activeIndex: activeSlashItemIndex,
+        disableSkills:
+          slashPopoverView === "disable_skills"
+            ? {
+                filter: skillDisableFilter,
+                loading: disableSkillsLoading,
+                pendingId: disableSkillsPendingId,
+                skills: disableSkillsList,
+                error: disableSkillsError,
+              }
+            : null,
         expandedSections,
         filteredAgents,
+        filteredCommands: slashCommands,
         filteredProjects,
         filteredSkills,
         isSkillsLoading,
         listRef: slashPopoverListRef,
-        onClose: () => setSlashPopover(null),
+        onBackFromDisableSkills: backFromDisableSkills,
+        onClose: closeSlashPopover,
         onSelectAgent: selectSlashAgent,
+        onSelectCommand: selectSlashCommand,
         onSelectProject: selectSlashProject,
         onSelectSkill: selectSlashSkill,
+        onToggleDisableSkill: (skill, enabled) => {
+          void toggleDisableSkill(skill, enabled);
+        },
         popover: slashPopover,
         setExpandedSections,
         setItemRef: setSlashItemRef,
+        showCommands: slashCommands.length > 0,
+        view: slashPopoverView,
       }}
       summaryItems={filledSummaryItems}
       onPreviewAttachmentClose={() => setPreviewAttachment(null)}
@@ -809,21 +988,25 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
               onImagePaste={handleImagePaste}
               onProjectChange={setProjectId}
               onSlashCancel={() => {
-                setSlashPopover(null);
-                setExpandedSections({
-                  skills: false,
-                  projects: false,
-                  agents: false,
-                });
+                if (suppressSlashCancelRef.current) return;
+                if (slashPopoverViewRef.current === "disable_skills") {
+                  // Chip filter still owns focus; keep the disable session open.
+                  return;
+                }
+                closeSlashPopover();
               }}
               onSlashTrigger={(ctx) => {
+                if (slashPopoverViewRef.current === "disable_skills") return;
                 setSlashPopover({
                   top: ctx.caretRect.bottom + 4,
                   left: ctx.caretRect.left,
                   slashOffset: ctx.slashOffset,
                   query: ctx.query,
                 });
+                setSlashPopoverView("menu");
               }}
+              onSkillDisableFilterChange={setSkillDisableFilter}
+              onSkillDisableSessionClosed={handleSkillDisableSessionClosed}
               onTextChange={(text) => {
                 setInitialRequirement(text);
                 setSubmitError(null);

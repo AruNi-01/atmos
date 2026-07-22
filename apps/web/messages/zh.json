@@ -3100,6 +3100,7 @@
         "loadingSkills": "正在加载技能...",
         "global": "全局",
         "project": "项目",
+        "workspace": "工作区",
         "showMore": "再显示 {count} 个",
         "noSkillsAvailable": "没有可用技能",
         "projects": "项目",
@@ -3107,7 +3108,12 @@
         "codeAgents": "代码 Agent",
         "noAgentsAvailable": "没有可用 Agent",
         "hidden": "隐藏",
-        "hiddenSummary": "已隐藏 {skills} 个技能 · {projects} 个项目 · {agents} 个 Agent"
+        "hiddenSummary": "已隐藏 {skills} 个技能 · {projects} 个项目 · {agents} 个 Agent",
+        "disabled": "已禁用",
+        "disableSkill": {
+          "label": "Dynamic Skills",
+          "description": "动态调整 Agent 可见的技能，当前 session 即可生效"
+        }
       }
     },
     "projectContext": {
@@ -6708,6 +6714,27 @@
       },
       "marketplaceFrameTitle": "技能市场"
     },
+    "composerDisable": {
+      "triggerLabel": "管理技能",
+      "triggerShort": "技能",
+      "title": "Dynamic Skills",
+      "back": "返回",
+      "sessionTip": "开关会立刻改变 Agent 对技能的可见性：禁用后技能会移出发现路径，并在原位置留下 SKILL_DISABLED.md 标记，当前 session 也无法再加载原来的 SKILL.md 入口。",
+      "loading": "正在加载技能…",
+      "empty": "当前上下文没有可管理的技能。",
+      "scope": {
+        "global": "全局",
+        "project": "项目",
+        "workspace": "工作区"
+      },
+      "enableSkill": "启用 {name}",
+      "disableSkill": "禁用 {name}",
+      "toasts": {
+        "enableFailed": "启用技能失败",
+        "disableFailed": "禁用技能失败",
+        "tryAgain": "请重试。"
+      }
+    },
     "installedTab": {
       "empty": {
         "noneInstalledTitle": "没有已安装技能",
@@ -6720,6 +6747,7 @@
       "scope": {
         "global": "全局",
         "project": "项目",
+        "workspace": "工作区",
         "system": "系统",
         "insideProject": "项目内"
       },
@@ -7833,6 +7861,22 @@
       },
       "spawnCommand": {
         "description": "带上此终端上下文 spawn 出一个新的终端面板"
+      },
+      "disableSkillCommand": {
+        "label": "Dynamic Skills",
+        "description": "动态调整 Agent 可见的技能，当前 session 即可生效"
+      },
+      "skillDisable": {
+        "chip": "Dynamic Skills",
+        "chipTooltip": "筛选并开关当前上下文中的技能",
+        "filterPlaceholder": "筛选…",
+        "filterAria": "筛选技能",
+        "deleteAgainHint": "再按一次删除键关闭 Dynamic Skills",
+        "actionEnabled": "+",
+        "actionDisabled": "−",
+        "countdown": "{seconds}s",
+        "tooltipEnabled": "添加：{names}",
+        "tooltipDisabled": "删除：{names}"
       },
       "selectionContext": {
         "copy": "复制",

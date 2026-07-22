@@ -3100,6 +3100,7 @@
         "loadingSkills": "Loading skills...",
         "global": "Global",
         "project": "Project",
+        "workspace": "Workspace",
         "showMore": "Show {count} more",
         "noSkillsAvailable": "No skills available",
         "projects": "Projects",
@@ -3107,7 +3108,12 @@
         "codeAgents": "Code agents",
         "noAgentsAvailable": "No agents available",
         "hidden": "Hidden",
-        "hiddenSummary": "{skills} skills · {projects} projects · {agents} agents hidden"
+        "hiddenSummary": "{skills} skills · {projects} projects · {agents} agents hidden",
+        "disabled": "Disabled",
+        "disableSkill": {
+          "label": "Dynamic Skills",
+          "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+        }
       }
     },
     "projectContext": {
@@ -6708,6 +6714,27 @@
       },
       "marketplaceFrameTitle": "Skills marketplace"
     },
+    "composerDisable": {
+      "triggerLabel": "Manage skills",
+      "triggerShort": "Skills",
+      "title": "Dynamic Skills",
+      "back": "Back",
+      "sessionTip": "Toggles change skill visibility for Agents right away: disabled skills are moved out of discovery paths and leave a SKILL_DISABLED.md marker so the current session cannot load the original SKILL.md entrypoint.",
+      "loading": "Loading skills...",
+      "empty": "No manageable skills in this context.",
+      "scope": {
+        "global": "Global",
+        "project": "Project",
+        "workspace": "Workspace"
+      },
+      "enableSkill": "Enable {name}",
+      "disableSkill": "Disable {name}",
+      "toasts": {
+        "enableFailed": "Failed to enable skill",
+        "disableFailed": "Failed to disable skill",
+        "tryAgain": "Please try again."
+      }
+    },
     "installedTab": {
       "empty": {
         "noneInstalledTitle": "No skills installed",
@@ -6720,6 +6747,7 @@
       "scope": {
         "global": "Global",
         "project": "Project",
+        "workspace": "Workspace",
         "system": "System",
         "insideProject": "Inside Project"
       },
@@ -7833,6 +7861,22 @@
       },
       "spawnCommand": {
         "description": "Spawn a new terminal panel with this terminal context"
+      },
+      "disableSkillCommand": {
+        "label": "Dynamic Skills",
+        "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+      },
+      "skillDisable": {
+        "chip": "Dynamic Skills",
+        "chipTooltip": "Filter and toggle skills for Agents in this context",
+        "filterPlaceholder": "filter…",
+        "filterAria": "Filter skills",
+        "deleteAgainHint": "Press Delete again to close Dynamic Skills",
+        "actionEnabled": "+",
+        "actionDisabled": "−",
+        "countdown": "{seconds}s",
+        "tooltipEnabled": "Added: {names}",
+        "tooltipDisabled": "Removed: {names}"
       },
       "selectionContext": {
         "copy": "Copy",

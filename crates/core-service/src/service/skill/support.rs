@@ -11,7 +11,7 @@ pub(super) struct ProjectPathRecord {
 }
 
 pub(super) fn is_manageable_scope(scope: &str) -> bool {
-    matches!(scope, "global" | "project")
+    matches!(scope, "global" | "project" | "workspace")
 }
 
 pub(super) fn build_skill_id(scope: &str, project_id: Option<&str>, name: &str) -> String {
@@ -135,6 +135,160 @@ pub(super) fn move_entry_without_following_symlink(from: &Path, to: &Path) -> Re
             Ok(())
         }
     }
+}
+
+/// Ensure `path` can be moved without mutating trees outside `root`.
+///
+/// Workspace sync dirs often materialize as a parent symlink
+/// (`workplace/.claude` → `project/.claude`). Renaming through that parent
+/// would move the project skill. This expands each symlink ancestor under
+/// `root` into a real directory of child symlinks until `path` itself is a
+/// local symlink or a real local entry.
+pub(super) fn ensure_entry_local_to_root(root: &Path, path: &Path) -> Result<()> {
+    let root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let path = normalize_mac_private_prefix(path);
+    let root = normalize_mac_private_prefix(&root);
+    let mut guard = 0usize;
+
+    loop {
+        guard += 1;
+        if guard > 64 {
+            return Err(ServiceError::Validation(
+                "Failed to localize skill path for workspace disable".to_string(),
+            ));
+        }
+
+        let metadata = fs::symlink_metadata(&path).map_err(|e| {
+            ServiceError::Validation(format!(
+                "Failed to inspect skill entry '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Ok(());
+        }
+
+        let Some(ancestor) = find_symlink_ancestor(&root, &path)? else {
+            return Ok(());
+        };
+
+        materialize_symlink_dir(&ancestor)?;
+    }
+}
+
+/// macOS often exposes the same directory as both `/var/...` and `/private/var/...`.
+/// `canonicalize(root)` yields the `/private` form while skill paths from scans may not,
+/// which breaks `starts_with` checks and skips parent-symlink materialization.
+fn normalize_mac_private_prefix(path: &Path) -> PathBuf {
+    let raw = path.to_string_lossy();
+    if let Some(stripped) = raw.strip_prefix("/private") {
+        PathBuf::from(stripped)
+    } else {
+        path.to_path_buf()
+    }
+}
+
+fn find_symlink_ancestor(root: &Path, path: &Path) -> Result<Option<PathBuf>> {
+    let mut current = path.parent().map(Path::to_path_buf);
+    let mut found = None;
+
+    while let Some(candidate) = current {
+        let candidate_norm = normalize_mac_private_prefix(&candidate);
+        let root_norm = normalize_mac_private_prefix(root);
+        if candidate_norm == root_norm {
+            break;
+        }
+        if !candidate_norm.starts_with(&root_norm) {
+            break;
+        }
+
+        let metadata = match fs::symlink_metadata(&candidate) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
+            Err(err) => {
+                return Err(ServiceError::Validation(format!(
+                    "Failed to inspect ancestor '{}': {}",
+                    candidate.display(),
+                    err
+                )));
+            }
+        };
+
+        if metadata.file_type().is_symlink() {
+            found = Some(candidate.clone());
+        }
+
+        current = candidate.parent().map(Path::to_path_buf);
+    }
+
+    Ok(found)
+}
+
+fn materialize_symlink_dir(link: &Path) -> Result<()> {
+    let metadata = fs::symlink_metadata(link).map_err(|e| {
+        ServiceError::Validation(format!(
+            "Failed to inspect symlink '{}': {}",
+            link.display(),
+            e
+        ))
+    })?;
+    if !metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    let target = fs::read_link(link).map_err(|e| {
+        ServiceError::Validation(format!(
+            "Failed to read symlink '{}': {}",
+            link.display(),
+            e
+        ))
+    })?;
+    let resolved = if target.is_absolute() {
+        target
+    } else {
+        link.parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(target)
+    };
+    let resolved = fs::canonicalize(&resolved).unwrap_or(resolved);
+
+    let children: Vec<_> = fs::read_dir(&resolved)
+        .map_err(|e| {
+            ServiceError::Validation(format!(
+                "Failed to read symlink target '{}': {}",
+                resolved.display(),
+                e
+            ))
+        })?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name())
+        .collect();
+
+    fs::remove_file(link).map_err(|e| {
+        ServiceError::Validation(format!(
+            "Failed to replace symlink '{}': {}",
+            link.display(),
+            e
+        ))
+    })?;
+    fs::create_dir(link).map_err(|e| {
+        ServiceError::Validation(format!(
+            "Failed to create materialized directory '{}': {}",
+            link.display(),
+            e
+        ))
+    })?;
+
+    for child_name in children {
+        let child_target = resolved.join(&child_name);
+        let child_link = link.join(&child_name);
+        let child_is_dir = child_target.is_dir();
+        let absolute_target = fs::canonicalize(&child_target).unwrap_or(child_target);
+        create_symlink(&absolute_target, &child_link, child_is_dir)?;
+    }
+
+    Ok(())
 }
 
 fn copy_entry_without_following_symlink(

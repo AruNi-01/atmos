@@ -2,7 +2,11 @@
 
 import React from "react";
 
-import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
+import {
+  SlashCommandPopover,
+  type SlashDisableSkillsState,
+  type SlashPopoverView,
+} from "@/features/welcome/components/SlashCommandPopover";
 import {
   WelcomeMentionPopover,
   type MentionNavItem,
@@ -10,6 +14,7 @@ import {
 } from "@/features/welcome/components/WelcomeMentionPopover";
 import type { WelcomeSlashPopoverState } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import type { SkillInfo } from "@/api/ws-api";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 
 type ImagePreviewAttachment = {
@@ -20,6 +25,7 @@ type ImagePreviewAttachment = {
 export function TerminalAgentInputPopovers({
   activeMentionFileIndex,
   activeSlashItemIndex,
+  disableSkills,
   expandedSections,
   filteredAgents,
   filteredCommands,
@@ -30,6 +36,7 @@ export function TerminalAgentInputPopovers({
   mentionFiles,
   mentionPopover,
   mentionPopoverListRef,
+  onBackFromDisableSkills,
   onCloseMention,
   onCloseSlash,
   onSelectMentionFile,
@@ -38,6 +45,7 @@ export function TerminalAgentInputPopovers({
   onSelectSlashCommand,
   onSelectSlashProject,
   onSelectSlashSkill,
+  onToggleDisableSkill,
   onClosePreviewAttachment,
   previewAttachment,
   setExpandedSections,
@@ -45,9 +53,11 @@ export function TerminalAgentInputPopovers({
   setSlashItemRef,
   slashPopover,
   slashPopoverListRef,
+  slashPopoverView = "menu",
 }: {
   activeMentionFileIndex: number;
   activeSlashItemIndex: number;
+  disableSkills?: SlashDisableSkillsState | null;
   expandedSections: React.ComponentProps<typeof SlashCommandPopover>["expandedSections"];
   filteredAgents: React.ComponentProps<typeof SlashCommandPopover>["filteredAgents"];
   filteredCommands?: SlashCommandOption[];
@@ -58,6 +68,7 @@ export function TerminalAgentInputPopovers({
   mentionFiles: React.ComponentProps<typeof WelcomeMentionPopover>["mentionFiles"];
   mentionPopover: MentionPopoverState;
   mentionPopoverListRef: React.ComponentProps<typeof WelcomeMentionPopover>["listRef"];
+  onBackFromDisableSkills?: () => void;
   onCloseMention: () => void;
   onCloseSlash: () => void;
   onSelectMentionFile: (item: { relativePath: string }) => void;
@@ -66,6 +77,7 @@ export function TerminalAgentInputPopovers({
   onSelectSlashCommand?: (command: SlashCommandOption) => void;
   onSelectSlashProject: () => void;
   onSelectSlashSkill: React.ComponentProps<typeof SlashCommandPopover>["onSelectSkill"];
+  onToggleDisableSkill?: (skill: SkillInfo, enabled: boolean) => void;
   onClosePreviewAttachment: () => void;
   previewAttachment: ImagePreviewAttachment | null;
   setExpandedSections: React.ComponentProps<typeof SlashCommandPopover>["setExpandedSections"];
@@ -73,6 +85,7 @@ export function TerminalAgentInputPopovers({
   setSlashItemRef: React.ComponentProps<typeof SlashCommandPopover>["setItemRef"];
   slashPopover: WelcomeSlashPopoverState;
   slashPopoverListRef: React.ComponentProps<typeof SlashCommandPopover>["listRef"];
+  slashPopoverView?: SlashPopoverView;
 }) {
   return (
     <>
@@ -91,6 +104,7 @@ export function TerminalAgentInputPopovers({
       />
       <SlashCommandPopover
         activeIndex={activeSlashItemIndex}
+        disableSkills={disableSkills}
         expandedSections={expandedSections}
         filteredAgents={filteredAgents}
         filteredCommands={filteredCommands}
@@ -98,17 +112,20 @@ export function TerminalAgentInputPopovers({
         filteredSkills={filteredSkills}
         isSkillsLoading={isSkillsLoading}
         listRef={slashPopoverListRef}
+        onBackFromDisableSkills={onBackFromDisableSkills}
         onClose={onCloseSlash}
         onSelectAgent={onSelectSlashAgent}
         onSelectCommand={onSelectSlashCommand}
         onSelectProject={onSelectSlashProject}
         onSelectSkill={onSelectSlashSkill}
+        onToggleDisableSkill={onToggleDisableSkill}
         popover={slashPopover}
         setExpandedSections={setExpandedSections}
         setItemRef={setSlashItemRef}
         showAgents={false}
         showCommands={Boolean(filteredCommands?.length)}
         showProjects={false}
+        view={slashPopoverView}
       />
       {previewAttachment ? (
         <ImagePreviewOverlay

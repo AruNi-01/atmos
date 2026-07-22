@@ -182,6 +182,24 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
   const isPanePinned = panePinKey ? pinnedPaneKeys.has(panePinKey) : false;
   const agentForSubmit = pane.agent ?? toolbarAgent;
   const agentSubmitMode = resolveTerminalAgentSubmitMode(agentForSubmit);
+  const skillsContext = useMemo(() => {
+    if (!workspaceInfo?.localPath) return null;
+    if (isProjectContext) {
+      if (!activeProject) return null;
+      return {
+        mode: "project" as const,
+        id: activeProject.id,
+        name: activeProject.name,
+        path: activeProject.mainFilePath || workspaceInfo.localPath,
+      };
+    }
+    return {
+      mode: "workspace" as const,
+      id: workspaceId,
+      name: workspaceInfo.workspaceName || workspaceInfo.projectName || workspaceId,
+      path: workspaceInfo.localPath,
+    };
+  }, [activeProject, isProjectContext, workspaceId, workspaceInfo]);
   const sideChatAgentOptions = useMemo(() => {
     const options = quickOpenAgents.map(({ agent, command }) => ({ ...agent, command }));
     if (agentForSubmit?.command?.trim() && !options.some((agent) => agent.id === agentForSubmit.id)) {
@@ -197,6 +215,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     startSpawn,
   } = useTerminalSideChats({
     workspaceId,
+    projectId: activeProject?.id ?? null,
     projectName: workspaceInfo?.projectName ?? null,
     workspaceName: workspaceInfo?.workspaceName ?? null,
     localPath: workspaceInfo?.localPath ?? null,
@@ -484,6 +503,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           getSideChatFlyTargetClientPoint={getSideChatFlyTargetClientPoint}
           isTerminalReady={isTerminalReady}
           localPath={workspaceInfo?.localPath}
+          skillsContext={skillsContext}
           onHide={() => {
             terminalRefsMap.current.get(id)?.focus();
           }}

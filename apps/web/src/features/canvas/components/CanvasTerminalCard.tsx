@@ -161,10 +161,16 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     startSideChat,
   } = useTerminalSideChats({
     workspaceId: shape.props.workspaceId,
+    // Canvas terminals store the scope id in `workspaceId` (project id when
+    // contextScope === "project"). Do not set projectRootPath for workplace
+    // terminals — equating it to localPath makes side-chat skills treat every
+    // canvas terminal as project-root and drop workspace Dynamic Skills.
+    projectId: shape.props.contextScope === "project" ? shape.props.workspaceId : null,
     projectName: shape.props.projectName,
     workspaceName: shape.props.workspaceName,
     localPath: shape.props.localPath || null,
-    projectRootPath: shape.props.localPath || null,
+    projectRootPath:
+      shape.props.contextScope === "project" ? shape.props.localPath || null : null,
     sourcePaneId,
     sourceSessionId: sessionId,
     sourceSurfaceKind: "canvas_terminal",
