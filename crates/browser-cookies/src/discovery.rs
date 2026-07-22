@@ -125,7 +125,8 @@ fn chromium_profile_priority(profile_name: &str) -> (usize, String) {
     (rank, lower)
 }
 
-/// Read `Local State` -> `profile.info_cache[dir].name` for display names.
+/// Read `Local State` -> `profile.info_cache[dir]` and pick the most
+/// recognizable display name for each profile directory.
 fn load_display_names(base: &Path) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
     let Ok(text) = std::fs::read_to_string(base.join("Local State")) else {
@@ -140,12 +141,28 @@ fn load_display_names(base: &Path) -> std::collections::HashMap<String, String> 
         .and_then(|c| c.as_object())
     {
         for (dir, info) in cache {
-            if let Some(name) = info.get("name").and_then(|n| n.as_str()) {
-                map.insert(dir.clone(), name.to_string());
+            if let Some(name) = preferred_profile_name(info) {
+                map.insert(dir.clone(), name);
             }
         }
     }
     map
+}
+
+/// Pick the most user-recognizable name from a `profile.info_cache` entry.
+///
+/// Chrome stores the local profile label under `name`, which is often a generic
+/// default like "Person 1" / "用户 1". The signed-in Google account's full name
+/// lives under `gaia_name` and the account email under `user_name`. Prefer the
+/// Google account name, then the email, then the local profile label — so a
+/// signed-in profile shows "Jane Doe" instead of "用户 1".
+fn preferred_profile_name(info: &serde_json::Value) -> Option<String> {
+    ["gaia_name", "user_name", "name"]
+        .iter()
+        .filter_map(|key| info.get(*key).and_then(|v| v.as_str()))
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 /// Chromium running if the user-data-dir `SingletonLock` symlink is present.
@@ -287,7 +304,8 @@ pub fn firefox_profile_candidates() -> Vec<FirefoxProfileCandidate> {
 
 #[cfg(test)]
 mod tests {
-    use super::chromium_profile_priority;
+    use super::{chromium_profile_priority, preferred_profile_name};
+    use serde_json::json;
 
     #[test]
     fn profile_priority_orders_numerically_not_lexicographically() {
@@ -301,5 +319,26 @@ mod tests {
         let mut names = vec!["Guest Profile", "Profile 2", "Default"];
         names.sort_by_key(|n| chromium_profile_priority(n));
         assert_eq!(names, vec!["Default", "Profile 2", "Guest Profile"]);
+    }
+
+    #[test]
+    fn prefers_google_account_name_over_local_profile_label() {
+        let info = json!({ "name": "用户 1", "gaia_name": "Jane Doe", "user_name": "jane@example.com" });
+        assert_eq!(preferred_profile_name(&info).as_deref(), Some("Jane Doe"));
+    }
+
+    #[test]
+    fn falls_back_to_email_then_local_name() {
+        let email_only = json!({ "name": "用户 1", "gaia_name": "", "user_name": "jane@example.com" });
+        assert_eq!(
+            preferred_profile_name(&email_only).as_deref(),
+            Some("jane@example.com")
+        );
+
+        let name_only = json!({ "name": "Work", "gaia_name": "", "user_name": "" });
+        assert_eq!(preferred_profile_name(&name_only).as_deref(), Some("Work"));
+
+        let empty = json!({});
+        assert_eq!(preferred_profile_name(&empty), None);
     }
 }

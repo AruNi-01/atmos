@@ -7608,8 +7608,8 @@
       "cookieSync": {
         "menu": {
           "import": "Import from your browser",
-          "clearCache": "Clear Cache",
-          "clearSiteData": "Clear Site Data & Cache"
+          "clearCache": "Clear Cache Data",
+          "clearSiteData": "Clear Cookie & Storage"
         },
         "browsers": {
           "Chrome": "Google Chrome",
@@ -7645,17 +7645,17 @@
           }
         },
         "clear": {
-          "cacheTitle": "Clear cache?",
+          "cacheTitle": "Clear cache data?",
           "cacheDescription": "Removes cached files only. Your cookies and sign-ins stay, so you remain logged in.",
-          "siteDataTitle": "Clear site data & cache?",
-          "siteDataDescription": "Removes cached files, local storage, and cookies for browsed sites. This may sign you out of sites.",
+          "siteDataTitle": "Clear cookie & storage?",
+          "siteDataDescription": "Removes cookies and local storage (localStorage, IndexedDB, and more) along with cached files. This will sign you out of sites.",
           "cancel": "Cancel",
-          "confirmCache": "Clear cache",
-          "confirmSiteData": "Clear site data",
+          "confirmCache": "Clear cache data",
+          "confirmSiteData": "Clear cookie & storage",
           "retry": "Try again",
           "clearing": "Clearing…",
-          "clearedCache": "Cache cleared",
-          "clearedSiteData": "Site data cleared",
+          "clearedCache": "Cache data cleared",
+          "clearedSiteData": "Cookie & storage cleared",
           "done": "Done"
         },
         "errors": {

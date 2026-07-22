@@ -87,7 +87,7 @@ export interface PreviewBrowserChromeControls {
   onMoveToCenter?: () => void;
   onToggleMaximized?: () => void;
   onToggleToolbarHidden: () => void;
-  // --- APP-040 Browser Cookie Sync (desktop + macOS 14+ only) ---
+  // --- APP-041 Browser Cookie Sync (desktop + macOS 14+ only) ---
   // Additive optional props: web/mobile callers omit them, so the cookie/clear
   // menu items stay hidden. When present, they appear inside the `···` overflow menu.
   cookieToolsAvailable?: boolean;
@@ -335,7 +335,13 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
   const openClearPopover = (target: ClearTarget) => {
     setClearErrorCode(null);
     setClearPhase("confirm");
-    setClearTarget(target);
+    // Defer mounting the confirm popover until the dropdown has finished closing
+    // and Radix has restored focus. Opening it synchronously from a
+    // DropdownMenuItem `onSelect` races with the menu's focus teardown: focus
+    // lands on the shared trigger (the PopoverAnchor, outside PopoverContent),
+    // the popover's focus-outside dismissal fires, and it closes the instant it
+    // appears — taking the whole `···` menu with it.
+    requestAnimationFrame(() => setClearTarget(target));
   };
 
   const runClear = async () => {
@@ -436,7 +442,6 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
         align="end"
         sideOffset={8}
         className="z-[1002] w-[320px] space-y-3 p-3"
-        onOpenAutoFocus={(event) => event.preventDefault()}
         onInteractOutside={(event) => {
           if (clearing) event.preventDefault();
         }}

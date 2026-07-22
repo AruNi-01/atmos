@@ -7608,8 +7608,8 @@
       "cookieSync": {
         "menu": {
           "import": "从你的浏览器导入",
-          "clearCache": "清除缓存",
-          "clearSiteData": "清除站点数据和缓存"
+          "clearCache": "清理缓存数据",
+          "clearSiteData": "清理 Cookie & Storage"
         },
         "browsers": {
           "Chrome": "Google Chrome",
@@ -7645,17 +7645,17 @@
           }
         },
         "clear": {
-          "cacheTitle": "清除缓存？",
+          "cacheTitle": "清理缓存数据？",
           "cacheDescription": "仅删除缓存文件。你的 Cookie 和登录状态会保留，因此你仍处于登录状态。",
-          "siteDataTitle": "清除站点数据和缓存？",
-          "siteDataDescription": "删除已浏览站点的缓存文件、本地存储和 Cookie。这可能会让你退出部分站点的登录。",
+          "siteDataTitle": "清理 Cookie & Storage？",
+          "siteDataDescription": "删除该浏览器的 Cookie 和本地存储（localStorage、IndexedDB 等），并一并清理缓存文件。这会让你退出已登录的站点。",
           "cancel": "取消",
-          "confirmCache": "清除缓存",
-          "confirmSiteData": "清除站点数据",
+          "confirmCache": "清理缓存数据",
+          "confirmSiteData": "清理 Cookie & Storage",
           "retry": "重试",
-          "clearing": "正在清除…",
-          "clearedCache": "缓存已清除",
-          "clearedSiteData": "站点数据已清除",
+          "clearing": "正在清理…",
+          "clearedCache": "缓存数据已清理",
+          "clearedSiteData": "Cookie & Storage 已清理",
           "done": "完成"
         },
         "errors": {
