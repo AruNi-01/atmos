@@ -87,16 +87,10 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, ExtractError> {
 
 /// Produce a CONSISTENT snapshot of `path` and hand the opened copy to `f`.
 ///
-/// Preferred path: open the source database strictly read-only and use SQLite's
-/// online backup API to copy a consistent snapshot into a fresh temp database.
-/// The backup runs inside a single read transaction on the source, so it can
-/// never observe a torn write even if the browser writes concurrently — unlike
-/// three independent `fs::copy` calls of `Cookies`/`-wal`/`-shm`, which could
-/// capture mismatched file states mid-write.
-///
-/// Fallback path: if the read-only open fails, fall back to copying the DB and
-/// its `-wal`/`-shm` sidecars into the temp dir and opening the copy. The temp
-/// copy is opened read-write (we own it) so the WAL is applied.
+/// Opens the source database strictly read-only and uses SQLite's online backup
+/// API to copy a consistent snapshot into a fresh temp database inside a single
+/// read transaction. If the snapshot fails (e.g. database locked/busy), the error
+/// is propagated directly to avoid tearing states across un-atomic filesystem copies.
 pub(crate) fn with_snapshot<T>(
     path: &Path,
     f: impl FnOnce(&Connection) -> Result<T, ExtractError>,
@@ -108,23 +102,8 @@ pub(crate) fn with_snapshot<T>(
             .ok_or_else(|| ExtractError::Io("cookie path has no file name".to_string()))?;
         let dest = dir.join(file_name);
 
-        match snapshot_via_backup(path, &dest) {
-            Ok(conn) => f(&conn),
-            // Read-only open / backup unavailable: fall back to file copy.
-            // `copy_if_exists` returns Ok when a `-wal`/`-shm` sidecar is
-            // absent, so propagating the error (`?`) only surfaces a genuine
-            // copy failure of a file that does exist.
-            Err(_) => {
-                copy_if_exists(path, &dest)?;
-                for ext in ["-wal", "-shm"] {
-                    let sidecar = with_suffix(path, ext);
-                    let dest_sidecar = with_suffix(&dest, ext);
-                    copy_if_exists(&sidecar, &dest_sidecar)?;
-                }
-                let conn = Connection::open(&dest).map_err(map_open_error)?;
-                f(&conn)
-            }
-        }
+        let conn = snapshot_via_backup(path, &dest)?;
+        f(&conn)
     })();
     // Best-effort cleanup regardless of outcome.
     let _ = std::fs::remove_dir_all(&dir);
@@ -132,9 +111,7 @@ pub(crate) fn with_snapshot<T>(
 }
 
 /// Open `src_path` read-only and back it up (online backup API) into a fresh
-/// database at `dest`, returning the opened backup copy. Any failure (e.g. a
-/// read-only open that cannot access the WAL index) is returned so the caller
-/// can fall back to the file-copy path.
+/// database at `dest`, returning the opened backup copy.
 fn snapshot_via_backup(src_path: &Path, dest: &Path) -> Result<Connection, ExtractError> {
     let src = Connection::open_with_flags(
         src_path,
@@ -152,21 +129,6 @@ fn snapshot_via_backup(src_path: &Path, dest: &Path) -> Result<Connection, Extra
             .map_err(map_query_error)?;
     }
     Ok(dst)
-}
-
-fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
-    let mut s = path.as_os_str().to_os_string();
-    s.push(suffix);
-    PathBuf::from(s)
-}
-
-fn copy_if_exists(src: &Path, dest: &Path) -> Result<(), ExtractError> {
-    if !src.exists() {
-        return Ok(());
-    }
-    std::fs::copy(src, dest)
-        .map(|_| ())
-        .map_err(|e| ExtractError::Io(format!("copy {}: {e}", src.display())))
 }
 
 fn make_temp_dir() -> Result<PathBuf, ExtractError> {
