@@ -12,10 +12,16 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+[features]
+# Web inspector (Option+Cmd+I / open_devtools). Debug builds always enable it via
+# debug_assertions. Do NOT enable this feature for production release builds —
+# it injects the toggle-devtools shortcut and opens inspector for all webviews.
+devtools = ["tauri/devtools"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = "1"
-tauri = { version = "2", features = ["devtools", "macos-private-api", "unstable"] }
+tauri = { version = "2", features = ["macos-private-api", "unstable"] }
 tauri-plugin-shell = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"

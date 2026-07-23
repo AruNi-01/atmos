@@ -934,18 +934,30 @@ pub fn clear_annotations(app: &AppHandle, session_id: &str) -> Result<(), String
 }
 
 pub fn open_preview_devtools(app: &AppHandle, session_id: &str) -> Result<(), String> {
-    let label = preview_surface_label(session_id);
-    if let Some(preview_window) = app.get_webview_window(&label) {
-        preview_window.open_devtools();
-        return Ok(());
+    // Tauri only compiles open_devtools when debug_assertions or the `devtools`
+    // crate feature is on. Production release builds omit both so Option+Cmd+I
+    // and programmatic inspector access stay disabled for shipping apps.
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
+        let label = preview_surface_label(session_id);
+        if let Some(preview_window) = app.get_webview_window(&label) {
+            preview_window.open_devtools();
+            return Ok(());
+        }
+
+        if let Some(preview) = app.get_webview(&label) {
+            preview.open_devtools();
+            return Ok(());
+        }
+
+        return Err("preview inspector window not open".to_string());
     }
 
-    if let Some(preview) = app.get_webview(&label) {
-        preview.open_devtools();
-        return Ok(());
+    #[cfg(not(any(debug_assertions, feature = "devtools")))]
+    {
+        let _ = (app, session_id);
+        Err("Developer tools are only available in development builds.".to_string())
     }
-
-    Err("preview inspector window not open".to_string())
 }
 
 pub fn close_preview_window(app: &AppHandle, session_id: &str) -> Result<(), String> {
