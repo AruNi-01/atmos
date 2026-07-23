@@ -8,6 +8,9 @@ pub struct DiskAnalyzerStartScanRequest {
     pub path: Option<String>,
     #[serde(default)]
     pub max_children: Option<usize>,
+    /// When true, scan user home (+ Applications). Default false = Atmos-related paths only.
+    #[serde(default)]
+    pub scan_all: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

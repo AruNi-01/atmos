@@ -14,7 +14,12 @@ impl WsMessageService {
         req: DiskAnalyzerStartScanRequest,
     ) -> Result<Value> {
         self.disk_analyzer_service
-            .start_scan(conn_id, req.path.as_deref(), req.max_children)
+            .start_scan(
+                conn_id,
+                req.path.as_deref(),
+                req.max_children,
+                req.scan_all.unwrap_or(false),
+            )
             .await
     }
 

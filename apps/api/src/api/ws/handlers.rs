@@ -44,7 +44,9 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     let (mut sender, mut receiver) = socket.split();
 
     // Create channel for sending messages
-    let (tx, mut rx) = mpsc::channel::<String>(32);
+    // Progress notifications (disk analyzer, setup, etc.) share this channel with
+    // request/response traffic. Keep headroom so a burst of scans cannot stall replies.
+    let (tx, mut rx) = mpsc::channel::<String>(256);
 
     // Register connection with WsService (in API layer)
     let conn_id = state.ws_service.register(client_type, tx.clone()).await;

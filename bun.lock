@@ -1,5 +1,5 @@
 {
-  "lockfileVersion": 1,
+  "lockfileVersion": 2,
   "configVersion": 1,
   "workspaces": {
     "": {
@@ -378,8 +378,8 @@
     },
   },
   "trustedDependencies": [
-    "sharp",
     "unrs-resolver",
+    "sharp",
   ],
   "overrides": {
     "@codemirror/state": "6.5.4",

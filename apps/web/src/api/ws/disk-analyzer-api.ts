@@ -10,6 +10,8 @@ export interface DiskNode {
   is_project: boolean;
   file_count: number;
   dir_count: number;
+  /** When false, directory children are not loaded yet — load on drill-in. */
+  children_loaded?: boolean;
   children?: DiskNode[];
 }
 
@@ -24,7 +26,7 @@ export interface DiskScanStats {
 
 export interface DiskScanProgress {
   scan_id: string;
-  status: "running" | "completed" | "cancelled" | "failed";
+  status: "running" | "completed" | "cancelled" | "failed" | "level_completed";
   files_scanned: number;
   bytes_scanned: number;
   dirs_scanned?: number;
@@ -33,8 +35,9 @@ export interface DiskScanProgress {
   percent?: number | null;
   error?: string | null;
   tree?: DiskNode;
+  level_path?: string | null;
   stats?: DiskScanStats;
-  suggestions?: CleanupSuggestion[];
+  suggestions?: CleanupSuggestion[] | null;
 }
 
 export interface CleanupSuggestion {
@@ -50,15 +53,26 @@ export interface DiskVolumeInfo {
   available_bytes: number;
 }
 
+export type DiskTreeResponse =
+  | { status: "ready"; tree: DiskNode; stats: DiskScanStats | null }
+  | { status: "loading"; path: string; stats: null };
+
 export const diskAnalyzerApi = {
-  startScan: async (path?: string, maxChildren?: number) => {
-    return wsRequest<{ scan_id: string; root_path: string; status: string }>(
+  /**
+   * @param path Optional explicit root. When omitted, server uses Atmos-scoped paths
+   *             unless `scanAll` is true (home + Applications).
+   */
+  startScan: async (path?: string, maxChildren?: number, scanAll = false) => {
+    // start_scan must return immediately (session id only). Keep a short timeout so
+    // hangs surface quickly instead of looking like a long disk walk.
+    return wsRequest<{ scan_id: string; root_path: string; status: string; scan_all?: boolean }>(
       "disk_analyzer_start_scan",
       {
         path: path ?? null,
-        max_children: maxChildren ?? 40,
+        max_children: maxChildren ?? 30,
+        scan_all: scanAll,
       },
-      30_000,
+      15_000,
     );
   },
   cancelScan: async (scanId: string) => {
@@ -67,14 +81,11 @@ export const diskAnalyzerApi = {
     });
   },
   getTree: async (scanId: string, path?: string, maxChildren?: number) => {
-    return wsRequest<{ tree: DiskNode; stats: DiskScanStats | null }>(
-      "disk_analyzer_get_tree",
-      {
-        scan_id: scanId,
-        path: path ?? null,
-        max_children: maxChildren ?? null,
-      },
-    );
+    return wsRequest<DiskTreeResponse>("disk_analyzer_get_tree", {
+      scan_id: scanId,
+      path: path ?? null,
+      max_children: maxChildren ?? null,
+    });
   },
   deletePath: async (scanId: string, path: string, permanent = false) => {
     return wsRequest<{

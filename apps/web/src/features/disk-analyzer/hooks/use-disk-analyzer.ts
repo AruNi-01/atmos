@@ -13,13 +13,39 @@ import {
 } from "@/api/ws/disk-analyzer-api";
 import {
   breadcrumbPaths,
+  DEFAULT_TOP_N,
   filterTree,
   findNodeByPath,
   formatBytes,
+  isChildrenLoaded,
   sortNodes,
+  takeTopChildren,
   type ChartMode,
   type DiskFilters,
 } from "@/features/disk-analyzer/lib/tree-adapters";
+
+function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
+  if (!root || root.path === level.path) {
+    return level;
+  }
+  const walk = (node: DiskNode): DiskNode => {
+    if (node.path === level.path) {
+      return {
+        ...level,
+        is_project: level.is_project || node.is_project,
+      };
+    }
+    if (!node.children?.length) return node;
+    let changed = false;
+    const children = node.children.map((child) => {
+      const next = walk(child);
+      if (next !== child) changed = true;
+      return next;
+    });
+    return changed ? { ...node, children } : node;
+  };
+  return walk(root);
+}
 
 export function useDiskAnalyzer() {
   const t = useTranslations("DiskAnalyzer");
@@ -30,11 +56,13 @@ export function useDiskAnalyzer() {
   const [status, setStatus] = useState<DiskScanProgress["status"] | "idle">("idle");
   const [progress, setProgress] = useState<DiskScanProgress | null>(null);
   const [tree, setTree] = useState<DiskNode | null>(null);
+  /** Path → fully/partially scanned level nodes (for on-demand drill). */
+  const [levelCache, setLevelCache] = useState<Record<string, DiskNode>>({});
   const [stats, setStats] = useState<DiskScanStats | null>(null);
   const [suggestions, setSuggestions] = useState<CleanupSuggestion[]>([]);
   const [volume, setVolume] = useState<DiskVolumeInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [chartMode, setChartMode] = useState<ChartMode>("sunburst");
+  const [chartMode, setChartMode] = useState<ChartMode>("treemap");
   const [focusPath, setFocusPath] = useState<string | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiskFilters>({
@@ -42,26 +70,29 @@ export function useDiskAnalyzer() {
     minSize: 0,
     projectsOnly: false,
   });
-  const [sortBy, setSortBy] = useState<"size" | "name">("size");
+  /** false = Atmos-scoped default; true = home + Applications full-space scan. */
+  const [scanAllSpace, setScanAllSpace] = useState(false);
+  const scanAllSpaceRef = useRef(false);
+  const [topN, setTopN] = useState(DEFAULT_TOP_N);
   const [busy, setBusy] = useState(false);
+  const [loadingPath, setLoadingPath] = useState<string | null>(null);
+  const autoStartedRef = useRef(false);
+  const loadingPathRef = useRef<string | null>(null);
 
+  const rememberLevel = useCallback((level: DiskNode) => {
+    setLevelCache((prev) => ({ ...prev, [level.path]: level }));
+    setTree((prev) => mergeLevelIntoTree(prev, level));
+  }, []);
+
+  // Volume info for the scan target (default: home directory).
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const { fsApi } = await import("@/api/ws-api");
-        const homeDir = await fsApi.getHomeDir();
-        if (!cancelled && homeDir) {
-          setScanPath((prev) => prev || homeDir);
-          try {
-            const info = await diskAnalyzerApi.diskInfo(homeDir);
-            if (!cancelled) setVolume(info);
-          } catch {
-            // ignore
-          }
-        }
+        const info = await diskAnalyzerApi.diskInfo();
+        if (!cancelled) setVolume(info);
       } catch {
-        // ignore
+        // best-effort
       }
     })();
     return () => {
@@ -76,42 +107,121 @@ export function useDiskAnalyzer() {
         const payload = raw as DiskScanProgress;
         const activeId = scanIdRef.current;
         if (!activeId || payload.scan_id !== activeId) return;
+
         setProgress(payload);
         setStatus(payload.status);
-        if (payload.status === "completed" && payload.tree) {
-          setTree(payload.tree);
-          setStats(payload.stats ?? null);
-          setSuggestions(payload.suggestions ?? []);
-          setFocusPath(payload.tree.path);
-          setSelectedPath(payload.tree.path);
+
+        if (payload.tree) {
+          const level = payload.tree;
+          rememberLevel(level);
+          setFocusPath((fp) => fp ?? level.path);
+          setSelectedPath((sp) => sp ?? level.path);
+
+          if (
+            payload.level_path &&
+            loadingPathRef.current === payload.level_path &&
+            (payload.status === "level_completed" ||
+              payload.status === "completed" ||
+              level.children_loaded)
+          ) {
+            loadingPathRef.current = null;
+            setLoadingPath(null);
+          }
+        }
+
+        if (payload.stats) {
+          setStats(payload.stats);
+        } else if (
+          payload.status === "running" ||
+          payload.status === "level_completed" ||
+          payload.status === "completed"
+        ) {
+          // Progressive events often omit `stats`; keep counts in sync from the payload.
+          const files = payload.files_scanned ?? 0;
+          const dirs = payload.dirs_scanned ?? 0;
+          const bytes = payload.bytes_scanned ?? 0;
+          if (files > 0 || dirs > 0 || bytes > 0) {
+            setStats((prev) => ({
+              root_path: prev?.root_path ?? payload.level_path ?? "",
+              total_size: Math.max(bytes, prev?.total_size ?? 0),
+              files_scanned: Math.max(files, prev?.files_scanned ?? 0),
+              dirs_scanned: Math.max(dirs, prev?.dirs_scanned ?? 0),
+              error_count: payload.error_count ?? prev?.error_count ?? 0,
+              elapsed_ms: prev?.elapsed_ms ?? 0,
+            }));
+          }
+        }
+        if (payload.suggestions && payload.suggestions.length > 0) {
+          setSuggestions(payload.suggestions);
+        }
+
+        if (payload.status === "completed") {
           setBusy(false);
+          loadingPathRef.current = null;
+          setLoadingPath(null);
+        }
+        if (payload.status === "level_completed") {
+          if (payload.level_path && loadingPathRef.current === payload.level_path) {
+            loadingPathRef.current = null;
+            setLoadingPath(null);
+          }
         }
         if (payload.status === "failed") {
           setError(payload.error ?? scanFailedLabel);
           setBusy(false);
+          loadingPathRef.current = null;
+          setLoadingPath(null);
         }
         if (payload.status === "cancelled") {
           setBusy(false);
+          loadingPathRef.current = null;
+          setLoadingPath(null);
         }
       },
     );
     return off;
-  }, [scanFailedLabel]);
+  }, [rememberLevel, scanFailedLabel]);
 
   const startScan = useCallback(async () => {
     setError(null);
     setBusy(true);
     setTree(null);
+    setLevelCache({});
     setStats(null);
     setSuggestions([]);
     setStatus("running");
+    setFocusPath(null);
+    setSelectedPath(null);
+    loadingPathRef.current = null;
+    setLoadingPath(null);
+    // Cancel previous session first (server also purges this connection's scans).
+    const prevId = scanIdRef.current;
+    if (prevId) {
+      try {
+        await diskAnalyzerApi.cancelScan(prevId);
+      } catch {
+        // best-effort
+      }
+      scanIdRef.current = null;
+      setScanId(null);
+    }
     try {
-      const result = await diskAnalyzerApi.startScan(scanPath || undefined);
+      // Default: Atmos-scoped paths. scanAllSpace → home + Applications.
+      const result = await diskAnalyzerApi.startScan(
+        undefined,
+        topN,
+        scanAllSpaceRef.current,
+      );
       scanIdRef.current = result.scan_id;
       setScanId(result.scan_id);
       setScanPath(result.root_path);
+      loadingPathRef.current = result.root_path;
+      setLoadingPath(result.root_path);
       try {
-        const info = await diskAnalyzerApi.diskInfo(result.root_path);
+        // Volume gauge uses home (or real path); synthetic atmos:// has no volume.
+        const volumePath =
+          result.root_path.startsWith("atmos://") ? undefined : result.root_path;
+        const info = await diskAnalyzerApi.diskInfo(volumePath);
         setVolume(info);
       } catch {
         // Volume lookup is best-effort; do not fail a running scan.
@@ -121,12 +231,98 @@ export function useDiskAnalyzer() {
       setStatus("failed");
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [scanPath]);
+  }, [topN]);
+
+  const setScanAllSpaceAndMaybeRescan = useCallback(
+    (next: boolean) => {
+      scanAllSpaceRef.current = next;
+      setScanAllSpace(next);
+    },
+    [],
+  );
+
+  // Auto-start primary-locations scan once WS is available.
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    const unsub = useWebSocketStore.subscribe((state) => {
+      if (autoStartedRef.current) return;
+      if (state.connectionState === "connected") {
+        autoStartedRef.current = true;
+        void startScan();
+      }
+    });
+    if (useWebSocketStore.getState().connectionState === "connected") {
+      autoStartedRef.current = true;
+      void startScan();
+    }
+    return unsub;
+  }, [startScan]);
 
   const cancelScan = useCallback(async () => {
-    if (!scanId) return;
-    await diskAnalyzerApi.cancelScan(scanId);
+    const id = scanIdRef.current ?? scanId;
+    if (!id) return;
+    try {
+      await diskAnalyzerApi.cancelScan(id);
+    } finally {
+      // Free UI immediately; server has already dropped the session slot.
+      scanIdRef.current = null;
+      setScanId(null);
+      setBusy(false);
+      setStatus("cancelled");
+      setProgress(null);
+      loadingPathRef.current = null;
+      setLoadingPath(null);
+    }
   }, [scanId]);
+
+  const loadLevel = useCallback(
+    async (path: string) => {
+      if (!scanId) return;
+      if (loadingPathRef.current === path) return;
+      loadingPathRef.current = path;
+      setLoadingPath(path);
+      setError(null);
+      try {
+        const result = await diskAnalyzerApi.getTree(scanId, path, topN);
+        if (result.status === "ready" && result.tree) {
+          rememberLevel(result.tree);
+          if (result.stats) setStats(result.stats);
+          loadingPathRef.current = null;
+          setLoadingPath(null);
+        }
+        // status === "loading": wait for progressive WS events
+      } catch (e) {
+        loadingPathRef.current = null;
+        setLoadingPath(null);
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [rememberLevel, scanId, topN],
+  );
+
+  const drillTo = useCallback(
+    (path: string) => {
+      setFocusPath(path);
+      setSelectedPath(path);
+      const cached = levelCache[path];
+      const node = cached ?? (tree ? findNodeByPath(tree, path) : null);
+      // Truncated scan leaves (children_loaded=false) always reload on enter.
+      if (!node || (node.is_dir && !isChildrenLoaded(node))) {
+        void loadLevel(path);
+        return;
+      }
+      // Directory with no expanded children yet but known to have content — load.
+      if (
+        node.is_dir &&
+        node.name !== "__other__" &&
+        (node.children?.length ?? 0) === 0 &&
+        (node.dir_count > 0 || node.file_count > 0)
+      ) {
+        void loadLevel(path);
+      }
+    },
+    [levelCache, loadLevel, tree],
+  );
 
   const deleteSelected = useCallback(
     async (permanent: boolean) => {
@@ -137,43 +333,96 @@ export function useDiskAnalyzer() {
     [scanId, selectedPath],
   );
 
+  // Filter only — apply top-N once on the focused level to avoid double `__other__`.
   const filteredTree = useMemo(() => {
     if (!tree) return null;
     return filterTree(tree, filters);
   }, [tree, filters]);
 
+  const scanningLive = status === "running" || busy;
+
   const focusedNode = useMemo(() => {
-    if (!filteredTree || !focusPath) return filteredTree;
-    return findNodeByPath(filteredTree, focusPath) ?? filteredTree;
-  }, [filteredTree, focusPath]);
+    // Mid-scan: keep zero-size siblings (still being walked) so Library etc. are not collapsed.
+    const topOpts = { preserveZeroSizeDirs: scanningLive };
+    if (!focusPath) {
+      return filteredTree ? takeTopChildren(filteredTree, topN, topOpts) : null;
+    }
+    const cached = levelCache[focusPath];
+    if (cached) {
+      const filtered = filterTree(cached, filters);
+      return filtered ? takeTopChildren(filtered, topN, topOpts) : null;
+    }
+    if (!filteredTree) return null;
+    const found = findNodeByPath(filteredTree, focusPath);
+    if (!found) return takeTopChildren(filteredTree, topN, topOpts);
+    return takeTopChildren(found, topN, topOpts);
+  }, [busy, filteredTree, filters, focusPath, levelCache, status, topN]);
 
   const breadcrumbs = useMemo(() => {
-    if (!filteredTree || !focusPath) return [];
-    return breadcrumbPaths(filteredTree, focusPath);
-  }, [filteredTree, focusPath]);
+    if (!tree || !focusPath) {
+      if (tree) return [tree];
+      return [];
+    }
+    const chain = breadcrumbPaths(tree, focusPath);
+    if (chain.length > 0) return chain;
+    // Focus path not yet linked into root tree (on-demand deep load).
+    const cached = levelCache[focusPath];
+    if (cached) return tree ? [tree, cached] : [cached];
+    return [tree];
+  }, [levelCache, tree, focusPath]);
 
   const selectedNode = useMemo(() => {
-    if (!filteredTree || !selectedPath) return null;
-    return findNodeByPath(filteredTree, selectedPath);
-  }, [filteredTree, selectedPath]);
+    if (!selectedPath) return null;
+    if (levelCache[selectedPath]) return levelCache[selectedPath];
+    if (tree) {
+      const found = findNodeByPath(tree, selectedPath);
+      if (found) return found;
+    }
+    return null;
+  }, [levelCache, selectedPath, tree]);
 
+  // Always size-desc — focusedNode is already top-N + single `__other__`.
   const childList = useMemo(() => {
     if (!focusedNode?.children) return [];
-    return sortNodes(focusedNode.children, sortBy);
-  }, [focusedNode, sortBy]);
+    return sortNodes(focusedNode.children, "size");
+  }, [focusedNode]);
+
+  const isLevelLoading =
+    loadingPath !== null &&
+    (focusPath === loadingPath || loadingPath === scanPath || selectedPath === loadingPath);
+
+  /** Volume used space — authoritative for the free-space gauge. */
+  const volumeUsedBytes =
+    volume && volume.total_bytes > 0
+      ? Math.max(0, volume.total_bytes - volume.available_bytes)
+      : null;
+
+  /**
+   * Size used for chart proportions / root totals.
+   * Cap path-sum estimates by volume used so the UI cannot claim more than the disk.
+   */
+  const chartRootSize = useMemo(() => {
+    const pathSum = stats?.total_size ?? tree?.size ?? 0;
+    if (volumeUsedBytes != null && volumeUsedBytes > 0 && pathSum > 0) {
+      return Math.min(pathSum, volumeUsedBytes);
+    }
+    return pathSum || 1;
+  }, [stats?.total_size, tree?.size, volumeUsedBytes]);
 
   return {
     scanPath,
-    setScanPath,
     scanId,
     status,
     progress,
     tree: filteredTree,
+    rawTree: tree,
     focusedNode,
     selectedNode,
     stats,
     suggestions,
     volume,
+    volumeUsedBytes,
+    chartRootSize,
     error,
     chartMode,
     setChartMode,
@@ -183,13 +432,19 @@ export function useDiskAnalyzer() {
     setSelectedPath,
     filters,
     setFilters,
-    sortBy,
-    setSortBy,
+    scanAllSpace,
+    setScanAllSpace: setScanAllSpaceAndMaybeRescan,
+    topN,
+    setTopN,
     busy,
+    loadingPath,
+    isLevelLoading,
     breadcrumbs,
     childList,
     startScan,
     cancelScan,
+    drillTo,
+    loadLevel,
     deleteSelected,
     formatBytes,
   };

@@ -12,8 +12,13 @@ use serde::Serialize;
 use crate::error::{EngineError, Result};
 
 const OTHER_NAME: &str = "__other__";
-const DEFAULT_MAX_CHILDREN: usize = 40;
-const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(250);
+const DEFAULT_MAX_CHILDREN: usize = 30;
+/// Structural depth kept in scan results: current root + 2 levels of children.
+/// Deeper directories set `children_loaded = false` and load on drill-in.
+pub const DEFAULT_TREE_DEPTH: usize = 3;
+const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(400);
+/// How often to rebuild a pruned partial tree while walking (expensive; keep sparse).
+const PARTIAL_TREE_INTERVAL: Duration = Duration::from_millis(1200);
 
 /// Hierarchical disk usage node.
 #[derive(Debug, Clone, Serialize)]
@@ -25,8 +30,16 @@ pub struct DiskNode {
     pub is_project: bool,
     pub file_count: u64,
     pub dir_count: u64,
+    /// When false, children are not expanded for visualization yet.
+    #[serde(default = "default_children_loaded")]
+    pub children_loaded: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<DiskNode>,
+}
+
+#[allow(dead_code)]
+fn default_children_loaded() -> bool {
+    true
 }
 
 /// Live scan progress snapshot.
@@ -41,6 +54,10 @@ pub struct ScanProgress {
     pub current_path: Option<String>,
     pub percent: Option<f32>,
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tree: Option<DiskNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -81,8 +98,7 @@ impl DiskAnalyzerEngine {
         Self
     }
 
-    /// Allocated disk usage for a path (Unix: blocks * 512; Windows: AllocationSize / GetCompressedFileSizeW).
-    /// Returns None when physical allocation size cannot be queried (avoiding incorrect logical size substitution).
+    /// Allocated disk usage for a path (Unix: blocks * 512; Windows: AllocationSize).
     pub fn allocated_size(path: &Path) -> Option<u64> {
         #[cfg(windows)]
         {
@@ -126,10 +142,11 @@ impl DiskAnalyzerEngine {
         })
     }
 
-    /// Scan `root` into a pruned visualization tree.
+    /// Parallel recursive scan of `root` into a pruned visualization tree.
     ///
-    /// - Does **not** skip cache directories.
-    /// - Does **not** follow directory symlinks.
+    /// - One walk over the tree (multi-threaded via jwalk).
+    /// - Global hard-link dedup for the whole scan (same file counted once).
+    /// - Does not follow directory symlinks; stays on the root volume/device.
     /// - Marks nodes whose path is in `project_roots` as `is_project`.
     pub fn scan_path(
         &self,
@@ -152,23 +169,43 @@ impl DiskAnalyzerEngine {
                 root.display()
             )));
         }
+        // Never walk the entire filesystem root — UI expects a user-scoped tree (home).
+        if root.parent().is_none() {
+            return Err(EngineError::FileSystem(
+                "Refusing to scan filesystem root; use a user directory (e.g. home)".into(),
+            ));
+        }
 
         let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+        if root.parent().is_none() {
+            return Err(EngineError::FileSystem(
+                "Refusing to scan filesystem root after canonicalize".into(),
+            ));
+        }
+        let root_device = device_id_for_path(&root);
         let started = Instant::now();
+        let max_children = max_children.unwrap_or(DEFAULT_MAX_CHILDREN).max(1);
+
         let files_scanned = Arc::new(AtomicU64::new(0));
         let bytes_scanned = Arc::new(AtomicU64::new(0));
         let dirs_scanned = Arc::new(AtomicU64::new(0));
         let error_count = Arc::new(AtomicU64::new(0));
         let last_emit = std::sync::Mutex::new(Instant::now() - PROGRESS_MIN_INTERVAL);
+        let last_tree_emit = std::sync::Mutex::new(Instant::now() - PARTIAL_TREE_INTERVAL);
 
-        let emit = |status: ScanStatus, current: Option<String>, error: Option<String>| {
+        let root_path_str = root.to_string_lossy().to_string();
+
+        let emit = |status: ScanStatus,
+                    current: Option<String>,
+                    error: Option<String>,
+                    tree: Option<DiskNode>| {
             let Some(cb) = on_progress.as_ref() else {
                 return;
             };
             let now = Instant::now();
             if status == ScanStatus::Running {
                 let mut guard = last_emit.lock().unwrap_or_else(|e| e.into_inner());
-                if now.duration_since(*guard) < PROGRESS_MIN_INTERVAL {
+                if tree.is_none() && now.duration_since(*guard) < PROGRESS_MIN_INTERVAL {
                     return;
                 }
                 *guard = now;
@@ -183,42 +220,89 @@ impl DiskAnalyzerEngine {
                 current_path: current,
                 percent: None,
                 error,
+                tree,
+                level_path: Some(root_path_str.clone()),
             });
         };
 
         emit(
             ScanStatus::Running,
-            Some(root.to_string_lossy().to_string()),
+            Some(root_path_str.clone()),
+            None,
             None,
         );
 
-        // path -> aggregated allocated size
         let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
         let mut file_counts: HashMap<PathBuf, u64> = HashMap::new();
         let mut dir_counts: HashMap<PathBuf, u64> = HashMap::new();
         let mut dirs: HashSet<PathBuf> = HashSet::new();
         let mut children_map: HashMap<PathBuf, HashSet<PathBuf>> = HashMap::new();
+        // Global hard-link identity for this scan.
+        let mut seen_file_ids: HashSet<(u64, u64)> = HashSet::new();
 
         dirs.insert(root.clone());
         sizes.insert(root.clone(), 0);
 
+        // Pre-seed immediate children of the scan root so progressive UI shows
+        // Library / own_space / … immediately (size grows as the walk continues).
+        // Without this, Top-N prune mid-scan collapses still-zero dirs into `__other__`
+        // and large folders disappear until late in the scan.
+        if let Ok(entries) = std::fs::read_dir(&root) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if should_skip_scan_entry(&path) {
+                    continue;
+                }
+                let Ok(ft) = entry.file_type() else {
+                    continue;
+                };
+                children_map
+                    .entry(root.clone())
+                    .or_default()
+                    .insert(path.clone());
+                if ft.is_dir() {
+                    dirs.insert(path.clone());
+                    sizes.entry(path).or_insert(0);
+                    dirs_scanned.fetch_add(1, Ordering::Relaxed);
+                } else if ft.is_file() {
+                    sizes.entry(path).or_insert(0);
+                }
+            }
+        }
+
         let walker = WalkDir::new(&root)
             .follow_links(false)
             .skip_hidden(false)
+            .parallelism(jwalk::Parallelism::RayonDefaultPool {
+                busy_timeout: Duration::from_secs(1),
+            })
             .process_read_dir({
                 let error_count = Arc::clone(&error_count);
+                let root_device = root_device;
                 move |_depth, _path, _state, children| {
-                    // Count unreadable entries here — retained-out Err values never reach the loop.
                     let dropped = children.iter().filter(|e| e.is_err()).count() as u64;
                     if dropped > 0 {
                         error_count.fetch_add(dropped, Ordering::Relaxed);
                     }
+                    for entry in children.iter_mut().flatten() {
+                        if entry.file_type.is_dir() {
+                            if should_skip_scan_entry(&entry.path()) {
+                                entry.read_children_path = None;
+                                continue;
+                            }
+                            // Stay on the same volume/device as the scan root.
+                            if let Some(root_dev) = root_device {
+                                if let Ok(meta) = std::fs::symlink_metadata(entry.path()) {
+                                    if device_id_from_meta(&meta) != Some(root_dev) {
+                                        entry.read_children_path = None;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     children.retain(|entry| entry.is_ok());
                 }
             });
-
-        // (device/volume, inode/file-index) — skip double-counting hard links.
-        let mut seen_file_ids: HashSet<(u64, u64)> = HashSet::new();
 
         for entry in walker {
             if cancel
@@ -226,7 +310,7 @@ impl DiskAnalyzerEngine {
                 .map(|c| c.load(Ordering::Relaxed))
                 .unwrap_or(false)
             {
-                emit(ScanStatus::Cancelled, None, None);
+                emit(ScanStatus::Cancelled, None, None, None);
                 return Err(EngineError::FileSystem("Scan cancelled".to_string()));
             }
 
@@ -239,9 +323,12 @@ impl DiskAnalyzerEngine {
             };
 
             let path = entry.path();
+            if should_skip_scan_entry(&path) {
+                continue;
+            }
+
             let file_type = entry.file_type();
 
-            // Register parent → child relationship for tree assembly.
             if let Some(parent) = path.parent() {
                 if parent.starts_with(&root) || parent == root {
                     children_map
@@ -256,7 +343,6 @@ impl DiskAnalyzerEngine {
                 sizes.entry(path.clone()).or_insert(0);
                 dirs_scanned.fetch_add(1, Ordering::Relaxed);
 
-                // Directory inode itself occupies blocks.
                 if let Some(dir_size) = Self::allocated_size(&path) {
                     if dir_size > 0 {
                         add_size_to_ancestors(&mut sizes, &root, &path, dir_size);
@@ -264,15 +350,22 @@ impl DiskAnalyzerEngine {
                     }
                 }
 
-                emit(
-                    ScanStatus::Running,
-                    Some(path.to_string_lossy().to_string()),
-                    None,
+                maybe_emit_partial(
+                    &emit,
+                    &last_tree_emit,
+                    &root,
+                    &sizes,
+                    &file_counts,
+                    &dir_counts,
+                    &dirs,
+                    &children_map,
+                    project_roots,
+                    max_children,
+                    &path,
                 );
                 continue;
             }
 
-            // Files and non-directory symlinks.
             let meta = match std::fs::symlink_metadata(&path) {
                 Ok(m) => m,
                 Err(_) => {
@@ -280,12 +373,13 @@ impl DiskAnalyzerEngine {
                     continue;
                 }
             };
-            #[cfg(windows)]
-            let allocated_size = windows_allocated_size(&path);
-            #[cfg(not(windows))]
-            let allocated_size = allocated_size_from_metadata(&meta);
 
-            let size = match allocated_size {
+            #[cfg(windows)]
+            let allocated = windows_allocated_size(&path);
+            #[cfg(not(windows))]
+            let allocated = allocated_size_from_metadata(&meta);
+
+            let size = match allocated {
                 Some(s) => s,
                 None => {
                     error_count.fetch_add(1, Ordering::Relaxed);
@@ -295,7 +389,6 @@ impl DiskAnalyzerEngine {
 
             let count_size = match file_identity(&path, &meta) {
                 Some(id) => seen_file_ids.insert(id),
-                // Identity unavailable: count this path (best-effort).
                 None => true,
             };
 
@@ -304,11 +397,9 @@ impl DiskAnalyzerEngine {
                 bytes_scanned.fetch_add(size, Ordering::Relaxed);
                 add_size_to_ancestors(&mut sizes, &root, &path, size);
             } else {
-                // Hard link already counted: keep the path in the tree with zero incremental size.
                 sizes.entry(path.clone()).or_insert(0);
             }
 
-            // Count this file against every ancestor directory.
             let mut cursor = path.clone();
             while let Some(parent) = cursor.parent().map(Path::to_path_buf) {
                 if !parent.starts_with(&root) && parent != root {
@@ -321,14 +412,21 @@ impl DiskAnalyzerEngine {
                 cursor = parent;
             }
 
-            emit(
-                ScanStatus::Running,
-                Some(path.to_string_lossy().to_string()),
-                None,
+            maybe_emit_partial(
+                &emit,
+                &last_tree_emit,
+                &root,
+                &sizes,
+                &file_counts,
+                &dir_counts,
+                &dirs,
+                &children_map,
+                project_roots,
+                max_children,
+                &path,
             );
         }
 
-        // dir_count: number of descendant directories under each dir.
         for dir in &dirs {
             let mut cursor = dir.clone();
             while let Some(parent) = cursor.parent().map(Path::to_path_buf) {
@@ -360,11 +458,9 @@ impl DiskAnalyzerEngine {
             &project_set,
         );
 
-        // Suggestions must be computed before prune collapses cache dirs into `__other__`.
         let suggestions = cleanup_suggestions(&tree);
-
-        let max_children = max_children.unwrap_or(DEFAULT_MAX_CHILDREN).max(1);
-        prune_tree(&mut tree, max_children);
+        // Final result: full top-N prune at every level.
+        finalize_tree(&mut tree, max_children, DEFAULT_TREE_DEPTH, true);
 
         let stats = ScanStats {
             root_path: root.to_string_lossy().to_string(),
@@ -375,13 +471,36 @@ impl DiskAnalyzerEngine {
             elapsed_ms: started.elapsed().as_millis() as u64,
         };
 
-        emit(ScanStatus::Completed, None, None);
+        emit(
+            ScanStatus::Completed,
+            None,
+            None,
+            Some(tree.clone()),
+        );
         Ok((tree, stats, suggestions))
     }
 
+    /// Scan a path for UI consumption (same as [`scan_path`]; full parallel walk).
+    pub fn scan_level(
+        &self,
+        scan_id: &str,
+        path: &Path,
+        project_roots: &[PathBuf],
+        max_children: Option<usize>,
+        cancel: Option<Arc<AtomicBool>>,
+        on_progress: Option<ProgressCallback>,
+    ) -> Result<(DiskNode, ScanStats, Vec<CleanupSuggestion>)> {
+        self.scan_path(
+            scan_id,
+            path,
+            project_roots,
+            max_children,
+            cancel,
+            on_progress,
+        )
+    }
+
     /// Move path to trash, or permanently delete when `permanent` is true.
-    ///
-    /// When `allowed_root` is set, the path must canonicalize under that root.
     pub fn delete_path(
         &self,
         path: &Path,
@@ -415,7 +534,6 @@ impl DiskAnalyzerEngine {
         }
 
         let freed = if canonical.is_dir() {
-            // Best-effort: sum allocated sizes under the directory before delete.
             self.quick_size(&canonical)
         } else {
             Self::allocated_size(&canonical).unwrap_or(0)
@@ -454,11 +572,25 @@ impl DiskAnalyzerEngine {
 
     fn quick_size(&self, root: &Path) -> u64 {
         let mut total = 0u64;
-        for entry in WalkDir::new(root).follow_links(false).skip_hidden(false) {
+        let mut seen: HashSet<(u64, u64)> = HashSet::new();
+        for entry in WalkDir::new(root)
+            .follow_links(false)
+            .skip_hidden(false)
+            .parallelism(jwalk::Parallelism::Serial)
+        {
             let Ok(entry) = entry else {
                 continue;
             };
-            if let Some(sz) = Self::allocated_size(&entry.path()) {
+            let path = entry.path();
+            let Ok(meta) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if let Some(id) = file_identity(&path, &meta) {
+                if !seen.insert(id) {
+                    continue;
+                }
+            }
+            if let Some(sz) = Self::allocated_size(&path) {
                 total = total.saturating_add(sz);
             }
         }
@@ -469,6 +601,111 @@ impl DiskAnalyzerEngine {
 impl Default for DiskAnalyzerEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn maybe_emit_partial(
+    emit: &impl Fn(ScanStatus, Option<String>, Option<String>, Option<DiskNode>),
+    last_tree_emit: &std::sync::Mutex<Instant>,
+    root: &Path,
+    sizes: &HashMap<PathBuf, u64>,
+    file_counts: &HashMap<PathBuf, u64>,
+    dir_counts: &HashMap<PathBuf, u64>,
+    dirs: &HashSet<PathBuf>,
+    children_map: &HashMap<PathBuf, HashSet<PathBuf>>,
+    project_roots: &[PathBuf],
+    max_children: usize,
+    current: &Path,
+) {
+    let now = Instant::now();
+    {
+        let mut guard = last_tree_emit.lock().unwrap_or_else(|e| e.into_inner());
+        if now.duration_since(*guard) < PARTIAL_TREE_INTERVAL {
+            emit(
+                ScanStatus::Running,
+                Some(current.to_string_lossy().to_string()),
+                None,
+                None,
+            );
+            return;
+        }
+        *guard = now;
+    }
+
+    let project_set: HashSet<PathBuf> = project_roots
+        .iter()
+        .filter_map(|p| std::fs::canonicalize(p).ok().or_else(|| Some(p.clone())))
+        .collect();
+    let mut tree = build_tree(
+        root,
+        sizes,
+        file_counts,
+        dir_counts,
+        dirs,
+        children_map,
+        &project_set,
+    );
+    // Progressive: do not top-N-prune the scan root — zero-size siblings (still
+    // being walked) must stay visible so Library/own_space are not collapsed away.
+    finalize_tree(&mut tree, max_children, DEFAULT_TREE_DEPTH, false);
+    emit(
+        ScanStatus::Running,
+        Some(current.to_string_lossy().to_string()),
+        None,
+        Some(tree),
+    );
+}
+
+fn should_skip_scan_entry(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    // Pseudo-fs, firmlink noise, and sealed system volume (huge + low cleanup value).
+    matches!(
+        name.as_str(),
+        "dev"
+            | "proc"
+            | "sys"
+            | "system" // /System on macOS — sealed OS image, often hundreds of GB of walk work
+            | "volumes" // other mounts / data volume entry points
+            | "cores"
+            | "network"
+            | ".vol"
+            | ".nofollow"
+            | ".resolve"
+            | ".file"
+            | "fd"
+            | "net"
+            | "run"
+    ) || name.starts_with(".volumeicon")
+        // Time zone / locale data walked under system libraries is pure noise for cleanup.
+        || name == "zoneinfo"
+        || name == "cldr-data"
+}
+
+fn device_id_for_path(path: &Path) -> Option<u64> {
+    let meta = std::fs::symlink_metadata(path).ok()?;
+    device_id_from_meta(&meta)
+}
+
+fn device_id_from_meta(meta: &std::fs::Metadata) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        Some(meta.dev())
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        meta.volume_serial_number().map(|v| v as u64)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = meta;
+        None
     }
 }
 
@@ -489,7 +726,6 @@ fn allocated_size_from_metadata(meta: &std::fs::Metadata) -> Option<u64> {
     }
 }
 
-/// Stable file identity for hard-link deduplication across a scan.
 fn file_identity(path: &Path, meta: &std::fs::Metadata) -> Option<(u64, u64)> {
     #[cfg(unix)]
     {
@@ -500,7 +736,6 @@ fn file_identity(path: &Path, meta: &std::fs::Metadata) -> Option<(u64, u64)> {
     #[cfg(windows)]
     {
         let _ = meta;
-        // symlink_metadata / FindFirstFile does not populate file index — open by path.
         let opened = std::fs::metadata(path).ok()?;
         use std::os::windows::fs::MetadataExt;
         let volume = opened.volume_serial_number()? as u64;
@@ -530,7 +765,6 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
         .encode_wide()
         .chain(std::iter::once(0))
         .collect();
-    // BACKUP_SEMANTICS allows opening directories; FILE_SHARE_* keeps scan non-disruptive.
     let handle = unsafe {
         CreateFileW(
             wide.as_ptr(),
@@ -557,7 +791,6 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
         }
         if ok != 0 {
             let info = unsafe { info.assume_init() };
-            // AllocationSize is a LARGE_INTEGER (i64).
             let allocated = info.AllocationSize;
             if allocated >= 0 {
                 return Some(allocated as u64);
@@ -565,7 +798,6 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
         }
     }
 
-    // Secondary Win32 query: GetCompressedFileSizeW queries allocation by path directly
     let mut high: u32 = 0;
     let low = unsafe { GetCompressedFileSizeW(wide.as_ptr(), &mut high) };
     if low != INVALID_FILE_SIZE || unsafe { GetLastError() } == 0 {
@@ -616,7 +848,6 @@ fn build_tree(
             let mut sorted: Vec<_> = kids.iter().collect();
             sorted.sort_by_key(|p| p.to_string_lossy().to_lowercase());
             for child in sorted {
-                // Skip if child was only a file path already accounted — still include.
                 children.push(build_tree(
                     child,
                     sizes,
@@ -638,6 +869,7 @@ fn build_tree(
         is_project: project_set.contains(path),
         file_count: *file_counts.get(path).unwrap_or(&0),
         dir_count: *dir_counts.get(path).unwrap_or(&0),
+        children_loaded: true,
         children,
     }
 }
@@ -652,12 +884,20 @@ pub fn prune_tree(node: &mut DiskNode, max_children: usize) {
         prune_tree(child, max_children);
     }
 
+    // Keep synthetic remainder last when sorting for display.
+    node.children.sort_by(|a, b| {
+        let a_other = a.name == OTHER_NAME;
+        let b_other = b.name == OTHER_NAME;
+        if a_other != b_other {
+            return a_other.cmp(&b_other);
+        }
+        b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name))
+    });
+
     if node.children.len() <= max_children {
         return;
     }
 
-    node.children
-        .sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
     let rest: Vec<DiskNode> = node.children.drain(max_children..).collect();
     let other_size: u64 = rest.iter().map(|n| n.size).sum();
     let other_files: u64 = rest
@@ -675,8 +915,62 @@ pub fn prune_tree(node: &mut DiskNode, max_children: usize) {
         is_project: false,
         file_count: other_files,
         dir_count: other_dirs,
+        children_loaded: true,
         children: vec![],
     });
+}
+
+/// Cap structural nesting so the UI only receives current + N-1 child levels.
+///
+/// `depth` counts this node: `depth == 3` keeps root → children → grandchildren.
+/// Directories past the leaf level keep accurate `size` but set
+/// `children_loaded = false` so the client can load them on drill-in.
+pub fn limit_tree_depth(node: &mut DiskNode, depth: usize) {
+    if !node.is_dir {
+        node.children_loaded = true;
+        return;
+    }
+    if node.name == OTHER_NAME {
+        node.children.clear();
+        node.children_loaded = true;
+        return;
+    }
+    if depth <= 1 {
+        let expandable = !node.children.is_empty() || node.dir_count > 0 || node.file_count > 0;
+        node.children.clear();
+        // Empty leaf dirs stay "loaded"; anything that may have content reloads on drill.
+        node.children_loaded = !expandable;
+        return;
+    }
+    for child in &mut node.children {
+        limit_tree_depth(child, depth - 1);
+    }
+    node.children_loaded = true;
+}
+
+/// Top-N prune + depth cap applied to every emitted/returned tree.
+///
+/// When `prune_root` is false (progressive updates), only nested levels are
+/// top-N pruned so still-zero root children remain listed until the walk finishes.
+pub fn finalize_tree(node: &mut DiskNode, max_children: usize, max_depth: usize, prune_root: bool) {
+    let max = max_children.max(1);
+    if prune_root {
+        prune_tree(node, max);
+    } else {
+        for child in &mut node.children {
+            prune_tree(child, max);
+        }
+        node.children.sort_by(|a, b| {
+            let a_other = a.name == OTHER_NAME;
+            let b_other = b.name == OTHER_NAME;
+            if a_other != b_other {
+                return a_other.cmp(&b_other);
+            }
+            b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name))
+        });
+        node.children_loaded = true;
+    }
+    limit_tree_depth(node, max_depth.max(1));
 }
 
 /// Common cleanup suggestion heuristics from a scanned tree.
@@ -736,6 +1030,12 @@ mod tests {
         f.write_all(&vec![b'x'; bytes]).unwrap();
     }
 
+    fn tempfile_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("{label}-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
     #[test]
     fn scan_aggregates_child_sizes() {
         let root = tempfile_dir("disk-analyzer-agg");
@@ -752,6 +1052,8 @@ mod tests {
         assert_eq!(stats.files_scanned, 3);
         let sub = tree.children.iter().find(|c| c.name == "sub").expect("sub");
         assert!(sub.size >= 5000, "sub.size={}", sub.size);
+        assert!(sub.children_loaded);
+        assert!(sub.children.iter().any(|c| c.name == "deep"));
     }
 
     #[test]
@@ -775,14 +1077,8 @@ mod tests {
             )
             .expect("scan");
 
-        assert!(
-            tree.children.iter().any(|c| c.name == "node_modules"),
-            "node_modules missing"
-        );
-        assert!(
-            tree.children.iter().any(|c| c.name == "target"),
-            "target missing"
-        );
+        assert!(tree.children.iter().any(|c| c.name == "node_modules"));
+        assert!(tree.children.iter().any(|c| c.name == "target"));
         let proj = tree
             .children
             .iter()
@@ -806,7 +1102,6 @@ mod tests {
             .expect("scan");
 
         assert_eq!(stats.files_scanned, 2);
-        // Allocated blocks should be counted once, not twice.
         let single = DiskAnalyzerEngine::allocated_size(&a).expect("allocated size");
         assert!(
             tree.size < single.saturating_mul(2),
@@ -814,18 +1109,12 @@ mod tests {
             tree.size,
             single
         );
-        assert!(
-            tree.size >= single,
-            "tree.size={} single={}",
-            tree.size,
-            single
-        );
+        assert!(tree.size >= single);
     }
 
     #[test]
     fn suggestions_computed_before_prune() {
         let root = tempfile_dir("disk-analyzer-suggest-prune");
-        // Many large siblings so node_modules would collapse into __other__ if pruned first.
         for i in 0..8 {
             write_file(&root.join(format!("big{i}/data.bin")), 50_000);
         }
@@ -836,14 +1125,8 @@ mod tests {
             .scan_path("sug", &root, &[], Some(3), None, None)
             .expect("scan");
 
-        assert!(
-            suggestions.iter().any(|s| s.name == "node_modules"),
-            "suggestions missing node_modules: {suggestions:?}"
-        );
-        assert!(
-            tree.children.iter().any(|c| c.name == OTHER_NAME),
-            "expected prune to create __other__"
-        );
+        assert!(suggestions.iter().any(|s| s.name == "node_modules"));
+        assert!(tree.children.iter().any(|c| c.name == OTHER_NAME));
     }
 
     #[test]
@@ -856,6 +1139,7 @@ mod tests {
             is_project: false,
             file_count: 5,
             dir_count: 5,
+            children_loaded: true,
             children: (0..5)
                 .map(|i| DiskNode {
                     name: format!("c{i}"),
@@ -865,15 +1149,82 @@ mod tests {
                     is_project: false,
                     file_count: 0,
                     dir_count: 0,
+                    children_loaded: true,
                     children: vec![],
                 })
                 .collect(),
         };
         prune_tree(&mut node, 2);
-        assert_eq!(node.children.len(), 3); // 2 + __other__
+        assert_eq!(node.children.len(), 3);
         let other = node.children.iter().find(|c| c.name == OTHER_NAME).unwrap();
         assert_eq!(other.size, 60);
         assert_eq!(node.size, 100);
+    }
+
+    #[test]
+    fn limit_tree_depth_keeps_three_levels_and_marks_leaves() {
+        let mut root = DiskNode {
+            name: "root".into(),
+            path: "/r".into(),
+            size: 100,
+            is_dir: true,
+            is_project: false,
+            file_count: 1,
+            dir_count: 1,
+            children_loaded: true,
+            children: vec![DiskNode {
+                name: "a".into(),
+                path: "/r/a".into(),
+                size: 100,
+                is_dir: true,
+                is_project: false,
+                file_count: 1,
+                dir_count: 1,
+                children_loaded: true,
+                children: vec![DiskNode {
+                    name: "b".into(),
+                    path: "/r/a/b".into(),
+                    size: 100,
+                    is_dir: true,
+                    is_project: false,
+                    file_count: 1,
+                    dir_count: 1,
+                    children_loaded: true,
+                    children: vec![DiskNode {
+                        name: "c".into(),
+                        path: "/r/a/b/c".into(),
+                        size: 100,
+                        is_dir: true,
+                        is_project: false,
+                        file_count: 1,
+                        dir_count: 0,
+                        children_loaded: true,
+                        children: vec![DiskNode {
+                            name: "d.txt".into(),
+                            path: "/r/a/b/c/d.txt".into(),
+                            size: 100,
+                            is_dir: false,
+                            is_project: false,
+                            file_count: 0,
+                            dir_count: 0,
+                            children_loaded: true,
+                            children: vec![],
+                        }],
+                    }],
+                }],
+            }],
+        };
+        limit_tree_depth(&mut root, DEFAULT_TREE_DEPTH);
+        // root → a → b kept; c stripped
+        assert!(root.children_loaded);
+        let a = &root.children[0];
+        assert!(a.children_loaded);
+        let b = &a.children[0];
+        assert_eq!(b.name, "b");
+        assert!(!b.children_loaded);
+        assert!(b.children.is_empty());
+        // size preserved on truncated leaf
+        assert_eq!(b.size, 100);
     }
 
     #[test]
@@ -928,7 +1279,6 @@ mod tests {
 
     #[test]
     fn trash_delete_does_not_fallback_to_permanent() {
-        // Non-existent path: trash/permanent both fail; ensure no silent "success".
         let missing =
             std::env::temp_dir().join(format!("disk-analyzer-missing-{}", uuid::Uuid::new_v4()));
         let engine = DiskAnalyzerEngine::new();
@@ -952,6 +1302,7 @@ mod tests {
             is_project: false,
             file_count: 1,
             dir_count: 1,
+            children_loaded: true,
             children: vec![DiskNode {
                 name: "node_modules".into(),
                 path: "/r/node_modules".into(),
@@ -960,6 +1311,7 @@ mod tests {
                 is_project: false,
                 file_count: 1,
                 dir_count: 0,
+                children_loaded: false,
                 children: vec![],
             }],
         };
@@ -968,9 +1320,18 @@ mod tests {
         assert_eq!(tips[0].name, "node_modules");
     }
 
-    fn tempfile_dir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("{label}-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&dir).unwrap();
-        dir
+    #[test]
+    fn scan_level_matches_scan_path() {
+        let root = tempfile_dir("disk-analyzer-level-alias");
+        write_file(&root.join("x.txt"), 500);
+        let engine = DiskAnalyzerEngine::new();
+        let (a, _, _) = engine
+            .scan_path("a", &root, &[], Some(30), None, None)
+            .unwrap();
+        let (b, _, _) = engine
+            .scan_level("b", &root, &[], Some(30), None, None)
+            .unwrap();
+        assert_eq!(a.size, b.size);
+        assert!(a.children_loaded);
     }
 }

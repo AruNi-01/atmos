@@ -11,20 +11,36 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Tabs,
+  TabsList,
+  TabsTab,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   cn,
 } from "@workspace/ui";
 import {
+  ChevronRight,
+  CircleAlert,
+  FolderKanban,
   HardDrive,
   Loader2,
-  Search,
+  RefreshCw,
   Trash2,
-  FolderKanban,
 } from "lucide-react";
 import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageChart";
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
-import { formatBytes } from "@/features/disk-analyzer/lib/tree-adapters";
+import {
+  formatBytes,
+  TOP_N_OPTIONS,
+} from "@/features/disk-analyzer/lib/tree-adapters";
 
 export function DiskAnalyzerPage() {
   const t = useTranslations("DiskAnalyzer");
@@ -43,6 +59,16 @@ export function DiskAnalyzerPage() {
         )
       : null;
 
+  const isAtScanRoot =
+    !!analyzer.focusPath &&
+    !!analyzer.scanPath &&
+    analyzer.focusPath === analyzer.scanPath;
+  // Cap root totals by volume used; nested focus still uses path estimates.
+  const parentSize = isAtScanRoot
+    ? analyzer.chartRootSize
+    : (analyzer.focusedNode?.size ?? analyzer.chartRootSize ?? 1);
+  const scanning = analyzer.status === "running" || analyzer.busy;
+
   const onConfirmDelete = async () => {
     setDeleting(true);
     setDeleteError(null);
@@ -59,276 +85,460 @@ export function DiskAnalyzerPage() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
-      <header className="flex flex-col gap-3 border-b border-border px-6 py-4">
-        <div className="flex items-center gap-2">
-          <HardDrive className="size-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
-        </div>
-        <p className="text-sm text-muted-foreground max-w-3xl">{t("subtitle")}</p>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
+      {/* Header — management center style */}
+      <div className="shrink-0 border-b border-border/60">
+        <div className="mx-auto w-full max-w-[1400px] px-6 pb-4 pt-8 sm:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <HardDrive className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  {t("title")}
+                </h1>
+                <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                  {t("subtitle")}
+                </p>
+              </div>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={analyzer.scanPath}
-            onChange={(e) => analyzer.setScanPath(e.target.value)}
-            placeholder={t("pathPlaceholder")}
-            className="min-w-[280px] flex-1"
-          />
-          <Button onClick={() => void analyzer.startScan()} disabled={analyzer.busy}>
-            {analyzer.busy ? <Loader2 className="size-4 animate-spin" /> : null}
-            {t("scan")}
-          </Button>
-          {analyzer.status === "running" ? (
-            <Button variant="outline" onClick={() => void analyzer.cancelScan()}>
-              {t("cancel")}
-            </Button>
-          ) : null}
-          <div className="flex rounded-md border border-border p-0.5">
-            <Button
-              size="sm"
-              variant={analyzer.chartMode === "sunburst" ? "secondary" : "ghost"}
-              onClick={() => analyzer.setChartMode("sunburst")}
-            >
-              {t("sunburst")}
-            </Button>
-            <Button
-              size="sm"
-              variant={analyzer.chartMode === "treemap" ? "secondary" : "ghost"}
-              onClick={() => analyzer.setChartMode("treemap")}
-            >
-              {t("treemap")}
-            </Button>
-          </div>
-        </div>
-
-        {analyzer.volume ? (
-          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-            <span>
-              {t("freeSpace", {
-                free: formatBytes(analyzer.volume.available_bytes),
-                total: formatBytes(analyzer.volume.total_bytes),
-              })}
-            </span>
-            {usedPercent !== null ? (
-              <div className="h-2 w-40 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    usedPercent > 90 ? "bg-destructive" : "bg-primary",
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="disk-analyzer-scan-all-space"
+                    checked={analyzer.scanAllSpace}
+                    disabled={analyzer.busy && !scanning}
+                    onCheckedChange={(checked) => {
+                      const next = checked === true;
+                      analyzer.setScanAllSpace(next);
+                      void (async () => {
+                        if (scanning) {
+                          try {
+                            await analyzer.cancelScan();
+                          } catch {
+                            // best-effort cancel before scope switch
+                          }
+                        }
+                        await analyzer.startScan();
+                      })();
+                    }}
+                  />
+                  <Label
+                    htmlFor="disk-analyzer-scan-all-space"
+                    className="cursor-pointer text-xs font-normal text-muted-foreground"
+                  >
+                    {t("scanAllSpace")}
+                  </Label>
+                </div>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger
+                      type="button"
+                      className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label={t("scanScopeHintAria")}
+                    >
+                      <CircleAlert className="size-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      className="max-w-xs text-xs leading-relaxed [&_a]:pointer-events-auto"
+                      // Allow clicking the Mole link without dismissing awkwardly.
+                      onPointerDownOutside={(e) => {
+                        const target = e.target as HTMLElement | null;
+                        if (target?.closest?.("a")) e.preventDefault();
+                      }}
+                    >
+                      <span>
+                        {t.rich("scanScopeHint", {
+                          // next-intl rich tags: <mole>Mole</mole> → chunks === "Mole"
+                          mole: (chunks) => (
+                            <a
+                              href="https://github.com/tw93/mole"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium underline underline-offset-2 hover:opacity-90"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {chunks}
+                            </a>
+                          ),
+                        })}
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {scanning ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl"
+                  onClick={() => void analyzer.cancelScan()}
+                >
+                  {t("cancel")}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl"
+                  onClick={() => void analyzer.startScan()}
+                  disabled={analyzer.busy}
+                >
+                  {analyzer.busy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4" />
                   )}
-                  style={{ width: `${usedPercent}%` }}
-                />
+                  {t("rescan")}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Volume + progress strip */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {analyzer.volume ? (
+              <div className="flex min-w-[200px] max-w-sm flex-1 items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2 text-xs">
+                    <span className="text-muted-foreground">
+                      {t("freeSpace", {
+                        free: formatBytes(analyzer.volume.available_bytes),
+                        total: formatBytes(analyzer.volume.total_bytes),
+                      })}
+                    </span>
+                    {usedPercent !== null ? (
+                      <span className="tabular-nums text-muted-foreground">
+                        {usedPercent}%
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        usedPercent !== null && usedPercent > 90
+                          ? "bg-destructive"
+                          : "bg-foreground/70",
+                      )}
+                      style={{ width: `${usedPercent ?? 0}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             ) : null}
-          </div>
-        ) : null}
 
-        {analyzer.status === "running" && analyzer.progress ? (
-          <div className="text-sm text-muted-foreground">
-            {t("scanning", {
-              files: analyzer.progress.files_scanned,
-              bytes: formatBytes(analyzer.progress.bytes_scanned),
-              path: analyzer.progress.current_path ?? "…",
-            })}
-          </div>
-        ) : null}
-        {analyzer.error ? (
-          <div className="text-sm text-destructive">{analyzer.error}</div>
-        ) : null}
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-72 shrink-0 flex-col gap-3 border-r border-border p-4 overflow-y-auto">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              value={analyzer.filters.query}
-              onChange={(e) =>
-                analyzer.setFilters({ ...analyzer.filters, query: e.target.value })
-              }
-              placeholder={t("searchPlaceholder")}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="min-size">{t("minSize")}</Label>
-            <Input
-              id="min-size"
-              type="number"
-              min={0}
-              value={analyzer.filters.minSize || ""}
-              onChange={(e) =>
-                analyzer.setFilters({
-                  ...analyzer.filters,
-                  minSize: Number(e.target.value) || 0,
-                })
-              }
-              placeholder="0"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={analyzer.filters.projectsOnly}
-              onCheckedChange={(checked) =>
-                analyzer.setFilters({
-                  ...analyzer.filters,
-                  projectsOnly: checked === true,
-                })
-              }
-            />
-            <FolderKanban className="size-4 text-sky-600" />
-            {t("projectsOnly")}
-          </label>
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={analyzer.sortBy === "size" ? "secondary" : "outline"}
-              onClick={() => analyzer.setSortBy("size")}
-            >
-              {t("sortSize")}
-            </Button>
-            <Button
-              size="sm"
-              variant={analyzer.sortBy === "name" ? "secondary" : "outline"}
-              onClick={() => analyzer.setSortBy("name")}
-            >
-              {t("sortName")}
-            </Button>
-          </div>
-
-          {analyzer.stats ? (
-            <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-              <div>{t("statsTotal", { size: formatBytes(analyzer.stats.total_size) })}</div>
-              <div>
-                {t("statsCounts", {
-                  files: analyzer.stats.files_scanned,
-                  dirs: analyzer.stats.dirs_scanned,
-                })}
+            {scanning || analyzer.stats ? (
+              <div className="min-w-0 flex-1 text-xs text-muted-foreground tabular-nums">
+                {scanning && analyzer.progress ? (
+                  // Live progress only while scanning — avoid stale 0 files/dirs from empty stats.
+                  t("scanning", {
+                    files: analyzer.progress.files_scanned,
+                    dirs: analyzer.progress.dirs_scanned ?? 0,
+                    bytes: formatBytes(analyzer.progress.bytes_scanned),
+                    path: shortenPath(analyzer.progress.current_path ?? "…"),
+                  })
+                ) : analyzer.stats ? (
+                  t("statsCounts", {
+                    files: analyzer.stats.files_scanned,
+                    dirs: analyzer.stats.dirs_scanned,
+                  })
+                ) : null}
               </div>
+            ) : (
+              <div className="min-w-0 flex-1" />
+            )}
+          </div>
+
+          {analyzer.error ? (
+            <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {analyzer.error}
             </div>
           ) : null}
+        </div>
+      </div>
 
-          {analyzer.suggestions.length > 0 ? (
-            <div className="space-y-2">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t("suggestions")}
-              </div>
-              {analyzer.suggestions.slice(0, 8).map((tip) => (
-                <button
-                  key={tip.path}
-                  type="button"
-                  className="w-full rounded-md border border-border/60 px-2 py-1.5 text-left text-xs hover:bg-muted/50"
-                  onClick={() => {
-                    analyzer.setSelectedPath(tip.path);
-                    analyzer.setFocusPath(tip.path);
-                  }}
-                >
-                  <div className="font-medium truncate">{tip.name}</div>
-                  <div className="text-muted-foreground truncate">
-                    {formatBytes(tip.size)} · {tip.reason}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </aside>
-
+      {/* Body */}
+      <div className="mx-auto flex min-h-0 w-full max-w-[1400px] flex-1">
+        {/* Main chart column */}
         <section className="flex min-w-0 flex-1 flex-col">
-          {analyzer.breadcrumbs.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 text-sm">
-              {analyzer.breadcrumbs.map((crumb, index) => (
-                <React.Fragment key={crumb.path}>
-                  {index > 0 ? <span className="text-muted-foreground">/</span> : null}
-                  <button
-                    type="button"
-                    className="rounded px-1.5 py-0.5 hover:bg-muted"
-                    onClick={() => analyzer.setFocusPath(crumb.path)}
-                  >
-                    {crumb.name}
-                  </button>
-                </React.Fragment>
-              ))}
-            </div>
-          ) : null}
+          {/* Breadcrumbs + chart view controls (no divider under breadcrumbs) */}
+          <div className="flex flex-wrap items-center gap-2 px-6 pt-3 pb-1 sm:px-8">
+            <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5 text-sm">
+              {analyzer.breadcrumbs.length > 0 ? (
+                analyzer.breadcrumbs.map((crumb, index) => (
+                  <React.Fragment key={crumb.path}>
+                    {index > 0 ? (
+                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" />
+                    ) : null}
+                    <button
+                      type="button"
+                      className={cn(
+                        "max-w-[10rem] truncate rounded-md px-1.5 py-0.5 transition-colors",
+                        index === analyzer.breadcrumbs.length - 1
+                          ? "font-medium text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                      onClick={() => analyzer.drillTo(crumb.path)}
+                    >
+                      {index === 0
+                        ? rootBreadcrumbLabel(
+                            analyzer.scanPath,
+                            t("computerRoot"),
+                            t("atmosRoot"),
+                          )
+                        : crumb.name === "__other__"
+                          ? t("other")
+                          : crumb.name}
+                    </button>
+                  </React.Fragment>
+                ))
+              ) : (
+                <span className="text-muted-foreground">{t("scanningWait")}</span>
+              )}
+              {analyzer.isLevelLoading ? (
+                <Loader2 className="ml-2 size-3.5 animate-spin text-muted-foreground" />
+              ) : null}
+            </nav>
 
-          <div className="min-h-0 flex-1 p-4">
-            {analyzer.focusedNode ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Tabs
+                value={analyzer.chartMode}
+                onValueChange={(value) => {
+                  if (value === "treemap" || value === "sunburst") {
+                    analyzer.setChartMode(value);
+                  }
+                }}
+              >
+                <TabsList>
+                  <TabsTab value="treemap" className="text-xs">
+                    {t("treemap")}
+                  </TabsTab>
+                  <TabsTab value="sunburst" className="text-xs">
+                    {t("sunburst")}
+                  </TabsTab>
+                </TabsList>
+              </Tabs>
+              <Select
+                value={String(analyzer.topN)}
+                onValueChange={(value) => analyzer.setTopN(Number(value))}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="w-auto min-w-[5.5rem] gap-1.5 border-border/60 bg-muted/20 text-xs shadow-none"
+                >
+                  <span className="text-muted-foreground">{t("topN")}</span>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end" position="popper">
+                  {TOP_N_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)} className="text-xs">
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="relative min-h-0 flex-1 px-4 pb-4 pt-1 sm:px-6 sm:pb-6">
+            {analyzer.focusedNode &&
+            ((analyzer.focusedNode.children?.length ?? 0) > 0 || !analyzer.isLevelLoading) ? (
               <DiskUsageChart
                 node={analyzer.focusedNode}
-                rootSize={analyzer.stats?.total_size ?? analyzer.focusedNode.size}
+                rootSize={parentSize}
                 mode={analyzer.chartMode}
                 projectLabel={t("atmosProject")}
+                otherLabel={t("other")}
+                showParentLabelText={t("showParentLabels")}
                 onSelectPath={analyzer.setSelectedPath}
-                onDrillPath={analyzer.setFocusPath}
+                onDrillPath={analyzer.drillTo}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                {analyzer.busy ? t("scanningWait") : t("empty")}
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                {scanning || analyzer.isLevelLoading ? (
+                  <>
+                    <Loader2 className="size-8 animate-spin text-muted-foreground/70" />
+                    <p>
+                      {analyzer.isLevelLoading && !scanning
+                        ? t("loadingLevel")
+                        : t("scanningWait")}
+                    </p>
+                    {analyzer.progress?.current_path ? (
+                      <p className="max-w-md truncate text-xs text-muted-foreground/70">
+                        {analyzer.progress.current_path}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p>{t("empty")}</p>
+                )}
               </div>
             )}
           </div>
         </section>
 
-        <aside className="flex w-80 shrink-0 flex-col border-l border-border p-4 overflow-y-auto gap-3">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t("details")}
-          </div>
-          {analyzer.selectedNode ? (
-            <div className="space-y-2 text-sm">
-              <div className="font-medium break-all">{analyzer.selectedNode.name}</div>
-              <div className="text-muted-foreground break-all text-xs">
-                {analyzer.selectedNode.path}
-              </div>
-              <div>{formatBytes(analyzer.selectedNode.size)}</div>
-              {analyzer.selectedNode.is_project ? (
-                <div className="inline-flex items-center gap-1 rounded bg-sky-500/15 px-2 py-0.5 text-xs text-sky-700 dark:text-sky-300">
-                  <FolderKanban className="size-3" />
-                  {t("atmosProject")}
-                </div>
-              ) : null}
-              <div className="text-muted-foreground text-xs">
-                {t("counts", {
-                  files: analyzer.selectedNode.file_count,
-                  dirs: analyzer.selectedNode.dir_count,
-                })}
-              </div>
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="size-4" />
-                {t("delete")}
-              </Button>
+        {/* Detail rail */}
+        <aside className="flex w-[300px] shrink-0 flex-col border-l border-border/60 bg-background/40">
+          <div className="border-b border-border/50 px-4 py-3">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t("details")}
             </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">{t("selectNode")}</div>
-          )}
-
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground pt-2">
-            {t("children")}
+            {analyzer.selectedNode ? (
+              <div className="mt-2 space-y-2">
+                <div className="truncate text-sm font-semibold" title={analyzer.selectedNode.name}>
+                  {displayNodeName(
+                    analyzer.selectedNode,
+                    analyzer.scanPath,
+                    t("computerRoot"),
+                    t("atmosRoot"),
+                    t("other"),
+                  )}
+                </div>
+                <div
+                  className="break-all text-[11px] leading-relaxed text-muted-foreground"
+                  title={analyzer.selectedNode.path}
+                >
+                  {displayNodePath(
+                    analyzer.selectedNode.path,
+                    analyzer.scanPath,
+                    t("computerRoot"),
+                    t("atmosRoot"),
+                  )}
+                </div>
+                <div className="text-lg font-semibold tabular-nums tracking-tight">
+                  {formatBytes(
+                    analyzer.selectedPath === analyzer.scanPath
+                      ? analyzer.chartRootSize
+                      : analyzer.selectedNode.size,
+                  )}
+                </div>
+                {parentSize > 0 ? (
+                  <div className="text-xs text-muted-foreground">
+                    {(
+                      ((analyzer.selectedPath === analyzer.scanPath
+                        ? analyzer.chartRootSize
+                        : analyzer.selectedNode.size) /
+                        parentSize) *
+                      100
+                    ).toFixed(1)}
+                    % ·{" "}
+                    {t("counts", {
+                      files: analyzer.selectedNode.file_count,
+                      dirs: analyzer.selectedNode.dir_count,
+                    })}
+                  </div>
+                ) : null}
+                {analyzer.volumeUsedBytes != null &&
+                analyzer.selectedPath === analyzer.scanPath &&
+                (analyzer.selectedNode.size ?? 0) > analyzer.volumeUsedBytes ? (
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {t("sizeEstimateNote")}
+                  </p>
+                ) : null}
+                {analyzer.selectedNode.is_project ? (
+                  <div className="inline-flex items-center gap-1 rounded-md bg-sky-500/12 px-2 py-0.5 text-[11px] text-sky-700 dark:text-sky-300">
+                    <FolderKanban className="size-3" />
+                    {t("atmosProject")}
+                  </div>
+                ) : null}
+                {analyzer.selectedNode.path !== analyzer.scanPath &&
+                analyzer.selectedNode.name !== "__other__" ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="mt-1 w-full rounded-xl"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 className="size-3.5" />
+                    {t("delete")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">{t("selectNode")}</p>
+            )}
           </div>
-          <div className="space-y-1">
-            {analyzer.childList.map((child) => (
-              <button
-                key={child.path}
-                type="button"
-                className={cn(
-                  "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/60",
-                  analyzer.selectedPath === child.path && "bg-muted",
-                  child.is_project && "ring-1 ring-sky-500/40",
-                )}
-                onClick={() => {
-                  analyzer.setSelectedPath(child.path);
-                  if (child.is_dir) analyzer.setFocusPath(child.path);
-                }}
-              >
-                <span className="truncate pr-2">{child.name}</span>
-                <span className="shrink-0 text-muted-foreground">
-                  {formatBytes(child.size)}
-                </span>
-              </button>
-            ))}
+
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="px-4 py-2.5">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {t("children")}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+              {analyzer.childList.length === 0 ? (
+                <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                  {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  {analyzer.childList.map((child, index) => {
+                    const share =
+                      parentSize > 0 ? Math.min(100, (child.size / parentSize) * 100) : 0;
+                    const selected = analyzer.selectedPath === child.path;
+                    return (
+                      <button
+                        key={`${child.path}::${child.name}::${index}`}
+                        type="button"
+                        className={cn(
+                          "group relative flex w-full flex-col gap-1 overflow-hidden rounded-lg px-2.5 py-2 text-left transition-colors",
+                          selected ? "bg-muted" : "hover:bg-muted/50",
+                          child.is_project && "ring-1 ring-inset ring-sky-500/30",
+                        )}
+                        onClick={() => {
+                          analyzer.setSelectedPath(child.path);
+                          if (child.is_dir && child.name !== "__other__") {
+                            analyzer.drillTo(child.path);
+                          }
+                        }}
+                      >
+                        <div
+                          className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.04]"
+                          style={{ width: `${share}%` }}
+                        />
+                        <div className="relative flex items-center justify-between gap-2">
+                          <span className="truncate text-xs font-medium">
+                            {child.name === "__other__" ? t("other") : child.name}
+                          </span>
+                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                            {formatBytes(child.size)}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {analyzer.suggestions.length > 0 ? (
+              <div className="border-t border-border/50 px-3 py-3">
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("suggestions")}
+                </div>
+                <div className="max-h-36 space-y-1 overflow-y-auto">
+                  {analyzer.suggestions.slice(0, 6).map((tip) => (
+                    <button
+                      key={tip.path}
+                      type="button"
+                      className="w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50"
+                      onClick={() => analyzer.drillTo(tip.path)}
+                    >
+                      <div className="truncate text-xs font-medium">{tip.name}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {formatBytes(tip.size)} · {tip.reason}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </aside>
       </div>
@@ -371,4 +581,76 @@ export function DiskAnalyzerPage() {
       </Dialog>
     </div>
   );
+}
+
+function shortenPath(path: string, max = 48): string {
+  if (path.length <= max) return path;
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length <= 2) return `…${path.slice(-max + 1)}`;
+  return `…/${parts.slice(-2).join("/")}`;
+}
+
+/** True for `/Users/<name>` or `/home/<name>` (the home directory itself). */
+function isHomeRootPath(path: string): boolean {
+  if (!path) return false;
+  const parts = path.split("/").filter(Boolean);
+  return (parts[0] === "Users" || parts[0] === "home") && parts.length === 2;
+}
+
+function isAtmosOverviewPath(path: string): boolean {
+  return path === "atmos://disk-usage" || path.startsWith("atmos://");
+}
+
+function rootBreadcrumbLabel(
+  scanPath: string,
+  homeLabel: string,
+  atmosLabel: string,
+): string {
+  if (isAtmosOverviewPath(scanPath)) return atmosLabel;
+  return homeLabel;
+}
+
+function displayNodeName(
+  node: { name: string; path: string },
+  scanPath: string,
+  homeLabel: string,
+  atmosLabel: string,
+  otherLabel: string,
+): string {
+  if (node.name === "__other__") return otherLabel;
+  if (isAtmosOverviewPath(node.path) || node.name === "Atmos") return atmosLabel;
+  if (
+    (scanPath && node.path === scanPath && isHomeRootPath(scanPath)) ||
+    node.name === "/" ||
+    node.name === "~" ||
+    node.name === "Home" ||
+    isHomeRootPath(node.path)
+  ) {
+    return homeLabel;
+  }
+  if (scanPath && node.path === scanPath) {
+    return isAtmosOverviewPath(scanPath) ? atmosLabel : homeLabel;
+  }
+  return node.name;
+}
+
+/** Show `~` / Atmos for the scan root path; otherwise the real absolute path. */
+function displayNodePath(
+  path: string,
+  scanPath: string,
+  homeLabel: string,
+  atmosLabel: string,
+): string {
+  if (isAtmosOverviewPath(path)) return atmosLabel;
+  if (!path || path === "/") {
+    if (scanPath && scanPath !== "/" && isHomeRootPath(scanPath)) {
+      return homeLabel;
+    }
+    if (isHomeRootPath(path)) return homeLabel;
+  }
+  if (scanPath && path === scanPath) {
+    return isAtmosOverviewPath(scanPath) ? atmosLabel : homeLabel;
+  }
+  if (isHomeRootPath(path)) return homeLabel;
+  return path;
 }
