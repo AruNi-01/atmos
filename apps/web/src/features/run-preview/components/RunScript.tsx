@@ -14,6 +14,7 @@ import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import { getActiveInstanceId } from '@/features/connection/store/connection-store';
 import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
+import { isRunTerminalBusyFromTitle } from "@/features/run-preview/lib/run-terminal-busy";
 
 type RunTerminalTab = {
   id: string;
@@ -165,16 +166,35 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     saveStoredTabs(terminalContextId, tabs, runTabLabel);
   }, [loadedTabsContextId, runTabLabel, tabs, terminalContextId]);
 
+  const setTabRunning = React.useCallback((tabId: string, running: boolean) => {
+    setRunningScripts((prev) => {
+      const currentlyRunning = Boolean(prev[tabId]);
+      if (currentlyRunning === running) return prev;
+      if (!running) {
+        if (!(tabId in prev)) return prev;
+        const next = { ...prev };
+        delete next[tabId];
+        return next;
+      }
+      return { ...prev, [tabId]: true };
+    });
+  }, []);
+
+  const handleShellTitleChange = React.useCallback(
+    (tabId: string, title: string) => {
+      // Authoritative busy state from shell shim OSC (CMD_START / CMD_END)
+      // and backend inject_initial_title on attach/reconnect.
+      setTabRunning(tabId, isRunTerminalBusyFromTitle(title));
+    },
+    [setTabRunning],
+  );
+
   const handleStopScript = () => {
     const term = terminalRefs.current[activeTabId];
     if (term) {
       term.sendText("\x03"); // Send Ctrl+C
-      // Reset running state immediately for better UX
-      setRunningScripts(prev => {
-        const newState = { ...prev };
-        delete newState[activeTabId];
-        return newState;
-      });
+      // Optimistic idle; CMD_END from the shim will confirm shortly.
+      setTabRunning(activeTabId, false);
     }
   };
 
@@ -185,12 +205,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       term.destroy();
     }
 
-    // 2. Clear running state
-    setRunningScripts(prev => {
-      const newState = { ...prev };
-      delete newState[activeTabId];
-      return newState;
-    });
+    // 2. Optimistic idle until the remounted session reports its title
+    setTabRunning(activeTabId, false);
 
     // 3. Increment version to force remount with new session ID
     setSessionVersions(prev => ({
@@ -265,8 +281,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       // Use sendText to send to backend PTY, not write which is local only
       term.sendText(runCommand + "\r");
 
-      // 4. Mark as running
-      setRunningScripts(prev => ({ ...prev, [activeTabId]: true }));
+      // 4. Optimistic running; CMD_START title will confirm (and CMD_END will clear)
+      setTabRunning(activeTabId, true);
     } catch (error) {
       console.error("Failed to run script:", error);
       toastManager.add({
@@ -283,6 +299,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     projectId,
     runScriptLoadErrorDescription,
     runningScripts,
+    setTabRunning,
     terminalBusyDescription,
     terminalBusyTitle,
     terminalNotReadyDescription,
@@ -305,18 +322,6 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleRunScript, isActive]);
 
-  const handleTerminalData = (tabId: string, data: string) => {
-    // If user presses Ctrl+C, assume they killed the process and mark as idle
-    if (data.includes('\u0003')) {
-      setRunningScripts(prev => {
-        if (!prev[tabId]) return prev;
-        const newState = { ...prev };
-        delete newState[tabId];
-        return newState;
-      });
-    }
-  };
-
   const addTab = () => {
     const newId = String(Date.now());
     // Find next available suffix
@@ -337,10 +342,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     if (newTabs.length === 0) return; // Keep at least one
     setTabs(newTabs);
 
-    // Clean up running state
-    const nextRunningScripts = { ...runningScripts };
-    delete nextRunningScripts[id];
-    setRunningScripts(nextRunningScripts);
+    // Clean up running state for the closed tab
+    setTabRunning(id, false);
 
     // Clean up ref
     if (terminalRefs.current[id]) {
@@ -526,7 +529,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   tmuxWindowName={getRunTerminalWindowName(tab.id)}
                   isNewPane={true}
                   cwd={currentProjectPath}
-                  onData={(data) => handleTerminalData(tab.id, data)}
+                  onTitleChange={(title) => handleShellTitleChange(tab.id, title)}
                   readOnly={tab.id === RUN_TAB_ID ? isLocked : false}
                   onInputWhileReadOnly={() => {
                     const now = Date.now();
