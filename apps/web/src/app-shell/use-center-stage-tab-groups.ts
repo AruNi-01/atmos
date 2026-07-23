@@ -30,20 +30,29 @@ import {
   type TabGroupOrderByContext,
 } from "@/app-shell/center-stage-tabs";
 
-/** Reorder browser group tabs only within each browser instance section. */
-function applyBrowserGroupOrder(
+type TerminalGroupTab = {
+  id: string;
+  title: string;
+  customTitle?: string;
+};
+
+/** Reorder group tabs only within each section (browser instance / terminal family). */
+function applySectionedGroupOrder(
   group: { key: string; label: string; tabs: TabGroupItem[] },
-  contextOrder?: Record<string, string[] | undefined>,
+  contextOrder: Record<string, string[] | undefined> | undefined,
+  getSectionId: (tab: TabGroupItem) => string | undefined,
+  sectionKeyPrefix: string,
 ) {
   const sections: TabGroupItem[][] = [];
   let currentSection: TabGroupItem[] = [];
-  let currentBrowserId: string | undefined;
+  let currentSectionId: string | undefined;
 
   for (const tab of group.tabs) {
-    if (tab.browserId !== currentBrowserId) {
+    const sectionId = getSectionId(tab);
+    if (sectionId !== currentSectionId) {
       if (currentSection.length > 0) sections.push(currentSection);
       currentSection = [tab];
-      currentBrowserId = tab.browserId;
+      currentSectionId = sectionId;
     } else {
       currentSection.push(tab);
     }
@@ -51,11 +60,12 @@ function applyBrowserGroupOrder(
   if (currentSection.length > 0) sections.push(currentSection);
 
   const orderedTabs = sections.flatMap((section, sectionIndex) => {
-    const browserId = section[0]?.browserId;
-    const orderedSection = browserId
+    const sectionId = getSectionId(section[0]!);
+    const orderKey = sectionId ? `${sectionKeyPrefix}:${sectionId}` : undefined;
+    const orderedSection = orderKey
       ? applySavedTabGroupOrder(
-          { key: `browser-instance:${browserId}`, label: group.label, tabs: section },
-          contextOrder?.[`browser-instance:${browserId}`],
+          { key: orderKey, label: group.label, tabs: section },
+          contextOrder?.[orderKey],
         ).tabs
       : section;
 
@@ -71,20 +81,69 @@ function applyBrowserGroupOrder(
   };
 }
 
+function applyBrowserGroupOrder(
+  group: { key: string; label: string; tabs: TabGroupItem[] },
+  contextOrder?: Record<string, string[] | undefined>,
+) {
+  return applySectionedGroupOrder(group, contextOrder, (tab) => tab.browserId, "browser-instance");
+}
+
+function applyTerminalGroupOrder(
+  group: { key: string; label: string; tabs: TabGroupItem[] },
+  contextOrder?: Record<string, string[] | undefined>,
+) {
+  return applySectionedGroupOrder(
+    group,
+    contextOrder,
+    (tab) => tab.terminalSection ?? tab.kind,
+    "terminal-section",
+  );
+}
+
+function resolveSectionedColumnKey(activeGroupKey: string): {
+  columnKey: string;
+  sectionFilter: ((tab: TabGroupItem) => boolean) | null;
+} {
+  if (activeGroupKey.startsWith("browser-instance:")) {
+    const browserInstanceId = activeGroupKey.slice("browser-instance:".length);
+    return {
+      columnKey: "browser",
+      sectionFilter: (tab) => tab.browserId === browserInstanceId,
+    };
+  }
+
+  if (activeGroupKey.startsWith("terminal-section:")) {
+    const terminalSection = activeGroupKey.slice("terminal-section:".length);
+    return {
+      columnKey: "terminal",
+      sectionFilter: (tab) => (tab.terminalSection ?? tab.kind) === terminalSection,
+    };
+  }
+
+  return { columnKey: activeGroupKey, sectionFilter: null };
+}
+
 export function useCenterStageTabGroups({
   browserTabs,
+  codeReviewTabVisible = false,
   effectiveContextId,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
+  projectWikiTabVisible = false,
+  terminalTabs = [],
 }: {
   browserTabs: BrowserCenterTab[];
+  codeReviewTabVisible?: boolean;
   effectiveContextId: string | null;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
+  projectWikiTabVisible?: boolean;
+  terminalTabs?: TerminalGroupTab[];
 }) {
   const t = useTranslations("appShell.centerStageTabGroups");
+  const tabBarT = useTranslations("appShell.centerStageTabBar");
   const browserFallbackLabel = t("browser.newTab");
   const [tabGroupOrderByContext, setTabGroupOrderByContext] =
     React.useState<TabGroupOrderByContext>(() => readCenterStageTabGroupOrder());
@@ -96,6 +155,43 @@ export function useCenterStageTabGroups({
     // matching the flat tab-bar order).
     const byOpenedAt = (left: { openedAt: number }, right: { openedAt: number }) =>
       left.openedAt - right.openedAt;
+
+    // Terminals first (matches the center tab bar). Regular terminals, Project Wiki,
+    // and Code Review sit in one column with horizontal rules between families —
+    // same pattern as browser instances.
+    const terminalGroupTabs: TabGroupItem[] = [];
+    terminalTabs.forEach((tab) => {
+      terminalGroupTabs.push({
+        id: tab.id,
+        label: tab.customTitle || tab.title,
+        value: tab.id,
+        kind: "terminal",
+        terminalSection: "regular",
+      });
+    });
+    if (projectWikiTabVisible) {
+      terminalGroupTabs.push({
+        id: "project-wiki",
+        label: tabBarT("projectWiki"),
+        value: "project-wiki",
+        kind: "project-wiki",
+        terminalSection: "project-wiki",
+        separatorBefore: terminalGroupTabs.length > 0,
+      });
+    }
+    if (codeReviewTabVisible) {
+      terminalGroupTabs.push({
+        id: "code-review",
+        label: tabBarT("codeReview"),
+        value: "code-review",
+        kind: "code-review",
+        terminalSection: "code-review",
+        separatorBefore: terminalGroupTabs.length > 0,
+      });
+    }
+    if (terminalGroupTabs.length > 0) {
+      groups.push({ key: "terminal", label: t("groups.terminal"), tabs: terminalGroupTabs });
+    }
 
     // File tabs (regular editor files, not diffs / reviews / conflicts)
     const fileTabs: TabGroupItem[] = [];
@@ -223,15 +319,29 @@ export function useCenterStageTabGroups({
     }
 
     return groups;
-  }, [browserFallbackLabel, browserTabs, githubTabs, openFiles, previewBrowserPrefs, t]);
+  }, [
+    browserFallbackLabel,
+    browserTabs,
+    codeReviewTabVisible,
+    githubTabs,
+    openFiles,
+    previewBrowserPrefs,
+    projectWikiTabVisible,
+    t,
+    tabBarT,
+    terminalTabs,
+  ]);
 
   const orderedGroupedTabItems = React.useMemo(() => {
     const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;
     return groupedTabItems.map((group) => {
-      // Browser column mixes multiple browser instances. Order is stored and
-      // applied per instance so tabs cannot be interleaved across browsers.
+      // Browser / terminal columns mix multiple families. Order is stored and
+      // applied per section so tabs cannot be interleaved across separators.
       if (group.key === "browser") {
         return applyBrowserGroupOrder(group, contextOrder);
+      }
+      if (group.key === "terminal") {
+        return applyTerminalGroupOrder(group, contextOrder);
       }
       return applySavedTabGroupOrder(group, contextOrder?.[group.key]);
     });
@@ -244,21 +354,15 @@ export function useCenterStageTabGroups({
     const overGroupKey = event.over.data.current?.groupKey;
     if (typeof activeGroupKey !== "string" || activeGroupKey !== overGroupKey) return;
 
-    // Cross-browser drops share the Browser column but use different groupKeys
-    // (`browser-instance:<id>`). Same-key check above already rejects those.
-    const columnKey = activeGroupKey.startsWith("browser-instance:")
-      ? "browser"
-      : activeGroupKey;
+    // Cross-section drops share a column but use different groupKeys
+    // (`browser-instance:<id>` / `terminal-section:<id>`). Same-key check above
+    // already rejects those.
+    const { columnKey, sectionFilter } = resolveSectionedColumnKey(activeGroupKey);
     const group = orderedGroupedTabItems.find((item) => item.key === columnKey);
     if (!group) return;
 
-    const browserInstanceId = activeGroupKey.startsWith("browser-instance:")
-      ? activeGroupKey.slice("browser-instance:".length)
-      : null;
-    const ids = browserInstanceId
-      ? group.tabs
-          .filter((tab) => tab.browserId === browserInstanceId)
-          .map((tab) => tab.id)
+    const ids = sectionFilter
+      ? group.tabs.filter(sectionFilter).map((tab) => tab.id)
       : group.tabs.map((tab) => tab.id);
 
     const oldIndex = ids.indexOf(String(event.active.id));

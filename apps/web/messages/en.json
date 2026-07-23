@@ -1034,6 +1034,7 @@
     },
     "centerStageTabGroups": {
       "groups": {
+        "terminal": "Terminal",
         "file": "File",
         "diff": "Diff",
         "review": "Review",

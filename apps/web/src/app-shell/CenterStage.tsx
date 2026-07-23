@@ -156,7 +156,7 @@ const CenterStage: React.FC = () => {
   const consumeWorkspaceAgentRun = useWorkspaceCreationStore((s) => s.consumeAgentRun);
 
   // Wait for editor store hydration to avoid SSR mismatch
-  useEditorStoreHydration();
+  const isEditorHydrated = useEditorStoreHydration();
 
   const { workspaceId, projectId: projectIdFromUrl, effectiveContextId, currentView } = useContextParams();
   const githubTabs = useGithubCenterTabsStore((state) =>
@@ -227,6 +227,11 @@ const CenterStage: React.FC = () => {
       (hasNoTerminalTabs || state.hydratedTerminalScopes.has(effectiveContextId))
     );
   });
+  // Reactive per-workspace last active terminal (used when URL tab is not valid for this context).
+  const workspaceActiveTerminalTabId = useTerminalStore((state) => {
+    if (!effectiveContextId) return null;
+    return state.getActiveTerminalTabId(effectiveContextId);
+  });
   const setupProgressMap = useProjectStore((s) => s.setupProgress);
   const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
@@ -234,11 +239,28 @@ const CenterStage: React.FC = () => {
     () => terminalTabs ?? [{ id: FIXED_TERMINAL_TAB_VALUE, title: t("fallbackTerminalTitle"), closable: true }],
     [t, terminalTabs]
   );
-  const fallbackCenterTab = visibleTerminalTabs[0]?.id ?? "overview";
+  // Prefer the workspace's remembered active terminal over always defaulting to the first tab.
+  const fallbackCenterTab =
+    (workspaceActiveTerminalTabId &&
+    visibleTerminalTabs.some((tab) => tab.id === workspaceActiveTerminalTabId)
+      ? workspaceActiveTerminalTabId
+      : visibleTerminalTabs[0]?.id) ?? "overview";
   const mountedTerminalTabs = React.useMemo(
     () => (effectiveContextId ? mountedTerminalTabsByContext[effectiveContextId] ?? [] : []),
     [effectiveContextId, mountedTerminalTabsByContext]
   );
+  // When the workspace/project context changes, hold off on persisting the transient
+  // fallback tab until we've tried to restore the last active center tab for that context.
+  // `restoringCenterTabToRef` tracks an in-flight restore target so we do not persist the
+  // fallback while nuqs/URL (or setActiveFile) is still catching up.
+  const pendingCenterTabRestoreContextRef = React.useRef<string | null>(null);
+  const restoringCenterTabToRef = React.useRef<string | null>(null);
+  const lastSeenCenterContextIdRef = React.useRef<string | null | undefined>(undefined);
+  if (lastSeenCenterContextIdRef.current !== effectiveContextId) {
+    lastSeenCenterContextIdRef.current = effectiveContextId;
+    pendingCenterTabRestoreContextRef.current = effectiveContextId;
+    restoringCenterTabToRef.current = null;
+  }
 
   const centerWikiTabEnabled = useExperimentSettingsStore((s) => s.centerWikiTabEnabled);
   const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
@@ -569,41 +591,115 @@ const CenterStage: React.FC = () => {
     primeWorkspace(effectiveContextId, currentView === "project");
   }, [currentView, effectiveContextId, primeWorkspace]);
 
-  React.useEffect(() => {
-    if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;
-    setActiveTerminalTab(effectiveContextId, activeValue);
-  }, [effectiveContextId, activeValue, setActiveTerminalTab]);
-
+  // Restore the last active center tab when switching workspace/project context,
+  // then persist the settled selection. Must not persist the transient fallback tab
+  // (first terminal / URL mismatch) before restore runs — that clobbers the saved tab.
   React.useEffect(() => {
     if (!effectiveContextId || !activeValue) return;
-    setCenterStageLastTab(effectiveContextId, activeValue);
-  }, [effectiveContextId, activeValue]);
 
-  React.useEffect(() => {
-    if (!effectiveContextId || activeFilePath) return;
-    const last = readCenterStageLastTab(effectiveContextId);
-    if (!last || last === activeValue) return;
-    if (FIXED_TABS.has(last)) {
-      setFixedTab(last as FixedTab);
-      return;
+    if (pendingCenterTabRestoreContextRef.current === effectiveContextId) {
+      const restoreTarget = restoringCenterTabToRef.current;
+
+      // Waiting for a previously issued restore to land on activeValue.
+      if (restoreTarget) {
+        if (activeValue === restoreTarget || activeFilePath === restoreTarget) {
+          restoringCenterTabToRef.current = null;
+          pendingCenterTabRestoreContextRef.current = null;
+        } else {
+          const restoreFailed =
+            (restoreTarget === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) ||
+            (restoreTarget === "project-wiki" &&
+              !projectWikiTabVisible &&
+              tabFromUrl !== "project-wiki") ||
+            (restoreTarget === "code-review" &&
+              !codeReviewTabVisible &&
+              tabFromUrl !== "code-review") ||
+            (isTerminalCenterTabValue(restoreTarget) &&
+              isTerminalWorkspaceReady &&
+              !visibleTerminalTabs.some((tab) => tab.id === restoreTarget)) ||
+            (isGithubCenterTabValue(restoreTarget) &&
+              !githubTabs.some((tab) => tab.value === restoreTarget)) ||
+            (isBrowserCenterTabValue(restoreTarget) &&
+              !browserTabs.some((tab) => tab.value === restoreTarget));
+
+          if (!restoreFailed) {
+            return;
+          }
+          restoringCenterTabToRef.current = null;
+          pendingCenterTabRestoreContextRef.current = null;
+        }
+      } else if (activeFilePath) {
+        // An active file for this workspace is itself the restored surface.
+        pendingCenterTabRestoreContextRef.current = null;
+      } else {
+        const last = readCenterStageLastTab(effectiveContextId);
+        if (!last || last === activeValue) {
+          pendingCenterTabRestoreContextRef.current = null;
+        } else if (FIXED_TABS.has(last)) {
+          if (last === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
+            pendingCenterTabRestoreContextRef.current = null;
+          } else {
+            restoringCenterTabToRef.current = last;
+            setFixedTab(last as FixedTab);
+            return;
+          }
+        } else if (isTerminalCenterTabValue(last)) {
+          if (visibleTerminalTabs.some((tab) => tab.id === last)) {
+            restoringCenterTabToRef.current = last;
+            setUrlParams({ tab: last, wikiPage: null });
+            return;
+          }
+          // Terminal tabs may still be hydrating — keep pending until ready.
+          if (!isTerminalWorkspaceReady) {
+            return;
+          }
+          pendingCenterTabRestoreContextRef.current = null;
+        } else if (githubTabs.some((tab) => tab.value === last)) {
+          restoringCenterTabToRef.current = last;
+          setUrlParams({ tab: last, wikiPage: null });
+          return;
+        } else if (browserTabs.some((tab) => tab.value === last)) {
+          restoringCenterTabToRef.current = last;
+          setUrlParams({ tab: last, wikiPage: null });
+          return;
+        } else if (openFiles.some((f) => f.path === last)) {
+          restoringCenterTabToRef.current = last;
+          setActiveFile(last, effectiveContextId);
+          return;
+        } else if (!isEditorHydrated) {
+          // openFiles may still be empty before editor prefs hydrate.
+          return;
+        } else {
+          // Saved tab no longer exists (closed file / terminal / etc.).
+          pendingCenterTabRestoreContextRef.current = null;
+        }
+      }
     }
-    if (isTerminalCenterTabValue(last) && visibleTerminalTabs.some((tab) => tab.id === last)) {
-      setUrlParams({ tab: last, wikiPage: null });
-      return;
+
+    setCenterStageLastTab(effectiveContextId, activeValue);
+    if (isTerminalCenterTabValue(activeValue)) {
+      setActiveTerminalTab(effectiveContextId, activeValue);
     }
-    if (githubTabs.some((tab) => tab.value === last)) {
-      setUrlParams({ tab: last, wikiPage: null });
-      return;
-    }
-    if (browserTabs.some((tab) => tab.value === last)) {
-      setUrlParams({ tab: last, wikiPage: null });
-      return;
-    }
-    const exists = openFiles.some((f) => f.path === last);
-    if (exists) {
-      setActiveFile(last, effectiveContextId);
-    }
-  }, [effectiveContextId, activeFilePath, activeValue, browserTabs, githubTabs, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
+  }, [
+    effectiveContextId,
+    activeFilePath,
+    activeValue,
+    browserTabs,
+    centerWikiTabEnabled,
+    codeReviewTabVisible,
+    experimentPrefsLoaded,
+    githubTabs,
+    isEditorHydrated,
+    isTerminalWorkspaceReady,
+    openFiles,
+    projectWikiTabVisible,
+    setActiveFile,
+    setActiveTerminalTab,
+    setFixedTab,
+    setUrlParams,
+    tabFromUrl,
+    visibleTerminalTabs,
+  ]);
 
   const { defaultAgentId, terminalQuickOpenAgents } = useCenterStageTerminalAgents(isSetupBlocking);
 
@@ -1195,10 +1291,13 @@ const CenterStage: React.FC = () => {
     orderedGroupedTabItems,
   } = useCenterStageTabGroups({
     browserTabs,
+    codeReviewTabVisible,
     effectiveContextId,
     githubTabs,
     openFiles,
     previewBrowserPrefs,
+    projectWikiTabVisible,
+    terminalTabs: visibleTerminalTabs,
   });
 
   const currentRepoPath = centerStageRepoPath;

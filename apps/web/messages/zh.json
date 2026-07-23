@@ -1034,6 +1034,7 @@
     },
     "centerStageTabGroups": {
       "groups": {
+        "terminal": "终端",
         "file": "文件",
         "diff": "Diff",
         "review": "Review",

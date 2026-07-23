@@ -67,6 +67,12 @@ export type TabGroupItem = {
   browserContextId?: string;
   /** Favicon URL for browser internal tabs (kind === "browser"). */
   faviconUrl?: string;
+  /**
+   * Terminal family section id for the Terminals column
+   * (e.g. "regular" | "project-wiki" | "code-review"). Different sections
+   * are separated by a horizontal rule, like browser instances.
+   */
+  terminalSection?: string;
   /** Draw a horizontal rule above this item (e.g. between different browsers). */
   separatorBefore?: boolean;
 };
@@ -361,8 +367,8 @@ export function CenterStageTabGroupPopover({
                           />
                         ) : null}
                         {/*
-                          Each browser instance gets its own DndContext so tabs
-                          cannot be dragged across the horizontal separator.
+                          Each section (browser instance / terminal family) gets
+                          its own DndContext so tabs cannot cross separators.
                         */}
                         <DndContext
                           sensors={sensors}
@@ -410,30 +416,48 @@ export function CenterStageTabGroupPopover({
 
 /**
  * Split a group column into independent sortable sections.
- * Browser tabs are partitioned by browser instance so DnD cannot cross separators.
+ * Browser tabs are partitioned by browser instance; terminal tabs by family
+ * (regular / project-wiki / code-review) so DnD cannot cross separators.
  */
 function splitTabGroupSections(group: {
   key: string;
   tabs: TabGroupItem[];
 }): Array<{ key: string; sortableKey: string; tabs: TabGroupItem[] }> {
-  if (group.key !== "browser") {
-    return [{ key: group.key, sortableKey: group.key, tabs: group.tabs }];
+  if (group.key === "browser") {
+    return splitBySectionKey(group.tabs, (tab) => tab.browserId, "browser-instance");
   }
 
+  if (group.key === "terminal") {
+    return splitBySectionKey(
+      group.tabs,
+      (tab) => tab.terminalSection ?? tab.kind,
+      "terminal-section",
+    );
+  }
+
+  return [{ key: group.key, sortableKey: group.key, tabs: group.tabs }];
+}
+
+function splitBySectionKey(
+  tabs: TabGroupItem[],
+  getSectionId: (tab: TabGroupItem) => string | undefined,
+  keyPrefix: string,
+): Array<{ key: string; sortableKey: string; tabs: TabGroupItem[] }> {
   const sections: Array<{ key: string; sortableKey: string; tabs: TabGroupItem[] }> = [];
-  let currentBrowserId: string | undefined;
+  let currentSectionId: string | undefined;
   let currentTabs: TabGroupItem[] = [];
 
-  for (const tab of group.tabs) {
-    if (tab.browserId !== currentBrowserId) {
-      if (currentTabs.length > 0 && currentBrowserId) {
+  for (const tab of tabs) {
+    const sectionId = getSectionId(tab);
+    if (sectionId !== currentSectionId) {
+      if (currentTabs.length > 0 && currentSectionId) {
         sections.push({
-          key: `browser-instance:${currentBrowserId}`,
-          sortableKey: `browser-instance:${currentBrowserId}`,
+          key: `${keyPrefix}:${currentSectionId}`,
+          sortableKey: `${keyPrefix}:${currentSectionId}`,
           tabs: currentTabs,
         });
       }
-      currentBrowserId = tab.browserId;
+      currentSectionId = sectionId;
       currentTabs = [tab];
     } else {
       currentTabs.push(tab);
@@ -441,10 +465,10 @@ function splitTabGroupSections(group: {
   }
 
   if (currentTabs.length > 0) {
-    const browserId = currentBrowserId ?? "unknown";
+    const sectionId = currentSectionId ?? "unknown";
     sections.push({
-      key: `browser-instance:${browserId}`,
-      sortableKey: `browser-instance:${browserId}`,
+      key: `${keyPrefix}:${sectionId}`,
+      sortableKey: `${keyPrefix}:${sectionId}`,
       tabs: currentTabs,
     });
   }
