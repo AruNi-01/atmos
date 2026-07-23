@@ -41,6 +41,7 @@ function compactMetricLabel(label: string): string {
   if (normalized.includes("5") && normalized.includes("hour")) return "5h";
   if (normalized.includes("1") && normalized.includes("week")) return "1w";
   if (normalized.includes("7") && normalized.includes("day")) return "1w";
+  if (normalized.includes("month")) return "1m";
   if (normalized.includes("included")) return "Included";
   if (normalized.includes("on-demand") || normalized.includes("on demand")) return "On Demand";
   return label.replace(/\s+usage$/i, "").trim();

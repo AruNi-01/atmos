@@ -19,7 +19,8 @@ pub(crate) const OPENCODE_WEEK_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 pub(crate) const FACTORY_APP_URL: &str = "https://app.factory.ai";
 pub(crate) const FACTORY_API_URL: &str = "https://api.factory.ai";
 pub(crate) const FACTORY_AUTH_ME_PATH: &str = "/api/app/auth/me";
-pub(crate) const FACTORY_USAGE_PATH: &str = "/api/organization/subscription/usage";
+/// Token-rate-limit windows (5h / weekly / monthly) used by Factory billing UI.
+pub(crate) const FACTORY_BILLING_LIMITS_PATH: &str = "/api/billing/limits";
 pub(crate) const ZED_BILLING_USAGE_URL: &str = "https://cloud.zed.dev/frontend/billing/usage";
 pub(crate) const ZED_SUBSCRIPTION_URL: &str =
     "https://cloud.zed.dev/frontend/billing/subscriptions/current";
