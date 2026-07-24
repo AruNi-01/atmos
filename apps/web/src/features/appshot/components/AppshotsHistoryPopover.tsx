@@ -48,7 +48,8 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const [records, setRecords] = React.useState<AppshotRecordListItem[]>([]);
   const [details, setDetails] = React.useState<Record<string, AppshotRecordDetail>>({});
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
-  const [historyLoading, setHistoryLoading] = React.useState(false);
+  // Start true so the first paint after open is skeleton, not empty-state flash.
+  const [historyLoading, setHistoryLoading] = React.useState(true);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const [copyingTimestamp, setCopyingTimestamp] = React.useState<string | null>(null);
@@ -81,9 +82,23 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     setHistoryError(null);
     try {
       const nextRecords = await listAppshotRecords();
-      setRecords([...nextRecords].sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      const sorted = [...nextRecords].sort((a, b) =>
+        b.timestamp.localeCompare(a.timestamp),
+      );
+      setRecords(sorted);
       setVisibleCount(PAGE_SIZE);
-      setDetails({});
+      // Keep detail cache for timestamps that still exist so refresh does not
+      // flash every row back to skeleton.
+      setDetails((current) => {
+        const next: Record<string, AppshotRecordDetail> = {};
+        for (const item of sorted) {
+          const existing = current[item.timestamp];
+          if (existing) {
+            next[item.timestamp] = existing;
+          }
+        }
+        return next;
+      });
     } catch (err) {
       setHistoryError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -162,6 +177,12 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const deniedPermissions = getDeniedAppshotPermissions(status);
   const visibleRecords = records.slice(0, visibleCount);
   const hasMore = visibleCount < records.length;
+  // Full skeleton on first load (no rows yet), or after list arrives but before any
+  // visible detail resolves. Keep existing rows visible during soft refresh.
+  const showHistorySkeleton =
+    (historyLoading && records.length === 0) ||
+    (records.length > 0 &&
+      visibleRecords.every((item) => details[item.timestamp] == null));
 
   const handleOpenPermission = React.useCallback(
     async () => {
@@ -335,9 +356,15 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
           className="h-[min(42vh,360px)] min-h-[160px] pr-1"
           scrollbarGutter
         >
-          <div className="space-y-2">
-            {historyLoading ? (
-              <HistorySkeleton />
+          <div className="space-y-2" aria-busy={showHistorySkeleton || detailLoading}>
+            {showHistorySkeleton ? (
+              <HistorySkeleton
+                count={
+                  records.length > 0
+                    ? Math.min(visibleRecords.length, PAGE_SIZE)
+                    : 3
+                }
+              />
             ) : records.length === 0 ? (
               <div className="rounded-md border border-border bg-muted/20 px-3 py-6 text-center text-xs text-muted-foreground">
                 {t("history.noAppshotsYet")}
@@ -400,27 +427,33 @@ function InlineError({ message }: { message: string }) {
   );
 }
 
-function HistorySkeleton() {
+function HistorySkeleton({ count = 3 }: { count?: number }) {
   return (
     <>
-      <HistorySkeletonRow />
-      <HistorySkeletonRow />
-      <HistorySkeletonRow />
+      {Array.from({ length: count }, (_, index) => (
+        <HistorySkeletonRow key={index} />
+      ))}
     </>
   );
 }
 
 function HistorySkeletonRow() {
+  // Mirror AppshotRecordRow layout to avoid layout shift when details resolve.
   return (
-    <div className="grid h-[72px] grid-cols-[96px_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-muted/20">
-      <Skeleton className="h-full w-24 rounded-none" />
-      <div className="space-y-2 px-3 py-2">
-        <Skeleton className="h-3 w-44" />
-        <Skeleton className="h-3 w-full" />
-      </div>
-      <div className="flex gap-1 px-2 py-2">
-        <Skeleton className="size-6 rounded-md" />
-        <Skeleton className="size-6 rounded-md" />
+    <div className="grid h-[72px] grid-cols-[96px_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-muted/20">
+      <Skeleton className="h-full w-24 rounded-none border-r border-border" />
+      <div className="flex min-w-0 flex-col justify-center gap-1 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <Skeleton className="h-3 w-24 shrink-0" />
+          <Skeleton className="ml-auto h-3 w-12 shrink-0" />
+        </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <Skeleton className="h-3 min-w-0 flex-1" />
+          <div className="flex shrink-0 gap-1">
+            <Skeleton className="size-6 rounded-md" />
+            <Skeleton className="size-6 rounded-md" />
+          </div>
+        </div>
       </div>
     </div>
   );

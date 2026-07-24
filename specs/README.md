@@ -118,6 +118,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-038** | Onboarding Page | `specs/APP/APP-038_onboarding-page/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-039** | Terminal `/spawn` Command | `specs/APP/APP-039_terminal-spawn-command/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-040** | Composer Skills Disable | `specs/APP/APP-040_composer-skills-disable/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-041** | Browser Cookie Sync (+ toolbar `···` menu, Clear Cache / Clear Site Data) | `specs/APP/APP-041_browser-cookie-sync/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-042** | Disk Analyzer | `specs/APP/APP-042_disk-analyzer/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |

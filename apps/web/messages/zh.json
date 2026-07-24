@@ -1039,6 +1039,7 @@
     },
     "centerStageTabGroups": {
       "groups": {
+        "terminal": "终端",
         "file": "文件",
         "diff": "Diff",
         "review": "Review",
@@ -7610,6 +7611,76 @@
         "maximizePreview": "最大化浏览器",
         "minimize": "还原",
         "minimizePreview": "还原浏览器"
+      },
+      "overflow": {
+        "moreActions": "更多操作"
+      },
+      "cookieSync": {
+        "menu": {
+          "import": "从你的浏览器导入",
+          "clearCache": "清理缓存数据",
+          "clearSiteData": "清理 Cookie & Storage"
+        },
+        "browsers": {
+          "Chrome": "Google Chrome",
+          "Edge": "Microsoft Edge",
+          "Brave": "Brave",
+          "Firefox": "Firefox",
+          "unknown": "浏览器"
+        },
+        "import": {
+          "title": "从你的浏览器导入",
+          "description": "从这台 Mac 上的其他浏览器导入 Cookie，把已有的登录状态带入 Atmos 浏览器。所有数据都保留在本机。",
+          "fromLabel": "来源",
+          "profilePlaceholder": "选择一个浏览器配置文件",
+          "loading": "正在查找浏览器…",
+          "noBrowsers": "在这台 Mac 上未找到受支持的浏览器",
+          "runningHint": "导入前请彻底关闭 {browser}。",
+          "cookiesToggleLabel": "Cookie",
+          "cookiesToggleHint": "导入该配置文件已保存的登录 Cookie。",
+          "cancel": "取消",
+          "import": "导入",
+          "importing": "正在导入…",
+          "result": {
+            "verified": "已导入并验证 {count} 个 Cookie",
+            "noneImported": "未导入任何 Cookie。",
+            "skippedExpired": "跳过 {count} 个已过期的 Cookie",
+            "skippedDecrypt": "有 {count} 个 Cookie 无法解密",
+            "skippedParse": "有 {count} 个 Cookie 无法读取",
+            "skippedUnsupported": "跳过 {count} 个不支持的 Cookie",
+            "failedInjection": "有 {count} 个 Cookie 被浏览器存储拒绝",
+            "reloadHint": "重新加载当前标签页以应用导入的登录状态。",
+            "reload": "重新加载以应用",
+            "done": "完成"
+          }
+        },
+        "clear": {
+          "cacheTitle": "清理缓存数据？",
+          "cacheDescription": "仅删除缓存文件。你的 Cookie 和登录状态会保留，因此你仍处于登录状态。",
+          "siteDataTitle": "清理 Cookie & Storage？",
+          "siteDataDescription": "删除该浏览器的 Cookie 和本地存储（localStorage、IndexedDB 等），并一并清理缓存文件。这会让你退出已登录的站点。",
+          "cancel": "取消",
+          "confirmCache": "清理缓存数据",
+          "confirmSiteData": "清理 Cookie & Storage",
+          "retry": "重试",
+          "clearing": "正在清理…",
+          "clearedCache": "缓存数据已清理",
+          "clearedSiteData": "Cookie & Storage 已清理",
+          "done": "完成"
+        },
+        "errors": {
+          "UnsupportedPlatform": "导入 Cookie 需要 macOS 14 或更高版本。",
+          "ProfileNotFound": "找不到该浏览器配置文件，请重新选择。",
+          "BrowserRunning": "请彻底关闭来源浏览器，然后重试。",
+          "KeychainDenied": "钥匙串访问被拒绝。请允许访问以导入 Cookie。",
+          "KeychainUnavailable": "钥匙串不可用，无法解密 Cookie。",
+          "DatabaseBusy": "浏览器的 Cookie 数据库正忙。请关闭来源浏览器后重试。",
+          "Busy": "另一项 Cookie 操作仍在进行中。请等待其完成后再试。",
+          "Forbidden": "无法从此处执行该操作。",
+          "Io": "读取浏览器数据时出错。请重试。",
+          "InvalidSchema": "尚不支持该浏览器版本。",
+          "Unknown": "出现问题，请重试。"
+        }
       },
       "standalone": {
         "embeddedTitle": "浏览器已在单独窗口中打开",

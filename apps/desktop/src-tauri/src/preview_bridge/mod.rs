@@ -581,6 +581,12 @@ fn open_preview_child(
                 WebviewUrl::External(url.parse::<Url>().map_err(|error| error.to_string())?),
             )
             .devtools(true)
+            // Target-site content lives in a dedicated WebKit data store so
+            // cookie import / clear never touch Atmos's own app state. macOS 14+
+            // only; on older macOS wry falls back to the default store, but the
+            // cookie commands are gated to 14+ and refuse to run there, so no
+            // import/clear ever targets the default store.
+            .data_store_identifier(crate::browser_cookies::PREVIEW_DATA_STORE_ID)
             .initialization_script(desktop_bridge_script(bridge_token))
             .on_page_load(move |webview, payload| {
                 handle_page_load(&app_handle, &webview, &page_load_session_id, payload);
@@ -621,6 +627,8 @@ fn open_preview_detached_window(
     .resizable(true)
     .decorations(true)
     .devtools(true)
+    // Same dedicated data store as the embedded child (see open_preview_child).
+    .data_store_identifier(crate::browser_cookies::PREVIEW_DATA_STORE_ID)
     .initialization_script(desktop_bridge_script(bridge_token))
     .on_page_load(move |webview, payload| {
         handle_page_load(
@@ -926,18 +934,30 @@ pub fn clear_annotations(app: &AppHandle, session_id: &str) -> Result<(), String
 }
 
 pub fn open_preview_devtools(app: &AppHandle, session_id: &str) -> Result<(), String> {
-    let label = preview_surface_label(session_id);
-    if let Some(preview_window) = app.get_webview_window(&label) {
-        preview_window.open_devtools();
-        return Ok(());
+    // Tauri only compiles open_devtools when debug_assertions or the `devtools`
+    // crate feature is on. Production release builds omit both so Option+Cmd+I
+    // and programmatic inspector access stay disabled for shipping apps.
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
+        let label = preview_surface_label(session_id);
+        if let Some(preview_window) = app.get_webview_window(&label) {
+            preview_window.open_devtools();
+            return Ok(());
+        }
+
+        if let Some(preview) = app.get_webview(&label) {
+            preview.open_devtools();
+            return Ok(());
+        }
+
+        return Err("preview inspector window not open".to_string());
     }
 
-    if let Some(preview) = app.get_webview(&label) {
-        preview.open_devtools();
-        return Ok(());
+    #[cfg(not(any(debug_assertions, feature = "devtools")))]
+    {
+        let _ = (app, session_id);
+        Err("Developer tools are only available in development builds.".to_string())
     }
-
-    Err("preview inspector window not open".to_string())
 }
 
 pub fn close_preview_window(app: &AppHandle, session_id: &str) -> Result<(), String> {
