@@ -50,6 +50,96 @@ const calls = {
 let recordItems: AppshotRecordListItem[] = [];
 let recordDetails = new Map<string, AppshotRecordDetail>();
 let deniedPermissions: AppshotPermissionState[] = [];
+let listDelayMs = 0;
+
+const historyMessages: Record<string, string> = {
+  "history.title": "Appshots",
+  "history.refreshTitle": "Refresh Appshots",
+  "history.refreshAriaLabel": "Refresh Appshots",
+  "history.description.beforeShortcut": "Capture the focused app window with ",
+  "history.description.afterShortcut": ".",
+  "history.unsupportedInThisRuntime": "Appshots are not supported in this runtime.",
+  "history.permissionsRequiredTitle": "Permissions required",
+  "history.permissionsRequiredDescription":
+    "Grant the required macOS permissions to capture Appshots.",
+  "history.enable": "Enable",
+  "history.recentRecords": "Recent Appshot records",
+  "history.recentRecordsAriaLabel": "Recent Appshot records",
+  "history.noAppshotsYet": "No Appshots yet.",
+  "history.more": "More",
+  "history.previewAlt": "{appName} preview",
+  "history.errorIconAriaLabel": "Error",
+  "history.recordRow.untitledWindow": "Untitled window",
+  "history.recordRow.previewScreenshotAriaLabel": "Preview screenshot for {label}",
+  "history.recordRow.previewScreenshotAlt": "{label} screenshot preview",
+  "history.recordRow.copiedTitle": "Copied",
+  "history.recordRow.copyTitle": "Copy Appshot reference",
+  "history.recordRow.copiedAriaLabel": "Copied Appshot reference",
+  "history.recordRow.copyAriaLabel": "Copy Appshot reference",
+  "history.recordRow.deleteTitle": "Delete Appshot record",
+  "history.recordRow.deleteAriaLabel": "Delete Appshot record",
+};
+
+function translateHistory(
+  key: string,
+  values?: Record<string, string | number>,
+): string {
+  const template = historyMessages[key] ?? key;
+  if (!values) {
+    return template;
+  }
+  return template.replace(/\{(\w+)\}/g, (_, name: string) =>
+    values[name] == null ? `{${name}}` : String(values[name]),
+  );
+}
+
+mock.module("next-intl", () => ({
+  useTranslations: () => translateHistory,
+  createTranslator: () =>
+    (key: string, values?: Record<string, string | number>) => {
+      const protocolMessages: Record<string, string> = {
+        "protocol.promptBody": "Appshot captured at {timestamp}",
+        "protocol.unknownApp": "Unknown app",
+        "protocol.appshotTitle": "Appshot {timestamp}",
+        "protocol.quality.screenshotAndUiTree": "Screenshot + UI tree",
+        "protocol.quality.screenshotOnly": "Screenshot only",
+        "protocol.quality.uiTreeOnly": "UI tree only",
+        "protocol.quality.metadataOnly": "Metadata only",
+        "protocol.quality.unsupported": "Unsupported",
+        "protocol.invalidTimestamp": "Invalid Appshot timestamp",
+      };
+      const template = protocolMessages[key] ?? key;
+      if (!values) {
+        return template;
+      }
+      return template.replace(/\{(\w+)\}/g, (_, name: string) =>
+        values[name] == null ? `{${name}}` : String(values[name]),
+      );
+    },
+}));
+
+mock.module("@/shared/components/image-preview-overlay", () => ({
+  ImagePreviewOverlay: ({
+    alt,
+    onClose,
+  }: {
+    alt: string;
+    onClose: () => void;
+  }) => (
+    <div data-testid="appshot-image-preview">
+      <span>{alt}</span>
+      <button type="button" onClick={onClose}>
+        Close preview
+      </button>
+    </div>
+  ),
+}));
+
+mock.module("@/shared/components/shortcut-key-sequence", () => ({
+  ShortcutKeySequence: ({ keys }: { keys: string[] }) => (
+    <span data-testid="shortcut-keys">{keys.join("+")}</span>
+  ),
+}));
 
 mock.module("@workspace/ui", () => ({
   Badge: ({ children, variant, ...props }: TestSpanProps) => {
@@ -127,6 +217,11 @@ mock.module("../lib/appshot-client", () => ({
   getDeniedAppshotPermissions: () => deniedPermissions,
   listAppshotRecords: async (): Promise<AppshotRecordListItem[]> => {
     calls.list += 1;
+    if (listDelayMs > 0) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, listDelayMs);
+      });
+    }
     return recordItems;
   },
   readAppshotRecords: async (
@@ -187,6 +282,7 @@ beforeEach(() => {
   recordItems = [];
   recordDetails = new Map();
   deniedPermissions = [];
+  listDelayMs = 0;
 });
 
 afterEach(async () => {
@@ -237,10 +333,18 @@ describe("S7/S8 - Header Appshots history", () => {
 
     expect(calls.copy).toEqual([newestFirst[0]]);
 
-    await click(getButtonsByLabel(container, "Preview screenshot for App #11 - Window #11")[0]);
+    await click(
+      getButtonsByLabel(container, "Preview screenshot for App #11 - Window #11")[0],
+    );
     await flushUntil(() => calls.readSnapshot.length === 1);
 
     expect(calls.readSnapshot).toEqual([newestFirst[0]]);
+
+    // Close the preview overlay first — its alt text also includes the app name.
+    await click(getButtonByText(container, "Close preview"));
+    await flushUntil(
+      () => container.querySelector('[data-testid="appshot-image-preview"]') == null,
+    );
 
     await click(getButtonsByLabel(container, "Delete Appshot record")[0]);
     await flushUntil(() => !container.textContent?.includes("App #11"));
@@ -260,11 +364,29 @@ describe("S7/S8 - Header Appshots history", () => {
     await flushUntil(() => container.textContent?.includes("Permissions required") ?? false);
 
     expect(getButtonsByText(container, "Enable")).toHaveLength(1);
-    expect(container.textContent).not.toContain("Grant");
+    expect(getButtonsByText(container, "Grant")).toHaveLength(0);
 
     await click(getButtonByText(container, "Enable"));
 
     expect(calls.showPermissions).toBe(1);
+  });
+
+  it("shows a history skeleton on first paint instead of the empty state", async () => {
+    listDelayMs = 40;
+    seedRecords(2);
+
+    const container = await renderHistoryPopover();
+
+    expect(
+      container.querySelectorAll('[data-testid="appshot-history-skeleton"]').length,
+    ).toBeGreaterThan(0);
+    expect(container.textContent).not.toContain("No Appshots yet.");
+
+    await flushUntil(() => uniqueReadTimestamps().length === 2);
+    await flushUntil(() => container.textContent?.includes("App #01") ?? false);
+
+    expect(container.textContent).toContain("App #01");
+    expect(container.textContent).toContain("App #00");
   });
 });
 
