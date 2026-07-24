@@ -662,3 +662,100 @@ export function breadcrumbPaths(root: DiskNode, currentPath: string): DiskNode[]
   walk(root);
   return chain;
 }
+
+/** True when `ancestor` is a filesystem path prefix of `descendant` (not equal). */
+export function isFsPathAncestor(ancestor: string, descendant: string): boolean {
+  if (!ancestor || !descendant || ancestor === descendant) return false;
+  // Synthetic overview roots are not string prefixes of real FS paths.
+  if (ancestor.startsWith("atmos://") || descendant.startsWith("atmos://")) {
+    return false;
+  }
+  const prefix = ancestor.endsWith("/") ? ancestor : `${ancestor}/`;
+  return descendant.startsWith(prefix);
+}
+
+function collectTreePaths(node: DiskNode, out: Set<string>): void {
+  out.add(node.path);
+  for (const child of node.children ?? []) {
+    collectTreePaths(child, out);
+  }
+}
+
+function stubDiskNode(path: string): DiskNode {
+  const trimmed = path.replace(/\/+$/, "") || path;
+  const name =
+    trimmed === "/"
+      ? "/"
+      : trimmed.includes("/")
+        ? (trimmed.split("/").filter(Boolean).pop() ?? trimmed)
+        : trimmed;
+  return {
+    name,
+    path,
+    size: 0,
+    is_dir: true,
+    is_project: false,
+    file_count: 0,
+    dir_count: 0,
+    children: [],
+  };
+}
+
+function resolveBreadcrumbNode(
+  path: string,
+  root: DiskNode,
+  levelCache: Record<string, DiskNode>,
+): DiskNode {
+  if (path === root.path) return root;
+  return levelCache[path] ?? findNodeByPath(root, path) ?? stubDiskNode(path);
+}
+
+/**
+ * Breadcrumb chain for the focused path.
+ *
+ * Prefer a linked walk through `root`. When on-demand level loads have not yet
+ * grafted the focus path into the root tree (common after list drill-in), fall
+ * back to known ancestors in `levelCache` + tree nodes so the trail does not
+ * collapse to only the scan root.
+ */
+export function buildBreadcrumbs(
+  root: DiskNode,
+  currentPath: string,
+  levelCache: Record<string, DiskNode> = {},
+): DiskNode[] {
+  if (!currentPath || currentPath === root.path) {
+    return [root];
+  }
+
+  const linked = breadcrumbPaths(root, currentPath);
+  if (linked.length > 0) return linked;
+
+  const known = new Set<string>();
+  collectTreePaths(root, known);
+  for (const path of Object.keys(levelCache)) {
+    known.add(path);
+  }
+  known.add(currentPath);
+
+  const ancestors = [...known]
+    .filter(
+      (path) =>
+        path !== currentPath &&
+        path !== root.path &&
+        isFsPathAncestor(path, currentPath),
+    )
+    .sort((a, b) => a.length - b.length || a.localeCompare(b));
+
+  const chain: DiskNode[] = [root];
+  for (const path of ancestors) {
+    const node = resolveBreadcrumbNode(path, root, levelCache);
+    if (chain[chain.length - 1]?.path !== node.path) {
+      chain.push(node);
+    }
+  }
+  const current = resolveBreadcrumbNode(currentPath, root, levelCache);
+  if (chain[chain.length - 1]?.path !== current.path) {
+    chain.push(current);
+  }
+  return chain;
+}

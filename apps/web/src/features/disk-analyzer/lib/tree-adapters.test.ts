@@ -13,6 +13,7 @@ import {
   takeTopChildren,
   toEChartsTree,
   breadcrumbPaths,
+  buildBreadcrumbs,
   type DiskFilters,
 } from "./tree-adapters";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
@@ -291,6 +292,117 @@ describe("disk analyzer tree adapters", () => {
   test("breadcrumbs", () => {
     const crumbs = breadcrumbPaths(sample, "/home/proj/src");
     expect(crumbs.map((c) => c.name)).toEqual(["home", "proj", "src"]);
+  });
+
+  test("buildBreadcrumbs prefers linked tree walk", () => {
+    const crumbs = buildBreadcrumbs(sample, "/home/proj/src");
+    expect(crumbs.map((c) => c.name)).toEqual(["home", "proj", "src"]);
+  });
+
+  test("buildBreadcrumbs keeps hierarchy when focus is only in levelCache", () => {
+    // Shallow root as after a late overview refresh wiped grafted deep nodes.
+    const shallowRoot: DiskNode = {
+      name: "Atmos",
+      path: "atmos://disk-usage",
+      size: 1000,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 1,
+      children: [
+        {
+          name: "proj",
+          path: "/home/proj",
+          size: 600,
+          is_dir: true,
+          is_project: true,
+          file_count: 0,
+          dir_count: 1,
+          children: [],
+          children_loaded: false,
+        },
+      ],
+    };
+    const levelCache: Record<string, DiskNode> = {
+      "/home/proj": {
+        name: "proj",
+        path: "/home/proj",
+        size: 600,
+        is_dir: true,
+        is_project: true,
+        file_count: 1,
+        dir_count: 1,
+        children_loaded: true,
+        children: [
+          {
+            name: "src",
+            path: "/home/proj/src",
+            size: 400,
+            is_dir: true,
+            is_project: false,
+            file_count: 1,
+            dir_count: 0,
+            children: [],
+          },
+        ],
+      },
+      "/home/proj/src": {
+        name: "src",
+        path: "/home/proj/src",
+        size: 400,
+        is_dir: true,
+        is_project: false,
+        file_count: 1,
+        dir_count: 0,
+        children_loaded: true,
+        children: [
+          {
+            name: "main.rs",
+            path: "/home/proj/src/main.rs",
+            size: 12,
+            is_dir: false,
+            is_project: false,
+            file_count: 0,
+            dir_count: 0,
+            children: [],
+          },
+        ],
+      },
+    };
+
+    // Tree walk cannot reach /home/proj/src (not linked under shallow root).
+    expect(breadcrumbPaths(shallowRoot, "/home/proj/src")).toEqual([]);
+
+    const crumbs = buildBreadcrumbs(shallowRoot, "/home/proj/src", levelCache);
+    expect(crumbs.map((c) => c.path)).toEqual([
+      "atmos://disk-usage",
+      "/home/proj",
+      "/home/proj/src",
+    ]);
+  });
+
+  test("buildBreadcrumbs does not collapse to root while deep focus is loading", () => {
+    const shallowRoot: DiskNode = {
+      ...sample,
+      children: sample.children?.map((c) =>
+        c.path === "/home/proj" ? { ...c, children: [] } : c,
+      ),
+    };
+    const levelCache: Record<string, DiskNode> = {
+      "/home/proj": {
+        name: "proj",
+        path: "/home/proj",
+        size: 600,
+        is_dir: true,
+        is_project: true,
+        file_count: 1,
+        dir_count: 1,
+        children_loaded: true,
+        children: [],
+      },
+    };
+    const crumbs = buildBreadcrumbs(shallowRoot, "/home/proj/src", levelCache);
+    expect(crumbs.map((c) => c.path)).toEqual(["/home", "/home/proj", "/home/proj/src"]);
   });
 
   test("takeTopChildren collapses remainder", () => {

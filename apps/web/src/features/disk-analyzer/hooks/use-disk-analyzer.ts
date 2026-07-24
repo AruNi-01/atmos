@@ -19,25 +19,68 @@ import {
   removeDiskAnalyzerQueries,
 } from "@/features/disk-analyzer/lib/disk-analyzer-query-options";
 import {
-  breadcrumbPaths,
+  buildBreadcrumbs,
   collectCleanupSuggestions,
   DEFAULT_TOP_N,
   filterTree,
   findNodeByPath,
   formatBytes,
   isChildrenLoaded,
+  isFsPathAncestor,
   sortNodes,
   takeTopChildren,
   type ChartMode,
   type DiskFilters,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
+/** Attach `level` under the deepest path-ancestor still present in `root`. */
+function graftLevelOntoTree(root: DiskNode, level: DiskNode): DiskNode {
+  let deepestPath = root.path;
+  const findDeepest = (node: DiskNode) => {
+    if (node.path !== level.path && isFsPathAncestor(node.path, level.path)) {
+      if (deepestPath === root.path || node.path.length > deepestPath.length) {
+        deepestPath = node.path;
+      }
+    }
+    for (const child of node.children ?? []) findDeepest(child);
+  };
+  findDeepest(root);
+
+  const attach = (node: DiskNode): DiskNode => {
+    if (node.path !== deepestPath) {
+      if (!node.children?.length) return node;
+      let changed = false;
+      const children = node.children.map((child) => {
+        const next = attach(child);
+        if (next !== child) changed = true;
+        return next;
+      });
+      return changed ? { ...node, children } : node;
+    }
+    const children = [...(node.children ?? [])];
+    const idx = children.findIndex((child) => child.path === level.path);
+    const previous = idx >= 0 ? children[idx] : undefined;
+    const grafted: DiskNode = {
+      ...level,
+      is_project: level.is_project || previous?.is_project || false,
+      is_workspace: level.is_workspace || previous?.is_workspace || false,
+    };
+    if (idx >= 0) children[idx] = grafted;
+    else children.push(grafted);
+    return { ...node, children };
+  };
+  return attach(root);
+}
+
 function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
-  if (!root || root.path === level.path) {
+  if (!root) return level;
+  if (root.path === level.path) {
     return level;
   }
+  let found = false;
   const walk = (node: DiskNode): DiskNode => {
     if (node.path === level.path) {
+      found = true;
       return {
         ...level,
         is_project: level.is_project || node.is_project,
@@ -53,7 +96,28 @@ function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
     });
     return changed ? { ...node, children } : node;
   };
-  return walk(root);
+  const next = walk(root);
+  if (found) return next;
+  // On-demand drill path not yet linked (or wiped by a shallow root refresh).
+  return graftLevelOntoTree(root, level);
+}
+
+/** After a root tree refresh, re-apply deeper cached levels so drill paths stay linked. */
+function reapplyLevelCache(
+  root: DiskNode,
+  levelCache: Record<string, DiskNode>,
+  skipPath: string,
+): DiskNode {
+  let merged = root;
+  // Longer paths first so parents exist before we overwrite with richer children.
+  const paths = Object.keys(levelCache)
+    .filter((path) => path !== skipPath && path !== root.path)
+    .sort((a, b) => a.length - b.length || a.localeCompare(b));
+  for (const path of paths) {
+    const cached = levelCache[path];
+    if (cached) merged = mergeLevelIntoTree(merged, cached);
+  }
+  return merged;
 }
 
 export function useDiskAnalyzer() {
@@ -69,6 +133,7 @@ export function useDiskAnalyzer() {
   const [tree, setTree] = useState<DiskNode | null>(null);
   /** Path → fully/partially scanned level nodes (for on-demand drill). */
   const [levelCache, setLevelCache] = useState<Record<string, DiskNode>>({});
+  const levelCacheRef = useRef<Record<string, DiskNode>>({});
   const [stats, setStats] = useState<DiskScanStats | null>(null);
   const [suggestions, setSuggestions] = useState<CleanupSuggestion[]>([]);
   const [volume, setVolume] = useState<DiskVolumeInfo | null>(null);
@@ -91,8 +156,18 @@ export function useDiskAnalyzer() {
   const loadingPathRef = useRef<string | null>(null);
 
   const rememberLevel = useCallback((level: DiskNode) => {
-    setLevelCache((prev) => ({ ...prev, [level.path]: level }));
-    setTree((prev) => mergeLevelIntoTree(prev, level));
+    const nextCache = { ...levelCacheRef.current, [level.path]: level };
+    levelCacheRef.current = nextCache;
+    setLevelCache(nextCache);
+    setTree((prevTree) => {
+      let merged = mergeLevelIntoTree(prevTree, level);
+      // Shallow overview/root progress replaces the whole tree and would drop
+      // grafted drill paths — re-apply the level cache so breadcrumbs stay.
+      if (merged.path === level.path) {
+        merged = reapplyLevelCache(merged, nextCache, level.path);
+      }
+      return merged;
+    });
   }, []);
 
   // Volume info for the scan target (default: home directory).
@@ -220,6 +295,7 @@ export function useDiskAnalyzer() {
     setError(null);
     setBusy(true);
     setTree(null);
+    levelCacheRef.current = {};
     setLevelCache({});
     setStats(null);
     setSuggestions([]);
@@ -326,6 +402,7 @@ export function useDiskAnalyzer() {
             if (!(path in prev)) return prev;
             const next = { ...prev };
             delete next[path];
+            levelCacheRef.current = next;
             return next;
           });
         } else {
@@ -432,6 +509,7 @@ export function useDiskAnalyzer() {
         }
         if (k === stay) delete next[k];
       }
+      levelCacheRef.current = next;
       return next;
     });
     queryClient.removeQueries({
@@ -478,16 +556,11 @@ export function useDiskAnalyzer() {
   }, [busy, filteredTree, filters, focusPath, levelCache, status, topN]);
 
   const breadcrumbs = useMemo(() => {
-    if (!tree || !focusPath) {
-      if (tree) return [tree];
-      return [];
-    }
-    const chain = breadcrumbPaths(tree, focusPath);
-    if (chain.length > 0) return chain;
-    // Focus path not yet linked into root tree (on-demand deep load).
-    const cached = levelCache[focusPath];
-    if (cached) return tree ? [tree, cached] : [cached];
-    return [tree];
+    if (!tree) return [];
+    if (!focusPath) return [tree];
+    // Rebuild from tree + levelCache so list drill-in never collapses to root
+    // while the focus path is still being grafted into the linked tree.
+    return buildBreadcrumbs(tree, focusPath, levelCache);
   }, [levelCache, tree, focusPath]);
 
   const selectedNode = useMemo(() => {
