@@ -11,12 +11,17 @@ declare global {
 
 /**
  * Exposes client soft-navigation for Playwright E2E (APP-043 warm cache requires SPA nav).
- * No UI; production-safe (tiny side effect on window).
+ * Only armed when the browser is automation-driven (`navigator.webdriver`).
  */
 export function E2eNavigateBridge() {
   const router = useAppRouter();
 
   useEffect(() => {
+    const isAutomation =
+      typeof navigator !== "undefined" &&
+      Boolean((navigator as Navigator & { webdriver?: boolean }).webdriver);
+    if (!isAutomation) return;
+
     window.__atmosNavigate = (href: string) => {
       router.push(href);
     };

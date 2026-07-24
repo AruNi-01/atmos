@@ -30,15 +30,10 @@ export function planTerminalLastTabRestore(input: {
 /** Center hotkeys / agent landings only apply to the active context. */
 export function resolveActiveOnlyContextId(input: {
   activeContextId: string | null | undefined;
+  /** Ignored — landings always target the active context (warm requests discarded). */
   requestedContextId?: string | null;
 }): string | null {
-  const active = input.activeContextId ?? null;
-  if (!active) return null;
-  // Ignore warm-frame requests; always land on active.
-  if (input.requestedContextId && input.requestedContextId !== active) {
-    return active;
-  }
-  return active;
+  return input.activeContextId ?? null;
 }
 
 /** Hidden warm frames must not receive focus or hotkey side effects. */

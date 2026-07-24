@@ -341,7 +341,7 @@ const Terminal = ({
       }
       scheduleInputReady();
     });
-  }, [scheduleInputReady]);
+  }, [scheduleInputReady, sessionId]);
 
   const { isConnected, isReconnecting, sendInput, sendEnter, sendTerminalReport, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({

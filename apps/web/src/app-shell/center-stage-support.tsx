@@ -15,6 +15,7 @@ import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-s
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
+import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -145,9 +146,16 @@ export function useTerminalTabMountLifecycle({
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
+  /** Last known activeValue per context — written before setActive on leave (APP-043). */
+  const lastActiveTabByContextRef = React.useRef<Record<string, string>>({});
   const touch = useWorkspaceSurfaceCacheStore((s) => s.touch);
   const setActiveContextId = useWorkspaceSurfaceCacheStore((s) => s.setActiveContextId);
   const warm = useWorkspaceSurfaceCacheStore((s) => s.warm);
+
+  // Track tab while context is stable so leave path can persist before activate next.
+  if (effectiveContextId && activeValue) {
+    lastActiveTabByContextRef.current[effectiveContextId] = activeValue;
+  }
 
   React.useEffect(() => {
     setMountedTerminalTabsByContext((current) => {
@@ -184,7 +192,15 @@ export function useTerminalTabMountLifecycle({
   React.useEffect(() => {
     const previousContextId = previousTerminalContextRef.current;
 
-    // First mark the new context as active so it is protected from eviction
+    // Persist previous frame tab BEFORE activate (Active→Warm contract).
+    if (previousContextId && previousContextId !== effectiveContextId) {
+      const prevTab = lastActiveTabByContextRef.current[previousContextId];
+      if (prevTab) {
+        setCenterStageLastTab(previousContextId, prevTab);
+      }
+    }
+
+    // Mark the new context as active so it is protected from eviction
     setActiveContextId(effectiveContextId ?? null);
 
     // Then touch the previous context to push it into the warm LRU

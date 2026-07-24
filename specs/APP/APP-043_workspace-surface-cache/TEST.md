@@ -326,26 +326,14 @@ Updated during APP-043 implementation + test pass (2026-07-24).
 ### Commands
 
 ```bash
-# Unit (36+)
+# Unit
 cd apps/web && bun test \
   src/features/terminal/store/__tests__/detach-workspace-frontend.test.ts \
   src/app-shell/__tests__/workspace-surface-policies.test.ts \
   src/app-shell/__tests__/workspace-surface-restore-prefetch.test.ts \
-  src/features/workspace/store/__tests__/workspace-surface-cache-store.test.ts
+  src/features/workspace/store/__tests__/workspace-surface-cache-store.test.ts \
+  src/features/terminal/lib/__tests__/terminal-session-live.test.ts
 
-# E2E (requires fresh static export when UI changes)
+# E2E (requires current web static export when UI changes)
 cd e2e && bunx playwright test tests/specs/APP-043_workspace-surface-cache.e2e.ts --project=chromium
-```
-| S12 hover prefetch | ⚠ not automated | TECH optional; not blocking cutover |
-| S17 / S1 full E2E warm DOM | ⚠ skipped | Playwright not run in implementer env (`app043-e2e-skip.txt`) |
-| S19–S20, S23 | ⚠ partial | clearAll wired in `prepareConnectionTargetChange`; focus/agent unit scenarios not fully UI-tested |
-
-Commands:
-
-```bash
-cd apps/web && bun test \
-  src/features/terminal/store/__tests__/detach-workspace-frontend.test.ts \
-  src/app-shell/__tests__/workspace-surface-policies.test.ts \
-  src/features/workspace/store/__tests__/workspace-surface-cache-store.test.ts
-# → 19 pass
 ```

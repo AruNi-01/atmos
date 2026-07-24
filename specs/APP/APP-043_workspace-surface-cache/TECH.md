@@ -206,21 +206,32 @@ Replace ad-hoc `mountedTerminalTabsByContext` with **mountPlan-driven** mounts i
 
 ### 4.3 Eviction order (within enforce)
 
-When over caps, demount in this order (never demount Active context’s **active** surface):
+When over caps, demount in this order (never demount the Active context’s **current** `frameActiveTab` surface):
 
-1. Warm **browser** DOMs (oldest context first)
-2. Warm **editor** DOMs beyond per-ws / global editor caps (keep `OpenFile`)
-3. Warm **secondary** terminal tab DOMs (non-`frameActiveTab` terminals); keep tab meta + layout in store
-4. Warm **light** panels that are not `lastCenterTab`
-5. If still over **warm workspace** cap or global terminal pane hard cap: **freeze** oldest unprotected warm workspace (Option A detach)
-6. **Last resort:** freeze/demount protected victims only if absolute hard cap still exceeded; log `EvictReason` + user-visible: no toast required; dev diagnostics if N3
+**A. Within Active frame first** (when Active alone exceeds global/per-ws caps — no Warm victim required):
+
+1. Inactive **browser** tabs in Active frame
+2. Inactive **editor** DOMs beyond per-ws / global editor caps (keep `OpenFile` model)
+3. Inactive **secondary terminal tabs** (non-`frameActiveTab`); tab meta + layout stay in store
+4. Inactive **light** panels (overview/wiki/GitHub) that are not `frameActiveTab`
+
+**B. Then Warm frames** (oldest context first):
+
+5. Warm **browser** DOMs
+6. Warm **editor** DOMs beyond caps (keep `OpenFile`)
+7. Warm **secondary** terminal tab DOMs (non-`frameActiveTab`); **preserve tab meta/layout** so PRD M6 continuity holds when the user returns (reattach, not identity wipe)
+8. Warm **light** panels that are not `lastCenterTab` / `frameActiveTab`
+9. If still over **warm workspace** cap or global terminal pane hard cap: **freeze** oldest unprotected warm workspace (Option A detach — identity retained)
+10. **Last resort:** freeze/demount protected victims only if absolute hard cap still exceeded; log `EvictReason`
+
+Warm terminal **demount** (step 7) ≠ freeze: DOM unmounts and may reconnect on revisit, but strip identity remains. Prefer keeping each Warm frame’s `frameActiveTab` terminal mounted to avoid Connecting flash.
 
 ### 4.4 Single-pane demount vs freeze workspace
 
 | Action | Effect |
 |--------|--------|
-| Demount one surface | Remove key from `mountPlan`; unmount that React subtree only; identity retained |
-| Freeze workspace | Unmount entire frame; `detachWorkspaceFrontend`; drop all mount keys for context; tier=frozen |
+| Demount one surface | Remove key from `mountPlan`; unmount that React subtree only; identity retained (tabs/layouts/openFiles) |
+| Freeze workspace | Unmount entire frame; `detachWorkspaceFrontend`; drop all mount keys for context; tier=frozen; identity retained |
 
 ---
 
@@ -279,9 +290,10 @@ function isProtected(contextId: string): boolean {
 on effectiveContextId change (Host):
   mark wsc-switch-start
   prev = WSC.activeContextId
+  if prev && prev !== next:
+    write lastCenterTab(prev) from prev frame’s frameActiveTab   // BEFORE activate
   WSC.setActiveContextId(next)     // next leaves warm if present
   if prev && prev !== next:
-    write lastCenterTab(prev) from prev frame’s frameActiveTab
     WSC.touch(prev)               // may freeze LRU victim via enforceMountBudgets
   ensure Frame(next) mounted
   show Frame(next); hide others

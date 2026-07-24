@@ -702,7 +702,7 @@ export const apiOperationInventory = [
     phase: "excluded",
     status: "excluded",
     rationale:
-      "APP-043 workspace surface cache (Active/Warm/Frozen DOM lifecycle). Client-only; must never be cleared by APP-035 query scope resets (clearAll is connection-switch only).",
+      "APP-043 workspace surface cache (Active/Warm/Frozen DOM lifecycle). Client-only; must never be cleared by APP-035 query scope resets. clearAll runs on Atmos Computer / connection target switch, logout/session teardown, and existing target-reset paths via prepareConnectionTargetChange.",
   },
   {
     domain: "editor",

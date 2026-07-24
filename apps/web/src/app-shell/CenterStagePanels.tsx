@@ -364,10 +364,16 @@ export function CenterStagePanels({
           >
             {tabs
               .filter((tab) => {
-                // Keep already-mounted terminal tabs for active∪warm contexts.
-                // Do NOT demount via mountPlan — remount resets Terminal to
-                // "connecting" and flashes the full-screen overlay.
-                return mountedTabs.includes(tab.id);
+                if (!mountedTabs.includes(tab.id)) return false;
+                // Always keep this frame's active/last terminal tab mounted to avoid
+                // reconnect flash on warm return (APP-043 continuity).
+                if (tab.id === frameActiveTab) return true;
+                // Secondary terminal tabs respect global/warm mount budgets.
+                if (mountPlan.mounted.length === 0) {
+                  // No plan yet: keep active-frame secondaries; warm only last tab.
+                  return isActiveContext;
+                }
+                return isKeyMounted(mountPlan, terminalMountKey(contextId, tab.id));
               })
               .map((tab) => (
                 <div

@@ -359,6 +359,9 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
         warmTtlMs:
           typeof ws.warm_ttl_ms === "number" ? ws.warm_ttl_ms : state.warmTtlMs,
       }));
+      // Apply loaded budgets immediately (defaults may already have published snapshots).
+      trimWarmToBudget(get, set);
+      get().enforceMountBudgets("settings");
     } catch {
       // ignore
     }
