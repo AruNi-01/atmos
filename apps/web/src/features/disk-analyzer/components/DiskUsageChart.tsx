@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  cn,
 } from "@workspace/ui";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
 import {
@@ -22,15 +23,8 @@ import {
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
-/** Stable series id so treemap ↔ sunburst can animate with universalTransition. */
-const SERIES_ID = "disk-usage";
-/** Morph duration when switching chart layout (treemap ↔ sunburst). */
-const CHART_TRANSITION_MS = 900;
-const CHART_UNIVERSAL_TRANSITION = {
-  enabled: true,
-  // Keep identity across type changes so tiles morph into rings (and back).
-  seriesKey: SERIES_ID,
-} as const;
+/** Crossfade duration when switching treemap ↔ sunburst (dual instances, no residual). */
+const MODE_CROSSFADE_MS = 320;
 
 /**
  * Shared hover chrome for treemap + sunburst (official focus/blur pattern).
@@ -115,9 +109,10 @@ export function DiskUsageChart({
   const chartRootSize = rootSize > 0 ? rootSize : node.size || 1;
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartInstanceRef = useRef<{ resize: () => void } | null>(null);
+  const treemapRef = useRef<{ resize: () => void } | null>(null);
+  const sunburstRef = useRef<{ resize: () => void } | null>(null);
 
-  // Side-panel open/close only changes flex width — ECharts must be told to resize.
+  // Side-panel open/close only changes flex width — both chart instances must resize.
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -126,7 +121,8 @@ export function DiskUsageChart({
     const resize = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        chartInstanceRef.current?.resize();
+        treemapRef.current?.resize();
+        sunburstRef.current?.resize();
       });
     };
 
@@ -137,36 +133,65 @@ export function DiskUsageChart({
       cancelAnimationFrame(frame);
       ro.disconnect();
     };
-  }, [mode]);
+  }, []);
+
+  /** Ordered immediate children — shared by both chart data builds. */
+  const orderedChildren = useMemo(() => {
+    const children = node.children ?? [];
+    if (children.length === 0) return [];
+    // Prefer non-zero tiles first so mid-scan zeros don't dominate the canvas.
+    return [...children].sort((a, b) => {
+      if (a.size !== b.size) return b.size - a.size;
+      return a.name.localeCompare(b.name);
+    });
+  }, [node]);
 
   /**
-   * Shared tree for both series (needed for universalTransition).
-   * Built to sunburst depth; treemap uses leafDepth to show only the first ring.
+   * Treemap: flat tiles sized by real bytes (mild ease).
+   * Must NOT use hierarchical sum(children) — that can reverse 46GB vs 38GB.
    */
-  const seriesData = useMemo((): EChartsTreeDatum[] => {
-    const children = node.children ?? [];
-    if (children.length === 0) {
+  const treemapData = useMemo((): EChartsTreeDatum[] => {
+    if (orderedChildren.length === 0) {
       return [
         toEChartsTree(node, chartRootSize, {
           maxDepth: 1,
           otherLabel,
+          valueMode: "bytes-eased",
         }),
       ];
     }
-    // Prefer non-zero tiles first so mid-scan zeros don't dominate the canvas.
-    const ordered = [...children].sort((a, b) => {
-      if (a.size !== b.size) return b.size - a.size;
-      return a.name.localeCompare(b.name);
-    });
-    return ordered.map((child) =>
+    return orderedChildren.map((child, i) =>
+      toEChartsTree(child, chartRootSize, {
+        maxDepth: 1,
+        otherLabel,
+        valueMode: "bytes-eased",
+      }, 0, i),
+    );
+  }, [node, chartRootSize, orderedChildren, otherLabel]);
+
+  /**
+   * Sunburst: up to 3 rings; parent value = sum(children) for wedge containment.
+   */
+  const sunburstData = useMemo((): EChartsTreeDatum[] => {
+    if (orderedChildren.length === 0) {
+      return [
+        toEChartsTree(node, chartRootSize, {
+          maxDepth: 1,
+          otherLabel,
+          valueMode: "hierarchical",
+        }),
+      ];
+    }
+    return orderedChildren.map((child, i) =>
       toEChartsTree(child, chartRootSize, {
         maxDepth: SUNBURST_CHART_DEPTH,
         otherLabel,
-      }),
+        valueMode: "hierarchical",
+      }, 0, i),
     );
-  }, [node, chartRootSize, otherLabel]);
+  }, [node, chartRootSize, orderedChildren, otherLabel]);
 
-  const option = useMemo(() => {
+  const chartChrome = useMemo(() => {
     const tooltipFormatter = (params: unknown) => {
       const p = params as {
         name?: string;
@@ -252,18 +277,25 @@ export function DiskUsageChart({
       return `${name}\n${formatBytes(size)}`;
     };
 
-    if (mode === "treemap") {
-      return {
+    return { tooltip, labelFormatter };
+  }, [chartRootSize, projectLabel, runtimeLabel, workspaceLabel]);
+
+  /**
+   * Two separate chart instances — switching only toggles visibility.
+   * Never mutate series type on one instance (that left residual treemap tiles under sunburst).
+   */
+  const treemapOption = useMemo(
+    () =>
+      ({
         backgroundColor: "transparent",
-        tooltip,
+        tooltip: chartChrome.tooltip,
         hoverLayerThreshold: Number.POSITIVE_INFINITY,
         series: [
           {
             type: "treemap" as const,
-            id: SERIES_ID,
-            // Empty name so the synthetic series root never labels as "Disk usage".
+            id: "disk-usage-treemap",
             name: "",
-            // ECharts defaults are width/height ~80% centered — that left a large empty margin.
+            // ECharts defaults are width/height ~80% centered — fill the canvas.
             left: 0,
             top: 0,
             right: 0,
@@ -271,20 +303,14 @@ export function DiskUsageChart({
             width: "100%",
             height: "100%",
             animation: true,
-            animationDurationUpdate: CHART_TRANSITION_MS,
-            animationEasingUpdate: "cubicInOut" as const,
+            animationDurationUpdate: 400,
             stateAnimation: { duration: 200 },
-            universalTransition: CHART_UNIVERSAL_TRANSITION,
             roam: false,
-            // External drill via breadcrumb/click — no echarts internal zoom chrome.
             nodeClick: false as const,
             breadcrumb: { show: false },
-            // Only paint the focused folder's children as flat tiles (depth 1).
-            // Nested data is still present so switching to sunburst can animate.
             leafDepth: TREEMAP_CHART_DEPTH,
             visibleMin: 0,
             cursor: "pointer",
-            // Same hover language as sunburst: highlight self, dim siblings.
             emphasis: {
               focus: "self",
               ...CHART_EMPHASIS,
@@ -293,14 +319,13 @@ export function DiskUsageChart({
             label: {
               show: true,
               silent: true,
-              formatter: labelFormatter,
+              formatter: chartChrome.labelFormatter,
               fontSize: 12,
               lineHeight: 15,
               color: "#ffffff",
               textShadowColor: "rgba(0,0,0,0.55)",
               textShadowBlur: 3,
             },
-            // Flat level-only scan: no parent upperLabel strip / icons.
             upperLabel: { show: false },
             itemStyle: {
               borderColor: "rgba(0,0,0,0.35)",
@@ -309,86 +334,81 @@ export function DiskUsageChart({
               borderRadius: 4,
             },
             levels: TREEMAP_LEVELS,
-            data: seriesData,
+            data: treemapData,
           },
         ],
-      } satisfies EChartsOption;
-    }
+      }) satisfies EChartsOption,
+    [chartChrome, treemapData],
+  );
 
-    // Official-style sunburst hover: focus ancestor path, fade the rest
-    // (see echarts examples like sunburst-drink / sunburst-simple).
-    // Colors are #rrggbb so emphasis/blur no longer flash black.
-    return {
-      backgroundColor: "transparent",
-      tooltip,
-      hoverLayerThreshold: Number.POSITIVE_INFINITY,
-      series: [
-        {
-          type: "sunburst" as const,
-          id: SERIES_ID,
-          name: "",
-          // Fill the canvas (default outer radius ~80–90% left a thick empty ring).
-          center: ["50%", "50%"],
-          radius: ["12%", "100%"],
-          sort: undefined,
-          animation: true,
-          animationDurationUpdate: CHART_TRANSITION_MS,
-          animationEasingUpdate: "cubicInOut" as const,
-          // Short hover transition — long tweens felt like color thrashing.
-          stateAnimation: { duration: 200 },
-          universalTransition: CHART_UNIVERSAL_TRANSITION,
-          nodeClick: false as const,
-          cursor: "pointer",
-          levels: [
-            {},
-            {
-              label: { silent: true },
-              itemStyle: {
-                borderWidth: 1.5,
-                borderColor: "rgba(0,0,0,0.35)",
+  const sunburstOption = useMemo(
+    () =>
+      ({
+        backgroundColor: "transparent",
+        tooltip: chartChrome.tooltip,
+        hoverLayerThreshold: Number.POSITIVE_INFINITY,
+        series: [
+          {
+            type: "sunburst" as const,
+            id: "disk-usage-sunburst",
+            name: "",
+            center: ["50%", "50%"],
+            radius: ["12%", "100%"],
+            sort: false as const,
+            animation: true,
+            animationDurationUpdate: 400,
+            stateAnimation: { duration: 200 },
+            nodeClick: false as const,
+            cursor: "pointer",
+            levels: [
+              {},
+              {
+                label: { silent: true },
+                itemStyle: {
+                  borderWidth: 1.5,
+                  borderColor: "rgba(0,0,0,0.35)",
+                },
               },
-            },
-            {
-              label: { silent: true },
-              itemStyle: {
-                borderWidth: 1.5,
-                borderColor: "rgba(0,0,0,0.35)",
+              {
+                label: { silent: true },
+                itemStyle: {
+                  borderWidth: 1.5,
+                  borderColor: "rgba(0,0,0,0.35)",
+                },
               },
+              {
+                label: { silent: true },
+                itemStyle: {
+                  borderWidth: 1.5,
+                  borderColor: "rgba(0,0,0,0.35)",
+                },
+              },
+            ],
+            emphasis: {
+              focus: "ancestor",
+              ...CHART_EMPHASIS,
             },
-          ],
-          // Same shared chrome as treemap; focus ancestors on the radial path.
-          emphasis: {
-            focus: "ancestor",
-            ...CHART_EMPHASIS,
+            blur: CHART_BLUR,
+            label: {
+              silent: true,
+              rotate: "radial",
+              minAngle: 8,
+              fontSize: 10,
+              lineHeight: 13,
+              color: "#ffffff",
+              formatter: chartChrome.labelFormatter,
+            },
+            itemStyle: {
+              borderRadius: 2,
+              borderWidth: 1.5,
+              borderColor: "rgba(0,0,0,0.35)",
+            },
+            data: sunburstData,
           },
-          blur: CHART_BLUR,
-          label: {
-            // Labels ignore pointer so cursor stays stable (pointer, not flicker).
-            silent: true,
-            rotate: "radial",
-            minAngle: 8,
-            fontSize: 10,
-            lineHeight: 13,
-            color: "#ffffff",
-            formatter: labelFormatter,
-          },
-          itemStyle: {
-            borderRadius: 2,
-            borderWidth: 1.5,
-            borderColor: "rgba(0,0,0,0.35)",
-          },
-          data: seriesData,
-        },
-      ],
-    } satisfies EChartsOption;
-  }, [
-    chartRootSize,
-    mode,
-    projectLabel,
-    runtimeLabel,
-    seriesData,
-    workspaceLabel,
-  ]);
+        ],
+      }) satisfies EChartsOption,
+    [chartChrome, sunburstData],
+  );
 
   const openContextMenu = (params: {
     data?: ChartNodeData;
@@ -422,40 +442,81 @@ export function DiskUsageChart({
     });
   };
 
+  const onChartClick = (params: { data?: ChartNodeData }) => {
+    setMenu(null);
+    const path = params?.data?.path;
+    if (!path) return;
+    const name = params.data?.name;
+    if (name === "__other__" || name === otherLabel) {
+      onSelectPath(path);
+      return;
+    }
+    onSelectPath(path);
+    if (params.data?.isDir) {
+      onDrillPath(path);
+    }
+  };
+
+  const chartEvents = {
+    click: onChartClick,
+    contextmenu: openContextMenu,
+  };
+
   return (
     <div
       ref={containerRef}
       className="relative h-full min-h-0 w-full [&_canvas]:cursor-pointer"
     >
-      <ReactECharts
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer: "canvas" }}
-        // Keep series for universalTransition; only replace when structure changes.
-        notMerge={false}
-        lazyUpdate
-        onChartReady={(instance: { resize: () => void }) => {
-          chartInstanceRef.current = instance;
-          instance.resize();
-        }}
-        onEvents={{
-          click: (params: { data?: ChartNodeData }) => {
-            setMenu(null);
-            const path = params?.data?.path;
-            if (!path) return;
-            const name = params.data?.name;
-            if (name === "__other__" || name === otherLabel) {
-              onSelectPath(path);
-              return;
-            }
-            onSelectPath(path);
-            if (params.data?.isDir) {
-              onDrillPath(path);
-            }
-          },
-          contextmenu: openContextMenu,
-        }}
-      />
+      {/*
+        Dual instances: switching only crossfades visibility.
+        Mutating series.type on one ECharts instance left residual graphics (overlap).
+      */}
+      <div
+        className={cn(
+          "absolute inset-0 transition-opacity ease-out",
+          mode === "treemap"
+            ? "z-10 opacity-100"
+            : "pointer-events-none z-0 opacity-0",
+        )}
+        style={{ transitionDuration: `${MODE_CROSSFADE_MS}ms` }}
+        aria-hidden={mode !== "treemap"}
+      >
+        <ReactECharts
+          option={treemapOption}
+          style={{ height: "100%", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+          notMerge={false}
+          lazyUpdate={false}
+          onChartReady={(instance: { resize: () => void }) => {
+            treemapRef.current = instance;
+            instance.resize();
+          }}
+          onEvents={chartEvents}
+        />
+      </div>
+      <div
+        className={cn(
+          "absolute inset-0 transition-opacity ease-out",
+          mode === "sunburst"
+            ? "z-10 opacity-100"
+            : "pointer-events-none z-0 opacity-0",
+        )}
+        style={{ transitionDuration: `${MODE_CROSSFADE_MS}ms` }}
+        aria-hidden={mode !== "sunburst"}
+      >
+        <ReactECharts
+          option={sunburstOption}
+          style={{ height: "100%", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+          notMerge={false}
+          lazyUpdate={false}
+          onChartReady={(instance: { resize: () => void }) => {
+            sunburstRef.current = instance;
+            instance.resize();
+          }}
+          onEvents={chartEvents}
+        />
+      </div>
       <DropdownMenu
         open={!!menu}
         onOpenChange={(open) => {

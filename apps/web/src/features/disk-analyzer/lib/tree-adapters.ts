@@ -12,8 +12,11 @@ export const DEFAULT_TOP_N = 30;
 export const TOP_N_OPTIONS = [10, 20, 30, 50, 100] as const;
 /** Treemap: only the focused folder's immediate children (flat tiles). */
 export const TREEMAP_CHART_DEPTH = 1;
-/** Sunburst: focused children + one more ring. */
-export const SUNBURST_CHART_DEPTH = 2;
+/**
+ * Sunburst: up to 3 rings from the focused folder
+ * (immediate children + two nested levels). Drill in to load deeper paths.
+ */
+export const SUNBURST_CHART_DEPTH = 3;
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -357,7 +360,44 @@ const CLEANUP_HINTS: Record<string, string> = {
   ".vscode-test": "VS Code extension test host",
 };
 
-/** Why this basename is a safe cleanup candidate, if any. */
+/**
+ * JSON-safe message key under `DiskAnalyzer.cleanupHints.*`.
+ * Leading dots become `dot_`; leading underscores become `under_` to avoid collisions.
+ */
+export function cleanupHintMessageKey(basename: string): string {
+  const lower = basename.toLowerCase();
+  if (lower.startsWith("_") && !lower.startsWith("__")) {
+    return `under_${lower
+      .slice(1)
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")}`;
+  }
+  return (
+    lower
+      .replace(/^__+/, "")
+      .replace(/__+$/, "")
+      .replace(/^\./, "dot_")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "default"
+  );
+}
+
+/**
+ * i18n key for a cleanup-candidate basename (under DiskAnalyzer.cleanupHints), if any.
+ * Use with `t(\`cleanupHints.${key}\`)` — never show English reason strings in UI.
+ */
+export function getCleanupHintKey(name: string, size: number): string | undefined {
+  if (size <= 0) return undefined;
+  const key = name.toLowerCase();
+  if (CLEANUP_HINTS[key]) return cleanupHintMessageKey(key);
+  if (name.endsWith(".egg-info")) return "egg_info";
+  if (name.endsWith(".tsbuildinfo") && size > 1024) return "tsbuildinfo";
+  return undefined;
+}
+
+/**
+ * English reason text (for non-UI payloads / tests). Prefer `getCleanupHintKey` + i18n in React.
+ */
 export function getCleanupReason(name: string, size: number): string | undefined {
   if (size <= 0) return undefined;
   const key = name.toLowerCase();
@@ -439,16 +479,24 @@ export type ToEChartsTreeOptions = {
   maxDepth?: number;
   /** Display label for synthetic `__other__` buckets. */
   otherLabel?: string;
+  /**
+   * How ECharts `value` (area / angle) is derived:
+   * - `bytes-eased` (treemap): always layoutValue(real bytes) — **monotone in size**
+   *   so 46GB is always larger than 38GB among siblings, while still compressing extremes.
+   * - `hierarchical` (sunburst): parents = sum(children) so wedges stay nested.
+   */
+  valueMode?: "bytes-eased" | "hierarchical";
 };
 
 /**
- * Layout-only size ease for treemap/sunburst area.
- * Values &lt; 1 compress huge tiles so mid/small items stay visible.
+ * Layout-only size ease for chart area/angle.
+ * Values &lt; 1 compress huge vs tiny so one folder can't erase the rest,
+ * but the function is **strictly increasing** so larger bytes ⇒ larger layout value.
  * Tooltip/labels still use real `bytes`.
  */
-export const LAYOUT_SIZE_EXPONENT = 0.45;
+export const LAYOUT_SIZE_EXPONENT = 0.55;
 
-/** Map real byte size → ECharts layout value (area). */
+/** Map real byte size → ECharts layout value (area). Monotone in bytes. */
 export function layoutValue(bytes: number): number {
   const b = Math.max(bytes, 0);
   if (b <= 0) return 1;
@@ -469,6 +517,7 @@ export function toEChartsTree(
 ): EChartsTreeDatum {
   const maxDepth = options.maxDepth ?? TREEMAP_CHART_DEPTH;
   const otherLabel = options.otherLabel ?? "Other";
+  const valueMode = options.valueMode ?? "bytes-eased";
   const ratio = rootSize > 0 ? node.size / rootSize : 0;
   const isOther = node.name === OTHER_NAME;
   const isAtmosRuntime = isAtmosRuntimeDir(node);
@@ -487,10 +536,32 @@ export function toEChartsTree(
   const nestFurther = depth < maxDepth - 1;
   const childNodes = nestFurther ? (node.children ?? []) : [];
 
+  const children =
+    childNodes.length > 0
+      ? childNodes.map((child, i) =>
+          toEChartsTree(child, rootSize, options, depth + 1, i),
+        )
+      : undefined;
+
+  const eased = layoutValue(bytes);
+  // Treemap must use real-size ease at every node so sibling order matches bytes.
+  // Sunburst parents must sum children so outer rings stay inside the parent wedge
+  // (sum of eased children ≠ ease(parent) when exponent < 1).
+  let value = eased;
+  if (
+    valueMode === "hierarchical" &&
+    children &&
+    children.length > 0
+  ) {
+    value = children.reduce(
+      (sum, c) => sum + (typeof c.value === "number" ? c.value : 0),
+      0,
+    );
+  }
+
   return {
     name: displayName,
-    // Area uses eased value so 40GB tiles don't erase MB-scale siblings.
-    value: layoutValue(bytes),
+    value: Math.max(value, 1),
     bytes,
     path: node.path,
     isProject,
@@ -499,14 +570,9 @@ export function toEChartsTree(
     isDir: node.is_dir,
     fileCount: node.file_count,
     dirCount: node.dir_count,
-    // Hex/hsl only — ECharts canvas does not reliably parse oklch and falls back to black.
+    // Hex only — ECharts canvas does not reliably parse oklch/hsl on state paint.
     itemStyle: { color },
-    children:
-      childNodes.length > 0
-        ? childNodes.map((child, i) =>
-            toEChartsTree(child, rootSize, options, depth + 1, i),
-          )
-        : undefined,
+    children,
   };
 }
 

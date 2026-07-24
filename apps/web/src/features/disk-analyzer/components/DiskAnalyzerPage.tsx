@@ -42,7 +42,7 @@ import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageCha
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
 import {
   formatBytes,
-  getCleanupReason,
+  getCleanupHintKey,
   isAtmosRuntimeDir,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
@@ -404,7 +404,7 @@ export function DiskAnalyzerPage() {
                         runtimeLabel={t("atmosRuntimeDir")}
                       />
                       <CanCleanBadge
-                        reason={getCleanupReason(
+                        hintKey={getCleanupHintKey(
                           analyzer.selectedNode.name,
                           analyzer.selectedNode.size,
                         )}
@@ -473,7 +473,7 @@ export function DiskAnalyzerPage() {
                           parentSize > 0
                             ? Math.min(100, (child.size / parentSize) * 100)
                             : 0;
-                        const cleanupReason = getCleanupReason(child.name, child.size);
+                        const cleanupHintKey = getCleanupHintKey(child.name, child.size);
                         const canDelete =
                           child.name !== "__other__" &&
                           child.path !== analyzer.scanPath;
@@ -512,7 +512,7 @@ export function DiskAnalyzerPage() {
                                 runtimeLabel={t("atmosRuntimeDir")}
                               />
                               <CanCleanBadge
-                                reason={cleanupReason}
+                                hintKey={cleanupHintKey}
                                 label={t("canClean")}
                               />
                             </button>
@@ -689,15 +689,20 @@ export function DiskAnalyzerPage() {
   );
 }
 
-/** Cleanup-candidate chip — tooltip shows why it is safe to remove. */
+/** Cleanup-candidate chip — tooltip shows localized why it is safe to remove. */
 function CanCleanBadge({
-  reason,
+  hintKey,
   label,
 }: {
-  reason: string | undefined;
+  hintKey: string | undefined;
   label: string;
 }) {
-  if (!reason) return null;
+  const t = useTranslations("DiskAnalyzer");
+  if (!hintKey) return null;
+  // Prefer exact key; fall back to generic copy if a new basename is not in messages yet.
+  const reason = t.has(`cleanupHints.${hintKey}`)
+    ? t(`cleanupHints.${hintKey}`)
+    : t("cleanupHints.default");
   return (
     <Tooltip>
       <TooltipTrigger asChild>

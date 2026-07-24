@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  cleanupHintMessageKey,
   collectCleanupSuggestions,
   filterTree,
   formatBytes,
+  getCleanupHintKey,
   isAtmosRuntimeDir,
   isChildrenLoaded,
   layoutValue,
@@ -102,14 +104,81 @@ describe("disk analyzer tree adapters", () => {
   });
 
   test("echarts adapter preserves sizes; project uses size-based color only", () => {
-    const chart = toEChartsTree(sample, sample.size, { maxDepth: 2 });
+    const chart = toEChartsTree(sample, sample.size, {
+      maxDepth: 2,
+      valueMode: "bytes-eased",
+    });
     expect(chart.bytes).toBe(1000);
+    // Treemap mode: value tracks real bytes (eased), not sum of children.
     expect(chart.value).toBe(layoutValue(1000));
     const proj = chart.children?.find((c) => c.name === "proj");
     expect(proj?.isProject).toBe(true);
     // No special project/workspace tile chrome — color tracks size share.
     expect(proj?.itemStyle?.borderWidth).toBeUndefined();
     expect(proj?.itemStyle?.color).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+
+  test("bytes-eased keeps larger folders larger among siblings", () => {
+    const a = toEChartsTree(
+      {
+        name: "big",
+        path: "/big",
+        size: 46 * 1024 ** 3,
+        is_dir: true,
+        is_project: false,
+        file_count: 0,
+        dir_count: 1,
+        children: [
+          {
+            name: "x",
+            path: "/big/x",
+            size: 1,
+            is_dir: false,
+            is_project: false,
+            file_count: 1,
+            dir_count: 0,
+          },
+        ],
+      },
+      100 * 1024 ** 3,
+      { maxDepth: 2, valueMode: "bytes-eased" },
+    );
+    const b = toEChartsTree(
+      {
+        name: "small",
+        path: "/small",
+        size: 38 * 1024 ** 3,
+        is_dir: true,
+        is_project: false,
+        file_count: 0,
+        dir_count: 2,
+        children: [
+          {
+            name: "y",
+            path: "/small/y",
+            size: 20 * 1024 ** 3,
+            is_dir: false,
+            is_project: false,
+            file_count: 1,
+            dir_count: 0,
+          },
+          {
+            name: "z",
+            path: "/small/z",
+            size: 18 * 1024 ** 3,
+            is_dir: false,
+            is_project: false,
+            file_count: 1,
+            dir_count: 0,
+          },
+        ],
+      },
+      100 * 1024 ** 3,
+      { maxDepth: 2, valueMode: "bytes-eased" },
+    );
+    expect(a.value).toBeGreaterThan(b.value);
+    expect(a.value).toBe(layoutValue(46 * 1024 ** 3));
+    expect(b.value).toBe(layoutValue(38 * 1024 ** 3));
   });
 
   test("isAtmosRuntimeDir detects .atmos paths", () => {
@@ -132,7 +201,7 @@ describe("disk analyzer tree adapters", () => {
     expect(largeRgb.r).toBeGreaterThan(smallRgb.r);
   });
 
-  test("echarts adapter caps nesting depth for treemap (1) and sunburst (2)", () => {
+  test("echarts adapter caps nesting depth for treemap (1) and sunburst (3)", () => {
     const deep: DiskNode = {
       name: "L0",
       path: "/L0",
@@ -164,11 +233,22 @@ describe("disk analyzer tree adapters", () => {
                   name: "L3",
                   path: "/L0/L1/L2/L3",
                   size: 100,
-                  is_dir: false,
+                  is_dir: true,
                   is_project: false,
-                  file_count: 1,
-                  dir_count: 0,
-                  children: [],
+                  file_count: 0,
+                  dir_count: 1,
+                  children: [
+                    {
+                      name: "L4",
+                      path: "/L0/L1/L2/L3/L4",
+                      size: 100,
+                      is_dir: false,
+                      is_project: false,
+                      file_count: 1,
+                      dir_count: 0,
+                      children: [],
+                    },
+                  ],
                 },
               ],
             },
@@ -181,10 +261,11 @@ describe("disk analyzer tree adapters", () => {
     expect(flat.name).toBe("L1");
     expect(flat.children).toBeUndefined();
 
-    // Sunburst: L1 → L2, no L3
-    const rings = toEChartsTree(deep.children![0], 100, { maxDepth: 2 });
+    // Sunburst (3 rings): L1 → L2 → L3, no L4 (drill for deeper).
+    const rings = toEChartsTree(deep.children![0], 100, { maxDepth: 3 });
     expect(rings.children?.[0]?.name).toBe("L2");
-    expect(rings.children?.[0]?.children).toBeUndefined();
+    expect(rings.children?.[0]?.children?.[0]?.name).toBe("L3");
+    expect(rings.children?.[0]?.children?.[0]?.children).toBeUndefined();
   });
 
   test("echarts adapter renames __other__", () => {
@@ -395,6 +476,78 @@ describe("disk analyzer tree adapters", () => {
     expect(datum.value).not.toBe(datum.bytes);
   });
 
+  test("toEChartsTree hierarchical parent value equals sum of children (sunburst)", () => {
+    const node: DiskNode = {
+      name: "root",
+      path: "/root",
+      size: 1000,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 2,
+      children: [
+        {
+          name: "big",
+          path: "/root/big",
+          size: 800,
+          is_dir: true,
+          is_project: false,
+          file_count: 0,
+          dir_count: 0,
+          children: [
+            {
+              name: "leaf-a",
+              path: "/root/big/a",
+              size: 500,
+              is_dir: false,
+              is_project: false,
+              file_count: 1,
+              dir_count: 0,
+            },
+            {
+              name: "leaf-b",
+              path: "/root/big/b",
+              size: 300,
+              is_dir: false,
+              is_project: false,
+              file_count: 1,
+              dir_count: 0,
+            },
+          ],
+        },
+        {
+          name: "small",
+          path: "/root/small",
+          size: 200,
+          is_dir: false,
+          is_project: false,
+          file_count: 1,
+          dir_count: 0,
+        },
+      ],
+    };
+    const datum = toEChartsTree(node, 1000, {
+      maxDepth: 3,
+      valueMode: "hierarchical",
+    });
+    const big = datum.children?.find((c) => c.name === "big");
+    const small = datum.children?.find((c) => c.name === "small");
+    expect(big).toBeTruthy();
+    expect(small).toBeTruthy();
+    // Leaves keep layoutValue; parents sum children (not layoutValue(parent bytes)).
+    const leafSum = (big!.children ?? []).reduce(
+      (s, c) => s + (typeof c.value === "number" ? c.value : 0),
+      0,
+    );
+    expect(big!.value).toBe(leafSum);
+    expect(big!.value).not.toBe(layoutValue(800));
+    expect(small!.value).toBe(layoutValue(200));
+    expect(datum.value).toBe(
+      (typeof big!.value === "number" ? big!.value : 0) +
+        (typeof small!.value === "number" ? small!.value : 0),
+    );
+  });
+
   test("isChildrenLoaded treats du measure shells as unloaded", () => {
     const shell: DiskNode = {
       name: ".atmos",
@@ -421,6 +574,16 @@ describe("disk analyzer tree adapters", () => {
       children: [],
     };
     expect(isChildrenLoaded(loadedEmpty)).toBe(true);
+  });
+
+  test("getCleanupHintKey maps basenames to i18n-safe keys", () => {
+    expect(cleanupHintMessageKey(".next")).toBe("dot_next");
+    expect(cleanupHintMessageKey("_build")).toBe("under_build");
+    expect(cleanupHintMessageKey("__pycache__")).toBe("pycache");
+    expect(getCleanupHintKey("node_modules", 100)).toBe("node_modules");
+    expect(getCleanupHintKey(".next", 100)).toBe("dot_next");
+    expect(getCleanupHintKey("src", 100)).toBeUndefined();
+    expect(getCleanupHintKey("node_modules", 0)).toBeUndefined();
   });
 
   test("collectCleanupSuggestions only checks visible immediate children", () => {
