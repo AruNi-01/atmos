@@ -940,13 +940,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     spawnTerminalWithRun,
   ]);
 
-  // Wait for workspace to be ready before rendering any Terminal components
-  // This prevents duplicate tmux window creation during initialization
-  if (isProjectsLoading || !workspaceExists || !workspaceReady) {
+  // Prefer keeping existing panes mounted (APP-043 warm switch). If we already have
+  // panes/layout, do NOT swap to LoadingState when ready flags briefly flap — that
+  // remounts every Terminal and flashes "Connecting to terminal...".
+  if (hasPanes && layout) {
+    // fall through to mosaic render below
+  } else if (isProjectsLoading || !workspaceExists || !workspaceReady) {
     return <TerminalGridLoadingState className={className} />;
-  }
-
-  if (!hasPanes || !layout) {
+  } else {
     return (
       <TerminalGridEmptyState
         className={className}

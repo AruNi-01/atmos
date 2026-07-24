@@ -4,6 +4,10 @@ import React from "react";
 import { useSortable, CSS, toastManager } from "@workspace/ui";
 import type { Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { WorkspaceContent } from "./WorkspaceContent";
+import { createWorkspacePrimePrefetch } from "@/app-shell/workspace-surface-prefetch";
+
+/** Shared hover prime (APP-043 M9) — does not force Warm tier. */
+const workspaceHoverPrime = createWorkspacePrimePrefetch({ debounceMs: 100 });
 
 export interface WorkspaceItemProps {
   workspace: Workspace;
@@ -102,11 +106,15 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
     <div
       ref={setNodeRef}
       style={style}
+      data-workspace-id={workspace.id}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onPointerLeave={handlePointerEnd}
+      onPointerEnter={() => {
+        workspaceHoverPrime.onWorkspaceHover(workspace.id, false);
+      }}
     >
       <WorkspaceContent
         workspace={workspace}

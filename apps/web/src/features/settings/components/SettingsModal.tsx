@@ -14,7 +14,7 @@ import {
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 import { useTerminalLinkSettingsStore } from '@/features/settings/store/terminal-link-settings-store';
 import { useTerminalSideChatSettingsStore } from '@/features/settings/store/terminal-side-chat-settings-store';
-import { useTerminalCacheStore } from '@/features/terminal/store/use-terminal-cache-store';
+import { useWorkspaceSurfaceCacheStore } from '@/features/workspace/store/use-workspace-surface-cache-store';
 import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
 import {
   agentBehaviourSettingsApi,
@@ -281,15 +281,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     loadSettings: loadTerminalSideChatSettings,
     setSideContextPromptBudgetBytes,
   } = useTerminalSideChatSettingsStore();
-  const { maxSize, maxTerminalPanelsPerWorkspace, loadSettings: loadTerminalCacheSettings } = useTerminalCacheStore();
-  const setTerminalCacheMaxSize = useTerminalCacheStore((state) => state.setMaxSize);
-  const setTerminalCacheMaxPanels = useTerminalCacheStore((state) => state.setMaxTerminalPanelsPerWorkspace);
+  const maxWarmWorkspaces = useWorkspaceSurfaceCacheStore((state) => state.maxWarmWorkspaces);
+  const maxGlobalTerminalPanes = useWorkspaceSurfaceCacheStore((state) => state.maxGlobalTerminalPanes);
+  const setMaxWarmWorkspaces = useWorkspaceSurfaceCacheStore((state) => state.setMaxWarmWorkspaces);
+  const setMaxGlobalTerminalPanes = useWorkspaceSurfaceCacheStore((state) => state.setMaxGlobalTerminalPanes);
+  const loadWorkspaceSurfaceSettings = useWorkspaceSurfaceCacheStore((state) => state.loadSettings);
 
   useEffect(() => {
     void loadTerminalLinkSettings();
     void loadTerminalSideChatSettings();
+    void loadWorkspaceSurfaceSettings();
     hydrateTerminalSplitPrefs();
-  }, [hydrateTerminalSplitPrefs, loadTerminalLinkSettings, loadTerminalSideChatSettings]);
+  }, [
+    hydrateTerminalSplitPrefs,
+    loadTerminalLinkSettings,
+    loadTerminalSideChatSettings,
+    loadWorkspaceSurfaceSettings,
+  ]);
 
   // Load agent custom settings when modal opens
   const loadAgentSettings = React.useCallback(async () => {
@@ -902,10 +910,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setFileLinkOpenApp={setFileLinkOpenApp}
                     setUseLastSplitAgentOnSplit={setUseLastSplitAgentOnSplit}
                     setSideContextPromptBudgetBytes={setSideContextPromptBudgetBytes}
-                    terminalCacheMaxSize={maxSize}
-                    terminalCacheMaxPanels={maxTerminalPanelsPerWorkspace}
-                    setTerminalCacheMaxSize={setTerminalCacheMaxSize}
-                    setTerminalCacheMaxPanels={setTerminalCacheMaxPanels}
+                    maxWarmWorkspaces={maxWarmWorkspaces}
+                    maxGlobalTerminalPanes={maxGlobalTerminalPanes}
+                    setMaxWarmWorkspaces={setMaxWarmWorkspaces}
+                    setMaxGlobalTerminalPanes={setMaxGlobalTerminalPanes}
                     agentCustomSettings={agentCustomSettings}
                     agentSettingsLoading={agentSettingsLoading}
                     builtInAgentOpen={builtInAgentOpen}

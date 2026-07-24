@@ -583,6 +583,86 @@ export function evictTerminalWorkspaceRuntimeState(
   };
 }
 
+/**
+ * APP-043 Frozen path: drop live attach/hydration flags only.
+ * Preserves tab strip identity, panes/layouts, and persistedTerminalLayouts.
+ */
+export function detachTerminalWorkspaceFrontendState(
+  state: TerminalRuntimeEvictState,
+  workspaceId: string,
+): Pick<
+  TerminalRuntimeEvictState,
+  | "loadedWorkspaces"
+  | "hydratedTerminalScopes"
+  | "initializingWorkspaces"
+  | "initializingTerminalScopes"
+  | "tmuxWindowsCache"
+  | "saveTimeouts"
+  | "projectWikiLoadedWorkspaces"
+  | "projectWikiInitializingWorkspaces"
+  | "codeReviewLoadedWorkspaces"
+  | "codeReviewInitializingWorkspaces"
+> {
+  const nextLoadedWorkspaces = new Set(state.loadedWorkspaces);
+  const nextHydratedTerminalScopes = new Set(state.hydratedTerminalScopes);
+  const nextInitializingWorkspaces = new Set(state.initializingWorkspaces);
+  const nextInitializingTerminalScopes = new Set(state.initializingTerminalScopes);
+  const nextTmuxWindowsCache = { ...state.tmuxWindowsCache };
+  const nextSaveTimeouts = { ...state.saveTimeouts };
+  const nextProjectWikiLoadedWorkspaces = new Set(state.projectWikiLoadedWorkspaces);
+  const nextProjectWikiInitializingWorkspaces = new Set(state.projectWikiInitializingWorkspaces);
+  const nextCodeReviewLoadedWorkspaces = new Set(state.codeReviewLoadedWorkspaces);
+  const nextCodeReviewInitializingWorkspaces = new Set(state.codeReviewInitializingWorkspaces);
+
+  for (const key of Array.from(nextLoadedWorkspaces)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      nextLoadedWorkspaces.delete(key);
+    }
+  }
+  for (const key of Array.from(nextInitializingWorkspaces)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      nextInitializingWorkspaces.delete(key);
+    }
+  }
+  for (const key of Array.from(nextHydratedTerminalScopes)) {
+    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+      nextHydratedTerminalScopes.delete(key);
+    }
+  }
+  for (const key of Array.from(nextInitializingTerminalScopes)) {
+    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+      nextInitializingTerminalScopes.delete(key);
+    }
+  }
+  for (const key of Object.keys(nextTmuxWindowsCache)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      delete nextTmuxWindowsCache[key];
+    }
+  }
+  for (const key of Object.keys(nextSaveTimeouts)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      delete nextSaveTimeouts[key];
+    }
+  }
+  nextProjectWikiLoadedWorkspaces.delete(workspaceId);
+  nextProjectWikiInitializingWorkspaces.delete(workspaceId);
+  nextCodeReviewLoadedWorkspaces.delete(workspaceId);
+  nextCodeReviewInitializingWorkspaces.delete(workspaceId);
+
+  return {
+    loadedWorkspaces: nextLoadedWorkspaces,
+    hydratedTerminalScopes: nextHydratedTerminalScopes,
+    initializingWorkspaces: nextInitializingWorkspaces,
+    initializingTerminalScopes: nextInitializingTerminalScopes,
+    tmuxWindowsCache: nextTmuxWindowsCache,
+    saveTimeouts: nextSaveTimeouts,
+    projectWikiLoadedWorkspaces: nextProjectWikiLoadedWorkspaces,
+    projectWikiInitializingWorkspaces: nextProjectWikiInitializingWorkspaces,
+    codeReviewLoadedWorkspaces: nextCodeReviewLoadedWorkspaces,
+    codeReviewInitializingWorkspaces: nextCodeReviewInitializingWorkspaces,
+  };
+}
+
 export function buildPersistedTerminalWorkspaceLayout(
   state: TerminalPersistenceState,
   workspaceId: string,

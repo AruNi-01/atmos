@@ -63,7 +63,10 @@ export interface TerminalStore {
 
   primeWorkspace: (workspaceId: string, isProjectContext?: boolean) => void;
   initWorkspace: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string) => void;
+  /** Full wipe of terminal identity + live state (computer switch / delete). */
   evictWorkspaceRuntime: (workspaceId: string) => void;
+  /** APP-043 freeze: drop live attach/hydration only; keep tab/layout identity. */
+  detachWorkspaceFrontend: (workspaceId: string) => void;
 
   loadFromBackend: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string | null) => Promise<void>;
   saveToBackend: (workspaceId: string, isProjectContext?: boolean) => void;

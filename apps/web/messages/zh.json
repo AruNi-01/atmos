@@ -1025,6 +1025,7 @@
     },
     "centerStagePanels": {
       "loadingTerminal": "正在加载终端...",
+      "fallbackTerminalTitle": "终端",
       "errors": {
         "failedToClosePreviousTerminal": "关闭上一个终端失败",
         "unknown": "未知错误"
@@ -4925,13 +4926,13 @@
         "bytes": "bytes"
       },
       "cacheWorkspaces": {
-        "title": "最大缓存上下文",
-        "description": "设置在内存中保持活跃状态的最大 Project/Workspace 数量。较多的缓存数量会占用更多内存，但可以加快切换速度。",
-        "contexts": "个"
+        "title": "最大 Warm 工作区数",
+        "description": "最近使用的 Project/Workspace 中，有多少个会保持中心区 Frame 挂载在内存（Warm）。数值越高切换越快，但更占内存；更早的上下文会 Frozen，切回时再挂载。",
+        "contexts": "个工作区"
       },
       "cachePanels": {
-        "title": "每个上下文最大缓存终端面板数",
-        "description": "限制单个缓存上下文中保留的终端面板数量。如果超过此限制，该上下文将被移出缓存。",
+        "title": "全局最大挂载终端面板数",
+        "description": "在 Active 与 Warm 工作区之间，最多同时挂载多少个终端面板。超出预算会先卸载面板 DOM，但保留 tab 身份信息。",
         "panels": "个面板"
       }
     },

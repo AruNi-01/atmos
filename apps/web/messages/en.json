@@ -1025,6 +1025,7 @@
     },
     "centerStagePanels": {
       "loadingTerminal": "Loading terminal...",
+      "fallbackTerminalTitle": "Term",
       "errors": {
         "failedToClosePreviousTerminal": "Failed to close previous terminal",
         "unknown": "Unknown error"
@@ -4925,14 +4926,14 @@
         "bytes": "bytes"
       },
       "cacheWorkspaces": {
-        "title": "Max cached workspaces",
-        "description": "Set the maximum number of Projects/Workspaces kept active in memory. Higher cache numbers use more memory but speed up switching.",
-        "contexts": "contexts"
+        "title": "Max warm workspaces",
+        "description": "How many recently used Projects/Workspaces keep their center frames mounted in memory (Warm). Higher values speed up switching but use more memory. Older contexts freeze and remount on return.",
+        "contexts": "workspaces"
       },
       "cachePanels": {
-        "title": "Max terminal panels per workspace",
-        "description": "Limit the number of terminal panels preserved in a single cached context. If this limit is exceeded, the context will be evicted from the cache.",
-        "panels": "panels"
+        "title": "Max mounted terminal panes (global)",
+        "description": "Global limit on terminal panes kept mounted across warm and active workspaces. Excess panes are demounted under budget pressure while tab identity is retained.",
+        "panels": "panes"
       }
     },
     "headerLayoutSection": {

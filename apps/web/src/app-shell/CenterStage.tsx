@@ -38,6 +38,7 @@ import {
 } from "@/shared/stores/use-ui-pref-hooks";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
+import { planTerminalLastTabRestore } from "@/app-shell/workspace-surface-restore";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 import { systemApi } from "@/api/rest-api";
@@ -644,16 +645,21 @@ const CenterStage: React.FC = () => {
             return;
           }
         } else if (isTerminalCenterTabValue(last)) {
-          if (visibleTerminalTabs.some((tab) => tab.id === last)) {
-            restoringCenterTabToRef.current = last;
-            setUrlParams({ tab: last, wikiPage: null });
-            return;
+          // APP-043: non-blocking restore — push last tab chrome immediately; do not wait hydrate.
+          const plan = planTerminalLastTabRestore({
+            lastTab: last,
+            visibleTerminalTabIds: visibleTerminalTabs.map((tab) => tab.id),
+            isTerminalWorkspaceReady,
+          });
+          if (plan.shouldPushUrl && plan.tabToPush) {
+            restoringCenterTabToRef.current = plan.tabToPush;
+            setUrlParams({ tab: plan.tabToPush, wikiPage: null });
           }
-          // Terminal tabs may still be hydrating — keep pending until ready.
-          if (!isTerminalWorkspaceReady) {
-            return;
+          if (plan.settlePending && !visibleTerminalTabs.some((tab) => tab.id === last)) {
+            restoringCenterTabToRef.current = null;
+            pendingCenterTabRestoreContextRef.current = null;
           }
-          pendingCenterTabRestoreContextRef.current = null;
+          return;
         } else if (githubTabs.some((tab) => tab.value === last)) {
           restoringCenterTabToRef.current = last;
           setUrlParams({ tab: last, wikiPage: null });

@@ -14,7 +14,7 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
-import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
+import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -145,17 +145,16 @@ export function useTerminalTabMountLifecycle({
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
-  const touch = useTerminalCacheStore(s => s.touch);
-  const setActiveContextId = useTerminalCacheStore(s => s.setActiveContextId);
-  const sweepExpired = useTerminalCacheStore(s => s.sweepExpired);
-  const cachedContexts = useTerminalCacheStore(s => s.cachedContexts);
+  const touch = useWorkspaceSurfaceCacheStore((s) => s.touch);
+  const setActiveContextId = useWorkspaceSurfaceCacheStore((s) => s.setActiveContextId);
+  const warm = useWorkspaceSurfaceCacheStore((s) => s.warm);
 
   React.useEffect(() => {
     setMountedTerminalTabsByContext((current) => {
       const activeIds = new Set([
         effectiveContextId,
         previousTerminalContextRef.current,
-        ...cachedContexts.map((c) => c.contextId),
+        ...warm.map((c) => c.contextId),
       ]);
       let changed = false;
       const next: Record<string, string[]> = {};
@@ -168,16 +167,16 @@ export function useTerminalTabMountLifecycle({
       }
       return changed ? next : current;
     });
-  }, [effectiveContextId, cachedContexts, setMountedTerminalTabsByContext]);
+  }, [effectiveContextId, warm, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
     // Only register one sweeper interval globally to prevent HMR leaks
     const globalState = globalThis as typeof globalThis & {
-      __terminalCacheSweeperInterval?: ReturnType<typeof setInterval>;
+      __workspaceSurfaceCacheSweeperInterval?: ReturnType<typeof setInterval>;
     };
-    if (!globalState.__terminalCacheSweeperInterval) {
-      globalState.__terminalCacheSweeperInterval = setInterval(() => {
-        useTerminalCacheStore.getState().sweepExpired();
+    if (!globalState.__workspaceSurfaceCacheSweeperInterval) {
+      globalState.__workspaceSurfaceCacheSweeperInterval = setInterval(() => {
+        useWorkspaceSurfaceCacheStore.getState().sweepExpired();
       }, 60 * 1000);
     }
   }, []);
@@ -188,7 +187,7 @@ export function useTerminalTabMountLifecycle({
     // First mark the new context as active so it is protected from eviction
     setActiveContextId(effectiveContextId ?? null);
 
-    // Then touch the previous context to push it into the LRU cache
+    // Then touch the previous context to push it into the warm LRU
     if (previousContextId && previousContextId !== effectiveContextId) {
       touch(previousContextId);
     }

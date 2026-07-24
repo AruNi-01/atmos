@@ -36,10 +36,10 @@ export function TerminalSettingsSection({
   setFileLinkOpenApp,
   setUseLastSplitAgentOnSplit,
   setSideContextPromptBudgetBytes,
-  terminalCacheMaxSize,
-  terminalCacheMaxPanels,
-  setTerminalCacheMaxSize,
-  setTerminalCacheMaxPanels,
+  maxWarmWorkspaces,
+  maxGlobalTerminalPanes,
+  setMaxWarmWorkspaces,
+  setMaxGlobalTerminalPanes,
 }: {
   fileLinkOpenMode: TerminalFileLinkOpenMode;
   fileLinkOpenApp: QuickOpenAppName;
@@ -50,15 +50,15 @@ export function TerminalSettingsSection({
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
-  terminalCacheMaxSize: number;
-  terminalCacheMaxPanels: number;
-  setTerminalCacheMaxSize: (size: number) => Promise<void> | void;
-  setTerminalCacheMaxPanels: (panels: number) => Promise<void> | void;
+  maxWarmWorkspaces: number;
+  maxGlobalTerminalPanes: number;
+  setMaxWarmWorkspaces: (size: number) => Promise<void> | void;
+  setMaxGlobalTerminalPanes: (panels: number) => Promise<void> | void;
 }) {
   const t = useTranslations('settings.terminalSection');
   const locale = useLocale();
-  const [localTerminalCacheMaxSize, setLocalTerminalCacheMaxSize] = React.useState(terminalCacheMaxSize.toString());
-  const [localTerminalCacheMaxPanels, setLocalTerminalCacheMaxPanels] = React.useState(terminalCacheMaxPanels.toString());
+  const [localTerminalCacheMaxSize, setLocalTerminalCacheMaxSize] = React.useState(maxWarmWorkspaces.toString());
+  const [localTerminalCacheMaxPanels, setLocalTerminalCacheMaxPanels] = React.useState(maxGlobalTerminalPanes.toString());
   const [localSideContextBudget, setLocalSideContextBudget] = React.useState(
     sideContextPromptBudgetBytes.toString(),
   );
@@ -93,33 +93,33 @@ export function TerminalSettingsSection({
   }, [sideContextPromptBudgetBytes]);
 
   React.useEffect(() => {
-    setLocalTerminalCacheMaxSize(terminalCacheMaxSize.toString());
-  }, [terminalCacheMaxSize]);
+    setLocalTerminalCacheMaxSize(maxWarmWorkspaces.toString());
+  }, [maxWarmWorkspaces]);
 
   React.useEffect(() => {
-    setLocalTerminalCacheMaxPanels(terminalCacheMaxPanels.toString());
-  }, [terminalCacheMaxPanels]);
+    setLocalTerminalCacheMaxPanels(maxGlobalTerminalPanes.toString());
+  }, [maxGlobalTerminalPanes]);
 
   const handleTerminalCacheMaxSizeCommit = async (value: string) => {
     const parsed = Number.parseInt(value, 10);
     if (Number.isNaN(parsed) || parsed < 1) {
-      setLocalTerminalCacheMaxSize(terminalCacheMaxSize.toString());
+      setLocalTerminalCacheMaxSize(maxWarmWorkspaces.toString());
       return;
     }
     const normalized = Math.min(50, Math.max(1, parsed));
     setLocalTerminalCacheMaxSize(normalized.toString());
-    await setTerminalCacheMaxSize(normalized);
+    await setMaxWarmWorkspaces(normalized);
   };
 
   const handleTerminalCacheMaxPanelsCommit = async (value: string) => {
     const parsed = Number.parseInt(value, 10);
     if (Number.isNaN(parsed) || parsed < 1) {
-      setLocalTerminalCacheMaxPanels(terminalCacheMaxPanels.toString());
+      setLocalTerminalCacheMaxPanels(maxGlobalTerminalPanes.toString());
       return;
     }
     const normalized = Math.min(100, Math.max(1, parsed));
     setLocalTerminalCacheMaxPanels(normalized.toString());
-    await setTerminalCacheMaxPanels(normalized);
+    await setMaxGlobalTerminalPanes(normalized);
   };
 
   const handleSideContextBudgetCommit = async (value: string) => {

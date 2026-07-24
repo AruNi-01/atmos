@@ -1,5 +1,8 @@
 # TECH: Terminal Workspace Caching
 
+> **Superseded by [APP-043 Workspace Surface Cache](../APP-043_workspace-surface-cache/TECH.md).**  
+> New implementation should follow APP-043 (`useWorkspaceSurfaceCacheStore` + `WorkspaceFrameHost`). This TECH remains for historical reference only.
+
 ## 1. Architecture
 We use a Zustand store (`useTerminalCacheStore`) to manage the LRU cache and TTL.
 Instead of `TanStack Query` (which is for server state), we leverage React's capability to keep DOM elements mounted but visually hidden (`display: none`).

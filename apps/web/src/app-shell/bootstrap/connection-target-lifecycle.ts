@@ -51,6 +51,11 @@ export async function prepareConnectionTargetChange(): Promise<void> {
     currentProjectPath: null,
     _hasHydrated: false,
   });
+  // APP-043: drop warm/active surface frames so computer switch cannot leak DOM identity.
+  const { clearWorkspaceSurfaceCacheOnTargetChange } = await import(
+    '@/app-shell/bootstrap/clear-workspace-surface-cache'
+  );
+  await clearWorkspaceSurfaceCacheOnTargetChange();
   restoreEditorFromInstancePrefs(activeInstanceId);
 }
 
