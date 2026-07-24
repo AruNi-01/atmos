@@ -6,6 +6,9 @@ import {
   computeMountPlan,
   editorMountKey,
   isFramePanelVisible,
+  pruneStickyLeavingContexts,
+  pushStickyLeavingContext,
+  resolveContextIdsToRender,
   resolveFrameActiveTab,
   selectEditorMountSet,
   sweepWarmByTtl,
@@ -225,6 +228,34 @@ describe("warm TTL", () => {
     });
     expect(expired).toEqual(["idle-old"]);
     expect(kept.map((w) => w.contextId).sort()).toEqual(["dirty-old", "fresh"]);
+  });
+});
+
+describe("resolveContextIdsToRender / sticky leave", () => {
+  it("keeps the leaving context mounted before warm store catches up", () => {
+    let sticky = pushStickyLeavingContext([], "ws-a", "ws-b");
+    expect(sticky).toEqual(["ws-a"]);
+
+    const duringGap = resolveContextIdsToRender({
+      effectiveContextId: "ws-b",
+      warmIds: [],
+      stickyLeavingIds: sticky,
+    });
+    expect(duringGap).toEqual(expect.arrayContaining(["ws-a", "ws-b"]));
+    expect(duringGap).toHaveLength(2);
+
+    sticky = pruneStickyLeavingContexts(sticky, {
+      effectiveContextId: "ws-b",
+      warmIds: ["ws-a"],
+    });
+    expect(sticky).toEqual([]);
+
+    const afterWarm = resolveContextIdsToRender({
+      effectiveContextId: "ws-b",
+      warmIds: ["ws-a"],
+      stickyLeavingIds: sticky,
+    });
+    expect(afterWarm).toEqual(expect.arrayContaining(["ws-a", "ws-b"]));
   });
 });
 

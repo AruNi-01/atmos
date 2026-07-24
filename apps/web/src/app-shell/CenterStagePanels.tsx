@@ -37,6 +37,9 @@ import type { GithubCenterTab } from "@/features/github/store/use-github-center-
 import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
 import {
   isFramePanelVisible,
+  pruneStickyLeavingContexts,
+  pushStickyLeavingContext,
+  resolveContextIdsToRender,
   resolveFrameActiveTab,
   terminalMountKey,
   editorMountKey,
@@ -229,9 +232,29 @@ export function CenterStagePanels({
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
 
-  const contextIdsToRender = Array.from(
-    new Set([effectiveContextId, ...warm.map((c) => c.contextId)]),
-  ).filter(Boolean) as string[];
+  // Keep the workspace we just left mounted for this render, before the WSC
+  // `touch()` effect promotes it into `warm`. Otherwise Terminal unmounts,
+  // disconnects the PTY WS, and remounts with "Connecting to terminal...".
+  const lastEffectiveContextRef = React.useRef(effectiveContextId);
+  const stickyLeavingIdsRef = React.useRef<string[]>([]);
+  if (lastEffectiveContextRef.current !== effectiveContextId) {
+    stickyLeavingIdsRef.current = pushStickyLeavingContext(
+      stickyLeavingIdsRef.current,
+      lastEffectiveContextRef.current,
+      effectiveContextId,
+    );
+    lastEffectiveContextRef.current = effectiveContextId;
+  }
+  const warmIds = warm.map((c) => c.contextId);
+  stickyLeavingIdsRef.current = pruneStickyLeavingContexts(stickyLeavingIdsRef.current, {
+    effectiveContextId,
+    warmIds,
+  });
+  const contextIdsToRender = resolveContextIdsToRender({
+    effectiveContextId,
+    warmIds,
+    stickyLeavingIds: stickyLeavingIdsRef.current,
+  });
 
   // Publish surface snapshots for mount budget coordinator (store ignores no-ops).
   React.useEffect(() => {
@@ -379,14 +402,16 @@ export function CenterStagePanels({
             {tabs
               .filter((tab) => {
                 if (!mountedTabs.includes(tab.id)) return false;
-                // Active frameActiveTab is never demounted (TECH §4.3 hard rule).
-                if (isActiveContext && tab.id === frameActiveTab) return true;
+                // Keep each rendered frame's last terminal mounted (Active + Warm +
+                // sticky-leaving). Demounting it drops the PTY WebSocket and shows
+                // "Connecting to terminal..." on return; over-budget is handled by
+                // freezing whole warm workspaces, not stripping last-tab mid-warm.
+                if (tab.id === frameActiveTab) return true;
                 if (mountPlan.mounted.length === 0) {
-                  // Bootstrap before plan: active secondaries + every frame's last tab.
-                  return isActiveContext || tab.id === frameActiveTab;
+                  // Bootstrap before plan: active secondaries only.
+                  return isActiveContext;
                 }
-                // Warm frameActiveTab + all secondaries follow mountPlan (budgeted;
-                // plan prioritizes warm last-tabs over active secondaries).
+                // Secondary terminal tabs respect global mount budgets.
                 return isKeyMounted(mountPlan, terminalMountKey(contextId, tab.id));
               })
               .map((tab) => (

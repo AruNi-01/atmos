@@ -189,7 +189,9 @@ export function useTerminalTabMountLifecycle({
     }
   }, []);
 
-  React.useEffect(() => {
+  // useLayoutEffect: promote leave→warm before paint so sticky keep-alive in
+  // CenterStagePanels can drop, and mounted tabs never flash-unmount.
+  React.useLayoutEffect(() => {
     const previousContextId = previousTerminalContextRef.current;
 
     // Persist previous frame tab BEFORE activate (Active→Warm contract).
@@ -197,6 +199,18 @@ export function useTerminalTabMountLifecycle({
       const prevTab = lastActiveTabByContextRef.current[previousContextId];
       if (prevTab) {
         setCenterStageLastTab(previousContextId, prevTab);
+        // Ensure the surface we are about to hide stays in the mount set so
+        // TerminalGrid is not filtered out while warm (keeps WS alive).
+        if (isTerminalCenterTabValue(prevTab)) {
+          setMountedTerminalTabsByContext((current) => {
+            const mountedTabs = current[previousContextId] ?? [];
+            if (mountedTabs.includes(prevTab)) return current;
+            return {
+              ...current,
+              [previousContextId]: [...mountedTabs, prevTab],
+            };
+          });
+        }
       }
     }
 
@@ -209,7 +223,7 @@ export function useTerminalTabMountLifecycle({
     }
 
     previousTerminalContextRef.current = effectiveContextId ?? null;
-  }, [effectiveContextId, touch, setActiveContextId]);
+  }, [effectiveContextId, touch, setActiveContextId, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;

@@ -132,6 +132,59 @@ export function isFramePanelVisible(input: {
   return input.isActiveFrame && input.frameActiveTab === input.panelTabId;
 }
 
+/**
+ * Context ids that must keep their center-stage frames mounted.
+ *
+ * `warm` is updated in an effect after `effectiveContextId` changes. Without a
+ * one-frame sticky leave id, the previous workspace unmounts immediately (WS
+ * disconnect) and remounts as warm → full "Connecting to terminal..." flash.
+ */
+export function resolveContextIdsToRender(input: {
+  effectiveContextId: string | null | undefined;
+  warmIds: string[];
+  /** Contexts that just left Active and are not yet in `warmIds`. */
+  stickyLeavingIds?: string[];
+}): string[] {
+  const ids = new Set<string>();
+  if (input.effectiveContextId) ids.add(input.effectiveContextId);
+  for (const id of input.warmIds) {
+    if (id) ids.add(id);
+  }
+  for (const id of input.stickyLeavingIds ?? []) {
+    if (id && id !== input.effectiveContextId) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
+/** Merge a leaving context into the sticky list (newest last, de-duped). */
+export function pushStickyLeavingContext(
+  stickyLeavingIds: string[],
+  leavingContextId: string | null | undefined,
+  nextActiveContextId: string | null | undefined,
+): string[] {
+  if (!leavingContextId || leavingContextId === nextActiveContextId) {
+    return stickyLeavingIds;
+  }
+  return [
+    ...stickyLeavingIds.filter((id) => id !== leavingContextId),
+    leavingContextId,
+  ];
+}
+
+/** Drop sticky ids once the warm store (or active) owns them. */
+export function pruneStickyLeavingContexts(
+  stickyLeavingIds: string[],
+  input: {
+    effectiveContextId: string | null | undefined;
+    warmIds: string[];
+  },
+): string[] {
+  const warm = new Set(input.warmIds);
+  return stickyLeavingIds.filter(
+    (id) => id && id !== input.effectiveContextId && !warm.has(id),
+  );
+}
+
 export interface ProtectSignals {
   activeContextId: string | null;
   dirtyContextIds: Set<string> | string[];
