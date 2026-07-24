@@ -50,6 +50,11 @@ import {
   getTerminalWorkspaceScopeKey,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
+import {
+  hasNonIdleTerminalPanes,
+  isTerminalPaneNonIdle,
+} from "@/features/terminal/lib/terminal-grid-utils";
+import { getTerminalCloseConfirmName } from "@/features/terminal/lib/terminal-close-confirm-name";
 import { CodeReviewDialog } from "@/features/code-review";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
@@ -146,6 +151,11 @@ const CenterStage: React.FC = () => {
   );
 
   const [termTabPlusHoveredTabId, setTermTabPlusHoveredTabId] = React.useState<string | null>(null);
+  const [terminalTabCloseConfirm, setTerminalTabCloseConfirm] = React.useState<{
+    tabId: string;
+    title: string;
+    runningPaneNames: string[];
+  } | null>(null);
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -1081,7 +1091,7 @@ const CenterStage: React.FC = () => {
     return Object.values(persistedTab?.panes ?? {}) as TerminalPaneProps[];
   }, [currentView]);
 
-  const handleCloseTerminalCenterTab = React.useCallback((tabId: string) => {
+  const performCloseTerminalCenterTab = React.useCallback((tabId: string) => {
     if (!effectiveContextId) return;
     const terminalState = useTerminalStore.getState();
     const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
@@ -1131,6 +1141,50 @@ const CenterStage: React.FC = () => {
     setUrlParams,
   ]);
 
+  const handleCloseTerminalCenterTab = React.useCallback(async (
+    tabId: string,
+    options?: { force?: boolean },
+  ) => {
+    if (!effectiveContextId) return;
+
+    if (!options?.force) {
+      const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
+      let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
+      try {
+        const response = await systemApi.listTmuxWindows(effectiveContextId);
+        tmuxWindows = response.windows;
+      } catch (error) {
+        console.warn("Failed to inspect terminal foreground commands before tab close", error);
+      }
+
+      if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
+        const tab = useTerminalStore.getState().getTerminalTabs(effectiveContextId)
+          .find((item) => item.id === tabId);
+        const title = tab?.customTitle || tab?.title || t("fallbackTerminalTitle");
+        const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
+        const runningPaneNames = tabPanes
+          .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
+          .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));
+        setTerminalTabCloseConfirm({ tabId, title, runningPaneNames });
+        return;
+      }
+    }
+
+    performCloseTerminalCenterTab(tabId);
+  }, [
+    effectiveContextId,
+    getTerminalTabPanes,
+    performCloseTerminalCenterTab,
+    t,
+    terminalQuickOpenAgents,
+  ]);
+
+  const handleConfirmCloseTerminalCenterTab = React.useCallback(() => {
+    if (!terminalTabCloseConfirm) return;
+    performCloseTerminalCenterTab(terminalTabCloseConfirm.tabId);
+    setTerminalTabCloseConfirm(null);
+  }, [performCloseTerminalCenterTab, terminalTabCloseConfirm]);
+
   const handleTerminalPaneClosed = React.useCallback((event: {
     paneId: string;
     pane: TerminalPaneProps;
@@ -1140,7 +1194,8 @@ const CenterStage: React.FC = () => {
     if (!effectiveContextId) return;
 
     if (event.isLastPane) {
-      handleCloseTerminalCenterTab(event.terminalTabId);
+      // Pane close already confirmed busy state for the last remaining pane.
+      void handleCloseTerminalCenterTab(event.terminalTabId, { force: true });
       return;
     }
 
@@ -1221,7 +1276,8 @@ const CenterStage: React.FC = () => {
 
     if (Object.keys(panes).length <= 1) {
       if (detail.workspaceId === effectiveContextId) {
-        handleCloseTerminalCenterTab(terminalTabId);
+        // Pane already closed from canvas; force tab teardown without a second confirm.
+        void handleCloseTerminalCenterTab(terminalTabId, { force: true });
       } else {
         terminalState.closeTerminalTab(detail.workspaceId, terminalTabId);
       }
@@ -1562,6 +1618,19 @@ const CenterStage: React.FC = () => {
         title={t("dialogs.closeCodeReviewTerminal.title")}
         description={t("dialogs.closeCodeReviewTerminal.description")}
         onConfirm={handleConfirmCloseCodeReviewTerminal}
+      />
+
+      <TerminalCloseConfirmDialog
+        open={!!terminalTabCloseConfirm}
+        onOpenChange={(open) => {
+          if (!open) setTerminalTabCloseConfirm(null);
+        }}
+        title={t("dialogs.closeTerminalTab.title")}
+        description={t("dialogs.closeTerminalTab.description", {
+          title: terminalTabCloseConfirm?.title ?? t("fallbackTerminalTitle"),
+        })}
+        items={terminalTabCloseConfirm?.runningPaneNames}
+        onConfirm={handleConfirmCloseTerminalCenterTab}
       />
 
       {/* Code Review Dialog */}

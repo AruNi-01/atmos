@@ -1010,6 +1010,10 @@
         "closeCodeReviewTerminal": {
           "title": "关闭 Code Review 终端？",
           "description": "正在运行的代码审查会被停止。你可以稍后从 Changes 面板重新开始。"
+        },
+        "closeTerminalTab": {
+          "title": "关闭终端标签页？",
+          "description": "{title} 中有正在运行的面板。关闭后会终止这些进程，并移除该标签页中的所有面板。"
         }
       },
       "toasts": {

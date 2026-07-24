@@ -36,14 +36,16 @@ import {
 import {
   DEFAULT_TOOLBAR_ACTIONS,
   flattenMosaicLayout,
-  isIdleShellCommand,
+  isTerminalPaneNonIdle,
   type TerminalGridHandle,
   type TerminalGridProps,
 } from "../lib/terminal-grid-utils";
+import { getTerminalCloseConfirmName } from "../lib/terminal-close-confirm-name";
 import { TerminalGridCloseConfirmDialog } from "./terminal-grid-close-confirm-dialog";
 import { TerminalGridEmptyState, TerminalGridLoadingState } from "./terminal-grid-states";
 import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pins";
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
+import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import {
   toPendingTerminalRun,
   useTerminalAgentTuiFollowUp,
@@ -119,6 +121,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     () => quickOpenAgents.map(({ agent }) => agent),
     [quickOpenAgents],
   );
+  const contestedOwners = useContestedCliOwners();
 
   const hydrateTerminalSplitPrefs = useTerminalSplitPrefsStore((state) => state.hydrate);
   const useLastSplitAgentOnSplit = useTerminalSplitPrefsStore((state) => state.useLastSplitAgentOnSplit);
@@ -563,31 +566,22 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return;
 
-    if (isPathLikeTitle(pane.dynamicTitle)) {
+    // No tmux identity / path-like title → idle shell; close without confirm.
+    if (!pane.tmuxWindowName || isPathLikeTitle(pane.dynamicTitle)) {
       removeTerminal(id);
       return;
     }
 
-    // If the tmux window is currently sitting at a shell prompt, close directly.
-    // If we cannot determine this confidently, fall back to confirmation.
-    if (pane.tmuxWindowName) {
-      try {
-        const response = await systemApi.listTmuxWindows(workspaceId);
-        const tmuxWindow = response.windows.find((window) =>
-          window.name === pane.tmuxWindowName ||
-          window.name === pane.label ||
-          String(window.index) === pane.tmuxWindowName
-        );
-        if (tmuxWindow && isIdleShellCommand(tmuxWindow.current_command)) {
-          removeTerminal(id);
-          return;
-        }
-      } catch (error) {
-        console.warn("Failed to inspect terminal foreground command before close", error);
-      }
+    // Probe tmux foreground command. Unavailable list falls back to confirm.
+    let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
+    try {
+      const response = await systemApi.listTmuxWindows(workspaceId);
+      tmuxWindows = response.windows;
+    } catch (error) {
+      console.warn("Failed to inspect terminal foreground command before close", error);
     }
 
-    if (!pane.tmuxWindowName) {
+    if (!isTerminalPaneNonIdle(pane, tmuxWindows)) {
       removeTerminal(id);
       return;
     }
@@ -958,7 +952,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }
 
   const closeConfirmPane = closeConfirmPaneId ? panes[closeConfirmPaneId] : null;
-  const closeConfirmTitle = closeConfirmPane?.dynamicTitle ?? closeConfirmPane?.label ?? "Terminal";
+  const closeConfirmTitle = closeConfirmPane
+    ? getTerminalCloseConfirmName(closeConfirmPane, configuredAgents, contestedOwners)
+    : "Terminal";
 
   return (
     <>

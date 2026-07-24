@@ -17,15 +17,19 @@ export function TerminalCloseConfirmDialog({
   onOpenChange,
   title,
   description,
+  items,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
+  /** Optional running pane labels (prefer agent names) shown as a list. */
+  items?: string[];
   onConfirm: () => void | Promise<void>;
 }) {
   const t = useTranslations("AppShell.chrome");
+  const visibleItems = items?.filter((item) => item.trim().length > 0) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onOpenChange(false)}>
@@ -34,6 +38,15 @@ export function TerminalCloseConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {visibleItems.length > 0 ? (
+          <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-sm text-muted-foreground">
+            {visibleItems.map((item, index) => (
+              <li key={`${item}-${index}`} className="break-words">
+                {item}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <DialogFooter className="gap-4">
           <Button variant="outline" className="cursor-pointer" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}

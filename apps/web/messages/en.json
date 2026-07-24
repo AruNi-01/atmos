@@ -1010,6 +1010,10 @@
         "closeCodeReviewTerminal": {
           "title": "Close Code Review terminal?",
           "description": "Any running code review will be stopped. You can start a new review from the Changes panel."
+        },
+        "closeTerminalTab": {
+          "title": "Close terminal tab?",
+          "description": "{title} has running panes. Closing will stop them and remove all panes in this tab."
         }
       },
       "toasts": {
