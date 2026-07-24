@@ -230,6 +230,11 @@ export interface ContextSurfaceSnapshot {
   contextId: string;
   /** Terminal tab ids currently candidates for mount (usually active + previously open). */
   terminalTabIds: string[];
+  /**
+   * Mosaic pane counts per terminal tab id. Defaults to 1 when omitted.
+   * Used so `max_global_terminal_panes` tracks real xterm instances, not only tabs.
+   */
+  terminalPaneCountByTabId?: Record<string, number>;
   /** Open file paths ordered most-recent-first after active. */
   editorPathsRecent: string[];
   browserTabValues: string[];
@@ -247,9 +252,23 @@ export interface ComputeMountPlanInput {
   budgets: SurfaceBudgets;
 }
 
+function terminalPaneUnits(snap: ContextSurfaceSnapshot, tabId: string): number {
+  const raw = snap.terminalPaneCountByTabId?.[tabId];
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  return 1;
+}
+
 /**
  * Build a mount plan for Active ∪ Warm frames under global/per-ws budgets.
- * Prefer active context surfaces and each frame's frameActiveTab.
+ *
+ * Terminal allocation (TECH §4.3):
+ * 1. Active frameActiveTab terminal (always, even if it alone exceeds the pane cap)
+ * 2. Warm frameActiveTab terminals (newest → oldest) — prefer-keep for M6 continuity
+ * 3. Remaining secondary terminal tabs (active first, then warm)
+ *
+ * Editors/browsers/lights follow context order: active first, then warm newest → oldest.
  */
 export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
   const liveIds = new Set<string>();
@@ -274,11 +293,16 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
   let editorCount = 0;
   let browserCount = 0;
 
-  const tryAdd = (key: string, kind: "terminal" | "editor" | "browser" | "light" | "named") => {
+  const tryAdd = (
+    key: string,
+    kind: "terminal" | "editor" | "browser" | "light" | "named",
+    opts?: { units?: number; force?: boolean },
+  ) => {
     if (mounted.includes(key)) return;
+    const units = opts?.units ?? 1;
     if (kind === "terminal") {
-      if (terminalCount >= input.budgets.maxGlobalTerminalPanes) return;
-      terminalCount += 1;
+      if (!opts?.force && terminalCount + units > input.budgets.maxGlobalTerminalPanes) return;
+      terminalCount += units;
     } else if (kind === "editor") {
       if (editorCount >= input.budgets.maxGlobalMountedEditors) return;
       editorCount += 1;
@@ -289,19 +313,51 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
     mounted.push(key);
   };
 
+  // --- Terminals: two-pass so warm frameActiveTabs beat active secondaries ---
+  const isTerminalTab = (snap: ContextSurfaceSnapshot, tabId: string | null | undefined) =>
+    Boolean(tabId && snap.terminalTabIds.includes(tabId));
+
+  // Pass 1a: Active frameActiveTab (never demount — TECH hard rule)
+  if (input.activeContextId) {
+    const snap = byId.get(input.activeContextId);
+    const activeTab = snap?.frameActiveTab ?? null;
+    if (snap && isTerminalTab(snap, activeTab)) {
+      tryAdd(terminalMountKey(input.activeContextId, activeTab!), "terminal", {
+        units: terminalPaneUnits(snap, activeTab!),
+        force: true,
+      });
+    }
+  }
+
+  // Pass 1b: Warm frameActiveTabs (newest → oldest already in `order` after active)
+  for (const contextId of order) {
+    if (contextId === input.activeContextId) continue;
+    const snap = byId.get(contextId)!;
+    const activeTab = snap.frameActiveTab ?? null;
+    if (isTerminalTab(snap, activeTab)) {
+      tryAdd(terminalMountKey(contextId, activeTab!), "terminal", {
+        units: terminalPaneUnits(snap, activeTab!),
+      });
+    }
+  }
+
+  // Pass 2: secondary terminal tabs (active first, then warm)
+  for (const contextId of order) {
+    const snap = byId.get(contextId)!;
+    const activeTab = snap.frameActiveTab ?? null;
+    for (const tabId of snap.terminalTabIds) {
+      if (tabId === activeTab) continue;
+      tryAdd(terminalMountKey(contextId, tabId), "terminal", {
+        units: terminalPaneUnits(snap, tabId),
+      });
+    }
+  }
+
+  // --- Non-terminal surfaces: context order ---
   for (const contextId of order) {
     const snap = byId.get(contextId)!;
     const isActive = contextId === input.activeContextId;
     const activeTab = snap.frameActiveTab ?? null;
-
-    // Terminals: prefer frameActiveTab first
-    const termTabs = [...snap.terminalTabIds];
-    if (activeTab && termTabs.includes(activeTab)) {
-      termTabs.sort((a, b) => (a === activeTab ? -1 : b === activeTab ? 1 : 0));
-    }
-    for (const tabId of termTabs) {
-      tryAdd(terminalMountKey(contextId, tabId), "terminal");
-    }
 
     // Editors: per-workspace cap then global
     let perWsEditors = 0;

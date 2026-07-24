@@ -308,4 +308,100 @@ describe("selectEditorMountSet + computeMountPlan", () => {
     });
     expect(plan.mounted.some((k) => k.startsWith("light:"))).toBe(false);
   });
+
+  it("prefers warm frameActiveTab terminals over active secondary tabs", () => {
+    const plan = computeMountPlan({
+      activeContextId: "a",
+      warm: [{ contextId: "b", lastAccessed: 10 }],
+      budgets: {
+        ...DEFAULT_SURFACE_BUDGETS,
+        maxGlobalTerminalPanes: 2,
+      },
+      contexts: [
+        {
+          contextId: "a",
+          terminalTabIds: ["terminal", "terminal-tab:2", "terminal-tab:3"],
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          frameActiveTab: "terminal",
+        },
+        {
+          contextId: "b",
+          terminalTabIds: ["terminal"],
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          frameActiveTab: "terminal",
+        },
+      ],
+    });
+
+    const terminals = plan.mounted.filter((k) => k.startsWith("terminal:"));
+    expect(terminals).toContain(terminalMountKey("a", "terminal"));
+    expect(terminals).toContain(terminalMountKey("b", "terminal"));
+    expect(terminals).not.toContain(terminalMountKey("a", "terminal-tab:2"));
+    expect(terminals.length).toBe(2);
+  });
+
+  it("counts mosaic pane units toward max_global_terminal_panes", () => {
+    const plan = computeMountPlan({
+      activeContextId: "a",
+      warm: [{ contextId: "b", lastAccessed: 10 }],
+      budgets: {
+        ...DEFAULT_SURFACE_BUDGETS,
+        maxGlobalTerminalPanes: 3,
+      },
+      contexts: [
+        {
+          contextId: "a",
+          terminalTabIds: ["terminal"],
+          terminalPaneCountByTabId: { terminal: 2 },
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          frameActiveTab: "terminal",
+        },
+        {
+          contextId: "b",
+          terminalTabIds: ["terminal", "terminal-tab:2"],
+          terminalPaneCountByTabId: { terminal: 1, "terminal-tab:2": 2 },
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          frameActiveTab: "terminal",
+        },
+      ],
+    });
+
+    // a:terminal (2) + b:terminal (1) = 3; b secondary (2) does not fit
+    expect(plan.mounted).toContain(terminalMountKey("a", "terminal"));
+    expect(plan.mounted).toContain(terminalMountKey("b", "terminal"));
+    expect(plan.mounted).not.toContain(terminalMountKey("b", "terminal-tab:2"));
+  });
+
+  it("always mounts active frameActiveTab even when pane weight exceeds the cap alone", () => {
+    const plan = computeMountPlan({
+      activeContextId: "a",
+      warm: [],
+      budgets: {
+        ...DEFAULT_SURFACE_BUDGETS,
+        maxGlobalTerminalPanes: 2,
+      },
+      contexts: [
+        {
+          contextId: "a",
+          terminalTabIds: ["terminal", "terminal-tab:2"],
+          terminalPaneCountByTabId: { terminal: 5, "terminal-tab:2": 1 },
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          frameActiveTab: "terminal",
+        },
+      ],
+    });
+
+    expect(plan.mounted).toContain(terminalMountKey("a", "terminal"));
+    expect(plan.mounted).not.toContain(terminalMountKey("a", "terminal-tab:2"));
+  });
 });

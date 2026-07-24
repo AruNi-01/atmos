@@ -223,6 +223,8 @@ export function CenterStagePanels({
   const setSurfaceSnapshot = useWorkspaceSurfaceCacheStore((s) => s.setSurfaceSnapshot);
   const allWorkspaceTerminalTabs = useTerminalStore((s) => s.workspaceTerminalTabs);
   const workspaceContexts = useTerminalStore((s) => s.workspaceContexts);
+  const getPanes = useTerminalStore((s) => s.getPanes);
+  const workspacePanes = useTerminalStore((s) => s.workspacePanes);
   const getOpenFiles = useEditorStore((s) => s.getOpenFiles);
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
@@ -282,12 +284,22 @@ export function CenterStagePanels({
       ) {
         named.push("code-review");
       }
+      const terminalTabIds = (isActive
+        ? mountedTerminalTabsByContext[contextId] ?? tabs.map((t) => t.id)
+        : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
+      ).filter(Boolean);
+      const terminalPaneCountByTabId: Record<string, number> = {};
+      for (const tabId of terminalTabIds) {
+        const panes = getPanes(
+          contextId,
+          tabId === FIXED_TERMINAL_TAB_VALUE ? undefined : tabId,
+        );
+        terminalPaneCountByTabId[tabId] = Math.max(1, Object.keys(panes ?? {}).length);
+      }
       setSurfaceSnapshot({
         contextId,
-        terminalTabIds: (isActive
-          ? mountedTerminalTabsByContext[contextId] ?? tabs.map((t) => t.id)
-          : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
-        ).filter(Boolean),
+        terminalTabIds,
+        terminalPaneCountByTabId,
         editorPathsRecent: files.map((f) => f.path),
         browserTabValues: (browserTabsByContext[contextId] ?? []).map((b) => b.value),
         lightIds,
@@ -305,8 +317,10 @@ export function CenterStagePanels({
     contextIdsToRender.join(","),
     effectiveContextId,
     getOpenFiles,
+    getPanes,
     githubTabsByContext,
     mountedTerminalTabsByContext,
+    workspacePanes,
     projectWikiTabVisible,
     visibleTerminalTabs,
   ]);
@@ -365,14 +379,14 @@ export function CenterStagePanels({
             {tabs
               .filter((tab) => {
                 if (!mountedTabs.includes(tab.id)) return false;
-                // Always keep this frame's active/last terminal tab mounted to avoid
-                // reconnect flash on warm return (APP-043 continuity).
-                if (tab.id === frameActiveTab) return true;
-                // Secondary terminal tabs respect global/warm mount budgets.
+                // Active frameActiveTab is never demounted (TECH §4.3 hard rule).
+                if (isActiveContext && tab.id === frameActiveTab) return true;
                 if (mountPlan.mounted.length === 0) {
-                  // No plan yet: keep active-frame secondaries; warm only last tab.
-                  return isActiveContext;
+                  // Bootstrap before plan: active secondaries + every frame's last tab.
+                  return isActiveContext || tab.id === frameActiveTab;
                 }
+                // Warm frameActiveTab + all secondaries follow mountPlan (budgeted;
+                // plan prioritizes warm last-tabs over active secondaries).
                 return isKeyMounted(mountPlan, terminalMountKey(contextId, tab.id));
               })
               .map((tab) => (
