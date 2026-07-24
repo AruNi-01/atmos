@@ -47,6 +47,7 @@ import {
   namedTerminalMountKey,
   isKeyMounted,
 } from "@/app-shell/workspace-surface-policies";
+import { scheduleIdle } from "@/app-shell/workspace-surface-switch";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
@@ -256,79 +257,85 @@ export function CenterStagePanels({
   });
 
   // Publish surface snapshots for mount budget coordinator (store ignores no-ops).
+  // Defer off the switch critical path so CenterStage chrome can paint first.
   React.useEffect(() => {
-    for (const contextId of contextIdsToRender) {
-      const isActive = contextId === effectiveContextId;
-      const tabs =
-        allWorkspaceTerminalTabs[contextId] ??
-        (isActive ? visibleTerminalTabs : [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: true }]);
-      const files = getOpenFiles(contextId);
-      const last = readCenterStageLastTab(contextId);
-      const validForContext = [
-        ...tabs.map((tab) => tab.id),
-        ...files.map((f) => f.path),
-        ...((githubTabsByContext[contextId] ?? []).map((tab) => tab.value)),
-        ...((browserTabsByContext[contextId] ?? []).map((b) => b.value)),
-        "overview",
-        "wiki",
-        "project-wiki",
-        "code-review",
-        FIXED_TERMINAL_TAB_VALUE,
-      ];
-      const frameActiveTab = resolveFrameActiveTab({
-        isActiveFrame: isActive,
-        urlOrEditorTab: isActive ? activeValue : null,
-        lastCenterTab: last,
-        fallbackTab: FIXED_TERMINAL_TAB_VALUE,
-        validTabs: validForContext,
-      });
-      const lightIds: string[] = [];
-      if (frameActiveTab === "overview" || frameActiveTab === "wiki") {
-        lightIds.push(frameActiveTab);
-      }
-      // GitHub center tabs are light surfaces — only last-active / active-tab ids enter mount plan.
-      const ghTabs = githubTabsByContext[contextId] ?? [];
-      for (const tab of ghTabs) {
-        if (frameActiveTab === tab.value || (isActive && activeValue === tab.value)) {
-          lightIds.push(tab.value);
+    const contextIds = contextIdsToRender;
+    return scheduleIdle(() => {
+      for (const contextId of contextIds) {
+        const isActive = contextId === effectiveContextId;
+        const tabs =
+          allWorkspaceTerminalTabs[contextId] ??
+          (isActive
+            ? visibleTerminalTabs
+            : [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: true }]);
+        const files = getOpenFiles(contextId);
+        const last = readCenterStageLastTab(contextId);
+        const validForContext = [
+          ...tabs.map((tab) => tab.id),
+          ...files.map((f) => f.path),
+          ...((githubTabsByContext[contextId] ?? []).map((tab) => tab.value)),
+          ...((browserTabsByContext[contextId] ?? []).map((b) => b.value)),
+          "overview",
+          "wiki",
+          "project-wiki",
+          "code-review",
+          FIXED_TERMINAL_TAB_VALUE,
+        ];
+        const frameActiveTab = resolveFrameActiveTab({
+          isActiveFrame: isActive,
+          urlOrEditorTab: isActive ? activeValue : null,
+          lastCenterTab: last,
+          fallbackTab: FIXED_TERMINAL_TAB_VALUE,
+          validTabs: validForContext,
+        });
+        const lightIds: string[] = [];
+        if (frameActiveTab === "overview" || frameActiveTab === "wiki") {
+          lightIds.push(frameActiveTab);
         }
-      }
-      const named: Array<"project-wiki" | "code-review"> = [];
-      if (
-        frameActiveTab === "project-wiki" ||
-        (isActive && projectWikiTabVisible)
-      ) {
-        named.push("project-wiki");
-      }
-      if (
-        frameActiveTab === "code-review" ||
-        (isActive && codeReviewTabVisible)
-      ) {
-        named.push("code-review");
-      }
-      const terminalTabIds = (isActive
-        ? mountedTerminalTabsByContext[contextId] ?? tabs.map((t) => t.id)
-        : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
-      ).filter(Boolean);
-      const terminalPaneCountByTabId: Record<string, number> = {};
-      for (const tabId of terminalTabIds) {
-        const panes = getPanes(
+        // GitHub center tabs are light surfaces — only last-active / active-tab ids enter mount plan.
+        const ghTabs = githubTabsByContext[contextId] ?? [];
+        for (const tab of ghTabs) {
+          if (frameActiveTab === tab.value || (isActive && activeValue === tab.value)) {
+            lightIds.push(tab.value);
+          }
+        }
+        const named: Array<"project-wiki" | "code-review"> = [];
+        if (
+          frameActiveTab === "project-wiki" ||
+          (isActive && projectWikiTabVisible)
+        ) {
+          named.push("project-wiki");
+        }
+        if (
+          frameActiveTab === "code-review" ||
+          (isActive && codeReviewTabVisible)
+        ) {
+          named.push("code-review");
+        }
+        const terminalTabIds = (isActive
+          ? mountedTerminalTabsByContext[contextId] ?? tabs.map((t) => t.id)
+          : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
+        ).filter(Boolean);
+        const terminalPaneCountByTabId: Record<string, number> = {};
+        for (const tabId of terminalTabIds) {
+          const panes = getPanes(
+            contextId,
+            tabId === FIXED_TERMINAL_TAB_VALUE ? undefined : tabId,
+          );
+          terminalPaneCountByTabId[tabId] = Math.max(1, Object.keys(panes ?? {}).length);
+        }
+        setSurfaceSnapshot({
           contextId,
-          tabId === FIXED_TERMINAL_TAB_VALUE ? undefined : tabId,
-        );
-        terminalPaneCountByTabId[tabId] = Math.max(1, Object.keys(panes ?? {}).length);
+          terminalTabIds,
+          terminalPaneCountByTabId,
+          editorPathsRecent: files.map((f) => f.path),
+          browserTabValues: (browserTabsByContext[contextId] ?? []).map((b) => b.value),
+          lightIds,
+          namedTerminals: named,
+          frameActiveTab,
+        });
       }
-      setSurfaceSnapshot({
-        contextId,
-        terminalTabIds,
-        terminalPaneCountByTabId,
-        editorPathsRecent: files.map((f) => f.path),
-        browserTabValues: (browserTabsByContext[contextId] ?? []).map((b) => b.value),
-        lightIds,
-        namedTerminals: named,
-        frameActiveTab,
-      });
-    }
+    });
     // Intentionally omit setSurfaceSnapshot identity churn; store no-ops identical snapshots.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid mountPlan-driven loops
   }, [
@@ -353,12 +360,26 @@ export function CenterStagePanels({
       <div className="relative flex-1 min-h-0 min-w-0 w-full">
       {contextIdsToRender.map((contextId) => {
         const isActiveContext = contextId === effectiveContextId;
-        const tabs = isActiveContext
+        const mountedTabs = mountedTerminalTabsByContext[contextId] || [];
+        // Base tab list from store (or active visible tabs). For warm/sticky frames,
+        // also re-introduce any mount-book tab ids so keep-alive grids are not filtered
+        // out when `allWorkspaceTerminalTabs` briefly lags behind.
+        const baseTabs = isActiveContext
           ? visibleTerminalTabs
           : allWorkspaceTerminalTabs[contextId] || [
               { id: FIXED_TERMINAL_TAB_VALUE, title: t("fallbackTerminalTitle"), closable: true },
             ];
-        const mountedTabs = mountedTerminalTabsByContext[contextId] || [];
+        const tabIds = new Set(baseTabs.map((tab) => tab.id));
+        const tabs = [...baseTabs];
+        for (const tabId of mountedTabs) {
+          if (tabIds.has(tabId)) continue;
+          tabs.push({
+            id: tabId,
+            title: t("fallbackTerminalTitle"),
+            closable: true,
+          });
+          tabIds.add(tabId);
+        }
         const isProject = isActiveContext
           ? currentView === "project"
           : (workspaceContexts[contextId] ?? false);
@@ -403,13 +424,17 @@ export function CenterStagePanels({
           >
             {tabs
               .filter((tab) => {
-                // Tab-like keep-alive: once a terminal tab was mounted for this
-                // context, keep the TerminalGrid for the whole warm lifetime.
-                // Demount only when the workspace freezes (drops from render list).
-                // mountPlan still budgets editors/browsers; terminals stay warm.
+                // Tab-like keep-alive (same model as switching terminal tabs inside
+                // one workspace): once a TerminalGrid is in the tree, keep it mounted
+                // for the whole Active∪Warm lifetime and only CSS-hide it.
+                // Demount only when the workspace freezes (drops from contextIdsToRender).
+                //
+                // Always keep frameActiveTab for warm/sticky frames too — not only
+                // active. Otherwise the first commit after a context switch can drop
+                // the leaving workspace's Terminal before mount bookkeeping lands,
+                // closing the PTY WebSocket and flashing Disconnected.
                 if (mountedTabs.includes(tab.id)) return true;
-                // First open on active frame before mount bookkeeping lands.
-                if (isActiveContext && tab.id === frameActiveTab) return true;
+                if (tab.id === frameActiveTab) return true;
                 return false;
               })
               .map((tab) => (

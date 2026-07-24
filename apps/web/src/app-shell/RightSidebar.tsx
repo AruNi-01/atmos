@@ -2,6 +2,7 @@
 
 import React, {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -53,6 +54,7 @@ import { useGitLog } from "@/features/github/hooks/use-github";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
+import { scheduleAfterPaint } from "@/app-shell/workspace-surface-switch";
 
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 import {
@@ -171,7 +173,10 @@ interface RightSidebarProps {
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const t = useTranslations("AppShell.chrome");
   const { isRightCollapsed } = useSidebarLayout();
-  const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
+  const { workspaceId: liveWorkspaceId, projectId: liveProjectIdFromUrl } = useContextParams();
+  // Defer heavy tree/changes rebind so CenterStage frame switch paints first.
+  const workspaceId = useDeferredValue(liveWorkspaceId);
+  const projectIdFromUrl = useDeferredValue(liveProjectIdFromUrl);
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
@@ -322,12 +327,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
 
+  // Repo path rebind after paint — do not block center-stage switch chrome.
   useEffect(() => {
-    if (isSettingUp) {
-      setCurrentRepoPath(null);
-      return;
-    }
-    setCurrentRepoPath(currentProjectPath || null);
+    return scheduleAfterPaint(() => {
+      if (isSettingUp) {
+        setCurrentRepoPath(null);
+        return;
+      }
+      setCurrentRepoPath(currentProjectPath || null);
+    });
   }, [currentProjectPath, isSettingUp, setCurrentRepoPath]);
 
   const hasWorkingContext = !!(

@@ -7,6 +7,7 @@ import {
 import { useCallback, useMemo } from "react";
 
 import { useAppNavigationInterceptor } from "./app-navigation-intercept";
+import { prepareWorkspaceContextNavigation } from "@/app-shell/workspace-surface-switch";
 
 function currentBrowserLocation(fallbackPathname: string): string {
   if (typeof window === "undefined") {
@@ -60,7 +61,9 @@ export function useAppRouter() {
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
-      router.push(nextPath);
+      // APP-043: inject last tab only — never promote WSC here (blocks click 1–2s).
+      const prepared = prepareWorkspaceContextNavigation(nextPath);
+      router.push(prepared);
     },
     [interceptor, normalizePath, pathname, router],
   );
@@ -74,7 +77,8 @@ export function useAppRouter() {
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
-      router.replace(nextPath);
+      const prepared = prepareWorkspaceContextNavigation(nextPath);
+      router.replace(prepared);
     },
     [interceptor, normalizePath, pathname, router],
   );

@@ -151,44 +151,55 @@ export function useTerminalTabMountLifecycle({
   const previousTerminalContextRef = React.useRef<string | null>(null);
   /** Last known activeValue per context — written before setActive on leave (APP-043). */
   const lastActiveTabByContextRef = React.useRef<Record<string, string>>({});
-  const touch = useWorkspaceSurfaceCacheStore((s) => s.touch);
-  const setActiveContextId = useWorkspaceSurfaceCacheStore((s) => s.setActiveContextId);
-  const warm = useWorkspaceSurfaceCacheStore((s) => s.warm);
+  // Do NOT subscribe CenterStage to `warm` — that re-renders the entire shell
+  // (tab bar + multi-frame host) on every touch. Read warm via getState in effects.
+  const warmEpoch = useWorkspaceSurfaceCacheStore((s) => s.warm.length);
 
   // Track tab while context is stable so leave path can persist before activate next.
+  // Ref writes during render are safe; do not call Zustand or setState here.
   if (effectiveContextId && activeValue) {
     lastActiveTabByContextRef.current[effectiveContextId] = activeValue;
   }
 
-  // Synchronously promote leave→warm during CenterStage render so children
-  // (CenterStagePanels) see the full warm set in the same paint as the URL
-  // change — same model as keeping multiple terminal tabs mounted.
-  const previousContextId = previousTerminalContextRef.current;
-  if (previousContextId !== (effectiveContextId ?? null)) {
-    if (previousContextId && previousContextId !== effectiveContextId) {
-      const prevTab = lastActiveTabByContextRef.current[previousContextId];
+  // After URL commits: persist leaving last-tab + atomic WSC switchContext.
+  // Sticky leave in CenterStagePanels covers the one-frame gap before warm lands.
+  React.useLayoutEffect(() => {
+    const current = effectiveContextId ?? null;
+    const previousContextId = previousTerminalContextRef.current;
+
+    if (previousContextId && previousContextId !== current) {
+      const prevTab =
+        lastActiveTabByContextRef.current[previousContextId] ??
+        readCenterStageLastTab(previousContextId);
       if (prevTab) {
         setCenterStageLastTab(previousContextId, prevTab);
+        if (isTerminalCenterTabValue(prevTab)) {
+          setMountedTerminalTabsByContext((state) => {
+            const mountedTabs = state[previousContextId] ?? [];
+            if (mountedTabs.includes(prevTab)) return state;
+            return {
+              ...state,
+              [previousContextId]: [...mountedTabs, prevTab],
+            };
+          });
+        }
       }
     }
-    // Update ref first so Strict Mode double-render does not double-touch.
-    previousTerminalContextRef.current = effectiveContextId ?? null;
-    setActiveContextId(effectiveContextId ?? null);
-    if (previousContextId && previousContextId !== effectiveContextId) {
-      touch(previousContextId);
-    }
-  }
 
-  // Ensure leaving context keeps its last terminal tab in the mount book
-  // (tab-like: once opened, stays mounted for the whole warm lifetime).
+    // Atomic active+warm update (single notification). Never runs in the click path.
+    useWorkspaceSurfaceCacheStore.getState().switchContext(current);
+
+    previousTerminalContextRef.current = current;
+  }, [effectiveContextId, setMountedTerminalTabsByContext]);
+
+  // Ensure Active ∪ Warm contexts keep their last terminal tab mounted for the
+  // whole warm lifetime (tab-like keep-alive across workspace switch).
   React.useLayoutEffect(() => {
-    if (!effectiveContextId) return;
-    // After sync bridge, previousTerminalContextRef is already the new id.
-    // Re-read last-tab map for every warm entry and ensure terminal last-tabs.
     const live = useWorkspaceSurfaceCacheStore.getState();
     const ensureIds = [
       ...live.warm.map((w) => w.contextId),
       live.activeContextId,
+      effectiveContextId,
     ].filter(Boolean) as string[];
     setMountedTerminalTabsByContext((current) => {
       let changed = false;
@@ -203,7 +214,7 @@ export function useTerminalTabMountLifecycle({
       }
       return changed ? next : current;
     });
-  }, [effectiveContextId, warm, setMountedTerminalTabsByContext]);
+  }, [effectiveContextId, warmEpoch, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
     // Keep mounted-tab bookkeeping for Active ∪ Warm only (frozen contexts drop).
@@ -225,7 +236,7 @@ export function useTerminalTabMountLifecycle({
       }
       return changed ? next : current;
     });
-  }, [effectiveContextId, warm, setMountedTerminalTabsByContext]);
+  }, [effectiveContextId, warmEpoch, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
     // Only register one sweeper interval globally to prevent HMR leaks

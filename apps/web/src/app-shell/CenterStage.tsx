@@ -39,6 +39,7 @@ import {
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { planTerminalLastTabRestore } from "@/app-shell/workspace-surface-restore";
+import { scheduleAfterPaint } from "@/app-shell/workspace-surface-switch";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 import { systemApi } from "@/api/rest-api";
@@ -439,9 +440,12 @@ const CenterStage: React.FC = () => {
     }
   };
 
-  // Sync effective context ID with store
+  // Sync effective context ID with editor store after first paint so switch chrome
+  // (frame visibility + tabs) is not blocked by editor/git rebind work.
   React.useEffect(() => {
-    setWorkspaceId(effectiveContextId);
+    return scheduleAfterPaint(() => {
+      setWorkspaceId(effectiveContextId);
+    });
   }, [effectiveContextId, setWorkspaceId]);
 
   const openFiles = getOpenFiles(effectiveContextId || undefined);
@@ -597,9 +601,12 @@ const CenterStage: React.FC = () => {
     userTriggeredRef: codeReviewUserTriggeredRef,
   });
 
+  // Prime after paint — warm frames already mounted; cold hydrate can wait one frame.
   React.useEffect(() => {
     if (!effectiveContextId) return;
-    primeWorkspace(effectiveContextId, currentView === "project");
+    return scheduleAfterPaint(() => {
+      primeWorkspace(effectiveContextId, currentView === "project");
+    });
   }, [currentView, effectiveContextId, primeWorkspace]);
 
   // Restore the last active center tab when switching workspace/project context,

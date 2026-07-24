@@ -59,5 +59,4 @@ Atmosphere for Agentic Builders
 
 ## 参考
 
-- https://deepwiki.com/superset-sh/superset/1-overview
 - https://deepwiki.com/gbasin/agentboard/1-overview

@@ -38,6 +38,11 @@ interface WorkspaceSurfaceCacheState extends SurfaceBudgets {
 
   setActiveContextId: (id: string | null) => void;
   touch: (id: string) => void;
+  /**
+   * Atomic Active leave→warm + set next active in one store update.
+   * Prefer this over setActiveContextId+touch (half the React re-renders).
+   */
+  switchContext: (nextId: string | null) => void;
   freeze: (id: string, reason: EvictReason) => void;
   enforceMountBudgets: (reason?: BudgetRunReason) => void;
   setSurfaceSnapshot: (snapshot: ContextSurfaceSnapshot) => void;
@@ -244,6 +249,68 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
         return { ...next, mountPlan: recomputeMountPlan(next) };
       });
       runFreezeSideEffects(f.contextId, generation, get);
+    }
+  },
+
+  switchContext: (nextId) => {
+    const state = get();
+    const prev = state.activeContextId;
+    if (prev === nextId) return;
+
+    const now = Date.now();
+    // Next leaves warm (becomes Active). Prev will be touched into warm.
+    const warmWithoutNext = state.warm.filter((w) => w.contextId !== nextId);
+
+    let warm = warmWithoutNext;
+    let frozen: Array<{ contextId: string; reason: EvictReason }> = [];
+
+    if (prev) {
+      // Projected size if we only append prev (no eviction).
+      const alreadyWarm = warmWithoutNext.some((w) => w.contextId === prev);
+      const projectedLen = alreadyWarm
+        ? warmWithoutNext.length
+        : warmWithoutNext.length + 1;
+      // Skip full editor/terminal protect scan when under budget (common fast path).
+      const protect =
+        projectedLen > state.maxWarmWorkspaces
+          ? resolveProtectSignals(nextId, state.protectOverride)
+          : {
+              activeContextId: nextId,
+              dirtyContextIds: [] as string[],
+              liveAgentContextIds: [] as string[],
+            };
+
+      const result = applyWarmTouch({
+        activeContextId: nextId,
+        warm: warmWithoutNext,
+        touchContextId: prev,
+        now,
+        maxWarmWorkspaces: state.maxWarmWorkspaces,
+        protect,
+        // TTL sweep on every keystroke-switch is wasteful; periodic sweeper handles it.
+        warmTtlMs: undefined,
+      });
+      warm = result.warm;
+      frozen = result.frozen;
+    }
+
+    const generation = state.freezeGeneration;
+    // Single store notification: active + warm. Mount plan deferred off the switch frame.
+    set({
+      activeContextId: nextId,
+      warm,
+    });
+
+    for (const f of frozen) {
+      runFreezeSideEffects(f.contextId, generation, get);
+    }
+
+    if (typeof queueMicrotask === "function") {
+      queueMicrotask(() => {
+        get().enforceMountBudgets("switch");
+      });
+    } else {
+      setTimeout(() => get().enforceMountBudgets("switch"), 0);
     }
   },
 

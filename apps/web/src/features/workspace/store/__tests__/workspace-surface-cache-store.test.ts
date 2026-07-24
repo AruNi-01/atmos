@@ -42,6 +42,19 @@ describe("useWorkspaceSurfaceCacheStore", () => {
     expect(s.warm.find((w) => w.contextId === "b")).toBeUndefined();
   });
 
+  it("switchContext atomically moves leave→warm in one update", () => {
+    const store = useWorkspaceSurfaceCacheStore.getState();
+    store.setActiveContextId("a");
+    store.switchContext("b");
+    const s = useWorkspaceSurfaceCacheStore.getState();
+    expect(s.activeContextId).toBe("b");
+    expect(s.warm.map((w) => w.contextId)).toEqual(["a"]);
+    store.switchContext("b");
+    expect(useWorkspaceSurfaceCacheStore.getState().warm.map((w) => w.contextId)).toEqual([
+      "a",
+    ]);
+  });
+
   it("enforces maxWarmWorkspaces", () => {
     useWorkspaceSurfaceCacheStore.setState({ maxWarmWorkspaces: 2 });
     const store = useWorkspaceSurfaceCacheStore.getState();
