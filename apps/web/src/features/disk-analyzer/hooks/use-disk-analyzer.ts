@@ -15,6 +15,7 @@ import {
 } from "@/api/ws/disk-analyzer-api";
 import {
   diskAnalyzerLevelQueryKey,
+  diskAnalyzerQueryKeyRoot,
   removeDiskAnalyzerQueries,
 } from "@/features/disk-analyzer/lib/disk-analyzer-query-options";
 import {
@@ -311,29 +312,39 @@ export function useDiskAnalyzer() {
   }, [scanId]);
 
   const loadLevel = useCallback(
-    async (path: string) => {
+    async (path: string, opts?: { force?: boolean }) => {
       if (!scanId) return;
-      if (loadingPathRef.current === path) return;
+      if (!opts?.force && loadingPathRef.current === path) return;
       loadingPathRef.current = path;
       setLoadingPath(path);
       setError(null);
       try {
-        // Prefer a ready client cache (do not treat "loading" as a final answer —
-        // that used to sticky-block drill-in after the first get_tree).
         const key = diskAnalyzerLevelQueryKey(queryScope, scanId, path, topN);
-        const cached = queryClient.getQueryData<
-          Awaited<ReturnType<typeof diskAnalyzerApi.getTree>>
-        >(key);
-        if (
-          cached?.status === "ready" &&
-          cached.tree &&
-          isChildrenLoaded(cached.tree)
-        ) {
-          rememberLevel(cached.tree);
-          if (cached.stats) setStats(cached.stats);
-          loadingPathRef.current = null;
-          setLoadingPath(null);
-          return;
+        if (opts?.force) {
+          queryClient.removeQueries({ queryKey: key });
+          setLevelCache((prev) => {
+            if (!(path in prev)) return prev;
+            const next = { ...prev };
+            delete next[path];
+            return next;
+          });
+        } else {
+          // Prefer a ready client cache (do not treat "loading" as a final answer —
+          // that used to sticky-block drill-in after the first get_tree).
+          const cached = queryClient.getQueryData<
+            Awaited<ReturnType<typeof diskAnalyzerApi.getTree>>
+          >(key);
+          if (
+            cached?.status === "ready" &&
+            cached.tree &&
+            isChildrenLoaded(cached.tree)
+          ) {
+            rememberLevel(cached.tree);
+            if (cached.stats) setStats(cached.stats);
+            loadingPathRef.current = null;
+            setLoadingPath(null);
+            return;
+          }
         }
 
         // Always hit the server for unloaded dirs so backend can spawn scan_level.
@@ -389,6 +400,57 @@ export function useDiskAnalyzer() {
     },
     [scanId, selectedPath],
   );
+
+  /**
+   * After a successful delete: stay on the current directory (do not restart the whole scan).
+   * If the focused folder itself was deleted, move up to its parent.
+   */
+  const refreshAfterDelete = useCallback(async () => {
+    const deleted = selectedPath;
+    const root = scanPath;
+    if (!scanId || !root) return;
+
+    let stay = focusPath && focusPath.length > 0 ? focusPath : root;
+    if (deleted) {
+      const deletedNorm = deleted.replace(/\/+$/, "");
+      const stayNorm = stay.replace(/\/+$/, "");
+      if (
+        stayNorm === deletedNorm ||
+        stayNorm.startsWith(`${deletedNorm}/`)
+      ) {
+        stay = parentDirPath(deletedNorm, root);
+      }
+    }
+
+    // Drop stale caches for the deleted subtree and the level we will reload.
+    setLevelCache((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) {
+        if (deleted) {
+          const d = deleted.replace(/\/+$/, "");
+          if (k === d || k.startsWith(`${d}/`)) delete next[k];
+        }
+        if (k === stay) delete next[k];
+      }
+      return next;
+    });
+    queryClient.removeQueries({
+      queryKey: [...diskAnalyzerQueryKeyRoot(queryScope), "level", scanId],
+    });
+
+    setFocusPath(stay);
+    setSelectedPath(stay);
+    loadingPathRef.current = null;
+    await loadLevel(stay, { force: true });
+  }, [
+    focusPath,
+    loadLevel,
+    queryClient,
+    queryScope,
+    scanId,
+    scanPath,
+    selectedPath,
+  ]);
 
   // Filter only — apply top-N once on the focused level to avoid double `__other__`.
   const filteredTree = useMemo(() => {
@@ -516,6 +578,30 @@ export function useDiskAnalyzer() {
     drillTo,
     loadLevel,
     deleteSelected,
+    refreshAfterDelete,
     formatBytes,
   };
+}
+
+/** Parent directory of `path`, clamped to `root` when at/above scan root. */
+function parentDirPath(path: string, root: string): string {
+  const normalized = path.replace(/\/+$/, "");
+  const rootNorm = root.replace(/\/+$/, "") || root;
+  if (!normalized || normalized === rootNorm) return root;
+  if (normalized.startsWith("atmos://")) {
+    // Synthetic overview has no filesystem parent — stay on root.
+    return root;
+  }
+  const idx = normalized.lastIndexOf("/");
+  if (idx <= 0) return root;
+  const parent = normalized.slice(0, idx) || "/";
+  if (
+    rootNorm &&
+    parent !== rootNorm &&
+    !parent.startsWith(`${rootNorm}/`) &&
+    parent.length < rootNorm.length
+  ) {
+    return root;
+  }
+  return parent;
 }

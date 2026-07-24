@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -56,6 +56,23 @@ export function DiskAnalyzerPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  /** Keep last paint-able chart node so list drill does not unmount the chart (kills ECharts data morph). */
+  const lastChartNodeRef = useRef(analyzer.focusedNode);
+
+  useEffect(() => {
+    if (
+      analyzer.focusedNode &&
+      (analyzer.focusedNode.children?.length ?? 0) > 0
+    ) {
+      lastChartNodeRef.current = analyzer.focusedNode;
+    }
+  }, [analyzer.focusedNode]);
+
+  const chartNode =
+    analyzer.focusedNode &&
+    (analyzer.focusedNode.children?.length ?? 0) > 0
+      ? analyzer.focusedNode
+      : lastChartNodeRef.current;
 
   const isAtScanRoot =
     !!analyzer.focusPath &&
@@ -83,7 +100,8 @@ export function DiskAnalyzerPage() {
       setDeleteOpen(false);
       setListDeletePath(null);
       setPermanent(false);
-      await analyzer.startScan();
+      // Stay in the current folder — do not restart the whole scan from root.
+      await analyzer.refreshAfterDelete();
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -327,23 +345,29 @@ export function DiskAnalyzerPage() {
 
           {/* Tight inset so the chart fills almost the whole main column; side rail flex-shrinks this. */}
           <div className="relative min-h-0 flex-1 px-1.5 pb-1.5 pt-0.5 sm:px-2 sm:pb-2">
-            {analyzer.focusedNode &&
-            ((analyzer.focusedNode.children?.length ?? 0) > 0 || !analyzer.isLevelLoading) ? (
-              <DiskUsageChart
-                node={analyzer.focusedNode}
-                rootSize={parentSize}
-                mode={analyzer.chartMode}
-                scanPath={analyzer.scanPath}
-                projectLabel={t("atmosProject")}
-                workspaceLabel={t("atmosWorkspace")}
-                runtimeLabel={t("atmosRuntimeDir")}
-                otherLabel={t("other")}
-                enterDirectoryLabel={t("enterDirectory")}
-                deleteLabel={t("delete")}
-                onSelectPath={analyzer.setSelectedPath}
-                onDrillPath={analyzer.drillTo}
-                onRequestDelete={(path) => openDeleteDialog(path)}
-              />
+            {chartNode && (chartNode.children?.length ?? 0) > 0 ? (
+              <div className="relative h-full min-h-0 w-full">
+                <DiskUsageChart
+                  node={chartNode}
+                  rootSize={parentSize}
+                  mode={analyzer.chartMode}
+                  scanPath={analyzer.scanPath}
+                  projectLabel={t("atmosProject")}
+                  workspaceLabel={t("atmosWorkspace")}
+                  runtimeLabel={t("atmosRuntimeDir")}
+                  otherLabel={t("other")}
+                  enterDirectoryLabel={t("enterDirectory")}
+                  deleteLabel={t("delete")}
+                  onSelectPath={analyzer.setSelectedPath}
+                  onDrillPath={analyzer.drillTo}
+                  onRequestDelete={(path) => openDeleteDialog(path)}
+                />
+                {analyzer.isLevelLoading ? (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/30">
+                    <Loader2 className="size-7 animate-spin text-muted-foreground/80" />
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
                 {scanning || analyzer.isLevelLoading ? (
@@ -478,30 +502,38 @@ export function DiskAnalyzerPage() {
                           child.name !== "__other__" &&
                           child.path !== analyzer.scanPath;
                         const popoverOpen = listDeletePath === child.path;
+                        const enterRow = () => {
+                          analyzer.setSelectedPath(child.path);
+                          // Same as chart click: enter directories (chart animates via data update).
+                          if (child.name === "__other__") return;
+                          if (child.is_dir) {
+                            analyzer.drillTo(child.path);
+                          }
+                        };
                         return (
                           <div
                             key={`${child.path}::${child.name}::${index}`}
+                            role="button"
+                            tabIndex={0}
                             className={cn(
                               // Only hover / open-delete highlight — never sticky from focus or selectedPath
                               // (opening delete sets selectedPath for the API, which used to leave bg-muted on).
-                              "group relative flex w-full items-center gap-1 overflow-hidden rounded-md px-2 py-1 transition-colors",
+                              "group relative flex w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md px-2 py-1 transition-colors",
                               popoverOpen ? "bg-muted" : "hover:bg-muted/50",
                             )}
+                            onClick={enterRow}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                enterRow();
+                              }
+                            }}
                           >
                             <div
                               className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.04]"
                               style={{ width: `${share}%` }}
                             />
-                            <button
-                              type="button"
-                              className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left"
-                              onClick={() => {
-                                analyzer.setSelectedPath(child.path);
-                                if (child.is_dir && child.name !== "__other__") {
-                                  analyzer.drillTo(child.path);
-                                }
-                              }}
-                            >
+                            <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
                               <span className="truncate text-xs font-medium">
                                 {child.name === "__other__" ? t("other") : child.name}
                               </span>
@@ -515,7 +547,7 @@ export function DiskAnalyzerPage() {
                                 hintKey={cleanupHintKey}
                                 label={t("canClean")}
                               />
-                            </button>
+                            </div>
 
                             {/* Size + hover delete: button width 0 → 28px so size slides left */}
                             <div className="relative z-10 flex shrink-0 items-center">
@@ -531,6 +563,7 @@ export function DiskAnalyzerPage() {
                                       ? "ml-0.5 w-6 opacity-100"
                                       : "ml-0 w-0 opacity-0 group-hover:ml-0.5 group-hover:w-6 group-hover:opacity-100",
                                   )}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <Popover
                                     open={popoverOpen}
@@ -706,10 +739,7 @@ function CanCleanBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
-          className="shrink-0 cursor-help rounded bg-destructive/15 px-1.5 py-px text-[10px] font-medium text-destructive"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <span className="shrink-0 cursor-help rounded bg-destructive/15 px-1.5 py-px text-[10px] font-medium text-destructive">
           {label}
         </span>
       </TooltipTrigger>
