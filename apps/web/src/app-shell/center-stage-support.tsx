@@ -15,7 +15,10 @@ import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-s
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
-import { setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import {
+  readCenterStageLastTab,
+  setCenterStageLastTab,
+} from "@/shared/stores/use-ui-pref-hooks";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -157,12 +160,59 @@ export function useTerminalTabMountLifecycle({
     lastActiveTabByContextRef.current[effectiveContextId] = activeValue;
   }
 
+  // Synchronously promote leave→warm during CenterStage render so children
+  // (CenterStagePanels) see the full warm set in the same paint as the URL
+  // change — same model as keeping multiple terminal tabs mounted.
+  const previousContextId = previousTerminalContextRef.current;
+  if (previousContextId !== (effectiveContextId ?? null)) {
+    if (previousContextId && previousContextId !== effectiveContextId) {
+      const prevTab = lastActiveTabByContextRef.current[previousContextId];
+      if (prevTab) {
+        setCenterStageLastTab(previousContextId, prevTab);
+      }
+    }
+    // Update ref first so Strict Mode double-render does not double-touch.
+    previousTerminalContextRef.current = effectiveContextId ?? null;
+    setActiveContextId(effectiveContextId ?? null);
+    if (previousContextId && previousContextId !== effectiveContextId) {
+      touch(previousContextId);
+    }
+  }
+
+  // Ensure leaving context keeps its last terminal tab in the mount book
+  // (tab-like: once opened, stays mounted for the whole warm lifetime).
+  React.useLayoutEffect(() => {
+    if (!effectiveContextId) return;
+    // After sync bridge, previousTerminalContextRef is already the new id.
+    // Re-read last-tab map for every warm entry and ensure terminal last-tabs.
+    const live = useWorkspaceSurfaceCacheStore.getState();
+    const ensureIds = [
+      ...live.warm.map((w) => w.contextId),
+      live.activeContextId,
+    ].filter(Boolean) as string[];
+    setMountedTerminalTabsByContext((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const id of ensureIds) {
+        const last = lastActiveTabByContextRef.current[id] ?? readCenterStageLastTab(id);
+        if (!last || !isTerminalCenterTabValue(last)) continue;
+        const mounted = next[id] ?? [];
+        if (mounted.includes(last)) continue;
+        next[id] = [...mounted, last];
+        changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [effectiveContextId, warm, setMountedTerminalTabsByContext]);
+
   React.useEffect(() => {
+    // Keep mounted-tab bookkeeping for Active ∪ Warm only (frozen contexts drop).
+    const liveWarm = useWorkspaceSurfaceCacheStore.getState().warm;
     setMountedTerminalTabsByContext((current) => {
       const activeIds = new Set([
         effectiveContextId,
         previousTerminalContextRef.current,
-        ...warm.map((c) => c.contextId),
+        ...liveWarm.map((c) => c.contextId),
       ]);
       let changed = false;
       const next: Record<string, string[]> = {};
@@ -188,42 +238,6 @@ export function useTerminalTabMountLifecycle({
       }, 60 * 1000);
     }
   }, []);
-
-  // useLayoutEffect: promote leave→warm before paint so sticky keep-alive in
-  // CenterStagePanels can drop, and mounted tabs never flash-unmount.
-  React.useLayoutEffect(() => {
-    const previousContextId = previousTerminalContextRef.current;
-
-    // Persist previous frame tab BEFORE activate (Active→Warm contract).
-    if (previousContextId && previousContextId !== effectiveContextId) {
-      const prevTab = lastActiveTabByContextRef.current[previousContextId];
-      if (prevTab) {
-        setCenterStageLastTab(previousContextId, prevTab);
-        // Ensure the surface we are about to hide stays in the mount set so
-        // TerminalGrid is not filtered out while warm (keeps WS alive).
-        if (isTerminalCenterTabValue(prevTab)) {
-          setMountedTerminalTabsByContext((current) => {
-            const mountedTabs = current[previousContextId] ?? [];
-            if (mountedTabs.includes(prevTab)) return current;
-            return {
-              ...current,
-              [previousContextId]: [...mountedTabs, prevTab],
-            };
-          });
-        }
-      }
-    }
-
-    // Mark the new context as active so it is protected from eviction
-    setActiveContextId(effectiveContextId ?? null);
-
-    // Then touch the previous context to push it into the warm LRU
-    if (previousContextId && previousContextId !== effectiveContextId) {
-      touch(previousContextId);
-    }
-
-    previousTerminalContextRef.current = effectiveContextId ?? null;
-  }, [effectiveContextId, touch, setActiveContextId, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;

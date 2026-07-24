@@ -41,7 +41,6 @@ import {
   pushStickyLeavingContext,
   resolveContextIdsToRender,
   resolveFrameActiveTab,
-  terminalMountKey,
   editorMountKey,
   browserMountKey,
   lightMountKey,
@@ -350,6 +349,8 @@ export function CenterStagePanels({
 
   return (
     <>
+      {/* Stack workspace frames like terminal tabs: keep warm DOM mounted, CSS-hide only. */}
+      <div className="relative flex-1 min-h-0 min-w-0 w-full">
       {contextIdsToRender.map((contextId) => {
         const isActiveContext = contextId === effectiveContextId;
         const tabs = isActiveContext
@@ -393,26 +394,23 @@ export function CenterStagePanels({
             key={contextId}
             data-workspace-frame={contextId}
             data-tier={isActiveContext ? "active" : "warm"}
-            hidden={!isActiveContext}
             className={cn(
-              "contents",
-              // `contents` keeps children in flex layout of parent; frame identity via data attrs
+              // Absolute stack (same idea as multi-terminal-tab keep-alive): inactive
+              // frames stay mounted with live PTY sockets; only visibility toggles.
+              "absolute inset-0 flex flex-col min-h-0 min-w-0",
+              !isActiveContext && "hidden",
             )}
           >
             {tabs
               .filter((tab) => {
-                if (!mountedTabs.includes(tab.id)) return false;
-                // Keep each rendered frame's last terminal mounted (Active + Warm +
-                // sticky-leaving). Demounting it drops the PTY WebSocket and shows
-                // "Connecting to terminal..." on return; over-budget is handled by
-                // freezing whole warm workspaces, not stripping last-tab mid-warm.
-                if (tab.id === frameActiveTab) return true;
-                if (mountPlan.mounted.length === 0) {
-                  // Bootstrap before plan: active secondaries only.
-                  return isActiveContext;
-                }
-                // Secondary terminal tabs respect global mount budgets.
-                return isKeyMounted(mountPlan, terminalMountKey(contextId, tab.id));
+                // Tab-like keep-alive: once a terminal tab was mounted for this
+                // context, keep the TerminalGrid for the whole warm lifetime.
+                // Demount only when the workspace freezes (drops from render list).
+                // mountPlan still budgets editors/browsers; terminals stay warm.
+                if (mountedTabs.includes(tab.id)) return true;
+                // First open on active frame before mount bookkeeping lands.
+                if (isActiveContext && tab.id === frameActiveTab) return true;
+                return false;
               })
               .map((tab) => (
                 <div
@@ -728,6 +726,7 @@ export function CenterStagePanels({
           </div>
         );
       })}
+      </div>
 
       {/* Wiki stays host-active only (callbacks write URL); still paused when not activeValue */}
       {wikiCenterEligible && (
