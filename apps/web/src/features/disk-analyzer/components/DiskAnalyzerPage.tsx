@@ -12,14 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tabs,
-  TabsList,
-  TabsTab,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -27,11 +27,14 @@ import {
   cn,
 } from "@workspace/ui";
 import {
+  ChartPie,
   ChevronRight,
   CircleAlert,
-  FolderKanban,
   HardDrive,
+  LayoutGrid,
   Loader2,
+  PanelRightClose,
+  PanelRightOpen,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -39,6 +42,8 @@ import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageCha
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
 import {
   formatBytes,
+  getCleanupReason,
+  isAtmosRuntimeDir,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
@@ -46,18 +51,11 @@ export function DiskAnalyzerPage() {
   const t = useTranslations("DiskAnalyzer");
   const analyzer = useDiskAnalyzer();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [listDeletePath, setListDeletePath] = useState<string | null>(null);
   const [permanent, setPermanent] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const usedPercent =
-    analyzer.volume && analyzer.volume.total_bytes > 0
-      ? Math.round(
-          ((analyzer.volume.total_bytes - analyzer.volume.available_bytes) /
-            analyzer.volume.total_bytes) *
-            100,
-        )
-      : null;
+  const [detailsOpen, setDetailsOpen] = useState(true);
 
   const isAtScanRoot =
     !!analyzer.focusPath &&
@@ -69,12 +67,21 @@ export function DiskAnalyzerPage() {
     : (analyzer.focusedNode?.size ?? analyzer.chartRootSize ?? 1);
   const scanning = analyzer.status === "running" || analyzer.busy;
 
+  const openDeleteDialog = (path?: string) => {
+    if (path) analyzer.setSelectedPath(path);
+    setPermanent(false);
+    setDeleteError(null);
+    setListDeletePath(null);
+    setDeleteOpen(true);
+  };
+
   const onConfirmDelete = async () => {
     setDeleting(true);
     setDeleteError(null);
     try {
       await analyzer.deleteSelected(permanent);
       setDeleteOpen(false);
+      setListDeletePath(null);
       setPermanent(false);
       await analyzer.startScan();
     } catch (e) {
@@ -86,19 +93,19 @@ export function DiskAnalyzerPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
-      {/* Header — management center style */}
+      {/* Header — management center style (compact so the chart can grow) */}
       <div className="shrink-0 border-b border-border/60">
-        <div className="mx-auto w-full max-w-[1400px] px-6 pb-4 pt-8 sm:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="w-full px-4 pb-3 pt-5 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <HardDrive className="size-5" />
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <HardDrive className="size-4" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                <h1 className="text-xl font-bold tracking-tight text-foreground">
                   {t("title")}
                 </h1>
-                <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground sm:text-sm">
                   {t("subtitle")}
                 </p>
               </div>
@@ -199,61 +206,6 @@ export function DiskAnalyzerPage() {
             </div>
           </div>
 
-          {/* Volume + progress strip */}
-          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {analyzer.volume ? (
-              <div className="flex min-w-[200px] max-w-sm flex-1 items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2 text-xs">
-                    <span className="text-muted-foreground">
-                      {t("freeSpace", {
-                        free: formatBytes(analyzer.volume.available_bytes),
-                        total: formatBytes(analyzer.volume.total_bytes),
-                      })}
-                    </span>
-                    {usedPercent !== null ? (
-                      <span className="tabular-nums text-muted-foreground">
-                        {usedPercent}%
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        usedPercent !== null && usedPercent > 90
-                          ? "bg-destructive"
-                          : "bg-foreground/70",
-                      )}
-                      style={{ width: `${usedPercent ?? 0}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {scanning || analyzer.stats ? (
-              <div className="min-w-0 flex-1 text-xs text-muted-foreground tabular-nums">
-                {scanning && analyzer.progress ? (
-                  // Live progress only while scanning — avoid stale 0 files/dirs from empty stats.
-                  t("scanning", {
-                    files: analyzer.progress.files_scanned,
-                    dirs: analyzer.progress.dirs_scanned ?? 0,
-                    bytes: formatBytes(analyzer.progress.bytes_scanned),
-                    path: shortenPath(analyzer.progress.current_path ?? "…"),
-                  })
-                ) : analyzer.stats ? (
-                  t("statsCounts", {
-                    files: analyzer.stats.files_scanned,
-                    dirs: analyzer.stats.dirs_scanned,
-                  })
-                ) : null}
-              </div>
-            ) : (
-              <div className="min-w-0 flex-1" />
-            )}
-          </div>
-
           {analyzer.error ? (
             <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {analyzer.error}
@@ -262,12 +214,12 @@ export function DiskAnalyzerPage() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="mx-auto flex min-h-0 w-full max-w-[1400px] flex-1">
+      {/* Body — main column flex-shrinks when the details rail opens */}
+      <div className="flex min-h-0 w-full min-w-0 flex-1 overflow-hidden">
         {/* Main chart column */}
-        <section className="flex min-w-0 flex-1 flex-col">
-          {/* Breadcrumbs + chart view controls (no divider under breadcrumbs) */}
-          <div className="flex flex-wrap items-center gap-2 px-6 pt-3 pb-1 sm:px-8">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Breadcrumbs + chart view controls */}
+          <div className="flex flex-wrap items-center gap-2 px-2 pt-2 pb-1 sm:px-3">
             <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5 text-sm">
               {analyzer.breadcrumbs.length > 0 ? (
                 analyzer.breadcrumbs.map((crumb, index) => (
@@ -278,7 +230,7 @@ export function DiskAnalyzerPage() {
                     <button
                       type="button"
                       className={cn(
-                        "max-w-[10rem] truncate rounded-md px-1.5 py-0.5 transition-colors",
+                        "max-w-[12rem] truncate rounded-md px-1.5 py-0.5 transition-colors",
                         index === analyzer.breadcrumbs.length - 1
                           ? "font-medium text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -306,23 +258,36 @@ export function DiskAnalyzerPage() {
             </nav>
 
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <Tabs
-                value={analyzer.chartMode}
-                onValueChange={(value) => {
-                  if (value === "treemap" || value === "sunburst") {
-                    analyzer.setChartMode(value);
-                  }
-                }}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 border-border/60 bg-muted/20 px-2.5 text-xs shadow-none"
+                aria-label={t("switchChartMode", {
+                  mode:
+                    analyzer.chartMode === "treemap"
+                      ? t("sunburst")
+                      : t("treemap"),
+                })}
+                title={t("switchChartMode", {
+                  mode:
+                    analyzer.chartMode === "treemap"
+                      ? t("sunburst")
+                      : t("treemap"),
+                })}
+                onClick={() =>
+                  analyzer.setChartMode(
+                    analyzer.chartMode === "treemap" ? "sunburst" : "treemap",
+                  )
+                }
               >
-                <TabsList>
-                  <TabsTab value="treemap" className="text-xs">
-                    {t("treemap")}
-                  </TabsTab>
-                  <TabsTab value="sunburst" className="text-xs">
-                    {t("sunburst")}
-                  </TabsTab>
-                </TabsList>
-              </Tabs>
+                {analyzer.chartMode === "treemap" ? (
+                  <LayoutGrid className="size-3.5" />
+                ) : (
+                  <ChartPie className="size-3.5" />
+                )}
+                {analyzer.chartMode === "treemap" ? t("treemap") : t("sunburst")}
+              </Button>
               <Select
                 value={String(analyzer.topN)}
                 onValueChange={(value) => analyzer.setTopN(Number(value))}
@@ -342,24 +307,45 @@ export function DiskAnalyzerPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground"
+                aria-label={detailsOpen ? t("hideDetails") : t("showDetails")}
+                title={detailsOpen ? t("hideDetails") : t("showDetails")}
+                onClick={() => setDetailsOpen((open) => !open)}
+              >
+                {detailsOpen ? (
+                  <PanelRightClose className="size-4" />
+                ) : (
+                  <PanelRightOpen className="size-4" />
+                )}
+              </Button>
             </div>
           </div>
 
-          <div className="relative min-h-0 flex-1 px-4 pb-4 pt-1 sm:px-6 sm:pb-6">
+          {/* Tight inset so the chart fills almost the whole main column; side rail flex-shrinks this. */}
+          <div className="relative min-h-0 flex-1 px-1.5 pb-1.5 pt-0.5 sm:px-2 sm:pb-2">
             {analyzer.focusedNode &&
             ((analyzer.focusedNode.children?.length ?? 0) > 0 || !analyzer.isLevelLoading) ? (
               <DiskUsageChart
                 node={analyzer.focusedNode}
                 rootSize={parentSize}
                 mode={analyzer.chartMode}
+                scanPath={analyzer.scanPath}
                 projectLabel={t("atmosProject")}
+                workspaceLabel={t("atmosWorkspace")}
+                runtimeLabel={t("atmosRuntimeDir")}
                 otherLabel={t("other")}
-                showParentLabelText={t("showParentLabels")}
+                enterDirectoryLabel={t("enterDirectory")}
+                deleteLabel={t("delete")}
                 onSelectPath={analyzer.setSelectedPath}
                 onDrillPath={analyzer.drillTo}
+                onRequestDelete={(path) => openDeleteDialog(path)}
               />
             ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
                 {scanning || analyzer.isLevelLoading ? (
                   <>
                     <Loader2 className="size-8 animate-spin text-muted-foreground/70" />
@@ -382,164 +368,284 @@ export function DiskAnalyzerPage() {
           </div>
         </section>
 
-        {/* Detail rail */}
-        <aside className="flex w-[300px] shrink-0 flex-col border-l border-border/60 bg-background/40">
-          <div className="border-b border-border/50 px-4 py-3">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              {t("details")}
-            </div>
-            {analyzer.selectedNode ? (
-              <div className="mt-2 space-y-2">
-                <div className="truncate text-sm font-semibold" title={analyzer.selectedNode.name}>
-                  {displayNodeName(
-                    analyzer.selectedNode,
-                    analyzer.scanPath,
-                    t("computerRoot"),
-                    t("atmosRoot"),
-                    t("other"),
-                  )}
-                </div>
-                <div
-                  className="break-all text-[11px] leading-relaxed text-muted-foreground"
-                  title={analyzer.selectedNode.path}
-                >
-                  {displayNodePath(
-                    analyzer.selectedNode.path,
-                    analyzer.scanPath,
-                    t("computerRoot"),
-                    t("atmosRoot"),
-                  )}
-                </div>
-                <div className="text-lg font-semibold tabular-nums tracking-tight">
-                  {formatBytes(
-                    analyzer.selectedPath === analyzer.scanPath
-                      ? analyzer.chartRootSize
-                      : analyzer.selectedNode.size,
-                  )}
-                </div>
-                {parentSize > 0 ? (
-                  <div className="text-xs text-muted-foreground">
-                    {(
-                      ((analyzer.selectedPath === analyzer.scanPath
-                        ? analyzer.chartRootSize
-                        : analyzer.selectedNode.size) /
-                        parentSize) *
-                      100
-                    ).toFixed(1)}
-                    % ·{" "}
-                    {t("counts", {
-                      files: analyzer.selectedNode.file_count,
-                      dirs: analyzer.selectedNode.dir_count,
-                    })}
-                  </div>
-                ) : null}
-                {analyzer.volumeUsedBytes != null &&
-                analyzer.selectedPath === analyzer.scanPath &&
-                (analyzer.selectedNode.size ?? 0) > analyzer.volumeUsedBytes ? (
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    {t("sizeEstimateNote")}
-                  </p>
-                ) : null}
-                {analyzer.selectedNode.is_project ? (
-                  <div className="inline-flex items-center gap-1 rounded-md bg-sky-500/12 px-2 py-0.5 text-[11px] text-sky-700 dark:text-sky-300">
-                    <FolderKanban className="size-3" />
-                    {t("atmosProject")}
-                  </div>
-                ) : null}
-                {analyzer.selectedNode.path !== analyzer.scanPath &&
-                analyzer.selectedNode.name !== "__other__" ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="mt-1 w-full rounded-xl"
-                    onClick={() => setDeleteOpen(true)}
-                  >
-                    <Trash2 className="size-3.5" />
-                    {t("delete")}
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">{t("selectNode")}</p>
-            )}
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="px-4 py-2.5">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {t("children")}
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-              {analyzer.childList.length === 0 ? (
-                <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                  {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
-                </p>
-              ) : (
-                <div className="space-y-0.5">
-                  {analyzer.childList.map((child, index) => {
-                    const share =
-                      parentSize > 0 ? Math.min(100, (child.size / parentSize) * 100) : 0;
-                    const selected = analyzer.selectedPath === child.path;
-                    return (
-                      <button
-                        key={`${child.path}::${child.name}::${index}`}
-                        type="button"
-                        className={cn(
-                          "group relative flex w-full flex-col gap-1 overflow-hidden rounded-lg px-2.5 py-2 text-left transition-colors",
-                          selected ? "bg-muted" : "hover:bg-muted/50",
-                          child.is_project && "ring-1 ring-inset ring-sky-500/30",
-                        )}
-                        onClick={() => {
-                          analyzer.setSelectedPath(child.path);
-                          if (child.is_dir && child.name !== "__other__") {
-                            analyzer.drillTo(child.path);
-                          }
-                        }}
+        {/* Side rail — Details list (cleanup tips as inline badges) */}
+        <aside
+          className={cn(
+            // Width transition shrinks the main flex column; chart listens via ResizeObserver.
+            "flex shrink-0 flex-col border-l border-border/60 bg-background/40 transition-[width] duration-200 ease-out",
+            detailsOpen ? "w-[280px] sm:w-[300px]" : "w-0 overflow-hidden border-l-0",
+          )}
+          aria-hidden={!detailsOpen}
+        >
+          {detailsOpen ? (
+            <TooltipProvider delayDuration={250}>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="shrink-0 space-y-2 border-b border-border/50 px-4 py-3">
+                {analyzer.selectedNode ? (
+                  <>
+                    {/* Row 1: name + badge …… size */}
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <div
+                        className="min-w-0 shrink truncate text-sm font-semibold"
+                        title={analyzer.selectedNode.name}
                       >
-                        <div
-                          className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.04]"
-                          style={{ width: `${share}%` }}
-                        />
-                        <div className="relative flex items-center justify-between gap-2">
-                          <span className="truncate text-xs font-medium">
-                            {child.name === "__other__" ? t("other") : child.name}
-                          </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                            {formatBytes(child.size)}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {analyzer.suggestions.length > 0 ? (
-              <div className="border-t border-border/50 px-3 py-3">
-                <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {t("suggestions")}
-                </div>
-                <div className="max-h-36 space-y-1 overflow-y-auto">
-                  {analyzer.suggestions.slice(0, 6).map((tip) => (
-                    <button
-                      key={tip.path}
-                      type="button"
-                      className="w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted/50"
-                      onClick={() => analyzer.drillTo(tip.path)}
-                    >
-                      <div className="truncate text-xs font-medium">{tip.name}</div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {formatBytes(tip.size)} · {tip.reason}
+                        {displayNodeName(
+                          analyzer.selectedNode,
+                          analyzer.scanPath,
+                          t("computerRoot"),
+                          t("atmosRoot"),
+                          t("other"),
+                        )}
                       </div>
-                    </button>
-                  ))}
-                </div>
+                      <NodeKindBadge
+                        node={analyzer.selectedNode}
+                        projectLabel={t("atmosProject")}
+                        workspaceLabel={t("atmosWorkspace")}
+                        runtimeLabel={t("atmosRuntimeDir")}
+                      />
+                      <CanCleanBadge
+                        reason={getCleanupReason(
+                          analyzer.selectedNode.name,
+                          analyzer.selectedNode.size,
+                        )}
+                        label={t("canClean")}
+                      />
+                      <div className="ml-auto shrink-0 text-sm font-semibold tabular-nums tracking-tight">
+                        {formatBytes(
+                          analyzer.selectedPath === analyzer.scanPath
+                            ? analyzer.chartRootSize
+                            : analyzer.selectedNode.size,
+                        )}
+                      </div>
+                    </div>
+                    {/* Row 2: path …… file/dir counts (no share %) */}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <PathEllipsis
+                        path={displayNodePath(
+                          analyzer.selectedNode.path,
+                          analyzer.scanPath,
+                          t("computerRoot"),
+                          t("atmosRoot"),
+                        )}
+                        className="min-w-0 flex-1"
+                      />
+                      <div className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
+                        {t("counts", {
+                          files: analyzer.selectedNode.file_count,
+                          dirs: analyzer.selectedNode.dir_count,
+                        })}
+                      </div>
+                    </div>
+                    {analyzer.volumeUsedBytes != null &&
+                    analyzer.selectedPath === analyzer.scanPath &&
+                    (analyzer.selectedNode.size ?? 0) > analyzer.volumeUsedBytes ? (
+                      <p className="text-[11px] leading-snug text-muted-foreground">
+                        {t("sizeEstimateNote")}
+                      </p>
+                    ) : null}
+                    {analyzer.selectedNode.path !== analyzer.scanPath &&
+                    analyzer.selectedNode.name !== "__other__" ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full rounded-xl"
+                        onClick={() => openDeleteDialog()}
+                      >
+                        <Trash2 className="size-3.5" />
+                        {t("delete")}
+                      </Button>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t("selectNode")}</p>
+                )}
               </div>
-            ) : null}
-          </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
+                {analyzer.childList.length === 0 ? (
+                  <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    {analyzer.isLevelLoading ? t("loadingLevel") : t("noChildren")}
+                  </p>
+                ) : (
+                    <div className="space-y-px">
+                      {analyzer.childList.map((child, index) => {
+                        const share =
+                          parentSize > 0
+                            ? Math.min(100, (child.size / parentSize) * 100)
+                            : 0;
+                        const cleanupReason = getCleanupReason(child.name, child.size);
+                        const canDelete =
+                          child.name !== "__other__" &&
+                          child.path !== analyzer.scanPath;
+                        const popoverOpen = listDeletePath === child.path;
+                        return (
+                          <div
+                            key={`${child.path}::${child.name}::${index}`}
+                            className={cn(
+                              // Only hover / open-delete highlight — never sticky from focus or selectedPath
+                              // (opening delete sets selectedPath for the API, which used to leave bg-muted on).
+                              "group relative flex w-full items-center gap-1 overflow-hidden rounded-md px-2 py-1 transition-colors",
+                              popoverOpen ? "bg-muted" : "hover:bg-muted/50",
+                            )}
+                          >
+                            <div
+                              className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.04]"
+                              style={{ width: `${share}%` }}
+                            />
+                            <button
+                              type="button"
+                              className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                              onClick={() => {
+                                analyzer.setSelectedPath(child.path);
+                                if (child.is_dir && child.name !== "__other__") {
+                                  analyzer.drillTo(child.path);
+                                }
+                              }}
+                            >
+                              <span className="truncate text-xs font-medium">
+                                {child.name === "__other__" ? t("other") : child.name}
+                              </span>
+                              <NodeKindBadge
+                                node={child}
+                                projectLabel={t("atmosProject")}
+                                workspaceLabel={t("atmosWorkspace")}
+                                runtimeLabel={t("atmosRuntimeDir")}
+                              />
+                              <CanCleanBadge
+                                reason={cleanupReason}
+                                label={t("canClean")}
+                              />
+                            </button>
+
+                            {/* Size + hover delete: button width 0 → 28px so size slides left */}
+                            <div className="relative z-10 flex shrink-0 items-center">
+                              <span className="text-[11px] tabular-nums text-muted-foreground transition-transform duration-200 ease-out">
+                                {formatBytes(child.size)}
+                              </span>
+                              {canDelete ? (
+                                <div
+                                  className={cn(
+                                    "overflow-hidden transition-[width,margin,opacity] duration-200 ease-out",
+                                    // Hover / open only — no focus-within (trigger keeps focus after popover closes).
+                                    popoverOpen
+                                      ? "ml-0.5 w-6 opacity-100"
+                                      : "ml-0 w-0 opacity-0 group-hover:ml-0.5 group-hover:w-6 group-hover:opacity-100",
+                                  )}
+                                >
+                                  <Popover
+                                    open={popoverOpen}
+                                    onOpenChange={(open) => {
+                                      if (open) {
+                                        analyzer.setSelectedPath(child.path);
+                                        setPermanent(false);
+                                        setDeleteError(null);
+                                        setListDeletePath(child.path);
+                                      } else {
+                                        setListDeletePath((cur) =>
+                                          cur === child.path ? null : cur,
+                                        );
+                                        setDeleteError(null);
+                                        setPermanent(false);
+                                        // Drop focus so the row doesn't stay "active" after dismiss.
+                                        requestAnimationFrame(() => {
+                                          const el = document.activeElement;
+                                          if (el instanceof HTMLElement) el.blur();
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        className={cn(
+                                          "size-6 shrink-0 text-muted-foreground transition-transform duration-200 ease-out hover:bg-destructive/10 hover:text-destructive",
+                                          popoverOpen
+                                            ? "translate-x-0"
+                                            : "translate-x-2 group-hover:translate-x-0",
+                                        )}
+                                        aria-label={t("deleteItem")}
+                                        title={t("deleteItem")}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      align="end"
+                                      side="left"
+                                      sideOffset={8}
+                                      className="w-72 p-3"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <div className="space-y-3">
+                                        <div className="space-y-1">
+                                          <p className="text-sm font-medium">
+                                            {t("deleteTitle")}
+                                          </p>
+                                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                                            {t("deleteDescription", {
+                                              path: child.path,
+                                              size: formatBytes(child.size),
+                                            })}
+                                          </p>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-xs">
+                                          <Checkbox
+                                            checked={permanent}
+                                            onCheckedChange={(checked) =>
+                                              setPermanent(checked === true)
+                                            }
+                                          />
+                                          {t("permanentDelete")}
+                                        </label>
+                                        {deleteError && listDeletePath === child.path ? (
+                                          <div className="text-xs text-destructive">
+                                            {deleteError}
+                                          </div>
+                                        ) : null}
+                                        <div className="flex justify-end gap-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setListDeletePath(null)}
+                                          >
+                                            {t("cancel")}
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            disabled={deleting}
+                                            onClick={() => void onConfirmDelete()}
+                                          >
+                                            {deleting ? (
+                                              <Loader2 className="size-3.5 animate-spin" />
+                                            ) : null}
+                                            {permanent
+                                              ? t("confirmPermanent")
+                                              : t("confirmTrash")}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                )}
+              </div>
+            </div>
+            </TooltipProvider>
+          ) : null}
         </aside>
       </div>
 
@@ -583,11 +689,81 @@ export function DiskAnalyzerPage() {
   );
 }
 
-function shortenPath(path: string, max = 48): string {
-  if (path.length <= max) return path;
-  const parts = path.split("/").filter(Boolean);
-  if (parts.length <= 2) return `…${path.slice(-max + 1)}`;
-  return `…/${parts.slice(-2).join("/")}`;
+/** Cleanup-candidate chip — tooltip shows why it is safe to remove. */
+function CanCleanBadge({
+  reason,
+  label,
+}: {
+  reason: string | undefined;
+  label: string;
+}) {
+  if (!reason) return null;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="shrink-0 cursor-help rounded bg-destructive/15 px-1.5 py-px text-[10px] font-medium text-destructive"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {label}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+        {reason}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Compact kind tag beside a folder name (Details list). */
+function NodeKindBadge({
+  node,
+  projectLabel,
+  workspaceLabel,
+  runtimeLabel,
+}: {
+  node: { name?: string; path?: string; is_project?: boolean; is_workspace?: boolean };
+  projectLabel: string;
+  workspaceLabel: string;
+  runtimeLabel: string;
+}) {
+  let label: string | null = null;
+  if (isAtmosRuntimeDir(node)) {
+    label = runtimeLabel;
+  } else if (node.is_workspace) {
+    label = workspaceLabel;
+  } else if (node.is_project) {
+    label = projectLabel;
+  }
+  if (!label) return null;
+  return (
+    <span className="shrink-0 rounded bg-muted px-1.5 py-px text-[10px] font-medium text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
+/** Path with leading ellipsis when too long (overflow from the start). */
+function PathEllipsis({
+  path,
+  className,
+}: {
+  path: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-muted-foreground",
+        className,
+      )}
+      title={path}
+      // RTL makes the ellipsis appear on the left for long absolute paths.
+      style={{ direction: "rtl", textAlign: "left" }}
+    >
+      <bdi style={{ unicodeBidi: "plaintext" }}>{path}</bdi>
+    </div>
+  );
 }
 
 /** True for `/Users/<name>` or `/home/<name>` (the home directory itself). */

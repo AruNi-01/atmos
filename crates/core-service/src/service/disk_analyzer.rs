@@ -5,13 +5,14 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    finalize_tree, CleanupSuggestion, DEFAULT_TREE_DEPTH, DiskAnalyzerEngine, DiskNode,
-    DiskVolumeInfo, FsEngine, GitEngine, ProgressCallback, ScanProgress, ScanStats, ScanStatus,
+    clear_path_cache, finalize_tree, invalidate_path_cache, CleanupSuggestion, DEFAULT_TREE_DEPTH,
+    DiskAnalyzerEngine, DiskNode, DiskVolumeInfo, FsEngine, GitEngine, ProgressCallback,
+    ScanProgress, ScanStats, ScanStatus,
 };
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -33,6 +34,13 @@ const ENTRY_KEY_APPLICATIONS: &str = "applications";
 /// Synthetic overview root for Atmos-scoped multi-entry scans.
 const ATMOS_OVERVIEW_PATH: &str = "atmos://disk-usage";
 const ATMOS_OVERVIEW_NAME: &str = "Atmos";
+/// Cap concurrent `du` during overview (each is I/O heavy; unlimited thrashing made
+/// large roots like `~/.atmos` finish last and take minutes).
+const OVERVIEW_DU_CONCURRENCY: usize = 3;
+/// Keep overview → entry → entry-children so Mole-like artifacts
+/// (`target`, `node_modules`, `.next`, `workspaces`, …) stay visible without
+/// an extra drill before anything useful appears.
+const OVERVIEW_TREE_DEPTH: usize = 3;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DiskAnalyzerScanEvent {
@@ -40,11 +48,20 @@ pub struct DiskAnalyzerScanEvent {
     pub payload: Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Workspace reserved for future overview tiles of worktrees outside static roots
+enum AtmosEntryKind {
+    Project,
+    Workspace,
+}
+
 #[derive(Clone)]
 struct EntryRoot {
-    /// Display label under the overview root (e.g. Home, Applications).
+    /// Display label under the overview root (e.g. Home, Applications, project name).
     label: String,
     path: PathBuf,
+    /// Set when this entry is an identified Atmos project or workspace root.
+    kind: Option<AtmosEntryKind>,
 }
 
 struct DiskAnalyzerSession {
@@ -59,7 +76,10 @@ struct DiskAnalyzerSession {
     /// Real filesystem roots allowed for delete / get_tree (home, Applications, …).
     entry_roots: Vec<PathBuf>,
     max_children: usize,
+    /// Identified Atmos project roots (main repo paths).
     project_roots: Vec<PathBuf>,
+    /// Identified Atmos workspace worktree paths.
+    workspace_roots: Vec<PathBuf>,
     started_at: Instant,
     completed_at: Option<Instant>,
     #[allow(dead_code)]
@@ -133,6 +153,7 @@ impl DiskAnalyzerService {
         entries.push(EntryRoot {
             label: ENTRY_KEY_HOME.into(),
             path: home,
+            kind: None,
         });
 
         let applications = PathBuf::from("/Applications");
@@ -140,6 +161,7 @@ impl DiskAnalyzerService {
             entries.push(EntryRoot {
                 label: ENTRY_KEY_APPLICATIONS.into(),
                 path: applications,
+                kind: None,
             });
         }
 
@@ -161,7 +183,11 @@ impl DiskAnalyzerService {
             {
                 return;
             }
-            entries.push(EntryRoot { label, path });
+            entries.push(EntryRoot {
+                label,
+                path,
+                kind: None,
+            });
         };
 
         push_unique(".atmos".into(), home.join(".atmos"));
@@ -197,8 +223,14 @@ impl DiskAnalyzerService {
         Ok(entries)
     }
 
-    fn push_project_entries(entries: &mut Vec<EntryRoot>, project_roots: &[PathBuf]) {
-        for (i, path) in project_roots.iter().enumerate() {
+    /// Add identified project roots that are **not** already under a static Atmos entry
+    /// (e.g. not under `~/.atmos`). Workspaces live under `~/.atmos/workspaces` and are
+    /// tagged on drill-in instead of listed twice.
+    fn push_identified_project_entries(
+        entries: &mut Vec<EntryRoot>,
+        projects: &[(String, PathBuf)],
+    ) {
+        for (i, (name, path)) in projects.iter().enumerate() {
             if !path.exists() {
                 continue;
             }
@@ -210,22 +242,45 @@ impl DiskAnalyzerService {
             }) {
                 continue;
             }
-            let label = path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| format!("project-{i}"));
-            // Disambiguate duplicate folder names.
-            let label = if entries.iter().any(|e| e.label == label) {
-                format!("{label} ({i})")
-            } else {
-                label
-            };
+            let mut label = name.trim().to_string();
+            if label.is_empty() {
+                label = path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| format!("project-{i}"));
+            }
+            // Disambiguate duplicate display names.
+            if entries.iter().any(|e| e.label == label) {
+                label = format!("{label} ({i})");
+            }
             entries.push(EntryRoot {
                 label,
                 path: path.clone(),
+                kind: Some(AtmosEntryKind::Project),
             });
         }
+    }
+
+    fn classify_path(
+        path: &str,
+        project_roots: &[PathBuf],
+        workspace_roots: &[PathBuf],
+    ) -> (bool, bool) {
+        let p = PathBuf::from(path);
+        let canon = std::fs::canonicalize(&p).unwrap_or(p);
+        let is_ws = workspace_roots.iter().any(|w| {
+            let w = std::fs::canonicalize(w).unwrap_or_else(|_| w.clone());
+            canon == w
+        });
+        if is_ws {
+            return (false, true);
+        }
+        let is_proj = project_roots.iter().any(|r| {
+            let r = std::fs::canonicalize(r).unwrap_or_else(|_| r.clone());
+            canon == r
+        });
+        (is_proj, false)
     }
 
     pub async fn start_scan(
@@ -239,13 +294,14 @@ impl DiskAnalyzerService {
         let scan_id = Uuid::new_v4().to_string();
         let cancel = Arc::new(AtomicBool::new(false));
 
-        // Collect project roots early so Atmos overview can include them as entries.
-        let project_roots = Self::collect_project_roots_static(
-            Arc::clone(&self.project_service),
-            Arc::clone(&self.workspace_service),
-            GitEngine::new(),
-        )
-        .await;
+        // Collect identified Atmos projects + workspaces for tagging / overview entries.
+        let (project_roots, workspace_roots, project_labels) =
+            Self::collect_atmos_locations_static(
+                Arc::clone(&self.project_service),
+                Arc::clone(&self.workspace_service),
+                GitEngine::new(),
+            )
+            .await;
 
         let (is_overview, overview_kind, root_path, entry_specs) = match path {
             Some(p) if !p.is_empty() => {
@@ -269,6 +325,7 @@ impl DiskAnalyzerService {
                     vec![EntryRoot {
                         label,
                         path: root,
+                        kind: None,
                     }],
                 )
             }
@@ -288,7 +345,7 @@ impl DiskAnalyzerService {
             }
             _ => {
                 let mut entries = self.atmos_static_entry_roots()?;
-                Self::push_project_entries(&mut entries, &project_roots);
+                Self::push_identified_project_entries(&mut entries, &project_labels);
                 if entries.is_empty() {
                     return Err(ServiceError::Validation(
                         "No Atmos paths found to scan (expected ~/.atmos or imported projects)"
@@ -297,6 +354,8 @@ impl DiskAnalyzerService {
                 }
                 tracing::info!(
                     entries = entries.len(),
+                    projects = project_roots.len(),
+                    workspaces = workspace_roots.len(),
                     "disk analyzer default scan is Atmos-scoped"
                 );
                 (
@@ -309,6 +368,11 @@ impl DiskAnalyzerService {
         };
 
         let entry_roots: Vec<PathBuf> = entry_specs.iter().map(|e| e.path.clone()).collect();
+
+        // Keep the 3-day path cache across scans. Entries revalidate via directory
+        // mtime (any change → miss). Clearing here made every Rescan/auto-start cold
+        // and re-ran multi-minute `du` on ~/.atmos every time.
+        // Cache is still cleared after delete (see delete_path).
 
         {
             let mut sessions = self.sessions.lock();
@@ -344,6 +408,7 @@ impl DiskAnalyzerService {
                     entry_roots: entry_roots.clone(),
                     max_children,
                     project_roots: project_roots.clone(),
+                    workspace_roots: workspace_roots.clone(),
                     started_at: Instant::now(),
                     completed_at: None,
                     is_overview,
@@ -369,6 +434,7 @@ impl DiskAnalyzerService {
                     owner,
                     entry_specs,
                     project_roots,
+                    workspace_roots,
                     max_children,
                     cancel,
                     overview_kind,
@@ -386,6 +452,7 @@ impl DiskAnalyzerService {
                     owner,
                     single,
                     project_roots,
+                    workspace_roots,
                     max_children,
                     cancel,
                     true,
@@ -421,7 +488,7 @@ impl DiskAnalyzerService {
         path: Option<&str>,
         max_children: Option<usize>,
     ) -> Result<Value> {
-        let (target_key, project_roots, session_max, cancel, entry_roots, cached, inflight) = {
+        let (target_key, project_roots, workspace_roots, session_max, cancel, entry_roots, inflight) = {
             let sessions = self.sessions.lock();
             let session = sessions
                 .get(scan_id)
@@ -457,23 +524,35 @@ impl DiskAnalyzerService {
                 }
             }
 
+            // Only skip spawn when this exact path is already being scanned.
+            // Having session.tree (overview cache) must NOT block drill-in expansion —
+            // overview entries are often measure-only shells with children_loaded=false.
             let inflight = session
                 .inflight_root
                 .as_ref()
-                .map(|p| p == &target_key || p == &path_key(&session.root_path))
+                .map(|p| p == &target_key)
                 .unwrap_or(false);
             (
                 target_key,
                 session.project_roots.clone(),
+                session.workspace_roots.clone(),
                 session.max_children,
                 Arc::clone(&session.cancel),
                 session.entry_roots.clone(),
-                session.tree.is_some(),
                 inflight,
             )
         };
 
-        if inflight || cached {
+        if inflight {
+            return Ok(json!({
+                "status": "loading",
+                "path": target_key,
+                "stats": Value::Null,
+            }));
+        }
+
+        // Synthetic overview roots cannot be walk()'d on disk.
+        if target_key == ATMOS_OVERVIEW_PATH || target_key.starts_with("atmos://") {
             return Ok(json!({
                 "status": "loading",
                 "path": target_key,
@@ -498,6 +577,7 @@ impl DiskAnalyzerService {
             owner_conn_id.to_string(),
             target_path,
             project_roots,
+            workspace_roots,
             max,
             cancel,
             false,
@@ -547,6 +627,13 @@ impl DiskAnalyzerService {
         .await
         .map_err(|e| ServiceError::Processing(format!("delete task join failed: {e}")))??;
 
+        // Drop caches for deleted path and its parent so sizes refresh on next open.
+        invalidate_path_cache(&path);
+        if let Some(parent) = path.parent() {
+            invalidate_path_cache(parent);
+        }
+        clear_path_cache(); // simple + correct: force full remeasure after delete
+
         {
             let mut sessions = self.sessions.lock();
             if let Some(session) = sessions.get_mut(scan_id) {
@@ -580,6 +667,7 @@ impl DiskAnalyzerService {
         owner: String,
         entries: Vec<EntryRoot>,
         project_roots: Vec<PathBuf>,
+        workspace_roots: Vec<PathBuf>,
         max_children: usize,
         cancel: Arc<AtomicBool>,
         kind: OverviewKind,
@@ -633,8 +721,9 @@ impl DiskAnalyzerService {
                     return;
                 };
                 // Completed assembly prunes root; partial progress keeps all root children.
+                // Depth 3 keeps entry children (target / node_modules / .next / workspaces).
                 let prune_root = matches!(status, ScanStatus::Completed);
-                finalize_tree(&mut tree, max_children, DEFAULT_TREE_DEPTH, prune_root);
+                finalize_tree(&mut tree, max_children, OVERVIEW_TREE_DEPTH, prune_root);
                 bytes_scanned.store(tree.size, Ordering::Relaxed);
 
                 let stats = ScanStats {
@@ -705,6 +794,11 @@ impl DiskAnalyzerService {
                         .get(&entry.label)
                         .cloned()
                         .unwrap_or_else(|| entry.label.clone());
+                    let (is_project, is_workspace) = match entry.kind {
+                        Some(AtmosEntryKind::Project) => (true, false),
+                        Some(AtmosEntryKind::Workspace) => (false, true),
+                        None => (false, false),
+                    };
                     map.insert(
                         entry.label.clone(),
                         DiskNode {
@@ -712,7 +806,8 @@ impl DiskAnalyzerService {
                             path: path_key(&entry.path),
                             size: 0,
                             is_dir: true,
-                            is_project: false,
+                            is_project,
+                            is_workspace,
                             file_count: 0,
                             dir_count: 0,
                             children_loaded: false,
@@ -723,8 +818,106 @@ impl DiskAnalyzerService {
                 emit_assembled(ScanStatus::Running, None, &map, None);
             }
 
-            std::thread::scope(|scope| {
+            // Phase 1: apply every valid cache hit synchronously (instant paint for
+            // previously measured roots like ~/.atmos — no du, no I/O thrash).
+            {
+                let engine = DiskAnalyzerEngine::new();
+                let mut any_hit = false;
                 for entry in &entries {
+                    if cancel.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    // Entries we expand with scan_level should not be painted from
+                    // measure-only cache (that shell hides target/node_modules/.next).
+                    let will_expand = matches!(kind, OverviewKind::HomeWithApps)
+                        && entry.label == ENTRY_KEY_HOME
+                        || matches!(
+                            entry.kind,
+                            Some(AtmosEntryKind::Project | AtmosEntryKind::Workspace)
+                        )
+                        || entry.label == ".atmos"
+                        || entry
+                            .path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .is_some_and(|n| n == ".atmos");
+                    if will_expand {
+                        continue;
+                    }
+                    let Some(m) = engine.try_cached_measure(&entry.path) else {
+                        continue;
+                    };
+                    let real_path = path_key(&entry.path);
+                    let display_name = entry_labels
+                        .get(&entry.label)
+                        .cloned()
+                        .unwrap_or_else(|| entry.label.clone());
+                    let (is_project, is_workspace) = match entry.kind {
+                        Some(AtmosEntryKind::Project) => (true, false),
+                        Some(AtmosEntryKind::Workspace) => (false, true),
+                        None => Self::classify_path(
+                            &real_path,
+                            &project_roots,
+                            &workspace_roots,
+                        ),
+                    };
+                    let tree = DiskNode {
+                        name: display_name,
+                        path: real_path,
+                        size: m.size,
+                        is_dir: true,
+                        is_project,
+                        is_workspace,
+                        file_count: m.file_count,
+                        dir_count: m.dir_count,
+                        children_loaded: false,
+                        children: vec![],
+                    };
+                    files_scanned.fetch_add(m.file_count, Ordering::Relaxed);
+                    dirs_scanned.fetch_add(m.dir_count.saturating_add(1), Ordering::Relaxed);
+                    parts.lock().insert(entry.label.clone(), tree);
+                    any_hit = true;
+                }
+                if any_hit {
+                    let map = parts.lock().clone();
+                    emit_assembled(ScanStatus::Running, None, &map, None);
+                }
+            }
+
+            // Phase 2: cold measure / scan_level with limited concurrency.
+            // Prioritize ~/.atmos so the dominant tile fills before small project paths.
+            let mut ordered_entries = entries.clone();
+            ordered_entries.sort_by_key(|e| {
+                let is_primary_atmos = e.label == ".atmos"
+                    || e.path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|n| n == ".atmos");
+                if is_primary_atmos {
+                    0u8
+                } else if matches!(kind, OverviewKind::HomeWithApps) && e.label == ENTRY_KEY_HOME {
+                    1u8
+                } else {
+                    2u8
+                }
+            });
+
+            let du_budget = Arc::new(AtomicUsize::new(OVERVIEW_DU_CONCURRENCY.max(1)));
+
+            std::thread::scope(|scope| {
+                for entry in ordered_entries {
+                    // Skip entries already filled from cache (still remeasure home).
+                    if !(matches!(kind, OverviewKind::HomeWithApps) && entry.label == ENTRY_KEY_HOME)
+                    {
+                        let already = parts
+                            .lock()
+                            .get(&entry.label)
+                            .is_some_and(|n| n.size > 0 || n.file_count > 0 || n.dir_count > 0);
+                        if already {
+                            continue;
+                        }
+                    }
+
                     let entry = entry.clone();
                     let parts = Arc::clone(&parts);
                     let files_scanned = Arc::clone(&files_scanned);
@@ -736,9 +929,12 @@ impl DiskAnalyzerService {
                     let scan_id = scan_id.clone();
                     let cancel = Arc::clone(&cancel);
                     let project_roots = project_roots.clone();
+                    let workspace_roots = workspace_roots.clone();
+                    let entry_kind = entry.kind;
                     let root_path_str = root_path_str.clone();
                     let root_display_name = root_display_name.clone();
                     let entry_labels = entry_labels.clone();
+                    let du_budget = Arc::clone(&du_budget);
                     let engine = DiskAnalyzerEngine::new();
 
                     scope.spawn(move || {
@@ -790,7 +986,7 @@ impl DiskAnalyzerService {
                                         finalize_tree(
                                             &mut tree,
                                             max_children,
-                                            DEFAULT_TREE_DEPTH,
+                                            OVERVIEW_TREE_DEPTH,
                                             false,
                                         );
                                         if let Some(session) = sessions.lock().get_mut(&scan_id) {
@@ -835,30 +1031,141 @@ impl DiskAnalyzerService {
                             }
                         });
 
-                        let result = engine.scan_path(
-                            &format!("{scan_id}:{part_key}"),
-                            &entry_path,
-                            &project_roots,
-                            Some(max_children),
-                            Some(Arc::clone(&cancel)),
-                            Some(on_progress),
-                        );
+                        // Cap concurrent `du` so large roots are not starved.
+                        let acquire_du = || {
+                            loop {
+                                if cancel.load(Ordering::Relaxed) {
+                                    return false;
+                                }
+                                let cur = du_budget.load(Ordering::Relaxed);
+                                if cur == 0 {
+                                    std::thread::yield_now();
+                                    continue;
+                                }
+                                if du_budget
+                                    .compare_exchange_weak(
+                                        cur,
+                                        cur - 1,
+                                        Ordering::SeqCst,
+                                        Ordering::Relaxed,
+                                    )
+                                    .is_ok()
+                                {
+                                    return true;
+                                }
+                            }
+                        };
+                        let release_du = || {
+                            du_budget.fetch_add(1, Ordering::SeqCst);
+                        };
+
+                        // Expand entries that hide the real bulk (projects, ~/.atmos,
+                        // home). Measure-only shells never surface target/node_modules/.next.
+                        let expand_children = matches!(kind, OverviewKind::HomeWithApps)
+                            && part_key == ENTRY_KEY_HOME
+                            || matches!(entry_kind, Some(AtmosEntryKind::Project | AtmosEntryKind::Workspace))
+                            || part_key == ".atmos"
+                            || entry_path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .is_some_and(|n| n == ".atmos");
+
+                        let result = if expand_children {
+                            if !acquire_du() {
+                                return;
+                            }
+                            // List immediate children and size each (includes hidden dirs
+                            // and build artifacts — skip_hidden=false, no node_modules ban).
+                            let out = engine.scan_level(
+                                &format!("{scan_id}:{part_key}"),
+                                &entry_path,
+                                &project_roots,
+                                &workspace_roots,
+                                Some(max_children),
+                                Some(Arc::clone(&cancel)),
+                                Some(on_progress),
+                            );
+                            release_du();
+                            out
+                        } else {
+                            if !acquire_du() {
+                                return;
+                            }
+                            let out = match engine
+                                .measure_path(&entry_path, Some(Arc::clone(&cancel)))
+                            {
+                                Ok(m) => {
+                                    let (is_project, is_workspace) = match entry_kind {
+                                        Some(AtmosEntryKind::Project) => (true, false),
+                                        Some(AtmosEntryKind::Workspace) => (false, true),
+                                        None => DiskAnalyzerService::classify_path(
+                                            &real_path,
+                                            &project_roots,
+                                            &workspace_roots,
+                                        ),
+                                    };
+                                    let tree = DiskNode {
+                                        name: display_name.clone(),
+                                        path: real_path.clone(),
+                                        size: m.size,
+                                        is_dir: true,
+                                        is_project,
+                                        is_workspace,
+                                        file_count: m.file_count,
+                                        dir_count: m.dir_count,
+                                        children_loaded: false,
+                                        children: vec![],
+                                    };
+                                    let stats = ScanStats {
+                                        root_path: real_path.clone(),
+                                        total_size: m.size,
+                                        files_scanned: m.file_count,
+                                        dirs_scanned: m.dir_count.saturating_add(1),
+                                        error_count: m.error_count,
+                                        elapsed_ms: 0,
+                                    };
+                                    on_progress(ScanProgress {
+                                        scan_id: scan_id.clone(),
+                                        status: ScanStatus::Running,
+                                        files_scanned: m.file_count,
+                                        bytes_scanned: m.size,
+                                        dirs_scanned: m.dir_count.saturating_add(1),
+                                        error_count: m.error_count,
+                                        current_path: Some(real_path.clone()),
+                                        percent: None,
+                                        error: None,
+                                        tree: Some(tree.clone()),
+                                        level_path: Some(root_path_str.clone()),
+                                    });
+                                    Ok((tree, stats, Vec::new()))
+                                }
+                                Err(e) => Err(e),
+                            };
+                            release_du();
+                            out
+                        };
 
                         match result {
                             Ok((mut tree, stats, _suggestions)) => {
                                 tree.path = real_path;
                                 tree.name = display_name;
-                                // Mark project roots for highlighting.
-                                if project_roots.iter().any(|p| {
-                                    let pk = path_key(p);
-                                    pk == tree.path
-                                        || tree.path.starts_with(&(pk.clone() + "/"))
-                                        || pk.starts_with(&(tree.path.clone() + "/"))
-                                }) {
-                                    // Only flag the entry root itself when it is a project path.
-                                    if project_roots.iter().any(|p| path_key(p) == tree.path) {
-                                        tree.is_project = true;
-                                    }
+                                let (is_project, is_workspace) = match entry_kind {
+                                    Some(AtmosEntryKind::Project) => (true, false),
+                                    Some(AtmosEntryKind::Workspace) => (false, true),
+                                    None => DiskAnalyzerService::classify_path(
+                                        &tree.path,
+                                        &project_roots,
+                                        &workspace_roots,
+                                    ),
+                                };
+                                tree.is_project = is_project;
+                                tree.is_workspace = is_workspace;
+                                // Keep children from scan_level so target/node_modules/.next
+                                // appear under projects and workspaces under ~/.atmos.
+                                // Only measure-only shells stay collapsed for drill-in.
+                                if !expand_children {
+                                    tree.children.clear();
+                                    tree.children_loaded = false;
                                 }
                                 files_scanned.fetch_add(stats.files_scanned, Ordering::Relaxed);
                                 dirs_scanned.fetch_add(stats.dirs_scanned, Ordering::Relaxed);
@@ -907,6 +1214,7 @@ impl DiskAnalyzerService {
         owner: String,
         level_path: PathBuf,
         project_roots: Vec<PathBuf>,
+        workspace_roots: Vec<PathBuf>,
         max_children: usize,
         cancel: Arc<AtomicBool>,
         is_session_root: bool,
@@ -951,6 +1259,7 @@ impl DiskAnalyzerService {
                 &scan_id,
                 &level_path,
                 &project_roots,
+                &workspace_roots,
                 Some(max_children),
                 Some(cancel),
                 Some(on_progress),
@@ -1035,29 +1344,51 @@ impl DiskAnalyzerService {
         });
     }
 
-    async fn collect_project_roots_static(
+    /// Returns `(project_roots, workspace_roots, project_labels)` where
+    /// `project_labels` is `(display_name, path)` for overview tiles.
+    async fn collect_atmos_locations_static(
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
         git_engine: GitEngine,
-    ) -> Vec<PathBuf> {
+    ) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<(String, PathBuf)>) {
         let mut project_roots: Vec<PathBuf> = Vec::new();
+        let mut workspace_roots: Vec<PathBuf> = Vec::new();
+        let mut project_labels: Vec<(String, PathBuf)> = Vec::new();
         let Ok(projects) = project_service.list_projects().await else {
-            return project_roots;
+            return (project_roots, workspace_roots, project_labels);
         };
         for project in projects {
-            project_roots.push(PathBuf::from(&project.main_file_path));
+            let mut root = PathBuf::from(&project.main_file_path);
+            // main_file_path may be a file inside the repo — measure the directory.
+            if root.is_file() {
+                if let Some(parent) = root.parent() {
+                    root = parent.to_path_buf();
+                }
+            }
+            if root.exists() {
+                project_roots.push(root.clone());
+                project_labels.push((project.name.clone(), root));
+            }
             if let Ok(workspaces) = workspace_service
                 .list_by_project(project.guid.clone(), true)
                 .await
             {
                 for workspace in workspaces {
-                    if let Ok(path) = git_engine.get_worktree_path(&workspace.model.name) {
-                        project_roots.push(path);
+                    let path = if !workspace.local_path.is_empty() {
+                        PathBuf::from(&workspace.local_path)
+                    } else if let Ok(p) = git_engine.get_worktree_path(&workspace.model.name) {
+                        p
+                    } else {
+                        continue;
+                    };
+                    if !path.exists() {
+                        continue;
                     }
+                    workspace_roots.push(path);
                 }
             }
         }
-        project_roots
+        (project_roots, workspace_roots, project_labels)
     }
 
     pub fn remove_connection_sessions(&self, owner_conn_id: &str) {
@@ -1186,6 +1517,7 @@ fn assemble_overview(
                 size: 0,
                 is_dir: true,
                 is_project: false,
+                is_workspace: false,
                 file_count: 0,
                 dir_count: 0,
                 children_loaded: true,
@@ -1233,6 +1565,7 @@ fn assemble_overview(
                 size: total_size,
                 is_dir: true,
                 is_project: false,
+                is_workspace: false,
                 file_count,
                 dir_count,
                 children_loaded: true,
@@ -1294,6 +1627,7 @@ mod tests {
                 entry_roots: vec![PathBuf::from("/tmp/home"), PathBuf::from("/Applications")],
                 max_children: 30,
                 project_roots: vec![],
+                workspace_roots: vec![],
                 started_at: Instant::now(),
                 completed_at: None,
                 is_overview: true,
@@ -1332,6 +1666,7 @@ mod tests {
                 entry_roots: vec![PathBuf::from("/tmp")],
                 max_children: 30,
                 project_roots: vec![],
+                workspace_roots: vec![],
                 started_at: Instant::now() - (SESSION_TTL * 2 + Duration::from_secs(1)),
                 completed_at: None,
                 is_overview: false,
@@ -1349,5 +1684,179 @@ mod tests {
         let nested = tmp.join("disk-analyzer-root-check");
         let _ = std::fs::create_dir_all(&nested);
         assert!(DiskAnalyzerService::ensure_under_any(&nested, &[tmp]).is_ok());
+    }
+
+    /// Drill-in must spawn a level walk even when session.tree already exists
+    /// (overview shells use children_loaded=false). Regression for the
+    /// `if inflight || cached { return loading }` short-circuit bug.
+    #[tokio::test]
+    async fn get_tree_spawns_walk_for_unloaded_directory() {
+        let base = std::env::temp_dir().join(format!(
+            "disk-analyzer-get-tree-{}",
+            std::process::id()
+        ));
+        let entry = base.join(".atmos");
+        let nested = entry.join("cache");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&nested).expect("mkdir");
+        std::fs::write(nested.join("blob.bin"), vec![0u8; 4096]).expect("write");
+
+        let entry_key = path_key(&entry);
+        let overview = DiskNode {
+            name: "Atmos".into(),
+            path: ATMOS_OVERVIEW_PATH.into(),
+            size: 4096,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            file_count: 1,
+            dir_count: 1,
+            children_loaded: true,
+            children: vec![DiskNode {
+                name: ".atmos".into(),
+                path: entry_key.clone(),
+                size: 4096,
+                is_dir: true,
+                is_project: false,
+                is_workspace: false,
+                file_count: 1,
+                dir_count: 1,
+                children_loaded: false,
+                children: vec![],
+            }],
+        };
+
+        let mut sessions = HashMap::new();
+        sessions.insert(
+            "scan-1".to_string(),
+            DiskAnalyzerSession {
+                owner_conn_id: "conn-1".to_string(),
+                cancel: Arc::new(AtomicBool::new(false)),
+                tree: Some(Arc::new(overview)),
+                inflight_root: None,
+                stats: None,
+                suggestions: None,
+                root_path: PathBuf::from(ATMOS_OVERVIEW_PATH),
+                entry_roots: vec![entry.clone()],
+                max_children: 30,
+                project_roots: vec![],
+                workspace_roots: vec![],
+                started_at: Instant::now(),
+                completed_at: Some(Instant::now()),
+                is_overview: true,
+            },
+        );
+
+        let db = Arc::new(sea_orm::DatabaseConnection::default());
+        let service = DiskAnalyzerService {
+            engine: DiskAnalyzerEngine::new(),
+            fs_engine: FsEngine::new(),
+            project_service: Arc::new(ProjectService::new(Arc::clone(&db))),
+            workspace_service: Arc::new(WorkspaceService::new(Arc::clone(&db))),
+            sessions: Arc::new(Mutex::new(sessions)),
+            event_tx: broadcast::channel(16).0,
+        };
+
+        let resp = service
+            .get_tree("conn-1", "scan-1", Some(&entry_key), Some(30))
+            .expect("get_tree");
+        assert_eq!(resp["status"], "loading");
+        assert_eq!(
+            service.sessions.lock().get("scan-1").unwrap().inflight_root.as_deref(),
+            Some(entry_key.as_str()),
+            "unloaded dir must mark inflight so a walk is spawned"
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn get_tree_returns_ready_for_loaded_directory() {
+        let base = std::env::temp_dir().join(format!(
+            "disk-analyzer-get-tree-ready-{}",
+            std::process::id()
+        ));
+        let entry = base.join(".atmos");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&entry).expect("mkdir");
+
+        let entry_key = path_key(&entry);
+        let overview = DiskNode {
+            name: "Atmos".into(),
+            path: ATMOS_OVERVIEW_PATH.into(),
+            size: 100,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            file_count: 1,
+            dir_count: 1,
+            children_loaded: true,
+            children: vec![DiskNode {
+                name: ".atmos".into(),
+                path: entry_key.clone(),
+                size: 100,
+                is_dir: true,
+                is_project: false,
+                is_workspace: false,
+                file_count: 1,
+                dir_count: 0,
+                children_loaded: true,
+                children: vec![DiskNode {
+                    name: "blob.bin".into(),
+                    path: format!("{entry_key}/blob.bin"),
+                    size: 100,
+                    is_dir: false,
+                    is_project: false,
+                    is_workspace: false,
+                    file_count: 1,
+                    dir_count: 0,
+                    children_loaded: true,
+                    children: vec![],
+                }],
+            }],
+        };
+
+        let mut sessions = HashMap::new();
+        sessions.insert(
+            "scan-1".to_string(),
+            DiskAnalyzerSession {
+                owner_conn_id: "conn-1".to_string(),
+                cancel: Arc::new(AtomicBool::new(false)),
+                tree: Some(Arc::new(overview)),
+                inflight_root: None,
+                stats: None,
+                suggestions: None,
+                root_path: PathBuf::from(ATMOS_OVERVIEW_PATH),
+                entry_roots: vec![entry.clone()],
+                max_children: 30,
+                project_roots: vec![],
+                workspace_roots: vec![],
+                started_at: Instant::now(),
+                completed_at: Some(Instant::now()),
+                is_overview: true,
+            },
+        );
+
+        let db = Arc::new(sea_orm::DatabaseConnection::default());
+        let service = DiskAnalyzerService {
+            engine: DiskAnalyzerEngine::new(),
+            fs_engine: FsEngine::new(),
+            project_service: Arc::new(ProjectService::new(Arc::clone(&db))),
+            workspace_service: Arc::new(WorkspaceService::new(Arc::clone(&db))),
+            sessions: Arc::new(Mutex::new(sessions)),
+            event_tx: broadcast::channel(16).0,
+        };
+
+        let resp = service
+            .get_tree("conn-1", "scan-1", Some(&entry_key), Some(30))
+            .expect("get_tree");
+        assert_eq!(resp["status"], "ready");
+        assert_eq!(resp["tree"]["name"], ".atmos");
+        assert!(
+            resp["tree"]["children"].as_array().map(|a| !a.is_empty()).unwrap_or(false),
+            "loaded dir should include children"
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

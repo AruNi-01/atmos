@@ -7,7 +7,10 @@ export interface DiskNode {
   path: string;
   size: number;
   is_dir: boolean;
+  /** Identified Atmos project root (not a workspace worktree). */
   is_project: boolean;
+  /** Identified Atmos workspace worktree. */
+  is_workspace?: boolean;
   file_count: number;
   dir_count: number;
   /** When false, directory children are not loaded yet — load on drill-in. */

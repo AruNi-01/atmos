@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   diskAnalyzerApi,
@@ -12,7 +14,12 @@ import {
   type DiskVolumeInfo,
 } from "@/api/ws/disk-analyzer-api";
 import {
+  diskAnalyzerLevelQueryKey,
+  removeDiskAnalyzerQueries,
+} from "@/features/disk-analyzer/lib/disk-analyzer-query-options";
+import {
   breadcrumbPaths,
+  collectCleanupSuggestions,
   DEFAULT_TOP_N,
   filterTree,
   findNodeByPath,
@@ -33,6 +40,7 @@ function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
       return {
         ...level,
         is_project: level.is_project || node.is_project,
+        is_workspace: level.is_workspace || node.is_workspace,
       };
     }
     if (!node.children?.length) return node;
@@ -50,6 +58,8 @@ function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
 export function useDiskAnalyzer() {
   const t = useTranslations("DiskAnalyzer");
   const scanFailedLabel = t("scanFailed");
+  const queryClient = useQueryClient();
+  const queryScope = useComputerQueryScope();
   const [scanPath, setScanPath] = useState("");
   const [scanId, setScanId] = useState<string | null>(null);
   const scanIdRef = useRef<string | null>(null);
@@ -117,6 +127,29 @@ export function useDiskAnalyzer() {
           setFocusPath((fp) => fp ?? level.path);
           setSelectedPath((sp) => sp ?? level.path);
 
+          // Persist ready levels in TanStack cache (never store intermediate loading).
+          if (
+            (payload.status === "level_completed" ||
+              payload.status === "completed" ||
+              level.children_loaded) &&
+            scanIdRef.current
+          ) {
+            const levelPath = payload.level_path ?? level.path;
+            queryClient.setQueryData(
+              diskAnalyzerLevelQueryKey(
+                queryScope,
+                scanIdRef.current,
+                levelPath,
+                topN,
+              ),
+              {
+                status: "ready" as const,
+                tree: level,
+                stats: payload.stats ?? null,
+              },
+            );
+          }
+
           if (
             payload.level_path &&
             loadingPathRef.current === payload.level_path &&
@@ -180,7 +213,7 @@ export function useDiskAnalyzer() {
       },
     );
     return off;
-  }, [rememberLevel, scanFailedLabel]);
+  }, [queryClient, queryScope, rememberLevel, scanFailedLabel, topN]);
 
   const startScan = useCallback(async () => {
     setError(null);
@@ -194,6 +227,8 @@ export function useDiskAnalyzer() {
     setSelectedPath(null);
     loadingPathRef.current = null;
     setLoadingPath(null);
+    // Drop client query cache; backend also clears path cache on start_scan.
+    removeDiskAnalyzerQueries(queryClient, queryScope);
     // Cancel previous session first (server also purges this connection's scans).
     const prevId = scanIdRef.current;
     if (prevId) {
@@ -231,7 +266,7 @@ export function useDiskAnalyzer() {
       setStatus("failed");
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [topN]);
+  }, [queryClient, queryScope, topN]);
 
   const setScanAllSpaceAndMaybeRescan = useCallback(
     (next: boolean) => {
@@ -283,21 +318,42 @@ export function useDiskAnalyzer() {
       setLoadingPath(path);
       setError(null);
       try {
+        // Prefer a ready client cache (do not treat "loading" as a final answer —
+        // that used to sticky-block drill-in after the first get_tree).
+        const key = diskAnalyzerLevelQueryKey(queryScope, scanId, path, topN);
+        const cached = queryClient.getQueryData<
+          Awaited<ReturnType<typeof diskAnalyzerApi.getTree>>
+        >(key);
+        if (
+          cached?.status === "ready" &&
+          cached.tree &&
+          isChildrenLoaded(cached.tree)
+        ) {
+          rememberLevel(cached.tree);
+          if (cached.stats) setStats(cached.stats);
+          loadingPathRef.current = null;
+          setLoadingPath(null);
+          return;
+        }
+
+        // Always hit the server for unloaded dirs so backend can spawn scan_level.
+        // Only cache ready trees; intermediate "loading" must not be stored.
         const result = await diskAnalyzerApi.getTree(scanId, path, topN);
         if (result.status === "ready" && result.tree) {
+          queryClient.setQueryData(key, result);
           rememberLevel(result.tree);
           if (result.stats) setStats(result.stats);
           loadingPathRef.current = null;
           setLoadingPath(null);
         }
-        // status === "loading": wait for progressive WS events
+        // status === "loading": wait for progressive WS events (level_completed)
       } catch (e) {
         loadingPathRef.current = null;
         setLoadingPath(null);
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [rememberLevel, scanId, topN],
+    [queryClient, queryScope, rememberLevel, scanId, topN],
   );
 
   const drillTo = useCallback(
@@ -306,17 +362,18 @@ export function useDiskAnalyzer() {
       setSelectedPath(path);
       const cached = levelCache[path];
       const node = cached ?? (tree ? findNodeByPath(tree, path) : null);
-      // Truncated scan leaves (children_loaded=false) always reload on enter.
+      // Truncated / measure-only leaves always reload on enter.
       if (!node || (node.is_dir && !isChildrenLoaded(node))) {
         void loadLevel(path);
         return;
       }
       // Directory with no expanded children yet but known to have content — load.
+      // Note: `du` overview shells often have size>0 with file_count=dir_count=0.
       if (
         node.is_dir &&
         node.name !== "__other__" &&
         (node.children?.length ?? 0) === 0 &&
-        (node.dir_count > 0 || node.file_count > 0)
+        (node.dir_count > 0 || node.file_count > 0 || node.size > 0)
       ) {
         void loadLevel(path);
       }
@@ -382,10 +439,20 @@ export function useDiskAnalyzer() {
   }, [levelCache, selectedPath, tree]);
 
   // Always size-desc — focusedNode is already top-N + single `__other__`.
+  // Same set of tiles painted on the chart for this directory level.
   const childList = useMemo(() => {
     if (!focusedNode?.children) return [];
     return sortNodes(focusedNode.children, "size");
   }, [focusedNode]);
+
+  /**
+   * Cleanup tips for **currently displayed** chart tiles only (immediate children).
+   * Updates when the user drills to another directory — does not scan nested contents.
+   */
+  const scopedSuggestions = useMemo(
+    () => collectCleanupSuggestions(childList),
+    [childList],
+  );
 
   const isLevelLoading =
     loadingPath !== null &&
@@ -419,7 +486,10 @@ export function useDiskAnalyzer() {
     focusedNode,
     selectedNode,
     stats,
-    suggestions,
+    /** Session-global suggestions from the last scan payload (legacy). */
+    sessionSuggestions: suggestions,
+    /** Suggestions under the current focus directory — use this in the UI. */
+    suggestions: scopedSuggestions,
     volume,
     volumeUsedBytes,
     chartRootSize,

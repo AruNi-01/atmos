@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  collectCleanupSuggestions,
   filterTree,
   formatBytes,
+  isAtmosRuntimeDir,
+  isChildrenLoaded,
+  layoutValue,
   sizeToUsageColor,
   sortNodes,
   takeTopChildren,
@@ -97,26 +101,35 @@ describe("disk analyzer tree adapters", () => {
     expect(byName[0].name).toBe("cache");
   });
 
-  test("echarts adapter preserves sizes and project style", () => {
+  test("echarts adapter preserves sizes; project uses size-based color only", () => {
     const chart = toEChartsTree(sample, sample.size, { maxDepth: 2 });
-    expect(chart.value).toBe(1000);
     expect(chart.bytes).toBe(1000);
+    expect(chart.value).toBe(layoutValue(1000));
     const proj = chart.children?.find((c) => c.name === "proj");
     expect(proj?.isProject).toBe(true);
-    expect(proj?.itemStyle?.borderWidth).toBe(2);
+    // No special project/workspace tile chrome — color tracks size share.
+    expect(proj?.itemStyle?.borderWidth).toBeUndefined();
+    expect(proj?.itemStyle?.color).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+
+  test("isAtmosRuntimeDir detects .atmos paths", () => {
+    expect(isAtmosRuntimeDir({ name: ".atmos", path: "/Users/x/.atmos" })).toBe(true);
+    expect(isAtmosRuntimeDir({ name: "workspaces", path: "/Users/x/.atmos/workspaces" })).toBe(
+      false,
+    );
   });
 
   test("sizeToUsageColor maps larger shares toward warmer hues", () => {
     const small = sizeToUsageColor(0.05, 0);
     const large = sizeToUsageColor(0.9, 0);
-    expect(small.startsWith("hsl(")).toBe(true);
-    expect(large.startsWith("hsl(")).toBe(true);
-    // Small → cool (high hue ~ cyan/blue); large → warm (low hue ~ red/orange).
-    const smallHue = Number(small.match(/hsl\((\d+)/)?.[1] ?? -1);
-    const largeHue = Number(large.match(/hsl\((\d+)/)?.[1] ?? -1);
-    expect(smallHue).toBeGreaterThan(140);
-    expect(largeHue).toBeLessThan(60);
-    expect(smallHue).toBeGreaterThan(largeHue);
+    expect(small).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(large).toMatch(/^#[0-9a-f]{6}$/i);
+    // Small → cool (more blue); large → warm (more red).
+    const smallRgb = hexToRgb(small);
+    const largeRgb = hexToRgb(large);
+    expect(smallRgb.b).toBeGreaterThan(smallRgb.r);
+    expect(largeRgb.r).toBeGreaterThan(largeRgb.b);
+    expect(largeRgb.r).toBeGreaterThan(smallRgb.r);
   });
 
   test("echarts adapter caps nesting depth for treemap (1) and sunburst (2)", () => {
@@ -356,4 +369,119 @@ describe("disk analyzer tree adapters", () => {
     expect(others[0].size).toBe(150);
     expect(limited.children?.map((c) => c.name)).toEqual(["A", "B", "__other__"]);
   });
+
+  test("layoutValue compresses large sizes relative to small ones", () => {
+    const big = layoutValue(45 * 1024 ** 3);
+    const small = layoutValue(560 * 1024 ** 2);
+    // Linear ratio is ~80:1; eased ratio should be much smaller so small tiles remain visible.
+    expect(big / small).toBeLessThan(20);
+    expect(big).toBeGreaterThan(small);
+  });
+
+  test("toEChartsTree stores real bytes and eased layout value", () => {
+    const node: DiskNode = {
+      name: "x",
+      path: "/x",
+      size: 1024 ** 3,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 0,
+      children: [],
+    };
+    const datum = toEChartsTree(node, 1024 ** 3, { maxDepth: 1 });
+    expect(datum.bytes).toBe(1024 ** 3);
+    expect(datum.value).toBe(layoutValue(1024 ** 3));
+    expect(datum.value).not.toBe(datum.bytes);
+  });
+
+  test("isChildrenLoaded treats du measure shells as unloaded", () => {
+    const shell: DiskNode = {
+      name: ".atmos",
+      path: "/Users/x/.atmos",
+      size: 45 * 1024 ** 3,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 0,
+      children_loaded: true,
+      children: [],
+    };
+    expect(isChildrenLoaded(shell)).toBe(false);
+
+    const loadedEmpty: DiskNode = {
+      name: "empty",
+      path: "/empty",
+      size: 0,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 0,
+      children_loaded: true,
+      children: [],
+    };
+    expect(isChildrenLoaded(loadedEmpty)).toBe(true);
+  });
+
+  test("collectCleanupSuggestions only checks visible immediate children", () => {
+    const children: DiskNode[] = [
+      {
+        name: "node_modules",
+        path: "/proj/node_modules",
+        size: 80,
+        is_dir: true,
+        is_project: false,
+        file_count: 1,
+        dir_count: 0,
+        children: [],
+      },
+      {
+        name: "src",
+        path: "/proj/src",
+        size: 20,
+        is_dir: true,
+        is_project: false,
+        file_count: 1,
+        dir_count: 0,
+        children: [
+          {
+            name: "target",
+            path: "/proj/src/target",
+            size: 10,
+            is_dir: true,
+            is_project: false,
+            file_count: 0,
+            dir_count: 0,
+            children: [],
+          },
+        ],
+      },
+      {
+        name: "target",
+        path: "/proj/target",
+        size: 50,
+        is_dir: true,
+        is_project: false,
+        file_count: 0,
+        dir_count: 0,
+        children: [],
+      },
+    ];
+    // Only top-level visible tiles — nested src/target is ignored.
+    const tips = collectCleanupSuggestions(children);
+    expect(tips.map((t) => t.name).sort()).toEqual(["node_modules", "target"]);
+    expect(tips.every((t) => t.path.startsWith("/proj/") && !t.path.includes("/src/"))).toBe(
+      true,
+    );
+    // When user drills into src, only that level's children matter.
+    const srcLevel = collectCleanupSuggestions(children[1].children);
+    expect(srcLevel.map((t) => t.name)).toEqual(["target"]);
+  });
 });
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return { r: 0, g: 0, b: 0 };
+  const n = Number.parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
