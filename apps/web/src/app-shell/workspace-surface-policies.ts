@@ -34,7 +34,7 @@ export interface SurfaceBudgets {
 }
 
 export const DEFAULT_SURFACE_BUDGETS: SurfaceBudgets = {
-  maxWarmWorkspaces: 4,
+  maxWarmWorkspaces: 8,
   maxGlobalTerminalPanes: 16,
   maxGlobalMountedEditors: 10,
   maxMountedEditorsPerWorkspace: 5,

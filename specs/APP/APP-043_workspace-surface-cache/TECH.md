@@ -328,7 +328,7 @@ interface WorkspaceSurfaceCacheState {
   activeContextId: string | null;
   warm: WarmEntry[];
   mountPlan: MountPlan;
-  maxWarmWorkspaces: number;                    // default 4
+  maxWarmWorkspaces: number;                    // default 8
   maxGlobalTerminalPanes: number;               // default 16
   maxGlobalMountedEditors: number;              // default 10
   maxMountedEditorsPerWorkspace: number;        // default 5
@@ -369,7 +369,7 @@ interface WorkspaceSurfaceCacheState {
 
 | New key | Default | Replaces concept |
 |---------|---------|------------------|
-| `workspace_surface.max_warm_workspaces` | `4` | `terminal.max_cached_workspaces` (warm frames, not “kick whole context if panels high” alone) |
+| `workspace_surface.max_warm_workspaces` | `8` | `terminal.max_cached_workspaces` (warm frames, not “kick whole context if panels high” alone) |
 | `workspace_surface.max_global_terminal_panes` | `16` | Was per-workspace panel kick from cache; now **global mounted pane** cap |
 | `workspace_surface.max_mounted_editors_per_workspace` | `5` | new |
 | `workspace_surface.max_global_mounted_editors` | `10` | new |
