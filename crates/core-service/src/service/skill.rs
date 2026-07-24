@@ -67,7 +67,8 @@ impl SkillManager {
         placement_ids: Option<&[String]>,
     ) -> Result<()> {
         let project_records = Self::merged_root_records(project_paths, extra_roots);
-        let skill = Self::load_managed_skill_with_extra_roots(project_paths, extra_roots, skill_id)?;
+        let skill =
+            Self::load_managed_skill_with_extra_roots(project_paths, extra_roots, skill_id)?;
         let desired_status = if enabled { "enabled" } else { "disabled" };
         let selected_placement_ids = selected_placement_ids(placement_ids)?;
 
@@ -174,10 +175,9 @@ impl SkillManager {
             if root.scope != "project" && root.scope != "workspace" {
                 continue;
             }
-            if records
-                .iter()
-                .any(|record| record.project_id == root.id && record.root_path == PathBuf::from(&root.path))
-            {
+            if records.iter().any(|record| {
+                record.project_id == root.id && record.root_path == Path::new(&root.path)
+            }) {
                 continue;
             }
             records.push(ProjectPathRecord {

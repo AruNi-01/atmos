@@ -299,8 +299,14 @@ fn workspace_copy_disable_is_local_to_workplace() {
     };
     let skill_id = "workspace::ws-1::demo";
 
-    SkillManager::set_enabled_with_extra_roots(&[], &[root.clone()], skill_id, false, None)
-        .expect("disable workspace copy");
+    SkillManager::set_enabled_with_extra_roots(
+        &[],
+        std::slice::from_ref(&root),
+        skill_id,
+        false,
+        None,
+    )
+    .expect("disable workspace copy");
 
     assert!(
         project.join(".claude/skills/demo/SKILL.md").exists(),
@@ -354,8 +360,14 @@ fn workspace_parent_symlink_disable_does_not_mutate_project() {
     };
     let skill_id = "workspace::ws-1::demo";
 
-    SkillManager::set_enabled_with_extra_roots(&[], &[root.clone()], skill_id, false, None)
-        .expect("disable via materialized symlink");
+    SkillManager::set_enabled_with_extra_roots(
+        &[],
+        std::slice::from_ref(&root),
+        skill_id,
+        false,
+        None,
+    )
+    .expect("disable via materialized symlink");
 
     assert!(
         project.join(".claude/skills/demo/SKILL.md").exists(),

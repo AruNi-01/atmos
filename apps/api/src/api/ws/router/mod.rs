@@ -5,6 +5,7 @@
 
 mod agents;
 mod automation;
+mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
@@ -37,8 +38,9 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, LocalServicesService,
-    NotificationService, ProjectService, ReviewService, TerminalService, WorkspaceService,
+    AgentService, AgentSessionService, AutomationService, DiskAnalyzerService,
+    LocalServicesService, NotificationService, ProjectService, ReviewService, TerminalService,
+    WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
@@ -59,6 +61,7 @@ pub struct WsMessageService {
     usage_service: Arc<UsageService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
+    disk_analyzer_service: Arc<DiskAnalyzerService>,
     notification_service: Arc<NotificationService>,
     token_usage_service: Arc<token_usage::TokenUsageService>,
     ws_manager: OnceCell<Arc<WsManager>>,
@@ -84,6 +87,10 @@ impl WsMessageService {
             Arc::clone(&project_service),
             Arc::clone(&workspace_service),
         ));
+        let disk_analyzer_service = Arc::new(DiskAnalyzerService::new(
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
+        ));
 
         Self {
             fs_engine: FsEngine::new(),
@@ -100,11 +107,16 @@ impl WsMessageService {
             usage_service,
             canvas_agent_relay,
             local_services_service,
+            disk_analyzer_service,
             notification_service,
             token_usage_service,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
+    }
+
+    pub fn disk_analyzer_service(&self) -> Arc<DiskAnalyzerService> {
+        Arc::clone(&self.disk_analyzer_service)
     }
 
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) -> Result<()> {
@@ -868,6 +880,25 @@ impl WsMessageService {
                 self.handle_local_model_custom_delete(parse_request(request.data)?)
                     .await
             }
+
+            // Disk Analyzer (APP-042)
+            WsAction::DiskAnalyzerStartScan => {
+                self.handle_disk_analyzer_start_scan(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::DiskAnalyzerCancelScan => {
+                self.handle_disk_analyzer_cancel_scan(conn_id, parse_request(request.data)?)
+            }
+            WsAction::DiskAnalyzerGetTree => {
+                self.handle_disk_analyzer_get_tree(conn_id, parse_request(request.data)?)
+            }
+            WsAction::DiskAnalyzerDelete => {
+                self.handle_disk_analyzer_delete(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::DiskAnalyzerDiskInfo => {
+                self.handle_disk_analyzer_disk_info(parse_request(request.data)?)
+            }
         }
     }
 
@@ -1001,5 +1032,6 @@ impl WsMessageHandler for WsMessageService {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
         // APP-015: drop any canvas-bridge registrations associated with this conn
         self.canvas_agent_relay.unregister_conn(conn_id);
+        self.disk_analyzer_service.remove_connection_sessions(conn_id);
     }
 }

@@ -38,6 +38,8 @@ export function DocumentTitle() {
           return t("terminals");
         case "automations":
           return t("automations");
+        case "disk-analyzer":
+          return t("diskAnalyzer");
       }
     }
     return t("app");

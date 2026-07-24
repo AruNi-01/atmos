@@ -14,6 +14,7 @@ where
 use serde_json::Value;
 
 mod agents;
+mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
@@ -23,6 +24,7 @@ mod terminal;
 mod workspace;
 
 pub use agents::*;
+pub use disk_analyzer::*;
 pub use fs::*;
 pub use git::*;
 pub use github::*;
@@ -619,6 +621,18 @@ pub enum WsAction {
     LocalModelCustomAdd,
     /// Remove a custom Hugging Face GGUF model
     LocalModelCustomDelete,
+
+    // ===== Disk Analyzer (APP-042) =====
+    /// Start a disk usage scan (progress via DiskAnalyzerScanProgress)
+    DiskAnalyzerStartScan,
+    /// Cancel an in-progress disk usage scan
+    DiskAnalyzerCancelScan,
+    /// Fetch a (sub)tree from a completed scan session
+    DiskAnalyzerGetTree,
+    /// Move a path to trash or permanently delete it
+    DiskAnalyzerDelete,
+    /// Read volume total/available bytes for a path
+    DiskAnalyzerDiskInfo,
 }
 
 /// 服务端主动推送的事件类型
@@ -669,6 +683,8 @@ pub enum WsEvent {
     AutomationRunOutput,
     /// Automation outcome notification
     AutomationNotification,
+    /// Disk analyzer scan progress / completion (APP-042)
+    DiskAnalyzerScanProgress,
 }
 
 /// 项目删除进度通知数据
