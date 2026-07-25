@@ -10,7 +10,9 @@ pub struct GroupRepo<'a> {
     db: &'a DatabaseConnection,
 }
 
-impl<'a> BaseRepo<item_group::Entity, item_group::Model, item_group::ActiveModel> for GroupRepo<'a> {
+impl<'a> BaseRepo<item_group::Entity, item_group::Model, item_group::ActiveModel>
+    for GroupRepo<'a>
+{
     fn db(&self) -> &DatabaseConnection {
         self.db
     }
@@ -38,7 +40,11 @@ impl<'a> GroupRepo<'a> {
             .await?)
     }
 
-    pub async fn create_group(&self, name: String, sidebar_order: i32) -> Result<item_group::Model> {
+    pub async fn create_group(
+        &self,
+        name: String,
+        sidebar_order: i32,
+    ) -> Result<item_group::Model> {
         let base = BaseFields::new();
         let model = item_group::ActiveModel {
             guid: Set(base.guid),
@@ -214,9 +220,16 @@ impl<'a> GroupRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
-    pub async fn update_member_sort_order(&self, membership_guid: &str, sort_order: i32) -> Result<()> {
+    pub async fn update_member_sort_order(
+        &self,
+        membership_guid: &str,
+        sort_order: i32,
+    ) -> Result<()> {
         let result = item_group_member::Entity::update_many()
-            .col_expr(item_group_member::Column::SortOrder, Expr::value(sort_order))
+            .col_expr(
+                item_group_member::Column::SortOrder,
+                Expr::value(sort_order),
+            )
             .col_expr(
                 item_group_member::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
@@ -237,9 +250,11 @@ impl<'a> GroupRepo<'a> {
         &self,
         membership_guid: &str,
     ) -> Result<Option<item_group_member::Model>> {
-        Ok(item_group_member::Entity::find_by_id(membership_guid.to_string())
-            .filter(item_group_member::Column::IsDeleted.eq(false))
-            .one(self.db)
-            .await?)
+        Ok(
+            item_group_member::Entity::find_by_id(membership_guid.to_string())
+                .filter(item_group_member::Column::IsDeleted.eq(false))
+                .one(self.db)
+                .await?,
+        )
     }
 }

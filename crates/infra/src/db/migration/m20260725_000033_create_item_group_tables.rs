@@ -17,16 +17,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(ItemGroup::CreatedAt)
-                            .date_time()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(ItemGroup::UpdatedAt)
-                            .date_time()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ItemGroup::CreatedAt).date_time().not_null())
+                    .col(ColumnDef::new(ItemGroup::UpdatedAt).date_time().not_null())
                     .col(
                         ColumnDef::new(ItemGroup::IsDeleted)
                             .boolean()

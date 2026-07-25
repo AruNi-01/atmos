@@ -28,8 +28,8 @@ use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
     AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, AutomationEvent,
-    AutomationService, CanvasAgentRelay, CanvasDocumentService, MessagePushService,
-    GroupService, NotificationService, ProjectService, ReviewService, TerminalService, TestService,
+    AutomationService, CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService,
+    NotificationService, ProjectService, ReviewService, TerminalService, TestService,
     WorkspaceService,
 };
 use infra::{DbConnection, Migrator};

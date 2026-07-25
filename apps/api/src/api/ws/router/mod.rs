@@ -312,19 +312,13 @@ impl WsMessageService {
 
             // Group (APP-044)
             WsAction::GroupList => self.handle_group_list().await,
-            WsAction::GroupCreate => {
-                self.handle_group_create(parse_request(request.data)?).await
-            }
-            WsAction::GroupUpdate => {
-                self.handle_group_update(parse_request(request.data)?).await
-            }
+            WsAction::GroupCreate => self.handle_group_create(parse_request(request.data)?).await,
+            WsAction::GroupUpdate => self.handle_group_update(parse_request(request.data)?).await,
             WsAction::GroupUpdateOrder => {
                 self.handle_group_update_order(parse_request(request.data)?)
                     .await
             }
-            WsAction::GroupDelete => {
-                self.handle_group_delete(parse_request(request.data)?).await
-            }
+            WsAction::GroupDelete => self.handle_group_delete(parse_request(request.data)?).await,
             WsAction::GroupSetMember => {
                 self.handle_group_set_member(parse_request(request.data)?)
                     .await
@@ -1064,6 +1058,7 @@ impl WsMessageHandler for WsMessageService {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
         // APP-015: drop any canvas-bridge registrations associated with this conn
         self.canvas_agent_relay.unregister_conn(conn_id);
-        self.disk_analyzer_service.remove_connection_sessions(conn_id);
+        self.disk_analyzer_service
+            .remove_connection_sessions(conn_id);
     }
 }

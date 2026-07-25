@@ -98,11 +98,7 @@ impl GroupService {
             .collect())
     }
 
-    pub async fn create_group(
-        &self,
-        name: String,
-        sidebar_order: Option<i32>,
-    ) -> Result<GroupDto> {
+    pub async fn create_group(&self, name: String, sidebar_order: Option<i32>) -> Result<GroupDto> {
         let name = Self::normalize_name(&name)?;
         let repo = GroupRepo::new(&self.db);
         let order = match sidebar_order {
@@ -177,9 +173,7 @@ impl GroupService {
             .soft_delete_memberships_for_member(&member_type, &member_guid)
             .await?;
         if affected == 0 {
-            return Err(ServiceError::NotFound(
-                "Group membership not found".into(),
-            ));
+            return Err(ServiceError::NotFound("Group membership not found".into()));
         }
         Ok(())
     }
@@ -313,13 +307,7 @@ mod tests {
     async fn seed_project(db: &DatabaseConnection, name: &str) -> String {
         let repo = ProjectRepo::new(db);
         let p = repo
-            .create(
-                name.to_string(),
-                format!("/tmp/{}", name),
-                0,
-                None,
-                None,
-            )
+            .create(name.to_string(), format!("/tmp/{}", name), 0, None, None)
             .await
             .expect("create project");
         p.guid
@@ -390,17 +378,15 @@ mod tests {
         let project_b = seed_project(&db, "proj-b").await;
         let workspace = seed_workspace(&db, &project_b, "ws-1").await;
 
-        let g1 = service
-            .create_group("G1".into(), None)
-            .await
-            .expect("g1");
-        let g2 = service
-            .create_group("G2".into(), None)
-            .await
-            .expect("g2");
+        let g1 = service.create_group("G1".into(), None).await.expect("g1");
+        let g2 = service.create_group("G2".into(), None).await.expect("g2");
 
         service
-            .set_member(g1.guid.clone(), MEMBER_TYPE_PROJECT.into(), project_a.clone())
+            .set_member(
+                g1.guid.clone(),
+                MEMBER_TYPE_PROJECT.into(),
+                project_a.clone(),
+            )
             .await
             .expect("add project");
         service
