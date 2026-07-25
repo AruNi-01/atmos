@@ -446,6 +446,8 @@ export function CenterStagePanels({
             key={contextId}
             data-workspace-frame={contextId}
             data-tier={isActiveContext ? "active" : "warm"}
+            // HTML hidden for e2e/APP-043 contract; Tailwind hidden + contentVisibility for paint.
+            hidden={!isActiveContext}
             className={cn(
               // Absolute stack: inactive frames stay mounted with live PTY sockets.
               // content-visibility skips layout/paint for warm frames; display still
