@@ -50,7 +50,7 @@ type ProjectItemSharedProps = Omit<
 function GroupRowTrailing({
   count,
   canManage,
-  hoverGroupClass,
+  hoverScope,
   onRename,
   onDelete,
   renameLabel,
@@ -58,21 +58,25 @@ function GroupRowTrailing({
 }: {
   count: number;
   canManage: boolean;
-  /** e.g. group-hover/row or group-hover/header */
-  hoverGroupClass: string;
+  /** Parent uses group/row or group/header */
+  hoverScope: "row" | "header";
   onRename: () => void;
   onDelete: () => void;
   renameLabel: string;
   deleteLabel: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const countHideOnHover =
+    hoverScope === "row" ? "group-hover/row:opacity-0" : "group-hover/header:opacity-0";
+  const buttonShowOnHover =
+    hoverScope === "row" ? "group-hover/row:opacity-100" : "group-hover/header:opacity-100";
 
   return (
     <div className="relative mr-1 flex size-6 shrink-0 items-center justify-center">
       <span
         className={cn(
           "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
-          canManage && (menuOpen ? "opacity-0" : `${hoverGroupClass}:opacity-0`),
+          canManage && (menuOpen ? "opacity-0" : countHideOnHover),
         )}
       >
         {count}
@@ -84,9 +88,7 @@ function GroupRowTrailing({
               type="button"
               className={cn(
                 "absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                menuOpen
-                  ? "opacity-100"
-                  : `opacity-0 ${hoverGroupClass}:opacity-100`,
+                menuOpen ? "opacity-100" : cn("opacity-0", buttonShowOnHover),
               )}
               aria-label="Group actions"
             >
@@ -169,7 +171,7 @@ export function UserGroupTwoColumnLeftContent({
                 <GroupRowTrailing
                   count={count}
                   canManage={Boolean(view.groupId)}
-                  hoverGroupClass="group-hover/row"
+                  hoverScope="row"
                   renameLabel={t("rename")}
                   deleteLabel={t("delete")}
                   onRename={() => view.groupId && onRenameGroup(view.groupId, view.label)}
@@ -331,7 +333,7 @@ export function UserGroupOneColumnContent({
                 <GroupRowTrailing
                   count={count}
                   canManage={Boolean(view.groupId)}
-                  hoverGroupClass="group-hover/header"
+                  hoverScope="header"
                   renameLabel={t("rename")}
                   deleteLabel={t("delete")}
                   onRename={() => view.groupId && onRenameGroup(view.groupId, view.label)}
