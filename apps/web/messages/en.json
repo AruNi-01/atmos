@@ -289,6 +289,9 @@
       "directWorkspaces": "Workspaces",
       "projects": "Projects",
       "nameRequired": "Enter a group name",
+      "createFailed": "Could not create group",
+      "renameFailed": "Could not rename group",
+      "deleteFailed": "Could not delete group",
       "adoptWorkspaces": {
         "title": "Also move workspaces?",
         "description": "{count, plural, one {# workspace under {projectName} is already in a group} other {# workspaces under {projectName} are already in groups}}. Unlink them so they only appear under this project in the target group?",

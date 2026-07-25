@@ -207,7 +207,9 @@ impl GroupService {
                 )));
             }
         }
-        Ok(repo.update_member_sort_orders(&membership_guids).await?)
+        Ok(repo
+            .update_member_sort_orders(&group_guid, &membership_guids)
+            .await?)
     }
 
     pub async fn remove_memberships_for_project(&self, project_guid: &str) -> Result<()> {

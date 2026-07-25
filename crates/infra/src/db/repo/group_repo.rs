@@ -387,8 +387,12 @@ impl<'a> GroupRepo<'a> {
     }
 
     /// Atomically apply sort order for many memberships in one group.
+    ///
+    /// Filters by `group_guid` so a concurrent move out of the group cannot
+    /// rewrite the member's sort order under its new group.
     pub async fn update_member_sort_orders(
         &self,
+        group_guid: &str,
         ordered_membership_guids: &[String],
     ) -> Result<()> {
         let txn = self.db.begin().await?;
@@ -401,6 +405,7 @@ impl<'a> GroupRepo<'a> {
                 )
                 .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
                 .filter(item_group_member::Column::Guid.eq(membership_guid.as_str()))
+                .filter(item_group_member::Column::GroupGuid.eq(group_guid))
                 .filter(item_group_member::Column::IsDeleted.eq(false))
                 .exec(&txn)
                 .await?;

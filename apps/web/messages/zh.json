@@ -289,6 +289,9 @@
       "directWorkspaces": "工作区",
       "projects": "项目",
       "nameRequired": "请输入分组名称",
+      "createFailed": "无法创建分组",
+      "renameFailed": "无法重命名分组",
+      "deleteFailed": "无法删除分组",
       "adoptWorkspaces": {
         "title": "是否一并移动工作区？",
         "description": "「{projectName}」下有 {count} 个工作区已绑定分组。是否取消这些工作区的分组关联，使其只随项目出现在目标分组中？",

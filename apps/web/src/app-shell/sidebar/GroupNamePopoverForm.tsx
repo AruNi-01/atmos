@@ -18,14 +18,18 @@ export function GroupNamePopoverForm({
   const t = useTranslations("appShell.groups");
   const [name, setName] = useState(initialName);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed || busy) return;
     setBusy(true);
+    setError(null);
     try {
       await onSubmit(trimmed);
+    } catch {
+      setError(mode === "create" ? t("createFailed") : t("renameFailed"));
     } finally {
       setBusy(false);
     }
@@ -45,10 +49,14 @@ export function GroupNamePopoverForm({
       <Input
         autoFocus
         value={name}
-        onChange={(event) => setName(event.target.value)}
+        onChange={(event) => {
+          setName(event.target.value);
+          if (error) setError(null);
+        }}
         placeholder={t("createPlaceholder")}
         className="h-8 text-sm"
         data-testid="group-name-input"
+        aria-invalid={error ? true : undefined}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
@@ -56,6 +64,11 @@ export function GroupNamePopoverForm({
           }
         }}
       />
+      {error ? (
+        <p className="text-xs text-destructive" data-testid="group-name-error" role="alert">
+          {error}
+        </p>
+      ) : null}
       <div className="flex justify-end gap-1.5">
         <button
           type="button"

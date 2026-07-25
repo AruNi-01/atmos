@@ -24,6 +24,7 @@ import {
   defaultDropAnimationSideEffects,
   restrictToVerticalAxis,
   restrictToWindowEdges,
+  toastManager,
   useSortable,
   verticalListSortingStrategy,
 } from "@workspace/ui";
@@ -199,9 +200,10 @@ function GroupRowTrailing({
           >
             <DropdownMenuSub
               open={renameOpen}
-              // Close via Radix; open only on click (ignore hover-open).
+              // Accept true/false so keyboard (ArrowRight) can open; click toggles below.
               onOpenChange={(open) => {
-                if (!open) setRenameOpen(false);
+                if (open) setDeleteOpen(false);
+                setRenameOpen(open);
               }}
             >
               <DropdownMenuSubTrigger
@@ -237,10 +239,9 @@ function GroupRowTrailing({
             <DropdownMenuSub
               open={deleteOpen}
               onOpenChange={(open) => {
-                if (!open) {
-                  setDeleteOpen(false);
-                  setDeleteBusy(false);
-                }
+                if (open) setRenameOpen(false);
+                setDeleteOpen(open);
+                if (!open) setDeleteBusy(false);
               }}
             >
               <DropdownMenuSubTrigger
@@ -284,6 +285,11 @@ function GroupRowTrailing({
                             await onDelete();
                             setDeleteOpen(false);
                             setMenuOpen(false);
+                          } catch {
+                            toastManager.add({
+                              title: t("deleteFailed"),
+                              type: "error",
+                            });
                           } finally {
                             setDeleteBusy(false);
                           }
@@ -347,12 +353,20 @@ function SortableUserGroupTwoColumnRow({
       {/* Project pattern: plain div host for attributes/listeners (not a button). */}
       <div
         {...(canSort ? { ...attributes, ...listeners } : {})}
+        role="button"
+        tabIndex={0}
         className={cn(
           "flex min-w-0 flex-1 select-none items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
           "cursor-pointer",
         )}
         data-testid={`user-group-row-${view.key}`}
         onClick={() => onSelect(view.key)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelect(view.key);
+          }
+        }}
       >
         <span className="truncate">{view.label}</span>
       </div>
@@ -663,6 +677,8 @@ function SortableUserGroupOneColumnSection({
         */}
         <div
           {...(canSort ? { ...attributes, ...listeners } : {})}
+          role="button"
+          tabIndex={0}
           className={cn(
             "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-foreground",
             "cursor-pointer",
@@ -671,6 +687,13 @@ function SortableUserGroupOneColumnSection({
           onClick={() => {
             if (isAnyGroupDragging) return;
             onToggleCollapsed();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              if (isAnyGroupDragging) return;
+              onToggleCollapsed();
+            }
           }}
         >
           {showChildren ? (
