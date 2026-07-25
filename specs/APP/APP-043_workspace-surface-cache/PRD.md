@@ -81,8 +81,10 @@
 - **Frozen return:** tab strip + correct last-tab identity visible within **150ms** from **local retained identity** (must not depend on terminal backend hydrate for strip correctness); primary heavy content usable within **500ms** typical after remount/reattach on a local machine.
 - **Budget enforcement:** opening more contexts than the warm cap never leaves more than `maxWarmWorkspaces` warm frames; no unbounded growth of mounted xterm/CodeMirror/browser instances.
 - **No blank-stage regression:** switch path does not clear the entire center to an empty loading shell while local last-tab state is already known.
+- **Nav responsiveness:** selecting a workspace/project in the left sidebar must not block the click on multi-frame re-render work; promote and budget enforcement run after the route commits (see TECH §8).
+- **Warm leave continuity:** leaving a warm context must not tear down its terminal solely due to the promote gap (sticky leave / keep-alive until warm ownership).
 - **Regression:** terminal agent runs, file dirty save, browser tabs, and existing center tab URL sync remain correct under multi-frame hosting.
-- **Qualitative:** dogfooders describe switching as “session switch,” not “page reload.”
+- **Qualitative:** dogfooders describe switching as “session switch,” not “page reload.” Residual lag under many warm frames is tracked post-ship in [IMPROVEMENT.md](./IMPROVEMENT.md) (IMP-007), not as a blank-stage regression.
 
 ## Product Decisions
 
@@ -99,9 +101,9 @@
 ## Risks & Open Questions
 
 - **Risk:** Multi-frame Center increases baseline memory; budgets and defaults must be conservative enough for 8GB-class machines.
-- **Risk:** Hidden xterm/editor instances still cost CPU if not properly paused (timers, fit loops, overlays).
+- **Risk:** Hidden xterm/editor instances still cost CPU if not properly paused (timers, fit loops, overlays). Multi-frame React commit cost under several warm terminals remains a known residual after switch-path fixes ([IMPROVEMENT IMP-007](./IMPROVEMENT.md#imp-007--residual-multi-frame-react-commit-spikes)).
 - **Risk:** URL-driven context and multi-frame active identity can desync if not owned by one controller.
-- **Resolved in TECH:** Frozen = identity-preserving frontend detach (not full `evictWorkspaceRuntime`); right sidebar single instance; settings keys under `workspace_surface.*` with no migration from APP-034 keys.
+- **Resolved in TECH:** Frozen = identity-preserving frontend detach (not full `evictWorkspaceRuntime`); right sidebar single instance; settings keys under `workspace_surface.*` with no migration from APP-034 keys; nav path never promotes WSC; sticky leave + atomic `switchContext` for warm continuity.
 
 ## Delivery
 

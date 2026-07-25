@@ -31,6 +31,8 @@
 | Multi-frame URL / focus / agent targeting | S18, S19, S20 |
 | N1 Pin (if shipped) | S16 |
 | Performance budgets | S17 (manual + optional marks) |
+| Switch-path perf (nav cheap / sticky / structure / hop thrash) | S24, S25, S26, S27 |
+| Post-ship ops log | [IMPROVEMENT.md](./IMPROVEMENT.md) IMP-001–007 |
 
 ## Execution map
 
@@ -59,6 +61,10 @@
 | S21 | Bun unit | `bun test` | freeze uses detach not full evict | tabs/layouts/persisted present after freeze | strip identity retained; no `evictWorkspaceRuntime` on freeze | planned |
 | S22 | Bun unit | `bun test` | light panel narrow mount | warm frame last tab terminal | overview/wiki not all mounted | planned |
 | S23 | Bun unit | `bun test` | clearAll wired with computer scope | mock connection switch helper | WSC clear + no cross-instance frame ids | planned |
+| S24 | Bun unit | `bun test` | `workspace-surface-switch` + store `switchContext` | prepared href + atomic leave→warm | nav injects last tab only; switchContext single update; sticky ids keep leave until warm | covered |
+| S25 | Bun unit / code gate | `bun test` + review | structural pane key / no full panes in host | title change fixtures if present | host does not depend on dynamic title strings | partial |
+| S26 | Bun unit / manual | `bun test` + dogfood | prefetch debounce + markVisited | rapid hop / hover | prime cancelled on leave; markVisited debounced without broad cancelQueries | partial |
+| S27 | Manual | stopwatch / marks | multi-frame hop under load | ≥4 warm frames local desktop | nav prepare cheap; residual commit spikes documented in IMPROVEMENT IMP-007 | dogfood |
 
 ## Scenarios
 
@@ -246,12 +252,56 @@
 - **Then:** subjective/mark-based times meet PRD success metrics for warm paths.
 - **Signals:** `wsc-switch-*` marks or stopwatch notes in Coverage Status.
 
+### S24 — Navigation path never promotes WSC; sticky leave + switchContext
+
+- **Level:** Unit
+- **Given:** helpers `prepareWorkspaceContextNavigation`, sticky leave helpers, and WSC store with active A.
+- **When:** prepare href for B without `?tab=`; then `switchContext("b")`; resolve render set with sticky leaving A before warm owns A.
+- **Then:**
+  - prepared href injects last center tab for B when missing; no store mutation in prepare;
+  - `switchContext` moves A→warm and sets active=B in **one** store notification;
+  - `resolveContextIdsToRender` includes sticky leaving id until prune after warm membership.
+- **Signals:** unit assertions in `workspace-surface-switch.test.ts`, `workspace-surface-policies.test.ts`, `workspace-surface-cache-store.test.ts`.
+- **Regression of:** [IMP-001](./IMPROVEMENT.md#imp-001--setstate-during-render-on-projectworkspace-entry), [IMP-002](./IMPROVEMENT.md#imp-002--terminal-disconnect-on-warm-leave-gap), [IMP-003](./IMPROVEMENT.md#imp-003--sidebar-click-blocked-by-wsc-promote-on-nav-path).
+
+### S25 — Terminal structure fingerprint, not full panes / title
+
+- **Level:** Unit / code gate
+- **Given:** multi-frame host (`CenterStagePanels`) mounts warm frames.
+- **When:** terminal dynamic title (or non-structural pane field) updates for a warm or active pane.
+- **Then:** host mount plan / frame list does not recompute solely from title; subscription is structural (scope → sorted pane ids).
+- **Signals:** `terminalPaneStructureKey` (or equivalent) used in host; no host-level `workspacePanes` full-object subscribe for layout; optional unit on structure key stability when only title changes.
+- **Regression of:** [IMP-005](./IMPROVEMENT.md#imp-005--dynamic-terminal-title--centerstagepanels-thrash).
+
+### S26 — Rapid hop: prefetch cancel + debounced markVisited
+
+- **Level:** Unit + dogfood
+- **Given:** sidebar hover prime wired; markVisited on activate.
+- **When:** pointer enters several rows quickly then leaves; user hops A→B→C within <1s.
+- **Then:** pending prime for non-clicked rows is cancelled; markVisited does not fire once per hop immediately; bootstrap is not broadly invalidated via `cancelQueries` on every visit.
+- **Signals:** unit for `createWorkspacePrimePrefetch` cancel; markVisited debounce behavior in store/actions; dogfood CPU during hop.
+- **Regression of:** [IMP-006](./IMPROVEMENT.md#imp-006--hoverbootstrapmarkvisited-storm-during-rapid-hopping).
+
+### S27 — Switch settle under multi-warm load (manual / marks)
+
+- **Level:** Manual
+- **Given:** local desktop, ≥4 warm workspaces with terminals, no temporary `wsc-switch` logger required for routine dogfood.
+- **When:** hop slowly then rapidly among warm contexts.
+- **Then:**
+  - click is not blocked by multi-frame re-render (nav path cheap);
+  - leaving terminal does not disconnect solely due to promote gap (sticky);
+  - typical warm hop feels session-like; residual lag under load is multi-frame **commit** cost, not afterPaint wait (see IMP-007).
+- **Signals:** subjective; optional temporary marks only when investigating; notes in Coverage Status / IMPROVEMENT.
+- **Related:** [IMP-004](./IMPROVEMENT.md#imp-004--double-raf-afterpaint-promote-added--1s-switch-latency), [IMP-007](./IMPROVEMENT.md#imp-007--residual-multi-frame-react-commit-spikes).
+
 ## Performance & load budgets
 
 - Warm terminal return ≤ 100ms interactive (dogfood; not a flaky CI hard fail unless marks harness is stable).
 - Warm file return ≤ 150ms chrome interactive.
 - Frozen first paint ≤ 150ms for tab identity.
-- Store `touch`/evict sync path ≤ 4ms in unit bench optional.
+- Store `switchContext` / `touch` body (no subscriber work) ≤ 4ms typical.
+- Click → `router.push` return ≤ 5ms typical (must not run multi-frame re-render / WSC promote).
+- CenterStagePanels commit (≤5 warm frames, steady) ≤ 50ms p50 local; residual 200–450ms spikes under load tracked as [IMP-007](./IMPROVEMENT.md#imp-007--residual-multi-frame-react-commit-spikes) (open).
 
 ## Regression checklist
 
@@ -267,6 +317,12 @@
 - [ ] No cross-workspace terminal pane id collisions in refs maps.
 - [ ] APP-035 query caches still isolate by computer after surface clearAll.
 - [ ] Settings copy describes warm vs global caps; old APP-034 keys unused.
+- [ ] Navigation / `useAppRouter` never writes WSC before `router.push` (S24 / IMP-003).
+- [ ] Sticky leave keeps leaving frame mounted until warm owns it (S24 / IMP-002).
+- [ ] `switchContext` used for hop promote (not render-phase setState; not double-rAF afterPaint) (IMP-001, IMP-004).
+- [ ] Center multi-frame host does not subscribe to full `workspacePanes` / dynamic titles (S25 / IMP-005).
+- [ ] Hover prime cancelled on leave/click; markVisited debounced without broad query cancel (S26 / IMP-006).
+- [ ] Warm frames use `hidden` + content-visibility skip paint where applicable.
 
 ## Exploratory agent-browser checks
 
@@ -277,6 +333,7 @@ Load Agent Browser skill / `agent-browser skills get core --full` before running
 3. Open more workspaces than warm cap; confirm older context still opens cleanly (frozen path) without crash.
 4. Narrow viewport: tab bar + frame show/hide no layout overflow; no console errors on rapid switches.
 5. Trigger a slow hydrate (throttle network if possible): chrome still appears; no infinite loading shell.
+6. Rapid hop with ≥4 warm terminals: click stays responsive; no disconnect on leave solely from promote gap; note residual lag under IMP-007 if any.
 
 ## Acceptance criteria
 
@@ -284,6 +341,7 @@ Load Agent Browser skill / `agent-browser skills get core --full` before running
 - [ ] APP-034 production code path removed including inventory/settings references (S14).
 - [ ] Unit tests cover LRU, protect, TTL, clearAll, editor policy, mountPlan coordinator, freeze=detach (S21), frame/URL contract (S18).
 - [ ] Multi-frame regressions covered: focus/hotkeys (S19), agent targeting (S20), light mount (S22), computer clearAll (S23).
+- [ ] Switch-path perf regressions covered or dogfood-noted: S24–S27 + [IMPROVEMENT](./IMPROVEMENT.md) IMP-001–007.
 - [ ] At least one Playwright warm-return journey automated or explicitly waived with reason + manual proof.
 - [ ] Settings expose warm/budget controls and they affect runtime caps; copy reflects new semantics.
 - [ ] `just typecheck` / scoped `bun test` for touched packages pass.
@@ -308,20 +366,35 @@ Load Agent Browser skill / `agent-browser skills get core --full` before running
 
 ## Coverage Status
 
-Updated during APP-043 implementation + test pass (2026-07-24).
+Updated during APP-043 implementation + switch-path perf dogfood (2026-07-24 → 2026-07-25).
 
 | Scenario group | Status | Evidence |
 |----------------|--------|----------|
 | S3–S8, S10, S13, S18, S21–S22 (policies) | ✅ | `bun test` `apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts` |
 | S1 / S21 detach / freeze identity | ✅ | `bun test` detach + store tests; **Playwright** `e2e/tests/specs/APP-043_workspace-surface-cache.e2e.ts` (warm A hidden while B active, reverse) |
-| S4, S8, S10, S13, S15 store | ✅ | `bun test` `workspace-surface-cache-store.test.ts` |
+| S4, S8, S10, S13, S15 store | ✅ | `bun test` `workspace-surface-cache-store.test.ts` (includes `switchContext` atomic leave→warm) |
 | S9 non-blocking restore | ✅ | `planTerminalLastTabRestore` unit + `CenterStage.tsx` uses it |
 | S12 hover prefetch | ✅ | `createWorkspacePrimePrefetch` unit + `WorkspaceItem` hover wire |
 | S14 cutover | ✅ | bun gate walks `apps/web/src` — no `useTerminalCacheStore` / `max_cached_*` |
 | S19 / S20 active-only targeting | ✅ | `shouldAcceptFrameInput` / `resolveActiveOnlyContextId` unit |
 | S23 computer clearAll | ✅ | `clearWorkspaceSurfaceCacheOnTargetChange` unit + `prepareConnectionTargetChange` calls it |
-| S17 perf budgets | ⚠ manual | dogfood only |
+| S24 nav + sticky + switchContext | ✅ | `workspace-surface-switch.test.ts` + policies sticky helpers + store `switchContext` unit; shipped code enforces no WSC on nav path |
+| S25 structural pane key | ⚠ partial | shipped in `CenterStagePanels` (`terminalPaneStructureKey`); dedicated “title-only change does not remount host” unit not yet isolated |
+| S26 prefetch cancel + markVisited debounce | ⚠ partial | prefetch unit + shipped debounce/patch behavior; full hop storm not automated |
+| S17 / S27 perf budgets under load | ⚠ dogfood | 2026-07-25: afterPaint wait eliminated; settle p50 ~90ms; residual 200–450ms commit spikes → [IMP-007](./IMPROVEMENT.md#imp-007--residual-multi-frame-react-commit-spikes) open |
 | S16 pin | ⚠ N1 not shipped | n/a |
+
+### Ops log cross-links
+
+| IMP | Status | Maps to scenarios |
+|-----|--------|-------------------|
+| IMP-001 render-phase setState | closed | S24 |
+| IMP-002 sticky leave disconnect | closed | S1, S24 |
+| IMP-003 nav-path WSC block | closed | S24 |
+| IMP-004 double-rAF afterPaint | closed | S27 / TECH §9.8 |
+| IMP-005 title thrash | closed | S25 |
+| IMP-006 hover/bootstrap storm | closed | S12, S26 |
+| IMP-007 residual commit spikes | open | S17, S27 |
 
 ### Commands
 
@@ -330,6 +403,7 @@ Updated during APP-043 implementation + test pass (2026-07-24).
 cd apps/web && bun test \
   src/features/terminal/store/__tests__/detach-workspace-frontend.test.ts \
   src/app-shell/__tests__/workspace-surface-policies.test.ts \
+  src/app-shell/__tests__/workspace-surface-switch.test.ts \
   src/app-shell/__tests__/workspace-surface-restore-prefetch.test.ts \
   src/features/workspace/store/__tests__/workspace-surface-cache-store.test.ts \
   src/features/terminal/lib/__tests__/terminal-session-live.test.ts

@@ -286,26 +286,46 @@ function isProtected(contextId: string): boolean {
 
 ## 8. Switch path (executable)
 
+### 8.1 Navigation-time (click / router) — must stay cheap
+
 ```text
-on effectiveContextId change (Host):
-  mark wsc-switch-start
-  prev = WSC.activeContextId
-  if prev && prev !== next:
-    write lastCenterTab(prev) from prev frame’s frameActiveTab   // BEFORE activate
-  WSC.setActiveContextId(next)     // next leaves warm if present
-  if prev && prev !== next:
-    WSC.touch(prev)               // may freeze LRU victim via enforceMountBudgets
-  ensure Frame(next) mounted
-  show Frame(next); hide others
-  // Activate:
-  tab = readLastCenterTab(next) ?? fallback
-  push URL once from tab (Active contract)
-  mark wsc-switch-chrome-ready
-  microtask: primeWorkspace(next); Query prefetch; enforceMountBudgets if needed
-  // Content readiness is async; mark wsc-switch-surface-ready when active surface reports ready
+on sidebar click / useAppRouter.push|replace to /workspace?id= or /project?id=:
+  // NEVER call WSC setActive/touch/switchContext here (sync React re-render of multi-frame CenterStage blocks the click 1s+)
+  if href has no explicit ?tab=:
+    inject readCenterStageLastTab(nextId) into href   // pure string; first paint matches last tab
+  router.push(preparedHref)
 ```
 
+Implementation: `prepareWorkspaceContextNavigation` in `apps/web/src/app-shell/workspace-surface-switch.ts`, called only from `useAppRouter`.
+
+### 8.2 After URL commits (CenterStage)
+
+```text
+on effectiveContextId change (useEffect, already post-paint):
+  prevLeaving = previousTerminalContextRef
+  previousTerminalContextRef = next
+  if prevLeaving && prevLeaving !== next:
+    write lastCenterTab(prevLeaving) from lastActiveTab map / prefs   // BEFORE activate
+    seed prevLeaving last terminal tab into mountedTerminalTabsByContext
+  WSC.switchContext(next)   // atomic: active=next; leave prev→warm; single store notify
+  // enforceMountBudgets deferred to microtask (mountPlan not switch-critical)
+  ensure Frame(next) in render set (active ∪ warm ∪ stickyLeaving)
+  show Frame(displayContextId); hide others
+  // displayContextId = useDeferredValue(effectiveContextId) so rapid hops skip intermediate multi-frame commits
+  // stickyLeaving tracks live URL so intermediate frames do not unmount during defer
+  // Activate chrome:
+  tab = URL tab if present else lastCenterTab(next) restore (non-blocking)
+  microtask / after single rAF: primeWorkspace, git setWorkspaceId, file-tree rebind (non-chrome)
+  idle: publish surface snapshots (structural only) + demount over-budget surfaces
+```
+
+**Forbidden:** promoting WSC during render (React “update other component while rendering”) or during the click handler before `router.push`.
+
 **Non-blocking restore:** never await `isTerminalWorkspaceReady` / editor hydration before chrome + URL push. If tab meta missing transiently, keep per-frame pending without blanking host.
+
+### 8.3 Sticky leave (one-frame keep-alive)
+
+`resolveContextIdsToRender` / `pushStickyLeavingContext` / `pruneStickyLeavingContexts` keep the workspace just left mounted until it appears in `warm[]`, so Terminal does not unmount/disconnect on the gap between URL change and `switchContext`.
 
 ---
 
@@ -336,8 +356,11 @@ interface WorkspaceSurfaceCacheState {
   warmTtlMs: number;                            // default 3_600_000
   setActiveContextId: (id: string | null) => void;
   touch: (id: string) => void;
+  /** Atomic leave→warm + set active (preferred over setActive+touch). */
+  switchContext: (nextId: string | null) => void;
   freeze: (id: string, reason: EvictReason) => void;
   enforceMountBudgets: (reason: BudgetRunReason) => void;
+  setSurfaceSnapshot: (snapshot: ContextSurfaceSnapshot) => void;
   sweepExpired: () => void;
   clearAll: () => void;
   loadSettings: () => Promise<void>;
@@ -351,6 +374,8 @@ interface WorkspaceSurfaceCacheState {
 2. `warm.length ≤ maxWarmWorkspaces` after touch/settings
 3. `mountPlan` only references Active∪Warm contexts
 4. `freeze` never uses full `evictWorkspaceRuntime` (uses `detachWorkspaceFrontend`)
+5. `switchContext` is a **single** store notification (active + warm); `enforceMountBudgets` may run on microtask afterward
+6. `mountPlan` reference is stable when the mounted key list is unchanged (avoids React churn)
 
 ### 9.2 Frame components
 
@@ -392,11 +417,33 @@ Align with APP-035: surface cache clear is **in addition to** query cache scope 
 
 ### 9.6 Prefetch (M9)
 
-Left sidebar workspace row `onPointerEnter` debounced ~100ms → `primeWorkspace` + optional git query prefetch. Does **not** insert into warm.
+Left sidebar workspace row `onPointerEnter` debounced (~450ms as shipped; longer than initial 100ms draft to avoid hydrate storms during rapid hopping). Leave/click **cancels** pending prime. Does **not** insert into warm.
 
 ### 9.7 Visibility fit (M8)
 
 On Warm/Frozen → Active, `useLayoutEffect` on active terminal/editor: explicit `fit()` / layout refresh.
+
+### 9.8 Switch performance (as-shipped, post dogfood)
+
+Measured with temporary `wsc-switch` frontend debug logs (desktop API cwd: `apps/desktop/src-tauri/logs/debug/`). **Do not** reintroduce double-rAF promote or click-path WSC writes.
+
+| Rule | Detail |
+|------|--------|
+| **Nav path** | `prepareWorkspaceContextNavigation` injects last tab only; no store writes |
+| **Promote** | `switchContext` in CenterStage `useEffect` (post-paint); never double-rAF |
+| **Sticky** | `stickyLeavingIds` keeps leaving frame mounted until warm owns it |
+| **Deferred display** | `displayContextId = useDeferredValue(effectiveContextId)` for which frame is visible; sticky still tracks live URL |
+| **Warm paint** | inactive frames: `hidden` + `contentVisibility: "hidden"` |
+| **Terminal structure vs title** | CenterStagePanels must **not** subscribe to full `workspacePanes`. Subscribe to a **structural fingerprint** (scope → sorted pane ids) only. Dynamic title updates stay local to terminal chrome. |
+| **Snapshots** | Idle publish of `setSurfaceSnapshot`; generation guard skips superseded batches; store no-ops identical snapshots and stable `mountPlan` refs |
+| **Sidebar rows** | Pass `isActive` from parent; memo rows ignoring handler identity; click closes info popover and does **not** open on focus |
+| **markVisited** | Debounced (~750ms); patch bootstrap only for the touched workspace; **do not** `cancelQueries` on every visit |
+| **Non-chrome rebind** | git `setCurrentContext` / file-tree context after single rAF (not on click path) |
+
+**Perf evidence (local desktop dogfood, 2026-07-25):**
+
+- Before: after-paint wait p50 ~475ms / max ~1.1s; switch settle often 0.5–1.6s.
+- After promote + structural-subscribe fixes: after-paint wait eliminated; typical settle p50 ~90ms; residual spikes ~200–450ms from multi-frame React commit under load (see [IMPROVEMENT.md](./IMPROVEMENT.md) IMP-001–007).
 
 ---
 
@@ -454,9 +501,11 @@ None. No new REST/WebSocket APIs. Terminal attach uses existing paths after Froz
 | Warm → Active, file last surface | ≤ 150ms editor chrome |
 | Frozen → Active chrome (strip + last tab identity) | ≤ 150ms **from local identity** |
 | Frozen primary content (local reattach) | ≤ 500ms typical |
-| `touch` + `enforceMountBudgets` sync | ≤ 4ms typical |
+| `switchContext` / `touch` body (no subscriber work) | ≤ 4ms typical |
+| Click → `router.push` return | ≤ 5ms typical (must not run multi-frame re-render) |
+| CenterStagePanels commit (≤5 warm frames, steady) | ≤ 50ms p50 local; avoid 200ms+ spikes when possible |
 
-Marks: `wsc-switch-start` / `wsc-switch-chrome-ready` / `wsc-switch-surface-ready` (debug-gated).
+Optional marks (debug-only, not production default): `SWITCH_BEGIN` → `CS_RENDER_*` → `CS_SWITCH_CONTEXT` → `SNAPSHOT_*` via temporary `wsc-switch` logger.
 
 ---
 
@@ -475,9 +524,11 @@ Marks: `wsc-switch-start` / `wsc-switch-chrome-ready` / `wsc-switch-surface-read
 ## Risks & tradeoffs
 
 - **Risk:** Frame/URL desync. **Mitigation:** §1 contract + only Active writes URL.
-- **Risk:** Warm CPU. **Mitigation:** §5 pause matrix + browser/editor caps.
+- **Risk:** Warm CPU from multi-mounted xterm. **Mitigation:** §5 pause matrix + browser/editor caps + structural (not title) subscriptions + content-visibility on warm frames; residual commit cost scales with frame count (see IMPROVEMENT).
 - **Risk:** Option A retains more memory than full evict for Frozen. **Tradeoff:** required for Frozen 150ms strip identity; caps + warm TTL limit how many identity-heavy contexts linger.
+- **Risk:** Click-path store writes re-render CenterStage before URL updates → 1s+ sidebar lag. **Mitigation:** §8.1 — nav never promotes WSC.
 - **Tradeoff:** Sidebar single mount may flash; accepted.
+- **Tradeoff:** `useDeferredValue` for frame visibility can lag one frame behind the URL under load; sticky keeps terminals alive.
 - **Rollback:** revert delivery; no server migration.
 
 ---
@@ -498,20 +549,35 @@ Marks: `wsc-switch-start` / `wsc-switch-chrome-ready` / `wsc-switch-surface-read
 
 ---
 
-## File touch list (expected)
+## File touch list (as-shipped + perf follow-ups)
 
+**Core WSC**
+
+- `apps/web/src/features/workspace/store/use-workspace-surface-cache-store.ts`
+- `apps/web/src/app-shell/workspace-surface-policies.ts`
+- `apps/web/src/app-shell/workspace-surface-switch.ts` — nav prepare + schedulers
+- `apps/web/src/app-shell/workspace-surface-restore.ts` / `workspace-surface-prefetch.ts`
 - `apps/web/src/app-shell/CenterStage.tsx`
-- `apps/web/src/app-shell/CenterStagePanels.tsx`
-- `apps/web/src/app-shell/center-stage-support.tsx`
-- `apps/web/src/app-shell/WorkspaceFrameHost.tsx` (new)
-- `apps/web/src/app-shell/WorkspaceCenterFrame.tsx` (new)
-- `apps/web/src/app-shell/workspace-surface-policies.ts` (new)
-- `apps/web/src/features/workspace/store/use-workspace-surface-cache-store.ts` (new)
-- `apps/web/src/features/terminal/store/use-terminal-store.ts` (+ detach)
-- `apps/web/src/features/terminal/store/terminal-store-helpers.ts`
-- `apps/web/src/features/terminal/store/use-terminal-cache-store.ts` (remove)
-- `apps/web/src/features/settings/components/SettingsModal.tsx`
-- Function settings schema / `settings-api.ts` types
-- `apps/web/src/api/query/api-operation-inventory.ts` (drop APP-034 ownership notes)
-- Connection / instance-switch cleanup call sites
-- Tests: store, policies, optional `e2e/tests/specs/APP-043_workspace-surface-cache.e2e.ts`
+- `apps/web/src/app-shell/CenterStagePanels.tsx` — multi-frame host (no separate WorkspaceFrameHost files in final layout)
+- `apps/web/src/app-shell/center-stage-support.tsx` — terminal mount lifecycle + `switchContext`
+- `apps/web/src/shared/hooks/use-app-router.ts` — last-tab inject only
+
+**Terminal / cutover**
+
+- `apps/web/src/features/terminal/store/use-terminal-store.ts` (+ `detachWorkspaceFrontend`)
+- `apps/web/src/features/terminal/store/use-terminal-cache-store.ts` (removed)
+- Settings + `api-operation-inventory.ts` APP-034 cutover
+
+**Sidebar / switch UX perf**
+
+- `apps/web/src/app-shell/sidebar/WorkspaceItem.tsx` / `WorkspaceContent.tsx` / `ProjectItem.tsx`
+- `apps/web/src/app-shell/LeftSidebar.tsx` / `use-left-sidebar-file-tree-sync.ts` / renderers
+- `apps/web/src/features/project/store/project-store-label-actions.ts` — `markWorkspaceVisited`
+
+**Tests**
+
+- `apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts`
+- `apps/web/src/app-shell/__tests__/workspace-surface-switch.test.ts`
+- `apps/web/src/app-shell/__tests__/workspace-surface-restore-prefetch.test.ts`
+- `apps/web/src/features/workspace/store/__tests__/workspace-surface-cache-store.test.ts`
+- `e2e/tests/specs/APP-043_workspace-surface-cache.e2e.ts`
