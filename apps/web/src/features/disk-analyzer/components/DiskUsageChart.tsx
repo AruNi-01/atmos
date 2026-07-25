@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { EChartsOption } from "echarts";
 import { FolderInput, Trash2 } from "lucide-react";
@@ -71,6 +71,7 @@ type ContextMenuState = {
 
 type ChartHandle = {
   resize: () => void;
+  dispatchAction: (payload: Record<string, unknown>) => void;
 };
 
 type Props = {
@@ -108,6 +109,59 @@ export function DiskUsageChart({
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartHandle | null>(null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  /** Treemap: last highlight we applied (index + time). */
+  const treemapHoverAppliedRef = useRef<{ index: number; t: number } | null>(
+    null,
+  );
+  /** Coalesce highlight dispatchAction to one per animation frame. */
+  const treemapHoverRafRef = useRef(0);
+  const treemapHoverPendingRef = useRef<number | null>(null);
+
+  const clearTreemapHover = useCallback(() => {
+    if (treemapHoverRafRef.current) {
+      cancelAnimationFrame(treemapHoverRafRef.current);
+      treemapHoverRafRef.current = 0;
+    }
+    treemapHoverPendingRef.current = null;
+    treemapHoverAppliedRef.current = null;
+    chartRef.current?.dispatchAction({
+      type: "downplay",
+      seriesId: SERIES_ID,
+    });
+  }, []);
+
+  /**
+   * Treemap hover can be cleared by a canvas mouseout (tooltip mount / DOM under
+   * cursor) while zrender still thinks the same tile is hovered — so no second
+   * mouseover fires and focus/blur stays off until the pointer crosses tiles.
+   *
+   * Re-dispatch highlight on mousemove (rAF-coalesced). Same tile is re-applied
+   * at most every ~80ms so we recover without thrashing state animations.
+   */
+  const ensureTreemapHover = useCallback((dataIndex: number) => {
+    if (modeRef.current !== "treemap") return;
+    treemapHoverPendingRef.current = dataIndex;
+    if (treemapHoverRafRef.current) return;
+    treemapHoverRafRef.current = requestAnimationFrame(() => {
+      treemapHoverRafRef.current = 0;
+      const idx = treemapHoverPendingRef.current;
+      const chart = chartRef.current;
+      if (idx == null || !chart || modeRef.current !== "treemap") return;
+      const now = performance.now();
+      const last = treemapHoverAppliedRef.current;
+      // New tile: always apply. Same tile: periodic re-apply recovers after a
+      // silent highdown clear without restarting emphasis every frame.
+      if (last && last.index === idx && now - last.t < 80) return;
+      treemapHoverAppliedRef.current = { index: idx, t: now };
+      chart.dispatchAction({
+        type: "highlight",
+        seriesId: SERIES_ID,
+        dataIndex: idx,
+      });
+    });
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -127,6 +181,17 @@ export function DiskUsageChart({
       ro.disconnect();
     };
   }, []);
+
+  // Drop forced highlight when leaving treemap (mode switch / unmount).
+  useEffect(() => {
+    if (mode !== "treemap") clearTreemapHover();
+    return () => {
+      if (treemapHoverRafRef.current) {
+        cancelAnimationFrame(treemapHoverRafRef.current);
+        treemapHoverRafRef.current = 0;
+      }
+    };
+  }, [mode, clearTreemapHover]);
 
   const orderedChildren = useMemo(() => {
     const children = node.children ?? [];
@@ -228,14 +293,34 @@ export function DiskUsageChart({
       backgroundColor: "rgba(24,24,27,0.94)",
       textStyle: { color: "rgba(250,250,250,0.95)", fontSize: 12 },
       padding: [8, 12] as [number, number],
+      // Instant show/hide — tooltip remount under the cursor can steal mouseout and
+      // kill treemap emphasis/blur (region-to-region still works because the tip only updates).
       showDelay: 0,
-      hideDelay: 50,
+      hideDelay: 0,
       transitionDuration: 0,
       enterable: false,
       // Parent layout uses overflow:hidden — mount on body so tooltips aren't clipped.
-      // Let ECharts own edge flipping (do not hardcode a fixed offset that goes off-screen).
-      confine: true,
       appendTo: "body",
+      // Keep the tip off the cursor. A DOM node inserted under the pointer fires canvas
+      // mouseout even with pointer-events:none, which clears focus/blur on first enter.
+      position: (
+        point: number[],
+        _params: unknown,
+        _dom: unknown,
+        _rect: unknown,
+        size?: { contentSize?: number[]; viewSize?: number[] },
+      ) => {
+        const gap = 14;
+        const pw = size?.contentSize?.[0] ?? 0;
+        const ph = size?.contentSize?.[1] ?? 0;
+        const vw = size?.viewSize?.[0] ?? Number.POSITIVE_INFINITY;
+        const vh = size?.viewSize?.[1] ?? Number.POSITIVE_INFINITY;
+        let x = point[0] + gap;
+        let y = point[1] + gap;
+        if (pw > 0 && x + pw > vw) x = Math.max(0, point[0] - pw - gap);
+        if (ph > 0 && y + ph > vh) y = Math.max(0, point[1] - ph - gap);
+        return [x, y] as [number, number];
+      },
       extraCssText:
         "border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);pointer-events:none;z-index:10000;",
     };
@@ -278,6 +363,8 @@ export function DiskUsageChart({
       return {
         backgroundColor: "transparent",
         tooltip,
+        // Avoid hover-layer promotion which can drop first-enter emphasis on dense tiles.
+        hoverLayerThreshold: Number.POSITIVE_INFINITY,
         series: [
           {
             ...baseSeries,
@@ -292,7 +379,10 @@ export function DiskUsageChart({
             breadcrumb: { show: false },
             leafDepth: TREEMAP_CHART_DEPTH,
             visibleMin: 0,
-            emphasis: { focus: "self", ...CHART_EMPHASIS },
+            // Nested kids exist for sunburst morph → ECharts marks tiles isLeafRoot and
+            // prefixes "▶" via drillDownIcon. We drill via our own click handler, not ECharts.
+            drillDownIcon: "",
+            emphasis: { focus: "self", blurScope: "series", ...CHART_EMPHASIS },
             blur: CHART_BLUR,
             label: {
               show: true,
@@ -320,6 +410,7 @@ export function DiskUsageChart({
     return {
       backgroundColor: "transparent",
       tooltip,
+      hoverLayerThreshold: Number.POSITIVE_INFINITY,
       series: [
         {
           ...baseSeries,
@@ -327,7 +418,7 @@ export function DiskUsageChart({
           center: ["50%", "50%"],
           radius: ["12%", "100%"],
           sort: false as const,
-          emphasis: { focus: "ancestor", ...CHART_EMPHASIS },
+          emphasis: { focus: "ancestor", blurScope: "series", ...CHART_EMPHASIS },
           blur: CHART_BLUR,
           levels: [
             {},
@@ -443,6 +534,28 @@ export function DiskUsageChart({
             }
           },
           contextmenu: openContextMenu,
+          // Treemap: keep focus/blur alive (see ensureTreemapHover).
+          mouseover: (params: { dataIndex?: number }) => {
+            if (typeof params?.dataIndex === "number") {
+              ensureTreemapHover(params.dataIndex);
+            }
+          },
+          mousemove: (params: { dataIndex?: number }) => {
+            if (typeof params?.dataIndex === "number") {
+              ensureTreemapHover(params.dataIndex);
+            }
+          },
+          mouseout: () => {
+            // Tooltip / DOM under cursor can fire mouseout and wipe highdown while
+            // the pointer is still on the same tile. Invalidate so the next
+            // mousemove re-highlights even without a new mouseover.
+            if (modeRef.current === "treemap") {
+              treemapHoverAppliedRef.current = null;
+            }
+          },
+          globalout: () => {
+            clearTreemapHover();
+          },
         }}
       />
       <DropdownMenu
