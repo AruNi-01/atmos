@@ -119,11 +119,18 @@ jobs:
               exit 1
             fi
             require_tag_commit_on_main
+            # Detect calendar prerelease tags such as local-web-runtime-2026.7.2-beta.1.
+            # Stable tags (e.g. local-web-runtime-2026.7.2) have no `-` segment after the date.
+            if [[ "$RELEASE_TAG" =~ ^local-web-runtime-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
+              IS_PRERELEASE="true"
+            else
+              IS_PRERELEASE="false"
+            fi
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
             echo "release_version=${RELEASE_TAG#local-web-runtime-}" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
             echo "build_matrix=$(matrix_for_platform all)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
