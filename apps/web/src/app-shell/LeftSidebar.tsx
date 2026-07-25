@@ -159,6 +159,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const workspaceSidebarStatusTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarStatusTwoColumn);
     const workspaceSidebarPriorityTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarPriorityTwoColumn);
     const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarLabelTwoColumn);
+    const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarGroupTwoColumn);
     const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
     const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
@@ -791,6 +792,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         workspaceSidebarTimeTwoColumn,
         workspaceSidebarPriorityTwoColumn,
         workspaceSidebarLabelTwoColumn,
+        workspaceSidebarGroupTwoColumn,
         workspaceSidebarTwoColumn,
         workspaceLabels,
     });

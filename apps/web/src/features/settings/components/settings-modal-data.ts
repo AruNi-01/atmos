@@ -171,6 +171,7 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "by status group uses second column",
     "by priority group uses second column",
     "by label group uses second column",
+    "by group uses second column",
     "header layout",
     "workspace summary button",
     "task section",
@@ -476,7 +477,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
       hasDescription: true,
-      keywords: ["project sidebar", "by time", "by status", "by priority", "by label", "second column"],
+      keywords: ["project sidebar", "by group", "by time", "by status", "by priority", "by label", "second column"],
     }),
     settingsModalSearchItem("layout.projectSidebarTwoColumnLayout", {
       keywords: ["projects in first column", "workspaces in second column"],
@@ -498,6 +499,9 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.byLabelGroupUsesSecondColumn", {
       keywords: ["label grouping", "tag grouping", "sidebar by label", "sidebar by tag"],
+    }),
+    settingsModalSearchItem("layout.byGroupUsesSecondColumn", {
+      keywords: ["group grouping", "sidebar by group", "user groups"],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],

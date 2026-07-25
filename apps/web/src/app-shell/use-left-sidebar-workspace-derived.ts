@@ -45,6 +45,7 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     workspaceSidebarTimeTwoColumn: boolean;
     workspaceSidebarPriorityTwoColumn: boolean;
     workspaceSidebarLabelTwoColumn: boolean;
+    workspaceSidebarGroupTwoColumn: boolean;
     workspaceSidebarTwoColumn: boolean;
     workspaceLabels: WorkspaceLabel[];
 }
@@ -67,6 +68,7 @@ export function useLeftSidebarWorkspaceDerived({
     workspaceSidebarTimeTwoColumn,
     workspaceSidebarPriorityTwoColumn,
     workspaceSidebarLabelTwoColumn,
+    workspaceSidebarGroupTwoColumn,
     workspaceSidebarTwoColumn,
     workspaceLabels,
 }: UseLeftSidebarWorkspaceDerivedParams) {
@@ -106,7 +108,7 @@ export function useLeftSidebarWorkspaceDerived({
         return buildUserGroupViews(groups, projectModeProjects, ungroupedLabel);
     }, [groupingMode, groups, projectModeProjects, ungroupedLabel]);
     const isProjectTwoColumn = groupingMode === 'project' && workspaceSidebarTwoColumn;
-    const isGroupTwoColumn = groupingMode === 'group' && workspaceSidebarTwoColumn;
+    const isGroupTwoColumn = groupingMode === 'group' && workspaceSidebarGroupTwoColumn;
     const isTimeTwoColumn = groupingMode === 'time' && workspaceSidebarTimeTwoColumn;
     const isStatusTwoColumn = groupingMode === 'status' && workspaceSidebarStatusTwoColumn;
     const isPriorityTwoColumn = groupingMode === 'priority' && workspaceSidebarPriorityTwoColumn;
