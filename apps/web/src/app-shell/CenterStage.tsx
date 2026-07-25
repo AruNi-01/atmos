@@ -171,6 +171,7 @@ const CenterStage: React.FC = () => {
   const isEditorHydrated = useEditorStoreHydration();
 
   const { workspaceId, projectId: projectIdFromUrl, effectiveContextId, currentView } = useContextParams();
+
   const githubTabs = useGithubCenterTabsStore((state) =>
     effectiveContextId
       ? state.tabsByContext[effectiveContextId] ?? EMPTY_GITHUB_TABS

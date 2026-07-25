@@ -221,13 +221,32 @@ export function CenterStagePanels({
   mountedTerminalTabsByContext,
 }: CenterStagePanelsProps) {
   const t = useTranslations("appShell.centerStagePanels");
-  const warm = useWorkspaceSurfaceCacheStore((s) => s.warm);
+  // Defer the active-frame flip so rapid hops skip intermediate multi-frame commits.
+  // Sticky leave still tracks live `effectiveContextId` so terminals do not unmount.
+  const displayContextId = React.useDeferredValue(effectiveContextId);
+  // Prefer id lists over full warm entry objects — lastAccessed churn must not re-render.
+  const warmIds = useWorkspaceSurfaceCacheStore((s) =>
+    s.warm.map((w) => w.contextId).join("\0"),
+  );
   const mountPlan = useWorkspaceSurfaceCacheStore((s) => s.mountPlan);
   const setSurfaceSnapshot = useWorkspaceSurfaceCacheStore((s) => s.setSurfaceSnapshot);
   const allWorkspaceTerminalTabs = useTerminalStore((s) => s.workspaceTerminalTabs);
   const workspaceContexts = useTerminalStore((s) => s.workspaceContexts);
-  const getPanes = useTerminalStore((s) => s.getPanes);
-  const workspacePanes = useTerminalStore((s) => s.workspacePanes);
+  // Structural fingerprint only (scope → pane ids). Dynamic title / agent metadata
+  // updates must NOT re-render CenterStagePanels or re-run mount-budget snapshots.
+  const terminalPaneStructureKey = useTerminalStore((s) => {
+    const panesByScope = s.workspacePanes;
+    const scopeKeys = Object.keys(panesByScope);
+    if (scopeKeys.length === 0) return "";
+    scopeKeys.sort();
+    let out = "";
+    for (const scopeKey of scopeKeys) {
+      const ids = Object.keys(panesByScope[scopeKey] ?? {});
+      ids.sort();
+      out += `${scopeKey}:${ids.join(",")};`;
+    }
+    return out;
+  });
   const getOpenFiles = useEditorStore((s) => s.getOpenFiles);
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
@@ -245,24 +264,33 @@ export function CenterStagePanels({
     );
     lastEffectiveContextRef.current = effectiveContextId;
   }
-  const warmIds = warm.map((c) => c.contextId);
+  const warmIdList = warmIds ? warmIds.split("\0").filter(Boolean) : [];
   stickyLeavingIdsRef.current = pruneStickyLeavingContexts(stickyLeavingIdsRef.current, {
     effectiveContextId,
-    warmIds,
+    warmIds: warmIdList,
   });
   const contextIdsToRender = resolveContextIdsToRender({
     effectiveContextId,
-    warmIds,
+    warmIds: warmIdList,
     stickyLeavingIds: stickyLeavingIdsRef.current,
   });
 
-  // Publish surface snapshots for mount budget coordinator (store ignores no-ops).
-  // Defer off the switch critical path so CenterStage chrome can paint first.
+  // Publish surface snapshots once per structural change (effect cleanup cancels
+  // superseded idle work so rapid hops do not run intermediate snapshots).
+  const snapshotGenRef = React.useRef(0);
   React.useEffect(() => {
     const contextIds = contextIdsToRender;
+    const gen = ++snapshotGenRef.current;
     return scheduleIdle(() => {
+      if (gen !== snapshotGenRef.current) return;
+      // Read panes live so we pick up structure at idle time without subscribing
+      // to title-level workspacePanes updates.
+      const liveGetPanes = useTerminalStore.getState().getPanes;
+      // Prefer displayContextId so deferred hops do not write active snapshots for
+      // intermediate contexts that were skipped.
+      const activeId = displayContextId;
       for (const contextId of contextIds) {
-        const isActive = contextId === effectiveContextId;
+        const isActive = contextId === activeId;
         const tabs =
           allWorkspaceTerminalTabs[contextId] ??
           (isActive
@@ -318,7 +346,7 @@ export function CenterStagePanels({
         ).filter(Boolean);
         const terminalPaneCountByTabId: Record<string, number> = {};
         for (const tabId of terminalTabIds) {
-          const panes = getPanes(
+          const panes = liveGetPanes(
             contextId,
             tabId === FIXED_TERMINAL_TAB_VALUE ? undefined : tabId,
           );
@@ -344,12 +372,12 @@ export function CenterStagePanels({
     browserTabsByContext,
     codeReviewTabVisible,
     contextIdsToRender.join(","),
-    effectiveContextId,
+    displayContextId,
     getOpenFiles,
-    getPanes,
     githubTabsByContext,
     mountedTerminalTabsByContext,
-    workspacePanes,
+    // Structure only — titles/agent fields must not appear here.
+    terminalPaneStructureKey,
     projectWikiTabVisible,
     visibleTerminalTabs,
   ]);
@@ -359,7 +387,9 @@ export function CenterStagePanels({
       {/* Stack workspace frames like terminal tabs: keep warm DOM mounted, CSS-hide only. */}
       <div className="relative flex-1 min-h-0 min-w-0 w-full">
       {contextIdsToRender.map((contextId) => {
-        const isActiveContext = contextId === effectiveContextId;
+        // Live URL drives sticky keep-alive; deferred id drives which frame is visible
+        // so rapid hops skip intermediate multi-frame visibility flips.
+        const isActiveContext = contextId === displayContextId;
         const mountedTabs = mountedTerminalTabsByContext[contextId] || [];
         // Base tab list from store (or active visible tabs). For warm/sticky frames,
         // also re-introduce any mount-book tab ids so keep-alive grids are not filtered
@@ -416,11 +446,17 @@ export function CenterStagePanels({
             data-workspace-frame={contextId}
             data-tier={isActiveContext ? "active" : "warm"}
             className={cn(
-              // Absolute stack (same idea as multi-terminal-tab keep-alive): inactive
-              // frames stay mounted with live PTY sockets; only visibility toggles.
+              // Absolute stack: inactive frames stay mounted with live PTY sockets.
+              // content-visibility skips layout/paint for warm frames; display still
+              // uses hidden so xterm does not measure a zero grid when re-shown.
               "absolute inset-0 flex flex-col min-h-0 min-w-0",
               !isActiveContext && "hidden",
             )}
+            style={
+              !isActiveContext
+                ? ({ contentVisibility: "hidden", containIntrinsicSize: "auto 800px" } as React.CSSProperties)
+                : undefined
+            }
           >
             {tabs
               .filter((tab) => {

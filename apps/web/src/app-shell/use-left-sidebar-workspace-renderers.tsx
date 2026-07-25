@@ -10,6 +10,7 @@ import type { FlattenedWorkspaceEntry } from '@/app-shell/sidebar/workspace-grou
 import type { WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/shared/types/domain';
 
 interface UseLeftSidebarWorkspaceRenderersParams {
+    activeWorkspaceId: string | null;
     archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     createWorkspaceLabel: (data: { name: string; color: string; source?: WorkspaceLabel['source'] }) => Promise<WorkspaceLabel>;
     deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -44,6 +45,7 @@ interface WorkspaceKanbanCardOptions {
 }
 
 export function useLeftSidebarWorkspaceRenderers({
+    activeWorkspaceId,
     archiveWorkspace,
     createWorkspaceLabel,
     deleteWorkspace,
@@ -70,6 +72,7 @@ export function useLeftSidebarWorkspaceRenderers({
             projectPath={entry.projectPath}
             showProjectName={options?.showProjectName}
             rightContext={options?.rightContext}
+            isActive={activeWorkspaceId === entry.workspace.id}
             suppressInfoPopover={options?.suppressInfoPopover}
             sortingDisabled={options?.sortingDisabled}
             sortingDisabledMessage={options?.sortingDisabledMessage}
@@ -94,6 +97,7 @@ export function useLeftSidebarWorkspaceRenderers({
             }
         />
     ), [
+        activeWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
@@ -119,6 +123,7 @@ export function useLeftSidebarWorkspaceRenderers({
             projectPath={entry.projectPath}
             showProjectName={options?.showProjectName}
             rightContext={options?.rightContext}
+            isActive={activeWorkspaceId === entry.workspace.id}
             onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
             onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
             onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
@@ -140,6 +145,7 @@ export function useLeftSidebarWorkspaceRenderers({
             }
         />
     ), [
+        activeWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,

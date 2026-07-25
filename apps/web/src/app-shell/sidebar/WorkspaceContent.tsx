@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { DraggableAttributes, DraggableSyntheticListeners } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   Pin,
   Archive,
@@ -52,6 +51,8 @@ export interface WorkspaceContentProps {
   projectName?: string;
   showProjectName?: boolean;
   rightContext?: React.ReactNode;
+  /** Selected state from parent — avoid per-row URL subscriptions. */
+  isActive?: boolean;
   isDragging?: boolean;
   isPlaceholder?: boolean;
   suppressInfoPopover?: boolean;
@@ -68,6 +69,28 @@ export interface WorkspaceContentProps {
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+}
+
+function workspaceContentPropsAreEqual(
+  prev: WorkspaceContentProps,
+  next: WorkspaceContentProps,
+): boolean {
+  // Ignore handler identity: parents recreate onPin/onArchive etc. per map().
+  return (
+    prev.workspace === next.workspace &&
+    prev.projectId === next.projectId &&
+    prev.projectPath === next.projectPath &&
+    prev.projectName === next.projectName &&
+    prev.showProjectName === next.showProjectName &&
+    prev.rightContext === next.rightContext &&
+    prev.isActive === next.isActive &&
+    prev.isDragging === next.isDragging &&
+    prev.isPlaceholder === next.isPlaceholder &&
+    prev.suppressInfoPopover === next.suppressInfoPopover &&
+    prev.attributes === next.attributes &&
+    prev.listeners === next.listeners &&
+    prev.availableLabels === next.availableLabels
+  );
 }
 
 type WorkspaceMetadataValueProps = {
@@ -111,6 +134,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   projectName,
   showProjectName,
   rightContext,
+  isActive = false,
   isDragging,
   isPlaceholder,
   suppressInfoPopover,
@@ -131,8 +155,6 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
   const router = useAppRouter();
-  const { workspaceId } = useContextParams();
-  const isActive = workspaceId === workspace.id;
   const isAutomation = workspace.createSource === "automation";
   const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
   const confirmBeforeArchive = useWorkspaceSettingsStore((s) => s.confirmBeforeArchive);
@@ -251,6 +273,12 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       ignoreNextClickRef.current = false;
       return;
     }
+    // Click is a navigation intent — never open/expand info chrome mid-switch.
+    cancelInfoPopoverClose();
+    setIsInfoPopoverOpen(false);
+    setIsStatusMenuOpen(false);
+    setIsPriorityMenuOpen(false);
+    setIsLabelPopoverOpen(false);
     router.push(`/workspace?id=${workspace.id}`);
   };
 
@@ -393,8 +421,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
 
 
+  // Primitive selector (enum string) — re-renders only when THIS workspace's agent state changes.
   const workspaceAgentState = useAgentHooksStore((s) =>
-    s.getAgentStateForContextId(workspace.id)
+    s.getAgentStateForContextId(workspace.id),
   );
 
   const handleSaveName = React.useCallback(async () => {
@@ -425,7 +454,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             {...attributes}
             {...listeners}
             onClick={handleClick}
-            onFocusCapture={openInfoPopoverNow}
+            // Do NOT open the info popover on focus: a click focuses the row first,
+            // which previously mounted popover chrome and competed with navigation.
             onMouseEnter={openInfoPopover}
             onMouseLeave={scheduleInfoPopoverClose}
             onTouchStart={handleTouchStart}
@@ -439,7 +469,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             role="button"
             tabIndex={0}
             className={cn(
-              "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
+              // transition-colors only — transition-all + backdrop-blur on hover made
+              // rapid hopping feel sticky even with few rows.
+              "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-colors border border-transparent hover:bg-sidebar-accent/50 group/ws",
               isActive
                 ? 'bg-sidebar-accent/50 text-sidebar-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-sidebar-foreground',
@@ -517,16 +549,13 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               {rightContext ? (
                 <div
                   className={cn(
-                    "pointer-events-none absolute inset-y-0 -right-2 z-[9] flex items-center rounded-r-md px-2 pl-4 text-[11px] text-muted-foreground transition-opacity duration-200 group-hover/ws:opacity-0",
+                    "pointer-events-none absolute inset-y-0 -right-2 z-[9] flex items-center rounded-r-md bg-sidebar px-2 pl-4 text-[11px] text-muted-foreground transition-opacity duration-150 group-hover/ws:opacity-0",
                   )}
                 >
-                  <span
-                    className="absolute inset-y-0 -left-1 -right-1 rounded-r-md backdrop-blur-[2px] [mask-image:linear-gradient(to_right,transparent,black_18%,black_78%,transparent)]"
-                  />
                   <span className="relative z-10">{rightContext}</span>
                 </div>
               ) : null}
-              <div className="pointer-events-none absolute inset-y-0 -right-1 z-10 flex items-center gap-1 rounded-r-md pl-5 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 [mask-image:linear-gradient(to_right,transparent,black_30%)] group-hover/ws:pointer-events-auto group-hover/ws:opacity-100">
+              <div className="pointer-events-none absolute inset-y-0 -right-1 z-10 flex items-center gap-1 rounded-r-md bg-sidebar/95 pl-5 opacity-0 transition-opacity duration-150 [mask-image:linear-gradient(to_right,transparent,black_30%)] group-hover/ws:pointer-events-auto group-hover/ws:opacity-100">
                 <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
                 <button
                   onClick={handleArchiveClick}
@@ -540,7 +569,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             </div>
           </div>
         </PopoverTrigger>
-        {!isDragging && (
+        {/* Mount heavy popover body only while open — avoids per-row portal work on every switch. */}
+        {!isDragging && isInfoPopoverOpen && (
           <PopoverContent
             data-workspace-popover-surface="true"
             side="right"
@@ -778,4 +808,4 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       </Dialog>
     </>
   );
-});
+}, workspaceContentPropsAreEqual);

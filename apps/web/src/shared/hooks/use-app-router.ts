@@ -61,7 +61,7 @@ export function useAppRouter() {
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
-      // APP-043: inject last tab only — never promote WSC here (blocks click 1–2s).
+      // APP-043: inject last tab only — never promote WSC here (blocks click).
       const prepared = prepareWorkspaceContextNavigation(nextPath);
       router.push(prepared);
     },

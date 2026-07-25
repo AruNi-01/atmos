@@ -98,11 +98,31 @@ export function prepareWorkspaceContextNavigation(path: string): string {
   }
 }
 
-/** Run after the next paint (double rAF). Returns a cancel function. */
+/**
+ * Run after the current React commit flushes (useEffect is already post-paint).
+ * Prefer this for switch promote — double-rAF was waiting 0.5–1s under multi-frame load.
+ */
+export function scheduleAfterCommit(fn: () => void): () => void {
+  let cancelled = false;
+  const run = () => {
+    if (!cancelled) fn();
+  };
+  if (typeof queueMicrotask === "function") {
+    queueMicrotask(run);
+  } else {
+    setTimeout(run, 0);
+  }
+  return () => {
+    cancelled = true;
+  };
+}
+
+/**
+ * Run after the next frame (single rAF). Use for non-critical rebind work
+ * (git context, file tree) that should not block click handlers.
+ */
 export function scheduleAfterPaint(fn: () => void): () => void {
   let cancelled = false;
-  let outer = 0;
-  let inner = 0;
   if (typeof requestAnimationFrame === "undefined") {
     const t = setTimeout(() => {
       if (!cancelled) fn();
@@ -112,15 +132,30 @@ export function scheduleAfterPaint(fn: () => void): () => void {
       clearTimeout(t);
     };
   }
-  outer = requestAnimationFrame(() => {
-    inner = requestAnimationFrame(() => {
-      if (!cancelled) fn();
-    });
+  const id = requestAnimationFrame(() => {
+    if (!cancelled) fn();
   });
   return () => {
     cancelled = true;
-    cancelAnimationFrame(outer);
-    cancelAnimationFrame(inner);
+    cancelAnimationFrame(id);
+  };
+}
+
+/**
+ * Coalesce rapid calls: only the latest `fn` runs after `delayMs`.
+ * Used so fast workspace hops only apply the final context.
+ */
+export function scheduleCoalesced(
+  fn: () => void,
+  delayMs = 32,
+): () => void {
+  let cancelled = false;
+  const t = setTimeout(() => {
+    if (!cancelled) fn();
+  }, delayMs);
+  return () => {
+    cancelled = true;
+    clearTimeout(t);
   };
 }
 

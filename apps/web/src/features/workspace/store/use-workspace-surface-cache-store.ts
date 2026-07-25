@@ -78,6 +78,28 @@ function recomputeMountPlan(state: WorkspaceSurfaceCacheState): MountPlan {
   });
 }
 
+/** Keep previous mountPlan reference when the key list is unchanged (cuts React churn). */
+function sameMountPlan(a: MountPlan, b: MountPlan): boolean {
+  if (a === b) return true;
+  if (a.mounted.length !== b.mounted.length) return false;
+  for (let i = 0; i < a.mounted.length; i++) {
+    if (a.mounted[i] !== b.mounted[i]) return false;
+  }
+  return true;
+}
+
+function withMountPlan(
+  state: WorkspaceSurfaceCacheState,
+  nextPartial: Partial<WorkspaceSurfaceCacheState>,
+): Partial<WorkspaceSurfaceCacheState> | WorkspaceSurfaceCacheState {
+  const merged = { ...state, ...nextPartial };
+  const mountPlan = recomputeMountPlan(merged as WorkspaceSurfaceCacheState);
+  if (sameMountPlan(state.mountPlan, mountPlan)) {
+    return { ...nextPartial, mountPlan: state.mountPlan };
+  }
+  return { ...nextPartial, mountPlan };
+}
+
 /**
  * Runtime protect: dirty editors + panes with agent metadata.
  * Tests may inject protectOverride instead.
@@ -213,12 +235,7 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
       // for unrelated Frozen contexts. Re-activation of the same id is safe
       // because runFreezeSideEffects re-checks active/warm membership.
       const warm = state.warm.filter((w) => w.contextId !== id);
-      const next = {
-        ...state,
-        activeContextId: id,
-        warm,
-      };
-      return { ...next, mountPlan: recomputeMountPlan(next) };
+      return withMountPlan(state, { activeContextId: id, warm });
     });
   },
 
@@ -236,17 +253,13 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     });
 
     const generation = state.freezeGeneration;
-    set((s) => {
-      const next = { ...s, warm };
-      return { ...next, mountPlan: recomputeMountPlan(next) };
-    });
+    set((s) => withMountPlan(s, { warm }));
 
     for (const f of frozen) {
       // Ensure removed from warm (applyWarmTouch already did) then detach if still frozen.
       set((s) => {
         const warm2 = s.warm.filter((w) => w.contextId !== f.contextId);
-        const next = { ...s, warm: warm2 };
-        return { ...next, mountPlan: recomputeMountPlan(next) };
+        return withMountPlan(s, { warm: warm2 });
       });
       runFreezeSideEffects(f.contextId, generation, get);
     }
@@ -319,14 +332,17 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     set((s) => {
       if (s.activeContextId === id) return s;
       const warm = s.warm.filter((w) => w.contextId !== id);
-      const next = { ...s, warm };
-      return { ...next, mountPlan: recomputeMountPlan(next) };
+      return withMountPlan(s, { warm });
     });
     runFreezeSideEffects(id, generation, get);
   },
 
   enforceMountBudgets: (_reason) => {
-    set((s) => ({ mountPlan: recomputeMountPlan(s) }));
+    set((s) => {
+      const mountPlan = recomputeMountPlan(s);
+      if (sameMountPlan(s.mountPlan, mountPlan)) return s;
+      return { mountPlan };
+    });
   },
 
   setSurfaceSnapshot: (snapshot) => {
@@ -337,6 +353,14 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
         prev &&
         prev.frameActiveTab === snapshot.frameActiveTab &&
         prev.terminalTabIds.join("\0") === snapshot.terminalTabIds.join("\0") &&
+        Object.entries(prev.terminalPaneCountByTabId ?? {})
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}:${v}`)
+          .join("\0") ===
+          Object.entries(snapshot.terminalPaneCountByTabId ?? {})
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => `${k}:${v}`)
+            .join("\0") &&
         prev.editorPathsRecent.join("\0") === snapshot.editorPathsRecent.join("\0") &&
         prev.browserTabValues.join("\0") === snapshot.browserTabValues.join("\0") &&
         prev.lightIds.join("\0") === snapshot.lightIds.join("\0") &&
@@ -348,8 +372,7 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
         ...s.surfaceSnapshots,
         [snapshot.contextId]: snapshot,
       };
-      const next = { ...s, surfaceSnapshots };
-      return { ...next, mountPlan: recomputeMountPlan(next) };
+      return withMountPlan(s, { surfaceSnapshots });
     });
   },
 

@@ -374,18 +374,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setPendingSidebarProjectId,
     ]);
 
+    // Git context rebind after paint — keep sidebar hover free during rapid switches.
     useEffect(() => {
-        if (currentProjectId && currentEffectivePath) {
-            if (currentWorkspaceId) {
-                if (isSettingUp) {
-                    setCurrentContext(null, null, null);
+        if (!currentProjectId || !currentEffectivePath) return;
+        let cancelled = false;
+        const outer = requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (cancelled) return;
+                if (currentWorkspaceId) {
+                    if (isSettingUp) {
+                        setCurrentContext(null, null, null);
+                    } else {
+                        setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+                    }
                 } else {
-                    setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+                    setCurrentContext(currentProjectId, null, currentEffectivePath);
                 }
-            } else {
-                setCurrentContext(currentProjectId, null, currentEffectivePath);
-            }
-        }
+            });
+        });
+        return () => {
+            cancelled = true;
+            cancelAnimationFrame(outer);
+        };
     }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
 
     useEffect(() => {
@@ -411,10 +421,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         router,
     ]);
 
-    const lastVisitedWorkspaceRef = useRef<string | null>(null);
+    // Debounce visited marks so rapid workspace switching does not thrash the
+    // project bootstrap snapshot (and re-render every sidebar row) on each hop.
+    const pendingVisitedWorkspaceRef = useRef<string | null>(null);
+    const visitedMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
         if (currentView !== 'workspace' || !currentWorkspaceId) {
-            lastVisitedWorkspaceRef.current = null;
+            pendingVisitedWorkspaceRef.current = null;
+            if (visitedMarkTimerRef.current) {
+                clearTimeout(visitedMarkTimerRef.current);
+                visitedMarkTimerRef.current = null;
+            }
             return;
         }
 
@@ -429,12 +446,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             return;
         }
 
-        if (lastVisitedWorkspaceRef.current === currentWorkspaceId) {
-            return;
+        pendingVisitedWorkspaceRef.current = currentWorkspaceId;
+        if (visitedMarkTimerRef.current) {
+            clearTimeout(visitedMarkTimerRef.current);
         }
+        visitedMarkTimerRef.current = setTimeout(() => {
+            visitedMarkTimerRef.current = null;
+            const id = pendingVisitedWorkspaceRef.current;
+            if (!id) return;
+            void markWorkspaceVisited(id);
+        }, 750);
 
-        lastVisitedWorkspaceRef.current = currentWorkspaceId;
-        void markWorkspaceVisited(currentWorkspaceId);
+        return () => {
+            if (visitedMarkTimerRef.current) {
+                clearTimeout(visitedMarkTimerRef.current);
+                visitedMarkTimerRef.current = null;
+            }
+        };
     }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
 
     useLeftSidebarFileTreeSync({
@@ -708,6 +736,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         renderWorkspaceItemRow,
         renderWorkspaceKanbanCard,
     } = useLeftSidebarWorkspaceRenderers({
+        activeWorkspaceId: currentWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,

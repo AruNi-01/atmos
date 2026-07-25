@@ -161,40 +161,38 @@ export function useTerminalTabMountLifecycle({
     lastActiveTabByContextRef.current[effectiveContextId] = activeValue;
   }
 
-  // After URL commits: persist leaving last-tab + atomic WSC switchContext.
-  // Sticky leave in CenterStagePanels covers the one-frame gap before warm lands.
-  React.useLayoutEffect(() => {
+  // After URL commits (useEffect is already post-paint): promote leave→warm
+  // synchronously. Every hop must switchContext so A→B→C still places B into warm.
+  React.useEffect(() => {
     const current = effectiveContextId ?? null;
-    const previousContextId = previousTerminalContextRef.current;
+    const leavingContextId = previousTerminalContextRef.current;
+    previousTerminalContextRef.current = current;
 
-    if (previousContextId && previousContextId !== current) {
+    if (leavingContextId && leavingContextId !== current) {
       const prevTab =
-        lastActiveTabByContextRef.current[previousContextId] ??
-        readCenterStageLastTab(previousContextId);
+        lastActiveTabByContextRef.current[leavingContextId] ??
+        readCenterStageLastTab(leavingContextId);
       if (prevTab) {
-        setCenterStageLastTab(previousContextId, prevTab);
+        setCenterStageLastTab(leavingContextId, prevTab);
         if (isTerminalCenterTabValue(prevTab)) {
           setMountedTerminalTabsByContext((state) => {
-            const mountedTabs = state[previousContextId] ?? [];
+            const mountedTabs = state[leavingContextId] ?? [];
             if (mountedTabs.includes(prevTab)) return state;
             return {
               ...state,
-              [previousContextId]: [...mountedTabs, prevTab],
+              [leavingContextId]: [...mountedTabs, prevTab],
             };
           });
         }
       }
     }
 
-    // Atomic active+warm update (single notification). Never runs in the click path.
     useWorkspaceSurfaceCacheStore.getState().switchContext(current);
-
-    previousTerminalContextRef.current = current;
   }, [effectiveContextId, setMountedTerminalTabsByContext]);
 
   // Ensure Active ∪ Warm contexts keep their last terminal tab mounted for the
   // whole warm lifetime (tab-like keep-alive across workspace switch).
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     const live = useWorkspaceSurfaceCacheStore.getState();
     const ensureIds = [
       ...live.warm.map((w) => w.contextId),
