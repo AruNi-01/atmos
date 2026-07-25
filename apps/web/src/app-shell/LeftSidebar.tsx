@@ -25,7 +25,6 @@ import {
   removeGroupMember,
 } from '@/features/project/lib/group-actions';
 import {
-  CreateOrRenameGroupDialog,
   UserGroupOneColumnContent,
   UserGroupTwoColumnLeftContent,
   UserGroupTwoColumnRightContent,
@@ -191,11 +190,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
     const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
-    const [groupDialog, setGroupDialog] = useState<
-        | { mode: 'create' }
-        | { mode: 'rename'; groupId: string; name: string }
-        | null
-    >(null);
+
     const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
     const persistedPinnedSectionCollapsedRef = useRef(false);
     const persistedLabelGroupOrderRef = useRef<string[]>([]);
@@ -537,12 +532,31 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
     }, [currentSidebarRouteKey]);
 
-    const handleCreateGroup = useCallback(() => {
-        setGroupDialog({ mode: 'create' });
+    /** Quick-create from Project/Workspace menus (no popover anchor). */
+    const handleCreateGroupQuick = useCallback(async () => {
+        try {
+            await createGroup(groupsT('defaultName'));
+        } catch (error) {
+            console.error('Failed to create group:', error);
+        }
+    }, [groupsT]);
+
+    const handleCreateGroupNamed = useCallback(async (name: string) => {
+        try {
+            await createGroup(name);
+        } catch (error) {
+            console.error('Failed to create group:', error);
+            throw error;
+        }
     }, []);
 
-    const handleRenameGroup = useCallback((groupId: string, currentName: string) => {
-        setGroupDialog({ mode: 'rename', groupId, name: currentName });
+    const handleRenameGroupNamed = useCallback(async (groupId: string, name: string) => {
+        try {
+            await renameGroup(groupId, name);
+        } catch (error) {
+            console.error('Failed to rename group:', error);
+            throw error;
+        }
     }, []);
 
     const handleDeleteGroup = useCallback(async (groupId: string) => {
@@ -553,15 +567,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             console.error('Failed to delete group:', error);
         }
     }, [groupsT]);
-
-    const handleGroupDialogSubmit = useCallback(async (name: string) => {
-        if (!groupDialog) return;
-        if (groupDialog.mode === 'create') {
-            await createGroup(name);
-            return;
-        }
-        await renameGroup(groupDialog.groupId, name);
-    }, [groupDialog]);
 
     const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
         try {
@@ -875,7 +880,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         onAddWorkspaceToGroup: handleAddWorkspaceToGroup,
         onRemoveWorkspaceFromGroup: handleRemoveWorkspaceFromGroup,
         onSetWorkspaceGroup: handleSetWorkspaceGroup,
-        onCreateGroup: handleCreateGroup,
+        onCreateGroup: handleCreateGroupQuick,
     };
 
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
@@ -962,7 +967,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
             onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
             onSetWorkspaceGroup={handleSetWorkspaceGroup}
-            onCreateGroup={handleCreateGroup}
+            onCreateGroup={handleCreateGroupQuick}
         />
     );
 
@@ -1019,7 +1024,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
             onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
             onSetWorkspaceGroup={handleSetWorkspaceGroup}
-            onCreateGroup={handleCreateGroup}
+            onCreateGroup={handleCreateGroupQuick}
         />
     );
 
@@ -1091,8 +1096,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             views={userGroupViews}
             collapsedKeys={collapsedWorkspaceGroups}
             onToggleCollapsed={toggleWorkspaceGroup}
-            onCreateGroup={handleCreateGroup}
-            onRenameGroup={handleRenameGroup}
+            onCreateGroup={handleCreateGroupNamed}
+            onRenameGroup={handleRenameGroupNamed}
             onDeleteGroup={handleDeleteGroup}
             projectItemProps={sharedProjectItemProps}
             expandedProjectIds={expandedProjects}
@@ -1106,8 +1111,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             views={userGroupViews}
             selectedKey={effectiveSelectedWorkspaceGroupKey}
             onSelect={handleSelectWorkspaceGroup}
-            onCreateGroup={handleCreateGroup}
-            onRenameGroup={handleRenameGroup}
+            onCreateGroup={handleCreateGroupNamed}
+            onRenameGroup={handleRenameGroupNamed}
             onDeleteGroup={handleDeleteGroup}
         />
     );
@@ -1286,15 +1291,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 />
             )}
 
-            <CreateOrRenameGroupDialog
-                open={groupDialog !== null}
-                mode={groupDialog?.mode === 'rename' ? 'rename' : 'create'}
-                initialName={groupDialog?.mode === 'rename' ? groupDialog.name : ''}
-                onOpenChange={(open) => {
-                    if (!open) setGroupDialog(null);
-                }}
-                onSubmit={handleGroupDialogSubmit}
-            />
         </>
     );
 };

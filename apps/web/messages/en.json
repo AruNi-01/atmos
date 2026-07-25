@@ -274,6 +274,7 @@
       "ungrouped": "Ungrouped",
       "create": "New Group",
       "createPlaceholder": "Group name",
+      "defaultName": "New Group",
       "rename": "Rename Group",
       "delete": "Delete Group",
       "deleteConfirm": "Delete this group? Projects and workspaces are not deleted.",

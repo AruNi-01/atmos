@@ -11,6 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Input,
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
   cn,
 } from "@workspace/ui";
 import {
@@ -46,11 +51,140 @@ type ProjectItemSharedProps = Omit<
   | "disableRowClick"
 >;
 
+function GroupNamePopoverForm({
+  mode,
+  initialName = "",
+  onSubmit,
+  onCancel,
+}: {
+  mode: "create" | "rename";
+  initialName?: string;
+  onSubmit: (name: string) => Promise<void> | void;
+  onCancel: () => void;
+}) {
+  const t = useTranslations("appShell.groups");
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    try {
+      await onSubmit(trimmed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
+      data-testid="group-name-popover"
+    >
+      <div className="text-xs font-medium text-foreground">
+        {mode === "create" ? t("create") : t("rename")}
+      </div>
+      <Input
+        autoFocus
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        placeholder={t("createPlaceholder")}
+        className="h-8 text-sm"
+        data-testid="group-name-input"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
+        }}
+      />
+      <div className="flex justify-end gap-1.5">
+        <button
+          type="button"
+          className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+          onClick={onCancel}
+          disabled={busy}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
+          disabled={busy || !name.trim()}
+          data-testid="group-name-submit"
+        >
+          {mode === "create" ? t("create") : t("rename")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function CreateGroupPopoverButton({
+  variant,
+  onCreate,
+}: {
+  variant: "icon" | "labeled";
+  onCreate: (name: string) => Promise<void> | void;
+}) {
+  const t = useTranslations("appShell.groups");
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {variant === "icon" ? (
+          <button
+            type="button"
+            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            title={t("create")}
+            data-testid="create-group-button"
+          >
+            <Plus className="size-3.5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            data-testid="create-group-button"
+          >
+            <FolderPlus className="size-3.5" />
+            {t("create")}
+          </button>
+        )}
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        sideOffset={6}
+        className="w-56 p-2"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <GroupNamePopoverForm
+          mode="create"
+          onCancel={() => setOpen(false)}
+          onSubmit={async (name) => {
+            await onCreate(name);
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** Count and ··· share one slot; hover / open menu swaps count → actions. */
 function GroupRowTrailing({
   count,
   canManage,
   hoverScope,
+  groupId,
+  groupName,
   onRename,
   onDelete,
   renameLabel,
@@ -58,55 +192,95 @@ function GroupRowTrailing({
 }: {
   count: number;
   canManage: boolean;
-  /** Parent uses group/row or group/header */
   hoverScope: "row" | "header";
-  onRename: () => void;
+  groupId: string | null;
+  groupName: string;
+  onRename: (groupId: string, name: string) => Promise<void> | void;
   onDelete: () => void;
   renameLabel: string;
   deleteLabel: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const countHideOnHover =
     hoverScope === "row" ? "group-hover/row:opacity-0" : "group-hover/header:opacity-0";
   const buttonShowOnHover =
     hoverScope === "row" ? "group-hover/row:opacity-100" : "group-hover/header:opacity-100";
+  const trailingActive = menuOpen || renameOpen;
 
   return (
     <div className="relative mr-1 flex size-6 shrink-0 items-center justify-center">
       <span
         className={cn(
           "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
-          canManage && (menuOpen ? "opacity-0" : countHideOnHover),
+          canManage && (trailingActive ? "opacity-0" : countHideOnHover),
         )}
       >
         {count}
       </span>
-      {canManage ? (
-        <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                menuOpen ? "opacity-100" : cn("opacity-0", buttonShowOnHover),
-              )}
-              aria-label="Group actions"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem onClick={onRename}>
-              <Pencil className="size-3.5" />
-              {renameLabel}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={onDelete}>
-              <Trash2 className="size-3.5" />
-              {deleteLabel}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {canManage && groupId ? (
+        <Popover
+          open={renameOpen}
+          onOpenChange={(open) => {
+            setRenameOpen(open);
+            if (open) setMenuOpen(false);
+          }}
+        >
+          <PopoverAnchor asChild>
+            <div className="absolute inset-0">
+              <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                      trailingActive ? "opacity-100" : cn("opacity-0", buttonShowOnHover),
+                    )}
+                    aria-label="Group actions"
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      setMenuOpen(false);
+                      // Open rename popover next to the ··· control.
+                      queueMicrotask(() => setRenameOpen(true));
+                    }}
+                  >
+                    <Pencil className="size-3.5" />
+                    {renameLabel}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                    <Trash2 className="size-3.5" />
+                    {deleteLabel}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </PopoverAnchor>
+          <PopoverContent
+            side="right"
+            align="start"
+            sideOffset={8}
+            className="w-56 p-2"
+            onOpenAutoFocus={(event) => event.preventDefault()}
+          >
+            <GroupNamePopoverForm
+              key={`${groupId}:${groupName}:${renameOpen ? "open" : "closed"}`}
+              mode="rename"
+              initialName={groupName}
+              onCancel={() => setRenameOpen(false)}
+              onSubmit={async (name) => {
+                await onRename(groupId, name);
+                setRenameOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
       ) : null}
     </div>
   );
@@ -123,8 +297,8 @@ export function UserGroupTwoColumnLeftContent({
   views: UserGroupView[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
-  onCreateGroup: () => void;
-  onRenameGroup: (groupId: string, currentName: string) => void;
+  onCreateGroup: (name: string) => Promise<void> | void;
+  onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
   onDeleteGroup: (groupId: string) => void;
 }) {
   const t = useTranslations("appShell.groups");
@@ -135,15 +309,7 @@ export function UserGroupTwoColumnLeftContent({
         <span className="px-1 text-[11px] font-semibold tracking-[0.03em] text-muted-foreground">
           Groups
         </span>
-        <button
-          type="button"
-          onClick={onCreateGroup}
-          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          title={t("create")}
-          data-testid="create-group-button"
-        >
-          <Plus className="size-3.5" />
-        </button>
+        <CreateGroupPopoverButton variant="icon" onCreate={onCreateGroup} />
       </div>
       <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-1.5">
         <div className="space-y-1">
@@ -172,9 +338,11 @@ export function UserGroupTwoColumnLeftContent({
                   count={count}
                   canManage={Boolean(view.groupId)}
                   hoverScope="row"
+                  groupId={view.groupId}
+                  groupName={view.label}
                   renameLabel={t("rename")}
                   deleteLabel={t("delete")}
-                  onRename={() => view.groupId && onRenameGroup(view.groupId, view.label)}
+                  onRename={onRenameGroup}
                   onDelete={() => view.groupId && onDeleteGroup(view.groupId)}
                 />
               </div>
@@ -280,8 +448,8 @@ export function UserGroupOneColumnContent({
   views: UserGroupView[];
   collapsedKeys: Record<string, boolean>;
   onToggleCollapsed: (key: string) => void;
-  onCreateGroup: () => void;
-  onRenameGroup: (groupId: string, currentName: string) => void;
+  onCreateGroup: (name: string) => Promise<void> | void;
+  onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
   onDeleteGroup: (groupId: string) => void;
   projectItemProps: ProjectItemSharedProps;
   expandedProjectIds: string[];
@@ -299,15 +467,7 @@ export function UserGroupOneColumnContent({
         <span className="text-[11px] font-semibold tracking-[0.03em] text-muted-foreground">
           Groups
         </span>
-        <button
-          type="button"
-          onClick={onCreateGroup}
-          className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          data-testid="create-group-button"
-        >
-          <FolderPlus className="size-3.5" />
-          {t("create")}
-        </button>
+        <CreateGroupPopoverButton variant="labeled" onCreate={onCreateGroup} />
       </div>
       <div className="space-y-0.5 px-2 pb-2">
         {views.map((view) => {
@@ -334,9 +494,11 @@ export function UserGroupOneColumnContent({
                   count={count}
                   canManage={Boolean(view.groupId)}
                   hoverScope="header"
+                  groupId={view.groupId}
+                  groupName={view.label}
                   renameLabel={t("rename")}
                   deleteLabel={t("delete")}
-                  onRename={() => view.groupId && onRenameGroup(view.groupId, view.label)}
+                  onRename={onRenameGroup}
                   onDelete={() => view.groupId && onDeleteGroup(view.groupId)}
                 />
               </div>
@@ -370,90 +532,6 @@ export function UserGroupOneColumnContent({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-export function CreateOrRenameGroupDialog({
-  open,
-  mode,
-  initialName,
-  onOpenChange,
-  onSubmit,
-}: {
-  open: boolean;
-  mode: "create" | "rename";
-  initialName?: string;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (name: string) => Promise<void> | void;
-}) {
-  const t = useTranslations("appShell.groups");
-  const [name, setName] = useState(initialName ?? "");
-  const [busy, setBusy] = useState(false);
-
-  React.useEffect(() => {
-    if (open) {
-      setName(initialName ?? "");
-      setBusy(false);
-    }
-  }, [open, initialName]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed || busy) return;
-    setBusy(true);
-    try {
-      await onSubmit(trimmed);
-      onOpenChange(false);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={() => !busy && onOpenChange(false)}
-    >
-      <form
-        className="w-full max-w-sm rounded-xl border border-border bg-background p-4 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-        onSubmit={handleSubmit}
-        data-testid="group-name-dialog"
-      >
-        <div className="mb-3 text-sm font-medium text-foreground">
-          {mode === "create" ? t("create") : t("rename")}
-        </div>
-        <input
-          autoFocus
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder={t("createPlaceholder")}
-          className="mb-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          data-testid="group-name-input"
-        />
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-            onClick={() => onOpenChange(false)}
-            disabled={busy}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
-            disabled={busy || !name.trim()}
-            data-testid="group-name-submit"
-          >
-            {mode === "create" ? t("create") : t("rename")}
-          </button>
-        </div>
-      </form>
     </div>
   );
 }

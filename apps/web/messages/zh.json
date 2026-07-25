@@ -274,6 +274,7 @@
       "ungrouped": "未分组",
       "create": "新建分组",
       "createPlaceholder": "分组名称",
+      "defaultName": "新分组",
       "rename": "重命名分组",
       "delete": "删除分组",
       "deleteConfirm": "删除此分组？项目与工作区不会被删除。",
