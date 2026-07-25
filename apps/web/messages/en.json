@@ -288,7 +288,21 @@
       "createFirst": "Create a group to organize projects and workspaces",
       "directWorkspaces": "Workspaces",
       "projects": "Projects",
-      "nameRequired": "Enter a group name"
+      "nameRequired": "Enter a group name",
+      "adoptWorkspaces": {
+        "title": "Also move workspaces?",
+        "description": "{count, plural, one {# workspace under {projectName} is already in a group} other {# workspaces under {projectName} are already in groups}}. Unlink them so they only appear under this project in the target group?",
+        "targetGroup": "Target group",
+        "adopt": "Unlink and move with project ({count})",
+        "projectOnly": "Move project only"
+      },
+      "followProject": {
+        "title": "Follow project in this group?",
+        "description": "“{projectName}” is already in this group. Unlink workspace “{workspaceName}” from any group membership so it only appears under the project?",
+        "targetGroup": "Target group",
+        "followProject": "Unlink workspace (follow project)",
+        "assignWorkspace": "Still assign workspace to group"
+      }
     },
     "leftPinnedSection": {
       "sortingDisabledMessage": "Workspace order cannot be updated while folders are syncing.",

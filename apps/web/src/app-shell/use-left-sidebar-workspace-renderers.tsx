@@ -21,7 +21,7 @@ interface UseLeftSidebarWorkspaceRenderersParams {
     deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     groups?: Group[];
     onEnterWorkspaceFromKanban: (projectId: string, workspaceId: string) => void;
-    onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+    onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void | Promise<void>;
     onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
     pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     secondColumnKanbanCardProperties: KanbanCardProperties;
@@ -201,6 +201,8 @@ export function useLeftSidebarWorkspaceRenderers({
             onUpdatePriority={(projectId, workspaceId, priority) =>
                 updateWorkspacePriority(projectId, workspaceId, priority)
             }
+            onSetWorkspaceGroup={onSetWorkspaceGroup}
+            onCreateGroup={onCreateGroup}
             onCreateLabel={createWorkspaceLabel}
             onUpdateLabel={updateWorkspaceLabel}
             onUpdateLabels={(projectId, workspaceId, labels) =>
@@ -216,7 +218,9 @@ export function useLeftSidebarWorkspaceRenderers({
         createWorkspaceLabel,
         deleteWorkspace,
         groups,
+        onCreateGroup,
         onEnterWorkspaceFromKanban,
+        onSetWorkspaceGroup,
         pinWorkspace,
         secondColumnKanbanCardProperties,
         unpinWorkspace,

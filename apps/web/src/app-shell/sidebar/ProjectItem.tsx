@@ -46,7 +46,7 @@ import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
-import { FolderPlus, ImageIcon } from "lucide-react";
+import { FolderMinus, FolderPlus, ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
@@ -64,6 +64,11 @@ export interface ProjectItemProps {
   isExpanded: boolean;
   hideWorkspaceList?: boolean;
   disableRowClick?: boolean;
+  /**
+   * Disable nested workspace row sorting (e.g. By Group sidebar, where a parent
+   * DndContext only reorders groups and must not register workspace droppables).
+   */
+  workspaceSortingDisabled?: boolean;
   isDragging?: boolean;
   isPlaceholder?: boolean;
   isAnyProjectDragging?: boolean;
@@ -176,6 +181,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   isExpanded,
   hideWorkspaceList = false,
   disableRowClick = false,
+  workspaceSortingDisabled = false,
   isDragging,
   isPlaceholder,
   isAnyProjectDragging,
@@ -666,7 +672,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                           className="cursor-pointer"
                           onClick={() => onRemoveProjectFromGroup(project.id)}
                         >
-                          {groupsT("removeFromGroup")}
+                          <FolderMinus className="size-4" />
+                          <span>{groupsT("removeFromGroup")}</span>
                         </DropdownMenuItem>
                       ) : null}
                     </>
@@ -713,7 +720,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             )}
           >
             <SortableContext
-              items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)}
+              items={
+                workspaceSortingDisabled
+                  ? []
+                  : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
+              }
               strategy={verticalListSortingStrategy}
             >
               {visibleUnpinnedWorkspaces.map((ws) => (
@@ -724,6 +735,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   projectName={project.name}
                   projectPath={project.mainFilePath}
                   isActive={activeWorkspaceId === ws.id}
+                  sortingDisabled={workspaceSortingDisabled}
                   onPin={(wsId) => onPinWorkspace(project.id, wsId)}
                   onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
                   onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}

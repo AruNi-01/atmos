@@ -125,6 +125,7 @@ interface WorkspaceKanbanViewProps {
     priority: WorkspacePriority,
   ) => Promise<void>;
   onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => Promise<void> | void;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
   onCreateLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels: (
@@ -150,6 +151,7 @@ export function WorkspaceKanbanView({
   onUpdateWorkflowStatus,
   onUpdatePriority,
   onSetWorkspaceGroup,
+  onCreateGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -943,6 +945,8 @@ export function WorkspaceKanbanView({
                               availableLabels={availableLabels}
                               onUpdateWorkflowStatus={onUpdateWorkflowStatus}
                               onUpdatePriority={onUpdatePriority}
+                              onSetWorkspaceGroup={onSetWorkspaceGroup}
+                              onCreateGroup={onCreateGroup}
                               onCreateLabel={onCreateLabel}
                               onUpdateLabel={onUpdateLabel}
                               onUpdateLabels={onUpdateLabels}

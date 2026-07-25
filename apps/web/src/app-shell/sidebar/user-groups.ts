@@ -119,6 +119,39 @@ export function findGroupIdForMember(
   return null;
 }
 
+export type GroupedProjectWorkspace = {
+  workspaceId: string;
+  workspaceName: string;
+  groupId: string;
+  groupName: string;
+};
+
+/**
+ * Workspaces under `project` that have their own group membership
+ * (direct workspace membership — not inherited via project).
+ */
+export function findGroupedWorkspacesForProject(
+  groups: Group[],
+  project: Project,
+): GroupedProjectWorkspace[] {
+  const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
+  const result: GroupedProjectWorkspace[] = [];
+
+  for (const workspace of project.workspaces) {
+    if (workspace.isArchived) continue;
+    const groupId = findGroupIdForMember(groups, "workspace", workspace.id);
+    if (!groupId) continue;
+    result.push({
+      workspaceId: workspace.id,
+      workspaceName: workspace.displayName?.trim() || workspace.name,
+      groupId,
+      groupName: groupNameById.get(groupId) ?? groupId,
+    });
+  }
+
+  return result;
+}
+
 export function countUserGroupItems(view: UserGroupView): number {
   return view.projects.length + view.directWorkspaces.length;
 }

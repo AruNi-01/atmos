@@ -16,7 +16,6 @@ import {
 import { formatRelativeTime } from "@atmos/shared";
 import {
   Archive,
-  Folders,
   Github,
   LogIn,
   MoreHorizontal,
@@ -37,6 +36,7 @@ import {
 } from "@/app-shell/sidebar/workspace-status";
 import {
   getWorkspacePriorityMeta,
+  WorkspaceGroupSelect,
   WorkspaceLabelBadges,
   WorkspaceLabelPicker,
   WorkspacePrioritySelect,
@@ -46,7 +46,7 @@ import type {
   DragItem,
   KanbanCardProperties,
 } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
-import { resolveWorkspaceGroupName } from "@/app-shell/sidebar/kanban-columns";
+import { resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
 
 export function KanbanWorkspaceCard({
   workspace,
@@ -61,6 +61,8 @@ export function KanbanWorkspaceCard({
   availableLabels,
   onUpdateWorkflowStatus,
   onUpdatePriority,
+  onSetWorkspaceGroup,
+  onCreateGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -89,6 +91,8 @@ export function KanbanWorkspaceCard({
     workspaceId: string,
     priority: WorkspacePriority,
   ) => Promise<void>;
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => Promise<void> | void;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
   onCreateLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels: (
@@ -108,7 +112,7 @@ export function KanbanWorkspaceCard({
   const workspaceTitle = isIssueOnly && workspace.githubIssue
     ? `#${workspace.githubIssue.number} ${workspace.githubIssue.title}`
     : workspace.name;
-  const groupName = resolveWorkspaceGroupName(groups, projectId, workspace.id);
+  const workspaceGroupId = resolveWorkspaceGroupId(groups, projectId, workspace.id);
   const labelsToRender = workspace.labels.length > 0
     ? workspace.labels
     : isIssueOnly
@@ -265,15 +269,38 @@ export function KanbanWorkspaceCard({
       {cardProperties.workspace_name ? (
         <div className="mb-2 flex items-start gap-2">
           <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
-          {groupName ? (
-            <span
-              className="inline-flex max-w-[40%] shrink-0 items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-              title={groupName}
-            >
-              <Folders className="size-3 shrink-0" />
-              <span className="truncate">{groupName}</span>
-            </span>
-          ) : null}
+          {/* Always show group control (incl. Ungrouped) so users can assign from the card. */}
+          <div
+            className="max-w-[45%] shrink-0"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <WorkspaceGroupSelect
+              value={workspaceGroupId}
+              groups={groups}
+              onChange={
+                onSetWorkspaceGroup
+                  ? (groupId) => void onSetWorkspaceGroup(workspace.id, groupId)
+                  : undefined
+              }
+              onCreateGroup={
+                onCreateGroup
+                  ? async (name) => {
+                      const created = await onCreateGroup(name);
+                      if (created?.id && onSetWorkspaceGroup) {
+                        await onSetWorkspaceGroup(workspace.id, created.id);
+                      }
+                      return created;
+                    }
+                  : undefined
+              }
+              contentSide="bottom"
+              contentAlign="end"
+              triggerClassName="h-6 max-w-full border-border/60 bg-muted/40 px-1.5 text-[10px]"
+              iconClassName="size-3"
+              labelClassName="text-[10px]"
+            />
+          </div>
         </div>
       ) : null}
       {cardProperties.display_name && workspace.displayName?.trim() ? (

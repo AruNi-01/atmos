@@ -52,6 +52,27 @@ export async function renameGroup(groupId: string, name: string): Promise<void> 
   }));
 }
 
+/** Persist group sidebar order (0-based indices after user reorder). */
+export async function reorderGroups(
+  orderedGroupIds: string[],
+): Promise<void> {
+  const scope = getComputerQueryScope();
+  await waitForConnection();
+  const orders = orderedGroupIds.map((guid, index) => ({ guid, order: index }));
+  await wsGroupApi.updateOrder(orders);
+  await cancelProjectBootstrapQuery(scope);
+  const orderById = new Map(orders.map((item) => [item.guid, item.order]));
+  patchProjectBootstrapSnapshotAt(scope, (current) => ({
+    ...current,
+    groups: (current.groups ?? [])
+      .map((group) => ({
+        ...group,
+        sidebarOrder: orderById.get(group.id) ?? group.sidebarOrder,
+      }))
+      .sort((a, b) => a.sidebarOrder - b.sidebarOrder),
+  }));
+}
+
 export async function deleteGroup(groupId: string): Promise<void> {
   const scope = getComputerQueryScope();
   await waitForConnection();

@@ -60,6 +60,7 @@ interface LeftSidebarManagementCenterProps {
   onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
   onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
   onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
+  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
   onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
   onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
   onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
@@ -90,6 +91,7 @@ export function LeftSidebarManagementCenter({
   onUpdateWorkflowStatus,
   onUpdatePriority,
   onSetWorkspaceGroup,
+  onCreateGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -163,6 +165,7 @@ export function LeftSidebarManagementCenter({
                 onUpdateWorkflowStatus={onUpdateWorkflowStatus}
                 onUpdatePriority={onUpdatePriority}
                 onSetWorkspaceGroup={onSetWorkspaceGroup}
+                onCreateGroup={onCreateGroup}
                 onCreateLabel={onCreateLabel}
                 onUpdateLabel={onUpdateLabel}
                 onUpdateLabels={onUpdateLabels}
@@ -197,6 +200,7 @@ function ManagementCenterCard({
   onUpdateWorkflowStatus,
   onUpdatePriority,
   onSetWorkspaceGroup,
+  onCreateGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -222,6 +226,7 @@ function ManagementCenterCard({
   onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
   onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
   onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
+  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
   onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
   onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
   onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
@@ -288,6 +293,7 @@ function ManagementCenterCard({
         onUpdateWorkflowStatus={onUpdateWorkflowStatus}
         onUpdatePriority={onUpdatePriority}
         onSetWorkspaceGroup={onSetWorkspaceGroup}
+        onCreateGroup={onCreateGroup}
         onCreateLabel={onCreateLabel}
         onUpdateLabel={onUpdateLabel}
         onUpdateLabels={onUpdateLabels}

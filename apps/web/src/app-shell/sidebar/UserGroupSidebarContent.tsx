@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
+  CSS,
+  DndContext,
+  DragOverlay,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -17,11 +17,22 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SortableContext,
+  arrayMove,
+  closestCenter,
   cn,
+  defaultDropAnimationSideEffects,
+  restrictToVerticalAxis,
+  restrictToWindowEdges,
+  useSortable,
+  verticalListSortingStrategy,
 } from "@workspace/ui";
+import type { DragEndEvent, DndContextProps } from "@workspace/ui";
 import {
   ChevronRight,
+  FolderOpen,
   FolderPlus,
+  Folders,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -36,6 +47,8 @@ import {
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectItem";
 import { TwoColumnSidebarToggleButton } from "@/app-shell/left-sidebar-controls";
+
+type DndSensors = DndContextProps["sensors"];
 
 type ProjectItemSharedProps = Omit<
   ProjectItemProps,
@@ -52,6 +65,7 @@ type ProjectItemSharedProps = Omit<
   | "listeners"
   | "disableRowClick"
   | "isActiveProject"
+  | "workspaceSortingDisabled"
 > & {
   activeProjectId?: string | null;
 };
@@ -289,6 +303,77 @@ function GroupRowTrailing({
   );
 }
 
+function SortableUserGroupTwoColumnRow({
+  view,
+  isSelected,
+  onSelect,
+  onRenameGroup,
+  onDeleteGroup,
+}: {
+  view: UserGroupView;
+  isSelected: boolean;
+  onSelect: (key: string) => void;
+  onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
+  onDeleteGroup: (groupId: string) => Promise<void> | void;
+}) {
+  const t = useTranslations("appShell.groups");
+  const canSort = Boolean(view.groupId);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: view.key, disabled: !canSort });
+  const count = countUserGroupItems(view);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+      }}
+      className={cn(
+        "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
+        isSelected
+          ? "bg-sidebar-accent text-sidebar-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+        // Match project drag: placeholder opacity while reordering.
+        isDragging ? "relative z-20 opacity-20" : "opacity-100",
+      )}
+    >
+      {/* Project pattern: plain div host for attributes/listeners (not a button). */}
+      <div
+        {...(canSort ? { ...attributes, ...listeners } : {})}
+        className={cn(
+          "flex min-w-0 flex-1 select-none items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
+          "cursor-pointer",
+        )}
+        data-testid={`user-group-row-${view.key}`}
+        onClick={() => onSelect(view.key)}
+      >
+        <span className="truncate">{view.label}</span>
+      </div>
+      <GroupRowTrailing
+        count={count}
+        canManage={Boolean(view.groupId)}
+        hoverScope="row"
+        groupId={view.groupId}
+        groupName={view.label}
+        renameLabel={t("rename")}
+        deleteLabel={t("delete")}
+        onRename={onRenameGroup}
+        onDelete={async () => {
+          if (!view.groupId) return;
+          await onDeleteGroup(view.groupId);
+        }}
+      />
+    </div>
+  );
+}
+
 export function UserGroupTwoColumnLeftContent({
   views,
   selectedKey,
@@ -296,6 +381,8 @@ export function UserGroupTwoColumnLeftContent({
   onCreateGroup,
   onRenameGroup,
   onDeleteGroup,
+  sensors,
+  onGroupOrderChange,
 }: {
   views: UserGroupView[];
   selectedKey: string | null;
@@ -303,8 +390,72 @@ export function UserGroupTwoColumnLeftContent({
   onCreateGroup: (name: string) => Promise<unknown> | void;
   onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
   onDeleteGroup: (groupId: string) => Promise<void> | void;
+  sensors?: DndSensors;
+  onGroupOrderChange?: (orderedGroupIds: string[]) => void | Promise<void>;
 }) {
   const t = useTranslations("appShell.groups");
+  const sortableIds = views
+    .filter((view) => view.groupId)
+    .map((view) => view.key);
+  const canReorder = Boolean(sensors && onGroupOrderChange && sortableIds.length > 1);
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!canReorder || !over || active.id === over.id || !onGroupOrderChange) return;
+    const oldIndex = sortableIds.indexOf(String(active.id));
+    const newIndex = sortableIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    void onGroupOrderChange(arrayMove(sortableIds, oldIndex, newIndex));
+  };
+
+  const list = (
+    <div className="space-y-1">
+      {views.map((view) =>
+        canReorder && view.groupId ? (
+          <SortableUserGroupTwoColumnRow
+            key={view.key}
+            view={view}
+            isSelected={selectedKey === view.key}
+            onSelect={onSelect}
+            onRenameGroup={onRenameGroup}
+            onDeleteGroup={onDeleteGroup}
+          />
+        ) : (
+          <div
+            key={view.key}
+            className={cn(
+              "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
+              selectedKey === view.key
+                ? "bg-sidebar-accent text-sidebar-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => onSelect(view.key)}
+              className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]"
+              data-testid={`user-group-row-${view.key}`}
+            >
+              <span className="truncate">{view.label}</span>
+            </button>
+            <GroupRowTrailing
+              count={countUserGroupItems(view)}
+              canManage={Boolean(view.groupId)}
+              hoverScope="row"
+              groupId={view.groupId}
+              groupName={view.label}
+              renameLabel={t("rename")}
+              deleteLabel={t("delete")}
+              onRename={onRenameGroup}
+              onDelete={async () => {
+                if (!view.groupId) return;
+                await onDeleteGroup(view.groupId);
+              }}
+            />
+          </div>
+        ),
+      )}
+    </div>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -315,46 +466,20 @@ export function UserGroupTwoColumnLeftContent({
         <CreateGroupPopoverButton variant="icon" onCreate={onCreateGroup} />
       </div>
       <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-1.5">
-        <div className="space-y-1">
-          {views.map((view) => {
-            const isSelected = selectedKey === view.key;
-            const count = countUserGroupItems(view);
-            return (
-              <div
-                key={view.key}
-                className={cn(
-                  "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
-                  isSelected
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(view.key)}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]"
-                  data-testid={`user-group-row-${view.key}`}
-                >
-                  <span className="truncate">{view.label}</span>
-                </button>
-                <GroupRowTrailing
-                  count={count}
-                  canManage={Boolean(view.groupId)}
-                  hoverScope="row"
-                  groupId={view.groupId}
-                  groupName={view.label}
-                  renameLabel={t("rename")}
-                  deleteLabel={t("delete")}
-                  onRename={onRenameGroup}
-                  onDelete={async () => {
-                    if (!view.groupId) return;
-                    await onDeleteGroup(view.groupId);
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
+        {canReorder ? (
+          <DndContext
+            collisionDetection={closestCenter}
+            sensors={sensors}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+          >
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {list}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          list
+        )}
       </div>
     </div>
   );
@@ -424,6 +549,7 @@ export function UserGroupTwoColumnRightContent({
                     }
                     activeWorkspaceId={activeWorkspaceId}
                     {...sharedProjectItemProps}
+                    workspaceSortingDisabled
                   />
                 ))}
               </div>
@@ -445,6 +571,195 @@ export function UserGroupTwoColumnRightContent({
   );
 }
 
+function UserGroupHeaderPreview({
+  label,
+  isCollapsed,
+  className,
+}: {
+  label: string;
+  isCollapsed?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 rounded-md bg-sidebar-accent px-2 py-1.5 text-left text-[11px] font-semibold tracking-[0.03em] text-sidebar-foreground shadow-2xl",
+        className,
+      )}
+    >
+      {isCollapsed ? (
+        <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+      ) : (
+        <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
+      )}
+      <span className="truncate">{label}</span>
+    </div>
+  );
+}
+
+function SortableUserGroupOneColumnSection({
+  view,
+  isCollapsed,
+  isAnyGroupDragging,
+  onToggleCollapsed,
+  onRenameGroup,
+  onDeleteGroup,
+  projectItemProps,
+  expandedProjectIds,
+  onToggleProject,
+  renderWorkspaceContentRow,
+}: {
+  view: UserGroupView;
+  isCollapsed: boolean;
+  isAnyGroupDragging: boolean;
+  onToggleCollapsed: () => void;
+  onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
+  onDeleteGroup: (groupId: string) => Promise<void> | void;
+  projectItemProps: ProjectItemSharedProps;
+  expandedProjectIds: string[];
+  onToggleProject: (projectId: string) => void;
+  renderWorkspaceContentRow: (
+    entry: FlattenedWorkspaceEntry,
+    options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
+  ) => React.ReactNode;
+}) {
+  const t = useTranslations("appShell.groups");
+  const canSort = Boolean(view.groupId);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: view.key, disabled: !canSort });
+  const count = countUserGroupItems(view);
+  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
+    projectItemProps;
+  // Match ProjectItem: hide nested list while any group is dragging.
+  // DragOverlay follows the pointer, so collapsing source height is fine.
+  const showChildren =
+    !isCollapsed && !isDragging && !isAnyGroupDragging;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        // DragOverlay follows the pointer; this node is the list placeholder.
+        transform: CSS.Translate.toString(transform),
+        transition: isDragging ? undefined : transition,
+      }}
+      className={cn(
+        "group/group-section transition-all duration-200",
+        // Match project drag: light placeholder while reordering.
+        isDragging ? "relative z-20 opacity-20" : "opacity-100",
+      )}
+    >
+      <div className="group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/40">
+        {/*
+          Project pattern: put useSortable attributes/listeners on a plain div
+          (not CollapsibleTrigger/button). Click toggles collapse; drag uses the
+          same host with activation distance from shared sidebar sensors.
+        */}
+        <div
+          {...(canSort ? { ...attributes, ...listeners } : {})}
+          className={cn(
+            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-foreground",
+            "cursor-pointer",
+          )}
+          data-testid={`user-group-section-${view.key}`}
+          onClick={() => {
+            if (isAnyGroupDragging) return;
+            onToggleCollapsed();
+          }}
+        >
+          {showChildren ? (
+            <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+          )}
+          <span className="truncate">{view.label}</span>
+          <ChevronRight
+            className={cn(
+              "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover/header:opacity-100",
+              showChildren && "rotate-90",
+            )}
+          />
+        </div>
+        <GroupRowTrailing
+          count={count}
+          canManage={Boolean(view.groupId)}
+          hoverScope="header"
+          groupId={view.groupId}
+          groupName={view.label}
+          renameLabel={t("rename")}
+          deleteLabel={t("delete")}
+          onRename={onRenameGroup}
+          onDelete={async () => {
+            if (!view.groupId) return;
+            await onDeleteGroup(view.groupId);
+          }}
+        />
+      </div>
+
+      {/* ProjectItem child-list pattern: grid collapse + opacity hide while dragging. */}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          showChildren ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div
+          className={cn(
+            "overflow-hidden transition-opacity duration-300",
+            isAnyGroupDragging || isDragging
+              ? "invisible opacity-0"
+              : "visible opacity-100",
+          )}
+        >
+          <div
+            className={cn(
+              "space-y-1 pb-2 pl-1 transition-opacity duration-200",
+              isAnyGroupDragging || isDragging
+                ? "pointer-events-none opacity-0"
+                : "opacity-100",
+            )}
+          >
+            {count === 0 ? (
+              <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                {view.key === UNGROUPED_USER_GROUP_KEY
+                  ? t("emptyGroups")
+                  : t("empty")}
+              </div>
+            ) : (
+              <>
+                {view.projects.map((project) => (
+                  <ProjectItem
+                    key={project.id}
+                    project={project}
+                    isExpanded={expandedProjectIds.includes(project.id)}
+                    onToggle={() => onToggleProject(project.id)}
+                    isActiveProject={
+                      activeProjectId === project.id && !activeWorkspaceId
+                    }
+                    activeWorkspaceId={activeWorkspaceId}
+                    {...sharedProjectItemProps}
+                    // Nested workspaces must not register in the group DndContext.
+                    workspaceSortingDisabled
+                  />
+                ))}
+                {view.directWorkspaces.map((entry) =>
+                  renderWorkspaceContentRow(entry, { showProjectName: true }),
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function UserGroupOneColumnContent({
   views,
   collapsedKeys,
@@ -456,6 +771,8 @@ export function UserGroupOneColumnContent({
   expandedProjectIds,
   onToggleProject,
   renderWorkspaceContentRow,
+  sensors,
+  onGroupOrderChange,
 }: {
   views: UserGroupView[];
   collapsedKeys: Record<string, boolean>;
@@ -470,10 +787,52 @@ export function UserGroupOneColumnContent({
     entry: FlattenedWorkspaceEntry,
     options?: { showProjectName?: boolean; rightContext?: React.ReactNode },
   ) => React.ReactNode;
+  sensors?: DndSensors;
+  onGroupOrderChange?: (orderedGroupIds: string[]) => void | Promise<void>;
 }) {
   const t = useTranslations("appShell.groups");
-  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
-    projectItemProps;
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sortableIds = views
+    .filter((view) => view.groupId)
+    .map((view) => view.key);
+  const sortableIdSet = new Set(sortableIds);
+  // Only real groups count as "group dragging" — never workspace row ids.
+  const isAnyGroupDragging =
+    activeDragId !== null && sortableIdSet.has(activeDragId);
+  const canReorder = Boolean(sensors && onGroupOrderChange && sortableIds.length > 1);
+
+  const activeDragView = activeDragId
+    ? views.find((view) => view.key === activeDragId) ?? null
+    : null;
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveDragId(null);
+    if (!canReorder || !over || active.id === over.id || !onGroupOrderChange) return;
+    const oldIndex = sortableIds.indexOf(String(active.id));
+    const newIndex = sortableIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    void onGroupOrderChange(arrayMove(sortableIds, oldIndex, newIndex));
+  };
+
+  const sections = views.map((view) => {
+    const stateKey = `group:${view.key}`;
+    const isCollapsed = collapsedKeys[stateKey] ?? false;
+    return (
+      <SortableUserGroupOneColumnSection
+        key={view.key}
+        view={view}
+        isCollapsed={isCollapsed}
+        isAnyGroupDragging={isAnyGroupDragging}
+        onToggleCollapsed={() => onToggleCollapsed(stateKey)}
+        onRenameGroup={onRenameGroup}
+        onDeleteGroup={onDeleteGroup}
+        projectItemProps={projectItemProps}
+        expandedProjectIds={expandedProjectIds}
+        onToggleProject={onToggleProject}
+        renderWorkspaceContentRow={renderWorkspaceContentRow}
+      />
+    );
+  });
 
   return (
     <div className="scrollbar-on-hover flex h-full flex-col overflow-y-auto no-scrollbar">
@@ -484,74 +843,56 @@ export function UserGroupOneColumnContent({
         <CreateGroupPopoverButton variant="labeled" onCreate={onCreateGroup} />
       </div>
       <div className="space-y-0.5 px-2 pb-2">
-        {views.map((view) => {
-          const stateKey = `group:${view.key}`;
-          const isCollapsed = collapsedKeys[stateKey] ?? false;
-          const count = countUserGroupItems(view);
-          return (
-            <Collapsible
-              key={view.key}
-              open={!isCollapsed}
-              onOpenChange={() => onToggleCollapsed(stateKey)}
+        {canReorder ? (
+          <DndContext
+            collisionDetection={(args) => {
+              // Only collide with group rows — ignore any nested leftovers.
+              const collisions = closestCenter(args);
+              const groupOnly = collisions.filter((collision) =>
+                sortableIdSet.has(String(collision.id)),
+              );
+              return groupOnly.length > 0 ? groupOnly : collisions;
+            }}
+            sensors={sensors}
+            onDragStart={(event) => {
+              const id = String(event.active.id);
+              if (sortableIdSet.has(id)) {
+                setActiveDragId(id);
+              }
+            }}
+            onDragCancel={() => setActiveDragId(null)}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+          >
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {sections}
+            </SortableContext>
+            {/* Same as project list: overlay follows the pointer; source is a placeholder. */}
+            <DragOverlay
+              dropAnimation={{
+                sideEffects: defaultDropAnimationSideEffects({
+                  styles: {
+                    active: {
+                      opacity: "0.4",
+                    },
+                  },
+                }),
+              }}
             >
-              <div className="group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/40">
-                <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-foreground">
-                  <ChevronRight
-                    className={cn(
-                      "size-3.5 shrink-0 transition-transform",
-                      !isCollapsed && "rotate-90",
-                    )}
-                  />
-                  <span className="truncate">{view.label}</span>
-                </CollapsibleTrigger>
-                <GroupRowTrailing
-                  count={count}
-                  canManage={Boolean(view.groupId)}
-                  hoverScope="header"
-                  groupId={view.groupId}
-                  groupName={view.label}
-                  renameLabel={t("rename")}
-                  deleteLabel={t("delete")}
-                  onRename={onRenameGroup}
-                  onDelete={async () => {
-                    if (!view.groupId) return;
-                    await onDeleteGroup(view.groupId);
-                  }}
+              {activeDragView ? (
+                <UserGroupHeaderPreview
+                  label={activeDragView.label}
+                  isCollapsed={
+                    collapsedKeys[`group:${activeDragView.key}`] ?? false
+                  }
+                  className="mx-1 min-w-[10rem]"
                 />
-              </div>
-              <CollapsibleContent>
-                <div className="space-y-1 pb-2 pl-1">
-                  {count === 0 ? (
-                    <div className="px-3 py-2 text-[11px] text-muted-foreground">
-                      {view.key === UNGROUPED_USER_GROUP_KEY
-                        ? t("emptyGroups")
-                        : t("empty")}
-                    </div>
-                  ) : (
-                    <>
-                      {view.projects.map((project) => (
-                        <ProjectItem
-                          key={project.id}
-                          project={project}
-                          isExpanded={expandedProjectIds.includes(project.id)}
-                          onToggle={() => onToggleProject(project.id)}
-                          isActiveProject={
-                            activeProjectId === project.id && !activeWorkspaceId
-                          }
-                          activeWorkspaceId={activeWorkspaceId}
-                          {...sharedProjectItemProps}
-                        />
-                      ))}
-                      {view.directWorkspaces.map((entry) =>
-                        renderWorkspaceContentRow(entry, { showProjectName: true }),
-                      )}
-                    </>
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          );
-        })}
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          sections
+        )}
       </div>
     </div>
   );

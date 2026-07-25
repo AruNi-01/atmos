@@ -21,6 +21,7 @@ import {
   createGroup,
   deleteGroup,
   renameGroup,
+  reorderGroups,
   setGroupMember,
   removeGroupMember,
 } from '@/features/project/lib/group-actions';
@@ -29,6 +30,18 @@ import {
   UserGroupTwoColumnLeftContent,
   UserGroupTwoColumnRightContent,
 } from '@/app-shell/sidebar/UserGroupSidebarContent';
+import {
+  AdoptWorkspacesIntoGroupDialog,
+  type AdoptWorkspacesIntoGroupPending,
+} from '@/app-shell/sidebar/AdoptWorkspacesIntoGroupDialog';
+import {
+  FollowProjectInGroupDialog,
+  type FollowProjectInGroupPending,
+} from '@/app-shell/sidebar/FollowProjectInGroupDialog';
+import {
+  findGroupIdForMember,
+  findGroupedWorkspacesForProject,
+} from '@/app-shell/sidebar/user-groups';
 import { useTranslations } from 'next-intl';
 import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
@@ -559,17 +572,94 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }
     }, []);
 
+    const handleGroupOrderChange = useCallback(async (orderedGroupIds: string[]) => {
+        try {
+            await reorderGroups(orderedGroupIds);
+        } catch (error) {
+            console.error('Failed to reorder groups:', error);
+        }
+    }, []);
+
+    const [adoptWorkspacesPending, setAdoptWorkspacesPending] =
+        useState<AdoptWorkspacesIntoGroupPending | null>(null);
+    const [adoptWorkspacesBusy, setAdoptWorkspacesBusy] = useState(false);
+
+    const applyProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+        await setGroupMember({
+            groupId,
+            memberType: 'project',
+            memberId: projectId,
+        });
+    }, []);
+
     const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
         try {
-            await setGroupMember({
+            const project = projects.find((item) => item.id === projectId);
+            if (!project) {
+                await applyProjectToGroup(projectId, groupId);
+                return;
+            }
+            const groupedWorkspaces = findGroupedWorkspacesForProject(groups, project);
+            if (groupedWorkspaces.length === 0) {
+                await applyProjectToGroup(projectId, groupId);
+                return;
+            }
+            const groupName =
+                groups.find((group) => group.id === groupId)?.name ?? groupsT('trigger');
+            setAdoptWorkspacesPending({
+                projectId,
+                projectName: project.name,
                 groupId,
-                memberType: 'project',
-                memberId: projectId,
+                groupName,
+                workspaces: groupedWorkspaces,
             });
         } catch (error) {
             console.error('Failed to add project to group:', error);
         }
-    }, []);
+    }, [applyProjectToGroup, groups, groupsT, projects]);
+
+    const handleAdoptWorkspacesClose = useCallback(() => {
+        if (adoptWorkspacesBusy) return;
+        setAdoptWorkspacesPending(null);
+    }, [adoptWorkspacesBusy]);
+
+    const handleAdoptWorkspacesProjectOnly = useCallback(async () => {
+        if (!adoptWorkspacesPending) return;
+        setAdoptWorkspacesBusy(true);
+        try {
+            await applyProjectToGroup(
+                adoptWorkspacesPending.projectId,
+                adoptWorkspacesPending.groupId,
+            );
+            setAdoptWorkspacesPending(null);
+        } catch (error) {
+            console.error('Failed to add project to group:', error);
+        } finally {
+            setAdoptWorkspacesBusy(false);
+        }
+    }, [adoptWorkspacesPending, applyProjectToGroup]);
+
+    const handleAdoptWorkspacesConfirm = useCallback(async () => {
+        if (!adoptWorkspacesPending) return;
+        setAdoptWorkspacesBusy(true);
+        try {
+            for (const workspace of adoptWorkspacesPending.workspaces) {
+                await removeGroupMember({
+                    memberType: 'workspace',
+                    memberId: workspace.workspaceId,
+                });
+            }
+            await applyProjectToGroup(
+                adoptWorkspacesPending.projectId,
+                adoptWorkspacesPending.groupId,
+            );
+            setAdoptWorkspacesPending(null);
+        } catch (error) {
+            console.error('Failed to adopt workspaces into project group:', error);
+        } finally {
+            setAdoptWorkspacesBusy(false);
+        }
+    }, [adoptWorkspacesPending, applyProjectToGroup]);
 
     const handleRemoveProjectFromGroup = useCallback(async (projectId: string) => {
         try {
@@ -579,17 +669,57 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }
     }, []);
 
-    const handleAddWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
-        try {
-            await setGroupMember({
-                groupId,
-                memberType: 'workspace',
-                memberId: workspaceId,
-            });
-        } catch (error) {
-            console.error('Failed to add workspace to group:', error);
-        }
+    const [followProjectPending, setFollowProjectPending] =
+        useState<FollowProjectInGroupPending | null>(null);
+    const [followProjectBusy, setFollowProjectBusy] = useState(false);
+
+    const applyWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+        await setGroupMember({
+            groupId,
+            memberType: 'workspace',
+            memberId: workspaceId,
+        });
     }, []);
+
+    /**
+     * If the workspace's parent project is already in the target group, ask whether
+     * to drop workspace-level membership so it only appears under the project.
+     */
+    const requestWorkspaceGroupAssignment = useCallback((workspaceId: string, groupId: string) => {
+        const project = projects.find((item) =>
+            item.workspaces.some((workspace) => workspace.id === workspaceId),
+        );
+        const workspace = project?.workspaces.find((item) => item.id === workspaceId);
+        if (!project || !workspace) {
+            void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
+                console.error('Failed to add workspace to group:', error);
+            });
+            return;
+        }
+
+        const projectGroupId = findGroupIdForMember(groups, 'project', project.id);
+        if (projectGroupId !== groupId) {
+            void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
+                console.error('Failed to add workspace to group:', error);
+            });
+            return;
+        }
+
+        const groupName =
+            groups.find((group) => group.id === groupId)?.name ?? groupsT('trigger');
+        setFollowProjectPending({
+            workspaceId,
+            workspaceName: workspace.displayName?.trim() || workspace.name,
+            projectId: project.id,
+            projectName: project.name,
+            groupId,
+            groupName,
+        });
+    }, [applyWorkspaceToGroup, groups, groupsT, projects]);
+
+    const handleAddWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+        requestWorkspaceGroupAssignment(workspaceId, groupId);
+    }, [requestWorkspaceGroupAssignment]);
 
     const handleRemoveWorkspaceFromGroup = useCallback(async (workspaceId: string) => {
         try {
@@ -601,19 +731,60 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const handleSetWorkspaceGroup = useCallback(async (workspaceId: string, groupId: string | null) => {
         try {
-            if (groupId) {
-                await setGroupMember({
-                    groupId,
-                    memberType: 'workspace',
-                    memberId: workspaceId,
-                });
-            } else {
+            if (!groupId) {
                 await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
+                return;
             }
+            requestWorkspaceGroupAssignment(workspaceId, groupId);
         } catch (error) {
             console.error('Failed to set workspace group:', error);
         }
-    }, []);
+    }, [requestWorkspaceGroupAssignment]);
+
+    const handleFollowProjectClose = useCallback(() => {
+        if (followProjectBusy) return;
+        setFollowProjectPending(null);
+    }, [followProjectBusy]);
+
+    const handleFollowProjectConfirm = useCallback(async () => {
+        if (!followProjectPending) return;
+        setFollowProjectBusy(true);
+        try {
+            // Drop workspace-level membership so it only appears under the project in the group.
+            const existing = findGroupIdForMember(
+                groups,
+                'workspace',
+                followProjectPending.workspaceId,
+            );
+            if (existing) {
+                await removeGroupMember({
+                    memberType: 'workspace',
+                    memberId: followProjectPending.workspaceId,
+                });
+            }
+            setFollowProjectPending(null);
+        } catch (error) {
+            console.error('Failed to unlink workspace to follow project:', error);
+        } finally {
+            setFollowProjectBusy(false);
+        }
+    }, [followProjectPending, groups]);
+
+    const handleFollowProjectAssignWorkspace = useCallback(async () => {
+        if (!followProjectPending) return;
+        setFollowProjectBusy(true);
+        try {
+            await applyWorkspaceToGroup(
+                followProjectPending.workspaceId,
+                followProjectPending.groupId,
+            );
+            setFollowProjectPending(null);
+        } catch (error) {
+            console.error('Failed to assign workspace to group:', error);
+        } finally {
+            setFollowProjectBusy(false);
+        }
+    }, [applyWorkspaceToGroup, followProjectPending]);
 
     const handleLabelGroupOrderChange = useCallback((labelIds: string[]) => {
         setLabelGroupOrder(labelIds);
@@ -1095,6 +1266,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             expandedProjectIds={expandedProjects}
             onToggleProject={toggleProject}
             renderWorkspaceContentRow={renderWorkspaceContentRow}
+            sensors={sensors}
+            onGroupOrderChange={handleGroupOrderChange}
         />
     );
 
@@ -1106,6 +1279,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onCreateGroup={handleCreateGroupNamed}
             onRenameGroup={handleRenameGroupNamed}
             onDeleteGroup={handleDeleteGroup}
+            sensors={sensors}
+            onGroupOrderChange={handleGroupOrderChange}
         />
     );
 
@@ -1187,6 +1362,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                         onUpdatePriority={updateWorkspacePriority}
                         onSetWorkspaceGroup={handleSetWorkspaceGroup}
+                        onCreateGroup={handleCreateGroupNamed}
                         onCreateLabel={createWorkspaceLabel}
                         onUpdateLabel={updateWorkspaceLabel}
                         onUpdateLabels={updateWorkspaceLabels}
@@ -1256,6 +1432,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     onFiltersChange={setKanbanFilters}
                     onGroupingModeChange={setGroupingMode}
                     onPinWorkspace={pinWorkspace}
+                    onCreateGroup={handleCreateGroupNamed}
                     onSetWorkspaceGroup={handleSetWorkspaceGroup}
                     onUnpinWorkspace={unpinWorkspace}
                     onUpdateLabel={updateWorkspaceLabel}
@@ -1267,6 +1444,30 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
                 onClose={() => setCreateProjectOpen(false)}
+            />
+
+            <AdoptWorkspacesIntoGroupDialog
+                pending={adoptWorkspacesPending}
+                busy={adoptWorkspacesBusy}
+                onClose={handleAdoptWorkspacesClose}
+                onProjectOnly={() => {
+                    void handleAdoptWorkspacesProjectOnly();
+                }}
+                onAdopt={() => {
+                    void handleAdoptWorkspacesConfirm();
+                }}
+            />
+
+            <FollowProjectInGroupDialog
+                pending={followProjectPending}
+                busy={followProjectBusy}
+                onClose={handleFollowProjectClose}
+                onFollowProject={() => {
+                    void handleFollowProjectConfirm();
+                }}
+                onAssignWorkspace={() => {
+                    void handleFollowProjectAssignWorkspace();
+                }}
             />
 
             <WorkspaceScriptDialog

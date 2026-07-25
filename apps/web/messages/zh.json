@@ -288,7 +288,21 @@
       "createFirst": "创建分组来整理项目与工作区",
       "directWorkspaces": "工作区",
       "projects": "项目",
-      "nameRequired": "请输入分组名称"
+      "nameRequired": "请输入分组名称",
+      "adoptWorkspaces": {
+        "title": "是否一并移动工作区？",
+        "description": "「{projectName}」下有 {count} 个工作区已绑定分组。是否取消这些工作区的分组关联，使其只随项目出现在目标分组中？",
+        "targetGroup": "目标分组",
+        "adopt": "取消关联并随项目并入（{count}）",
+        "projectOnly": "仅移动项目"
+      },
+      "followProject": {
+        "title": "随项目出现在该分组？",
+        "description": "「{projectName}」已在该分组中。是否取消工作区「{workspaceName}」的单独分组关联，使其只随项目展示？",
+        "targetGroup": "目标分组",
+        "followProject": "取消工作区分组（随项目）",
+        "assignWorkspace": "仍将工作区加入该分组"
+      }
     },
     "leftPinnedSection": {
       "sortingDisabledMessage": "文件夹同步时无法调整工作区顺序。",
