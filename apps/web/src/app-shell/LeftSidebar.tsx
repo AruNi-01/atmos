@@ -14,8 +14,23 @@ import { useProjectStore } from '@/features/project/store/use-project-store';
 import {
   useProjects,
   useWorkspaceLabels,
+  useGroups,
   useProjectBootstrapQuery,
 } from '@/features/project/hooks/use-project-bootstrap-query';
+import {
+  createGroup,
+  deleteGroup,
+  renameGroup,
+  setGroupMember,
+  removeGroupMember,
+} from '@/features/project/lib/group-actions';
+import {
+  CreateOrRenameGroupDialog,
+  UserGroupOneColumnContent,
+  UserGroupTwoColumnLeftContent,
+  UserGroupTwoColumnRightContent,
+} from '@/app-shell/sidebar/UserGroupSidebarContent';
+import { useTranslations } from 'next-intl';
 import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
@@ -76,6 +91,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     const projects = useProjects();
     const workspaceLabels = useWorkspaceLabels();
+    const groups = useGroups();
+    const groupsT = useTranslations('appShell.groups');
     const bootstrapQuery = useProjectBootstrapQuery();
     const {
         activeInstanceId,
@@ -173,6 +190,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
     const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
+    const [groupDialog, setGroupDialog] = useState<
+        | { mode: 'create' }
+        | { mode: 'rename'; groupId: string; name: string }
+        | null
+    >(null);
     const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
     const persistedPinnedSectionCollapsedRef = useRef(false);
     const persistedLabelGroupOrderRef = useRef<string[]>([]);
@@ -239,6 +261,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     let nextGroupingMode: SidebarGroupingMode = 'project';
                     if (
                         groupingModeSetting === 'project' ||
+                        groupingModeSetting === 'group' ||
                         groupingModeSetting === 'status' ||
                         groupingModeSetting === 'time' ||
                         groupingModeSetting === 'label' ||
@@ -513,6 +536,88 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
     }, [currentSidebarRouteKey]);
 
+    const handleCreateGroup = useCallback(() => {
+        setGroupDialog({ mode: 'create' });
+    }, []);
+
+    const handleRenameGroup = useCallback((groupId: string, currentName: string) => {
+        setGroupDialog({ mode: 'rename', groupId, name: currentName });
+    }, []);
+
+    const handleDeleteGroup = useCallback(async (groupId: string) => {
+        if (!window.confirm(groupsT('deleteConfirm'))) return;
+        try {
+            await deleteGroup(groupId);
+        } catch (error) {
+            console.error('Failed to delete group:', error);
+        }
+    }, [groupsT]);
+
+    const handleGroupDialogSubmit = useCallback(async (name: string) => {
+        if (!groupDialog) return;
+        if (groupDialog.mode === 'create') {
+            await createGroup(name);
+            return;
+        }
+        await renameGroup(groupDialog.groupId, name);
+    }, [groupDialog]);
+
+    const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+        try {
+            await setGroupMember({
+                groupId,
+                memberType: 'project',
+                memberId: projectId,
+            });
+        } catch (error) {
+            console.error('Failed to add project to group:', error);
+        }
+    }, []);
+
+    const handleRemoveProjectFromGroup = useCallback(async (projectId: string) => {
+        try {
+            await removeGroupMember({ memberType: 'project', memberId: projectId });
+        } catch (error) {
+            console.error('Failed to remove project from group:', error);
+        }
+    }, []);
+
+    const handleAddWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+        try {
+            await setGroupMember({
+                groupId,
+                memberType: 'workspace',
+                memberId: workspaceId,
+            });
+        } catch (error) {
+            console.error('Failed to add workspace to group:', error);
+        }
+    }, []);
+
+    const handleRemoveWorkspaceFromGroup = useCallback(async (workspaceId: string) => {
+        try {
+            await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
+        } catch (error) {
+            console.error('Failed to remove workspace from group:', error);
+        }
+    }, []);
+
+    const handleSetWorkspaceGroup = useCallback(async (workspaceId: string, groupId: string | null) => {
+        try {
+            if (groupId) {
+                await setGroupMember({
+                    groupId,
+                    memberType: 'workspace',
+                    memberId: workspaceId,
+                });
+            } else {
+                await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
+            }
+        } catch (error) {
+            console.error('Failed to set workspace group:', error);
+        }
+    }, []);
+
     const handleLabelGroupOrderChange = useCallback((labelIds: string[]) => {
         setLabelGroupOrder(labelIds);
 
@@ -654,6 +759,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         filteredFlattenedWorkspaces,
         flattenedWorkspaces,
         groupedWorkspaces,
+        isGroupTwoColumn,
         isPinnedSortingDisabled,
         isProjectTwoColumn,
         isTwoColumnSidebar,
@@ -663,19 +769,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         selectedProjectForSidebar,
         selectedProjectPinnedEntries,
         selectedProjectUnpinnedWorkspaces,
+        selectedUserGroupForSidebar,
         shouldApplyWorkspaceFilter,
         shouldShowGlobalPinnedSection,
+        userGroupViews,
     } = useLeftSidebarWorkspaceDerived({
         currentProjectId,
         currentSidebarRouteKey,
         currentWorkspace,
         groupingMode,
+        groups,
         kanbanFilters,
         labelGroupOrder: effectiveLabelGroupOrder,
         projectSidebarSelectionRouteKey,
         projects,
         selectedProjectSidebarId,
         selectedWorkspaceGroupKey,
+        ungroupedLabel: groupsT('ungrouped'),
         workspaceGroupSelectionRouteKey,
         workspaceSidebarStatusTwoColumn,
         workspaceSidebarTimeTwoColumn,
@@ -736,6 +846,36 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         router.push(`/project?id=${id}`);
     }, [router]);
 
+    const sharedProjectItemProps = {
+        activeWorkspaceId: currentWorkspaceId,
+        availableLabels: workspaceLabels,
+        isActiveProject: false,
+        onAddWorkspace: handleAddWorkspace,
+        onArchiveWorkspace: archiveWorkspace,
+        onConfigureScripts: handleConfigureScripts,
+        onCreateWorkspaceLabel: createWorkspaceLabel,
+        onDelete: handleDeleteProject,
+        onDeleteWorkspace: deleteWorkspace,
+        onPinWorkspace: pinWorkspace,
+        onQuickAddWorkspace: handleQuickAddWorkspace,
+        onSelectMain: handleSelectProjectMain,
+        onSetColor: handleSetColor,
+        onSetLogo: handleSetLogo,
+        onUnpinWorkspace: unpinWorkspace,
+        onUpdateWorkspaceLabel: updateWorkspaceLabel,
+        onUpdateWorkspaceLabels: updateWorkspaceLabels,
+        onUpdateWorkspaceName: updateWorkspaceName,
+        onUpdateWorkspacePriority: updateWorkspacePriority,
+        onUpdateWorkspaceWorkflowStatus: updateWorkspaceWorkflowStatus,
+        groups,
+        onAddProjectToGroup: handleAddProjectToGroup,
+        onRemoveProjectFromGroup: handleRemoveProjectFromGroup,
+        onAddWorkspaceToGroup: handleAddWorkspaceToGroup,
+        onRemoveWorkspaceFromGroup: handleRemoveWorkspaceFromGroup,
+        onSetWorkspaceGroup: handleSetWorkspaceGroup,
+        onCreateGroup: handleCreateGroup,
+    };
+
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
         void projectId;
         router.push(`/workspace?id=${workspaceId}`);
@@ -750,7 +890,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
+        groups,
         onEnterWorkspaceFromKanban: handleEnterWorkspaceFromSidebarKanban,
+        onSetWorkspaceGroup: handleSetWorkspaceGroup,
         pinWorkspace,
         secondColumnKanbanCardProperties,
         unpinWorkspace,
@@ -812,6 +954,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onUpdateWorkspaceName={updateWorkspaceName}
             onUpdateWorkspacePriority={updateWorkspacePriority}
             onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+            groups={groups}
+            onAddProjectToGroup={handleAddProjectToGroup}
+            onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
+            onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
+            onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
+            onSetWorkspaceGroup={handleSetWorkspaceGroup}
+            onCreateGroup={handleCreateGroup}
         />
     );
 
@@ -862,6 +1011,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onUpdateWorkspaceName={updateWorkspaceName}
             onUpdateWorkspacePriority={updateWorkspacePriority}
             onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+            groups={groups}
+            onAddProjectToGroup={handleAddProjectToGroup}
+            onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
+            onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
+            onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
+            onSetWorkspaceGroup={handleSetWorkspaceGroup}
+            onCreateGroup={handleCreateGroup}
         />
     );
 
@@ -928,6 +1084,55 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         />
     );
 
+    const userGroupOneColumnContent = (
+        <UserGroupOneColumnContent
+            views={userGroupViews}
+            collapsedKeys={collapsedWorkspaceGroups}
+            onToggleCollapsed={toggleWorkspaceGroup}
+            onCreateGroup={handleCreateGroup}
+            onRenameGroup={handleRenameGroup}
+            onDeleteGroup={handleDeleteGroup}
+            projectItemProps={sharedProjectItemProps}
+            expandedProjectIds={expandedProjects}
+            onToggleProject={toggleProject}
+            renderWorkspaceContentRow={renderWorkspaceContentRow}
+        />
+    );
+
+    const userGroupTwoColumnLeftContent = (
+        <UserGroupTwoColumnLeftContent
+            views={userGroupViews}
+            selectedKey={effectiveSelectedWorkspaceGroupKey}
+            onSelect={handleSelectWorkspaceGroup}
+            onCreateGroup={handleCreateGroup}
+            onRenameGroup={handleRenameGroup}
+            onDeleteGroup={handleDeleteGroup}
+        />
+    );
+
+    const userGroupTwoColumnRightContent = (
+        <UserGroupTwoColumnRightContent
+            selectedView={selectedUserGroupForSidebar}
+            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+            projectItemProps={sharedProjectItemProps}
+            expandedProjectIds={expandedProjects}
+            onToggleProject={toggleProject}
+            renderWorkspaceContentRow={renderWorkspaceContentRow}
+        />
+    );
+
+    const twoColumnLeftContent = isProjectTwoColumn
+        ? projectTwoColumnLeftContent
+        : isGroupTwoColumn
+            ? userGroupTwoColumnLeftContent
+            : groupedTwoColumnLeftContent;
+    const twoColumnRightContent = isProjectTwoColumn
+        ? projectTwoColumnRightContent
+        : isGroupTwoColumn
+            ? userGroupTwoColumnRightContent
+            : groupedTwoColumnRightContent;
+
     const twoColumnSidebarContent = isTwoColumnSidebar ? (
         <TwoColumnSidebarContent
             autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
@@ -938,8 +1143,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
             primarySize={currentTwoColumnPrimarySize}
             pinnedSection={pinnedWorkspaceSection}
-            leftContent={isProjectTwoColumn ? projectTwoColumnLeftContent : groupedTwoColumnLeftContent}
-            rightContent={isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
+            leftContent={twoColumnLeftContent}
+            rightContent={twoColumnRightContent}
             onPrimaryCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
             onPrimaryExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
             onPrimaryResize={handleTwoColumnPrimaryResize}
@@ -953,7 +1158,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         ? twoColumnSidebarContent
         : groupingMode === 'project'
             ? projectModeOneColumnContent
-            : groupedOneColumnContent;
+            : groupingMode === 'group'
+                ? userGroupOneColumnContent
+                : groupedOneColumnContent;
 
     return (
         <>
@@ -1076,6 +1283,16 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     }}
                 />
             )}
+
+            <CreateOrRenameGroupDialog
+                open={groupDialog !== null}
+                mode={groupDialog?.mode === 'rename' ? 'rename' : 'create'}
+                initialName={groupDialog?.mode === 'rename' ? groupDialog.name : ''}
+                onOpenChange={(open) => {
+                    if (!open) setGroupDialog(null);
+                }}
+                onSubmit={handleGroupDialogSubmit}
+            />
         </>
     );
 };

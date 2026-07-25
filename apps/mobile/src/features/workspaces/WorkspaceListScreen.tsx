@@ -20,6 +20,7 @@ const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
   workspace_labels: [],
   workspaces_by_project: {},
+  groups: [],
 };
 
 const WELCOME_HEADLINES = [

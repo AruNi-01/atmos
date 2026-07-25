@@ -1,4 +1,5 @@
 use crate::error::{Result, ServiceError};
+use crate::service::group::GroupService;
 use core_engine::GitEngine;
 use infra::db::entities::project;
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
@@ -88,6 +89,16 @@ impl ProjectService {
             .find_by_guid(&guid)
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
+
+        // Clear group memberships for project and its workspaces before soft-delete.
+        let group_service = GroupService::new(Arc::clone(&self.db));
+        let all_workspaces = workspace_repo.list_all_by_project(&guid).await?;
+        for ws in &all_workspaces {
+            let _ = group_service
+                .remove_memberships_for_workspace(&ws.guid)
+                .await;
+        }
+        let _ = group_service.remove_memberships_for_project(&guid).await;
 
         // Batch soft delete all workspaces for this project
         workspace_repo.soft_delete_by_project(&guid).await?;

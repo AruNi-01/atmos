@@ -2,7 +2,13 @@
 
 import React from "react";
 import { useSortable, CSS, toastManager } from "@workspace/ui";
-import type { Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
+import type {
+  Group,
+  Workspace,
+  WorkspaceLabel,
+  WorkspacePriority,
+  WorkspaceWorkflowStatus,
+} from "@/shared/types/domain";
 import { WorkspaceContent } from "./WorkspaceContent";
 import { createWorkspacePrimePrefetch } from "@/app-shell/workspace-surface-prefetch";
 
@@ -33,6 +39,8 @@ export interface WorkspaceItemProps {
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  groups?: Group[];
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
 }
 
 function workspaceItemPropsAreEqual(
@@ -50,7 +58,8 @@ function workspaceItemPropsAreEqual(
     prev.suppressInfoPopover === next.suppressInfoPopover &&
     prev.sortingDisabled === next.sortingDisabled &&
     prev.sortingDisabledMessage === next.sortingDisabledMessage &&
-    prev.availableLabels === next.availableLabels
+    prev.availableLabels === next.availableLabels &&
+    prev.groups === next.groups
   );
 }
 
@@ -76,6 +85,8 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  groups,
+  onSetWorkspaceGroup,
 }) {
   const {
     attributes,
@@ -172,6 +183,8 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         onCreateLabel={onCreateLabel}
         onUpdateLabel={onUpdateLabel}
         onUpdateLabels={onUpdateLabels}
+        groups={groups}
+        onSetWorkspaceGroup={onSetWorkspaceGroup}
       />
     </div>
   );

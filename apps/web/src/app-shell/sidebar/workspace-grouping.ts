@@ -168,7 +168,7 @@ export function getWorkspaceLabelGroupKey(
 
 export function groupWorkspaces(
   items: FlattenedWorkspaceEntry[],
-  groupingMode: Exclude<SidebarGroupingMode, "project">,
+  groupingMode: Exclude<SidebarGroupingMode, "project" | "group">,
   options: {
     availableLabels?: WorkspaceLabel[];
     labelGroupOrder?: string[];

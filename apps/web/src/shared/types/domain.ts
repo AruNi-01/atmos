@@ -64,6 +64,23 @@ export interface Project {
   targetBranch?: string;
 }
 
+/** User-defined top-level container for projects and workspaces (APP-044). */
+export type GroupMemberType = "project" | "workspace";
+
+export interface GroupMember {
+  id: string;
+  memberType: GroupMemberType;
+  memberId: string;
+  sortOrder: number;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  sidebarOrder: number;
+  members: GroupMember[];
+}
+
 // Color presets for project border
 export const PROJECT_COLOR_PRESETS = [
   { name: 'Gray', color: '#6b7280' },

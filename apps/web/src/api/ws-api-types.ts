@@ -123,10 +123,25 @@ export interface ProjectModel {
   is_deleted: boolean;
 }
 
+export interface GroupMemberModel {
+  guid: string;
+  member_type: "project" | "workspace" | string;
+  member_guid: string;
+  sort_order: number;
+}
+
+export interface GroupModel {
+  guid: string;
+  name: string;
+  sidebar_order: number;
+  members: GroupMemberModel[];
+}
+
 export interface ProjectWorkspaceBootstrapResponse {
   projects: ProjectModel[];
   workspace_labels: WorkspaceLabelModel[];
   workspaces_by_project: Record<string, WorkspaceModel[]>;
+  groups?: GroupModel[];
 }
 
 // Git 状态响应

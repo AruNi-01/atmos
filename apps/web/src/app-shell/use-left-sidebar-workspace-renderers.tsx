@@ -7,14 +7,21 @@ import {
     type KanbanCardProperties,
 } from '@/app-shell/sidebar/WorkspaceKanbanView';
 import type { FlattenedWorkspaceEntry } from '@/app-shell/sidebar/workspace-grouping';
-import type { WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/shared/types/domain';
+import type {
+    Group,
+    WorkspaceLabel,
+    WorkspacePriority,
+    WorkspaceWorkflowStatus,
+} from '@/shared/types/domain';
 
 interface UseLeftSidebarWorkspaceRenderersParams {
     activeWorkspaceId: string | null;
     archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     createWorkspaceLabel: (data: { name: string; color: string; source?: WorkspaceLabel['source'] }) => Promise<WorkspaceLabel>;
     deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+    groups?: Group[];
     onEnterWorkspaceFromKanban: (projectId: string, workspaceId: string) => void;
+    onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
     pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     secondColumnKanbanCardProperties: KanbanCardProperties;
     unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -49,7 +56,9 @@ export function useLeftSidebarWorkspaceRenderers({
     archiveWorkspace,
     createWorkspaceLabel,
     deleteWorkspace,
+    groups = [],
     onEnterWorkspaceFromKanban,
+    onSetWorkspaceGroup,
     pinWorkspace,
     secondColumnKanbanCardProperties,
     unpinWorkspace,
@@ -95,12 +104,16 @@ export function useLeftSidebarWorkspaceRenderers({
             onUpdateName={(workspaceId, name) =>
                 updateWorkspaceName(entry.projectId, workspaceId, name)
             }
+            groups={groups}
+            onSetWorkspaceGroup={onSetWorkspaceGroup}
         />
     ), [
         activeWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
+        groups,
+        onSetWorkspaceGroup,
         pinWorkspace,
         unpinWorkspace,
         updateWorkspaceLabel,
@@ -143,12 +156,16 @@ export function useLeftSidebarWorkspaceRenderers({
             onUpdateName={(workspaceId, name) =>
                 updateWorkspaceName(entry.projectId, workspaceId, name)
             }
+            groups={groups}
+            onSetWorkspaceGroup={onSetWorkspaceGroup}
         />
     ), [
         activeWorkspaceId,
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
+        groups,
+        onSetWorkspaceGroup,
         pinWorkspace,
         unpinWorkspace,
         updateWorkspaceLabel,

@@ -41,8 +41,9 @@ import {
   Input,
   Label,
 } from "@workspace/ui";
-import type { Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
+import type { Group, Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
 import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
+import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import { ImageIcon } from "lucide-react";
@@ -106,6 +107,14 @@ export interface ProjectItemProps {
   isSelected?: boolean;
   /** Current URL workspace — for row active highlight without per-row URL hooks. */
   activeWorkspaceId?: string | null;
+  /** APP-044: optional group membership controls */
+  groups?: Group[];
+  onAddProjectToGroup?: (projectId: string, groupId: string) => void;
+  onRemoveProjectFromGroup?: (projectId: string) => void;
+  onAddWorkspaceToGroup?: (workspaceId: string, groupId: string) => void;
+  onRemoveWorkspaceFromGroup?: (workspaceId: string) => void;
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+  onCreateGroup?: () => void;
 }
 
 const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
@@ -190,10 +199,19 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   isActiveProject,
   isSelected = false,
   activeWorkspaceId = null,
+  groups = [],
+  onAddProjectToGroup,
+  onRemoveProjectFromGroup,
+  onAddWorkspaceToGroup,
+  onRemoveWorkspaceFromGroup,
+  onSetWorkspaceGroup,
+  onCreateGroup,
 }) {
   const t = useTranslations("AppShell.chrome");
+  const groupsT = useTranslations("appShell.groups");
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const projectGroupId = findGroupIdForMember(groups, "project", project.id);
   const initialLetter = project.name.charAt(0).toUpperCase();
 
   const projectAgentState = useAgentHooksStore((s) =>
@@ -589,6 +607,47 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     <FileCode className="size-4 mr-2" />
                     <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
+                  {(onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="cursor-pointer">
+                          <span>{projectGroupId ? groupsT("moveToGroup") : groupsT("addToGroup")}</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="w-44">
+                          {groups.map((group) => (
+                            <DropdownMenuItem
+                              key={group.id}
+                              className="cursor-pointer"
+                              disabled={group.id === projectGroupId}
+                              onClick={() => onAddProjectToGroup?.(project.id, group.id)}
+                            >
+                              {group.name}
+                            </DropdownMenuItem>
+                          ))}
+                          {onCreateGroup ? (
+                            <>
+                              {groups.length > 0 ? <DropdownMenuSeparator /> : null}
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() => onCreateGroup()}
+                              >
+                                {groupsT("create")}
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      {projectGroupId && onRemoveProjectFromGroup ? (
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={() => onRemoveProjectFromGroup(project.id)}
+                        >
+                          {groupsT("removeFromGroup")}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </>
+                  ) : null}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
@@ -655,6 +714,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   availableLabels={availableLabels}
                   onCreateLabel={onCreateWorkspaceLabel}
                   onUpdateLabel={onUpdateWorkspaceLabel}
+                  groups={groups}
+                  onSetWorkspaceGroup={onSetWorkspaceGroup}
                   onUpdateLabels={(wsId, labels) =>
                     onUpdateWorkspaceLabels(project.id, wsId, labels)
                   }

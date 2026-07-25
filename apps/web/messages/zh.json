@@ -270,6 +270,24 @@
       "older": "更早",
       "untagged": "无标签"
     },
+    "groups": {
+      "ungrouped": "未分组",
+      "create": "新建分组",
+      "createPlaceholder": "分组名称",
+      "rename": "重命名分组",
+      "delete": "删除分组",
+      "deleteConfirm": "删除此分组？项目与工作区不会被删除。",
+      "addToGroup": "加入分组",
+      "moveToGroup": "移动到分组",
+      "removeFromGroup": "移出分组",
+      "trigger": "分组",
+      "empty": "该分组暂无成员",
+      "emptyGroups": "暂无分组",
+      "createFirst": "创建分组来整理项目与工作区",
+      "directWorkspaces": "工作区",
+      "projects": "项目",
+      "nameRequired": "请输入分组名称"
+    },
     "leftPinnedSection": {
       "sortingDisabledMessage": "文件夹同步时无法调整工作区顺序。",
       "pinned": "已固定",
@@ -498,6 +516,7 @@
       },
       "grouping": {
         "project": "按项目",
+        "group": "按分组",
         "status": "按状态",
         "time": "按时间",
         "label": "按标签",

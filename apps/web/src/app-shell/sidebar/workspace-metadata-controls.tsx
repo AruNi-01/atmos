@@ -17,15 +17,21 @@ import {
   PopoverTrigger,
   cn,
 } from "@workspace/ui";
-import { Tags, Pencil, UserPen, CircleDot, GitPullRequest } from "lucide-react";
+import { Tags, Pencil, UserPen, CircleDot, GitPullRequest, Folders } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
-import type { WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
+import type {
+  Group,
+  WorkspaceLabel,
+  WorkspacePriority,
+  WorkspaceWorkflowStatus,
+} from "@/shared/types/domain";
 import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
 import {
   getWorkspaceWorkflowStatusMeta,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
 } from "./workspace-status";
+import { UNGROUPED_USER_GROUP_KEY } from "./user-groups";
 
 type PopoverSide = "top" | "right" | "bottom" | "left";
 type PopoverAlign = "start" | "center" | "end";
@@ -305,6 +311,122 @@ export function WorkspaceStatusSelect({
               </DropdownMenuRadioItem>
             );
           })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+type WorkspaceGroupSelectProps = {
+  /** Current group id, or null / undefined when ungrouped. */
+  value: string | null;
+  groups: Group[];
+  onChange?: (groupId: string | null) => void;
+  triggerVariant?: MetadataSelectTriggerVariant;
+  contentSide?: PopoverSide;
+  contentAlign?: PopoverAlign;
+  contentClassName?: string;
+  triggerClassName?: string;
+  iconClassName?: string;
+  labelClassName?: string;
+  showLabel?: boolean;
+  disabled?: boolean;
+  title?: string;
+  surface?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+export function WorkspaceGroupSelect({
+  value,
+  groups,
+  onChange,
+  triggerVariant = "chip",
+  contentSide = "right",
+  contentAlign = "start",
+  contentClassName,
+  triggerClassName,
+  iconClassName,
+  labelClassName,
+  showLabel = triggerVariant !== "icon",
+  disabled,
+  title,
+  surface,
+  onOpenChange,
+}: WorkspaceGroupSelectProps) {
+  const t = useTranslations("appShell.groups");
+  const selectedGroup = value
+    ? groups.find((group) => group.id === value) ?? null
+    : null;
+  const label = selectedGroup?.name ?? t("ungrouped");
+  const isDisabled = disabled || !onChange;
+  const resolvedTitle = title ?? t("trigger");
+  const radioValue = value ?? UNGROUPED_USER_GROUP_KEY;
+
+  const trigger = (
+    <button
+      type="button"
+      disabled={isDisabled}
+      title={resolvedTitle}
+      className={cn(
+        triggerVariant === "icon"
+          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+          : "inline-flex h-6 max-w-[9.5rem] items-center gap-1.5 rounded-md border border-border/60 bg-muted/35 px-2 text-xs text-foreground",
+        !isDisabled && triggerVariant !== "icon" && "cursor-pointer transition-colors hover:bg-muted",
+        triggerClassName,
+      )}
+      data-testid="workspace-group-select"
+    >
+      <Folders
+        className={cn(
+          "shrink-0 text-muted-foreground",
+          triggerVariant === "icon" ? "size-4" : "size-3.5",
+          iconClassName,
+        )}
+      />
+      {showLabel ? (
+        <span className={cn("truncate font-medium", labelClassName)}>{label}</span>
+      ) : null}
+    </button>
+  );
+
+  if (!onChange) return trigger;
+
+  return (
+    <DropdownMenu modal={false} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        data-workspace-popover-surface={surface ? "true" : undefined}
+        side={contentSide}
+        align={contentAlign}
+        className={cn("w-44", contentClassName)}
+      >
+        <DropdownMenuRadioGroup
+          value={radioValue}
+          onValueChange={(nextValue) => {
+            if (nextValue === UNGROUPED_USER_GROUP_KEY) {
+              onChange(null);
+              return;
+            }
+            onChange(nextValue);
+          }}
+        >
+          <DropdownMenuRadioItem
+            value={UNGROUPED_USER_GROUP_KEY}
+            className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
+          >
+            <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="font-medium">{t("ungrouped")}</span>
+          </DropdownMenuRadioItem>
+          {groups.map((group) => (
+            <DropdownMenuRadioItem
+              key={group.id}
+              value={group.id}
+              className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
+            >
+              <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{group.name}</span>
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>

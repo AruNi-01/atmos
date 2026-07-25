@@ -29,7 +29,7 @@ use core_engine::TestEngine;
 use core_service::{
     AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, AutomationEvent,
     AutomationService, CanvasAgentRelay, CanvasDocumentService, MessagePushService,
-    NotificationService, ProjectService, ReviewService, TerminalService, TestService,
+    GroupService, NotificationService, ProjectService, ReviewService, TerminalService, TestService,
     WorkspaceService,
 };
 use infra::{DbConnection, Migrator};
@@ -354,6 +354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), (*db).clone()));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+    let group_service = Arc::new(GroupService::new(Arc::clone(&db)));
     let canvas_service = Arc::new(CanvasDocumentService::new());
     let review_service = Arc::new(ReviewService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
@@ -382,6 +383,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ws_message_service = Arc::new(WsMessageService::new(
         Arc::clone(&project_service),
         Arc::clone(&workspace_service),
+        Arc::clone(&group_service),
         Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
         Arc::clone(&agent_session_service),

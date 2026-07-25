@@ -36,6 +36,7 @@ mod m20260607_000029_add_automation_run_agent_snapshot;
 mod m20260609_000030_add_automation_agent_config;
 mod m20260702_000031_create_terminal_side_chat;
 mod m20260718_000032_drop_canvas_board;
+mod m20260725_000033_create_item_group_tables;
 
 pub struct Migrator;
 
@@ -74,6 +75,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260609_000030_add_automation_agent_config::Migration),
             Box::new(m20260702_000031_create_terminal_side_chat::Migration),
             Box::new(m20260718_000032_drop_canvas_board::Migration),
+            Box::new(m20260725_000033_create_item_group_tables::Migration),
         ]
     }
 }

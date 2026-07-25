@@ -118,6 +118,13 @@ export function LeftSidebarSortableProjectList({
   onUpdateWorkspaceName,
   onUpdateWorkspacePriority,
   onUpdateWorkspaceWorkflowStatus,
+  groups,
+  onAddProjectToGroup,
+  onRemoveProjectFromGroup,
+  onAddWorkspaceToGroup,
+  onRemoveWorkspaceFromGroup,
+  onSetWorkspaceGroup,
+  onCreateGroup,
 }: {
   activeId?: string | null;
   activeProjectId: string | null;
@@ -153,6 +160,13 @@ export function LeftSidebarSortableProjectList({
   onUpdateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkspacePriority: ProjectItemProps["onUpdateWorkspacePriority"];
   onUpdateWorkspaceWorkflowStatus: ProjectItemProps["onUpdateWorkspaceWorkflowStatus"];
+  groups?: ProjectItemProps["groups"];
+  onAddProjectToGroup?: ProjectItemProps["onAddProjectToGroup"];
+  onRemoveProjectFromGroup?: ProjectItemProps["onRemoveProjectFromGroup"];
+  onAddWorkspaceToGroup?: ProjectItemProps["onAddWorkspaceToGroup"];
+  onRemoveWorkspaceFromGroup?: ProjectItemProps["onRemoveWorkspaceFromGroup"];
+  onSetWorkspaceGroup?: ProjectItemProps["onSetWorkspaceGroup"];
+  onCreateGroup?: ProjectItemProps["onCreateGroup"];
 }) {
   return (
     <div className={cn("scrollbar-on-hover h-full overflow-y-auto", className)}>
@@ -194,6 +208,13 @@ export function LeftSidebarSortableProjectList({
               isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
               isSelected={selectedProjectId === project.id}
               activeWorkspaceId={activeWorkspaceId}
+              groups={groups}
+              onAddProjectToGroup={onAddProjectToGroup}
+              onRemoveProjectFromGroup={onRemoveProjectFromGroup}
+              onAddWorkspaceToGroup={onAddWorkspaceToGroup}
+              onRemoveWorkspaceFromGroup={onRemoveWorkspaceFromGroup}
+              onSetWorkspaceGroup={onSetWorkspaceGroup}
+              onCreateGroup={onCreateGroup}
             />
           ))}
         </SortableContext>

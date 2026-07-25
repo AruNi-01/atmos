@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use core_service::service::workspace::WorkspaceLabelDto;
-use core_service::WorkspaceDto;
+use core_service::{GroupDto, WorkspaceDto};
 use infra::db::entities::project;
 
 use super::{GithubIssuePayload, GithubPrPayload};
@@ -13,6 +13,57 @@ pub struct ProjectWorkspaceBootstrapResponse {
     pub projects: Vec<project::Model>,
     pub workspace_labels: Vec<WorkspaceLabelDto>,
     pub workspaces_by_project: BTreeMap<String, Vec<WorkspaceDto>>,
+    #[serde(default)]
+    pub groups: Vec<GroupDto>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupCreateRequest {
+    pub name: String,
+    #[serde(default)]
+    pub sidebar_order: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupUpdateRequest {
+    pub guid: String,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupUpdateOrderRequest {
+    pub orders: Vec<GroupOrderItem>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupOrderItem {
+    pub guid: String,
+    pub order: i32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupDeleteRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupSetMemberRequest {
+    pub group_guid: String,
+    pub member_type: String,
+    pub member_guid: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupRemoveMemberRequest {
+    pub member_type: String,
+    pub member_guid: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupUpdateMemberOrderRequest {
+    pub group_guid: String,
+    pub member_guids: Vec<String>,
 }
 
 /// 工作区设置进度通知数据

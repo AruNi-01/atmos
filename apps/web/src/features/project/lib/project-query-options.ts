@@ -4,13 +4,29 @@ import { wsProjectApi } from "@/api/ws-api";
 import { queryKeys } from "@/api/query/query-keys";
 import { wsQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import type { Project, WorkspaceLabel } from "@/shared/types/domain";
+import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
 import { mapProjectModel, mapWorkspaceModel, sortWorkspaces } from "@/features/project/store/project-store-mappers";
 import { waitForConnection } from "@/features/project/store/project-store-connection";
+import type { GroupModel } from "@/api/ws-api-types";
 
 export interface ProjectBootstrapSnapshot {
   projects: Project[];
   workspaceLabels: WorkspaceLabel[];
+  groups: Group[];
+}
+
+export function mapGroupModel(model: GroupModel): Group {
+  return {
+    id: model.guid,
+    name: model.name,
+    sidebarOrder: model.sidebar_order,
+    members: (model.members ?? []).map((member) => ({
+      id: member.guid,
+      memberType: member.member_type === "workspace" ? "workspace" : "project",
+      memberId: member.member_guid,
+      sortOrder: member.sort_order,
+    })),
+  };
 }
 
 export async function fetchProjectBootstrapSnapshot(): Promise<ProjectBootstrapSnapshot> {
@@ -31,7 +47,10 @@ export async function fetchProjectBootstrapSnapshot(): Promise<ProjectBootstrapS
   });
 
   projects.sort((a, b) => a.sidebarOrder - b.sidebarOrder);
-  return { projects, workspaceLabels };
+  const groups = (bootstrap.groups ?? [])
+    .map(mapGroupModel)
+    .sort((a, b) => a.sidebarOrder - b.sidebarOrder);
+  return { projects, workspaceLabels, groups };
 }
 
 export function projectBootstrapQueryOptions(

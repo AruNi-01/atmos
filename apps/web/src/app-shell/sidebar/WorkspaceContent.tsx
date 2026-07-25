@@ -29,13 +29,14 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import type { Workspace, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
+import type { Group, Workspace, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
 import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/features/workspace/lib/workspace";
 import { gitApi } from "@/api/ws-api";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import {
+  WorkspaceGroupSelect,
   WorkspaceLabelBadges,
   WorkspaceLabelPicker,
   WorkspacePrioritySelect,
@@ -43,6 +44,7 @@ import {
 } from "./workspace-metadata-controls";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
+import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -69,6 +71,9 @@ export interface WorkspaceContentProps {
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  /** APP-044: groups for workspace membership switcher in the info popover. */
+  groups?: Group[];
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
 }
 
 function workspaceContentPropsAreEqual(
@@ -89,7 +94,8 @@ function workspaceContentPropsAreEqual(
     prev.suppressInfoPopover === next.suppressInfoPopover &&
     prev.attributes === next.attributes &&
     prev.listeners === next.listeners &&
-    prev.availableLabels === next.availableLabels
+    prev.availableLabels === next.availableLabels &&
+    prev.groups === next.groups
   );
 }
 
@@ -151,6 +157,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  groups = [],
+  onSetWorkspaceGroup,
 }) {
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
@@ -170,7 +178,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
+  const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
   const [isLabelPopoverOpen, setIsLabelPopoverOpen] = useState(false);
+  const workspaceGroupId = findGroupIdForMember(groups, "workspace", workspace.id);
   const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
@@ -232,14 +242,27 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const scheduleInfoPopoverClose = React.useCallback(() => {
     cancelInfoPopoverClose();
     infoPopoverTimerRef.current = setTimeout(() => {
-      if (isStatusMenuOpen || isPriorityMenuOpen || isLabelPopoverOpen || isEditingName) {
+      if (
+        isStatusMenuOpen ||
+        isPriorityMenuOpen ||
+        isGroupMenuOpen ||
+        isLabelPopoverOpen ||
+        isEditingName
+      ) {
         infoPopoverTimerRef.current = null;
         return;
       }
       setIsInfoPopoverOpen(false);
       infoPopoverTimerRef.current = null;
     }, 150);
-  }, [cancelInfoPopoverClose, isEditingName, isLabelPopoverOpen, isPriorityMenuOpen, isStatusMenuOpen]);
+  }, [
+    cancelInfoPopoverClose,
+    isEditingName,
+    isGroupMenuOpen,
+    isLabelPopoverOpen,
+    isPriorityMenuOpen,
+    isStatusMenuOpen,
+  ]);
 
   React.useEffect(() => {
     return () => {
@@ -596,6 +619,19 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   onOpenChange={setIsStatusMenuOpen}
                   surface
                 />
+                {onSetWorkspaceGroup || groups.length > 0 ? (
+                  <WorkspaceGroupSelect
+                    value={workspaceGroupId}
+                    groups={groups}
+                    onChange={
+                      onSetWorkspaceGroup
+                        ? (groupId) => onSetWorkspaceGroup(workspace.id, groupId)
+                        : undefined
+                    }
+                    onOpenChange={setIsGroupMenuOpen}
+                    surface
+                  />
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">

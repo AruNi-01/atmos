@@ -270,6 +270,24 @@
       "older": "Older",
       "untagged": "No label"
     },
+    "groups": {
+      "ungrouped": "Ungrouped",
+      "create": "New Group",
+      "createPlaceholder": "Group name",
+      "rename": "Rename Group",
+      "delete": "Delete Group",
+      "deleteConfirm": "Delete this group? Projects and workspaces are not deleted.",
+      "addToGroup": "Add to Group",
+      "moveToGroup": "Move to Group",
+      "removeFromGroup": "Remove from Group",
+      "trigger": "Group",
+      "empty": "No members in this group",
+      "emptyGroups": "No groups yet",
+      "createFirst": "Create a group to organize projects and workspaces",
+      "directWorkspaces": "Workspaces",
+      "projects": "Projects",
+      "nameRequired": "Enter a group name"
+    },
     "leftPinnedSection": {
       "sortingDisabledMessage": "Workspace order cannot be updated while folders are syncing.",
       "pinned": "Pinned",
@@ -498,6 +516,7 @@
       },
       "grouping": {
         "project": "By Project",
+        "group": "By Group",
         "status": "By Status",
         "time": "By Time",
         "label": "By Label",
