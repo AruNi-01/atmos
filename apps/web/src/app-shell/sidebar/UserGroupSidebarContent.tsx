@@ -46,6 +46,70 @@ type ProjectItemSharedProps = Omit<
   | "disableRowClick"
 >;
 
+/** Count and ··· share one slot; hover / open menu swaps count → actions. */
+function GroupRowTrailing({
+  count,
+  canManage,
+  hoverGroupClass,
+  onRename,
+  onDelete,
+  renameLabel,
+  deleteLabel,
+}: {
+  count: number;
+  canManage: boolean;
+  /** e.g. group-hover/row or group-hover/header */
+  hoverGroupClass: string;
+  onRename: () => void;
+  onDelete: () => void;
+  renameLabel: string;
+  deleteLabel: string;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <div className="relative mr-1 flex size-6 shrink-0 items-center justify-center">
+      <span
+        className={cn(
+          "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
+          canManage && (menuOpen ? "opacity-0" : `${hoverGroupClass}:opacity-0`),
+        )}
+      >
+        {count}
+      </span>
+      {canManage ? (
+        <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                menuOpen
+                  ? "opacity-100"
+                  : `opacity-0 ${hoverGroupClass}:opacity-100`,
+              )}
+              aria-label="Group actions"
+            >
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onClick={onRename}>
+              <Pencil className="size-3.5" />
+              {renameLabel}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 className="size-3.5" />
+              {deleteLabel}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+    </div>
+  );
+}
+
 export function UserGroupTwoColumnLeftContent({
   views,
   selectedKey,
@@ -102,48 +166,15 @@ export function UserGroupTwoColumnLeftContent({
                 >
                   <span className="truncate">{view.label}</span>
                 </button>
-                <div className="group/slot relative mr-1 flex size-6 shrink-0 items-center justify-center">
-                  {view.groupId ? (
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="peer absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground group-hover/row:opacity-100 data-[popup-open]:opacity-100"
-                          aria-label="Group actions"
-                        >
-                          <MoreHorizontal className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            view.groupId && onRenameGroup(view.groupId, view.label)
-                          }
-                        >
-                          <Pencil className="size-3.5" />
-                          {t("rename")}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => view.groupId && onDeleteGroup(view.groupId)}
-                        >
-                          <Trash2 className="size-3.5" />
-                          {t("delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                  <span
-                    className={cn(
-                      "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
-                      view.groupId &&
-                        "group-hover/row:opacity-0 peer-data-[popup-open]:opacity-0",
-                    )}
-                  >
-                    {count}
-                  </span>
-                </div>
+                <GroupRowTrailing
+                  count={count}
+                  canManage={Boolean(view.groupId)}
+                  hoverGroupClass="group-hover/row"
+                  renameLabel={t("rename")}
+                  deleteLabel={t("delete")}
+                  onRename={() => view.groupId && onRenameGroup(view.groupId, view.label)}
+                  onDelete={() => view.groupId && onDeleteGroup(view.groupId)}
+                />
               </div>
             );
           })}
@@ -297,48 +328,15 @@ export function UserGroupOneColumnContent({
                   />
                   <span className="truncate">{view.label}</span>
                 </CollapsibleTrigger>
-                <div className="group/slot relative flex size-6 shrink-0 items-center justify-center">
-                  {view.groupId ? (
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="peer absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground group-hover/header:opacity-100 data-[popup-open]:opacity-100"
-                          aria-label="Group actions"
-                        >
-                          <MoreHorizontal className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            view.groupId && onRenameGroup(view.groupId, view.label)
-                          }
-                        >
-                          <Pencil className="size-3.5" />
-                          {t("rename")}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => view.groupId && onDeleteGroup(view.groupId)}
-                        >
-                          <Trash2 className="size-3.5" />
-                          {t("delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                  <span
-                    className={cn(
-                      "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
-                      view.groupId &&
-                        "group-hover/header:opacity-0 peer-data-[popup-open]:opacity-0",
-                    )}
-                  >
-                    {count}
-                  </span>
-                </div>
+                <GroupRowTrailing
+                  count={count}
+                  canManage={Boolean(view.groupId)}
+                  hoverGroupClass="group-hover/header"
+                  renameLabel={t("rename")}
+                  deleteLabel={t("delete")}
+                  onRename={() => view.groupId && onRenameGroup(view.groupId, view.label)}
+                  onDelete={() => view.groupId && onDeleteGroup(view.groupId)}
+                />
               </div>
               <CollapsibleContent>
                 <div className="space-y-1 pb-2 pl-1">
