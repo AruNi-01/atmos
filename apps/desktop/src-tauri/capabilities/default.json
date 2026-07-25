@@ -31,6 +31,7 @@
     "core:window:allow-set-focus",
     "core:window:allow-start-dragging",
     "shell:default",
+    "dialog:allow-open",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",
     "notification:allow-notify",
