@@ -138,7 +138,7 @@ impl WorkspaceService {
         // Membership cleanup + workspace soft-delete share one transaction.
         let workspace_repo = WorkspaceRepo::new(&self.db);
         Ok(workspace_repo
-            .soft_delete_with_group_membership(guid)
+            .soft_delete_with_group_memberships(guid)
             .await?)
     }
 

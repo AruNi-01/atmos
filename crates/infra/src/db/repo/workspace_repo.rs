@@ -629,38 +629,6 @@ impl<'a> WorkspaceRepo<'a> {
         Ok(())
     }
 
-    /// Soft-delete workspace membership and the workspace row in one transaction.
-    pub async fn soft_delete_with_group_membership(&self, guid: &str) -> Result<()> {
-        use crate::db::entities::item_group_member;
-
-        let txn = self.db.begin().await?;
-        let now = chrono::Utc::now().naive_utc();
-
-        item_group_member::Entity::update_many()
-            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
-            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
-            .filter(item_group_member::Column::IsDeleted.eq(false))
-            .filter(item_group_member::Column::MemberType.eq("workspace"))
-            .filter(item_group_member::Column::MemberGuid.eq(guid))
-            .exec(&txn)
-            .await?;
-
-        let result = workspace::Entity::update_many()
-            .col_expr(workspace::Column::IsDeleted, Expr::value(true))
-            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
-            .filter(workspace::Column::Guid.eq(guid))
-            .exec(&txn)
-            .await?;
-        tracing::info!(
-            "[soft_delete_with_group_membership] Soft delete result for {}: {} rows affected",
-            guid,
-            result.rows_affected
-        );
-
-        txn.commit().await?;
-        Ok(())
-    }
-
     /// 批量软删除项目下的所有工作区
     pub async fn soft_delete_by_project(&self, project_guid: &str) -> Result<u64> {
         tracing::info!(
