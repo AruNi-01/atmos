@@ -1,4 +1,4 @@
-use sea_orm::sea_query::Expr;
+use sea_orm::sea_query::{Expr, Query};
 use sea_orm::*;
 use std::collections::HashSet;
 
@@ -160,25 +160,34 @@ impl<'a> ProjectRepo<'a> {
     /// Soft-delete project/workspace group memberships, workspaces, and project atomically.
     ///
     /// One transaction so a mid-flight DB error cannot leave partial membership cleanup
-    /// or half-deleted children committed.
-    pub async fn soft_delete_with_group_memberships(
-        &self,
-        guid: &str,
-        workspace_guids: &[String],
-    ) -> Result<()> {
+    /// or half-deleted children committed. Workspace memberships are resolved inside the
+    /// transaction via a subquery on `workspace` for this project (not a pre-txn snapshot),
+    /// so a workspace created after a service-layer list cannot leave a dangling membership.
+    pub async fn soft_delete_with_group_memberships(&self, guid: &str) -> Result<()> {
         let txn = self.db.begin().await?;
         let now = chrono::Utc::now().naive_utc();
 
-        if !workspace_guids.is_empty() {
-            item_group_member::Entity::update_many()
-                .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
-                .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
-                .filter(item_group_member::Column::IsDeleted.eq(false))
-                .filter(item_group_member::Column::MemberType.eq("workspace"))
-                .filter(item_group_member::Column::MemberGuid.is_in(workspace_guids.to_vec()))
-                .exec(&txn)
-                .await?;
-        }
+        // All workspace guids for this project (including already soft-deleted rows).
+        let workspace_guids_for_project = || {
+            Query::select()
+                .column(workspace::Column::Guid)
+                .from(workspace::Entity)
+                .and_where(Expr::col(workspace::Column::ProjectGuid).eq(guid))
+                .to_owned()
+        };
+
+        // Soft-delete group memberships for every workspace of this project.
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(
+                item_group_member::Column::MemberGuid
+                    .in_subquery(workspace_guids_for_project()),
+            )
+            .exec(&txn)
+            .await?;
 
         item_group_member::Entity::update_many()
             .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
@@ -194,6 +203,20 @@ impl<'a> ProjectRepo<'a> {
             .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
             .filter(workspace::Column::ProjectGuid.eq(guid))
             .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+
+        // Re-run membership cleanup after workspace soft-delete to close the tiny race of a
+        // workspace inserted between the first membership pass and workspace soft-delete.
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(
+                item_group_member::Column::MemberGuid
+                    .in_subquery(workspace_guids_for_project()),
+            )
             .exec(&txn)
             .await?;
 
