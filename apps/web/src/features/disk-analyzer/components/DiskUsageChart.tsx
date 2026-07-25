@@ -71,7 +71,9 @@ type ContextMenuState = {
 
 type ChartHandle = {
   resize: () => void;
-  dispatchAction: (payload: Record<string, unknown>) => void;
+  // ECharts dispatchAction payload is a discriminated union with required `type`.
+  // Keep a structural type that is assignable from EChartsType without fighting the SDK.
+  dispatchAction: (payload: { type: string } & Record<string, unknown>) => void;
 };
 
 type Props = {
@@ -514,8 +516,8 @@ export function DiskUsageChart({
         notMerge={false}
         replaceMerge={["series"]}
         lazyUpdate={false}
-        onChartReady={(instance: ChartHandle) => {
-          chartRef.current = instance;
+        onChartReady={(instance) => {
+          chartRef.current = instance as ChartHandle;
           instance.resize();
         }}
         onEvents={{
