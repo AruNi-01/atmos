@@ -76,7 +76,9 @@ export function repoPrListQueryOptions(
     queryKey: queryKeys.computer.githubRepoPrList(scope, { owner, repo, state, limit }),
     queryFn: (): Promise<GithubPrPayload[]> =>
       wsGithubApi.listPrs({ owner, repo, state, limit }),
-    staleTime: 5 * 60_000, // 5 min — matches the legacy TTL
+    // PR lists are small — keep across workspace hops (no full-screen reload).
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo),
   });
 }
@@ -107,6 +109,7 @@ export function branchPrListQueryOptions(
         emit_branch_status_refresh: emitBranchStatusRefresh ?? false,
       }),
     staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
   });
 }
@@ -233,7 +236,9 @@ export function githubActionsListQueryOptions(
       const result = await wsRequest("github_actions_list", { owner, repo, branch });
       return Array.isArray(result) ? result : [];
     },
-    staleTime: 30_000, // 30s
+    // List is small; keep Query cache warm while session snapshot owns hop paint.
+    staleTime: 60_000,
+    gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
   });
 }

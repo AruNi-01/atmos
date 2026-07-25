@@ -118,6 +118,12 @@ export const queryKeys = {
     /** Local + remote branch list for a repo. */
     gitBranches: (scope: ComputerQueryScope, repoPath: string) =>
       [...queryKeys.computer.git(scope, repoPath), "branches"] as const,
+    /** Local commit log page for a repo (+ optional branch identity). */
+    gitLog: (
+      scope: ComputerQueryScope,
+      repoPath: string,
+      params: { branchKey: string | null; limit: number; page: number },
+    ) => [...queryKeys.computer.git(scope, repoPath), "log", params] as const,
     /** Prefix for all filesystem queries — used for broad reconnect invalidation. */
     filesRoot: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "files"] as const,

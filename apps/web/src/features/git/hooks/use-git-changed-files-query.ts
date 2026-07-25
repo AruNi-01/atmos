@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useComputerQueryScope, getComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
@@ -14,12 +13,16 @@ export type { GitCompareParams };
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import { queryKeys } from "@/api/query/query-keys";
 import type { GitChangedFilesResponse } from "@/api/ws-api";
+import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
+import {
+  sessionListKeys,
+  serializeGitCompareParams,
+  useSessionListSnapshotStore,
+} from "@/features/workspace/store/session-list-snapshot-store";
 
 /**
- * React hook: cached changed-files snapshot for a repo path and compare params.
- *
- * Pass no params (or GIT_WORKTREE_PARAMS) for the worktree view (staged/unstaged/untracked).
- * Pass compare params for a compare-against-ref view.
+ * React hook: changed-files snapshot for a repo path and compare params.
+ * Session snapshot seeds paint across workspace hops.
  */
 export function useGitChangedFilesQuery(
   repoPath: string | null | undefined,
@@ -27,8 +30,12 @@ export function useGitChangedFilesQuery(
 ) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
+  const key = repoPath
+    ? sessionListKeys.gitChangedFiles(repoPath, serializeGitCompareParams(params))
+    : null;
 
-  return useQuery(
+  return useSessionListQuery(
+    key,
     gitChangedFilesQueryOptions(scope, connectionState, repoPath ?? "", params, {
       enabled: Boolean(repoPath),
     }),
@@ -48,11 +55,19 @@ export async function invalidateGitQueries(repoPath: string): Promise<void> {
   }
 }
 
-/** Snapshot getter without mounting a hook. */
+/** Snapshot getter: session store first, then Query cache. */
 export function getGitChangedFilesSnapshot(
   repoPath: string,
   params: GitCompareParams = GIT_WORKTREE_PARAMS,
 ): GitChangedFilesResponse | undefined {
+  const sessionKey = sessionListKeys.gitChangedFiles(
+    repoPath,
+    serializeGitCompareParams(params),
+  );
+  const fromSession = useSessionListSnapshotStore
+    .getState()
+    .get<GitChangedFilesResponse>(sessionKey);
+  if (fromSession) return fromSession;
   try {
     const client = getAtmosWebQueryClient();
     const scope = getComputerQueryScope();

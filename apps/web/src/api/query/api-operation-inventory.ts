@@ -705,6 +705,17 @@ export const apiOperationInventory = [
       "APP-043 workspace surface cache (Active/Warm/Frozen DOM lifecycle). Client-only; must never be cleared by APP-035 query scope resets. clearAll runs on Atmos Computer / connection target switch, logout/session teardown, and existing target-reset paths via prepareConnectionTargetChange.",
   },
   {
+    domain: "workspace",
+    operation: "sessionListSnapshotCache",
+    transport: "rest",
+    classification: "excluded",
+    legacyOwner: "useSessionListSnapshotStore",
+    phase: "excluded",
+    status: "excluded",
+    rationale:
+      "Session-long list paint snapshots (git status/branches/log, file tree, PR lists). Query still owns fetch/dedupe; this store survives Query GC for half-hour hops. Cleared on prepareConnectionTargetChange only.",
+  },
+  {
     domain: "editor",
     operation: "navigationState",
     transport: "rest",

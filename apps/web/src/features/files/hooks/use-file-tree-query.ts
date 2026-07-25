@@ -12,16 +12,19 @@ import {
   searchContentQueryOptions,
   searchDirsQueryOptions,
 } from "@/features/files/lib/files-query-options";
+import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
+import { sessionListKeys } from "@/features/workspace/store/session-list-snapshot-store";
 
 /**
  * Primary hook for the project file tree.
- * Shares the same Query key as FileTreePanel and GlobalSearch so concurrent
- * consumers with matching rootPath + showHidden produce one in-flight request.
+ * Session snapshot keeps the tree across long idle workspace hops.
  */
 export function useFileTreeQuery(rootPath: string | null, showHidden: boolean) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
-  return useQuery(
+  const key = rootPath ? sessionListKeys.fileTree(rootPath, showHidden) : null;
+  return useSessionListQuery(
+    key,
     fileTreeQueryOptions(scope, connectionState, rootPath ?? "", showHidden, {
       enabled: Boolean(rootPath),
     }),

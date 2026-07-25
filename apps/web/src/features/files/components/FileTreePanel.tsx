@@ -57,8 +57,8 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   const fileTreeQuery = useFileTreeQuery(effectiveRootPath, effectiveShowHidden);
 
   const effectiveData = data ?? fileTreeQuery.data?.tree ?? [];
-  const effectiveIsLoading =
-    isLoading ?? (fileTreeQuery.isLoading || fileTreeQuery.isFetching);
+  // Do not treat background refetch as empty-tree loading (session hop paint).
+  const effectiveIsLoading = isLoading ?? fileTreeQuery.isLoading;
   const effectiveRefresh =
     onRefresh ??
     (() =>

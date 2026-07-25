@@ -56,6 +56,11 @@ export async function prepareConnectionTargetChange(): Promise<void> {
     '@/app-shell/bootstrap/clear-workspace-surface-cache'
   );
   await clearWorkspaceSurfaceCacheOnTargetChange();
+  // Session list snapshots (git/PR/file lists) are computer-scoped paint cache.
+  const { clearSessionListSnapshotsOnTargetChange } = await import(
+    '@/app-shell/bootstrap/clear-session-list-snapshots'
+  );
+  await clearSessionListSnapshotsOnTargetChange();
   restoreEditorFromInstancePrefs(activeInstanceId);
 }
 

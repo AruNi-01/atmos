@@ -25,7 +25,9 @@ export function fileTreeQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.fileTree(scope, rootPath, showHidden),
     queryFn: () => withConnection(() => fsApi.listProjectFiles(rootPath, { showHidden })),
-    staleTime: 30_000,
+    // File trees are small list payloads — keep across workspace hops.
+    staleTime: 60_000,
+    gcTime: 30 * 60_000,
     enabled: options?.enabled,
   });
 }

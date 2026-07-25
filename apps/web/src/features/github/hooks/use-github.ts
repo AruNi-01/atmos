@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import { useComputerQueryScope } from '@/api/query/query-scope';
 import {
   useBranchPrListQuery,
   useGithubPrDetailQuery,
@@ -11,6 +12,9 @@ import {
   useGithubCiStatusQuery,
 } from '@/features/github/hooks/use-github-pr-query';
 import type { PrFile } from '@/features/github/lib/github-query-options';
+import { gitLogQueryOptions } from '@/features/git/lib/git-query-options';
+import { useSessionListQuery } from '@/features/workspace/hooks/use-session-list-query';
+import { sessionListKeys } from '@/features/workspace/store/session-list-snapshot-store';
 
 export type { PrFile };
 
@@ -51,7 +55,10 @@ export function useGithubPRList({
 
   return {
     data: data ?? null,
-    loading: isLoading || isFetching,
+    // isLoading = first load without cache. Background refetch (isFetching) must not
+    // blank the list on workspace switch when TanStack still has data for this key.
+    loading: isLoading,
+    refreshing: isFetching && !isLoading,
     refresh,
   };
 }
@@ -252,7 +259,7 @@ export interface GitCommit {
   author_avatar_url?: string;
 }
 
-// Local Git commit log (current branch)
+// Local Git commit log — Query + session snapshot for long-idle workspace hops.
 export function useGitLog({
   repoPath,
   branchKey,
@@ -262,99 +269,55 @@ export function useGitLog({
   branchKey?: string | null;
   limit?: number;
 }) {
-  const send = useWebSocketStore(s => s.send);
-  const scopeKey = repoPath ? `${repoPath}\u0000${branchKey ?? ''}` : null;
-  const [commitState, setCommitState] = useState<{
-    scopeKey: string | null;
-    commits: GitCommit[];
-  }>({ scopeKey, commits: [] });
-  const [loading, setLoading] = useState(false);
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const scopeKey = repoPath ? `${repoPath}\u0000${branchKey ?? ""}` : null;
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const requestIdRef = useRef(0);
-  const scopeKeyRef = useRef(scopeKey);
-  if (scopeKeyRef.current !== scopeKey) {
-    scopeKeyRef.current = scopeKey;
-    requestIdRef.current += 1;
-  }
-
-  const fetchPage = useCallback(async (pageIndex: number) => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    const requestScopeKey = scopeKeyRef.current;
-
-    if (!repoPath) {
-      setCommitState({ scopeKey: requestScopeKey, commits: [] });
-      setHasMore(false);
-      setPage(0);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await send<any>('git_log', {
-        path: repoPath,
-        limit,
-        offset: pageIndex * limit,
-      });
-      if (
-        requestIdRef.current !== requestId ||
-        scopeKeyRef.current !== requestScopeKey
-      ) {
-        return;
-      }
-      const fetched: GitCommit[] = result?.commits ?? [];
-      setCommitState({ scopeKey: requestScopeKey, commits: fetched });
-      setHasMore(fetched.length >= limit);
-      setPage(pageIndex);
-    } catch (e) {
-      if (
-        requestIdRef.current !== requestId ||
-        scopeKeyRef.current !== requestScopeKey
-      ) {
-        return;
-      }
-      console.error(e);
-      setCommitState({ scopeKey: requestScopeKey, commits: [] });
-    } finally {
-      if (
-        requestIdRef.current === requestId &&
-        scopeKeyRef.current === requestScopeKey
-      ) {
-        setLoading(false);
-      }
-    }
-  }, [repoPath, limit, send]);
-
-  const resetAndFetchPage = useCallback((pageIndex: number) => {
-    setCommitState({ scopeKey: scopeKeyRef.current, commits: [] });
-    setHasMore(false);
-    setPage(0);
-    void fetchPage(pageIndex);
-  }, [fetchPage]);
 
   useEffect(() => {
-    resetAndFetchPage(0);
-  }, [scopeKey, resetAndFetchPage]);
+    setPage(0);
+  }, [scopeKey]);
+
+  const sessionKey = repoPath
+    ? sessionListKeys.gitLog(repoPath, branchKey ?? null, page, limit)
+    : null;
+
+  const query = useSessionListQuery(
+    sessionKey,
+    gitLogQueryOptions(
+      scope,
+      connectionState,
+      repoPath ?? "",
+      {
+        branchKey: branchKey ?? null,
+        limit,
+        page,
+      },
+      { enabled: Boolean(repoPath) },
+    ),
+  );
+
+  const commits = (query.data?.commits ?? []) as GitCommit[];
+  const hasMore = commits.length >= limit;
 
   const goToPrevPage = useCallback(() => {
-    if (page > 0) fetchPage(page - 1);
-  }, [page, fetchPage]);
+    setPage((p) => Math.max(0, p - 1));
+  }, []);
 
   const goToNextPage = useCallback(() => {
-    if (hasMore) fetchPage(page + 1);
-  }, [page, hasMore, fetchPage]);
+    if (hasMore) setPage((p) => p + 1);
+  }, [hasMore]);
 
-  const refresh = useCallback(() => fetchPage(page), [fetchPage, page]);
+  const refresh = useCallback(() => {
+    void query.refetch();
+  }, [query]);
 
-  const isCurrentScope = commitState.scopeKey === scopeKey;
   return {
-    commits: isCurrentScope ? commitState.commits : [],
-    loading: loading || (!!repoPath && !isCurrentScope),
-    page: isCurrentScope ? page : 0,
-    hasMore: isCurrentScope ? hasMore : false,
+    commits,
+    // Session snapshot / Query cache both suppress first-load spinner on hop-back.
+    loading: query.isLoading,
+    page,
+    hasMore,
     goToPrevPage,
     goToNextPage,
     refresh,

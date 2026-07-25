@@ -290,7 +290,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     branchRecommendationQuery.data,
   );
   const gitStatus = statusQuery.data ?? null;
-  const isLoading = isMutating || worktreeQuery.isFetching || compareQuery.isFetching;
+  // Session/Query cache hits must not flash loading on hop. Only first miss + mutations.
+  const isLoading =
+    isMutating ||
+    worktreeQuery.isLoading ||
+    (isCompareQueryEnabled(compareMode, defaultBranch) && compareQuery.isLoading);
 
   const [{ rsTab: activeTab }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
@@ -462,7 +466,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     isLoading ||
     (changesScope !== "branch" &&
       changesScope !== "commit" &&
-      branchRecommendationQuery.isFetching);
+      branchRecommendationQuery.isLoading);
   const showAgentChatSidebar = activeCenterTab === "wiki";
   const transformWikiChatPrompt = useCallback(
     (prompt: string) =>

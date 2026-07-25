@@ -1,29 +1,39 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useComputerQueryScope, getComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { gitStatusQueryOptions } from "@/features/git/lib/git-query-options";
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import type { GitStatusResponse } from "@/api/ws-api";
+import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
+import {
+  sessionListKeys,
+  useSessionListSnapshotStore,
+} from "@/features/workspace/store/session-list-snapshot-store";
 
 /**
- * React hook: cached git status for a repo path.
- * Returns undefined data when repoPath is null/empty or WebSocket is not connected.
+ * React hook: git status for a repo path.
+ * Session snapshot seeds paint across workspace hops; Query owns fetch/dedupe.
  */
 export function useGitStatusQuery(repoPath: string | null | undefined) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
+  const key = repoPath ? sessionListKeys.gitStatus(repoPath) : null;
 
-  return useQuery(
+  return useSessionListQuery(
+    key,
     gitStatusQueryOptions(scope, connectionState, repoPath ?? "", {
       enabled: Boolean(repoPath),
     }),
   );
 }
 
-/** Imperative getter: returns cached status without mounting a hook. */
+/** Imperative getter: session snapshot first, then Query cache. */
 export function getGitStatusSnapshot(repoPath: string): GitStatusResponse | undefined {
+  const fromSession = useSessionListSnapshotStore
+    .getState()
+    .get<GitStatusResponse>(sessionListKeys.gitStatus(repoPath));
+  if (fromSession) return fromSession;
   try {
     const client = getAtmosWebQueryClient();
     const scope = getComputerQueryScope();

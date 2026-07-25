@@ -20,6 +20,7 @@ import {
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
+import { useGitBranchesQuery } from '@/features/git/hooks/use-git-branches-query';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useGithubPRList } from '@/features/github/hooks/use-github';
 import { useProjectStore } from '@/features/project/store/use-project-store';
@@ -27,6 +28,9 @@ import { useProjects } from '@/features/project/hooks/use-project-bootstrap-quer
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
+import { getAtmosWebQueryClient } from '@/providers/app/query-client';
+import { getComputerQueryScope } from '@/api/query/query-scope';
+import { queryKeys } from '@/api/query/query-keys';
 import { toastManager } from '@workspace/ui';
 import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
@@ -190,9 +194,15 @@ const Header: React.FC = () => {
   const [isEditingCurrentBranch, setIsEditingCurrentBranch] = useState(false);
   const [editedCurrentBranch, setEditedCurrentBranch] = useState('');
 
-  // Available branches list
-  const [availableBranches, setAvailableBranches] = useState<string[]>([]);
-  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  // Available branches — session snapshot + Query (no per-switch local refetch flash)
+  const branchesQuery = useGitBranchesQuery(
+    showHeaderGitToolbar && !isSettingUp ? headerRepoPath : null,
+  );
+  const availableBranches = useMemo(() => {
+    const remote = branchesQuery.data?.remote ?? [];
+    return [...remote].sort();
+  }, [branchesQuery.data?.remote]);
+  const isLoadingBranches = branchesQuery.isLoading;
   const [isTargetBranchOpen, setIsTargetBranchOpen] = useState(false);
   const [targetBranchFilter, setTargetBranchFilter] = useState('');
 
@@ -311,27 +321,6 @@ const Header: React.FC = () => {
     setCurrentProjectPath,
   ]);
 
-  // Fetch available branches when project/workspace changes
-  useEffect(() => {
-    const effectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
-    if (showHeaderGitToolbar && effectivePath && !isSettingUp) {
-      const fetchBranches = async () => {
-        setIsLoadingBranches(true);
-        try {
-          const branches = await gitApi.listRemoteBranches(effectivePath);
-          setAvailableBranches(branches.sort());
-        } catch (error) {
-          console.error('Failed to fetch branches:', error);
-        } finally {
-          setIsLoadingBranches(false);
-        }
-      };
-      fetchBranches();
-    } else {
-      setAvailableBranches([]);
-    }
-  }, [currentProject?.mainFilePath, currentWorkspace?.localPath, isSettingUp, showHeaderGitToolbar]);
-
   // Sync target branch from project to git info store
   useEffect(() => {
     if (currentProject?.targetBranch !== undefined) {
@@ -372,11 +361,17 @@ const Header: React.FC = () => {
           // 2. Update the workspace branch name in DB
           await updateWorkspaceBranch(currentProject.id, currentWorkspace.id, newBranch);
 
-          // 3. Refresh git info and branches list
+          // 3. Refresh git info and branches list (session + Query)
           refreshGitStatus();
-          // Update local branches list immediately if needed
-          const branches = await gitApi.listRemoteBranches(currentWorkspace.localPath);
-          setAvailableBranches(branches.sort());
+          try {
+            const client = getAtmosWebQueryClient();
+            const scope = getComputerQueryScope();
+            await client.invalidateQueries({
+              queryKey: queryKeys.computer.gitBranches(scope, currentWorkspace.localPath),
+            });
+          } catch {
+            // offline / tests
+          }
         }
       } catch (error) {
         console.error('Failed to rename branch:', error);

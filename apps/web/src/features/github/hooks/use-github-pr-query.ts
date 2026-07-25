@@ -21,6 +21,8 @@ import {
   type GithubActionsListParams,
   type GithubActionsDetailParams,
 } from "@/features/github/lib/github-query-options";
+import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
+import { sessionListKeys } from "@/features/workspace/store/session-list-snapshot-store";
 
 export function useRepoPrListQuery(params: RepoPrListParams & { enabled?: boolean }) {
   const scope = useComputerQueryScope();
@@ -38,8 +40,19 @@ export function useBranchPrListQuery(params: BranchPrListParams & { enabled?: bo
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
+  const sessionKey =
+    params.owner && params.repo && params.branch
+      ? sessionListKeys.branchPrList({
+          owner: params.owner,
+          repo: params.repo,
+          branch: params.branch,
+          state: params.state,
+          emitBranchStatusRefresh: params.emitBranchStatusRefresh,
+        })
+      : null;
 
-  return useQuery(
+  return useSessionListQuery(
+    sessionKey,
     branchPrListQueryOptions(scope, connectionState, restParams, {
       enabled: enabled && Boolean(params.owner && params.repo && params.branch),
     }),
@@ -185,8 +198,17 @@ export function useGithubActionsListQuery(params: GithubActionsListParams & { en
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
+  const sessionKey =
+    params.owner && params.repo && params.branch
+      ? sessionListKeys.githubActionsList({
+          owner: params.owner,
+          repo: params.repo,
+          branch: params.branch,
+        })
+      : null;
 
-  return useQuery(
+  return useSessionListQuery(
+    sessionKey,
     githubActionsListQueryOptions(scope, connectionState, restParams, {
       enabled: enabled && Boolean(params.owner && params.repo && params.branch),
     }),

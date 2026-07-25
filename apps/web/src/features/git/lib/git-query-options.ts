@@ -73,6 +73,10 @@ export function computeCompareParams(
 
 // ── Query-options factories ───────────────────────────────────────────────────
 
+/** Keep list snapshots across workspace hops (small payloads; switch should not cold-load). */
+const GIT_LIST_STALE_MS = 60_000;
+const GIT_LIST_GC_MS = 30 * 60_000;
+
 export function gitStatusQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
@@ -85,7 +89,8 @@ export function gitStatusQueryOptions(
     enabled: options?.enabled,
     queryKey: queryKeys.computer.gitStatus(scope, repoPath),
     queryFn: () => gitApi.getStatus(repoPath),
-    staleTime: 15_000,
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
   });
 }
 
@@ -106,7 +111,8 @@ export function gitChangedFilesQueryOptions(
         baseRef: params.baseRef,
         commitRef: params.commitRef,
       }),
-    staleTime: 15_000,
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
   });
 }
 
@@ -151,6 +157,44 @@ export function gitBranchesQueryOptions(
       ]);
       return { local, remote };
     },
-    staleTime: 60_000,
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
+  });
+}
+
+/** Opaque commit rows from `git_log` — shape is owned by the WS payload. */
+export type GitLogPage = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  commits: any[];
+};
+
+export function gitLogQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  repoPath: string,
+  params: { branchKey: string | null; limit: number; page: number },
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions<GitLogPage>({
+    scope,
+    connectionState,
+    enabled: options?.enabled,
+    queryKey: queryKeys.computer.gitLog(scope, repoPath, params),
+    queryFn: async () => {
+      // Lazy import avoids circular dependency with the WS client module graph.
+      const { useWebSocketStore } = await import(
+        "@/features/connection/hooks/use-websocket"
+      );
+      const result = await useWebSocketStore.getState().send<{
+        commits?: GitLogPage["commits"];
+      }>("git_log", {
+        path: repoPath,
+        limit: params.limit,
+        offset: params.page * params.limit,
+      });
+      return { commits: result?.commits ?? [] };
+    },
+    staleTime: GIT_LIST_STALE_MS,
+    gcTime: GIT_LIST_GC_MS,
   });
 }
