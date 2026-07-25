@@ -14,7 +14,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{EngineError, Result};
 
-pub use cache::{clear_all as clear_path_cache, invalidate_path as invalidate_path_cache, CACHE_TTL};
+pub use cache::{
+    clear_all as clear_path_cache, invalidate_path as invalidate_path_cache, CACHE_TTL,
+};
 
 const OTHER_NAME: &str = "__other__";
 const DEFAULT_MAX_CHILDREN: usize = 30;
@@ -161,6 +163,7 @@ impl DiskAnalyzerEngine {
     ///
     /// Directory children keep `children_loaded = false` so the UI loads deeper
     /// levels only when the user drills in. Much faster than building a multi-level tree.
+    #[allow(clippy::too_many_arguments)]
     pub fn scan_path(
         &self,
         scan_id: &str,
@@ -189,9 +192,7 @@ impl DiskAnalyzerEngine {
             return None;
         }
         let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-        if path.parent().is_none() {
-            return None;
-        }
+        path.parent()?;
         cache::get_measure(&path)
     }
 
@@ -219,9 +220,8 @@ impl DiskAnalyzerEngine {
             return Ok(cached);
         }
 
-        let meta = std::fs::symlink_metadata(&path).map_err(|e| {
-            EngineError::FileSystem(format!("stat {}: {e}", path.display()))
-        })?;
+        let meta = std::fs::symlink_metadata(&path)
+            .map_err(|e| EngineError::FileSystem(format!("stat {}: {e}", path.display())))?;
 
         let measure = if meta.file_type().is_file() || meta.file_type().is_symlink() {
             let size = Self::file_allocated_size(&path, &meta).unwrap_or(0);
@@ -242,6 +242,7 @@ impl DiskAnalyzerEngine {
     }
 
     /// List `path`'s immediate children; size each child (dirs fully) concurrently.
+    #[allow(clippy::too_many_arguments)]
     pub fn scan_level(
         &self,
         scan_id: &str,
@@ -305,9 +306,7 @@ impl DiskAnalyzerEngine {
         let error_count = Arc::new(AtomicU64::new(0));
         let last_emit = std::sync::Mutex::new(Instant::now() - PROGRESS_MIN_INTERVAL);
 
-        let emit = |status: ScanStatus,
-                    current: Option<String>,
-                    tree: Option<DiskNode>| {
+        let emit = |status: ScanStatus, current: Option<String>, tree: Option<DiskNode>| {
             let Some(cb) = on_progress.as_ref() else {
                 return;
             };
@@ -413,8 +412,13 @@ impl DiskAnalyzerEngine {
             Arc::new(std::sync::Mutex::new(HashSet::new()));
         // Cap concurrent `du` like Mole (min(4, ncpu)) — each du is already I/O heavy.
         let du_budget = Arc::new(AtomicUsize::new(
-            std::cmp::min(4, std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4))
-                .max(1),
+            std::cmp::min(
+                4,
+                std::thread::available_parallelism()
+                    .map(|n| n.get())
+                    .unwrap_or(4),
+            )
+            .max(1),
         ));
 
         let root_name = root
@@ -515,11 +519,7 @@ impl DiskAnalyzerEngine {
             }
             // Instant first paint (files sized, dirs pending) — Mole live_scan style.
             let snap = build_snapshot(&map);
-            emit(
-                ScanStatus::Running,
-                Some(root_path_str.clone()),
-                Some(snap),
-            );
+            emit(ScanStatus::Running, Some(root_path_str.clone()), Some(snap));
         }
 
         std::thread::scope(|scope| {
@@ -538,7 +538,6 @@ impl DiskAnalyzerEngine {
                 let scan_id = scan_id.to_string();
                 let root_path_str = root_path_str.clone();
                 let root_name = root_name.clone();
-                let max_children = max_children;
                 let (child_is_project, child_is_workspace) = classify(&child_path);
 
                 scope.spawn(move || {
@@ -668,7 +667,10 @@ impl DiskAnalyzerEngine {
             return Err(EngineError::FileSystem("Scan cancelled".to_string()));
         }
 
-        let map = children_map.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let map = children_map
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         // Suggestions from full sibling list before top-N prune.
         let mut tree = DiskNode {
             name: root_name,
@@ -921,7 +923,7 @@ fn measure_tree_size_walk(root: &Path, cancel: Option<&Arc<AtomicBool>>) -> Path
         if !meta.is_file() {
             continue;
         }
-        let size = DiskAnalyzerEngine::file_allocated_size(&path, &meta).unwrap_or_else(|| meta.len());
+        let size = DiskAnalyzerEngine::file_allocated_size(&path, &meta).unwrap_or(meta.len());
         let count_size = match file_identity(&path, &meta) {
             Some(id) => seen_file_ids.insert(id),
             None => true,
@@ -1198,7 +1200,10 @@ pub fn cleanup_suggestions(tree: &DiskNode) -> Vec<CleanupSuggestion> {
 /// when scanning home (`Library`, `Logs`, `bin`, `.env` secrets, etc.).
 const CLEANUP_HINTS: &[(&str, &str)] = &[
     // ── JavaScript / TypeScript / Node ──────────────────────────────
-    ("node_modules", "Node.js dependencies (reinstall with npm/pnpm/yarn)"),
+    (
+        "node_modules",
+        "Node.js dependencies (reinstall with npm/pnpm/yarn)",
+    ),
     (".npm", "npm cache"),
     (".pnpm-store", "pnpm content-addressable store"),
     (".yarn", "Yarn cache / releases"),
@@ -1274,7 +1279,10 @@ const CLEANUP_HINTS: &[(&str, &str)] = &[
     ("CMakeFiles", "CMake generated files"),
     ("cmake-build-debug", "CLion/CMake debug build"),
     ("cmake-build-release", "CLion/CMake release build"),
-    ("cmake-build-relwithdebinfo", "CLion/CMake RelWithDebInfo build"),
+    (
+        "cmake-build-relwithdebinfo",
+        "CLion/CMake RelWithDebInfo build",
+    ),
     ("cmake-build-minsizerel", "CLion/CMake MinSizeRel build"),
     (".cxx", "Android NDK / CMake CXX cache"),
     // ── Apple / iOS / macOS ─────────────────────────────────────────

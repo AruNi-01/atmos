@@ -145,8 +145,7 @@ fn make_temp_dir() -> Result<PathBuf, ExtractError> {
         nanos,
         n
     ));
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| ExtractError::Io(format!("create temp dir: {e}")))?;
+    std::fs::create_dir_all(&dir).map_err(|e| ExtractError::Io(format!("create temp dir: {e}")))?;
     Ok(dir)
 }
 
@@ -154,7 +153,9 @@ fn map_open_error(err: rusqlite::Error) -> ExtractError {
     use rusqlite::ffi::ErrorCode;
     if let rusqlite::Error::SqliteFailure(inner, _) = &err {
         match inner.code {
-            ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked => return ExtractError::DatabaseBusy,
+            ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked => {
+                return ExtractError::DatabaseBusy
+            }
             ErrorCode::NotADatabase => {
                 return ExtractError::InvalidSchema("not a database".to_string())
             }
@@ -212,11 +213,23 @@ pub(crate) fn read_chromium_full(conn: &Connection) -> Result<Vec<ChromiumFullRo
 
     // Optional columns vary by Chromium version.
     let value_col = if has("value") { "value" } else { "''" };
-    let expires_col = if has("expires_utc") { "expires_utc" } else { "0" };
+    let expires_col = if has("expires_utc") {
+        "expires_utc"
+    } else {
+        "0"
+    };
     let secure_col = if has("is_secure") { "is_secure" } else { "0" };
-    let httponly_col = if has("is_httponly") { "is_httponly" } else { "0" };
+    let httponly_col = if has("is_httponly") {
+        "is_httponly"
+    } else {
+        "0"
+    };
     let samesite_col = if has("samesite") { "samesite" } else { "-1" };
-    let persistent_col = if has("is_persistent") { "is_persistent" } else { "0" };
+    let persistent_col = if has("is_persistent") {
+        "is_persistent"
+    } else {
+        "0"
+    };
     // Partition detection: presence of a non-empty top_frame_site_key marks a partitioned/CHIPS cookie.
     // Note: `has_cross_site_ancestor` is an access-context flag in Chromium 118+ and must NOT be treated
     // as a partition key (otherwise all regular cookies set in cross-site contexts are falsely skipped).
@@ -271,7 +284,11 @@ pub(crate) fn read_firefox_full(conn: &Connection) -> Result<Vec<FirefoxFullRow>
     let httponly_col = if has("isHttpOnly") { "isHttpOnly" } else { "0" };
     let samesite_col = if has("sameSite") { "sameSite" } else { "0" };
     // Defensive: older Firefox schemas may lack `originAttributes`.
-    let origin_attributes_col = if has("originAttributes") { "originAttributes" } else { "''" };
+    let origin_attributes_col = if has("originAttributes") {
+        "originAttributes"
+    } else {
+        "''"
+    };
 
     let sql = format!(
         "SELECT host, name, value, path, {expiry_col}, {secure_col}, {httponly_col}, \
@@ -320,7 +337,7 @@ pub fn domain_candidates(domains: &[&str]) -> Vec<String> {
 }
 
 fn placeholders(n: usize) -> String {
-    std::iter::repeat("?").take(n).collect::<Vec<_>>().join(",")
+    std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
 }
 
 /// Read Chromium cookie rows filtered by domain (+ optional cookie names),
@@ -434,7 +451,6 @@ pub fn read_firefox_filtered(
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -453,9 +469,7 @@ mod tests {
         let db = temp_db_path("wal");
         // Writer connection kept open so the WAL is never auto-checkpointed.
         let writer = Connection::open(&db).unwrap();
-        writer
-            .pragma_update(None, "journal_mode", "WAL")
-            .unwrap();
+        writer.pragma_update(None, "journal_mode", "WAL").unwrap();
         writer
             .execute_batch(
                 "CREATE TABLE cookies (
@@ -513,8 +527,7 @@ mod tests {
             )
             .unwrap();
         }
-        let rows =
-            read_chromium_filtered(&db, &["example.com"], Some(&["keep"])).expect("read");
+        let rows = read_chromium_filtered(&db, &["example.com"], Some(&["keep"])).expect("read");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].host_key, "example.com");
         assert_eq!(rows[0].name, "keep");
@@ -552,8 +565,14 @@ mod tests {
             .unwrap();
             let rows = read_chromium_full(&conn).unwrap();
             assert_eq!(rows.len(), 2);
-            assert!(!rows[0].has_partition, "normal cookie with has_cross_site_ancestor must NOT be partitioned");
-            assert!(rows[1].has_partition, "cookie with top_frame_site_key MUST be partitioned");
+            assert!(
+                !rows[0].has_partition,
+                "normal cookie with has_cross_site_ancestor must NOT be partitioned"
+            );
+            assert!(
+                rows[1].has_partition,
+                "cookie with top_frame_site_key MUST be partitioned"
+            );
         }
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }

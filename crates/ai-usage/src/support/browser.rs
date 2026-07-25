@@ -14,8 +14,8 @@ use std::path::PathBuf;
 
 use browser_cookies::{
     chromium_profile_candidates, decrypt_chromium_value, firefox_profile_candidates,
-    read_chromium_filtered, read_firefox_filtered, safe_storage_passphrase, ChromiumProfileCandidate,
-    ExtractError, FirefoxProfileCandidate,
+    read_chromium_filtered, read_firefox_filtered, safe_storage_passphrase,
+    ChromiumProfileCandidate, ExtractError, FirefoxProfileCandidate,
 };
 
 use crate::constants::COMMANDCODE_COOKIE_NAMES;
@@ -318,7 +318,11 @@ fn load_chromium_cookie_source(
         } else {
             continue;
         };
-        if value.is_empty() || cookie_pairs.iter().any(|(existing, _)| existing == &row.name) {
+        if value.is_empty()
+            || cookie_pairs
+                .iter()
+                .any(|(existing, _)| existing == &row.name)
+        {
             continue;
         }
         cookie_pairs.push((row.name, value));
@@ -341,7 +345,11 @@ fn load_firefox_cookie_source(
 
     let mut cookie_pairs: Vec<(String, String)> = Vec::new();
     for row in rows {
-        if row.value.is_empty() || cookie_pairs.iter().any(|(existing, _)| existing == &row.name) {
+        if row.value.is_empty()
+            || cookie_pairs
+                .iter()
+                .any(|(existing, _)| existing == &row.name)
+        {
             continue;
         }
         cookie_pairs.push((row.name, row.value));

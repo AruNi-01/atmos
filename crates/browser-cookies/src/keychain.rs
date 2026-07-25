@@ -27,6 +27,7 @@ pub fn safe_storage_passphrase(_service: &str) -> Result<String, ExtractError> {
 /// The Keychain account for a Chromium Safe Storage item is the browser name
 /// without the " Safe Storage" suffix (e.g. "Chrome", "Microsoft Edge",
 /// "Brave").
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn account_for(service: &str) -> String {
     service
         .strip_suffix(" Safe Storage")

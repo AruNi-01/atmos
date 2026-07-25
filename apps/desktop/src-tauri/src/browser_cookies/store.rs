@@ -79,7 +79,10 @@ mod imp {
     /// counted verified when name + path match and the base domain matches,
     /// tolerating WebKit's host-only/domain dot normalization.
     fn normalize_domain(domain: &str) -> String {
-        domain.strip_prefix('.').unwrap_or(domain).to_ascii_lowercase()
+        domain
+            .strip_prefix('.')
+            .unwrap_or(domain)
+            .to_ascii_lowercase()
     }
 
     /// Build the origin URL string used to bind a **host-only** cookie to a
@@ -323,7 +326,10 @@ mod imp {
             // Read-back domain for a host-only cookie is the bare host; the
             // expected side may still carry a stored dot. Both normalize equal so
             // count_verified matches them.
-            assert_eq!(normalize_domain("example.com"), normalize_domain(".example.com"));
+            assert_eq!(
+                normalize_domain("example.com"),
+                normalize_domain(".example.com")
+            );
         }
 
         #[test]

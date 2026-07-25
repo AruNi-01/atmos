@@ -264,11 +264,7 @@ pub fn extract(handle: &ProfileHandle) -> Result<ExtractionResult, ExtractError>
         let conn = open_readonly(&p.cookie_db)?;
         let rows = read_chromium_full(&conn)?;
         let service = p.safe_storage_service.clone();
-        return normalize_chromium_rows(
-            rows,
-            || safe_storage_passphrase(&service),
-            now_unix(),
-        );
+        return normalize_chromium_rows(rows, || safe_storage_passphrase(&service), now_unix());
     }
 
     // Then Firefox.
@@ -340,7 +336,9 @@ mod tests {
         let mut unsupported = chromium_row("weird", "example.com", "x");
         unsupported.encrypted_value = b"v20-abe-only".to_vec();
 
-        let out = normalize_chromium_rows(vec![good, bad, unsupported], || Ok(PASS.to_string()), NOW).unwrap();
+        let out =
+            normalize_chromium_rows(vec![good, bad, unsupported], || Ok(PASS.to_string()), NOW)
+                .unwrap();
         assert_eq!(out.cookies.len(), 1);
         assert_eq!(out.cookies[0].identity.name, "good");
         assert_eq!(out.skipped_decrypt, 2);
@@ -357,7 +355,8 @@ mod tests {
         // legal __Host- cookie: host-only, secure, path "/".
         let legal = chromium_row("__Host-ok", "example.com", "v");
 
-        let out = normalize_chromium_rows(vec![illegal, legal], || Ok(PASS.to_string()), NOW).unwrap();
+        let out =
+            normalize_chromium_rows(vec![illegal, legal], || Ok(PASS.to_string()), NOW).unwrap();
         assert_eq!(out.skipped_unsupported, 1);
         assert_eq!(out.cookies.len(), 1);
         assert_eq!(out.cookies[0].identity.name, "__Host-ok");
@@ -397,7 +396,9 @@ mod tests {
         expired.is_persistent = true;
         expired.expires_utc = ((NOW - 1000) + CHROMIUM_EPOCH_OFFSET_SECS) * 1_000_000;
 
-        let out = normalize_chromium_rows(vec![session, future, expired], || Ok(PASS.to_string()), NOW).unwrap();
+        let out =
+            normalize_chromium_rows(vec![session, future, expired], || Ok(PASS.to_string()), NOW)
+                .unwrap();
         assert_eq!(out.skipped_expired, 1);
         assert_eq!(out.cookies.len(), 2);
 
@@ -414,7 +415,8 @@ mod tests {
     fn host_only_derived_from_leading_dot() {
         let host_only = chromium_row("a", "example.com", "v");
         let domain = chromium_row("b", ".example.com", "v");
-        let out = normalize_chromium_rows(vec![host_only, domain], || Ok(PASS.to_string()), NOW).unwrap();
+        let out =
+            normalize_chromium_rows(vec![host_only, domain], || Ok(PASS.to_string()), NOW).unwrap();
         let a = out.cookies.iter().find(|c| c.identity.name == "a").unwrap();
         let b = out.cookies.iter().find(|c| c.identity.name == "b").unwrap();
         assert!(a.host_only);
@@ -462,12 +464,20 @@ mod tests {
         assert_eq!(out.skipped_expired, 1);
         assert_eq!(out.cookies.len(), 2);
 
-        let lax = out.cookies.iter().find(|c| c.identity.name == "lax").unwrap();
+        let lax = out
+            .cookies
+            .iter()
+            .find(|c| c.identity.name == "lax")
+            .unwrap();
         assert_eq!(lax.same_site, SameSite::Lax);
         assert!(!lax.host_only);
         assert!(lax.has_expires);
 
-        let unspec = out.cookies.iter().find(|c| c.identity.name == "unspec").unwrap();
+        let unspec = out
+            .cookies
+            .iter()
+            .find(|c| c.identity.name == "unspec")
+            .unwrap();
         assert_eq!(unspec.same_site, SameSite::Unspecified);
         assert!(unspec.host_only);
         assert!(!unspec.has_expires);
