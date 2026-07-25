@@ -181,7 +181,7 @@ export function DiskAnalyzerPage() {
                           // next-intl rich tags: <mole>Mole</mole> → chunks === "Mole"
                           mole: (chunks) => (
                             <a
-                              href="https://github.com/tw93/mole"
+                              href="https://mole.fit/?atp=aarynlu"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-medium underline underline-offset-2 hover:opacity-90"
