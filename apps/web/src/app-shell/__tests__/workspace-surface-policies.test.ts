@@ -13,6 +13,7 @@ import {
   selectEditorMountSet,
   sweepWarmByTtl,
   terminalMountKey,
+  namedTerminalMountKey,
   isProtected,
   DEFAULT_SURFACE_BUDGETS,
 } from "../workspace-surface-policies";
@@ -434,5 +435,43 @@ describe("selectEditorMountSet + computeMountPlan", () => {
 
     expect(plan.mounted).toContain(terminalMountKey("a", "terminal"));
     expect(plan.mounted).not.toContain(terminalMountKey("a", "terminal-tab:2"));
+  });
+
+  it("counts named terminals toward max_global_terminal_panes", () => {
+    const plan = computeMountPlan({
+      activeContextId: "a",
+      warm: [{ contextId: "b", lastAccessed: 10 }],
+      budgets: {
+        ...DEFAULT_SURFACE_BUDGETS,
+        maxGlobalTerminalPanes: 2,
+      },
+      contexts: [
+        {
+          contextId: "a",
+          terminalTabIds: ["terminal"],
+          terminalPaneCountByTabId: { terminal: 1 },
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          namedTerminals: ["project-wiki", "code-review"],
+          frameActiveTab: "terminal",
+        },
+        {
+          contextId: "b",
+          terminalTabIds: ["terminal"],
+          terminalPaneCountByTabId: { terminal: 1 },
+          editorPathsRecent: [],
+          browserTabValues: [],
+          lightIds: [],
+          frameActiveTab: "terminal",
+        },
+      ],
+    });
+
+    // a:terminal (1, forced) + b:terminal (1) fill the cap; named must not exceed it.
+    expect(plan.mounted).toContain(terminalMountKey("a", "terminal"));
+    expect(plan.mounted).toContain(terminalMountKey("b", "terminal"));
+    expect(plan.mounted).not.toContain(namedTerminalMountKey("a", "project-wiki"));
+    expect(plan.mounted).not.toContain(namedTerminalMountKey("a", "code-review"));
   });
 });

@@ -353,7 +353,9 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
   ) => {
     if (mounted.includes(key)) return;
     const units = opts?.units ?? 1;
-    if (kind === "terminal") {
+    // Named terminals (project-wiki / code-review) are real TerminalGrids and
+    // must consume the same global pane budget as regular terminal tabs.
+    if (kind === "terminal" || kind === "named") {
       if (!opts?.force && terminalCount + units > input.budgets.maxGlobalTerminalPanes) return;
       terminalCount += units;
     } else if (kind === "editor") {
@@ -441,7 +443,10 @@ export function computeMountPlan(input: ComputeMountPlanInput): MountPlan {
 
     for (const kind of snap.namedTerminals ?? []) {
       if (activeTab === kind || isActive) {
-        tryAdd(namedTerminalMountKey(contextId, kind), "named");
+        tryAdd(namedTerminalMountKey(contextId, kind), "named", {
+          // Force only when this named surface is the active frame's last tab.
+          force: isActive && activeTab === kind,
+        });
       }
     }
   }
