@@ -17,10 +17,12 @@ fn grok_root_for_environment(home: &Path, grok_home: Option<&OsStr>) -> PathBuf 
         .unwrap_or_else(|| home.join(".grok"))
 }
 
+const HOOKS_FILE_NAME: &str = "atmos-hooks.json";
+
 fn hooks_path_for_environment(home: &Path, grok_home: Option<&OsStr>) -> PathBuf {
     grok_root_for_environment(home, grok_home)
         .join("hooks")
-        .join("atmos-status.json")
+        .join(HOOKS_FILE_NAME)
 }
 
 fn hook_url(port: u16) -> String {
@@ -384,7 +386,7 @@ mod tests {
             "install should succeed: {:?}",
             installed.error
         );
-        let atmos_path = dir.join(".grok/hooks/atmos-status.json");
+        let atmos_path = dir.join(".grok/hooks/atmos-hooks.json");
         assert!(atmos_path.exists());
         let content = std::fs::read_to_string(&atmos_path).unwrap();
         assert!(content.contains("ATMOS_MANAGED"));
@@ -436,10 +438,10 @@ mod tests {
         std::fs::create_dir_all(&grok_home).unwrap();
 
         let installed = install_for_environment(4310, &home, Some(grok_home.as_os_str()), None);
-        let custom_path = grok_home.join("hooks/atmos-status.json");
+        let custom_path = grok_home.join("hooks/atmos-hooks.json");
         assert!(installed.installed);
         assert!(custom_path.exists());
-        assert!(!home.join(".grok/hooks/atmos-status.json").exists());
+        assert!(!home.join(".grok/hooks/atmos-hooks.json").exists());
 
         assert!(check_for_environment(&home, Some(grok_home.as_os_str()), None).installed);
         assert!(!uninstall_for_environment(&home, Some(grok_home.as_os_str()), None).installed);

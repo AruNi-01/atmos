@@ -342,7 +342,7 @@ impl TerminalService {
         // Disable Grok's Claude/Cursor *compat hooks* via process env only
         // (precedence: env > config.toml). Does not edit ~/.grok/config.toml, so
         // non-Atmos Grok still honors the user's global compat settings. Native
-        // ~/.grok/hooks/* (including atmos-status) still load.
+        // ~/.grok/hooks/* (including atmos-hooks) still load.
         let session_env_vars: Vec<(&str, &str)> = vec![
             ("ATMOS_MANAGED", "1"),
             ("ATMOS_CONTEXT_ID", &workspace_id),
