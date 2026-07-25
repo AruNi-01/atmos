@@ -48,11 +48,24 @@ describe("useWorkspaceSurfaceCacheStore", () => {
     store.switchContext("b");
     const s = useWorkspaceSurfaceCacheStore.getState();
     expect(s.activeContextId).toBe("b");
+    expect(s.visualActiveContextId).toBe("b");
     expect(s.warm.map((w) => w.contextId)).toEqual(["a"]);
     store.switchContext("b");
     expect(useWorkspaceSurfaceCacheStore.getState().warm.map((w) => w.contextId)).toEqual([
       "a",
     ]);
+  });
+
+  it("beginVisualSwitch only updates paint target", () => {
+    const store = useWorkspaceSurfaceCacheStore.getState();
+    store.switchContext("a");
+    store.switchContext("b");
+    store.beginVisualSwitch("a");
+    const s = useWorkspaceSurfaceCacheStore.getState();
+    expect(s.visualActiveContextId).toBe("a");
+    expect(s.activeContextId).toBe("b");
+    expect(s.warm.map((w) => w.contextId)).toEqual(["a"]);
+    expect(s.getVisualActiveContextId()).toBe("a");
   });
 
   it("enforces maxWarmWorkspaces", () => {

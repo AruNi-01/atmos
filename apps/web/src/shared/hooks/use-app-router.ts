@@ -7,7 +7,7 @@ import {
 import { useCallback, useMemo } from "react";
 
 import { useAppNavigationInterceptor } from "./app-navigation-intercept";
-import { prepareWorkspaceContextNavigation } from "@/app-shell/workspace-surface-switch";
+import { prepareAndPrimeWorkspaceNavigation } from "@/app-shell/workspace-surface-switch";
 
 function currentBrowserLocation(fallbackPathname: string): string {
   if (typeof window === "undefined") {
@@ -61,8 +61,8 @@ export function useAppRouter() {
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
-      // APP-043: inject last tab only — never promote WSC here (blocks click).
-      const prepared = prepareWorkspaceContextNavigation(nextPath);
+      // APP-043/IMP-008: last-tab inject + warm visual prime only (no full promote).
+      const prepared = prepareAndPrimeWorkspaceNavigation(nextPath);
       router.push(prepared);
     },
     [interceptor, normalizePath, pathname, router],
@@ -77,7 +77,7 @@ export function useAppRouter() {
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
-      const prepared = prepareWorkspaceContextNavigation(nextPath);
+      const prepared = prepareAndPrimeWorkspaceNavigation(nextPath);
       router.replace(prepared);
     },
     [interceptor, normalizePath, pathname, router],

@@ -15,7 +15,7 @@ import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-s
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
-import { promoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
+import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
 import {
   readCenterStageLastTab,
   setCenterStageLastTab,
@@ -162,8 +162,9 @@ export function useTerminalTabMountLifecycle({
     lastActiveTabByContextRef.current[effectiveContextId] = activeValue;
   }
 
-  // After URL commits (useEffect is already post-paint): promote leave→warm
-  // synchronously. Every hop must switchContext so A→B→C still places B into warm.
+  // After URL commits: promote leave→warm. Slow hops flush immediately; rapid
+  // route commits coalesce to the latest id and touch intermediate leaves so
+  // A→B→C still keeps B warm without N multi-frame switchContext commits.
   React.useEffect(() => {
     const current = effectiveContextId ?? null;
     const leavingContextId = previousTerminalContextRef.current;
@@ -188,7 +189,7 @@ export function useTerminalTabMountLifecycle({
       }
     }
 
-    promoteWorkspaceSurfaceSwitch(current);
+    return schedulePromoteWorkspaceSurfaceSwitch(current, leavingContextId);
   }, [effectiveContextId, setMountedTerminalTabsByContext]);
 
   // Ensure Active ∪ Warm contexts keep their last terminal tab mounted for the

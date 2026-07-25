@@ -28,6 +28,13 @@ export { buildProtectSignals } from "@/app-shell/workspace-surface-policies";
 
 interface WorkspaceSurfaceCacheState extends SurfaceBudgets {
   activeContextId: string | null;
+  /**
+   * Instant paint target for center-frame visibility.
+   * May lead URL / activeContextId for already-mounted (warm) hops so the
+   * user sees the prior surface before route commit + full promote.
+   * Null means "follow activeContextId".
+   */
+  visualActiveContextId: string | null;
   warm: WarmEntry[];
   mountPlan: MountPlan;
   /** Optional protect override for tests only. Production uses live store signals. */
@@ -37,6 +44,11 @@ interface WorkspaceSurfaceCacheState extends SurfaceBudgets {
   freezeGeneration: number;
 
   setActiveContextId: (id: string | null) => void;
+  /**
+   * Cheap visibility flip only — no warm/budget work.
+   * Safe on the navigation click path for already-mounted contexts.
+   */
+  beginVisualSwitch: (id: string | null) => void;
   touch: (id: string) => void;
   /**
    * Atomic Active leave→warm + set next active in one store update.
@@ -56,6 +68,8 @@ interface WorkspaceSurfaceCacheState extends SurfaceBudgets {
   setMaxGlobalMountedEditors: (n: number) => Promise<void>;
   setMaxGlobalBrowsers: (n: number) => Promise<void>;
   getMountedContextIds: () => string[];
+  /** Resolve which context the center stage should paint as active. */
+  getVisualActiveContextId: () => string | null;
 }
 
 function budgetsFromState(state: WorkspaceSurfaceCacheState): SurfaceBudgets {
@@ -221,6 +235,7 @@ function trimWarmToBudget(
 
 export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>((set, get) => ({
   activeContextId: null,
+  visualActiveContextId: null,
   warm: [],
   mountPlan: { mounted: [] },
   protectOverride: null,
@@ -230,12 +245,23 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
 
   setActiveContextId: (id) => {
     set((state) => {
-      if (state.activeContextId === id) return state;
+      if (state.activeContextId === id && state.visualActiveContextId === id) return state;
       // Do NOT bump freezeGeneration here — that would cancel deferred detach
       // for unrelated Frozen contexts. Re-activation of the same id is safe
       // because runFreezeSideEffects re-checks active/warm membership.
       const warm = state.warm.filter((w) => w.contextId !== id);
-      return withMountPlan(state, { activeContextId: id, warm });
+      return withMountPlan(state, {
+        activeContextId: id,
+        visualActiveContextId: id,
+        warm,
+      });
+    });
+  },
+
+  beginVisualSwitch: (id) => {
+    set((state) => {
+      if (state.visualActiveContextId === id) return state;
+      return { visualActiveContextId: id };
     });
   },
 
@@ -308,9 +334,10 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     }
 
     const generation = state.freezeGeneration;
-    // Single store notification: active + warm. Mount plan deferred off the switch frame.
+    // Single store notification: active + visual + warm. Mount plan deferred off the switch frame.
     set({
       activeContextId: nextId,
+      visualActiveContextId: nextId,
       warm,
     });
 
@@ -406,6 +433,7 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     for (const id of Object.keys(state.surfaceSnapshots)) ids.add(id);
     set({
       activeContextId: null,
+      visualActiveContextId: null,
       warm: [],
       mountPlan: { mounted: [] },
       surfaceSnapshots: {},
@@ -545,6 +573,11 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     if (s.activeContextId) ids.add(s.activeContextId);
     for (const w of s.warm) ids.add(w.contextId);
     return [...ids];
+  },
+
+  getVisualActiveContextId: () => {
+    const s = get();
+    return s.visualActiveContextId ?? s.activeContextId;
   },
 }));
 

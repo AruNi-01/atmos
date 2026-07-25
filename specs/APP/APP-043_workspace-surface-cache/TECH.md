@@ -425,25 +425,31 @@ On Warm/Frozen → Active, `useLayoutEffect` on active terminal/editor: explicit
 
 ### 9.8 Switch performance (as-shipped, post dogfood)
 
-Measured with temporary `wsc-switch` frontend debug logs (desktop API cwd: `apps/desktop/src-tauri/logs/debug/`). **Do not** reintroduce double-rAF promote or click-path WSC writes.
+<!-- updated 2026-07-26: IMP-008 visual lead for warm hops -->
+
+Measured with temporary `wsc-switch` frontend debug logs (desktop API cwd: `apps/desktop/src-tauri/logs/debug/`). **Do not** reintroduce double-rAF promote or click-path **full** WSC promote (`switchContext` / warm / budgets).
 
 | Rule | Detail |
 |------|--------|
-| **Nav path** | `prepareWorkspaceContextNavigation` injects last tab only; no store writes |
-| **Promote** | `switchContext` in CenterStage `useEffect` (post-paint); never double-rAF |
-| **Sticky** | `stickyLeavingIds` keeps leaving frame mounted until warm owns it |
-| **Deferred display** | `displayContextId = useDeferredValue(effectiveContextId)` for which frame is visible; sticky still tracks live URL |
-| **Warm paint** | inactive frames: `hidden` + `contentVisibility: "hidden"` |
+| **Nav path** | `prepareAndPrimeWorkspaceNavigation`: last-tab inject + optional visual prime when target is already mounted (Active ∪ Warm). **No** `switchContext` on click |
+| **Visual lead** | `visualActiveContextId` may lead URL for warm hops so center paint flips before route commit. Cold hops never prime an unmounted frame; stale lead resets to committed active |
+| **Rapid hop coalesce** | Quiet ≥ ~140ms → visual/promote flush immediately. Faster hops → trailing coalesce (~32ms visual / ~48ms promote) so only the latest target commits; intermediate leaves are `touch`ed into warm (IMP-009) |
+| **Promote** | `schedulePromoteWorkspaceSurfaceSwitch` from CenterStage effect after URL commits; syncs `activeContextId` + `visualActiveContextId`; never double-rAF |
+| **Sticky** | `stickyLeavingIds` keeps leaving frame mounted until warm owns it (tracks live URL id) |
+| **Display id** | Prefer mounted `visualActiveContextId` when it leads `effectiveContextId`; else URL. Removed `useDeferredValue` delay on the visible frame |
+| **URL-synced props** | Handlers, grid refs, and parent live tab/file lists apply only when `contextId === effectiveContextId`. Optimistic frames read per-context stores + `lastCenterTab` |
+| **Warm paint** | inactive frames: `hidden` + `contentVisibility: "hidden"`; light panels on warm frames only when last-active (or URL-synced mountPlan) |
 | **Terminal structure vs title** | CenterStagePanels must **not** subscribe to full `workspacePanes`. Subscribe to a **structural fingerprint** (scope → sorted pane ids) only. Dynamic title updates stay local to terminal chrome. |
 | **Snapshots** | Idle publish of `setSurfaceSnapshot`; generation guard skips superseded batches; store no-ops identical snapshots and stable `mountPlan` refs |
 | **Sidebar rows** | Pass `isActive` from parent; memo rows ignoring handler identity; click closes info popover and does **not** open on focus |
 | **markVisited** | Debounced (~750ms); patch bootstrap only for the touched workspace; **do not** `cancelQueries` on every visit |
 | **Non-chrome rebind** | git `setCurrentContext` / file-tree context after single rAF (not on click path) |
 
-**Perf evidence (local desktop dogfood, 2026-07-25):**
+**Perf evidence (local desktop dogfood, 2026-07-25 → 2026-07-26):**
 
 - Before: after-paint wait p50 ~475ms / max ~1.1s; switch settle often 0.5–1.6s.
-- After promote + structural-subscribe fixes: after-paint wait eliminated; typical settle p50 ~90ms; residual spikes ~200–450ms from multi-frame React commit under load (see [IMPROVEMENT.md](./IMPROVEMENT.md) IMP-001–007).
+- After promote + structural-subscribe fixes: after-paint wait eliminated; typical settle p50 ~90ms; residual spikes ~200–450ms from multi-frame React commit under load (IMP-007).
+- IMP-008: warm hop **first paint** no longer waits on route commit; residual multi-frame commit may remain under many warm frames (see [IMPROVEMENT.md](./IMPROVEMENT.md) IMP-007/008).
 
 ---
 

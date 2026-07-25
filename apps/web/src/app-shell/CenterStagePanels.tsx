@@ -222,9 +222,8 @@ export function CenterStagePanels({
   mountedTerminalTabsByContext,
 }: CenterStagePanelsProps) {
   const t = useTranslations("appShell.centerStagePanels");
-  // Defer the active-frame flip so rapid hops skip intermediate multi-frame commits.
-  // Sticky leave still tracks live `effectiveContextId` so terminals do not unmount.
-  const displayContextId = React.useDeferredValue(effectiveContextId);
+  // Instant paint target (may lead URL for warm hops). Full promote still follows URL.
+  const visualActiveContextId = useWorkspaceSurfaceCacheStore((s) => s.visualActiveContextId);
   // Prefer id lists over full warm entry objects — lastAccessed churn must not re-render.
   const warmIds = useWorkspaceSurfaceCacheStore((s) =>
     s.warm.map((w) => w.contextId).join("\0"),
@@ -276,6 +275,15 @@ export function CenterStagePanels({
     stickyLeavingIds: stickyLeavingIdsRef.current,
   });
 
+  // Warm hop: visual may lead URL while the target frame is already mounted.
+  // Cold hop: visual stays on prior active until promote; never paint a missing frame.
+  const displayContextId =
+    visualActiveContextId &&
+    visualActiveContextId !== effectiveContextId &&
+    contextIdsToRender.includes(visualActiveContextId)
+      ? visualActiveContextId
+      : effectiveContextId;
+
   // Publish surface snapshots once per structural change (effect cleanup cancels
   // superseded idle work so rapid hops do not run intermediate snapshots).
   const snapshotGenRef = React.useRef(0);
@@ -287,9 +295,9 @@ export function CenterStagePanels({
       // Read panes live so we pick up structure at idle time without subscribing
       // to title-level workspacePanes updates.
       const liveGetPanes = useTerminalStore.getState().getPanes;
-      // Prefer displayContextId so deferred hops do not write active snapshots for
-      // intermediate contexts that were skipped.
-      const activeId = displayContextId;
+      // Prefer URL-synced active for snapshot authority; visual-only lead still uses
+      // last-tab identity for the leading frame until promote lands.
+      const activeId = effectiveContextId;
       for (const contextId of contextIds) {
         const isActive = contextId === activeId;
         const tabs =
@@ -373,7 +381,6 @@ export function CenterStagePanels({
     browserTabsByContext,
     codeReviewTabVisible,
     contextIdsToRender.join(","),
-    displayContextId,
     getOpenFiles,
     githubTabsByContext,
     mountedTerminalTabsByContext,
@@ -381,21 +388,24 @@ export function CenterStagePanels({
     terminalPaneStructureKey,
     projectWikiTabVisible,
     visibleTerminalTabs,
+    effectiveContextId,
   ]);
 
   return (
     <>
-      {/* Stack workspace frames like terminal tabs: keep warm DOM mounted, CSS-hide only. */}
+      {/* Stack workspace frames: keep warm DOM mounted, CSS-hide only. */}
       <div className="relative flex-1 min-h-0 min-w-0 w-full">
       {contextIdsToRender.map((contextId) => {
-        // Live URL drives sticky keep-alive; deferred id drives which frame is visible
-        // so rapid hops skip intermediate multi-frame visibility flips.
+        // Visual id drives which frame is visible (may lead URL for warm hops).
+        // Sticky leave still tracks live `effectiveContextId` so terminals stay mounted.
         const isActiveContext = contextId === displayContextId;
+        // Live URL-synced props (tabs, files, handlers, refs) only when this frame
+        // matches the committed route — optimistic visual frames use per-context stores.
+        const isUrlSyncedActive = isActiveContext && contextId === effectiveContextId;
         const mountedTabs = mountedTerminalTabsByContext[contextId] || [];
-        // Base tab list from store (or active visible tabs). For warm/sticky frames,
-        // also re-introduce any mount-book tab ids so keep-alive grids are not filtered
-        // out when `allWorkspaceTerminalTabs` briefly lags behind.
-        const baseTabs = isActiveContext
+        // Base tab list from store (or URL-synced visible tabs). For warm/sticky/visual
+        // lead frames, re-introduce mount-book tab ids so keep-alive grids stay intact.
+        const baseTabs = isUrlSyncedActive
           ? visibleTerminalTabs
           : allWorkspaceTerminalTabs[contextId] || [
               { id: FIXED_TERMINAL_TAB_VALUE, title: t("fallbackTerminalTitle"), closable: true },
@@ -411,15 +421,15 @@ export function CenterStagePanels({
           });
           tabIds.add(tabId);
         }
-        const isProject = isActiveContext
+        const isProject = isUrlSyncedActive
           ? currentView === "project"
           : (workspaceContexts[contextId] ?? false);
         const lastTab = readCenterStageLastTab(contextId);
-        const contextOpenFiles = isActiveContext ? openFiles : getOpenFiles(contextId);
-        const contextGithubTabs = isActiveContext
+        const contextOpenFiles = isUrlSyncedActive ? openFiles : getOpenFiles(contextId);
+        const contextGithubTabs = isUrlSyncedActive
           ? githubTabs
           : (githubTabsByContext[contextId] ?? []);
-        const contextBrowserTabs = isActiveContext
+        const contextBrowserTabs = isUrlSyncedActive
           ? browserTabs
           : (browserTabsByContext[contextId] ?? []);
         const validTabs = [
@@ -435,7 +445,7 @@ export function CenterStagePanels({
         ];
         const frameActiveTab = resolveFrameActiveTab({
           isActiveFrame: isActiveContext,
-          urlOrEditorTab: isActiveContext ? activeValue : null,
+          urlOrEditorTab: isUrlSyncedActive ? activeValue : null,
           lastCenterTab: lastTab,
           fallbackTab: FIXED_TERMINAL_TAB_VALUE,
           validTabs,
@@ -446,6 +456,7 @@ export function CenterStagePanels({
             key={contextId}
             data-workspace-frame={contextId}
             data-tier={isActiveContext ? "active" : "warm"}
+            data-url-synced={isUrlSyncedActive ? "true" : "false"}
             // HTML hidden for e2e/APP-043 contract; Tailwind hidden + contentVisibility for paint.
             hidden={!isActiveContext}
             className={cn(
@@ -497,7 +508,7 @@ export function CenterStagePanels({
                   <div className="h-full w-full">
                     <TerminalGrid
                       ref={
-                        isActiveContext
+                        isUrlSyncedActive
                           ? tab.id === FIXED_TERMINAL_TAB_VALUE
                             ? terminalGridRef
                             : (instance) => {
@@ -509,21 +520,22 @@ export function CenterStagePanels({
                       }
                       workspaceId={contextId}
                       terminalTabId={tab.id === FIXED_TERMINAL_TAB_VALUE ? undefined : tab.id}
-                      quickOpenAgents={isActiveContext ? terminalQuickOpenAgents : undefined}
+                      quickOpenAgents={isUrlSyncedActive ? terminalQuickOpenAgents : undefined}
                       className="h-full"
                       isProjectContext={isProject}
-                      onNewTerminalTab={isActiveContext ? handleCreateTerminalCenterTab : undefined}
+                      onNewTerminalTab={isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined}
                       onTerminalPaneClosed={
-                        isActiveContext ? handleTerminalPaneClosed : undefined
+                        isUrlSyncedActive ? handleTerminalPaneClosed : undefined
                       }
                     />
                   </div>
                 </div>
               ))}
 
-            {(isActiveContext ? projectWikiTabVisible : frameActiveTab === "project-wiki") &&
+            {(isUrlSyncedActive ? projectWikiTabVisible : frameActiveTab === "project-wiki") &&
               (mountPlan.mounted.length === 0 ||
-                isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "project-wiki"))) && (
+                isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "project-wiki")) ||
+                frameActiveTab === "project-wiki") && (
                 <div
                   className={cn(
                     "flex-1 min-h-0 min-w-0",
@@ -535,19 +547,20 @@ export function CenterStagePanels({
                   )}
                 >
                   <TerminalGrid
-                    ref={isActiveContext ? projectWikiTerminalGridRef : undefined}
+                    ref={isUrlSyncedActive ? projectWikiTerminalGridRef : undefined}
                     workspaceId={contextId}
                     scope="project-wiki"
                     toolbarActions={{ split: false, maximize: false, close: false }}
                     className="h-full"
-                    onNewTerminalTab={isActiveContext ? handleCreateTerminalCenterTab : undefined}
+                    onNewTerminalTab={isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined}
                   />
                 </div>
               )}
 
-            {(isActiveContext ? codeReviewTabVisible : frameActiveTab === "code-review") &&
+            {(isUrlSyncedActive ? codeReviewTabVisible : frameActiveTab === "code-review") &&
               (mountPlan.mounted.length === 0 ||
-                isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "code-review"))) && (
+                isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "code-review")) ||
+                frameActiveTab === "code-review") && (
                 <div
                   className={cn(
                     "flex-1 min-h-0 min-w-0",
@@ -559,19 +572,21 @@ export function CenterStagePanels({
                   )}
                 >
                   <TerminalGrid
-                    ref={isActiveContext ? codeReviewTerminalGridRef : undefined}
+                    ref={isUrlSyncedActive ? codeReviewTerminalGridRef : undefined}
                     workspaceId={contextId}
                     scope="code-review"
                     toolbarActions={{ split: false, maximize: false, close: false }}
                     className="h-full"
-                    onNewTerminalTab={isActiveContext ? handleCreateTerminalCenterTab : undefined}
+                    onNewTerminalTab={isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined}
                   />
                 </div>
               )}
 
-            {(mountPlan.mounted.length === 0 ||
-              isKeyMounted(mountPlan, lightMountKey(contextId, "overview")) ||
-              frameActiveTab === "overview") && (
+            {/* Light panels: warm frames only keep last-active (or mountPlan) surfaces. */}
+            {(frameActiveTab === "overview" ||
+              (isUrlSyncedActive &&
+                (mountPlan.mounted.length === 0 ||
+                  isKeyMounted(mountPlan, lightMountKey(contextId, "overview"))))) && (
               <div
                 className={cn(
                   "flex-1 min-h-0 min-w-0 overflow-auto",
@@ -584,22 +599,22 @@ export function CenterStagePanels({
               >
                 <OverviewTab
                   contextId={contextId}
-                  projectId={isActiveContext ? currentProject?.id : undefined}
-                  projectName={isActiveContext ? currentProject?.name : undefined}
-                  projectPath={isActiveContext ? currentProject?.mainFilePath : undefined}
+                  projectId={isUrlSyncedActive ? currentProject?.id : undefined}
+                  projectName={isUrlSyncedActive ? currentProject?.name : undefined}
+                  projectPath={isUrlSyncedActive ? currentProject?.mainFilePath : undefined}
                   workspaceName={
-                    isActiveContext
+                    isUrlSyncedActive
                       ? (currentWorkspace?.displayName ?? currentWorkspace?.name)
                       : undefined
                   }
-                  workspacePath={isActiveContext ? currentWorkspace?.localPath : undefined}
-                  gitBranch={isActiveContext ? (currentBranch ?? undefined) : undefined}
-                  createdAt={isActiveContext ? currentWorkspace?.createdAt : undefined}
-                  isProjectOnly={isActiveContext ? !currentWorkspace : false}
-                  githubIssue={isActiveContext ? currentWorkspace?.githubIssue : undefined}
-                  priority={isActiveContext ? currentWorkspace?.priority : undefined}
-                  workflowStatus={isActiveContext ? currentWorkspace?.workflowStatus : undefined}
-                  labels={isActiveContext ? currentWorkspace?.labels : undefined}
+                  workspacePath={isUrlSyncedActive ? currentWorkspace?.localPath : undefined}
+                  gitBranch={isUrlSyncedActive ? (currentBranch ?? undefined) : undefined}
+                  createdAt={isUrlSyncedActive ? currentWorkspace?.createdAt : undefined}
+                  isProjectOnly={isUrlSyncedActive ? !currentWorkspace : false}
+                  githubIssue={isUrlSyncedActive ? currentWorkspace?.githubIssue : undefined}
+                  priority={isUrlSyncedActive ? currentWorkspace?.priority : undefined}
+                  workflowStatus={isUrlSyncedActive ? currentWorkspace?.workflowStatus : undefined}
+                  labels={isUrlSyncedActive ? currentWorkspace?.labels : undefined}
                   active={
                     isActiveContext &&
                     isFramePanelVisible({
@@ -617,9 +632,12 @@ export function CenterStagePanels({
                 mountPlan.mounted.length > 0 &&
                 !isKeyMounted(mountPlan, editorMountKey(contextId, file.path))
               ) {
-                // Always mount active file on active frame
-                if (!(isActiveContext && activeValue === file.path)) {
-                  return null;
+                // Always mount active file on URL-synced active frame
+                if (!(isUrlSyncedActive && activeValue === file.path)) {
+                  // Visual-lead warm return: still mount last frameActiveTab file from store.
+                  if (!(isActiveContext && frameActiveTab === file.path)) {
+                    return null;
+                  }
                 }
               }
               return (
@@ -636,9 +654,9 @@ export function CenterStagePanels({
                     }) && "hidden",
                   )}
                 >
-                  {isDiffGroupEditorPath(file.path) && currentRepoPath && isActiveContext ? (
+                  {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
                     <ChangesCodeView repoPath={currentRepoPath} groupPath={file.path} />
-                  ) : isReviewGroupEditorPath(file.path) && isActiveContext ? (
+                  ) : isReviewGroupEditorPath(file.path) && isUrlSyncedActive ? (
                     <ReviewContextProvider
                       target={reviewTarget}
                       filePath=""
@@ -649,7 +667,7 @@ export function CenterStagePanels({
                     </ReviewContextProvider>
                   ) : file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) &&
                     currentRepoPath &&
-                    isActiveContext ? (
+                    isUrlSyncedActive ? (
                     <ReviewContextProvider
                       target={reviewTarget}
                       filePath={getEditorSourcePath(file.path)}
@@ -663,7 +681,7 @@ export function CenterStagePanels({
                         originalPath={file.path}
                       />
                     </ReviewContextProvider>
-                  ) : isConflictResolveEditorPath(file.path) && isActiveContext ? (
+                  ) : isConflictResolveEditorPath(file.path) && isUrlSyncedActive ? (
                     <GitConflictResolver />
                   ) : (
                     <FileViewer
@@ -687,7 +705,8 @@ export function CenterStagePanels({
               // M3/D12: GitHub is a light surface — only last-active / mountPlan keys stay mounted.
               const shouldMount =
                 frameActiveTab === tab.value ||
-                (mountPlan.mounted.length > 0 &&
+                (isUrlSyncedActive &&
+                  mountPlan.mounted.length > 0 &&
                   isKeyMounted(mountPlan, lightMountKey(contextId, tab.value)));
               if (!shouldMount) return null;
               return (
@@ -713,10 +732,10 @@ export function CenterStagePanels({
                         })
                       }
                       branch={tab.branch}
-                      onClosed={isActiveContext ? onGithubPullRequestChanged : undefined}
-                      onMerged={isActiveContext ? onGithubPullRequestChanged : undefined}
+                      onClosed={isUrlSyncedActive ? onGithubPullRequestChanged : undefined}
+                      onMerged={isUrlSyncedActive ? onGithubPullRequestChanged : undefined}
                       onRequestClose={
-                        isActiveContext
+                        isUrlSyncedActive
                           ? () => handleCloseGithubTab(tab.value)
                           : () => {}
                       }
@@ -735,7 +754,7 @@ export function CenterStagePanels({
                         })
                       }
                       onRequestClose={
-                        isActiveContext
+                        isUrlSyncedActive
                           ? () => handleCloseGithubTab(tab.value)
                           : () => {}
                       }
@@ -771,11 +790,11 @@ export function CenterStagePanels({
                 >
                   <BrowserPanel
                     workspaceId={
-                      isActiveContext && currentView === "workspace"
+                      isUrlSyncedActive && currentView === "workspace"
                         ? (currentWorkspace?.id ?? null)
                         : null
                     }
-                    projectId={isActiveContext ? currentProject?.id : undefined}
+                    projectId={isUrlSyncedActive ? currentProject?.id : undefined}
                     isActive={
                       isActiveContext &&
                       isFramePanelVisible({

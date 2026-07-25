@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-008**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-010**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 
@@ -29,7 +29,9 @@
 | [IMP-004](#imp-004--double-raf-afterpaint-promote-added--1s-switch-latency) | Double-rAF afterPaint promote added ~1s switch latency | closed | 2026-07-25 |
 | [IMP-005](#imp-005--dynamic-terminal-title--centerstagepanels-thrash) | Dynamic terminal title → CenterStagePanels thrash | closed | 2026-07-25 |
 | [IMP-006](#imp-006--hoverbootstrapmarkvisited-storm-during-rapid-hopping) | Hover / bootstrap / markVisited storm during rapid hopping | closed | 2026-07-25 |
-| [IMP-007](#imp-007--residual-multi-frame-react-commit-spikes) | Residual multi-frame React commit spikes | open | 2026-07-25 |
+| [IMP-007](#imp-007--residual-multi-frame-react-commit-spikes) | Residual multi-frame React commit spikes | mitigated | 2026-07-25 |
+| [IMP-008](#imp-008--warm-hop-visual-lead-before-url-commit) | Warm hop visual lead before URL commit | closed | 2026-07-26 |
+| [IMP-009](#imp-009--rapid-hop-visual--promote-coalescing) | Rapid hop visual + promote coalescing | closed | 2026-07-26 |
 
 ---
 
@@ -289,23 +291,114 @@ Cost scales with number of mounted warm frames + terminal/editor subtrees still 
 
 ### Solution
 
-**Not shipped yet** (reserved):
+Partial mitigations shipped with [IMP-008](#imp-008--warm-hop-visual-lead-before-url-commit):
 
-1. Memoize / isolate per-frame panel trees so inactive frames skip props that do not affect them.
-2. Further narrow what each warm frame mounts (already partial via light-panel policy).
-3. Optional: virtualize or freeze paint more aggressively without unmounting terminal attach.
-4. Dev-only marks (not production default) if re-measuring.
+1. Warm hops flip center visibility **before** URL commit (`visualActiveContextId`), so route latency no longer gates first paint.
+2. Warm frames keep light panels only when they are the frame’s last-active tab (narrower trees → less commit work).
+3. URL-synced live props (handlers/refs/parent tab lists) apply only when `contextId === effectiveContextId`, so optimistic paint uses per-context store identity.
+
+Still open (optional next pass):
+
+1. Memoize / isolate per-frame panel trees so inactive frames skip host prop churn.
+2. Optional: virtualize or freeze paint more aggressively without unmounting terminal attach.
+3. Dev-only marks (not production default) if re-measuring.
 
 ### Result
 
-User-accepted interim: “much better, still a little lag.” PRD warm budgets remain targets; TECH notes residual commit as known tradeoff.
+Warm return first paint no longer waits on Next route commit. Residual multi-frame commit under many warm frames may still appear; track separately if dogfood reports lag after IMP-008.
 
 ### Code / docs touched
 
 - Documented in [TECH.md §9.8](./TECH.md) perf evidence + [TEST S17 / S27](./TEST.md)
+- IMP-008 implementation
 
 ### Follow-ups
 
 - [ ] Memo per-frame body / avoid host-wide context that invalidates all frames
-- [ ] Re-measure with ≥5 warm frames after next pass
+- [ ] Re-measure with ≥5 warm frames after IMP-008
 - [ ] Do **not** lower default `maxWarmWorkspaces` solely to hide commit cost without product sign-off
+
+---
+
+## IMP-008 · Warm hop visual lead before URL commit
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-07-26 |
+| **Status** | closed |
+| **Reported by** | user |
+| **Severity** | performance |
+
+### Problem
+
+APP-043 kept warm DOM, but switching Workspace/Project still felt like a short load: center paint waited for URL → `effectiveContextId` → `switchContext` even when the target frame was already mounted.
+
+### Root cause
+
+Active paint identity was URL-first. Nav intentionally avoided full WSC promote on click (IMP-003), so warm hops still paid route commit latency before visibility flipped. `useDeferredValue` on the display id could further delay the visible frame.
+
+### Solution
+
+- Add `visualActiveContextId` + `beginVisualSwitch` (visibility only; no warm/budget work).
+- Nav path: `prepareAndPrimeWorkspaceNavigation` injects last tab **and**, when the target is already mounted (Active ∪ Warm), primes visual paint immediately.
+- Cold targets: do not prime empty frames; clear a stale visual lead back to committed active.
+- Full `switchContext` still runs after URL commit (identity truth + warm membership).
+- Center frames: `displayContextId` may lead URL for mounted targets; live parent props only when URL-synced (`contextId === effectiveContextId`).
+- No new workspace-index hotkeys (product uses those chords for terminals).
+
+### Result
+
+Warm A→B→A style hops paint the retained center surface as soon as navigation is requested, without waiting for route promote. Cold first-open still mounts after URL as before.
+
+### Code / docs touched
+
+- `apps/web/src/features/workspace/store/use-workspace-surface-cache-store.ts`
+- `apps/web/src/app-shell/workspace-surface-switch.ts`
+- `apps/web/src/shared/hooks/use-app-router.ts`
+- `apps/web/src/app-shell/CenterStagePanels.tsx`
+- [TECH.md §9.8](./TECH.md)
+- unit tests: workspace-surface-switch + workspace-surface-cache-store
+
+### Follow-ups
+
+- [ ] Optional memo isolation for remaining multi-frame commit cost (IMP-007)
+
+---
+
+## IMP-009 · Rapid hop visual + promote coalescing
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-07-26 |
+| **Status** | closed |
+| **Reported by** | user |
+| **Severity** | performance |
+
+### Problem
+
+After IMP-008, **slow** Workspace/Project hops felt instant, but **rapid** hopping still stuttered: each click flushed a full multi-frame center commit, and intermediate URL promotes stacked on the main thread.
+
+### Root cause
+
+Visual lead and URL promote were correct per hop, but not rate-limited. N hops in ~N×50ms produced ~N multi-frame React commits (and N `switchContext` paths) even though only the final context is user-visible.
+
+### Solution
+
+- **Visual scheduler:** quiet gap (`VISUAL_SWITCH_QUIET_MS` ≈ 140ms) → flush immediately (preserves slow-hop feel). Faster hops → trailing coalesce (`VISUAL_SWITCH_COALESCE_MS` ≈ 32ms) so only the latest target paints.
+- **Promote scheduler:** same quiet/coalesce shape for URL-driven `switchContext`. Intermediate leaves are `touch`ed into warm so A→B→C rapid still retains B’s frame identity without a full promote per hop.
+- Cold nav still cancels pending visual lead and snaps to committed active.
+
+### Result
+
+Rapid multi-workspace hopping should no longer stack intermediate center commits; slow single hops remain immediate.
+
+### Code / docs touched
+
+- `apps/web/src/app-shell/workspace-surface-switch.ts` (`scheduleVisualActiveSwitch`, `schedulePromoteWorkspaceSurfaceSwitch`)
+- `apps/web/src/app-shell/center-stage-support.tsx`
+- unit tests for coalesce behavior
+- [TECH.md §9.8](./TECH.md)
+
+### Follow-ups
+
+- [ ] Memo per-frame body if residual jank remains with ≥5 warm frames under slow hops
