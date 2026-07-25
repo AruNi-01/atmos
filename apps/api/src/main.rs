@@ -240,37 +240,59 @@ fn spawn_non_critical_startup_tasks(
     });
 }
 
-/// Spawn the idle agent session cleanup task.
-/// Runs every 5 minutes; reads `idle_session_timeout_mins` from
-/// `~/.atmos/agent/terminal_code_agent.json` (default 30) each tick.
+/// Spawn the agent-hook session cleanup task.
+/// Runs every 5 minutes; reads timeouts from
+/// `~/.atmos/agent/terminal_code_agent.json` each tick.
 fn spawn_idle_session_cleanup(agent_hooks_service: Arc<core_service::AgentHooksService>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5 * 60));
         interval.tick().await; // skip the immediate first tick
         loop {
             interval.tick().await;
-            let timeout_mins = read_idle_session_timeout_mins();
-            agent_hooks_service.clear_idle_older_than(timeout_mins);
+            let timeouts = read_agent_hook_session_timeouts();
+            agent_hooks_service.clear_idle_older_than(timeouts.idle_mins);
+            // Force stuck running / permission sessions idle when hooks never
+            // reported a terminal event after interrupt or process death.
+            agent_hooks_service.clear_stale_active_older_than(timeouts.active_stale_mins);
         }
     });
 }
 
-fn read_idle_session_timeout_mins() -> u64 {
-    const DEFAULT: u64 = 30;
+struct AgentHookSessionTimeouts {
+    idle_mins: u64,
+    active_stale_mins: u64,
+}
+
+fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
+    const DEFAULT_IDLE: u64 = 30;
+    const DEFAULT_ACTIVE_STALE: u64 = 30;
     let path = dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
         .join("agent")
         .join("terminal_code_agent.json");
     let Ok(content) = std::fs::read_to_string(&path) else {
-        return DEFAULT;
+        return AgentHookSessionTimeouts {
+            idle_mins: DEFAULT_IDLE,
+            active_stale_mins: DEFAULT_ACTIVE_STALE,
+        };
     };
     let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
-        return DEFAULT;
+        return AgentHookSessionTimeouts {
+            idle_mins: DEFAULT_IDLE,
+            active_stale_mins: DEFAULT_ACTIVE_STALE,
+        };
     };
-    val.get("idle_session_timeout_mins")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(DEFAULT)
+    AgentHookSessionTimeouts {
+        idle_mins: val
+            .get("idle_session_timeout_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_IDLE),
+        active_stale_mins: val
+            .get("active_session_stale_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_ACTIVE_STALE),
+    }
 }
 
 /// rustls 0.23+ requires an explicit process-wide provider before TLS (relay WSS, reqwest, etc.).
@@ -447,6 +469,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ws_manager = app_state.ws_service.manager();
 
     agent_hooks_service.set_notification_service(Arc::clone(&notification_service));
+    // Pane destroy / kill-window paths clear matching hook sessions.
+    app_state
+        .terminal_service
+        .set_agent_hooks_service(Arc::clone(&agent_hooks_service));
 
     spawn_agent_hook_forwarder(
         agent_hooks_service.subscribe_events(),

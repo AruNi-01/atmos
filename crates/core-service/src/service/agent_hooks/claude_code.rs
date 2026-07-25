@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let hook_event = payload
@@ -49,15 +49,27 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
-        "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
+        "UserPromptSubmit" => {
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
+            );
+        }
+        "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
+            service.update_state(
+                &session_id,
+                AgentToolType::ClaudeCode,
+                AgentHookState::Running,
+                project_path,
+                ctx,
+                StateUpdateKind::Progress,
             );
         }
         "PermissionRequest" => {
@@ -67,6 +79,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::PermissionRequest,
                 project_path,
                 ctx,
+                StateUpdateKind::Permission,
             );
         }
         "Notification" => {
@@ -81,16 +94,18 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     AgentHookState::PermissionRequest,
                     project_path,
                     ctx,
+                    StateUpdateKind::Permission,
                 );
             }
         }
-        "Stop" => {
+        "Stop" | "StopFailure" | "SessionEnd" => {
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         _ => {
@@ -142,5 +157,82 @@ mod tests {
         handle_event(&service, &payload, &AtmosContext::default());
 
         assert!(service.get_all_sessions().is_empty());
+    }
+
+    #[test]
+    fn claude_code_session_end_and_stop_failure_set_idle() {
+        let service = AgentHooksService::new();
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "StopFailure",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "SessionEnd",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+    }
+
+    #[test]
+    fn claude_code_late_post_tool_after_stop_stays_idle() {
+        let service = AgentHooksService::new();
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "s2",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "s2",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "PostToolUse",
+                "session_id": "s2",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 }

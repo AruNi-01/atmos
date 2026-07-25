@@ -69,6 +69,8 @@ pub struct TerminalService {
     /// Directory where shell shim scripts are installed (for dynamic title injection)
     shims_dir: Option<PathBuf>,
     db: Option<Arc<DatabaseConnection>>,
+    /// Optional agent-hooks service so pane destroy can clear hook sessions.
+    agent_hooks: std::sync::RwLock<Option<Arc<super::agent_hooks::AgentHooksService>>>,
 }
 
 impl Default for TerminalService {
@@ -100,11 +102,32 @@ impl TerminalService {
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
             db: None,
+            agent_hooks: std::sync::RwLock::new(None),
         }
     }
 
     pub fn new_with_db(db: Arc<DatabaseConnection>) -> Self {
         Self::new_internal(None, Some(db))
+    }
+
+    /// Wire agent-hooks cleanup when terminal panes / tmux windows are destroyed.
+    pub fn set_agent_hooks_service(
+        &self,
+        service: Arc<super::agent_hooks::AgentHooksService>,
+    ) {
+        *self.agent_hooks.write().expect("agent_hooks lock") = Some(service);
+    }
+
+    pub(super) fn clear_agent_hooks_for_pane(&self, workspace_id: &str, terminal_name: &str) {
+        if workspace_id.is_empty() || terminal_name.is_empty() {
+            return;
+        }
+        let stable_pane_id = format!("{}:{}", workspace_id, terminal_name);
+        if let Ok(guard) = self.agent_hooks.read() {
+            if let Some(hooks) = guard.as_ref() {
+                hooks.clear_sessions_for_stable_pane(&stable_pane_id);
+            }
+        }
     }
 
     /// Create terminal service with custom TmuxEngine
@@ -143,6 +166,7 @@ impl TerminalService {
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
             db,
+            agent_hooks: std::sync::RwLock::new(None),
         }
     }
 

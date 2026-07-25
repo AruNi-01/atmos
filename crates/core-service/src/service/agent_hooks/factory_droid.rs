@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 fn extract_tool_name(payload: &Value) -> Option<&str> {
     payload
@@ -15,6 +15,26 @@ fn extract_tool_name(payload: &Value) -> Option<&str> {
                 .and_then(|t| t.get("name"))
                 .and_then(|v| v.as_str())
         })
+}
+
+fn notification_message(payload: &Value) -> Option<&str> {
+    payload
+        .get("message")
+        .or_else(|| payload.get("notification_message"))
+        .or_else(|| payload.get("notificationMessage"))
+        .or_else(|| payload.get("text"))
+        .and_then(|v| v.as_str())
+}
+
+fn is_permission_notification(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    // "confirm" is excluded — it false-positives on benign status text.
+    lower.contains("permission") || lower.contains("approve") || lower.contains("approval")
+}
+
+fn is_idle_notification(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("waiting for your input") || lower.contains("waiting for input")
 }
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
@@ -49,6 +69,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
         "PreToolUse" => {
@@ -60,6 +81,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     AgentHookState::PermissionRequest,
                     project_path,
                     ctx,
+                    StateUpdateKind::Permission,
                 );
             } else {
                 service.update_state(
@@ -68,26 +90,63 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     AgentHookState::Running,
                     project_path,
                     ctx,
+                    StateUpdateKind::Progress,
                 );
             }
         }
-        "UserPromptSubmit" | "PostToolUse" | "SubagentStart" | "PreCompact" => {
+        "UserPromptSubmit" => {
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
-        "Notification" => {
+        "PostToolUse" | "SubagentStart" | "PreCompact" => {
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
-                AgentHookState::PermissionRequest,
+                AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::Progress,
             );
+        }
+        "Notification" => {
+            // Factory Droid often skips Stop on user interrupt and only emits a
+            // "waiting for input" notification when ready again. Permission-like
+            // messages stay as permission_request; everything else is ignored.
+            let message = notification_message(payload).unwrap_or("");
+            if is_idle_notification(message) {
+                service.update_state(
+                    &session_id,
+                    AgentToolType::FactoryDroid,
+                    AgentHookState::Idle,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::TerminalIdle,
+                );
+            } else if is_permission_notification(message) || message.is_empty() {
+                // Empty message kept as permission for backwards compatibility with
+                // older hooks that only fire Notification for approvals.
+                if message.is_empty() || is_permission_notification(message) {
+                    service.update_state(
+                        &session_id,
+                        AgentToolType::FactoryDroid,
+                        AgentHookState::PermissionRequest,
+                        project_path,
+                        ctx,
+                        StateUpdateKind::Permission,
+                    );
+                }
+            } else {
+                debug!(
+                    "Ignoring Factory Droid Notification message={:?} session={}",
+                    message, session_id
+                );
+            }
         }
         "Stop" | "SessionEnd" => {
             service.update_state(
@@ -96,6 +155,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         "SubagentStop" => {
@@ -147,12 +207,13 @@ mod tests {
     }
 
     #[test]
-    fn factory_droid_notification_sets_permission_request() {
+    fn factory_droid_permission_notification_sets_permission_request() {
         let service = AgentHooksService::new();
         let payload = serde_json::json!({
             "hook_event_name": "Notification",
             "session_id": "droid-session",
             "cwd": "/tmp/project",
+            "message": "Permission required to continue",
         });
 
         handle_event(&service, &payload, &AtmosContext::default());
@@ -160,6 +221,29 @@ mod tests {
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].state, AgentHookState::PermissionRequest);
+    }
+
+    #[test]
+    fn factory_droid_idle_notification_sets_idle() {
+        let service = AgentHooksService::new();
+        let running = serde_json::json!({
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "droid-session",
+            "cwd": "/tmp/project",
+        });
+        let idle = serde_json::json!({
+            "hook_event_name": "Notification",
+            "session_id": "droid-session",
+            "cwd": "/tmp/project",
+            "message": "Waiting for your input",
+        });
+
+        handle_event(&service, &running, &AtmosContext::default());
+        handle_event(&service, &idle, &AtmosContext::default());
+
+        let sessions = service.get_all_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].state, AgentHookState::Idle);
     }
 
     #[test]

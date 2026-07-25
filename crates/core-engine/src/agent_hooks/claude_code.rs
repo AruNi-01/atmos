@@ -67,6 +67,8 @@ fn build_hook_entries(port: u16) -> Value {
         r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
     );
     let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
+    let stop_failure = build_cmd(port, r#"{"hook_event_name":"StopFailure"}"#);
+    let session_end = build_cmd(port, r#"{"hook_event_name":"SessionEnd"}"#);
     json!({
         "SessionStart": [{
             "hooks": [{ "type": "command", "command": session_start, "timeout": 5 }]
@@ -92,6 +94,12 @@ fn build_hook_entries(port: u16) -> Value {
         }],
         "Stop": [{
             "hooks": [{ "type": "command", "command": stop, "async": true }]
+        }],
+        "StopFailure": [{
+            "hooks": [{ "type": "command", "command": stop_failure, "async": true }]
+        }],
+        "SessionEnd": [{
+            "hooks": [{ "type": "command", "command": session_end, "async": true }]
         }]
     })
 }

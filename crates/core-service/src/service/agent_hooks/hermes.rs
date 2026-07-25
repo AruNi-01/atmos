@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let hook_event = payload
@@ -35,6 +35,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
         "pre_llm_call" | "pre_tool_call" | "post_tool_call" => {
@@ -44,6 +45,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::Progress,
             );
         }
         "post_llm_call" | "on_session_end" => {
@@ -53,6 +55,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         _ => {

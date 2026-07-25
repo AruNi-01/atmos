@@ -59,6 +59,8 @@ import {
   normalizeTerminalSelectionText,
 } from "../lib/terminal-ai-context-protocol";
 import type { TerminalSelectionSnapshot } from "../types";
+import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
+import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 
 export interface TerminalRef {
   focus: () => void;
@@ -148,10 +150,39 @@ const Terminal = ({
   useEffect(() => { onSelectionSnapshotChangeRef.current = onSelectionSnapshotChange; });
   const sourceSessionIdRef = useRef(sessionId);
   const sourceTmuxWindowNameRef = useRef(tmuxWindowName);
+  const workspaceIdRef = useRef(workspaceId);
+  const interruptInferenceRef = useRef<ReturnType<
+    typeof createAgentHookInterruptInference
+  > | null>(null);
   useEffect(() => {
     sourceSessionIdRef.current = sessionId;
     sourceTmuxWindowNameRef.current = tmuxWindowName;
-  }, [sessionId, tmuxWindowName]);
+    workspaceIdRef.current = workspaceId;
+  }, [sessionId, tmuxWindowName, workspaceId]);
+
+  // Infer agent-hook idle when the user interrupts (Ctrl+C / Escape) but the
+  // agent never posts a terminal Stop/SessionEnd hook.
+  useEffect(() => {
+    const inference = createAgentHookInterruptInference({
+      getStablePaneId: () => {
+        const windowName = sourceTmuxWindowNameRef.current;
+        const wsId = workspaceIdRef.current;
+        if (!windowName || !wsId) return null;
+        return `${wsId}:${windowName}`;
+      },
+      getSession: (id) => useAgentHooksStore.getState().sessions.get(id),
+      forceSessionIdle: (id) => {
+        void useAgentHooksStore.getState().forceSessionIdle(id);
+      },
+    });
+    interruptInferenceRef.current = inference;
+    return () => {
+      inference.dispose();
+      if (interruptInferenceRef.current === inference) {
+        interruptInferenceRef.current = null;
+      }
+    };
+  }, []);
 
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
@@ -826,6 +857,7 @@ const Terminal = ({
         sendTerminalReport(data);
       } else {
         sendInput(data);
+        interruptInferenceRef.current?.observeInput(data);
       }
       onData?.(data); // Notify parent
     });

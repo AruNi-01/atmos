@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let hook_event = payload
@@ -35,29 +35,41 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
-        "beforeSubmitPrompt"
-        | "preToolUse"
-        | "postToolUse"
-        | "postToolUseFailure"
-        | "beforeShellExecution"
-        | "afterAgentResponse" => {
+        "beforeSubmitPrompt" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Cursor,
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
-        "stop" | "sessionEnd" => {
+        "preToolUse"
+        | "postToolUse"
+        | "postToolUseFailure"
+        | "beforeShellExecution" => {
+            service.update_state(
+                &session_id,
+                AgentToolType::Cursor,
+                AgentHookState::Running,
+                project_path,
+                ctx,
+                StateUpdateKind::Progress,
+            );
+        }
+        // Agent finished producing a response; turn is idle until the next prompt.
+        "afterAgentResponse" | "stop" | "sessionEnd" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Cursor,
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         _ => {
@@ -127,10 +139,32 @@ mod tests {
     }
 
     #[test]
+    fn cursor_after_agent_response_sets_idle() {
+        let service = AgentHooksService::new();
+        let running = serde_json::json!({
+            "hook_event_name": "beforeSubmitPrompt",
+            "conversation_id": "cursor-conv-2",
+            "cwd": "/tmp/project",
+        });
+        let after = serde_json::json!({
+            "hook_event_name": "afterAgentResponse",
+            "conversation_id": "cursor-conv-2",
+            "cwd": "/tmp/project",
+        });
+
+        handle_event(&service, &running, &AtmosContext::default());
+        handle_event(&service, &after, &AtmosContext::default());
+
+        let sessions = service.get_all_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].state, AgentHookState::Idle);
+    }
+
+    #[test]
     fn cursor_session_end_sets_idle() {
         let service = AgentHooksService::new();
         let running = serde_json::json!({
-            "hook_event_name": "afterAgentResponse",
+            "hook_event_name": "preToolUse",
             "conversation_id": "cursor-conv-2",
             "cwd": "/tmp/project",
         });

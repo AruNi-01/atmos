@@ -46,6 +46,7 @@ import { TerminalGridEmptyState, TerminalGridLoadingState } from "./terminal-gri
 import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pins";
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
 import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
+import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import {
   toPendingTerminalRun,
   useTerminalAgentTuiFollowUp,
@@ -378,6 +379,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     workspaceId,
   ]);
 
+  const clearAgentHookSessionForPane = useCallback((pane: { tmuxWindowName?: string | null }) => {
+    const windowName = pane.tmuxWindowName;
+    if (!windowName || !workspaceId) return;
+    const stablePaneId = `${workspaceId}:${windowName}`;
+    void useAgentHooksStore.getState().removeSession(stablePaneId);
+  }, [workspaceId]);
+
   const removeTerminalFromScope = useCallback((id: string) => {
     if (isCodeReview) {
       removeCodeReviewTerminal(workspaceId, id);
@@ -447,6 +455,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         terminalRef.destroy();
         terminalRefsMap.current.delete(paneId);
       }
+      clearAgentHookSessionForPane(pane);
       if (!isCodeReview && !isProjectWiki && onTerminalPaneClosed) {
         onTerminalPaneClosed({
           paneId,
@@ -486,7 +495,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       focusPane(paneId);
       return true;
     },
-  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgentForCurrentGrid, terminalTabId]);
+  }), [workspaceId, addTerminal, clearAgentHookSessionForPane, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, isCodeReview, isProjectWiki, onTerminalPaneClosed, removeTerminalFromScope, panes, restoreLastFocusedElement, setPaneAgentForCurrentGrid, terminalTabId]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout
@@ -540,6 +549,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       terminalRefsMap.current.delete(id);
     }
 
+    clearAgentHookSessionForPane(pane);
+
     if (!isCodeReview && !isProjectWiki && onTerminalPaneClosed) {
       onTerminalPaneClosed({
         paneId: id,
@@ -559,7 +570,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         focusPane(nextPaneId);
       }, 0);
     }
-  }, [isCodeReview, isProjectWiki, onTerminalPaneClosed, panes, removeTerminalFromScope, paneOrder, focusPane, terminalTabId]);
+  }, [clearAgentHookSessionForPane, isCodeReview, isProjectWiki, onTerminalPaneClosed, panes, removeTerminalFromScope, paneOrder, focusPane, terminalTabId]);
 
   const requestCloseTerminal = useCallback(async (id?: string | null) => {
     if (!id) return;

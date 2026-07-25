@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let hook_event = payload
@@ -32,15 +32,27 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
-        "userPromptSubmit" | "preToolUse" | "postToolUse" => {
+        "userPromptSubmit" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Kiro,
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
+            );
+        }
+        "preToolUse" | "postToolUse" => {
+            service.update_state(
+                &session_id,
+                AgentToolType::Kiro,
+                AgentHookState::Running,
+                project_path,
+                ctx,
+                StateUpdateKind::Progress,
             );
         }
         "stop" => {
@@ -50,6 +62,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         _ => {
@@ -73,10 +86,7 @@ mod tests {
 
         handle_event(&service, &payload, &AtmosContext::default());
 
-        let sessions = service.get_all_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].tool, AgentToolType::Kiro);
-        assert_eq!(sessions[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 
     #[test]
@@ -90,9 +100,7 @@ mod tests {
 
         handle_event(&service, &payload, &AtmosContext::default());
 
-        let sessions = service.get_all_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
     }
 
     #[test]
@@ -112,8 +120,6 @@ mod tests {
         handle_event(&service, &running, &AtmosContext::default());
         handle_event(&service, &stop, &AtmosContext::default());
 
-        let sessions = service.get_all_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 }

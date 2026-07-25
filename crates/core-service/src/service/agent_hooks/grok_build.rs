@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 fn hook_event_name(payload: &Value) -> &str {
     payload
@@ -63,11 +63,20 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
-        "userpromptsubmit"
-        | "user_prompt_submit"
-        | "pretooluse"
+        "userpromptsubmit" | "user_prompt_submit" => {
+            service.update_state(
+                &session_id,
+                AgentToolType::GrokBuild,
+                AgentHookState::Running,
+                project_path,
+                ctx,
+                StateUpdateKind::NewTurn,
+            );
+        }
+        "pretooluse"
         | "pre_tool_use"
         | "posttooluse"
         | "post_tool_use"
@@ -79,6 +88,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::Progress,
             );
         }
         "notification" => match notification_type(payload) {
@@ -89,6 +99,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     AgentHookState::PermissionRequest,
                     project_path,
                     ctx,
+                    StateUpdateKind::Permission,
                 );
             }
             other => {
@@ -108,6 +119,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         name if name.starts_with("subagent") || name.contains("compact") => {

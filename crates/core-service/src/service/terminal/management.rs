@@ -502,6 +502,9 @@ impl TerminalService {
     pub async fn destroy_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
+            let workspace_id = handle.workspace_id.clone();
+            let terminal_name = handle.terminal_name.clone();
+
             // Step 1: Ask the control-mode thread to detach and shut down its
             // per-connection grouped session.
             let _ = handle.command_tx.send(SessionCommand::Close {
@@ -544,6 +547,12 @@ impl TerminalService {
             // already removed the grouped session.
             if let Some(client_session) = &handle.client_session {
                 let _ = self.tmux_engine.kill_session(client_session);
+            }
+
+            // Drop agent-hook rows keyed by the stable ATMOS_PANE_ID so UI
+            // indicators cannot stay "running" after the pane is gone.
+            if let Some(name) = terminal_name.as_deref() {
+                self.clear_agent_hooks_for_pane(&workspace_id, name);
             }
 
             info!(
@@ -611,6 +620,20 @@ impl TerminalService {
             return Ok(true);
         }
         Ok(false)
+    }
+
+    /// Kill a tmux window and clear matching agent-hook sessions for the stable pane id.
+    pub fn kill_window_by_name_for_workspace(
+        &self,
+        workspace_id: &str,
+        session_name: &str,
+        tmux_window_name: &str,
+    ) -> Result<bool> {
+        let killed = self.kill_window_by_name(session_name, tmux_window_name)?;
+        if killed {
+            self.clear_agent_hooks_for_pane(workspace_id, tmux_window_name);
+        }
+        Ok(killed)
     }
 
     /// Check if a "Code Review" tmux window exists in the given session.

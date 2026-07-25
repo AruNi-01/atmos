@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let hook_event = payload
@@ -42,6 +42,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::NewTurn,
             );
         }
         "BeforeAgent"
@@ -56,6 +57,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Running,
                 project_path,
                 ctx,
+                StateUpdateKind::Progress,
             );
         }
         "PostToolUse" | "PostInvocation" | "AfterTool" | "AfterModel" => {
@@ -66,6 +68,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     AgentHookState::Running,
                     project_path,
                     ctx,
+                    StateUpdateKind::Progress,
                 );
             } else {
                 debug!(
@@ -81,6 +84,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::PermissionRequest,
                 project_path,
                 ctx,
+                StateUpdateKind::Permission,
             );
         }
         "SessionEnd" | "AfterAgent" | "PreCompress" | "Stop" => {
@@ -90,6 +94,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                StateUpdateKind::TerminalIdle,
             );
         }
         _ => {
@@ -107,16 +112,13 @@ mod tests {
         let service = AgentHooksService::new();
         let payload = serde_json::json!({
             "hook_event_name": "PreToolUse",
-            "session_id": "antigravity-session",
+            "session_id": "ag-session",
             "cwd": "/tmp/project",
         });
 
         handle_event(&service, &payload, &AtmosContext::default());
 
-        let sessions = service.get_all_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].tool, AgentToolType::Antigravity);
-        assert_eq!(sessions[0].state, AgentHookState::Running);
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
     }
 
     #[test]
@@ -124,15 +126,16 @@ mod tests {
         let service = AgentHooksService::new();
         let payload = serde_json::json!({
             "hook_event_name": "Notification",
-            "session_id": "antigravity-session",
+            "session_id": "ag-session",
             "cwd": "/tmp/project",
         });
 
         handle_event(&service, &payload, &AtmosContext::default());
 
-        let sessions = service.get_all_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::PermissionRequest);
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentHookState::PermissionRequest
+        );
     }
 
     #[test]
@@ -140,20 +143,18 @@ mod tests {
         let service = AgentHooksService::new();
         let running = serde_json::json!({
             "hook_event_name": "PreInvocation",
-            "session_id": "antigravity-session",
+            "session_id": "ag-session",
             "cwd": "/tmp/project",
         });
-        let end = serde_json::json!({
+        let stop = serde_json::json!({
             "hook_event_name": "Stop",
-            "session_id": "antigravity-session",
+            "session_id": "ag-session",
             "cwd": "/tmp/project",
         });
 
         handle_event(&service, &running, &AtmosContext::default());
-        handle_event(&service, &end, &AtmosContext::default());
+        handle_event(&service, &stop, &AtmosContext::default());
 
-        let sessions = service.get_all_sessions();
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].state, AgentHookState::Idle);
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 }

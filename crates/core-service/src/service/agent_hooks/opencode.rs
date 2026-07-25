@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
+use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
 
 fn permission_replied_state(payload: &Value) -> Option<AgentHookState> {
     let response = payload
@@ -50,6 +50,11 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::Idle,
                 project_path,
                 ctx,
+                if event_type == "session.created" {
+                    StateUpdateKind::NewTurn
+                } else {
+                    StateUpdateKind::TerminalIdle
+                },
             );
         }
         "agent.running"
@@ -66,6 +71,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                     AgentHookState::Running,
                     project_path,
                     ctx,
+                    StateUpdateKind::Progress,
                 );
             }
         }
@@ -76,16 +82,23 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 AgentHookState::PermissionRequest,
                 project_path,
                 ctx,
+                StateUpdateKind::Permission,
             );
         }
         "permission.replied" => {
             if let Some(next_state) = permission_replied_state(payload) {
+                let kind = if next_state == AgentHookState::Idle {
+                    StateUpdateKind::TerminalIdle
+                } else {
+                    StateUpdateKind::Progress
+                };
                 service.update_state(
                     &session_id,
                     AgentToolType::Opencode,
                     next_state,
                     project_path,
                     ctx,
+                    kind,
                 );
             }
         }
