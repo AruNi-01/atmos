@@ -13,7 +13,6 @@ import {
   DropdownMenuTrigger,
   Input,
   Popover,
-  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
   cn,
@@ -201,86 +200,90 @@ function GroupRowTrailing({
   deleteLabel: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
+  /** Menu panel view: actions list, or rename form in the same floating surface. */
+  const [panel, setPanel] = useState<"menu" | "rename">("menu");
   const countHideOnHover =
     hoverScope === "row" ? "group-hover/row:opacity-0" : "group-hover/header:opacity-0";
   const buttonShowOnHover =
     hoverScope === "row" ? "group-hover/row:opacity-100" : "group-hover/header:opacity-100";
-  const trailingActive = menuOpen || renameOpen;
 
   return (
     <div className="relative mr-1 flex size-6 shrink-0 items-center justify-center">
       <span
         className={cn(
           "text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
-          canManage && (trailingActive ? "opacity-0" : countHideOnHover),
+          canManage && (menuOpen ? "opacity-0" : countHideOnHover),
         )}
       >
         {count}
       </span>
       {canManage && groupId ? (
-        <Popover
-          open={renameOpen}
+        <DropdownMenu
+          modal={false}
+          open={menuOpen}
           onOpenChange={(open) => {
-            setRenameOpen(open);
-            if (open) setMenuOpen(false);
+            setMenuOpen(open);
+            // Reset to the action list whenever the surface closes.
+            if (!open) setPanel("menu");
           }}
         >
-          <PopoverAnchor asChild>
-            <div className="absolute inset-0">
-              <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                      trailingActive ? "opacity-100" : cn("opacity-0", buttonShowOnHover),
-                    )}
-                    aria-label="Group actions"
-                  >
-                    <MoreHorizontal className="size-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      setMenuOpen(false);
-                      // Open rename popover next to the ··· control.
-                      queueMicrotask(() => setRenameOpen(true));
-                    }}
-                  >
-                    <Pencil className="size-3.5" />
-                    {renameLabel}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                    <Trash2 className="size-3.5" />
-                    {deleteLabel}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </PopoverAnchor>
-          <PopoverContent
-            side="right"
-            align="start"
-            sideOffset={8}
-            className="w-56 p-2"
-            onOpenAutoFocus={(event) => event.preventDefault()}
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "absolute inset-0 z-10 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                menuOpen ? "opacity-100" : cn("opacity-0", buttonShowOnHover),
+              )}
+              aria-label="Group actions"
+            >
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className={cn(panel === "rename" ? "w-56 p-2" : "w-40")}
+            // Keep the floating surface mounted while typing in the rename form.
+            onCloseAutoFocus={(event) => event.preventDefault()}
           >
-            <GroupNamePopoverForm
-              key={`${groupId}:${groupName}:${renameOpen ? "open" : "closed"}`}
-              mode="rename"
-              initialName={groupName}
-              onCancel={() => setRenameOpen(false)}
-              onSubmit={async (name) => {
-                await onRename(groupId, name);
-                setRenameOpen(false);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+            {panel === "menu" ? (
+              <>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    // Stay inside the same menu surface; do not dismiss then re-open.
+                    event.preventDefault();
+                    setPanel("rename");
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  {renameLabel}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                  <Trash2 className="size-3.5" />
+                  {deleteLabel}
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <div
+                // Prevent menu item focus logic from treating the form as a select.
+                onKeyDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <GroupNamePopoverForm
+                  key={`${groupId}:${groupName}:rename`}
+                  mode="rename"
+                  initialName={groupName}
+                  onCancel={() => setPanel("menu")}
+                  onSubmit={async (name) => {
+                    await onRename(groupId, name);
+                    setMenuOpen(false);
+                    setPanel("menu");
+                  }}
+                />
+              </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
     </div>
   );
