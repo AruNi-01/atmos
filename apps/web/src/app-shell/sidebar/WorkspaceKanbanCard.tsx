@@ -16,6 +16,7 @@ import {
 import { formatRelativeTime } from "@atmos/shared";
 import {
   Archive,
+  Folders,
   Github,
   LogIn,
   MoreHorizontal,
@@ -25,6 +26,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type {
+  Group,
   Workspace,
   WorkspaceLabel,
   WorkspacePriority,
@@ -44,6 +46,7 @@ import type {
   DragItem,
   KanbanCardProperties,
 } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
+import { resolveWorkspaceGroupName } from "@/app-shell/sidebar/kanban-columns";
 
 export function KanbanWorkspaceCard({
   workspace,
@@ -51,6 +54,9 @@ export function KanbanWorkspaceCard({
   projectName,
   cardProperties,
   showUnpinnedBorder = false,
+  groups = [],
+  sourceColumnKey,
+  dragDisabled = false,
   onEnterWorkspace,
   availableLabels,
   onUpdateWorkflowStatus,
@@ -68,6 +74,9 @@ export function KanbanWorkspaceCard({
   projectName: string;
   cardProperties: KanbanCardProperties;
   showUnpinnedBorder?: boolean;
+  groups?: Group[];
+  sourceColumnKey?: string;
+  dragDisabled?: boolean;
   onEnterWorkspace: (projectId: string, workspaceId: string) => void;
   availableLabels: WorkspaceLabel[];
   onUpdateWorkflowStatus: (
@@ -99,6 +108,7 @@ export function KanbanWorkspaceCard({
   const workspaceTitle = isIssueOnly && workspace.githubIssue
     ? `#${workspace.githubIssue.number} ${workspace.githubIssue.title}`
     : workspace.name;
+  const groupName = resolveWorkspaceGroupName(groups, projectId, workspace.id);
   const labelsToRender = workspace.labels.length > 0
     ? workspace.labels
     : isIssueOnly
@@ -252,7 +262,20 @@ export function KanbanWorkspaceCard({
         </div>
       ) : null}
 
-      {cardProperties.workspace_name ? <h3 className="mb-2 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3> : null}
+      {cardProperties.workspace_name ? (
+        <div className="mb-2 flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
+          {groupName ? (
+            <span
+              className="inline-flex max-w-[40%] shrink-0 items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              title={groupName}
+            >
+              <Folders className="size-3 shrink-0" />
+              <span className="truncate">{groupName}</span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {cardProperties.display_name && workspace.displayName?.trim() ? (
         <div className="mb-3 text-xs text-muted-foreground">{workspace.displayName}</div>
       ) : null}
@@ -309,12 +332,17 @@ export function KanbanWorkspaceCard({
   );
 }
 
-export function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspaceCard> & { isRecentlyDropped?: boolean }) {
-  const { isRecentlyDropped, ...cardProps } = props;
+export function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspaceCard> & {
+  isRecentlyDropped?: boolean;
+  sourceColumnKey: string;
+}) {
+  const { isRecentlyDropped, sourceColumnKey, dragDisabled, ...cardProps } = props;
   const dragItem = React.useMemo<DragItem>(() => ({
     id: cardProps.workspace.id,
     projectId: cardProps.projectId,
     status: cardProps.workspace.workflowStatus,
+    priority: cardProps.workspace.priority,
+    sourceColumnKey,
     preview: {
       projectName: cardProps.projectName,
       workspaceName: cardProps.workspace.name,
@@ -325,10 +353,11 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
       lastVisitedAt: cardProps.workspace.lastVisitedAt,
       createdAt: cardProps.workspace.createdAt,
     },
-  }), [cardProps.projectId, cardProps.projectName, cardProps.workspace]);
+  }), [cardProps.projectId, cardProps.projectName, cardProps.workspace, sourceColumnKey]);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `workspace:${cardProps.workspace.id}`,
+    id: `workspace:${cardProps.workspace.id}:${sourceColumnKey}`,
     data: { item: dragItem },
+    disabled: dragDisabled,
   });
 
   const nodeRef = React.useRef<HTMLDivElement>(null);
@@ -348,19 +377,23 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
         setNodeRef(node);
       }}
       {...attributes}
-      {...listeners}
+      {...(dragDisabled ? {} : listeners)}
       className={cn(
         "relative z-0",
         isDragging && "z-50",
       )}
-      style={{ opacity: isDragging ? 0.3 : 1, cursor: "grab" }}
+      style={{ opacity: isDragging ? 0.3 : 1, cursor: dragDisabled ? "default" : "grab" }}
     >
       <div className={cn(
         "transition-all duration-500 ease-out rounded-md",
         isDragging && "scale-[1.01] shadow-lg ring-1 ring-border/40",
         isRecentlyDropped && "bg-primary/20 ring-2 ring-primary animate-pulse",
       )}>
-        <KanbanWorkspaceCard {...cardProps} />
+        <KanbanWorkspaceCard
+          {...cardProps}
+          sourceColumnKey={sourceColumnKey}
+          dragDisabled={dragDisabled}
+        />
       </div>
     </div>
   );
@@ -410,19 +443,23 @@ export function KanbanDragPreview({ item }: { item: DragItem }) {
 }
 
 export function DroppableColumn({
-  status,
+  columnKey,
   activeDragItem,
+  dropDisabled = false,
   children,
 }: {
-  status: WorkspaceWorkflowStatus;
+  columnKey: string;
   activeDragItem: DragItem | null;
+  dropDisabled?: boolean;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: `kanban-status:${status}`,
-    data: { status },
+    id: `kanban-column:${columnKey}`,
+    data: { columnKey },
+    disabled: dropDisabled,
   });
-  const isValidTarget = isOver && activeDragItem?.status !== status;
+  const isValidTarget =
+    !dropDisabled && isOver && activeDragItem?.sourceColumnKey !== columnKey;
 
   return (
     <div

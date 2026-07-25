@@ -24,9 +24,10 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import type { Project, WorkspaceLabel } from "@/shared/types/domain";
+import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
 import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
 import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
+import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 
 type WorkspaceKanbanViewProps = React.ComponentProps<typeof WorkspaceKanbanView>;
 
@@ -48,13 +49,17 @@ interface LeftSidebarManagementCenterProps {
   automationsEnabled: boolean;
   projects: Project[];
   availableLabels: WorkspaceLabel[];
+  groups?: Group[];
+  groupingMode?: SidebarGroupingMode;
   kanbanFilters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
+  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
   onNavigate: (path: string) => void;
   onOpenCanvas: () => void;
   onOpenNewWorkspace: () => void;
   onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
   onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
+  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
   onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
   onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
   onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
@@ -74,13 +79,17 @@ export function LeftSidebarManagementCenter({
   automationsEnabled,
   projects,
   availableLabels,
+  groups = [],
+  groupingMode = "status",
   kanbanFilters,
   onFiltersChange,
+  onGroupingModeChange,
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
   onUpdateWorkflowStatus,
   onUpdatePriority,
+  onSetWorkspaceGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -143,13 +152,17 @@ export function LeftSidebarManagementCenter({
                 isActive={currentView === item.id || (item.kind === "canvas" && canvasOpen)}
                 projects={projects}
                 availableLabels={availableLabels}
+                groups={groups}
+                groupingMode={groupingMode}
                 kanbanFilters={kanbanFilters}
                 onFiltersChange={onFiltersChange}
+                onGroupingModeChange={onGroupingModeChange}
                 onNavigate={onNavigate}
                 onOpenCanvas={onOpenCanvas}
                 onOpenNewWorkspace={onOpenNewWorkspace}
                 onUpdateWorkflowStatus={onUpdateWorkflowStatus}
                 onUpdatePriority={onUpdatePriority}
+                onSetWorkspaceGroup={onSetWorkspaceGroup}
                 onCreateLabel={onCreateLabel}
                 onUpdateLabel={onUpdateLabel}
                 onUpdateLabels={onUpdateLabels}
@@ -173,13 +186,17 @@ function ManagementCenterCard({
   isActive,
   projects,
   availableLabels,
+  groups = [],
+  groupingMode = "status",
   kanbanFilters,
   onFiltersChange,
+  onGroupingModeChange,
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
   onUpdateWorkflowStatus,
   onUpdatePriority,
+  onSetWorkspaceGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -194,13 +211,17 @@ function ManagementCenterCard({
   isActive: boolean;
   projects: Project[];
   availableLabels: WorkspaceLabel[];
+  groups?: Group[];
+  groupingMode?: SidebarGroupingMode;
   kanbanFilters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
+  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
   onNavigate: (path: string) => void;
   onOpenCanvas: () => void;
   onOpenNewWorkspace: () => void;
   onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
   onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
+  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
   onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
   onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
   onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
@@ -261,8 +282,12 @@ function ManagementCenterCard({
       <WorkspaceKanbanView
         projects={projects}
         availableLabels={availableLabels}
+        groups={groups}
+        groupingMode={groupingMode}
+        onGroupingModeChange={onGroupingModeChange}
         onUpdateWorkflowStatus={onUpdateWorkflowStatus}
         onUpdatePriority={onUpdatePriority}
+        onSetWorkspaceGroup={onSetWorkspaceGroup}
         onCreateLabel={onCreateLabel}
         onUpdateLabel={onUpdateLabel}
         onUpdateLabels={onUpdateLabels}

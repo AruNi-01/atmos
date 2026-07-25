@@ -1176,13 +1176,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         automationsEnabled={automationsEnabled}
                         projects={projects}
                         availableLabels={workspaceLabels}
+                        groups={groups}
+                        groupingMode={groupingMode}
                         kanbanFilters={kanbanFilters}
                         onFiltersChange={setKanbanFilters}
+                        onGroupingModeChange={setGroupingMode}
                         onNavigate={(path) => router.push(path)}
                         onOpenCanvas={() => void setCanvasOpen(true)}
                         onOpenNewWorkspace={handleOpenNewWorkspace}
                         onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                         onUpdatePriority={updateWorkspacePriority}
+                        onSetWorkspaceGroup={handleSetWorkspaceGroup}
                         onCreateLabel={createWorkspaceLabel}
                         onUpdateLabel={updateWorkspaceLabel}
                         onUpdateLabels={updateWorkspaceLabels}
@@ -1240,6 +1244,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     filesOnRight={filesOnRight}
                     filters={kanbanFilters}
                     groupingMode={groupingMode}
+                    groups={groups}
                     isKanbanExpanded={isKanbanExpanded}
                     projects={projects}
                     onAddProject={handleAddProject}
@@ -1251,6 +1256,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     onFiltersChange={setKanbanFilters}
                     onGroupingModeChange={setGroupingMode}
                     onPinWorkspace={pinWorkspace}
+                    onSetWorkspaceGroup={handleSetWorkspaceGroup}
                     onUnpinWorkspace={unpinWorkspace}
                     onUpdateLabel={updateWorkspaceLabel}
                     onUpdateLabels={updateWorkspaceLabels}

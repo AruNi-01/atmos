@@ -117,7 +117,9 @@ export type WorkspaceKanbanViewSavedState = {
     priorities: WorkspacePriority[];
     label_ids: string[];
     project_ids: string[];
-    hidden_columns: WorkspaceWorkflowStatus[];
+    group_ids?: string[];
+    /** Status keys (legacy) or generic column keys for multi-mode boards. */
+    hidden_columns: string[];
     show_automation_workspaces?: boolean;
   };
   properties: KanbanCardProperties;
@@ -144,6 +146,9 @@ export interface DragItem {
   id: string;
   projectId: string;
   status: WorkspaceWorkflowStatus;
+  priority: WorkspacePriority;
+  /** Column key the card was dragged from (for non-status boards). */
+  sourceColumnKey: string;
   preview: {
     projectName: string;
     workspaceName: string;

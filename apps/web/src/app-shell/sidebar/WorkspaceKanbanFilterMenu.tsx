@@ -19,6 +19,7 @@ import {
   cn,
 } from "@workspace/ui";
 import type {
+  Group,
   Project,
   WorkspaceCreateSource,
   WorkspaceLabel,
@@ -35,19 +36,20 @@ import {
 } from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
   Check,
-  CircleCheck,
-  Flag,
-  Folder,
+  Folders,
   ListFilter,
-  Tags,
   Timer,
 } from "lucide-react";
+import { resolveBoardColor, resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
+import { UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
 
 export type WorkspaceKanbanFilters = {
   statuses: WorkspaceWorkflowStatus[];
   priorities: WorkspacePriority[];
   labelIds: string[];
   projectIds: string[];
+  /** Group ids, or `__ungrouped__` for no group membership. */
+  groupIds: string[];
   showAutomationWorkspaces: boolean;
 };
 
@@ -56,11 +58,18 @@ export const EMPTY_WORKSPACE_KANBAN_FILTERS: WorkspaceKanbanFilters = {
   priorities: [],
   labelIds: [],
   projectIds: [],
+  groupIds: [],
   showAutomationWorkspaces: false,
 };
 
 export function getActiveWorkspaceKanbanFilterCount(filters: WorkspaceKanbanFilters) {
-  return filters.statuses.length + filters.priorities.length + filters.labelIds.length + filters.projectIds.length;
+  return (
+    filters.statuses.length +
+    filters.priorities.length +
+    filters.labelIds.length +
+    filters.projectIds.length +
+    filters.groupIds.length
+  );
 }
 
 export function shouldApplyWorkspaceKanbanVisibilityFilter(filters: WorkspaceKanbanFilters) {
@@ -70,12 +79,13 @@ export function shouldApplyWorkspaceKanbanVisibilityFilter(filters: WorkspaceKan
 export function filterWorkspaceKanbanEntries<T extends {
   projectId: string;
   workspace: {
+    id: string;
     workflowStatus: WorkspaceWorkflowStatus;
     priority: WorkspacePriority;
     labels: WorkspaceLabel[];
     createSource?: WorkspaceCreateSource;
   };
-}>(items: T[], filters: WorkspaceKanbanFilters): T[] {
+}>(items: T[], filters: WorkspaceKanbanFilters, groups: Group[] = []): T[] {
   return items.filter((item) => {
     if (!filters.showAutomationWorkspaces && item.workspace.createSource === "automation") return false;
     if (filters.projectIds.length > 0 && !filters.projectIds.includes(item.projectId)) return false;
@@ -85,6 +95,11 @@ export function filterWorkspaceKanbanEntries<T extends {
       filters.labelIds.length > 0 &&
       !item.workspace.labels.some((label) => filters.labelIds.includes(label.id))
     ) return false;
+    if (filters.groupIds.length > 0) {
+      const groupId = resolveWorkspaceGroupId(groups, item.projectId, item.workspace.id);
+      const key = groupId ?? UNGROUPED_USER_GROUP_KEY;
+      if (!filters.groupIds.includes(key)) return false;
+    }
 
     return true;
   });
@@ -93,6 +108,7 @@ export function filterWorkspaceKanbanEntries<T extends {
 type WorkspaceKanbanFilterMenuProps = {
   projects: Project[];
   availableLabels: WorkspaceLabel[];
+  groups?: Group[];
   filters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   triggerVariant?: "button" | "icon";
@@ -105,9 +121,15 @@ type WorkspaceKanbanFilterMenuProps = {
   onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
 };
 
+/** Icons aligned with SIDEBAR_GROUPING_OPTIONS for Group By + Filter. */
+const GROUPING_ICON_BY_MODE = Object.fromEntries(
+  SIDEBAR_GROUPING_OPTIONS.map((option) => [option.value, option.icon]),
+) as Record<SidebarGroupingMode, React.ComponentType<{ className?: string }>>;
+
 export function WorkspaceKanbanFilterMenu({
   projects,
   availableLabels,
+  groups = [],
   filters,
   onFiltersChange,
   triggerVariant = "button",
@@ -119,8 +141,10 @@ export function WorkspaceKanbanFilterMenu({
   onGroupingModeChange,
 }: WorkspaceKanbanFilterMenuProps) {
   const t = useTranslations("appShell.kanban");
+  const groupsT = useTranslations("appShell.groups");
   const [labelFilterQuery, setLabelFilterQuery] = React.useState("");
   const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
+  const [groupFilterQuery, setGroupFilterQuery] = React.useState("");
   const activeFilterCount = getActiveWorkspaceKanbanFilterCount(filters);
 
   const filteredLabelOptions = React.useMemo(() => {
@@ -134,6 +158,13 @@ export function WorkspaceKanbanFilterMenu({
     if (!q) return projects;
     return projects.filter((project) => project.name.toLowerCase().includes(q));
   }, [projectFilterQuery, projects]);
+
+  const filteredGroupOptions = React.useMemo(() => {
+    const ordered = groups.slice().sort((a, b) => a.sidebarOrder - b.sidebarOrder);
+    const q = groupFilterQuery.trim().toLowerCase();
+    if (!q) return ordered;
+    return ordered.filter((group) => group.name.toLowerCase().includes(q));
+  }, [groupFilterQuery, groups]);
 
   const toggleStatus = (value: WorkspaceWorkflowStatus) =>
     onFiltersChange({
@@ -167,6 +198,14 @@ export function WorkspaceKanbanFilterMenu({
         : [...filters.projectIds, value],
     });
 
+  const toggleGroup = (value: string) =>
+    onFiltersChange({
+      ...filters,
+      groupIds: filters.groupIds.includes(value)
+        ? filters.groupIds.filter((item) => item !== value)
+        : [...filters.groupIds, value],
+    });
+
   const toggleAutomationWorkspaces = (value: boolean) =>
     onFiltersChange({
       ...filters,
@@ -174,6 +213,12 @@ export function WorkspaceKanbanFilterMenu({
     });
 
   const clearAllFilters = () => onFiltersChange(EMPTY_WORKSPACE_KANBAN_FILTERS);
+
+  const ProjectIcon = GROUPING_ICON_BY_MODE.project;
+  const GroupIcon = GROUPING_ICON_BY_MODE.group;
+  const StatusIcon = GROUPING_ICON_BY_MODE.status;
+  const PriorityIcon = GROUPING_ICON_BY_MODE.priority;
+  const LabelIcon = GROUPING_ICON_BY_MODE.label;
 
   return (
     <DropdownMenu modal={false}>
@@ -233,7 +278,7 @@ export function WorkspaceKanbanFilterMenu({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <Folder className="size-4" />
+            <ProjectIcon className="size-4" />
             {t("filter.project")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
@@ -257,7 +302,11 @@ export function WorkspaceKanbanFilterMenu({
                   }}
                   className="cursor-pointer"
                 >
-                  <span>{project.name}</span>
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: resolveBoardColor(project.borderColor) }}
+                  />
+                  <span className="truncate">{project.name}</span>
                   {filters.projectIds.includes(project.id) ? <Check className="ml-auto size-4" /> : null}
                 </DropdownMenuItem>
               ))
@@ -267,7 +316,55 @@ export function WorkspaceKanbanFilterMenu({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <CircleCheck className="size-4" />
+            <GroupIcon className="size-4" />
+            {t("filter.group")}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-56">
+            <div className="p-2">
+              <Input
+                value={groupFilterQuery}
+                onChange={(e) => setGroupFilterQuery(e.target.value)}
+                placeholder={t("filter.searchGroups")}
+                className="h-7 text-xs"
+              />
+            </div>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                toggleGroup(UNGROUPED_USER_GROUP_KEY);
+              }}
+              className="cursor-pointer"
+            >
+              <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">{groupsT("ungrouped")}</span>
+              {filters.groupIds.includes(UNGROUPED_USER_GROUP_KEY) ? (
+                <Check className="ml-auto size-4" />
+              ) : null}
+            </DropdownMenuItem>
+            {filteredGroupOptions.length === 0 ? (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("filter.noMatchingGroups")}</div>
+            ) : (
+              filteredGroupOptions.map((group) => (
+                <DropdownMenuItem
+                  key={group.id}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    toggleGroup(group.id);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{group.name}</span>
+                  {filters.groupIds.includes(group.id) ? <Check className="ml-auto size-4" /> : null}
+                </DropdownMenuItem>
+              ))
+            )}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <StatusIcon className="size-4" />
             {t("filter.status")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
@@ -290,7 +387,7 @@ export function WorkspaceKanbanFilterMenu({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <Flag className="size-4" />
+            <PriorityIcon className="size-4" />
             {t("filter.priority")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
@@ -313,7 +410,7 @@ export function WorkspaceKanbanFilterMenu({
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <Tags className="size-4" />
+            <LabelIcon className="size-4" />
             {t("filter.labels")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
@@ -337,8 +434,11 @@ export function WorkspaceKanbanFilterMenu({
                   }}
                   className="cursor-pointer"
                 >
-                  <span className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
-                  <span>{label.name}</span>
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: resolveBoardColor(label.color) }}
+                  />
+                  <span className="truncate">{label.name}</span>
                   {filters.labelIds.includes(label.id) ? <Check className="ml-auto size-4" /> : null}
                 </DropdownMenuItem>
               ))

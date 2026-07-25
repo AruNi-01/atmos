@@ -192,6 +192,7 @@ export function useLeftSidebarWorkspaceRenderers({
             projectName={entry.projectName}
             cardProperties={options?.cardProperties ?? secondColumnKanbanCardProperties}
             showUnpinnedBorder={options?.showUnpinnedBorder ?? true}
+            groups={groups}
             onEnterWorkspace={onEnterWorkspaceFromKanban}
             availableLabels={workspaceLabels}
             onUpdateWorkflowStatus={(projectId, workspaceId, workflowStatus) =>
@@ -214,6 +215,7 @@ export function useLeftSidebarWorkspaceRenderers({
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
+        groups,
         onEnterWorkspaceFromKanban,
         pinWorkspace,
         secondColumnKanbanCardProperties,

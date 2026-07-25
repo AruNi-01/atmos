@@ -80,6 +80,7 @@ export function useLeftSidebarWorkspaceDerived({
     const filteredFlattenedWorkspaces = filterWorkspaceKanbanEntries(
         flattenedWorkspaces,
         kanbanFilters,
+        groups,
     );
     const projectModeProjects = useMemo(
         () => getProjectModeProjects(projects, filteredFlattenedWorkspaces, {

@@ -38,6 +38,7 @@ import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useQueryState } from "nuqs";
 import { leftSidebarParams } from "@/shared/lib/nuqs/searchParams";
 import type {
+  Group,
   Project,
   Workspace,
   WorkspaceLabel,
@@ -46,9 +47,12 @@ import type {
 } from "@/shared/types/domain";
 import {
   getWorkspaceWorkflowStatusMeta,
+  SIDEBAR_GROUPING_OPTIONS,
+  type SidebarGroupingMode,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
 } from "@/app-shell/sidebar/workspace-status";
 import {
+  getWorkspacePriorityMeta,
   WORKSPACE_PRIORITY_OPTIONS,
   WORKSPACE_PRIORITY_SORT_WEIGHT,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
@@ -76,12 +80,10 @@ import {
   KanbanWorkspaceCard,
 } from "@/app-shell/sidebar/WorkspaceKanbanCard";
 import {
-  BOARD_COLUMNS,
   DEFAULT_KANBAN_CARD_PROPERTIES,
   KANBAN_CARD_PROPERTY_OPTIONS,
   KANBAN_SORT_BY_VALUES,
   KANBAN_SORT_ORDER_VALUES,
-  STATUS_COLOR_MAP,
   mapKanbanWorkspaceModel,
   resolveKanbanCardProperties,
   type DragItem,
@@ -91,6 +93,13 @@ import {
   type KanbanSortOrder,
   type WorkspaceKanbanViewSavedState,
 } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
+import {
+  buildKanbanBoardColumns,
+  columnBackgroundTint,
+  isKanbanDragAssignable,
+  resolveKanbanColumnKeys,
+  type KanbanBoardColumn,
+} from "@/app-shell/sidebar/kanban-columns";
 
 export {
   DEFAULT_KANBAN_CARD_PROPERTIES,
@@ -102,6 +111,9 @@ export type { KanbanCardProperties };
 interface WorkspaceKanbanViewProps {
   projects: Project[];
   availableLabels: WorkspaceLabel[];
+  groups?: Group[];
+  groupingMode?: SidebarGroupingMode;
+  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
   onUpdateWorkflowStatus: (
     projectId: string,
     workspaceId: string,
@@ -112,6 +124,7 @@ interface WorkspaceKanbanViewProps {
     workspaceId: string,
     priority: WorkspacePriority,
   ) => Promise<void>;
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => Promise<void> | void;
   onCreateLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels: (
@@ -131,8 +144,12 @@ interface WorkspaceKanbanViewProps {
 export function WorkspaceKanbanView({
   projects,
   availableLabels,
+  groups = [],
+  groupingMode = "status",
+  onGroupingModeChange,
   onUpdateWorkflowStatus,
   onUpdatePriority,
+  onSetWorkspaceGroup,
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
@@ -145,6 +162,8 @@ export function WorkspaceKanbanView({
   trigger,
 }: WorkspaceKanbanViewProps) {
   const t = useTranslations("appShell.kanban");
+  const groupsT = useTranslations("appShell.groups");
+  const groupingT = useTranslations("appShell.workspaceGrouping");
   const router = useAppRouter();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const { onCloseAutoFocusPrevent } = useFocusRestore(!!isKanbanExpanded);
@@ -160,7 +179,7 @@ export function WorkspaceKanbanView({
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [recentlyDroppedId, setRecentlyDroppedId] = React.useState<string | null>(null);
   const [activeDragItem, setActiveDragItem] = React.useState<DragItem | null>(null);
-  const [hiddenColumns, setHiddenColumns] = React.useState<WorkspaceWorkflowStatus[]>([]);
+  const [hiddenColumns, setHiddenColumns] = React.useState<string[]>([]);
   const [sortBy, setSortBy] = React.useState<KanbanSortBy>("last_visit");
   const [sortOrder, setSortOrder] = React.useState<KanbanSortOrder>("desc");
   const [cardProperties, setCardProperties] = React.useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
@@ -181,6 +200,7 @@ export function WorkspaceKanbanView({
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
   );
+  const dragAssignable = isKanbanDragAssignable(groupingMode);
 
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const [isBrowser, setIsBrowser] = React.useState(false);
@@ -275,8 +295,11 @@ export function WorkspaceKanbanView({
       const loadedProjectIds = Array.isArray(filters.project_ids)
         ? filters.project_ids.filter((item): item is string => typeof item === "string")
         : [];
+      const loadedGroupIds = Array.isArray(filters.group_ids)
+        ? filters.group_ids.filter((item): item is string => typeof item === "string")
+        : [];
       const loadedHiddenColumns = Array.isArray(filters.hidden_columns)
-        ? filters.hidden_columns.filter((item): item is WorkspaceWorkflowStatus => availableStatusSet.has(item as WorkspaceWorkflowStatus))
+        ? filters.hidden_columns.filter((item): item is string => typeof item === "string")
         : [];
       const loadedShowAutomationWorkspaces =
         typeof filters.show_automation_workspaces === "boolean"
@@ -295,6 +318,7 @@ export function WorkspaceKanbanView({
         priorities: loadedPriorities,
         labelIds: loadedLabelIds,
         projectIds: loadedProjectIds,
+        groupIds: loadedGroupIds,
         showAutomationWorkspaces: loadedShowAutomationWorkspaces,
       });
       setHiddenColumns(loadedHiddenColumns);
@@ -309,6 +333,7 @@ export function WorkspaceKanbanView({
           priorities: [],
           labelIds: [],
           projectIds: [],
+          groupIds: [],
           showAutomationWorkspaces: false,
         });
         setHiddenColumns([]);
@@ -339,6 +364,7 @@ export function WorkspaceKanbanView({
         priorities: filters.priorities,
         label_ids: filters.labelIds,
         project_ids: filters.projectIds,
+        group_ids: filters.groupIds,
         hidden_columns: hiddenColumns,
         show_automation_workspaces: filters.showAutomationWorkspaces,
       },
@@ -365,9 +391,22 @@ export function WorkspaceKanbanView({
     return () => window.clearTimeout(timer);
   }, [isSettingsReady, persistWorkspaceKanbanSettings]);
 
+  const boardColumns = React.useMemo(
+    () =>
+      buildKanbanBoardColumns({
+        groupingMode,
+        projects: kanbanProjects ?? projects,
+        groups,
+        availableLabels,
+        ungroupedLabel: groupsT("ungrouped"),
+        untaggedLabel: groupingT("untagged"),
+      }),
+    [availableLabels, groupingMode, groupingT, groups, groupsT, kanbanProjects, projects],
+  );
+
   const grouped = React.useMemo(() => {
     const sourceProjects = kanbanProjects ?? projects;
-    const buckets = new Map<WorkspaceWorkflowStatus, KanbanEntry[]>();
+    const buckets = new Map<string, KanbanEntry[]>();
     sourceProjects.forEach((project) => {
       project.workspaces.forEach((workspace) => {
         // Filter out issue_only workspaces unless showIssueOnly is true
@@ -390,9 +429,18 @@ export function WorkspaceKanbanView({
           }
         }
 
-        const list = buckets.get(workspace.workflowStatus) ?? [];
-        list.push({ projectId: project.id, projectName: project.name, workspace });
-        buckets.set(workspace.workflowStatus, list);
+        const columnKeys = resolveKanbanColumnKeys({
+          groupingMode,
+          projectId: project.id,
+          workspace,
+          groups,
+        });
+        const entry = { projectId: project.id, projectName: project.name, workspace };
+        for (const key of columnKeys) {
+          const list = buckets.get(key) ?? [];
+          list.push(entry);
+          buckets.set(key, list);
+        }
       });
     });
 
@@ -432,7 +480,7 @@ export function WorkspaceKanbanView({
     });
 
     return buckets;
-  }, [filters, kanbanProjects, projects, searchQuery, showIssueOnly, sortBy, sortOrder]);
+  }, [filters, groupingMode, groups, kanbanProjects, projects, searchQuery, showIssueOnly, sortBy, sortOrder]);
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
@@ -446,22 +494,43 @@ export function WorkspaceKanbanView({
   }, [activeDragItem]);
 
   const handleDragStart = React.useCallback((event: DragStartEvent) => {
+    if (!dragAssignable) return;
     const item = event.active.data.current?.item as DragItem | undefined;
     setActiveDragItem(item ?? null);
-  }, []);
+  }, [dragAssignable]);
 
   const handleDragEnd = React.useCallback((event: DragEndEvent) => {
     const item = event.active.data.current?.item as DragItem | undefined;
-    const targetStatus = event.over?.data.current?.status as WorkspaceWorkflowStatus | undefined;
+    const targetColumnKey = event.over?.data.current?.columnKey as string | undefined;
     setActiveDragItem(null);
-    if (!item || !targetStatus || item.status === targetStatus) return;
+    if (!item || !targetColumnKey || !dragAssignable) return;
+    if (item.sourceColumnKey === targetColumnKey) return;
 
-    void onUpdateWorkflowStatus(item.projectId, item.id, targetStatus);
+    const targetColumn = boardColumns.find((column) => column.key === targetColumnKey);
+    if (!targetColumn) return;
+
+    if (groupingMode === "status" && targetColumn.status) {
+      void onUpdateWorkflowStatus(item.projectId, item.id, targetColumn.status);
+    } else if (groupingMode === "priority" && targetColumn.priority) {
+      void onUpdatePriority(item.projectId, item.id, targetColumn.priority);
+    } else if (groupingMode === "group" && onSetWorkspaceGroup) {
+      void onSetWorkspaceGroup(item.id, targetColumn.groupId ?? null);
+    } else {
+      return;
+    }
+
     setRecentlyDroppedId(item.id);
     setTimeout(() => {
       setRecentlyDroppedId((prev) => (prev === item.id ? null : prev));
     }, 2000);
-  }, [onUpdateWorkflowStatus]);
+  }, [
+    boardColumns,
+    dragAssignable,
+    groupingMode,
+    onSetWorkspaceGroup,
+    onUpdatePriority,
+    onUpdateWorkflowStatus,
+  ]);
 
   const handleDragCancel = React.useCallback(() => {
     setActiveDragItem(null);
@@ -493,7 +562,7 @@ export function WorkspaceKanbanView({
     const chips: Array<{
       key: string;
       label: string;
-      type: "status" | "priority" | "label" | "project";
+      type: "status" | "priority" | "label" | "project" | "group";
       value: string;
     }> = [];
     filters.statuses.forEach((status) => {
@@ -520,11 +589,19 @@ export function WorkspaceKanbanView({
       const project = projects.find((item) => item.id === projectId);
       if (project) chips.push({ key: `project-${projectId}`, label: project.name, type: "project", value: projectId });
     });
+    filters.groupIds.forEach((groupId) => {
+      if (groupId === "__ungrouped__") {
+        chips.push({ key: `group-${groupId}`, label: groupsT("ungrouped"), type: "group", value: groupId });
+        return;
+      }
+      const group = groups.find((item) => item.id === groupId);
+      if (group) chips.push({ key: `group-${groupId}`, label: group.name, type: "group", value: groupId });
+    });
     return chips;
-  }, [availableLabels, filters, projects, t]);
+  }, [availableLabels, filters, groups, groupsT, projects, t]);
 
   const removeFilterChip = React.useCallback((chip: {
-    type: "status" | "priority" | "label" | "project";
+    type: "status" | "priority" | "label" | "project" | "group";
     value: string;
   }) => {
     if (chip.type === "status") {
@@ -548,6 +625,13 @@ export function WorkspaceKanbanView({
       });
       return;
     }
+    if (chip.type === "group") {
+      onFiltersChange({
+        ...filters,
+        groupIds: filters.groupIds.filter((item) => item !== chip.value),
+      });
+      return;
+    }
     onFiltersChange({
       ...filters,
       projectIds: filters.projectIds.filter((item) => item !== chip.value),
@@ -566,26 +650,31 @@ export function WorkspaceKanbanView({
   }, [isSearchOpen, searchQuery]);
 
   const visibleColumns = React.useMemo(
-    () => BOARD_COLUMNS.filter((column) => !hiddenColumns.includes(column.status)),
-    [hiddenColumns],
+    () => boardColumns.filter((column) => !hiddenColumns.includes(column.key)),
+    [boardColumns, hiddenColumns],
   );
   const hiddenColumnList = React.useMemo(
-    () => BOARD_COLUMNS.filter((column) => hiddenColumns.includes(column.status)),
-    [hiddenColumns],
+    () => boardColumns.filter((column) => hiddenColumns.includes(column.key)),
+    [boardColumns, hiddenColumns],
   );
 
-  const hideColumn = React.useCallback((status: WorkspaceWorkflowStatus) => {
-    setHiddenColumns((prev) => (prev.includes(status) ? prev : [...prev, status]));
+  const hideColumn = React.useCallback((columnKey: string) => {
+    setHiddenColumns((prev) => (prev.includes(columnKey) ? prev : [...prev, columnKey]));
   }, []);
 
-  const showColumn = React.useCallback((status: WorkspaceWorkflowStatus) => {
-    setHiddenColumns((prev) => prev.filter((item) => item !== status));
-    }, []);
+  const showColumn = React.useCallback((columnKey: string) => {
+    setHiddenColumns((prev) => prev.filter((item) => item !== columnKey));
+  }, []);
 
-  const openCreateWorkspaceDialog = React.useCallback((status: WorkspaceWorkflowStatus) => {
+  const openCreateWorkspaceDialog = React.useCallback((status: WorkspaceWorkflowStatus = "in_progress") => {
     setCreateWorkspaceStatus(status);
     setIsCreateWorkspaceOpen(true);
   }, []);
+
+  const columnTitle = React.useCallback(
+    (column: KanbanBoardColumn) => (column.labelIsI18nKey ? t(column.label as never) : column.label),
+    [t],
+  );
 
     return (
     <Dialog
@@ -614,8 +703,12 @@ export function WorkspaceKanbanView({
               <WorkspaceKanbanFilterMenu
                 projects={projects}
                 availableLabels={availableLabels}
+                groups={groups}
                 filters={filters}
                 onFiltersChange={onFiltersChange}
+                showGrouping={Boolean(onGroupingModeChange)}
+                groupingMode={groupingMode}
+                onGroupingModeChange={onGroupingModeChange}
               />
 
               {selectedFilterChips.length > 0 ? (
@@ -764,53 +857,88 @@ export function WorkspaceKanbanView({
               >
                 <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2">
                   {visibleColumns.map((column) => {
-                    const items = grouped.get(column.status) ?? [];
-                    const meta = getWorkspaceWorkflowStatusMeta(column.status);
-                    const StatusIcon = meta.icon;
-                    const statusLabel = t(meta.labelKey);
+                    const items = grouped.get(column.key) ?? [];
+                    const title = columnTitle(column);
+                    const ModeIcon =
+                      SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)?.icon ??
+                      null;
+                    const statusMeta = column.status
+                      ? getWorkspaceWorkflowStatusMeta(column.status)
+                      : null;
+                    const priorityMeta = column.priority
+                      ? getWorkspacePriorityMeta(column.priority)
+                      : null;
+                    const HeaderIcon = statusMeta?.icon ?? priorityMeta?.icon ?? ModeIcon;
+                    const headerIconClass =
+                      statusMeta?.className ??
+                      priorityMeta?.className ??
+                      "text-muted-foreground";
+                    // Color-backed modes use a swatch; status/priority keep their level icons.
+                    const showColorSwatch =
+                      groupingMode === "label" ||
+                      groupingMode === "project" ||
+                      groupingMode === "group" ||
+                      groupingMode === "time" ||
+                      (!HeaderIcon && Boolean(column.color));
 
                     return (
                       <section
-                        key={column.status}
+                        key={column.key}
                         className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md"
-                        style={{ backgroundColor: `${STATUS_COLOR_MAP[column.status]}10` }}
+                        style={{ backgroundColor: columnBackgroundTint(column.color) }}
                       >
                         <header className={cn("sticky top-0 z-10 h-[44px] rounded-t-md px-3")}>
                           <div className="flex h-full w-full items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <StatusIcon className={cn("size-3.5", meta.className)} />
-                              <span className="text-sm font-medium">{statusLabel}</span>
+                            <div className="flex min-w-0 items-center gap-2">
+                              {showColorSwatch ? (
+                                <span
+                                  className="size-2.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: column.color }}
+                                />
+                              ) : HeaderIcon ? (
+                                <HeaderIcon className={cn("size-3.5 shrink-0", headerIconClass)} />
+                              ) : null}
+                              <span className="truncate text-sm font-medium">{title}</span>
                               <span className="text-sm text-muted-foreground">{items.length}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
-                                onClick={() => hideColumn(column.status)}
+                                onClick={() => hideColumn(column.key)}
                                 className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                title={t("column.hide", { label: statusLabel })}
+                                title={t("column.hide", { label: title })}
                               >
                                 <EyeOff className="size-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => openCreateWorkspaceDialog(column.status)}
-                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                title={t("column.createWorkspace", { label: statusLabel })}
-                              >
-                                <Plus className="size-3.5" />
-                              </button>
+                              {groupingMode === "status" && column.status ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openCreateWorkspaceDialog(column.status)}
+                                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                  title={t("column.createWorkspace", { label: title })}
+                                >
+                                  <Plus className="size-3.5" />
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         </header>
-                        <DroppableColumn status={column.status} activeDragItem={activeDragItem}>
+                        <DroppableColumn
+                          columnKey={column.key}
+                          activeDragItem={activeDragItem}
+                          dropDisabled={!dragAssignable}
+                        >
                           {items.map(({ projectId, projectName, workspace }) => (
                             <DraggableWorkspaceCard
-                              key={workspace.id}
+                              key={`${column.key}:${workspace.id}`}
                               isRecentlyDropped={recentlyDroppedId === workspace.id}
+                              sourceColumnKey={column.key}
+                              dragDisabled={!dragAssignable}
                               workspace={workspace}
                               projectId={projectId}
                               projectName={projectName}
                               cardProperties={cardProperties}
+                              groups={groups}
                               onEnterWorkspace={handleEnterWorkspace}
                               availableLabels={availableLabels}
                               onUpdateWorkflowStatus={onUpdateWorkflowStatus}
@@ -837,20 +965,21 @@ export function WorkspaceKanbanView({
                       </header>
                       <div className="space-y-2 p-2">
                         {hiddenColumnList.map((column) => {
-                          const meta = getWorkspaceWorkflowStatusMeta(column.status);
-                          const StatusIcon = meta.icon;
-                          const hiddenCount = (grouped.get(column.status) ?? []).length;
-                          const statusLabel = t(meta.labelKey);
+                          const title = columnTitle(column);
+                          const hiddenCount = (grouped.get(column.key) ?? []).length;
                           return (
-                            <div key={column.status} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
-                              <StatusIcon className={cn("size-3.5", meta.className)} />
-                              <span className="ml-2 text-xs text-foreground">{statusLabel}</span>
+                            <div key={column.key} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
+                              <span
+                                className="size-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: column.color }}
+                              />
+                              <span className="ml-2 truncate text-xs text-foreground">{title}</span>
                               <span className="ml-1 text-xs text-muted-foreground">{hiddenCount}</span>
                               <button
                                 type="button"
-                                onClick={() => showColumn(column.status)}
+                                onClick={() => showColumn(column.key)}
                                 className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                title={t("column.show", { label: statusLabel })}
+                                title={t("column.show", { label: title })}
                               >
                                 <Eye className="size-3.5" />
                               </button>

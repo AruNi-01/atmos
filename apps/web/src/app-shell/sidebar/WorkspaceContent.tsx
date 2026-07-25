@@ -507,15 +507,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
             )}
           >
-            <div className="relative flex min-w-0 w-full items-center">
+            <div className="relative flex min-w-0 w-full items-center gap-1">
               <div className="absolute -left-1 flex size-5 items-center justify-center rounded-sm">
                 {workspace.isPinned ? (
                   <button
                     onClick={handlePinClick}
                     className={cn(
-                      "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                      isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
-                      "hover:text-foreground"
+                      "absolute inset-0 z-10 flex items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
+                      isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
+                      "hover:text-foreground",
                     )}
                     title={t("common.unpin")}
                   >
@@ -525,15 +525,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   <>
                     <GitBranch
                       className={cn(
-                        "size-3.5 block group-hover/ws:hidden",
-                        isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                        "block size-3.5 group-hover/ws:hidden",
+                        isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
                       )}
                     />
                     <button
                       onClick={handlePinClick}
                       className={cn(
-                        "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                        "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
+                        "absolute inset-0 z-10 hidden items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
+                        "group-hover/ws:flex text-muted-foreground hover:text-foreground",
                       )}
                       title={t("common.pin")}
                     >
@@ -542,8 +542,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   </>
                 )}
               </div>
-              <div className="flex items-center min-w-0 gap-1.5 pl-5">
-                <span className="text-[13px] font-medium truncate">
+              {/* Title takes remaining width and ellipsizes — no absolute overlays / frosted plates. */}
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-5">
+                <span className="truncate text-[13px] font-medium">
                   {primaryLabel}
                   {showProjectName && projectName && (
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
@@ -574,25 +575,24 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   />
                 )}
               </div>
-              {rightContext ? (
-                <div
-                  className={cn(
-                    "pointer-events-none absolute inset-y-0 -right-2 z-[9] flex items-center rounded-r-md bg-sidebar px-2 pl-4 text-[11px] text-muted-foreground transition-opacity duration-150 group-hover/ws:opacity-0",
-                  )}
-                >
-                  <span className="relative z-10">{rightContext}</span>
+              {/* Trailing slot in normal flow: status/time/label, or archive on hover. */}
+              <div className="flex shrink-0 items-center justify-end">
+                {rightContext ? (
+                  <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
+                    {rightContext}
+                  </div>
+                ) : null}
+                <div className="hidden items-center gap-1 group-hover/ws:flex">
+                  <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
+                  <button
+                    onClick={handleArchiveClick}
+                    className="flex size-4 items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
+                    title={t("common.archive")}
+                    disabled={isCheckingGit}
+                  >
+                    <Archive className="size-3" />
+                  </button>
                 </div>
-              ) : null}
-              <div className="pointer-events-none absolute inset-y-0 -right-1 z-10 flex items-center gap-1 rounded-r-md bg-sidebar/95 pl-5 opacity-0 transition-opacity duration-150 [mask-image:linear-gradient(to_right,transparent,black_30%)] group-hover/ws:pointer-events-auto group-hover/ws:opacity-100">
-                <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
-                <button
-                  onClick={handleArchiveClick}
-                  className="size-4 flex items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
-                  title={t("common.archive")}
-                  disabled={isCheckingGit}
-                >
-                  <Archive className="size-3" />
-                </button>
               </div>
             </div>
           </div>
