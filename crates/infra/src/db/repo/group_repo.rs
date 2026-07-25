@@ -2,7 +2,7 @@ use sea_orm::sea_query::Expr;
 use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
-use crate::db::entities::{item_group, item_group_member};
+use crate::db::entities::{item_group, item_group_member, project, workspace};
 use crate::db::repo::base::BaseRepo;
 use crate::error::Result;
 
@@ -269,6 +269,9 @@ impl<'a> GroupRepo<'a> {
     }
 
     /// Soft-delete any prior active membership, then insert the replacement atomically.
+    ///
+    /// Group + member liveness are checked inside the same transaction as the write so a
+    /// concurrent soft-delete cannot leave an active membership on a deleted target.
     pub async fn replace_member_exclusively(
         &self,
         group_guid: String,
@@ -278,6 +281,50 @@ impl<'a> GroupRepo<'a> {
     ) -> Result<item_group_member::Model> {
         let txn = self.db.begin().await?;
         let now = chrono::Utc::now().naive_utc();
+
+        let group_alive = item_group::Entity::find_by_id(group_guid.clone())
+            .filter(item_group::Column::IsDeleted.eq(false))
+            .one(&txn)
+            .await?;
+        if group_alive.is_none() {
+            return Err(crate::error::InfraError::Custom(format!(
+                "Group {} not found",
+                group_guid
+            )));
+        }
+
+        match member_type.as_str() {
+            "project" => {
+                let alive = project::Entity::find_by_id(member_guid.clone())
+                    .filter(project::Column::IsDeleted.eq(false))
+                    .one(&txn)
+                    .await?;
+                if alive.is_none() {
+                    return Err(crate::error::InfraError::Custom(format!(
+                        "Project {} not found",
+                        member_guid
+                    )));
+                }
+            }
+            "workspace" => {
+                let alive = workspace::Entity::find_by_id(member_guid.clone())
+                    .filter(workspace::Column::IsDeleted.eq(false))
+                    .one(&txn)
+                    .await?;
+                if alive.is_none() {
+                    return Err(crate::error::InfraError::Custom(format!(
+                        "Workspace {} not found",
+                        member_guid
+                    )));
+                }
+            }
+            other => {
+                return Err(crate::error::InfraError::Custom(format!(
+                    "Invalid member type: {}",
+                    other
+                )));
+            }
+        }
 
         item_group_member::Entity::update_many()
             .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))

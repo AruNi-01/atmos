@@ -3,7 +3,7 @@ use sea_orm::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::db::entities::base::BaseFields;
-use crate::db::entities::{item_group_member, workspace, workspace_label};
+use crate::db::entities::{item_group_member, project, workspace, workspace_label};
 use crate::db::repo::base::BaseRepo;
 use crate::error::Result;
 
@@ -115,6 +115,20 @@ impl<'a> WorkspaceRepo<'a> {
             None => None,
         };
 
+        // Project liveness + insert must share one transaction so a concurrent project
+        // soft-delete cannot commit between the check and the workspace row write.
+        let txn = self.db.begin().await?;
+        let project_alive = project::Entity::find_by_id(project_guid.clone())
+            .filter(project::Column::IsDeleted.eq(false))
+            .one(&txn)
+            .await?;
+        if project_alive.is_none() {
+            return Err(crate::error::InfraError::Custom(format!(
+                "Project {} not found",
+                project_guid
+            )));
+        }
+
         let model = workspace::ActiveModel {
             guid: Set(base.guid),
             project_guid: Set(project_guid),
@@ -145,7 +159,8 @@ impl<'a> WorkspaceRepo<'a> {
             create_source: Set(create_source.as_str().to_string()),
         };
 
-        let result = model.insert(self.db).await?;
+        let result = model.insert(&txn).await?;
+        txn.commit().await?;
         Ok(result)
     }
 
