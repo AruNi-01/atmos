@@ -183,8 +183,7 @@ impl<'a> ProjectRepo<'a> {
             .filter(item_group_member::Column::IsDeleted.eq(false))
             .filter(item_group_member::Column::MemberType.eq("workspace"))
             .filter(
-                item_group_member::Column::MemberGuid
-                    .in_subquery(workspace_guids_for_project()),
+                item_group_member::Column::MemberGuid.in_subquery(workspace_guids_for_project()),
             )
             .exec(&txn)
             .await?;
@@ -214,8 +213,7 @@ impl<'a> ProjectRepo<'a> {
             .filter(item_group_member::Column::IsDeleted.eq(false))
             .filter(item_group_member::Column::MemberType.eq("workspace"))
             .filter(
-                item_group_member::Column::MemberGuid
-                    .in_subquery(workspace_guids_for_project()),
+                item_group_member::Column::MemberGuid.in_subquery(workspace_guids_for_project()),
             )
             .exec(&txn)
             .await?;

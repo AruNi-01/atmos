@@ -93,7 +93,9 @@ impl ProjectService {
         // mid-delete failure never leaves dangling memberships or half-deleted children.
         // Workspace memberships are resolved inside the repo transaction (subquery), not
         // from a pre-txn snapshot that can race with concurrent workspace creation.
-        Ok(project_repo.soft_delete_with_group_memberships(&guid).await?)
+        Ok(project_repo
+            .soft_delete_with_group_memberships(&guid)
+            .await?)
     }
 
     /// Gather cleanup info for all workspaces in a project (for background cleanup).
