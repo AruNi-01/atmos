@@ -1,6 +1,6 @@
 use crate::error::{Result, ServiceError};
 use infra::db::entities::item_group_member;
-use infra::db::repo::{GroupRepo, ProjectRepo, WorkspaceRepo};
+use infra::db::repo::GroupRepo;
 use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -219,36 +219,6 @@ impl GroupService {
         let repo = GroupRepo::new(&self.db);
         repo.soft_delete_memberships_for_member(MEMBER_TYPE_WORKSPACE, workspace_guid)
             .await?;
-        Ok(())
-    }
-
-    async fn ensure_member_exists(&self, member_type: &str, member_guid: &str) -> Result<()> {
-        match member_type {
-            MEMBER_TYPE_PROJECT => {
-                let project_repo = ProjectRepo::new(&self.db);
-                project_repo
-                    .find_by_guid(member_guid)
-                    .await?
-                    .ok_or_else(|| {
-                        ServiceError::NotFound(format!("Project {} not found", member_guid))
-                    })?;
-            }
-            MEMBER_TYPE_WORKSPACE => {
-                let workspace_repo = WorkspaceRepo::new(&self.db);
-                workspace_repo
-                    .find_by_guid(member_guid)
-                    .await?
-                    .ok_or_else(|| {
-                        ServiceError::NotFound(format!("Workspace {} not found", member_guid))
-                    })?;
-            }
-            _ => {
-                return Err(ServiceError::Validation(format!(
-                    "Invalid member_type: {}",
-                    member_type
-                )));
-            }
-        }
         Ok(())
     }
 }
