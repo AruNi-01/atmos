@@ -137,7 +137,8 @@ impl WorkspaceService {
     /// 删除工作区（仅软删除数据库记录，不清理 worktree）
     pub async fn soft_delete_workspace(&self, guid: &str) -> Result<()> {
         let group_service = crate::service::group::GroupService::new(Arc::clone(&self.db));
-        let _ = group_service.remove_memberships_for_workspace(guid).await;
+        // Propagate cleanup failures so active memberships never dangle after delete.
+        group_service.remove_memberships_for_workspace(guid).await?;
         let workspace_repo = WorkspaceRepo::new(&self.db);
         Ok(workspace_repo.soft_delete(guid).await?)
     }

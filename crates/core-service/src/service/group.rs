@@ -125,10 +125,13 @@ impl GroupService {
 
     pub async fn update_group_order(&self, orders: Vec<(String, i32)>) -> Result<()> {
         let repo = GroupRepo::new(&self.db);
-        for (guid, order) in orders {
-            repo.update_group_order(&guid, order).await?;
+        // Validate all groups exist before writing so rejected requests never partially apply.
+        for (guid, _) in &orders {
+            repo.find_group_by_guid(guid)
+                .await?
+                .ok_or_else(|| ServiceError::NotFound(format!("Group {} not found", guid)))?;
         }
-        Ok(())
+        Ok(repo.update_group_orders(&orders).await?)
     }
 
     pub async fn delete_group(&self, guid: String) -> Result<()> {
@@ -155,13 +158,11 @@ impl GroupService {
         self.ensure_member_exists(&member_type, &member_guid)
             .await?;
 
-        // Exclusive: clear any previous membership for this member.
-        repo.soft_delete_memberships_for_member(&member_type, &member_guid)
-            .await?;
-
+        // Exclusive membership: soft-delete prior row and insert replacement in one transaction.
+        // Combined with the partial unique index on active (member_type, member_guid).
         let sort_order = repo.next_member_sort_order(&group_guid).await?;
         let member = repo
-            .create_member(group_guid, member_type, member_guid, sort_order)
+            .replace_member_exclusively(group_guid, member_type, member_guid, sort_order)
             .await?;
         Ok(GroupMemberDto::from(member))
     }
@@ -188,7 +189,8 @@ impl GroupService {
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Group {} not found", group_guid)))?;
 
-        for (index, membership_guid) in membership_guids.iter().enumerate() {
+        // Validate every membership before any write so failed reorders stay atomic.
+        for membership_guid in &membership_guids {
             let member = repo
                 .find_member_by_guid(membership_guid)
                 .await?
@@ -204,10 +206,8 @@ impl GroupService {
                     membership_guid, group_guid
                 )));
             }
-            repo.update_member_sort_order(membership_guid, index as i32)
-                .await?;
         }
-        Ok(())
+        Ok(repo.update_member_sort_orders(&membership_guids).await?)
     }
 
     pub async fn remove_memberships_for_project(&self, project_guid: &str) -> Result<()> {
@@ -300,6 +300,15 @@ mod tests {
                 "PRAGMA foreign_keys = OFF".to_owned(),
             ))
             .await;
+
+        // Mirror exclusive active membership constraint from migration.
+        db.execute(Statement::from_string(
+            DbBackend::Sqlite,
+            r#"CREATE UNIQUE INDEX IF NOT EXISTS "idx-item_group_member-active-type-guid" ON "item_group_member" ("member_type", "member_guid") WHERE "is_deleted" = false"#
+                .to_owned(),
+        ))
+        .await
+        .expect("create exclusive membership index");
 
         Arc::new(db)
     }

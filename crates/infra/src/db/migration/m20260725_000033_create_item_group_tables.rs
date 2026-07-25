@@ -1,3 +1,4 @@
+use sea_orm::{ConnectionTrait, Statement};
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -112,6 +113,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // Non-unique lookup across soft-deleted history.
         manager
             .create_index(
                 Index::create()
@@ -123,6 +125,17 @@ impl MigrationTrait for Migration {
                     .col(ItemGroupMember::IsDeleted)
                     .to_owned(),
             )
+            .await?;
+
+        // Enforce exclusive active membership (one live group per item).
+        // Partial unique index keeps soft-deleted history unrestricted.
+        manager
+            .get_connection()
+            .execute(Statement::from_string(
+                manager.get_database_backend(),
+                r#"CREATE UNIQUE INDEX IF NOT EXISTS "idx-item_group_member-active-type-guid" ON "item_group_member" ("member_type", "member_guid") WHERE "is_deleted" = false"#
+                    .to_owned(),
+            ))
             .await?;
 
         Ok(())

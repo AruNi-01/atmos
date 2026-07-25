@@ -91,6 +91,26 @@ impl<'a> GroupRepo<'a> {
         Ok(())
     }
 
+    /// Atomically apply sidebar order for many groups.
+    pub async fn update_group_orders(&self, orders: &[(String, i32)]) -> Result<()> {
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+        for (guid, order) in orders {
+            let result = item_group::Entity::update_many()
+                .col_expr(item_group::Column::SidebarOrder, Expr::value(*order))
+                .col_expr(item_group::Column::UpdatedAt, Expr::value(now))
+                .filter(item_group::Column::Guid.eq(guid.as_str()))
+                .filter(item_group::Column::IsDeleted.eq(false))
+                .exec(&txn)
+                .await?;
+            if result.rows_affected == 0 {
+                return Err(crate::error::InfraError::Custom("Group not found".into()));
+            }
+        }
+        txn.commit().await?;
+        Ok(())
+    }
+
     pub async fn soft_delete_group(&self, guid: &str) -> Result<()> {
         let result = item_group::Entity::update_many()
             .col_expr(item_group::Column::IsDeleted, Expr::value(true))
@@ -220,6 +240,42 @@ impl<'a> GroupRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
+    /// Soft-delete any prior active membership, then insert the replacement atomically.
+    pub async fn replace_member_exclusively(
+        &self,
+        group_guid: String,
+        member_type: String,
+        member_guid: String,
+        sort_order: i32,
+    ) -> Result<item_group_member::Model> {
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq(member_type.as_str()))
+            .filter(item_group_member::Column::MemberGuid.eq(member_guid.as_str()))
+            .exec(&txn)
+            .await?;
+
+        let base = BaseFields::new();
+        let model = item_group_member::ActiveModel {
+            guid: Set(base.guid),
+            created_at: Set(base.created_at),
+            updated_at: Set(base.updated_at),
+            is_deleted: Set(base.is_deleted),
+            group_guid: Set(group_guid),
+            member_type: Set(member_type),
+            member_guid: Set(member_guid),
+            sort_order: Set(sort_order),
+        };
+        let inserted = model.insert(&txn).await?;
+        txn.commit().await?;
+        Ok(inserted)
+    }
+
     pub async fn update_member_sort_order(
         &self,
         membership_guid: &str,
@@ -243,6 +299,34 @@ impl<'a> GroupRepo<'a> {
                 "Group membership not found".into(),
             ));
         }
+        Ok(())
+    }
+
+    /// Atomically apply sort order for many memberships in one group.
+    pub async fn update_member_sort_orders(
+        &self,
+        ordered_membership_guids: &[String],
+    ) -> Result<()> {
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+        for (index, membership_guid) in ordered_membership_guids.iter().enumerate() {
+            let result = item_group_member::Entity::update_many()
+                .col_expr(
+                    item_group_member::Column::SortOrder,
+                    Expr::value(index as i32),
+                )
+                .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+                .filter(item_group_member::Column::Guid.eq(membership_guid.as_str()))
+                .filter(item_group_member::Column::IsDeleted.eq(false))
+                .exec(&txn)
+                .await?;
+            if result.rows_affected == 0 {
+                return Err(crate::error::InfraError::Custom(
+                    "Group membership not found".into(),
+                ));
+            }
+        }
+        txn.commit().await?;
         Ok(())
     }
 

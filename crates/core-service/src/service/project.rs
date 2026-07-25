@@ -91,14 +91,15 @@ impl ProjectService {
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
 
         // Clear group memberships for project and its workspaces before soft-delete.
+        // Propagate cleanup failures so we never leave dangling active memberships.
         let group_service = GroupService::new(Arc::clone(&self.db));
         let all_workspaces = workspace_repo.list_all_by_project(&guid).await?;
         for ws in &all_workspaces {
-            let _ = group_service
+            group_service
                 .remove_memberships_for_workspace(&ws.guid)
-                .await;
+                .await?;
         }
-        let _ = group_service.remove_memberships_for_project(&guid).await;
+        group_service.remove_memberships_for_project(&guid).await?;
 
         // Batch soft delete all workspaces for this project
         workspace_repo.soft_delete_by_project(&guid).await?;
