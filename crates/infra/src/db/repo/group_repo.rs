@@ -128,6 +128,34 @@ impl<'a> GroupRepo<'a> {
         Ok(())
     }
 
+    /// Soft-delete a group and all of its memberships in one transaction.
+    pub async fn soft_delete_group_with_memberships(&self, guid: &str) -> Result<()> {
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::GroupGuid.eq(guid))
+            .exec(&txn)
+            .await?;
+
+        let result = item_group::Entity::update_many()
+            .col_expr(item_group::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group::Column::Guid.eq(guid))
+            .filter(item_group::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Group not found".into()));
+        }
+
+        txn.commit().await?;
+        Ok(())
+    }
+
     pub async fn list_members_for_groups(
         &self,
         group_guids: &[String],

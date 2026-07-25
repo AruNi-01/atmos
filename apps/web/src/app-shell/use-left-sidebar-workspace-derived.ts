@@ -23,6 +23,7 @@ import {
 import {
     buildUserGroupViews,
     findGroupIdForMember,
+    UNGROUPED_USER_GROUP_KEY,
     type UserGroupView,
 } from '@/app-shell/sidebar/user-groups';
 import type { SidebarGroupingMode } from '@/app-shell/sidebar/workspace-status';
@@ -124,9 +125,12 @@ export function useLeftSidebarWorkspaceDerived({
     const currentWorkspaceGroupKey = useMemo(() => {
         if (!currentWorkspace || currentWorkspace.isPinned) return null;
         if (groupingMode === 'group') {
+            // Ungrouped workspaces must resolve to the ungrouped bucket so two-column
+            // mode does not fall through to the first named group.
             return (
                 findGroupIdForMember(groups, 'workspace', currentWorkspace.id) ??
-                findGroupIdForMember(groups, 'project', currentWorkspace.projectId)
+                findGroupIdForMember(groups, 'project', currentWorkspace.projectId) ??
+                UNGROUPED_USER_GROUP_KEY
             );
         }
         if (groupingMode === 'status') {

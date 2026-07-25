@@ -14,7 +14,7 @@ const allowedConsoleErrorPatterns = [
   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
   /CancelledError\b/,
   // Canvas probes the default pin doc; missing docs 404 is expected until first save.
-  /\[response\.404\] .*\/api\/canvas\/documents\/Default\.atmos\.tldr\b/i,
+  /\[response\.404\] .*\/api\/canvas\/documents\/Default\.atmos\.tldr(?:\?.*)?$/i,
 ];
 
 function formatConsoleMessage(message: ConsoleMessage): string {

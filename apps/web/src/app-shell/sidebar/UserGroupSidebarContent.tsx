@@ -48,7 +48,10 @@ type ProjectItemSharedProps = Omit<
   | "attributes"
   | "listeners"
   | "disableRowClick"
->;
+  | "isActiveProject"
+> & {
+  activeProjectId?: string | null;
+};
 
 function GroupNamePopoverForm({
   mode,
@@ -379,6 +382,8 @@ export function UserGroupTwoColumnRightContent({
 }) {
   const t = useTranslations("appShell.groups");
   const chromeT = useTranslations("AppShell.chrome");
+  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
+    projectItemProps;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -414,7 +419,11 @@ export function UserGroupTwoColumnRightContent({
                     project={project}
                     isExpanded={expandedProjectIds.includes(project.id)}
                     onToggle={() => onToggleProject(project.id)}
-                    {...projectItemProps}
+                    isActiveProject={
+                      activeProjectId === project.id && !activeWorkspaceId
+                    }
+                    activeWorkspaceId={activeWorkspaceId}
+                    {...sharedProjectItemProps}
                   />
                 ))}
               </div>
@@ -463,6 +472,8 @@ export function UserGroupOneColumnContent({
   ) => React.ReactNode;
 }) {
   const t = useTranslations("appShell.groups");
+  const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
+    projectItemProps;
 
   return (
     <div className="scrollbar-on-hover flex h-full flex-col overflow-y-auto no-scrollbar">
@@ -521,7 +532,11 @@ export function UserGroupOneColumnContent({
                           project={project}
                           isExpanded={expandedProjectIds.includes(project.id)}
                           onToggle={() => onToggleProject(project.id)}
-                          {...projectItemProps}
+                          isActiveProject={
+                            activeProjectId === project.id && !activeWorkspaceId
+                          }
+                          activeWorkspaceId={activeWorkspaceId}
+                          {...sharedProjectItemProps}
                         />
                       ))}
                       {view.directWorkspaces.map((entry) =>

@@ -139,8 +139,8 @@ impl GroupService {
         repo.find_group_by_guid(&guid)
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Group {} not found", guid)))?;
-        repo.soft_delete_memberships_for_group(&guid).await?;
-        Ok(repo.soft_delete_group(&guid).await?)
+        // Memberships + group soft-delete in one transaction (mirrors project delete).
+        Ok(repo.soft_delete_group_with_memberships(&guid).await?)
     }
 
     pub async fn set_member(

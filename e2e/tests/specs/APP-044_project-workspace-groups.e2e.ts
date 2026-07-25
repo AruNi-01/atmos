@@ -99,49 +99,58 @@ test.describe("APP-044 project workspace groups", () => {
     expect(group.name).toBe("E2E Client Group");
     expect(group.guid).toBeTruthy();
 
-    const member = await wsRequestFromPage<{
-      guid: string;
-      member_type: string;
-      member_guid: string;
-    }>(page, "group_set_member", {
-      group_guid: group.guid,
-      member_type: "project",
-      member_guid: projectId,
-    });
-    expect(member.member_type).toBe("project");
-    expect(member.member_guid).toBe(projectId);
+    try {
+      const member = await wsRequestFromPage<{
+        guid: string;
+        member_type: string;
+        member_guid: string;
+      }>(page, "group_set_member", {
+        group_guid: group.guid,
+        member_type: "project",
+        member_guid: projectId,
+      });
+      expect(member.member_type).toBe("project");
+      expect(member.member_guid).toBe(projectId);
 
-    const bootstrap = await wsRequestFromPage<{
-      groups?: Array<{ guid: string; name: string; members: Array<{ member_guid: string }> }>;
-    }>(page, "project_workspace_bootstrap");
-    const found = (bootstrap.groups ?? []).find((g) => g.guid === group.guid);
-    expect(found?.name).toBe("E2E Client Group");
-    expect(found?.members.some((m) => m.member_guid === projectId)).toBe(true);
+      const bootstrap = await wsRequestFromPage<{
+        groups?: Array<{ guid: string; name: string; members: Array<{ member_guid: string }> }>;
+      }>(page, "project_workspace_bootstrap");
+      const found = (bootstrap.groups ?? []).find((g) => g.guid === group.guid);
+      expect(found?.name).toBe("E2E Client Group");
+      expect(found?.members.some((m) => m.member_guid === projectId)).toBe(true);
 
-    // Switch UI to By Group when possible.
-    await gotoContextRoute(
-      page,
-      withSearchParams(contextUrl, {
-        lsTab: "projects",
-        activeSettingTab: null,
-      }),
-    );
+      // Switch UI to By Group when possible.
+      await gotoContextRoute(
+        page,
+        withSearchParams(contextUrl, {
+          lsTab: "projects",
+          activeSettingTab: null,
+        }),
+      );
 
-    // Grouping control lives in the sidebar footer; best-effort UI smoke.
-    const groupByControl = page.locator("aside").getByText(/group by|by project/i).first();
-    if (await groupByControl.isVisible().catch(() => false)) {
-      await groupByControl.click();
-      const byGroupOption = page.getByText("By Group", { exact: true });
-      if (await byGroupOption.isVisible().catch(() => false)) {
-        await byGroupOption.click();
-        await expect(page.getByText("E2E Client Group").first()).toBeVisible({
-          timeout: 15_000,
-        });
+      // Grouping control lives in the sidebar footer; best-effort UI smoke.
+      // Residual gap: no stable data-testid on the grouping mode control yet;
+      // keep soft checks to avoid flake on green CI.
+      const groupByControl = page.locator("aside").getByText(/group by|by project/i).first();
+      if (await groupByControl.isVisible().catch(() => false)) {
+        await groupByControl.click();
+        const byGroupOption = page.getByText("By Group", { exact: true });
+        if (await byGroupOption.isVisible().catch(() => false)) {
+          await byGroupOption.click();
+          await expect(page.getByText("E2E Client Group").first()).toBeVisible({
+            timeout: 15_000,
+          });
+        }
+      }
+    } finally {
+      // Cleanup even if assertions fail so later runs stay isolated.
+      try {
+        await wsRequestFromPage(page, "group_delete", { guid: group.guid });
+      } catch {
+        // Group may already be gone or WS may have closed — ignore cleanup errors.
       }
     }
 
-    // Cleanup: delete group (projects remain).
-    await wsRequestFromPage(page, "group_delete", { guid: group.guid });
     const after = await wsRequestFromPage<{
       groups?: Array<{ guid: string }>;
     }>(page, "project_workspace_bootstrap");

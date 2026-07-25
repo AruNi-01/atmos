@@ -4,7 +4,7 @@ use super::{
     GroupCreateRequest, GroupDeleteRequest, GroupRemoveMemberRequest, GroupSetMemberRequest,
     GroupUpdateMemberOrderRequest, GroupUpdateOrderRequest, GroupUpdateRequest, WsMessageService,
 };
-use core_service::Result;
+use core_service::{Result, ServiceError};
 
 impl WsMessageService {
     pub(super) async fn handle_group_list(&self) -> Result<Value> {
@@ -21,9 +21,18 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_group_update(&self, req: GroupUpdateRequest) -> Result<Value> {
-        if let Some(name) = req.name {
-            self.group_service.rename_group(req.guid, name).await?;
-        }
+        let Some(name) = req
+            .name
+            .as_ref()
+            .map(|n| n.trim())
+            .filter(|n| !n.is_empty())
+            .map(|n| n.to_string())
+        else {
+            return Err(ServiceError::Validation(
+                "group_update requires a non-empty name".into(),
+            ));
+        };
+        self.group_service.rename_group(req.guid, name).await?;
         Ok(json!({ "success": true }))
     }
 

@@ -624,6 +624,12 @@ impl<'a> WorkspaceRepo<'a> {
             guid,
             result.rows_affected
         );
+        if result.rows_affected == 0 {
+            // Abort so membership cleanup does not commit without a workspace delete.
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
 
         txn.commit().await?;
         Ok(())

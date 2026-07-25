@@ -855,8 +855,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const sharedProjectItemProps = {
         activeWorkspaceId: currentWorkspaceId,
+        activeProjectId: currentProjectId,
         availableLabels: workspaceLabels,
-        isActiveProject: false,
         onAddWorkspace: handleAddWorkspace,
         onArchiveWorkspace: archiveWorkspace,
         onConfigureScripts: handleConfigureScripts,

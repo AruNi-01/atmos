@@ -235,6 +235,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       setIsInfoPopoverOpen(false);
       setIsStatusMenuOpen(false);
       setIsPriorityMenuOpen(false);
+      setIsGroupMenuOpen(false);
       setIsLabelPopoverOpen(false);
     }
   }, [cancelInfoPopoverClose, suppressInfoPopover]);
@@ -283,6 +284,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       setIsInfoPopoverOpen(false);
       setIsStatusMenuOpen(false);
       setIsPriorityMenuOpen(false);
+      setIsGroupMenuOpen(false);
       setIsLabelPopoverOpen(false);
       setIsEditingName(false);
     };
@@ -301,6 +303,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     setIsInfoPopoverOpen(false);
     setIsStatusMenuOpen(false);
     setIsPriorityMenuOpen(false);
+    setIsGroupMenuOpen(false);
     setIsLabelPopoverOpen(false);
     router.push(`/workspace?id=${workspace.id}`);
   };

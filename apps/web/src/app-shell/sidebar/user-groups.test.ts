@@ -102,4 +102,35 @@ describe("buildUserGroupViews", () => {
     expect(findGroupIdForMember(groups, "project", "p1")).toBe("g1");
     expect(findGroupIdForMember(groups, "project", "p2")).toBeNull();
   });
+
+  it("resolves ungrouped members to the ungrouped bucket key", () => {
+    // Mirrors use-left-sidebar-workspace-derived currentWorkspaceGroupKey for group mode:
+    // missing membership must fall back to UNGROUPED_USER_GROUP_KEY (not null).
+    const groups: Group[] = [
+      {
+        id: "g1",
+        name: "Named",
+        sidebarOrder: 0,
+        members: [
+          {
+            id: "m1",
+            memberType: "project",
+            memberId: "p-grouped",
+            sortOrder: 0,
+          },
+        ],
+      },
+    ];
+    const workspaceGroupKey =
+      findGroupIdForMember(groups, "workspace", "w-ungrouped") ??
+      findGroupIdForMember(groups, "project", "p-ungrouped") ??
+      UNGROUPED_USER_GROUP_KEY;
+    expect(workspaceGroupKey).toBe(UNGROUPED_USER_GROUP_KEY);
+
+    const groupedKey =
+      findGroupIdForMember(groups, "workspace", "w-any") ??
+      findGroupIdForMember(groups, "project", "p-grouped") ??
+      UNGROUPED_USER_GROUP_KEY;
+    expect(groupedKey).toBe("g1");
+  });
 });

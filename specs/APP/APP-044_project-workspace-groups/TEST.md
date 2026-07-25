@@ -43,8 +43,8 @@
 | S10 | e2e | playwright | two-column | local computer + two-column layout | left select → right members | pending |
 | S11 | e2e / unit | playwright or bun | context menu add/remove | local computer | membership updates | pending |
 | S12 | service/api | cargo | bootstrap includes groups | temp db | groups field present | pending |
-| S13 | service | cargo | delete project | membership removed | pending |
-| S14 | service | cargo | delete workspace | membership removed | pending |
+| S13 | service | cargo | delete project | temp sqlite | membership removed | pending |
+| S14 | service | cargo | delete workspace | temp sqlite | membership removed | pending |
 
 ## Scenarios
 
