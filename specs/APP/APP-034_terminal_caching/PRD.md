@@ -1,5 +1,8 @@
 # PRD: Terminal Workspace Caching
 
+> **Superseded by [APP-043 Workspace Surface Cache](../APP-043_workspace-surface-cache/PRD.md).**  
+> APP-043 absorbs terminal warm keep-alive into a full Active/Warm/Frozen workspace surface model and replaces the APP-034-only cache API/settings. Keep this document for historical context only; do not implement new work against APP-034.
+
 ## 1. Context & Problem Statement
 Currently, every time a user switches between workspaces or projects, all terminal tabs in the center stage are destroyed and reloaded from scratch. This causes unnecessary overhead, PTY process restarting, and loses immediate UI continuity for heavily used workspaces.
 

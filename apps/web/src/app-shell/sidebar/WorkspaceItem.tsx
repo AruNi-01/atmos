@@ -4,6 +4,11 @@ import React from "react";
 import { useSortable, CSS, toastManager } from "@workspace/ui";
 import type { Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { WorkspaceContent } from "./WorkspaceContent";
+import { createWorkspacePrimePrefetch } from "@/app-shell/workspace-surface-prefetch";
+
+/** Shared hover prime (APP-043 M9) — does not force Warm tier. */
+// Long debounce: rapid hopping across 3–5 rows must not fire loadFromBackend storms.
+const workspaceHoverPrime = createWorkspacePrimePrefetch({ debounceMs: 450 });
 
 export interface WorkspaceItemProps {
   workspace: Workspace;
@@ -12,6 +17,8 @@ export interface WorkspaceItemProps {
   projectName?: string;
   showProjectName?: boolean;
   rightContext?: React.ReactNode;
+  /** Selected state from parent — avoids per-row URL subscriptions. */
+  isActive?: boolean;
   suppressInfoPopover?: boolean;
   sortingDisabled?: boolean;
   sortingDisabledMessage?: string;
@@ -28,6 +35,25 @@ export interface WorkspaceItemProps {
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
 }
 
+function workspaceItemPropsAreEqual(
+  prev: WorkspaceItemProps,
+  next: WorkspaceItemProps,
+): boolean {
+  return (
+    prev.workspace === next.workspace &&
+    prev.projectId === next.projectId &&
+    prev.projectPath === next.projectPath &&
+    prev.projectName === next.projectName &&
+    prev.showProjectName === next.showProjectName &&
+    prev.rightContext === next.rightContext &&
+    prev.isActive === next.isActive &&
+    prev.suppressInfoPopover === next.suppressInfoPopover &&
+    prev.sortingDisabled === next.sortingDisabled &&
+    prev.sortingDisabledMessage === next.sortingDisabledMessage &&
+    prev.availableLabels === next.availableLabels
+  );
+}
+
 export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceItem({
   workspace,
   projectId,
@@ -35,6 +61,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   projectName,
   showProjectName,
   rightContext,
+  isActive = false,
   suppressInfoPopover,
   sortingDisabled,
   sortingDisabledMessage,
@@ -98,15 +125,29 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
     pointerStartRef.current = null;
   }, []);
 
+  const handlePointerLeave = React.useCallback(() => {
+    handlePointerEnd();
+    // Leaving a row cancels pending prime so fly-over does not hydrate.
+    workspaceHoverPrime.cancel();
+  }, [handlePointerEnd]);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
+      data-workspace-id={workspace.id}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      onPointerLeave={handlePointerEnd}
+      onPointerLeave={handlePointerLeave}
+      onPointerEnter={() => {
+        workspaceHoverPrime.onWorkspaceHover(workspace.id, false);
+      }}
+      onClickCapture={() => {
+        // Navigation click: cancel any pending hover prime immediately.
+        workspaceHoverPrime.cancel();
+      }}
     >
       <WorkspaceContent
         workspace={workspace}
@@ -115,6 +156,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         projectName={projectName}
         showProjectName={showProjectName}
         rightContext={rightContext}
+        isActive={isActive}
         suppressInfoPopover={suppressInfoPopover}
         isPlaceholder={isDragging}
         attributes={attributes}
@@ -133,4 +175,4 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
       />
     </div>
   );
-});
+}, workspaceItemPropsAreEqual);

@@ -15,6 +15,7 @@ import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
 import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
 import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
 import { OnboardingGate } from "@/app-shell/OnboardingGate";
+import { E2eNavigateBridge } from "@/app-shell/E2eNavigateBridge";
 
 type Props = {
   children: React.ReactNode;
@@ -49,6 +50,7 @@ export default function AppLayout({ children }: Props) {
             <ConnectionBootstrapper />
             <HostedBootstrapBoundary>
               <OnboardingGate>
+                <E2eNavigateBridge />
                 <Header />
 
                 <PanelLayout

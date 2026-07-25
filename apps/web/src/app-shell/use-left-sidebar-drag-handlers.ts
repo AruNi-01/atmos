@@ -37,12 +37,13 @@ export function useLeftSidebarDragHandlers({
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 5,
+        // Higher threshold so rapid clicks are not intercepted as drag starts.
+        distance: 10,
       },
     }),
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 10,
       },
     }),
     useSensor(KeyboardSensor, {

@@ -698,10 +698,11 @@ export const apiOperationInventory = [
     operation: "terminalDomCache",
     transport: "rest",
     classification: "excluded",
-    legacyOwner: "useTerminalCacheStore (APP-034)",
+    legacyOwner: "useWorkspaceSurfaceCacheStore (APP-043)",
     phase: "excluded",
     status: "excluded",
-    rationale: "APP-034 terminal DOM LRU/TTL cache. Must never be cleared by APP-035 scope resets.",
+    rationale:
+      "APP-043 workspace surface cache (Active/Warm/Frozen DOM lifecycle). Client-only; must never be cleared by APP-035 query scope resets. clearAll runs on Atmos Computer / connection target switch, logout/session teardown, and existing target-reset paths via prepareConnectionTargetChange.",
   },
   {
     domain: "editor",

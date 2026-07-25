@@ -17,6 +17,7 @@ import {
   createFixedTerminalTab,
   createInitialLayout,
   createTerminalPane,
+  detachTerminalWorkspaceFrontendState,
   evictTerminalWorkspaceRuntimeState,
   getAllDefaultPanesForWorkspace,
   getNextWindowName,
@@ -404,6 +405,14 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     clearWorkspaceSaveTimeouts(workspaceId);
 
     set((currentState) => evictTerminalWorkspaceRuntimeState(currentState, workspaceId));
+  },
+
+  detachWorkspaceFrontend: (workspaceId) => {
+    clearWorkspaceSaveTimeouts(workspaceId);
+
+    set((currentState) => ({
+      ...detachTerminalWorkspaceFrontendState(currentState, workspaceId),
+    }));
   },
 
   addTerminal: (workspaceId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {

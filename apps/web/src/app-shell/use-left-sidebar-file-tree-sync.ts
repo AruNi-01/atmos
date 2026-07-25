@@ -38,16 +38,26 @@ export function useLeftSidebarFileTreeSync({
     const setContext = useFileTreeStore((s) => s.setContext);
 
     // Update the store context so FileTreePanel knows which Query key to render.
-    // TanStack Query handles deduplication and fetching automatically when the
-    // rootPath or scope changes.
+    // Defer past paint so rapid workspace hops do not block sidebar hover.
     useEffect(() => {
-        if ((activeTab === 'files' || filesOnRight) && currentProjectId && currentEffectivePath) {
-            const canSet = currentWorkspaceId ? !isSettingUp : true;
-            if (canSet) {
+        if (!((activeTab === 'files' || filesOnRight) && currentProjectId && currentEffectivePath)) {
+            return;
+        }
+        const canSet = currentWorkspaceId ? !isSettingUp : true;
+        if (!canSet) return;
+
+        let cancelled = false;
+        const outer = requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (cancelled) return;
                 setCurrentProjectPath(currentEffectivePath);
                 setContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
-            }
-        }
+            });
+        });
+        return () => {
+            cancelled = true;
+            cancelAnimationFrame(outer);
+        };
     }, [activeTab, filesOnRight, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentProjectPath, setContext]);
 
     useEffect(() => {

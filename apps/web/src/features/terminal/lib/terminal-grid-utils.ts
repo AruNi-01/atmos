@@ -1,6 +1,7 @@
 "use client";
 
 import type { MosaicNode } from "react-mosaic-component";
+import { isPathLikeTitle } from "@atmos/shared/terminal";
 import type { MosaicBranch, TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 
 export type TerminalGridScope = "default" | "project-wiki" | "code-review";
@@ -92,6 +93,62 @@ const IDLE_SHELL_COMMANDS = new Set([
 export function isIdleShellCommand(command: string | null | undefined): boolean {
   const normalized = command?.trim().split("/").filter(Boolean).pop()?.toLowerCase();
   return Boolean(normalized && IDLE_SHELL_COMMANDS.has(normalized));
+}
+
+/** Minimal tmux window fields used when probing busy/idle before close. */
+export type TmuxWindowBusyProbe = {
+  name: string;
+  index?: number | string;
+  current_command?: string | null;
+};
+
+export type TerminalPaneBusyProbe = {
+  dynamicTitle?: string;
+  tmuxWindowName?: string;
+  label?: string;
+};
+
+export function findMatchingTmuxWindow(
+  windows: TmuxWindowBusyProbe[],
+  pane: TerminalPaneBusyProbe,
+): TmuxWindowBusyProbe | undefined {
+  return windows.find(
+    (window) =>
+      window.name === pane.tmuxWindowName ||
+      window.name === pane.label ||
+      String(window.index) === pane.tmuxWindowName,
+  );
+}
+
+/**
+ * Whether a pane should require close confirmation (same policy as panel close).
+ *
+ * Idle without confirm when:
+ * - no tmux window identity yet
+ * - dynamic title is path-like (shell at cwd after CMD_END)
+ * - tmux foreground command is a known idle shell
+ *
+ * When `tmuxWindows` is null (list failed / unavailable), treat candidate panes as non-idle
+ * so the user still gets a confirmation rather than silently killing work.
+ */
+export function isTerminalPaneNonIdle(
+  pane: TerminalPaneBusyProbe,
+  tmuxWindows: TmuxWindowBusyProbe[] | null,
+): boolean {
+  if (!pane.tmuxWindowName) return false;
+  if (isPathLikeTitle(pane.dynamicTitle)) return false;
+  if (!tmuxWindows) return true;
+  const tmuxWindow = findMatchingTmuxWindow(tmuxWindows, pane);
+  if (tmuxWindow && isIdleShellCommand(tmuxWindow.current_command)) return false;
+  return true;
+}
+
+/** True if any pane in the set should require close confirmation. */
+export function hasNonIdleTerminalPanes(
+  panes: TerminalPaneBusyProbe[],
+  tmuxWindows: TmuxWindowBusyProbe[] | null,
+): boolean {
+  return panes.some((pane) => isTerminalPaneNonIdle(pane, tmuxWindows));
 }
 
 export function flattenMosaicLayout(layout: MosaicNode<string> | null): string[] {

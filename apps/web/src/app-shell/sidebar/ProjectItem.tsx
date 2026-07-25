@@ -104,6 +104,8 @@ export interface ProjectItemProps {
   onSelectMain: (projectId: string) => void;
   isActiveProject: boolean;
   isSelected?: boolean;
+  /** Current URL workspace — for row active highlight without per-row URL hooks. */
+  activeWorkspaceId?: string | null;
 }
 
 const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
@@ -187,6 +189,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   onSelectMain,
   isActiveProject,
   isSelected = false,
+  activeWorkspaceId = null,
 }) {
   const t = useTranslations("AppShell.chrome");
   const { theme } = useTheme();
@@ -637,6 +640,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   projectId={project.id}
                   projectName={project.name}
                   projectPath={project.mainFilePath}
+                  isActive={activeWorkspaceId === ws.id}
                   onPin={(wsId) => onPinWorkspace(project.id, wsId)}
                   onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
                   onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}

@@ -2,6 +2,7 @@
 
 import React, {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -53,6 +54,7 @@ import { useGitLog } from "@/features/github/hooks/use-github";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
+import { scheduleAfterPaint } from "@/app-shell/workspace-surface-switch";
 
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 import {
@@ -171,7 +173,14 @@ interface RightSidebarProps {
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const t = useTranslations("AppShell.chrome");
   const { isRightCollapsed } = useSidebarLayout();
-  const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
+  const { workspaceId: liveWorkspaceId, projectId: liveProjectIdFromUrl } = useContextParams();
+  // Defer heavy tree/changes rebind so CenterStage frame switch paints first.
+  const workspaceId = useDeferredValue(liveWorkspaceId);
+  const projectIdFromUrl = useDeferredValue(liveProjectIdFromUrl);
+  // While deferred IDs lag the URL, keep showing prior context but do not run
+  // interactive commands (git/run/browser/review) against a mismatched target.
+  const isContextSettled =
+    workspaceId === liveWorkspaceId && projectIdFromUrl === liveProjectIdFromUrl;
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
@@ -322,16 +331,23 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
 
+  // Repo path rebind after paint — do not block center-stage switch chrome.
+  // Wait until deferred sidebar context matches the live URL so git mutations
+  // never target the newly live path while the UI still shows the previous one.
   useEffect(() => {
-    if (isSettingUp) {
-      setCurrentRepoPath(null);
-      return;
-    }
-    setCurrentRepoPath(currentProjectPath || null);
-  }, [currentProjectPath, isSettingUp, setCurrentRepoPath]);
+    if (!isContextSettled) return;
+    return scheduleAfterPaint(() => {
+      if (isSettingUp) {
+        setCurrentRepoPath(null);
+        return;
+      }
+      setCurrentRepoPath(currentProjectPath || null);
+    });
+  }, [currentProjectPath, isContextSettled, isSettingUp, setCurrentRepoPath]);
 
   const hasWorkingContext = !!(
     !isSettingUp &&
+    isContextSettled &&
     currentProjectPath &&
     (workspaceId || projectIdFromUrl)
   );
@@ -1045,7 +1061,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               projectId={runProjectId ?? undefined}
               // When the right sidebar is collapsed, keep the panel mounted but
               // inactive so its native child webview does not cover center stage.
-              isActive={activeTab === "browser" && !isRightCollapsed}
+              // Also stay inactive while deferred context lags the live URL.
+              isActive={
+                activeTab === "browser" && !isRightCollapsed && isContextSettled
+              }
               allowMoveToCenter
             />
           </div>
@@ -1062,7 +1081,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             <RunScript
               workspaceId={workspaceId ?? null}
               projectId={runProjectId ?? undefined}
-              isActive={activeTab === "run"}
+              isActive={activeTab === "run" && isContextSettled}
               projectName={currentProject?.name}
               workspaceName={currentWorkspace?.name}
             />

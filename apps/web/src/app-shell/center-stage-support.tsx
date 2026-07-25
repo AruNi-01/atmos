@@ -14,7 +14,12 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
-import { useTerminalCacheStore } from "@/features/terminal/store/use-terminal-cache-store";
+import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
+import { promoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
+import {
+  readCenterStageLastTab,
+  setCenterStageLastTab,
+} from "@/shared/stores/use-ui-pref-hooks";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -145,17 +150,79 @@ export function useTerminalTabMountLifecycle({
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
   const previousTerminalContextRef = React.useRef<string | null>(null);
-  const touch = useTerminalCacheStore(s => s.touch);
-  const setActiveContextId = useTerminalCacheStore(s => s.setActiveContextId);
-  const sweepExpired = useTerminalCacheStore(s => s.sweepExpired);
-  const cachedContexts = useTerminalCacheStore(s => s.cachedContexts);
+  /** Last known activeValue per context — written before setActive on leave (APP-043). */
+  const lastActiveTabByContextRef = React.useRef<Record<string, string>>({});
+  // Do NOT subscribe CenterStage to `warm` — that re-renders the entire shell
+  // (tab bar + multi-frame host) on every touch. Read warm via getState in effects.
+  const warmEpoch = useWorkspaceSurfaceCacheStore((s) => s.warm.length);
+
+  // Track tab while context is stable so leave path can persist before activate next.
+  // Ref writes during render are safe; do not call Zustand or setState here.
+  if (effectiveContextId && activeValue) {
+    lastActiveTabByContextRef.current[effectiveContextId] = activeValue;
+  }
+
+  // After URL commits (useEffect is already post-paint): promote leave→warm
+  // synchronously. Every hop must switchContext so A→B→C still places B into warm.
+  React.useEffect(() => {
+    const current = effectiveContextId ?? null;
+    const leavingContextId = previousTerminalContextRef.current;
+    previousTerminalContextRef.current = current;
+
+    if (leavingContextId && leavingContextId !== current) {
+      const prevTab =
+        lastActiveTabByContextRef.current[leavingContextId] ??
+        readCenterStageLastTab(leavingContextId);
+      if (prevTab) {
+        setCenterStageLastTab(leavingContextId, prevTab);
+        if (isTerminalCenterTabValue(prevTab)) {
+          setMountedTerminalTabsByContext((state) => {
+            const mountedTabs = state[leavingContextId] ?? [];
+            if (mountedTabs.includes(prevTab)) return state;
+            return {
+              ...state,
+              [leavingContextId]: [...mountedTabs, prevTab],
+            };
+          });
+        }
+      }
+    }
+
+    promoteWorkspaceSurfaceSwitch(current);
+  }, [effectiveContextId, setMountedTerminalTabsByContext]);
+
+  // Ensure Active ∪ Warm contexts keep their last terminal tab mounted for the
+  // whole warm lifetime (tab-like keep-alive across workspace switch).
+  React.useEffect(() => {
+    const live = useWorkspaceSurfaceCacheStore.getState();
+    const ensureIds = [
+      ...live.warm.map((w) => w.contextId),
+      live.activeContextId,
+      effectiveContextId,
+    ].filter(Boolean) as string[];
+    setMountedTerminalTabsByContext((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const id of ensureIds) {
+        const last = lastActiveTabByContextRef.current[id] ?? readCenterStageLastTab(id);
+        if (!last || !isTerminalCenterTabValue(last)) continue;
+        const mounted = next[id] ?? [];
+        if (mounted.includes(last)) continue;
+        next[id] = [...mounted, last];
+        changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [effectiveContextId, warmEpoch, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
+    // Keep mounted-tab bookkeeping for Active ∪ Warm only (frozen contexts drop).
+    const liveWarm = useWorkspaceSurfaceCacheStore.getState().warm;
     setMountedTerminalTabsByContext((current) => {
       const activeIds = new Set([
         effectiveContextId,
         previousTerminalContextRef.current,
-        ...cachedContexts.map((c) => c.contextId),
+        ...liveWarm.map((c) => c.contextId),
       ]);
       let changed = false;
       const next: Record<string, string[]> = {};
@@ -168,33 +235,19 @@ export function useTerminalTabMountLifecycle({
       }
       return changed ? next : current;
     });
-  }, [effectiveContextId, cachedContexts, setMountedTerminalTabsByContext]);
+  }, [effectiveContextId, warmEpoch, setMountedTerminalTabsByContext]);
 
   React.useEffect(() => {
     // Only register one sweeper interval globally to prevent HMR leaks
     const globalState = globalThis as typeof globalThis & {
-      __terminalCacheSweeperInterval?: ReturnType<typeof setInterval>;
+      __workspaceSurfaceCacheSweeperInterval?: ReturnType<typeof setInterval>;
     };
-    if (!globalState.__terminalCacheSweeperInterval) {
-      globalState.__terminalCacheSweeperInterval = setInterval(() => {
-        useTerminalCacheStore.getState().sweepExpired();
+    if (!globalState.__workspaceSurfaceCacheSweeperInterval) {
+      globalState.__workspaceSurfaceCacheSweeperInterval = setInterval(() => {
+        useWorkspaceSurfaceCacheStore.getState().sweepExpired();
       }, 60 * 1000);
     }
   }, []);
-
-  React.useEffect(() => {
-    const previousContextId = previousTerminalContextRef.current;
-
-    // First mark the new context as active so it is protected from eviction
-    setActiveContextId(effectiveContextId ?? null);
-
-    // Then touch the previous context to push it into the LRU cache
-    if (previousContextId && previousContextId !== effectiveContextId) {
-      touch(previousContextId);
-    }
-
-    previousTerminalContextRef.current = effectiveContextId ?? null;
-  }, [effectiveContextId, touch, setActiveContextId]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;

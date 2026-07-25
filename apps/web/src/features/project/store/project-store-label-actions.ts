@@ -155,18 +155,24 @@ export function createProjectStoreLabelActions(
         await waitForConnection();
         await wsWorkspaceApi.markVisited(workspaceId);
         const visitedAt = new Date().toISOString();
-        await cancelProjectBootstrapQuery(scope);
-        patchProjectBootstrapSnapshotAt(scope, (current) => ({
-          ...current,
-          projects: current.projects.map((project) => ({
-            ...project,
-            workspaces: project.workspaces.map((workspace) =>
-              workspace.id === workspaceId
-                ? { ...workspace, lastVisitedAt: visitedAt }
-                : workspace,
-            ),
-          })),
-        }));
+        // Do NOT cancel/refetch bootstrap on every visit — that rebuilds the
+        // entire projects tree and freezes LeftSidebar hover during rapid
+        // workspace switching. Patch only the touched workspace identity.
+        patchProjectBootstrapSnapshotAt(scope, (current) => {
+          let changed = false;
+          const projects = current.projects.map((project) => {
+            let projectChanged = false;
+            const workspaces = project.workspaces.map((workspace) => {
+              if (workspace.id !== workspaceId) return workspace;
+              if (workspace.lastVisitedAt === visitedAt) return workspace;
+              projectChanged = true;
+              changed = true;
+              return { ...workspace, lastVisitedAt: visitedAt };
+            });
+            return projectChanged ? { ...project, workspaces } : project;
+          });
+          return changed ? { ...current, projects } : current;
+        });
       } catch (error) {
         console.error('Error marking workspace visited:', error);
       }

@@ -209,6 +209,58 @@ export function isTerminalContainerVisible(element: HTMLElement | null): boolean
   return rect.width > 0 && rect.height > 0;
 }
 
+/**
+ * Session-level "recently live" marker so a brief React remount does not flash the
+ * full-screen "Connecting to terminal..." overlay when the PTY is still warm.
+ *
+ * Disconnect (including unmount) schedules a short grace clear — if the same
+ * session remounts and reconnects quickly (workspace warm switch), the marker stays.
+ */
+const liveTerminalSessionIds = new Set<string>();
+const liveTerminalSessionGraceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const TERMINAL_SESSION_LIVE_GRACE_MS = 2_000;
+
+export function markTerminalSessionLive(sessionId: string): void {
+  if (!sessionId) return;
+  const pending = liveTerminalSessionGraceTimers.get(sessionId);
+  if (pending) {
+    clearTimeout(pending);
+    liveTerminalSessionGraceTimers.delete(sessionId);
+  }
+  liveTerminalSessionIds.add(sessionId);
+}
+
+export function markTerminalSessionDead(sessionId: string): void {
+  if (!sessionId) return;
+  const pending = liveTerminalSessionGraceTimers.get(sessionId);
+  if (pending) {
+    clearTimeout(pending);
+    liveTerminalSessionGraceTimers.delete(sessionId);
+  }
+  liveTerminalSessionIds.delete(sessionId);
+}
+
+/** Soft clear after disconnect/unmount — cancelled if session becomes live again. */
+export function scheduleTerminalSessionDead(
+  sessionId: string,
+  graceMs: number = TERMINAL_SESSION_LIVE_GRACE_MS,
+): void {
+  if (!sessionId) return;
+  const prev = liveTerminalSessionGraceTimers.get(sessionId);
+  if (prev) clearTimeout(prev);
+  liveTerminalSessionGraceTimers.set(
+    sessionId,
+    setTimeout(() => {
+      liveTerminalSessionGraceTimers.delete(sessionId);
+      liveTerminalSessionIds.delete(sessionId);
+    }, graceMs),
+  );
+}
+
+export function wasTerminalSessionLive(sessionId: string): boolean {
+  return Boolean(sessionId) && liveTerminalSessionIds.has(sessionId);
+}
+
 export function isTerminalEmulatorReport(data: string): boolean {
   if (!data.startsWith("\x1b")) return false;
 

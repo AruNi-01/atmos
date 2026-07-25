@@ -162,6 +162,8 @@ export function TerminalChrome({
           ...terminalScrollbarStyle,
           width: "100%",
           height: "100%",
+          // Only hide xterm during true first-connect. Soft reconnect (warm remount)
+          // uses "reconnecting" badge and keeps buffer visible.
           opacity: uiStatus === "connecting" ? 0 : 1,
           backgroundColor: currentTheme.background,
         }}

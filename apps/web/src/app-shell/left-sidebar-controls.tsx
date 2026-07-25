@@ -193,6 +193,7 @@ export function LeftSidebarSortableProjectList({
               onSelectMain={onSelectMain}
               isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
               isSelected={selectedProjectId === project.id}
+              activeWorkspaceId={activeWorkspaceId}
             />
           ))}
         </SortableContext>

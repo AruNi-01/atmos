@@ -35,6 +35,9 @@ import {
   isFindShortcut,
   isInlineMouseTuiCommand,
   isTerminalContainerVisible,
+  markTerminalSessionLive,
+  scheduleTerminalSessionDead,
+  wasTerminalSessionLive,
   isTerminalEmulatorReport,
   isUsableTerminalGrid,
   jumpXtermToBottom,
@@ -157,7 +160,11 @@ const Terminal = ({
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [selectionSnapshot, setSelectionSnapshot] = useState<TerminalSelectionSnapshot | null>(null);
   const lastSelectionAnchorRef = useRef<{ x: number; y: number } | null>(null);
-  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
+  // Prefer "connected" when this session was already live (warm remount / tab re-show)
+  // so the full-screen Connecting overlay does not flash.
+  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">(
+    () => (wasTerminalSessionLive(sessionId) ? "connected" : "connecting"),
+  );
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
@@ -262,6 +269,7 @@ const Terminal = ({
   }, [onData, scheduleInputReady, status]);
 
   const handleConnected = useCallback(() => {
+    markTerminalSessionLive(sessionId);
     setStatus("connected");
     outputTextDecoderRef.current = new TextDecoder();
     resetInputReady();
@@ -273,9 +281,11 @@ const Terminal = ({
       sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
     }
     scheduleInputReadyFallback();
-  }, [resetInputReady, scheduleInputReadyFallback]);
+  }, [resetInputReady, scheduleInputReadyFallback, sessionId]);
 
   const handleDisconnected = useCallback(() => {
+    // Grace clear so warm remount within ~2s does not flash Connecting overlay.
+    scheduleTerminalSessionDead(sessionId);
     setStatus("disconnected");
     resetInputReady();
     onSessionClose?.(sessionId);
@@ -291,6 +301,7 @@ const Terminal = ({
   );
 
   const handleAttached = useCallback((snapshot?: TerminalSnapshot | null) => {
+    markTerminalSessionLive(sessionId);
     setStatus("connected");
     const term = terminalRef.current;
     if (!term || !snapshot) {
@@ -330,7 +341,7 @@ const Terminal = ({
       }
       scheduleInputReady();
     });
-  }, [scheduleInputReady]);
+  }, [scheduleInputReady, sessionId]);
 
   const { isConnected, isReconnecting, sendInput, sendEnter, sendTerminalReport, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({
@@ -349,7 +360,16 @@ const Terminal = ({
     sendResizeRef.current = sendResize;
   });
 
-  const uiStatus = isReconnecting ? "reconnecting" : status;
+  // Prefer live WS / recent-live session marker over "connecting" so warm re-show
+  // does not flash the full-screen Connecting overlay (use light reconnecting if mid-handshake).
+  const uiStatus =
+    isReconnecting
+      ? "reconnecting"
+      : isConnected
+        ? "connected"
+        : status === "connecting" && wasTerminalSessionLive(sessionId)
+          ? "reconnecting"
+          : status;
 
   const setCurrentSelectionSnapshot = useCallback((snapshot: TerminalSelectionSnapshot | null) => {
     setSelectionSnapshot(snapshot);
