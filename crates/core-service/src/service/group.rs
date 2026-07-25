@@ -155,12 +155,17 @@ impl GroupService {
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Group {} not found", group_guid)))?;
 
-        self.ensure_member_exists(&member_type, &member_guid)
-            .await?;
-
         // Exclusive membership: soft-delete prior row and insert replacement in one transaction.
         // Combined with the partial unique index on active (member_type, member_guid).
         let sort_order = repo.next_member_sort_order(&group_guid).await?;
+        // Re-validate group + member immediately before the write txn so a concurrent
+        // project/workspace soft-delete that committed after the first lookups cannot
+        // leave an active membership pointing at a deleted entity.
+        repo.find_group_by_guid(&group_guid)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Group {} not found", group_guid)))?;
+        self.ensure_member_exists(&member_type, &member_guid)
+            .await?;
         let member = repo
             .replace_member_exclusively(group_guid, member_type, member_guid, sort_order)
             .await?;

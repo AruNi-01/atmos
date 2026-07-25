@@ -494,6 +494,14 @@ impl WorkspaceService {
             .map_err(|error| {
                 ServiceError::Validation(format!("Failed to serialize GitHub PR metadata: {error}"))
             })?;
+        // Re-check project liveness immediately before insert. Git work above can take
+        // long enough that a concurrent project soft-delete may have committed after the
+        // initial find_by_guid; SQLite serializes writers so this re-read sees the truth.
+        project_repo
+            .find_by_guid(&project_guid)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", project_guid)))?;
+
         let model = workspace_repo
             .create(
                 project_guid,

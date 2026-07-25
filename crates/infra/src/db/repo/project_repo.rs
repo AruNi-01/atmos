@@ -176,6 +176,21 @@ impl<'a> ProjectRepo<'a> {
                 .to_owned()
         };
 
+        // Soft-delete the project first so concurrent create paths that re-check
+        // `find_by_guid` (filters is_deleted=false) fail closed once this txn commits.
+        // Within this txn we still clean children; SQLite holds the writer lock for
+        // the whole transaction.
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::IsDeleted, Expr::value(true))
+            .col_expr(project::Column::UpdatedAt, Expr::value(now))
+            .filter(project::Column::Guid.eq(guid))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+
         // Soft-delete group memberships for every workspace of this project.
         item_group_member::Entity::update_many()
             .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
@@ -206,7 +221,8 @@ impl<'a> ProjectRepo<'a> {
             .await?;
 
         // Re-run membership cleanup after workspace soft-delete to close the tiny race of a
-        // workspace inserted between the first membership pass and workspace soft-delete.
+        // workspace inserted between the first membership pass and workspace soft-delete
+        // (still inside this writer lock).
         item_group_member::Entity::update_many()
             .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
             .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
@@ -217,17 +233,6 @@ impl<'a> ProjectRepo<'a> {
             )
             .exec(&txn)
             .await?;
-
-        let result = project::Entity::update_many()
-            .col_expr(project::Column::IsDeleted, Expr::value(true))
-            .col_expr(project::Column::UpdatedAt, Expr::value(now))
-            .filter(project::Column::Guid.eq(guid))
-            .filter(project::Column::IsDeleted.eq(false))
-            .exec(&txn)
-            .await?;
-        if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Project not found".into()));
-        }
 
         txn.commit().await?;
         Ok(())
