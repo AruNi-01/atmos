@@ -41,6 +41,7 @@ export interface WorkspaceItemProps {
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
   groups?: Group[];
   onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
 function workspaceItemPropsAreEqual(
@@ -87,6 +88,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   onUpdateLabels,
   groups,
   onSetWorkspaceGroup,
+  onCreateGroup,
 }) {
   const {
     attributes,
@@ -185,6 +187,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         onUpdateLabels={onUpdateLabels}
         groups={groups}
         onSetWorkspaceGroup={onSetWorkspaceGroup}
+        onCreateGroup={onCreateGroup}
       />
     </div>
   );

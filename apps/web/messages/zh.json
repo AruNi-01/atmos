@@ -278,6 +278,7 @@
       "rename": "重命名分组",
       "delete": "删除分组",
       "deleteConfirm": "删除此分组？项目与工作区不会被删除。",
+      "cancel": "取消",
       "addToGroup": "加入分组",
       "moveToGroup": "移动到分组",
       "removeFromGroup": "移出分组",

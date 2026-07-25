@@ -270,8 +270,11 @@ impl<'a> GroupRepo<'a> {
 
     /// Soft-delete any prior active membership, then insert the replacement atomically.
     ///
-    /// Group + member liveness are checked inside the same transaction as the write so a
-    /// concurrent soft-delete cannot leave an active membership on a deleted target.
+    /// Group + member liveness are claimed with writes (not SELECT) inside the same
+    /// transaction as the membership replace. On SQLite deferred transactions a plain
+    /// SELECT does not take the writer lock, so concurrent soft-deletes could still
+    /// commit between a SELECT check and the insert; UPDATE ... WHERE is_deleted=false
+    /// fails closed and serializes with soft-delete.
     pub async fn replace_member_exclusively(
         &self,
         group_guid: String,
@@ -282,11 +285,13 @@ impl<'a> GroupRepo<'a> {
         let txn = self.db.begin().await?;
         let now = chrono::Utc::now().naive_utc();
 
-        let group_alive = item_group::Entity::find_by_id(group_guid.clone())
+        let group_claimed = item_group::Entity::update_many()
+            .col_expr(item_group::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group::Column::Guid.eq(group_guid.as_str()))
             .filter(item_group::Column::IsDeleted.eq(false))
-            .one(&txn)
+            .exec(&txn)
             .await?;
-        if group_alive.is_none() {
+        if group_claimed.rows_affected == 0 {
             return Err(crate::error::InfraError::Custom(format!(
                 "Group {} not found",
                 group_guid
@@ -295,11 +300,13 @@ impl<'a> GroupRepo<'a> {
 
         match member_type.as_str() {
             "project" => {
-                let alive = project::Entity::find_by_id(member_guid.clone())
+                let claimed = project::Entity::update_many()
+                    .col_expr(project::Column::UpdatedAt, Expr::value(now))
+                    .filter(project::Column::Guid.eq(member_guid.as_str()))
                     .filter(project::Column::IsDeleted.eq(false))
-                    .one(&txn)
+                    .exec(&txn)
                     .await?;
-                if alive.is_none() {
+                if claimed.rows_affected == 0 {
                     return Err(crate::error::InfraError::Custom(format!(
                         "Project {} not found",
                         member_guid
@@ -307,11 +314,13 @@ impl<'a> GroupRepo<'a> {
                 }
             }
             "workspace" => {
-                let alive = workspace::Entity::find_by_id(member_guid.clone())
+                let claimed = workspace::Entity::update_many()
+                    .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+                    .filter(workspace::Column::Guid.eq(member_guid.as_str()))
                     .filter(workspace::Column::IsDeleted.eq(false))
-                    .one(&txn)
+                    .exec(&txn)
                     .await?;
-                if alive.is_none() {
+                if claimed.rows_affected == 0 {
                     return Err(crate::error::InfraError::Custom(format!(
                         "Workspace {} not found",
                         member_guid

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Badge,
@@ -10,6 +10,10 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Input,
   Popover,
@@ -17,7 +21,7 @@ import {
   PopoverTrigger,
   cn,
 } from "@workspace/ui";
-import { Tags, Pencil, UserPen, CircleDot, GitPullRequest, Folders } from "lucide-react";
+import { Tags, Pencil, UserPen, CircleDot, GitPullRequest, Folders, Plus } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import type {
@@ -27,6 +31,7 @@ import type {
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
 import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
+import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
   getWorkspaceWorkflowStatusMeta,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
@@ -322,6 +327,11 @@ type WorkspaceGroupSelectProps = {
   value: string | null;
   groups: Group[];
   onChange?: (groupId: string | null) => void;
+  /**
+   * Create a group by name. When it resolves to `{ id }`, the workspace is
+   * assigned to that new group (same flow as Project ··· → New Group).
+   */
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
   triggerVariant?: MetadataSelectTriggerVariant;
   contentSide?: PopoverSide;
   contentAlign?: PopoverAlign;
@@ -340,6 +350,7 @@ export function WorkspaceGroupSelect({
   value,
   groups,
   onChange,
+  onCreateGroup,
   triggerVariant = "chip",
   contentSide = "right",
   contentAlign = "start",
@@ -354,6 +365,7 @@ export function WorkspaceGroupSelect({
   onOpenChange,
 }: WorkspaceGroupSelectProps) {
   const t = useTranslations("appShell.groups");
+  const [menuOpen, setMenuOpen] = useState(false);
   const selectedGroup = value
     ? groups.find((group) => group.id === value) ?? null
     : null;
@@ -361,6 +373,11 @@ export function WorkspaceGroupSelect({
   const isDisabled = disabled || !onChange;
   const resolvedTitle = title ?? t("trigger");
   const radioValue = value ?? UNGROUPED_USER_GROUP_KEY;
+
+  const handleOpenChange = (open: boolean) => {
+    setMenuOpen(open);
+    onOpenChange?.(open);
+  };
 
   const trigger = (
     <button
@@ -392,13 +409,13 @@ export function WorkspaceGroupSelect({
   if (!onChange) return trigger;
 
   return (
-    <DropdownMenu modal={false} onOpenChange={onOpenChange}>
+    <DropdownMenu modal={false} open={menuOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent
         data-workspace-popover-surface={surface ? "true" : undefined}
         side={contentSide}
         align={contentAlign}
-        className={cn("w-44", contentClassName)}
+        className={cn("w-max min-w-[11rem]", contentClassName)}
       >
         <DropdownMenuRadioGroup
           value={radioValue}
@@ -428,6 +445,34 @@ export function WorkspaceGroupSelect({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        {onCreateGroup ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <Plus className="size-3.5" />
+                <span>{t("create")}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className="w-56 p-2"
+                onKeyDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <GroupNamePopoverForm
+                  mode="create"
+                  onCancel={() => handleOpenChange(false)}
+                  onSubmit={async (name) => {
+                    const created = await onCreateGroup(name);
+                    if (created?.id) {
+                      onChange(created.id);
+                    }
+                    handleOpenChange(false);
+                  }}
+                />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

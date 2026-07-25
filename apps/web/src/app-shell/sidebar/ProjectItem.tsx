@@ -46,8 +46,9 @@ import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
-import { ImageIcon } from "lucide-react";
+import { FolderPlus, ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
+import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
   useWorkspaceListVisibleCount,
   WorkspaceListShowMoreLess,
@@ -114,7 +115,11 @@ export interface ProjectItemProps {
   onAddWorkspaceToGroup?: (workspaceId: string, groupId: string) => void;
   onRemoveWorkspaceFromGroup?: (workspaceId: string) => void;
   onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
-  onCreateGroup?: () => void;
+  /**
+   * Create a group by name. When it resolves to a Group (or `{ id }`), this project
+   * is assigned to that group automatically.
+   */
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
 const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
@@ -505,13 +510,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   onCloseAutoFocus={(e) => e.preventDefault()}
                 >
                   <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
-                    <Plus className="size-4 mr-2" />
+                    <Plus className="size-4" />
                     <span>{t("managementCenter.items.newWorkspace")}</span>
                   </DropdownMenuItem>
 
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="cursor-pointer">
-                      <Palette className="size-4 mr-2" />
+                      <Palette className="size-4" />
                       <span>{t("projectItem.setColor")}</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-[195px] p-3">
@@ -599,12 +604,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     onClick={handleOpenLogoDialog}
                     className="cursor-pointer"
                   >
-                    <ImageIcon className="size-4 mr-2" />
+                    <ImageIcon className="size-4" />
                     <span>{t("projectItem.logo.setLogo")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
-                    <FileCode className="size-4 mr-2" />
+                    <FileCode className="size-4" />
                     <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
                   {(onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
@@ -612,9 +617,10 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                       <DropdownMenuSeparator />
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="cursor-pointer">
+                          <FolderPlus className="size-4" />
                           <span>{projectGroupId ? groupsT("moveToGroup") : groupsT("addToGroup")}</span>
                         </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-44">
+                        <DropdownMenuSubContent className="w-max min-w-[11rem]">
                           {groups.map((group) => (
                             <DropdownMenuItem
                               key={group.id}
@@ -628,12 +634,29 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                           {onCreateGroup ? (
                             <>
                               {groups.length > 0 ? <DropdownMenuSeparator /> : null}
-                              <DropdownMenuItem
-                                className="cursor-pointer"
-                                onClick={() => onCreateGroup()}
-                              >
-                                {groupsT("create")}
-                              </DropdownMenuItem>
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="cursor-pointer">
+                                  <Plus className="size-4" />
+                                  <span>{groupsT("create")}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent
+                                  className="w-56 p-2"
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <GroupNamePopoverForm
+                                    mode="create"
+                                    onCancel={() => setIsProjectMenuOpen(false)}
+                                    onSubmit={async (name) => {
+                                      const created = await onCreateGroup(name);
+                                      if (created?.id && onAddProjectToGroup) {
+                                        onAddProjectToGroup(project.id, created.id);
+                                      }
+                                      setIsProjectMenuOpen(false);
+                                    }}
+                                  />
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
                             </>
                           ) : null}
                         </DropdownMenuSubContent>
@@ -650,10 +673,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   ) : null}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+                    variant="destructive"
+                    className="cursor-pointer"
                     onClick={() => onDelete(project.id)}
                   >
-                    <Trash2 className="size-4 mr-2" />
+                    <Trash2 className="size-4" />
                     <span>{t("projectItem.deleteProject")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -716,6 +740,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   onUpdateLabel={onUpdateWorkspaceLabel}
                   groups={groups}
                   onSetWorkspaceGroup={onSetWorkspaceGroup}
+                  onCreateGroup={onCreateGroup}
                   onUpdateLabels={(wsId, labels) =>
                     onUpdateWorkspaceLabels(project.id, wsId, labels)
                   }

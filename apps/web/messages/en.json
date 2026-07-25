@@ -278,6 +278,7 @@
       "rename": "Rename Group",
       "delete": "Delete Group",
       "deleteConfirm": "Delete this group? Projects and workspaces are not deleted.",
+      "cancel": "Cancel",
       "addToGroup": "Add to Group",
       "moveToGroup": "Move to Group",
       "removeFromGroup": "Remove from Group",

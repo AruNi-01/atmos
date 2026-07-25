@@ -155,8 +155,10 @@ impl GroupService {
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Group {} not found", group_guid)))?;
 
-        // Exclusive membership: soft-delete prior row and insert replacement in one transaction,
-        // with group + member liveness checked inside that same txn (no check/insert race).
+        // Exclusive membership: soft-delete prior row and insert replacement in one
+        // transaction. Group + member liveness are write-claimed inside that txn
+        // (UPDATE ... WHERE is_deleted=false), not a separate SELECT, so concurrent
+        // soft-deletes cannot leave a membership on a deleted target under SQLite.
         // Combined with the partial unique index on active (member_type, member_guid).
         let sort_order = repo.next_member_sort_order(&group_guid).await?;
         let member = repo

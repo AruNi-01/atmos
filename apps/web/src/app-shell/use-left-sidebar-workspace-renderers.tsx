@@ -22,6 +22,7 @@ interface UseLeftSidebarWorkspaceRenderersParams {
     groups?: Group[];
     onEnterWorkspaceFromKanban: (projectId: string, workspaceId: string) => void;
     onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+    onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
     pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
     secondColumnKanbanCardProperties: KanbanCardProperties;
     unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -59,6 +60,7 @@ export function useLeftSidebarWorkspaceRenderers({
     groups = [],
     onEnterWorkspaceFromKanban,
     onSetWorkspaceGroup,
+    onCreateGroup,
     pinWorkspace,
     secondColumnKanbanCardProperties,
     unpinWorkspace,
@@ -106,6 +108,7 @@ export function useLeftSidebarWorkspaceRenderers({
             }
             groups={groups}
             onSetWorkspaceGroup={onSetWorkspaceGroup}
+            onCreateGroup={onCreateGroup}
         />
     ), [
         activeWorkspaceId,
@@ -113,6 +116,7 @@ export function useLeftSidebarWorkspaceRenderers({
         createWorkspaceLabel,
         deleteWorkspace,
         groups,
+        onCreateGroup,
         onSetWorkspaceGroup,
         pinWorkspace,
         unpinWorkspace,
@@ -158,6 +162,7 @@ export function useLeftSidebarWorkspaceRenderers({
             }
             groups={groups}
             onSetWorkspaceGroup={onSetWorkspaceGroup}
+            onCreateGroup={onCreateGroup}
         />
     ), [
         activeWorkspaceId,
@@ -165,6 +170,7 @@ export function useLeftSidebarWorkspaceRenderers({
         createWorkspaceLabel,
         deleteWorkspace,
         groups,
+        onCreateGroup,
         onSetWorkspaceGroup,
         pinWorkspace,
         unpinWorkspace,

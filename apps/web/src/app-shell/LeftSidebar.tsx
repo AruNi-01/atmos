@@ -532,18 +532,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
     }, [currentSidebarRouteKey]);
 
-    /** Quick-create from Project/Workspace menus (no popover anchor). */
-    const handleCreateGroupQuick = useCallback(async () => {
-        try {
-            await createGroup(groupsT('defaultName'));
-        } catch (error) {
-            console.error('Failed to create group:', error);
-        }
-    }, [groupsT]);
-
     const handleCreateGroupNamed = useCallback(async (name: string) => {
         try {
-            await createGroup(name);
+            return await createGroup(name);
         } catch (error) {
             console.error('Failed to create group:', error);
             throw error;
@@ -560,13 +551,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, []);
 
     const handleDeleteGroup = useCallback(async (groupId: string) => {
-        if (!window.confirm(groupsT('deleteConfirm'))) return;
         try {
             await deleteGroup(groupId);
         } catch (error) {
             console.error('Failed to delete group:', error);
+            throw error;
         }
-    }, [groupsT]);
+    }, []);
 
     const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
         try {
@@ -880,7 +871,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         onAddWorkspaceToGroup: handleAddWorkspaceToGroup,
         onRemoveWorkspaceFromGroup: handleRemoveWorkspaceFromGroup,
         onSetWorkspaceGroup: handleSetWorkspaceGroup,
-        onCreateGroup: handleCreateGroupQuick,
+        onCreateGroup: handleCreateGroupNamed,
     };
 
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
@@ -900,6 +891,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         groups,
         onEnterWorkspaceFromKanban: handleEnterWorkspaceFromSidebarKanban,
         onSetWorkspaceGroup: handleSetWorkspaceGroup,
+        onCreateGroup: handleCreateGroupNamed,
         pinWorkspace,
         secondColumnKanbanCardProperties,
         unpinWorkspace,
@@ -967,7 +959,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
             onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
             onSetWorkspaceGroup={handleSetWorkspaceGroup}
-            onCreateGroup={handleCreateGroupQuick}
+            onCreateGroup={handleCreateGroupNamed}
         />
     );
 
@@ -1024,7 +1016,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
             onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
             onSetWorkspaceGroup={handleSetWorkspaceGroup}
-            onCreateGroup={handleCreateGroupQuick}
+            onCreateGroup={handleCreateGroupNamed}
         />
     );
 

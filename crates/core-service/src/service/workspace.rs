@@ -494,9 +494,9 @@ impl WorkspaceService {
             .map_err(|error| {
                 ServiceError::Validation(format!("Failed to serialize GitHub PR metadata: {error}"))
             })?;
-        // WorkspaceRepo::create re-checks project liveness inside the same DB transaction
-        // as the insert (covers concurrent project soft-delete after the initial find and
-        // the long git setup window above).
+        // WorkspaceRepo::create write-claims project liveness (UPDATE ... is_deleted=false)
+        // in the same transaction as the insert — covers concurrent soft-delete after the
+        // early find + long git setup window (SELECT alone is not enough on SQLite).
         let model = workspace_repo
             .create(
                 project_guid,

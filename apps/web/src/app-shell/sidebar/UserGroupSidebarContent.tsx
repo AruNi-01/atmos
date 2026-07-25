@@ -10,8 +10,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -31,6 +33,7 @@ import {
   UNGROUPED_USER_GROUP_KEY,
   type UserGroupView,
 } from "@/app-shell/sidebar/user-groups";
+import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectItem";
 import { TwoColumnSidebarToggleButton } from "@/app-shell/left-sidebar-controls";
 
@@ -53,86 +56,12 @@ type ProjectItemSharedProps = Omit<
   activeProjectId?: string | null;
 };
 
-function GroupNamePopoverForm({
-  mode,
-  initialName = "",
-  onSubmit,
-  onCancel,
-}: {
-  mode: "create" | "rename";
-  initialName?: string;
-  onSubmit: (name: string) => Promise<void> | void;
-  onCancel: () => void;
-}) {
-  const t = useTranslations("appShell.groups");
-  const [name, setName] = useState(initialName);
-  const [busy, setBusy] = useState(false);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed || busy) return;
-    setBusy(true);
-    try {
-      await onSubmit(trimmed);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form
-      className="space-y-2"
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
-      data-testid="group-name-popover"
-    >
-      <div className="text-xs font-medium text-foreground">
-        {mode === "create" ? t("create") : t("rename")}
-      </div>
-      <Input
-        autoFocus
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        placeholder={t("createPlaceholder")}
-        className="h-8 text-sm"
-        data-testid="group-name-input"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-        }}
-      />
-      <div className="flex justify-end gap-1.5">
-        <button
-          type="button"
-          className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-          onClick={onCancel}
-          disabled={busy}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
-          disabled={busy || !name.trim()}
-          data-testid="group-name-submit"
-        >
-          {mode === "create" ? t("create") : t("rename")}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function CreateGroupPopoverButton({
   variant,
   onCreate,
 }: {
   variant: "icon" | "labeled";
-  onCreate: (name: string) => Promise<void> | void;
+  onCreate: (name: string) => Promise<unknown> | void;
 }) {
   const t = useTranslations("appShell.groups");
   const [open, setOpen] = useState(false);
@@ -198,13 +127,16 @@ function GroupRowTrailing({
   groupId: string | null;
   groupName: string;
   onRename: (groupId: string, name: string) => Promise<void> | void;
-  onDelete: () => void;
+  onDelete: () => Promise<void> | void;
   renameLabel: string;
   deleteLabel: string;
 }) {
+  const t = useTranslations("appShell.groups");
   const [menuOpen, setMenuOpen] = useState(false);
-  /** Menu panel view: actions list, or rename form in the same floating surface. */
-  const [panel, setPanel] = useState<"menu" | "rename">("menu");
+  /** Keep rename/delete submenus open so parent ··· menu stays mounted. */
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const countHideOnHover =
     hoverScope === "row" ? "group-hover/row:opacity-0" : "group-hover/header:opacity-0";
   const buttonShowOnHover =
@@ -226,8 +158,11 @@ function GroupRowTrailing({
           open={menuOpen}
           onOpenChange={(open) => {
             setMenuOpen(open);
-            // Reset to the action list whenever the surface closes.
-            if (!open) setPanel("menu");
+            if (!open) {
+              setRenameOpen(false);
+              setDeleteOpen(false);
+              setDeleteBusy(false);
+            }
           }}
         >
           <DropdownMenuTrigger asChild>
@@ -244,31 +179,30 @@ function GroupRowTrailing({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className={cn(panel === "rename" ? "w-56 p-2" : "w-40")}
-            // Keep the floating surface mounted while typing in the rename form.
+            // Fit labels like "Rename Group" on one line (locale-aware width).
+            className="w-max min-w-[10rem]"
             onCloseAutoFocus={(event) => event.preventDefault()}
           >
-            {panel === "menu" ? (
-              <>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    // Stay inside the same menu surface; do not dismiss then re-open.
-                    event.preventDefault();
-                    setPanel("rename");
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                  {renameLabel}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                  <Trash2 className="size-3.5" />
-                  {deleteLabel}
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <div
-                // Prevent menu item focus logic from treating the form as a select.
+            <DropdownMenuSub
+              open={renameOpen}
+              // Close via Radix; open only on click (ignore hover-open).
+              onOpenChange={(open) => {
+                if (!open) setRenameOpen(false);
+              }}
+            >
+              <DropdownMenuSubTrigger
+                className="cursor-pointer hover:bg-accent focus:bg-accent data-[state=open]:bg-accent [&>svg:last-child]:hidden"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setDeleteOpen(false);
+                  setRenameOpen((prev) => !prev);
+                }}
+              >
+                <Pencil className="size-3.5" />
+                {renameLabel}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className="w-56 p-2"
                 onKeyDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
@@ -276,15 +210,78 @@ function GroupRowTrailing({
                   key={`${groupId}:${groupName}:rename`}
                   mode="rename"
                   initialName={groupName}
-                  onCancel={() => setPanel("menu")}
+                  onCancel={() => setRenameOpen(false)}
                   onSubmit={async (name) => {
                     await onRename(groupId, name);
+                    setRenameOpen(false);
                     setMenuOpen(false);
-                    setPanel("menu");
                   }}
                 />
-              </div>
-            )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub
+              open={deleteOpen}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setDeleteOpen(false);
+                  setDeleteBusy(false);
+                }
+              }}
+            >
+              <DropdownMenuSubTrigger
+                className="cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive data-[state=open]:bg-destructive/10 data-[state=open]:text-destructive [&>svg:last-child]:hidden [&_svg:not([class*='text-'])]:text-destructive"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setRenameOpen(false);
+                  setDeleteOpen((prev) => !prev);
+                }}
+              >
+                <Trash2 className="size-3.5" />
+                {deleteLabel}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className="w-56 p-2"
+                onKeyDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="space-y-2" data-testid="group-delete-confirm">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {t("deleteConfirm")}
+                  </p>
+                  <div className="flex justify-end gap-1.5">
+                    <button
+                      type="button"
+                      className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                      onClick={() => setDeleteOpen(false)}
+                      disabled={deleteBusy}
+                    >
+                      {t("cancel")}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md bg-destructive px-2 py-1 text-xs text-destructive-foreground disabled:opacity-50"
+                      disabled={deleteBusy}
+                      data-testid="group-delete-confirm-submit"
+                      onClick={() => {
+                        void (async () => {
+                          setDeleteBusy(true);
+                          try {
+                            await onDelete();
+                            setDeleteOpen(false);
+                            setMenuOpen(false);
+                          } finally {
+                            setDeleteBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      {deleteLabel}
+                    </button>
+                  </div>
+                </div>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
@@ -303,9 +300,9 @@ export function UserGroupTwoColumnLeftContent({
   views: UserGroupView[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
-  onCreateGroup: (name: string) => Promise<void> | void;
+  onCreateGroup: (name: string) => Promise<unknown> | void;
   onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
-  onDeleteGroup: (groupId: string) => void;
+  onDeleteGroup: (groupId: string) => Promise<void> | void;
 }) {
   const t = useTranslations("appShell.groups");
 
@@ -349,7 +346,10 @@ export function UserGroupTwoColumnLeftContent({
                   renameLabel={t("rename")}
                   deleteLabel={t("delete")}
                   onRename={onRenameGroup}
-                  onDelete={() => view.groupId && onDeleteGroup(view.groupId)}
+                  onDelete={async () => {
+                    if (!view.groupId) return;
+                    await onDeleteGroup(view.groupId);
+                  }}
                 />
               </div>
             );
@@ -460,9 +460,9 @@ export function UserGroupOneColumnContent({
   views: UserGroupView[];
   collapsedKeys: Record<string, boolean>;
   onToggleCollapsed: (key: string) => void;
-  onCreateGroup: (name: string) => Promise<void> | void;
+  onCreateGroup: (name: string) => Promise<unknown> | void;
   onRenameGroup: (groupId: string, name: string) => Promise<void> | void;
-  onDeleteGroup: (groupId: string) => void;
+  onDeleteGroup: (groupId: string) => Promise<void> | void;
   projectItemProps: ProjectItemSharedProps;
   expandedProjectIds: string[];
   onToggleProject: (projectId: string) => void;
@@ -513,7 +513,10 @@ export function UserGroupOneColumnContent({
                   renameLabel={t("rename")}
                   deleteLabel={t("delete")}
                   onRename={onRenameGroup}
-                  onDelete={() => view.groupId && onDeleteGroup(view.groupId)}
+                  onDelete={async () => {
+                    if (!view.groupId) return;
+                    await onDeleteGroup(view.groupId);
+                  }}
                 />
               </div>
               <CollapsibleContent>

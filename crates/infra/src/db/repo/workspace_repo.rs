@@ -115,14 +115,19 @@ impl<'a> WorkspaceRepo<'a> {
             None => None,
         };
 
-        // Project liveness + insert must share one transaction so a concurrent project
-        // soft-delete cannot commit between the check and the workspace row write.
+        // Claim project liveness with a write under the same transaction as the insert.
+        // A plain SELECT is not enough on SQLite deferred txns: a concurrent soft-delete
+        // can commit between SELECT and INSERT. UPDATE ... WHERE is_deleted=false takes
+        // the writer lock and fails closed if the project is already gone.
         let txn = self.db.begin().await?;
-        let project_alive = project::Entity::find_by_id(project_guid.clone())
+        let now = chrono::Utc::now().naive_utc();
+        let claimed = project::Entity::update_many()
+            .col_expr(project::Column::UpdatedAt, Expr::value(now))
+            .filter(project::Column::Guid.eq(project_guid.clone()))
             .filter(project::Column::IsDeleted.eq(false))
-            .one(&txn)
+            .exec(&txn)
             .await?;
-        if project_alive.is_none() {
+        if claimed.rows_affected == 0 {
             return Err(crate::error::InfraError::Custom(format!(
                 "Project {} not found",
                 project_guid
@@ -180,6 +185,22 @@ impl<'a> WorkspaceRepo<'a> {
         // 生成占位分支名（不实际创建）
         let placeholder_branch = format!("issue-only-{}", &base.guid[..8]);
 
+        // Same write-claim + insert pattern as create() (SQLite deferred-txn safety).
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+        let claimed = project::Entity::update_many()
+            .col_expr(project::Column::UpdatedAt, Expr::value(now))
+            .filter(project::Column::Guid.eq(input.project_guid.clone()))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        if claimed.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(format!(
+                "Project {} not found",
+                input.project_guid
+            )));
+        }
+
         let model = workspace::ActiveModel {
             guid: Set(base.guid),
             project_guid: Set(input.project_guid),
@@ -212,7 +233,8 @@ impl<'a> WorkspaceRepo<'a> {
             create_source: Set(WorkspaceCreateSource::IssueOnly.as_str().to_string()),
         };
 
-        let result = model.insert(self.db).await?;
+        let result = model.insert(&txn).await?;
+        txn.commit().await?;
         Ok(result)
     }
 

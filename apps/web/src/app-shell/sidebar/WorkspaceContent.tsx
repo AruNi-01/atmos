@@ -74,6 +74,7 @@ export interface WorkspaceContentProps {
   /** APP-044: groups for workspace membership switcher in the info popover. */
   groups?: Group[];
   onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
 function workspaceContentPropsAreEqual(
@@ -159,6 +160,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   onUpdateLabels,
   groups = [],
   onSetWorkspaceGroup,
+  onCreateGroup,
 }) {
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
@@ -622,7 +624,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   onOpenChange={setIsStatusMenuOpen}
                   surface
                 />
-                {onSetWorkspaceGroup || groups.length > 0 ? (
+                {onSetWorkspaceGroup || groups.length > 0 || onCreateGroup ? (
                   <WorkspaceGroupSelect
                     value={workspaceGroupId}
                     groups={groups}
@@ -631,6 +633,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                         ? (groupId) => onSetWorkspaceGroup(workspace.id, groupId)
                         : undefined
                     }
+                    onCreateGroup={onCreateGroup}
                     onOpenChange={setIsGroupMenuOpen}
                     surface
                   />
