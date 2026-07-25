@@ -423,11 +423,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     // Debounce visited marks so rapid workspace switching does not thrash the
     // project bootstrap snapshot (and re-render every sidebar row) on each hop.
+    // lastVisitedWorkspaceRef prevents re-scheduling after markWorkspaceVisited
+    // patches the bootstrap snapshot (which updates `projects` and re-runs this effect).
     const pendingVisitedWorkspaceRef = useRef<string | null>(null);
+    const lastVisitedWorkspaceRef = useRef<string | null>(null);
     const visitedMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
         if (currentView !== 'workspace' || !currentWorkspaceId) {
             pendingVisitedWorkspaceRef.current = null;
+            lastVisitedWorkspaceRef.current = null;
             if (visitedMarkTimerRef.current) {
                 clearTimeout(visitedMarkTimerRef.current);
                 visitedMarkTimerRef.current = null;
@@ -436,6 +440,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }
 
         if (isLoading) {
+            return;
+        }
+
+        if (lastVisitedWorkspaceRef.current === currentWorkspaceId) {
             return;
         }
 
@@ -454,6 +462,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             visitedMarkTimerRef.current = null;
             const id = pendingVisitedWorkspaceRef.current;
             if (!id) return;
+            pendingVisitedWorkspaceRef.current = null;
+            lastVisitedWorkspaceRef.current = id;
             void markWorkspaceVisited(id);
         }, 750);
 

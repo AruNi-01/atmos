@@ -45,6 +45,7 @@ import {
   browserMountKey,
   lightMountKey,
   namedTerminalMountKey,
+  terminalMountKey,
   isKeyMounted,
 } from "@/app-shell/workspace-surface-policies";
 import { scheduleIdle } from "@/app-shell/workspace-surface-switch";
@@ -460,18 +461,24 @@ export function CenterStagePanels({
           >
             {tabs
               .filter((tab) => {
-                // Tab-like keep-alive (same model as switching terminal tabs inside
-                // one workspace): once a TerminalGrid is in the tree, keep it mounted
-                // for the whole Active∪Warm lifetime and only CSS-hide it.
-                // Demount only when the workspace freezes (drops from contextIdsToRender).
-                //
-                // Always keep frameActiveTab for warm/sticky frames too — not only
-                // active. Otherwise the first commit after a context switch can drop
-                // the leaving workspace's Terminal before mount bookkeeping lands,
-                // closing the PTY WebSocket and flashing Disconnected.
-                if (mountedTabs.includes(tab.id)) return true;
-                if (tab.id === frameActiveTab) return true;
-                return false;
+                // Keep-alive candidates: already-mounted tabs + this frame's last
+                // active terminal (covers the first paint after a context switch
+                // before mountedTerminalTabsByContext is updated).
+                const isRetained =
+                  mountedTabs.includes(tab.id) || tab.id === frameActiveTab;
+                if (!isRetained) return false;
+                // Active frameActiveTab is never demounted (TECH §4.3 hard rule).
+                if (isActiveContext && tab.id === frameActiveTab) return true;
+                if (mountPlan.mounted.length === 0) {
+                  // Bootstrap before plan: active secondaries + every frame's last tab.
+                  return isActiveContext || tab.id === frameActiveTab;
+                }
+                // Warm frameActiveTab + all secondaries follow mountPlan (budgeted;
+                // plan prioritizes warm last-tabs over active secondaries).
+                return isKeyMounted(
+                  mountPlan,
+                  terminalMountKey(contextId, tab.id),
+                );
               })
               .map((tab) => (
                 <div

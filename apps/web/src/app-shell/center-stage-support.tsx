@@ -15,6 +15,7 @@ import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-s
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
+import { promoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
 import {
   readCenterStageLastTab,
   setCenterStageLastTab,
@@ -187,7 +188,7 @@ export function useTerminalTabMountLifecycle({
       }
     }
 
-    useWorkspaceSurfaceCacheStore.getState().switchContext(current);
+    promoteWorkspaceSurfaceSwitch(current);
   }, [effectiveContextId, setMountedTerminalTabsByContext]);
 
   // Ensure Active ∪ Warm contexts keep their last terminal tab mounted for the
