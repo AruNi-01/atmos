@@ -7,11 +7,15 @@ import { useQueryState } from "nuqs";
 import { ChevronDown } from "lucide-react";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
+import { cn } from "@/shared/lib/utils";
 
 const CanvasView = dynamic(() => import("./CanvasView").then((mod) => mod.CanvasView), {
   ssr: false,
   loading: () => <CanvasOverlayLoading />,
 });
+
+/** How long a closed Canvas stays warm in memory before full unmount. */
+export const CANVAS_KEEP_ALIVE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 function CanvasOverlayLoading() {
   const t = useTranslations("app.loading");
@@ -34,17 +38,28 @@ function CanvasOverlayLoading() {
  * query param is active. Open with the Canvas item in Management Center;
  * collapse via the chevron-down "pull tab" rendered at the top-center (mirrors
  * the New Workspace welcome overlay's collapse affordance).
+ *
+ * Keep-alive: after open, CanvasView stays mounted while closed (visibility only)
+ * for {@link CANVAS_KEEP_ALIVE_TTL_MS}, then fully unmounts to free memory.
+ * Re-open within the TTL is instant; after TTL the next open cold-loads again.
  */
 export function CanvasOverlay() {
   const t = useTranslations("Canvas.chrome");
   const [canvas, setCanvas] = useQueryState("canvas", centerStageParams.canvas);
   const [animState, setAnimState] = React.useState<"idle" | "entering" | "visible" | "closing">("idle");
+  /** True while CanvasView should stay mounted (open, animating, or warm-hidden). */
+  const [hasMountedCanvas, setHasMountedCanvas] = React.useState(false);
   // macOS desktop (non-fullscreen) reserves ~32px at the top for the window
   // traffic-lights; nudge the collapse pull-tab below them so it stays clickable.
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   /** Previous committed value of `canvas` from nuqs (starts false so `?canvas=true` on first paint opens correctly). */
   const prevCanvasOpenRef = React.useRef(false);
   const previousFocusRef = React.useRef<Element | null>(null);
+
+  // First open (or closing mid-flight) claims keep-alive until TTL expires.
+  if ((canvas || animState !== "idle") && !hasMountedCanvas) {
+    setHasMountedCanvas(true);
+  }
 
   React.useEffect(() => {
     const wasOpen = prevCanvasOpenRef.current;
@@ -92,35 +107,58 @@ export function CanvasOverlay() {
     setAnimState("closing");
   }, []);
 
-  const isMounted = canvas || animState !== "idle";
+  const isOpen = Boolean(canvas) && animState !== "closing";
+  const isClosing = animState === "closing";
+  /** Fully dismissed but keep-alive: hide without unmounting CanvasView. */
+  const isKeepAliveHidden = hasMountedCanvas && !canvas && animState === "idle";
+  const isOverlayActive = isOpen || isClosing;
+
+  // Warm-hidden only: after TTL, drop the mount so tldraw/terminals free memory.
+  // Re-open before TTL cancels this timer (effect re-runs when isKeepAliveHidden flips).
+  React.useEffect(() => {
+    if (!isKeepAliveHidden) return;
+    const id = window.setTimeout(() => {
+      setHasMountedCanvas(false);
+      setAnimState("idle");
+    }, CANVAS_KEEP_ALIVE_TTL_MS);
+    return () => clearTimeout(id);
+  }, [isKeepAliveHidden]);
 
   React.useEffect(() => {
-    if (!isMounted) {
+    if (!isOverlayActive) {
       return;
     }
     document.body.classList.add("canvas-overlay-active");
     return () => {
       document.body.classList.remove("canvas-overlay-active");
     };
-  }, [isMounted]);
+  }, [isOverlayActive]);
 
-  if (!canvas && animState === "idle") {
+  // Never opened this session, or keep-alive TTL expired — no tldraw cost.
+  if (!hasMountedCanvas) {
     return null;
   }
-
-  const isOpen = canvas && animState !== "closing";
-  const isClosing = animState === "closing";
 
   return (
     <div
       role="dialog"
-      aria-modal="true"
+      aria-modal={isOverlayActive ? true : undefined}
+      aria-hidden={isKeepAliveHidden ? true : undefined}
       aria-label={t("common.canvas")}
       data-canvas-overlay="true"
-      className={`fixed inset-0 z-[150] bg-background transition-transform duration-300 ease-in-out ${
-        isOpen ? "translate-y-0" : isClosing ? "translate-y-full" : "translate-y-full"
-      }`}
+      data-canvas-open={isOpen ? "true" : "false"}
+      data-canvas-keep-alive={isKeepAliveHidden ? "true" : "false"}
+      inert={isKeepAliveHidden ? true : undefined}
+      className={cn(
+        "fixed inset-0 z-[150] bg-background transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-y-0" : "translate-y-full",
+        isKeepAliveHidden && "pointer-events-none",
+      )}
     >
+      {/*
+        Always keep CanvasView once mounted — do not gate on animState.
+        Closing only slides the shell; the board stays warm in memory.
+      */}
       <CanvasView />
       {/*
         Top-center "pull-down" collapse affordance — mirrors the New Workspace
@@ -130,6 +168,7 @@ export function CanvasOverlay() {
       <button
         type="button"
         onClick={handleClose}
+        tabIndex={isKeepAliveHidden ? -1 : undefined}
         className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
         style={needsTrafficLightsPadding ? { top: 32 } : undefined}
         aria-label={t("overlay.collapseCanvas")}
