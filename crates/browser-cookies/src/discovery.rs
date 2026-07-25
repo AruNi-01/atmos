@@ -60,23 +60,78 @@ fn chromium_bases() -> Vec<ChromiumBase> {
     };
     let app = home.join("Library/Application Support");
     let entries: &[(&str, &str, Option<BrowserKind>, &str)] = &[
-        ("Google Chrome", "Chrome Safe Storage", Some(BrowserKind::Chrome), "Google/Chrome"),
-        ("Google Chrome Beta", "Chrome Safe Storage", Some(BrowserKind::Chrome), "Google/Chrome Beta"),
-        ("Google Chrome Canary", "Chrome Safe Storage", Some(BrowserKind::Chrome), "Google/Chrome Canary"),
-        ("Microsoft Edge", "Microsoft Edge Safe Storage", Some(BrowserKind::Edge), "Microsoft Edge"),
-        ("Microsoft Edge Beta", "Microsoft Edge Safe Storage", Some(BrowserKind::Edge), "Microsoft Edge Beta"),
-        ("Microsoft Edge Dev", "Microsoft Edge Safe Storage", Some(BrowserKind::Edge), "Microsoft Edge Dev"),
-        ("Microsoft Edge Canary", "Microsoft Edge Safe Storage", Some(BrowserKind::Edge), "Microsoft Edge Canary"),
-        ("Brave", "Brave Safe Storage", Some(BrowserKind::Brave), "BraveSoftware/Brave-Browser"),
-        ("Brave Beta", "Brave Safe Storage", Some(BrowserKind::Brave), "BraveSoftware/Brave-Browser-Beta"),
+        (
+            "Google Chrome",
+            "Chrome Safe Storage",
+            Some(BrowserKind::Chrome),
+            "Google/Chrome",
+        ),
+        (
+            "Google Chrome Beta",
+            "Chrome Safe Storage",
+            Some(BrowserKind::Chrome),
+            "Google/Chrome Beta",
+        ),
+        (
+            "Google Chrome Canary",
+            "Chrome Safe Storage",
+            Some(BrowserKind::Chrome),
+            "Google/Chrome Canary",
+        ),
+        (
+            "Microsoft Edge",
+            "Microsoft Edge Safe Storage",
+            Some(BrowserKind::Edge),
+            "Microsoft Edge",
+        ),
+        (
+            "Microsoft Edge Beta",
+            "Microsoft Edge Safe Storage",
+            Some(BrowserKind::Edge),
+            "Microsoft Edge Beta",
+        ),
+        (
+            "Microsoft Edge Dev",
+            "Microsoft Edge Safe Storage",
+            Some(BrowserKind::Edge),
+            "Microsoft Edge Dev",
+        ),
+        (
+            "Microsoft Edge Canary",
+            "Microsoft Edge Safe Storage",
+            Some(BrowserKind::Edge),
+            "Microsoft Edge Canary",
+        ),
+        (
+            "Brave",
+            "Brave Safe Storage",
+            Some(BrowserKind::Brave),
+            "BraveSoftware/Brave-Browser",
+        ),
+        (
+            "Brave Beta",
+            "Brave Safe Storage",
+            Some(BrowserKind::Brave),
+            "BraveSoftware/Brave-Browser-Beta",
+        ),
         // Discovered for the ai-usage reuse path only (no import BrowserKind).
         ("Arc", "Arc Safe Storage", None, "Arc/User Data"),
         ("Arc Beta", "Arc Safe Storage", None, "Arc Beta/User Data"),
-        ("Arc Canary", "Arc Safe Storage", None, "Arc Canary/User Data"),
+        (
+            "Arc Canary",
+            "Arc Safe Storage",
+            None,
+            "Arc Canary/User Data",
+        ),
         ("Chromium", "Chromium Safe Storage", None, "Chromium"),
         ("Helium", "Helium Safe Storage", None, "net.imput.helium"),
         ("Dia", "Dia Safe Storage", None, "com.electron.dia"),
-        ("ChatGPT Atlas", "ChatGPT Atlas Safe Storage", None, "ChatGPT Atlas"),
+        (
+            "ChatGPT Atlas",
+            "ChatGPT Atlas Safe Storage",
+            None,
+            "ChatGPT Atlas",
+        ),
     ];
 
     entries
@@ -301,7 +356,6 @@ pub fn firefox_profile_candidates() -> Vec<FirefoxProfileCandidate> {
         .collect()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{chromium_profile_priority, preferred_profile_name};
@@ -311,7 +365,10 @@ mod tests {
     fn profile_priority_orders_numerically_not_lexicographically() {
         let mut names = vec!["Profile 10", "Profile 3", "Profile 1", "Default"];
         names.sort_by_key(|n| chromium_profile_priority(n));
-        assert_eq!(names, vec!["Default", "Profile 1", "Profile 3", "Profile 10"]);
+        assert_eq!(
+            names,
+            vec!["Default", "Profile 1", "Profile 3", "Profile 10"]
+        );
     }
 
     #[test]
@@ -323,13 +380,15 @@ mod tests {
 
     #[test]
     fn prefers_google_account_name_over_local_profile_label() {
-        let info = json!({ "name": "用户 1", "gaia_name": "Jane Doe", "user_name": "jane@example.com" });
+        let info =
+            json!({ "name": "用户 1", "gaia_name": "Jane Doe", "user_name": "jane@example.com" });
         assert_eq!(preferred_profile_name(&info).as_deref(), Some("Jane Doe"));
     }
 
     #[test]
     fn falls_back_to_email_then_local_name() {
-        let email_only = json!({ "name": "用户 1", "gaia_name": "", "user_name": "jane@example.com" });
+        let email_only =
+            json!({ "name": "用户 1", "gaia_name": "", "user_name": "jane@example.com" });
         assert_eq!(
             preferred_profile_name(&email_only).as_deref(),
             Some("jane@example.com")

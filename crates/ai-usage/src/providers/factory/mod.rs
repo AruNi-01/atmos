@@ -330,10 +330,9 @@ fn build_factory_live_result(
 ) -> Result<LiveFetchResult, ProviderError> {
     let auth = serde_json::from_value::<FactoryAuthResponse>(auth_payload)
         .map_err(|error| ProviderError::Fetch(format!("Invalid Factory auth payload: {error}")))?;
-    let limits = serde_json::from_value::<FactoryBillingLimitsResponse>(limits_payload)
-        .map_err(|error| {
-            ProviderError::Fetch(format!("Invalid Factory billing limits payload: {error}"))
-        })?;
+    let limits = serde_json::from_value::<FactoryBillingLimitsResponse>(limits_payload).map_err(
+        |error| ProviderError::Fetch(format!("Invalid Factory billing limits payload: {error}")),
+    )?;
 
     let plan_label = build_factory_plan_label(&auth);
     let account_label = auth
@@ -377,7 +376,12 @@ fn build_factory_live_result(
     }
 
     let mut usage_rows = Vec::new();
-    push_window_row(&mut usage_rows, "5 hours", five_hour_percent, five_hour_reset);
+    push_window_row(
+        &mut usage_rows,
+        "5 hours",
+        five_hour_percent,
+        five_hour_reset,
+    );
     push_window_row(&mut usage_rows, "1 week", weekly_percent, weekly_reset);
     push_window_row(&mut usage_rows, "1 month", monthly_percent, monthly_reset);
 
@@ -476,9 +480,7 @@ fn build_factory_live_result(
     }
 
     // Prefer the short window for the summary bar (matches Claude / Codex).
-    let summary_percent = five_hour_percent
-        .or(weekly_percent)
-        .or(monthly_percent);
+    let summary_percent = five_hour_percent.or(weekly_percent).or(monthly_percent);
 
     Ok(LiveFetchResult {
         plan_label: Some(plan_label),
@@ -693,7 +695,10 @@ fn window_limits_has_signal(limits: &FactoryWindowLimits) -> bool {
         .flatten()
         .any(|window| {
             window.used_percent.unwrap_or(0.0) > 0.0
-                || window.window_end.as_ref().is_some_and(|end| !end.is_empty())
+                || window
+                    .window_end
+                    .as_ref()
+                    .is_some_and(|end| !end.is_empty())
                 || window.seconds_remaining.is_some()
         })
 }
@@ -804,10 +809,7 @@ mod tests {
 
     #[test]
     fn formats_window_row_like_codex() {
-        assert_eq!(
-            format_window(30.0, None),
-            "30% used · Reset unknown"
-        );
+        assert_eq!(format_window(30.0, None), "30% used · Reset unknown");
         assert_eq!(window_percent(None), None);
         assert_eq!(
             window_percent(Some(&FactoryLimitWindow {

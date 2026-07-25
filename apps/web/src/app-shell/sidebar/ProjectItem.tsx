@@ -41,12 +41,14 @@ import {
   Input,
   Label,
 } from "@workspace/ui";
-import type { Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
+import type { Group, Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
 import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
+import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
-import { ImageIcon } from "lucide-react";
+import { FolderMinus, FolderPlus, ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
+import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
   useWorkspaceListVisibleCount,
   WorkspaceListShowMoreLess,
@@ -62,6 +64,11 @@ export interface ProjectItemProps {
   isExpanded: boolean;
   hideWorkspaceList?: boolean;
   disableRowClick?: boolean;
+  /**
+   * Disable nested workspace row sorting (e.g. By Group sidebar, where a parent
+   * DndContext only reorders groups and must not register workspace droppables).
+   */
+  workspaceSortingDisabled?: boolean;
   isDragging?: boolean;
   isPlaceholder?: boolean;
   isAnyProjectDragging?: boolean;
@@ -106,6 +113,18 @@ export interface ProjectItemProps {
   isSelected?: boolean;
   /** Current URL workspace — for row active highlight without per-row URL hooks. */
   activeWorkspaceId?: string | null;
+  /** APP-044: optional group membership controls */
+  groups?: Group[];
+  onAddProjectToGroup?: (projectId: string, groupId: string) => void;
+  onRemoveProjectFromGroup?: (projectId: string) => void;
+  onAddWorkspaceToGroup?: (workspaceId: string, groupId: string) => void;
+  onRemoveWorkspaceFromGroup?: (workspaceId: string) => void;
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+  /**
+   * Create a group by name. When it resolves to a Group (or `{ id }`), this project
+   * is assigned to that group automatically.
+   */
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
 const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
@@ -162,6 +181,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   isExpanded,
   hideWorkspaceList = false,
   disableRowClick = false,
+  workspaceSortingDisabled = false,
   isDragging,
   isPlaceholder,
   isAnyProjectDragging,
@@ -190,10 +210,19 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   isActiveProject,
   isSelected = false,
   activeWorkspaceId = null,
+  groups = [],
+  onAddProjectToGroup,
+  onRemoveProjectFromGroup,
+  onAddWorkspaceToGroup,
+  onRemoveWorkspaceFromGroup,
+  onSetWorkspaceGroup,
+  onCreateGroup,
 }) {
   const t = useTranslations("AppShell.chrome");
+  const groupsT = useTranslations("appShell.groups");
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const projectGroupId = findGroupIdForMember(groups, "project", project.id);
   const initialLetter = project.name.charAt(0).toUpperCase();
 
   const projectAgentState = useAgentHooksStore((s) =>
@@ -487,13 +516,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   onCloseAutoFocus={(e) => e.preventDefault()}
                 >
                   <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
-                    <Plus className="size-4 mr-2" />
+                    <Plus className="size-4" />
                     <span>{t("managementCenter.items.newWorkspace")}</span>
                   </DropdownMenuItem>
 
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="cursor-pointer">
-                      <Palette className="size-4 mr-2" />
+                      <Palette className="size-4" />
                       <span>{t("projectItem.setColor")}</span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-[195px] p-3">
@@ -581,20 +610,81 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     onClick={handleOpenLogoDialog}
                     className="cursor-pointer"
                   >
-                    <ImageIcon className="size-4 mr-2" />
+                    <ImageIcon className="size-4" />
                     <span>{t("projectItem.logo.setLogo")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
-                    <FileCode className="size-4 mr-2" />
+                    <FileCode className="size-4" />
                     <span>{t("projectItem.workspaceScripts")}</span>
                   </DropdownMenuItem>
+                  {(onAddProjectToGroup || onRemoveProjectFromGroup || onCreateGroup) ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="cursor-pointer">
+                          <FolderPlus className="size-4" />
+                          <span>{projectGroupId ? groupsT("moveToGroup") : groupsT("addToGroup")}</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="w-max min-w-[11rem]">
+                          {groups.map((group) => (
+                            <DropdownMenuItem
+                              key={group.id}
+                              className="cursor-pointer"
+                              disabled={group.id === projectGroupId}
+                              onClick={() => onAddProjectToGroup?.(project.id, group.id)}
+                            >
+                              {group.name}
+                            </DropdownMenuItem>
+                          ))}
+                          {onCreateGroup ? (
+                            <>
+                              {groups.length > 0 ? <DropdownMenuSeparator /> : null}
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="cursor-pointer">
+                                  <Plus className="size-4" />
+                                  <span>{groupsT("create")}</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent
+                                  className="w-56 p-2"
+                                  onKeyDown={(event) => event.stopPropagation()}
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <GroupNamePopoverForm
+                                    mode="create"
+                                    onCancel={() => setIsProjectMenuOpen(false)}
+                                    onSubmit={async (name) => {
+                                      const created = await onCreateGroup(name);
+                                      if (created?.id && onAddProjectToGroup) {
+                                        onAddProjectToGroup(project.id, created.id);
+                                      }
+                                      setIsProjectMenuOpen(false);
+                                    }}
+                                  />
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                            </>
+                          ) : null}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      {projectGroupId && onRemoveProjectFromGroup ? (
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={() => onRemoveProjectFromGroup(project.id)}
+                        >
+                          <FolderMinus className="size-4" />
+                          <span>{groupsT("removeFromGroup")}</span>
+                        </DropdownMenuItem>
+                      ) : null}
+                    </>
+                  ) : null}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+                    variant="destructive"
+                    className="cursor-pointer"
                     onClick={() => onDelete(project.id)}
                   >
-                    <Trash2 className="size-4 mr-2" />
+                    <Trash2 className="size-4" />
                     <span>{t("projectItem.deleteProject")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -630,7 +720,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             )}
           >
             <SortableContext
-              items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)}
+              items={
+                workspaceSortingDisabled
+                  ? []
+                  : visibleUnpinnedWorkspaces.map((workspace) => workspace.id)
+              }
               strategy={verticalListSortingStrategy}
             >
               {visibleUnpinnedWorkspaces.map((ws) => (
@@ -641,6 +735,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   projectName={project.name}
                   projectPath={project.mainFilePath}
                   isActive={activeWorkspaceId === ws.id}
+                  sortingDisabled={workspaceSortingDisabled}
                   onPin={(wsId) => onPinWorkspace(project.id, wsId)}
                   onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
                   onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
@@ -655,6 +750,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   availableLabels={availableLabels}
                   onCreateLabel={onCreateWorkspaceLabel}
                   onUpdateLabel={onUpdateWorkspaceLabel}
+                  groups={groups}
+                  onSetWorkspaceGroup={onSetWorkspaceGroup}
+                  onCreateGroup={onCreateGroup}
                   onUpdateLabels={(wsId, labels) =>
                     onUpdateWorkspaceLabels(project.id, wsId, labels)
                   }

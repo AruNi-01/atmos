@@ -19,10 +19,17 @@ import {
   Clock3,
   Flag,
   FolderKanban,
+  Folders,
   Tags,
 } from "lucide-react";
 
-export type SidebarGroupingMode = "project" | "status" | "time" | "label" | "priority";
+export type SidebarGroupingMode =
+  | "project"
+  | "group"
+  | "status"
+  | "time"
+  | "label"
+  | "priority";
 
 // Linear-style circular status icons
 function StatusBacklog({ className }: { className?: string }) {
@@ -153,6 +160,7 @@ export const SIDEBAR_GROUPING_OPTIONS: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { value: "project", label: "By Project", labelKey: "grouping.project", icon: FolderKanban },
+  { value: "group", label: "By Group", labelKey: "grouping.group", icon: Folders },
   { value: "status", label: "By Status", labelKey: "grouping.status", icon: StatusBacklog },
   { value: "time", label: "By Time", labelKey: "grouping.time", icon: Clock3 },
   { value: "label", label: "By Label", labelKey: "grouping.label", icon: Tags },

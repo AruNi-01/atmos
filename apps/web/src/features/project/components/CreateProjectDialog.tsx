@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { 
   Dialog, 
@@ -13,9 +13,14 @@ import {
   Input
 } from '@workspace/ui';
 import { useProjectStore } from '@/features/project/store/use-project-store';
-import { wsProjectApi, fsApi } from '@/api/ws-api';
+import { wsProjectApi } from '@/api/ws-api';
 import { FileBrowser } from '@/features/files/components/FileBrowser';
 import { useWebSocket } from '@/features/connection/hooks/use-websocket';
+import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+import {
+  canUseNativeDirectoryPicker,
+  pickLocalDirectory,
+} from '@/shared/lib/desktop-directory-picker';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -29,6 +34,11 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
   const t = useTranslations('project.createProjectDialog');
   const addProject = useProjectStore(s => s.addProject);
   const { isConnected, connectionState } = useWebSocket();
+  const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
+  // Native OS picker only when Desktop is talking to the local machine.
+  // Relay / remote computers still need the in-app FileBrowser (WS FS API).
+  const useNativePicker =
+    canUseNativeDirectoryPicker() && connectionMode === 'local';
   
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
@@ -40,6 +50,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
     defaultBranch: string | null;
   } | null>(null);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const [isPickingDirectory, setIsPickingDirectory] = useState(false);
 
   // 当路径改变时验证
   useEffect(() => {
@@ -98,6 +109,27 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
     });
     setShowFileBrowser(false);
   };
+
+  const handleBrowse = useCallback(async () => {
+    if (useNativePicker) {
+      setIsPickingDirectory(true);
+      try {
+        const selected = await pickLocalDirectory({
+          defaultPath: path || undefined,
+          title: t('fileBrowser.title'),
+        });
+        if (selected) {
+          setPath(selected);
+          setValidationInfo(null);
+          setValidationError(null);
+        }
+      } finally {
+        setIsPickingDirectory(false);
+      }
+      return;
+    }
+    setShowFileBrowser(true);
+  }, [useNativePicker, path, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,8 +194,8 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={() => setShowFileBrowser(true)}
-                  disabled={!isConnected}
+                  onClick={() => void handleBrowse()}
+                  disabled={useNativePicker ? isPickingDirectory : !isConnected}
                   className="cursor-pointer"
                 >
                   {t('fields.path.browse')}
@@ -234,15 +266,17 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* 文件浏览器对话框 */}
-      <FileBrowser
-        open={showFileBrowser}
-        onOpenChange={setShowFileBrowser}
-        onSelect={handleFileBrowserSelect}
-        title={t('fileBrowser.title')}
-        selectLabel={t('fileBrowser.select')}
-        dirsOnly={true}
-      />
+      {/* Web / remote: in-app browser. Desktop local uses the native OS picker. */}
+      {!useNativePicker ? (
+        <FileBrowser
+          open={showFileBrowser}
+          onOpenChange={setShowFileBrowser}
+          onSelect={handleFileBrowserSelect}
+          title={t('fileBrowser.title')}
+          selectLabel={t('fileBrowser.select')}
+          dirsOnly={true}
+        />
+      ) : null}
     </>
   );
 };

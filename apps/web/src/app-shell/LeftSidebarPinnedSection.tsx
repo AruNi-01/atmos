@@ -109,22 +109,20 @@ export function LeftSidebarPinnedSection({
                     labelGroupOrder,
                     availableLabels,
                   );
-                  const primaryLabel = entry.workspace.labels.find((label) => label.id === labelGroupKey);
-                  const rightContext = groupingMode === "status" ? (
-                    <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
-                  ) : groupingMode === "time" ? (
-                    <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
-                  ) : groupingMode === "priority" ? (
-                    <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
-                  ) : groupingMode === "label" ? (
-                    labelGroupKey === UNTAGGED_WORKSPACE_GROUP_KEY ? (
-                      <span className="truncate text-muted-foreground">
-                        {t("workspaceGrouping.untagged")}
-                      </span>
-                    ) : (
+                  // Only show right-side context when there is a real value (no "No label" / no priority).
+                  const rightContext =
+                    groupingMode === "status" ? (
+                      <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
+                    ) : groupingMode === "time" ? (
+                      <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
+                    ) : groupingMode === "priority" &&
+                      entry.workspace.priority !== "no_priority" ? (
+                      <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
+                    ) : groupingMode === "label" &&
+                      labelGroupKey !== UNTAGGED_WORKSPACE_GROUP_KEY &&
+                      entry.workspace.labels.length > 0 ? (
                       <WorkspaceLabelDots labels={entry.workspace.labels} overlap />
-                    )
-                  ) : undefined;
+                    ) : undefined;
 
                   return renderWorkspaceItemRow(entry, {
                     showProjectName: true,

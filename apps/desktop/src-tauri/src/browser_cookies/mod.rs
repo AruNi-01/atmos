@@ -366,8 +366,7 @@ mod tests {
 
     #[test]
     fn extract_error_payload_does_not_leak() {
-        let mapped: CookieCmdError =
-            ExtractError::Io("/Users/secret/Cookies".to_string()).into();
+        let mapped: CookieCmdError = ExtractError::Io("/Users/secret/Cookies".to_string()).into();
         assert_eq!(mapped, CookieCmdError::Io);
         let json = serde_json::to_string(&mapped).unwrap();
         assert_eq!(json, r#"{"code":"Io"}"#);

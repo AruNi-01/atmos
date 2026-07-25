@@ -43,6 +43,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   workspaceSidebarStatusTwoColumn: boolean;
   workspaceSidebarPriorityTwoColumn: boolean;
   workspaceSidebarLabelTwoColumn: boolean;
+  workspaceSidebarGroupTwoColumn: boolean;
   loaded: boolean;
   loadSettings: (force?: boolean) => Promise<void>;
   setProjectFilesSide: (value: ProjectFilesSide) => Promise<void>;
@@ -53,6 +54,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setWorkspaceSidebarStatusTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarPriorityTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarLabelTwoColumn: (value: boolean) => Promise<void>;
+  setWorkspaceSidebarGroupTwoColumn: (value: boolean) => Promise<void>;
   setFooterShowWsConnection: (value: boolean) => Promise<void>;
   setFooterShowLocalServices: (value: boolean) => Promise<void>;
   setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
@@ -140,6 +142,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     workspaceSidebarStatusTwoColumn: false,
     workspaceSidebarPriorityTwoColumn: false,
     workspaceSidebarLabelTwoColumn: false,
+    workspaceSidebarGroupTwoColumn: false,
     showWsConnection: true,
     showLocalServices: true,
     showUsageCarousel: true,
@@ -182,6 +185,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
           workspaceSidebarPriorityTwoColumn: layout?.workspace_sidebar_priority_two_column === true,
           workspaceSidebarLabelTwoColumn: layout?.workspace_sidebar_label_two_column === true,
+          workspaceSidebarGroupTwoColumn: layout?.workspace_sidebar_group_two_column === true,
           ...footer,
           ...header,
           ...rightSidebar,
@@ -237,6 +241,13 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
       updateLayoutSetting(
         { workspaceSidebarLabelTwoColumn: value },
         'workspace_sidebar_label_two_column',
+        value,
+      ),
+
+    setWorkspaceSidebarGroupTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarGroupTwoColumn: value },
+        'workspace_sidebar_group_two_column',
         value,
       ),
 

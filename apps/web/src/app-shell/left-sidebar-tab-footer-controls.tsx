@@ -57,6 +57,7 @@ export function LeftSidebarFooter({
   filesOnRight,
   filters,
   groupingMode,
+  groups = [],
   isKanbanExpanded,
   projects,
   onAddProject,
@@ -66,6 +67,8 @@ export function LeftSidebarFooter({
   onFiltersChange,
   onGroupingModeChange,
   onPinWorkspace,
+  onCreateGroup,
+  onSetWorkspaceGroup,
   onUnpinWorkspace,
   onUpdateLabel,
   onUpdateLabels,
@@ -77,6 +80,7 @@ export function LeftSidebarFooter({
   filesOnRight: boolean;
   filters: WorkspaceKanbanFilters;
   groupingMode: SidebarGroupingMode;
+  groups?: WorkspaceKanbanViewProps["groups"];
   isKanbanExpanded: boolean;
   projects: Project[];
   onAddProject: () => void;
@@ -86,6 +90,8 @@ export function LeftSidebarFooter({
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   onGroupingModeChange: (mode: SidebarGroupingMode) => void;
   onPinWorkspace: WorkspaceKanbanViewProps["onPinWorkspace"];
+  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
+  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
   onUnpinWorkspace: WorkspaceKanbanViewProps["onUnpinWorkspace"];
   onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
   onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
@@ -116,6 +122,7 @@ export function LeftSidebarFooter({
           <WorkspaceKanbanFilterMenu
             projects={projects}
             availableLabels={availableLabels}
+            groups={groups}
             filters={filters}
             onFiltersChange={onFiltersChange}
             triggerVariant="icon"
@@ -128,8 +135,13 @@ export function LeftSidebarFooter({
           <WorkspaceKanbanView
             projects={projects}
             availableLabels={availableLabels}
+            groups={groups}
+            groupingMode={groupingMode}
+            onGroupingModeChange={onGroupingModeChange}
             onUpdateWorkflowStatus={onUpdateWorkflowStatus}
             onUpdatePriority={onUpdatePriority}
+            onSetWorkspaceGroup={onSetWorkspaceGroup}
+            onCreateGroup={onCreateGroup}
             onCreateLabel={onCreateLabel}
             onUpdateLabel={onUpdateLabel}
             onUpdateLabels={onUpdateLabels}

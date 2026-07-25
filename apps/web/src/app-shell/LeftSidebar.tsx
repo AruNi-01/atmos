@@ -14,8 +14,35 @@ import { useProjectStore } from '@/features/project/store/use-project-store';
 import {
   useProjects,
   useWorkspaceLabels,
+  useGroups,
   useProjectBootstrapQuery,
 } from '@/features/project/hooks/use-project-bootstrap-query';
+import {
+  createGroup,
+  deleteGroup,
+  renameGroup,
+  reorderGroups,
+  setGroupMember,
+  removeGroupMember,
+} from '@/features/project/lib/group-actions';
+import {
+  UserGroupOneColumnContent,
+  UserGroupTwoColumnLeftContent,
+  UserGroupTwoColumnRightContent,
+} from '@/app-shell/sidebar/UserGroupSidebarContent';
+import {
+  AdoptWorkspacesIntoGroupDialog,
+  type AdoptWorkspacesIntoGroupPending,
+} from '@/app-shell/sidebar/AdoptWorkspacesIntoGroupDialog';
+import {
+  FollowProjectInGroupDialog,
+  type FollowProjectInGroupPending,
+} from '@/app-shell/sidebar/FollowProjectInGroupDialog';
+import {
+  findGroupIdForMember,
+  findGroupedWorkspacesForProject,
+} from '@/app-shell/sidebar/user-groups';
+import { useTranslations } from 'next-intl';
 import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
@@ -76,6 +103,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     const projects = useProjects();
     const workspaceLabels = useWorkspaceLabels();
+    const groups = useGroups();
+    const groupsT = useTranslations('appShell.groups');
     const bootstrapQuery = useProjectBootstrapQuery();
     const {
         activeInstanceId,
@@ -142,6 +171,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const workspaceSidebarStatusTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarStatusTwoColumn);
     const workspaceSidebarPriorityTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarPriorityTwoColumn);
     const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarLabelTwoColumn);
+    const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarGroupTwoColumn);
     const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
     const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
@@ -173,6 +203,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
     const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
+
     const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
     const persistedPinnedSectionCollapsedRef = useRef(false);
     const persistedLabelGroupOrderRef = useRef<string[]>([]);
@@ -239,6 +270,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     let nextGroupingMode: SidebarGroupingMode = 'project';
                     if (
                         groupingModeSetting === 'project' ||
+                        groupingModeSetting === 'group' ||
                         groupingModeSetting === 'status' ||
                         groupingModeSetting === 'time' ||
                         groupingModeSetting === 'label' ||
@@ -513,6 +545,247 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
     }, [currentSidebarRouteKey]);
 
+    const handleCreateGroupNamed = useCallback(async (name: string) => {
+        try {
+            return await createGroup(name);
+        } catch (error) {
+            console.error('Failed to create group:', error);
+            throw error;
+        }
+    }, []);
+
+    const handleRenameGroupNamed = useCallback(async (groupId: string, name: string) => {
+        try {
+            await renameGroup(groupId, name);
+        } catch (error) {
+            console.error('Failed to rename group:', error);
+            throw error;
+        }
+    }, []);
+
+    const handleDeleteGroup = useCallback(async (groupId: string) => {
+        try {
+            await deleteGroup(groupId);
+        } catch (error) {
+            console.error('Failed to delete group:', error);
+            throw error;
+        }
+    }, []);
+
+    const handleGroupOrderChange = useCallback(async (orderedGroupIds: string[]) => {
+        try {
+            await reorderGroups(orderedGroupIds);
+        } catch (error) {
+            console.error('Failed to reorder groups:', error);
+        }
+    }, []);
+
+    const [adoptWorkspacesPending, setAdoptWorkspacesPending] =
+        useState<AdoptWorkspacesIntoGroupPending | null>(null);
+    const [adoptWorkspacesBusy, setAdoptWorkspacesBusy] = useState(false);
+
+    const applyProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+        await setGroupMember({
+            groupId,
+            memberType: 'project',
+            memberId: projectId,
+        });
+    }, []);
+
+    const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+        try {
+            const project = projects.find((item) => item.id === projectId);
+            if (!project) {
+                await applyProjectToGroup(projectId, groupId);
+                return;
+            }
+            const groupedWorkspaces = findGroupedWorkspacesForProject(groups, project);
+            if (groupedWorkspaces.length === 0) {
+                await applyProjectToGroup(projectId, groupId);
+                return;
+            }
+            const groupName =
+                groups.find((group) => group.id === groupId)?.name ?? groupsT('trigger');
+            setAdoptWorkspacesPending({
+                projectId,
+                projectName: project.name,
+                groupId,
+                groupName,
+                workspaces: groupedWorkspaces,
+            });
+        } catch (error) {
+            console.error('Failed to add project to group:', error);
+        }
+    }, [applyProjectToGroup, groups, groupsT, projects]);
+
+    const handleAdoptWorkspacesClose = useCallback(() => {
+        if (adoptWorkspacesBusy) return;
+        setAdoptWorkspacesPending(null);
+    }, [adoptWorkspacesBusy]);
+
+    const handleAdoptWorkspacesProjectOnly = useCallback(async () => {
+        if (!adoptWorkspacesPending) return;
+        setAdoptWorkspacesBusy(true);
+        try {
+            await applyProjectToGroup(
+                adoptWorkspacesPending.projectId,
+                adoptWorkspacesPending.groupId,
+            );
+            setAdoptWorkspacesPending(null);
+        } catch (error) {
+            console.error('Failed to add project to group:', error);
+        } finally {
+            setAdoptWorkspacesBusy(false);
+        }
+    }, [adoptWorkspacesPending, applyProjectToGroup]);
+
+    const handleAdoptWorkspacesConfirm = useCallback(async () => {
+        if (!adoptWorkspacesPending) return;
+        setAdoptWorkspacesBusy(true);
+        try {
+            for (const workspace of adoptWorkspacesPending.workspaces) {
+                await removeGroupMember({
+                    memberType: 'workspace',
+                    memberId: workspace.workspaceId,
+                });
+            }
+            await applyProjectToGroup(
+                adoptWorkspacesPending.projectId,
+                adoptWorkspacesPending.groupId,
+            );
+            setAdoptWorkspacesPending(null);
+        } catch (error) {
+            console.error('Failed to adopt workspaces into project group:', error);
+        } finally {
+            setAdoptWorkspacesBusy(false);
+        }
+    }, [adoptWorkspacesPending, applyProjectToGroup]);
+
+    const handleRemoveProjectFromGroup = useCallback(async (projectId: string) => {
+        try {
+            await removeGroupMember({ memberType: 'project', memberId: projectId });
+        } catch (error) {
+            console.error('Failed to remove project from group:', error);
+        }
+    }, []);
+
+    const [followProjectPending, setFollowProjectPending] =
+        useState<FollowProjectInGroupPending | null>(null);
+    const [followProjectBusy, setFollowProjectBusy] = useState(false);
+
+    const applyWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+        await setGroupMember({
+            groupId,
+            memberType: 'workspace',
+            memberId: workspaceId,
+        });
+    }, []);
+
+    /**
+     * If the workspace's parent project is already in the target group, ask whether
+     * to drop workspace-level membership so it only appears under the project.
+     */
+    const requestWorkspaceGroupAssignment = useCallback((workspaceId: string, groupId: string) => {
+        const project = projects.find((item) =>
+            item.workspaces.some((workspace) => workspace.id === workspaceId),
+        );
+        const workspace = project?.workspaces.find((item) => item.id === workspaceId);
+        if (!project || !workspace) {
+            void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
+                console.error('Failed to add workspace to group:', error);
+            });
+            return;
+        }
+
+        const projectGroupId = findGroupIdForMember(groups, 'project', project.id);
+        if (projectGroupId !== groupId) {
+            void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
+                console.error('Failed to add workspace to group:', error);
+            });
+            return;
+        }
+
+        const groupName =
+            groups.find((group) => group.id === groupId)?.name ?? groupsT('trigger');
+        setFollowProjectPending({
+            workspaceId,
+            workspaceName: workspace.displayName?.trim() || workspace.name,
+            projectId: project.id,
+            projectName: project.name,
+            groupId,
+            groupName,
+        });
+    }, [applyWorkspaceToGroup, groups, groupsT, projects]);
+
+    const handleAddWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+        requestWorkspaceGroupAssignment(workspaceId, groupId);
+    }, [requestWorkspaceGroupAssignment]);
+
+    const handleRemoveWorkspaceFromGroup = useCallback(async (workspaceId: string) => {
+        try {
+            await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
+        } catch (error) {
+            console.error('Failed to remove workspace from group:', error);
+        }
+    }, []);
+
+    const handleSetWorkspaceGroup = useCallback(async (workspaceId: string, groupId: string | null) => {
+        try {
+            if (!groupId) {
+                await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
+                return;
+            }
+            requestWorkspaceGroupAssignment(workspaceId, groupId);
+        } catch (error) {
+            console.error('Failed to set workspace group:', error);
+        }
+    }, [requestWorkspaceGroupAssignment]);
+
+    const handleFollowProjectClose = useCallback(() => {
+        if (followProjectBusy) return;
+        setFollowProjectPending(null);
+    }, [followProjectBusy]);
+
+    const handleFollowProjectConfirm = useCallback(async () => {
+        if (!followProjectPending) return;
+        setFollowProjectBusy(true);
+        try {
+            // Drop workspace-level membership so it only appears under the project in the group.
+            const existing = findGroupIdForMember(
+                groups,
+                'workspace',
+                followProjectPending.workspaceId,
+            );
+            if (existing) {
+                await removeGroupMember({
+                    memberType: 'workspace',
+                    memberId: followProjectPending.workspaceId,
+                });
+            }
+            setFollowProjectPending(null);
+        } catch (error) {
+            console.error('Failed to unlink workspace to follow project:', error);
+        } finally {
+            setFollowProjectBusy(false);
+        }
+    }, [followProjectPending, groups]);
+
+    const handleFollowProjectAssignWorkspace = useCallback(async () => {
+        if (!followProjectPending) return;
+        setFollowProjectBusy(true);
+        try {
+            await applyWorkspaceToGroup(
+                followProjectPending.workspaceId,
+                followProjectPending.groupId,
+            );
+            setFollowProjectPending(null);
+        } catch (error) {
+            console.error('Failed to assign workspace to group:', error);
+        } finally {
+            setFollowProjectBusy(false);
+        }
+    }, [applyWorkspaceToGroup, followProjectPending]);
+
     const handleLabelGroupOrderChange = useCallback((labelIds: string[]) => {
         setLabelGroupOrder(labelIds);
 
@@ -654,6 +927,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         filteredFlattenedWorkspaces,
         flattenedWorkspaces,
         groupedWorkspaces,
+        isGroupTwoColumn,
         isPinnedSortingDisabled,
         isProjectTwoColumn,
         isTwoColumnSidebar,
@@ -663,24 +937,29 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         selectedProjectForSidebar,
         selectedProjectPinnedEntries,
         selectedProjectUnpinnedWorkspaces,
+        selectedUserGroupForSidebar,
         shouldApplyWorkspaceFilter,
         shouldShowGlobalPinnedSection,
+        userGroupViews,
     } = useLeftSidebarWorkspaceDerived({
         currentProjectId,
         currentSidebarRouteKey,
         currentWorkspace,
         groupingMode,
+        groups,
         kanbanFilters,
         labelGroupOrder: effectiveLabelGroupOrder,
         projectSidebarSelectionRouteKey,
         projects,
         selectedProjectSidebarId,
         selectedWorkspaceGroupKey,
+        ungroupedLabel: groupsT('ungrouped'),
         workspaceGroupSelectionRouteKey,
         workspaceSidebarStatusTwoColumn,
         workspaceSidebarTimeTwoColumn,
         workspaceSidebarPriorityTwoColumn,
         workspaceSidebarLabelTwoColumn,
+        workspaceSidebarGroupTwoColumn,
         workspaceSidebarTwoColumn,
         workspaceLabels,
     });
@@ -736,6 +1015,36 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         router.push(`/project?id=${id}`);
     }, [router]);
 
+    const sharedProjectItemProps = {
+        activeWorkspaceId: currentWorkspaceId,
+        activeProjectId: currentProjectId,
+        availableLabels: workspaceLabels,
+        onAddWorkspace: handleAddWorkspace,
+        onArchiveWorkspace: archiveWorkspace,
+        onConfigureScripts: handleConfigureScripts,
+        onCreateWorkspaceLabel: createWorkspaceLabel,
+        onDelete: handleDeleteProject,
+        onDeleteWorkspace: deleteWorkspace,
+        onPinWorkspace: pinWorkspace,
+        onQuickAddWorkspace: handleQuickAddWorkspace,
+        onSelectMain: handleSelectProjectMain,
+        onSetColor: handleSetColor,
+        onSetLogo: handleSetLogo,
+        onUnpinWorkspace: unpinWorkspace,
+        onUpdateWorkspaceLabel: updateWorkspaceLabel,
+        onUpdateWorkspaceLabels: updateWorkspaceLabels,
+        onUpdateWorkspaceName: updateWorkspaceName,
+        onUpdateWorkspacePriority: updateWorkspacePriority,
+        onUpdateWorkspaceWorkflowStatus: updateWorkspaceWorkflowStatus,
+        groups,
+        onAddProjectToGroup: handleAddProjectToGroup,
+        onRemoveProjectFromGroup: handleRemoveProjectFromGroup,
+        onAddWorkspaceToGroup: handleAddWorkspaceToGroup,
+        onRemoveWorkspaceFromGroup: handleRemoveWorkspaceFromGroup,
+        onSetWorkspaceGroup: handleSetWorkspaceGroup,
+        onCreateGroup: handleCreateGroupNamed,
+    };
+
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
         void projectId;
         router.push(`/workspace?id=${workspaceId}`);
@@ -750,7 +1059,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
+        groups,
         onEnterWorkspaceFromKanban: handleEnterWorkspaceFromSidebarKanban,
+        onSetWorkspaceGroup: handleSetWorkspaceGroup,
+        onCreateGroup: handleCreateGroupNamed,
         pinWorkspace,
         secondColumnKanbanCardProperties,
         unpinWorkspace,
@@ -812,6 +1124,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onUpdateWorkspaceName={updateWorkspaceName}
             onUpdateWorkspacePriority={updateWorkspacePriority}
             onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+            groups={groups}
+            onAddProjectToGroup={handleAddProjectToGroup}
+            onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
+            onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
+            onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
+            onSetWorkspaceGroup={handleSetWorkspaceGroup}
+            onCreateGroup={handleCreateGroupNamed}
         />
     );
 
@@ -862,6 +1181,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             onUpdateWorkspaceName={updateWorkspaceName}
             onUpdateWorkspacePriority={updateWorkspacePriority}
             onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+            groups={groups}
+            onAddProjectToGroup={handleAddProjectToGroup}
+            onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
+            onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
+            onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
+            onSetWorkspaceGroup={handleSetWorkspaceGroup}
+            onCreateGroup={handleCreateGroupNamed}
         />
     );
 
@@ -928,6 +1254,59 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         />
     );
 
+    const userGroupOneColumnContent = (
+        <UserGroupOneColumnContent
+            views={userGroupViews}
+            collapsedKeys={collapsedWorkspaceGroups}
+            onToggleCollapsed={toggleWorkspaceGroup}
+            onCreateGroup={handleCreateGroupNamed}
+            onRenameGroup={handleRenameGroupNamed}
+            onDeleteGroup={handleDeleteGroup}
+            projectItemProps={sharedProjectItemProps}
+            expandedProjectIds={expandedProjects}
+            onToggleProject={toggleProject}
+            renderWorkspaceContentRow={renderWorkspaceContentRow}
+            sensors={sensors}
+            onGroupOrderChange={handleGroupOrderChange}
+        />
+    );
+
+    const userGroupTwoColumnLeftContent = (
+        <UserGroupTwoColumnLeftContent
+            views={userGroupViews}
+            selectedKey={effectiveSelectedWorkspaceGroupKey}
+            onSelect={handleSelectWorkspaceGroup}
+            onCreateGroup={handleCreateGroupNamed}
+            onRenameGroup={handleRenameGroupNamed}
+            onDeleteGroup={handleDeleteGroup}
+            sensors={sensors}
+            onGroupOrderChange={handleGroupOrderChange}
+        />
+    );
+
+    const userGroupTwoColumnRightContent = (
+        <UserGroupTwoColumnRightContent
+            selectedView={selectedUserGroupForSidebar}
+            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+            projectItemProps={sharedProjectItemProps}
+            expandedProjectIds={expandedProjects}
+            onToggleProject={toggleProject}
+            renderWorkspaceContentRow={renderWorkspaceContentRow}
+        />
+    );
+
+    const twoColumnLeftContent = isProjectTwoColumn
+        ? projectTwoColumnLeftContent
+        : isGroupTwoColumn
+            ? userGroupTwoColumnLeftContent
+            : groupedTwoColumnLeftContent;
+    const twoColumnRightContent = isProjectTwoColumn
+        ? projectTwoColumnRightContent
+        : isGroupTwoColumn
+            ? userGroupTwoColumnRightContent
+            : groupedTwoColumnRightContent;
+
     const twoColumnSidebarContent = isTwoColumnSidebar ? (
         <TwoColumnSidebarContent
             autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
@@ -938,8 +1317,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
             primarySize={currentTwoColumnPrimarySize}
             pinnedSection={pinnedWorkspaceSection}
-            leftContent={isProjectTwoColumn ? projectTwoColumnLeftContent : groupedTwoColumnLeftContent}
-            rightContent={isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
+            leftContent={twoColumnLeftContent}
+            rightContent={twoColumnRightContent}
             onPrimaryCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
             onPrimaryExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
             onPrimaryResize={handleTwoColumnPrimaryResize}
@@ -953,7 +1332,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         ? twoColumnSidebarContent
         : groupingMode === 'project'
             ? projectModeOneColumnContent
-            : groupedOneColumnContent;
+            : groupingMode === 'group'
+                ? userGroupOneColumnContent
+                : groupedOneColumnContent;
 
     return (
         <>
@@ -970,13 +1351,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         automationsEnabled={automationsEnabled}
                         projects={projects}
                         availableLabels={workspaceLabels}
+                        groups={groups}
+                        groupingMode={groupingMode}
                         kanbanFilters={kanbanFilters}
                         onFiltersChange={setKanbanFilters}
+                        onGroupingModeChange={setGroupingMode}
                         onNavigate={(path) => router.push(path)}
                         onOpenCanvas={() => void setCanvasOpen(true)}
                         onOpenNewWorkspace={handleOpenNewWorkspace}
                         onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                         onUpdatePriority={updateWorkspacePriority}
+                        onSetWorkspaceGroup={handleSetWorkspaceGroup}
+                        onCreateGroup={handleCreateGroupNamed}
                         onCreateLabel={createWorkspaceLabel}
                         onUpdateLabel={updateWorkspaceLabel}
                         onUpdateLabels={updateWorkspaceLabels}
@@ -1034,6 +1420,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     filesOnRight={filesOnRight}
                     filters={kanbanFilters}
                     groupingMode={groupingMode}
+                    groups={groups}
                     isKanbanExpanded={isKanbanExpanded}
                     projects={projects}
                     onAddProject={handleAddProject}
@@ -1045,6 +1432,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     onFiltersChange={setKanbanFilters}
                     onGroupingModeChange={setGroupingMode}
                     onPinWorkspace={pinWorkspace}
+                    onCreateGroup={handleCreateGroupNamed}
+                    onSetWorkspaceGroup={handleSetWorkspaceGroup}
                     onUnpinWorkspace={unpinWorkspace}
                     onUpdateLabel={updateWorkspaceLabel}
                     onUpdateLabels={updateWorkspaceLabels}
@@ -1055,6 +1444,30 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
                 onClose={() => setCreateProjectOpen(false)}
+            />
+
+            <AdoptWorkspacesIntoGroupDialog
+                pending={adoptWorkspacesPending}
+                busy={adoptWorkspacesBusy}
+                onClose={handleAdoptWorkspacesClose}
+                onProjectOnly={() => {
+                    void handleAdoptWorkspacesProjectOnly();
+                }}
+                onAdopt={() => {
+                    void handleAdoptWorkspacesConfirm();
+                }}
+            />
+
+            <FollowProjectInGroupDialog
+                pending={followProjectPending}
+                busy={followProjectBusy}
+                onClose={handleFollowProjectClose}
+                onFollowProject={() => {
+                    void handleFollowProjectConfirm();
+                }}
+                onAssignWorkspace={() => {
+                    void handleFollowProjectAssignWorkspace();
+                }}
             />
 
             <WorkspaceScriptDialog
@@ -1076,6 +1489,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     }}
                 />
             )}
+
         </>
     );
 };

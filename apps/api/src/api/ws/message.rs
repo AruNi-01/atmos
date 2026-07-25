@@ -306,6 +306,24 @@ pub enum WsAction {
     /// 验证项目路径
     ProjectValidatePath,
 
+    // ===== Group 操作 (APP-044) =====
+    /// 列出所有 Group
+    GroupList,
+    /// 创建 Group
+    GroupCreate,
+    /// 更新 Group（重命名等）
+    GroupUpdate,
+    /// 更新 Group 排序
+    GroupUpdateOrder,
+    /// 删除 Group
+    GroupDelete,
+    /// 将 Project/Workspace 加入（或移动到）Group
+    GroupSetMember,
+    /// 从 Group 移除成员
+    GroupRemoveMember,
+    /// 更新 Group 内成员排序
+    GroupUpdateMemberOrder,
+
     // ===== Script 操作 =====
     /// 获取项目脚本配置
     ScriptGet,

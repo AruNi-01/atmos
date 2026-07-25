@@ -29,13 +29,14 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import type { Workspace, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
+import type { Group, Workspace, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
 import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/features/workspace/lib/workspace";
 import { gitApi } from "@/api/ws-api";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import {
+  WorkspaceGroupSelect,
   WorkspaceLabelBadges,
   WorkspaceLabelPicker,
   WorkspacePrioritySelect,
@@ -43,6 +44,7 @@ import {
 } from "./workspace-metadata-controls";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
+import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -69,6 +71,10 @@ export interface WorkspaceContentProps {
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  /** APP-044: groups for workspace membership switcher in the info popover. */
+  groups?: Group[];
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
 function workspaceContentPropsAreEqual(
@@ -89,7 +95,8 @@ function workspaceContentPropsAreEqual(
     prev.suppressInfoPopover === next.suppressInfoPopover &&
     prev.attributes === next.attributes &&
     prev.listeners === next.listeners &&
-    prev.availableLabels === next.availableLabels
+    prev.availableLabels === next.availableLabels &&
+    prev.groups === next.groups
   );
 }
 
@@ -151,6 +158,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  groups = [],
+  onSetWorkspaceGroup,
+  onCreateGroup,
 }) {
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
@@ -170,7 +180,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
+  const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
   const [isLabelPopoverOpen, setIsLabelPopoverOpen] = useState(false);
+  const workspaceGroupId = findGroupIdForMember(groups, "workspace", workspace.id);
   const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
@@ -225,6 +237,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       setIsInfoPopoverOpen(false);
       setIsStatusMenuOpen(false);
       setIsPriorityMenuOpen(false);
+      setIsGroupMenuOpen(false);
       setIsLabelPopoverOpen(false);
     }
   }, [cancelInfoPopoverClose, suppressInfoPopover]);
@@ -232,14 +245,27 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const scheduleInfoPopoverClose = React.useCallback(() => {
     cancelInfoPopoverClose();
     infoPopoverTimerRef.current = setTimeout(() => {
-      if (isStatusMenuOpen || isPriorityMenuOpen || isLabelPopoverOpen || isEditingName) {
+      if (
+        isStatusMenuOpen ||
+        isPriorityMenuOpen ||
+        isGroupMenuOpen ||
+        isLabelPopoverOpen ||
+        isEditingName
+      ) {
         infoPopoverTimerRef.current = null;
         return;
       }
       setIsInfoPopoverOpen(false);
       infoPopoverTimerRef.current = null;
     }, 150);
-  }, [cancelInfoPopoverClose, isEditingName, isLabelPopoverOpen, isPriorityMenuOpen, isStatusMenuOpen]);
+  }, [
+    cancelInfoPopoverClose,
+    isEditingName,
+    isGroupMenuOpen,
+    isLabelPopoverOpen,
+    isPriorityMenuOpen,
+    isStatusMenuOpen,
+  ]);
 
   React.useEffect(() => {
     return () => {
@@ -260,6 +286,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       setIsInfoPopoverOpen(false);
       setIsStatusMenuOpen(false);
       setIsPriorityMenuOpen(false);
+      setIsGroupMenuOpen(false);
       setIsLabelPopoverOpen(false);
       setIsEditingName(false);
     };
@@ -278,6 +305,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     setIsInfoPopoverOpen(false);
     setIsStatusMenuOpen(false);
     setIsPriorityMenuOpen(false);
+    setIsGroupMenuOpen(false);
     setIsLabelPopoverOpen(false);
     router.push(`/workspace?id=${workspace.id}`);
   };
@@ -479,15 +507,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
             )}
           >
-            <div className="relative flex min-w-0 w-full items-center">
+            <div className="relative flex min-w-0 w-full items-center gap-1">
               <div className="absolute -left-1 flex size-5 items-center justify-center rounded-sm">
                 {workspace.isPinned ? (
                   <button
                     onClick={handlePinClick}
                     className={cn(
-                      "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                      isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
-                      "hover:text-foreground"
+                      "absolute inset-0 z-10 flex items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
+                      isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
+                      "hover:text-foreground",
                     )}
                     title={t("common.unpin")}
                   >
@@ -497,15 +525,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   <>
                     <GitBranch
                       className={cn(
-                        "size-3.5 block group-hover/ws:hidden",
-                        isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                        "block size-3.5 group-hover/ws:hidden",
+                        isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
                       )}
                     />
                     <button
                       onClick={handlePinClick}
                       className={cn(
-                        "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                        "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
+                        "absolute inset-0 z-10 hidden items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
+                        "group-hover/ws:flex text-muted-foreground hover:text-foreground",
                       )}
                       title={t("common.pin")}
                     >
@@ -514,8 +542,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   </>
                 )}
               </div>
-              <div className="flex items-center min-w-0 gap-1.5 pl-5">
-                <span className="text-[13px] font-medium truncate">
+              {/* Title takes remaining width and ellipsizes — no absolute overlays / frosted plates. */}
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-5">
+                <span className="truncate text-[13px] font-medium">
                   {primaryLabel}
                   {showProjectName && projectName && (
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
@@ -546,25 +575,24 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   />
                 )}
               </div>
-              {rightContext ? (
-                <div
-                  className={cn(
-                    "pointer-events-none absolute inset-y-0 -right-2 z-[9] flex items-center rounded-r-md bg-sidebar px-2 pl-4 text-[11px] text-muted-foreground transition-opacity duration-150 group-hover/ws:opacity-0",
-                  )}
-                >
-                  <span className="relative z-10">{rightContext}</span>
+              {/* Trailing slot in normal flow: status/time/label, or archive on hover. */}
+              <div className="flex shrink-0 items-center justify-end">
+                {rightContext ? (
+                  <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
+                    {rightContext}
+                  </div>
+                ) : null}
+                <div className="hidden items-center gap-1 group-hover/ws:flex">
+                  <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
+                  <button
+                    onClick={handleArchiveClick}
+                    className="flex size-4 items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
+                    title={t("common.archive")}
+                    disabled={isCheckingGit}
+                  >
+                    <Archive className="size-3" />
+                  </button>
                 </div>
-              ) : null}
-              <div className="pointer-events-none absolute inset-y-0 -right-1 z-10 flex items-center gap-1 rounded-r-md bg-sidebar/95 pl-5 opacity-0 transition-opacity duration-150 [mask-image:linear-gradient(to_right,transparent,black_30%)] group-hover/ws:pointer-events-auto group-hover/ws:opacity-100">
-                <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
-                <button
-                  onClick={handleArchiveClick}
-                  className="size-4 flex items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
-                  title={t("common.archive")}
-                  disabled={isCheckingGit}
-                >
-                  <Archive className="size-3" />
-                </button>
               </div>
             </div>
           </div>
@@ -596,6 +624,20 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   onOpenChange={setIsStatusMenuOpen}
                   surface
                 />
+                {onSetWorkspaceGroup || groups.length > 0 || onCreateGroup ? (
+                  <WorkspaceGroupSelect
+                    value={workspaceGroupId}
+                    groups={groups}
+                    onChange={
+                      onSetWorkspaceGroup
+                        ? (groupId) => onSetWorkspaceGroup(workspace.id, groupId)
+                        : undefined
+                    }
+                    onCreateGroup={onCreateGroup}
+                    onOpenChange={setIsGroupMenuOpen}
+                    surface
+                  />
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">

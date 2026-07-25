@@ -25,7 +25,7 @@ import {
   type DragStartEvent,
   type ImperativePanelHandle,
 } from "@workspace/ui";
-import { ChevronRight, GripVertical, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, GripVertical } from "lucide-react";
 import type { Project, Workspace, WorkspaceLabel } from "@/shared/types/domain";
 import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectItem";
 import { SortableProject } from "@/app-shell/sidebar/SortableProject";
@@ -118,6 +118,13 @@ export function LeftSidebarSortableProjectList({
   onUpdateWorkspaceName,
   onUpdateWorkspacePriority,
   onUpdateWorkspaceWorkflowStatus,
+  groups,
+  onAddProjectToGroup,
+  onRemoveProjectFromGroup,
+  onAddWorkspaceToGroup,
+  onRemoveWorkspaceFromGroup,
+  onSetWorkspaceGroup,
+  onCreateGroup,
 }: {
   activeId?: string | null;
   activeProjectId: string | null;
@@ -153,6 +160,13 @@ export function LeftSidebarSortableProjectList({
   onUpdateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkspacePriority: ProjectItemProps["onUpdateWorkspacePriority"];
   onUpdateWorkspaceWorkflowStatus: ProjectItemProps["onUpdateWorkspaceWorkflowStatus"];
+  groups?: ProjectItemProps["groups"];
+  onAddProjectToGroup?: ProjectItemProps["onAddProjectToGroup"];
+  onRemoveProjectFromGroup?: ProjectItemProps["onRemoveProjectFromGroup"];
+  onAddWorkspaceToGroup?: ProjectItemProps["onAddWorkspaceToGroup"];
+  onRemoveWorkspaceFromGroup?: ProjectItemProps["onRemoveWorkspaceFromGroup"];
+  onSetWorkspaceGroup?: ProjectItemProps["onSetWorkspaceGroup"];
+  onCreateGroup?: ProjectItemProps["onCreateGroup"];
 }) {
   return (
     <div className={cn("scrollbar-on-hover h-full overflow-y-auto", className)}>
@@ -194,6 +208,13 @@ export function LeftSidebarSortableProjectList({
               isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
               isSelected={selectedProjectId === project.id}
               activeWorkspaceId={activeWorkspaceId}
+              groups={groups}
+              onAddProjectToGroup={onAddProjectToGroup}
+              onRemoveProjectFromGroup={onRemoveProjectFromGroup}
+              onAddWorkspaceToGroup={onAddWorkspaceToGroup}
+              onRemoveWorkspaceFromGroup={onRemoveWorkspaceFromGroup}
+              onSetWorkspaceGroup={onSetWorkspaceGroup}
+              onCreateGroup={onCreateGroup}
             />
           ))}
         </SortableContext>
@@ -227,11 +248,16 @@ export function TwoColumnSidebarToggleButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
       aria-label={label}
       title={label}
     >
-      {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+      <ChevronRight
+        className={cn(
+          "size-3.5 transition-transform",
+          collapsed ? "rotate-0" : "rotate-180",
+        )}
+      />
     </button>
   );
 }

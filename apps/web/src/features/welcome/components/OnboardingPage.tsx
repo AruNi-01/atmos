@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Button,
@@ -46,6 +46,11 @@ import {
   type OnboardingInstallToolId,
 } from '@/features/welcome/components/PackageInstallTerminalDialog';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
+import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+import {
+  canUseNativeDirectoryPicker,
+  pickLocalDirectory,
+} from '@/shared/lib/desktop-directory-picker';
 
 type OS = 'macos' | 'linux' | 'windows';
 
@@ -343,7 +348,13 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isGitRepo, setIsGitRepo] = useState<boolean | null>(null);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const [isPickingDirectory, setIsPickingDirectory] = useState(false);
   const pathValidationSeq = useRef(0);
+  const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
+  // Native OS picker only when Desktop is talking to the local machine.
+  // Relay / remote computers still need the in-app FileBrowser (WS FS API).
+  const useNativePicker =
+    canUseNativeDirectoryPicker() && connectionMode === 'local';
 
   // Validate path when it changes
   useEffect(() => {
@@ -389,23 +400,49 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     return () => clearTimeout(timeoutId);
   }, [path, t]);
 
+  const applySelectedProjectPath = useCallback(
+    (selectedPath: string, suggestedName?: string | null) => {
+      // Invalidate any in-flight validation and let the path debounce effect
+      // run wsProjectApi.validatePath for this exact directory.
+      pathValidationSeq.current += 1;
+      setPath(selectedPath);
+      if (suggestedName) {
+        setName(suggestedName);
+      }
+      setIsGitRepo(null);
+      setIsValidating(true);
+      setValidationError(null);
+    },
+    [],
+  );
+
   const handleFileBrowserSelect = (
     selectedPath: string,
     _isRepo: boolean,
     suggestedName: string | null
   ) => {
-    // Invalidate any in-flight/browser metadata result and let the path
-    // debounce effect run wsProjectApi.validatePath for this exact directory.
-    pathValidationSeq.current += 1;
-    setPath(selectedPath);
-    if (suggestedName) {
-      setName(suggestedName);
-    }
-    setIsGitRepo(null);
-    setIsValidating(true);
-    setValidationError(null);
+    applySelectedProjectPath(selectedPath, suggestedName);
     setShowFileBrowser(false);
   };
+
+  const handleBrowse = useCallback(async () => {
+    if (useNativePicker) {
+      setIsPickingDirectory(true);
+      try {
+        const selected = await pickLocalDirectory({
+          defaultPath: path || undefined,
+          title: t('project.fields.browse'),
+        });
+        if (selected) {
+          applySelectedProjectPath(selected);
+        }
+      } finally {
+        setIsPickingDirectory(false);
+      }
+      return;
+    }
+    setShowFileBrowser(true);
+  }, [useNativePicker, path, t, applySelectedProjectPath]);
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -746,7 +783,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setShowFileBrowser(true)}
+                          onClick={() => void handleBrowse()}
+                          disabled={isPickingDirectory}
                           className="gap-1 border-border/40 hover:bg-muted/20 cursor-pointer shrink-0"
                         >
                           <FolderOpen className="size-4" />
@@ -811,14 +849,16 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                     </div>
                   </form>
 
-                  <FileBrowser
-                    open={showFileBrowser}
-                    onOpenChange={setShowFileBrowser}
-                    onSelect={handleFileBrowserSelect}
-                    title={t('project.fields.browse')}
-                    selectLabel={t('project.submit')}
-                    dirsOnly={true}
-                  />
+                  {!useNativePicker ? (
+                    <FileBrowser
+                      open={showFileBrowser}
+                      onOpenChange={setShowFileBrowser}
+                      onSelect={handleFileBrowserSelect}
+                      title={t('project.fields.browse')}
+                      selectLabel={t('project.submit')}
+                      dirsOnly={true}
+                    />
+                  ) : null}
                 </div>
               )}
             </div>

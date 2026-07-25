@@ -89,12 +89,13 @@ impl ProjectService {
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
 
-        // Batch soft delete all workspaces for this project
-        workspace_repo.soft_delete_by_project(&guid).await?;
-
-        // Soft delete the project
-        project_repo.soft_delete(&guid).await?;
-        Ok(())
+        // Membership cleanup + workspace/project soft-delete must commit together so a
+        // mid-delete failure never leaves dangling memberships or half-deleted children.
+        // Workspace memberships are resolved inside the repo transaction (subquery), not
+        // from a pre-txn snapshot that can race with concurrent workspace creation.
+        Ok(project_repo
+            .soft_delete_with_group_memberships(&guid)
+            .await?)
     }
 
     /// Gather cleanup info for all workspaces in a project (for background cleanup).

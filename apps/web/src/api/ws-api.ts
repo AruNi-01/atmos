@@ -26,6 +26,8 @@ import type {
   GitPatchChunkResponse,
   GitGetStatusBatchResponse,
   GitStatusResponse,
+  GroupMemberModel,
+  GroupModel,
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
   WorkspaceAttachmentPayload,
@@ -62,6 +64,8 @@ export type {
   GitGetStatusBatchResponse,
   GitGetStatusBatchResult,
   GitStatusResponse,
+  GroupMemberModel,
+  GroupModel,
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
   SearchMatch,
@@ -692,6 +696,76 @@ export const wsProjectApi = {
       "project_check_can_delete",
       { guid },
     );
+  },
+};
+
+// ===== Group API (APP-044) =====
+
+export const wsGroupApi = {
+  list: async (): Promise<GroupModel[]> => {
+    return wsRequest<GroupModel[]>("group_list");
+  },
+
+  create: async (data: {
+    name: string;
+    sidebarOrder?: number;
+  }): Promise<GroupModel> => {
+    return wsRequest<GroupModel>("group_create", {
+      name: data.name,
+      sidebar_order: data.sidebarOrder,
+    });
+  },
+
+  update: async (data: {
+    guid: string;
+    name?: string;
+  }): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("group_update", {
+      guid: data.guid,
+      name: data.name,
+    });
+  },
+
+  updateOrder: async (
+    orders: Array<{ guid: string; order: number }>,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("group_update_order", { orders });
+  },
+
+  delete: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("group_delete", { guid });
+  },
+
+  setMember: async (data: {
+    groupGuid: string;
+    memberType: "project" | "workspace";
+    memberGuid: string;
+  }): Promise<GroupMemberModel> => {
+    return wsRequest<GroupMemberModel>("group_set_member", {
+      group_guid: data.groupGuid,
+      member_type: data.memberType,
+      member_guid: data.memberGuid,
+    });
+  },
+
+  removeMember: async (data: {
+    memberType: "project" | "workspace";
+    memberGuid: string;
+  }): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("group_remove_member", {
+      member_type: data.memberType,
+      member_guid: data.memberGuid,
+    });
+  },
+
+  updateMemberOrder: async (data: {
+    groupGuid: string;
+    memberGuids: string[];
+  }): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("group_update_member_order", {
+      group_guid: data.groupGuid,
+      member_guids: data.memberGuids,
+    });
   },
 };
 

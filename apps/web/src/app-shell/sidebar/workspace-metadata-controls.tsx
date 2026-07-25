@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Badge,
@@ -10,6 +10,10 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Input,
   Popover,
@@ -17,15 +21,22 @@ import {
   PopoverTrigger,
   cn,
 } from "@workspace/ui";
-import { Tags, Pencil, UserPen, CircleDot, GitPullRequest } from "lucide-react";
+import { Tags, Pencil, UserPen, CircleDot, GitPullRequest, Folders, Plus } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
-import type { WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
+import type {
+  Group,
+  WorkspaceLabel,
+  WorkspacePriority,
+  WorkspaceWorkflowStatus,
+} from "@/shared/types/domain";
 import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
+import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
   getWorkspaceWorkflowStatusMeta,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
 } from "./workspace-status";
+import { UNGROUPED_USER_GROUP_KEY } from "./user-groups";
 
 type PopoverSide = "top" | "right" | "bottom" | "left";
 type PopoverAlign = "start" | "center" | "end";
@@ -306,6 +317,162 @@ export function WorkspaceStatusSelect({
             );
           })}
         </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+type WorkspaceGroupSelectProps = {
+  /** Current group id, or null / undefined when ungrouped. */
+  value: string | null;
+  groups: Group[];
+  onChange?: (groupId: string | null) => void;
+  /**
+   * Create a group by name. When it resolves to `{ id }`, the workspace is
+   * assigned to that new group (same flow as Project ··· → New Group).
+   */
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
+  triggerVariant?: MetadataSelectTriggerVariant;
+  contentSide?: PopoverSide;
+  contentAlign?: PopoverAlign;
+  contentClassName?: string;
+  triggerClassName?: string;
+  iconClassName?: string;
+  labelClassName?: string;
+  showLabel?: boolean;
+  disabled?: boolean;
+  title?: string;
+  surface?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+export function WorkspaceGroupSelect({
+  value,
+  groups,
+  onChange,
+  onCreateGroup,
+  triggerVariant = "chip",
+  contentSide = "right",
+  contentAlign = "start",
+  contentClassName,
+  triggerClassName,
+  iconClassName,
+  labelClassName,
+  showLabel = triggerVariant !== "icon",
+  disabled,
+  title,
+  surface,
+  onOpenChange,
+}: WorkspaceGroupSelectProps) {
+  const t = useTranslations("appShell.groups");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const selectedGroup = value
+    ? groups.find((group) => group.id === value) ?? null
+    : null;
+  const label = selectedGroup?.name ?? t("ungrouped");
+  const isDisabled = disabled || !onChange;
+  const resolvedTitle = title ?? t("trigger");
+  const radioValue = value ?? UNGROUPED_USER_GROUP_KEY;
+
+  const handleOpenChange = (open: boolean) => {
+    setMenuOpen(open);
+    onOpenChange?.(open);
+  };
+
+  const trigger = (
+    <button
+      type="button"
+      disabled={isDisabled}
+      title={resolvedTitle}
+      className={cn(
+        triggerVariant === "icon"
+          ? "inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+          : "inline-flex h-6 max-w-[9.5rem] items-center gap-1.5 rounded-md border border-border/60 bg-muted/35 px-2 text-xs text-foreground",
+        !isDisabled && triggerVariant !== "icon" && "cursor-pointer transition-colors hover:bg-muted",
+        triggerClassName,
+      )}
+      data-testid="workspace-group-select"
+    >
+      <Folders
+        className={cn(
+          "shrink-0 text-muted-foreground",
+          triggerVariant === "icon" ? "size-4" : "size-3.5",
+          iconClassName,
+        )}
+      />
+      {showLabel ? (
+        <span className={cn("truncate font-medium", labelClassName)}>{label}</span>
+      ) : null}
+    </button>
+  );
+
+  if (!onChange) return trigger;
+
+  return (
+    <DropdownMenu modal={false} open={menuOpen} onOpenChange={handleOpenChange}>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        data-workspace-popover-surface={surface ? "true" : undefined}
+        side={contentSide}
+        align={contentAlign}
+        className={cn("w-max min-w-[11rem]", contentClassName)}
+      >
+        <DropdownMenuRadioGroup
+          value={radioValue}
+          onValueChange={(nextValue) => {
+            if (nextValue === UNGROUPED_USER_GROUP_KEY) {
+              onChange(null);
+              return;
+            }
+            onChange(nextValue);
+          }}
+        >
+          <DropdownMenuRadioItem
+            value={UNGROUPED_USER_GROUP_KEY}
+            className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
+          >
+            <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="font-medium">{t("ungrouped")}</span>
+          </DropdownMenuRadioItem>
+          {groups.map((group) => (
+            <DropdownMenuRadioItem
+              key={group.id}
+              value={group.id}
+              className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
+            >
+              <Folders className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{group.name}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        {onCreateGroup ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <Plus className="size-3.5" />
+                <span>{t("create")}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className="w-56 p-2"
+                onKeyDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <GroupNamePopoverForm
+                  mode="create"
+                  onCancel={() => handleOpenChange(false)}
+                  onSubmit={async (name) => {
+                    const created = await onCreateGroup(name);
+                    if (created?.id) {
+                      onChange(created.id);
+                    }
+                    handleOpenChange(false);
+                  }}
+                />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

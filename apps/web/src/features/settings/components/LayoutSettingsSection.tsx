@@ -29,6 +29,7 @@ export function LayoutSettingsSection() {
     workspaceSidebarStatusTwoColumn,
     workspaceSidebarPriorityTwoColumn,
     workspaceSidebarLabelTwoColumn,
+    workspaceSidebarGroupTwoColumn,
     showWsConnection,
     showLocalServices,
     showUsageCarousel,
@@ -42,6 +43,7 @@ export function LayoutSettingsSection() {
     setWorkspaceSidebarStatusTwoColumn,
     setWorkspaceSidebarPriorityTwoColumn,
     setWorkspaceSidebarLabelTwoColumn,
+    setWorkspaceSidebarGroupTwoColumn,
     setFooterShowWsConnection,
     setFooterShowLocalServices,
     setFooterShowUsageCarousel,
@@ -59,7 +61,8 @@ export function LayoutSettingsSection() {
     workspaceSidebarTimeTwoColumn ||
     workspaceSidebarStatusTwoColumn ||
     workspaceSidebarPriorityTwoColumn ||
-    workspaceSidebarLabelTwoColumn;
+    workspaceSidebarLabelTwoColumn ||
+    workspaceSidebarGroupTwoColumn;
   const footerEnabledCount =
     Number(showWsConnection) + Number(showLocalServices) + Number(showUsageCarousel) + Number(showAgentStatus);
 
@@ -236,7 +239,7 @@ export function LayoutSettingsSection() {
                 </div>
               </div>
             </div>
-            <div className="px-2 py-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
                 <div>
                   <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byLabelTitle')}</p>
@@ -248,6 +251,22 @@ export function LayoutSettingsSection() {
                   <Switch
                     checked={workspaceSidebarLabelTwoColumn}
                     onCheckedChange={(checked) => void setWorkspaceSidebarLabelTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-2 py-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">{t('workspaceSidebar.byGroupTitle')}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {t('workspaceSidebar.byGroupDescription')}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarGroupTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarGroupTwoColumn(!!checked)}
                   />
                 </div>
               </div>

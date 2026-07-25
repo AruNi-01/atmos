@@ -270,6 +270,43 @@
       "older": "更早",
       "untagged": "无标签"
     },
+    "groups": {
+      "ungrouped": "未分组",
+      "create": "新建分组",
+      "createPlaceholder": "分组名称",
+      "defaultName": "新分组",
+      "rename": "重命名分组",
+      "delete": "删除分组",
+      "deleteConfirm": "删除此分组？项目与工作区不会被删除。",
+      "cancel": "取消",
+      "addToGroup": "加入分组",
+      "moveToGroup": "移动到分组",
+      "removeFromGroup": "移出分组",
+      "trigger": "分组",
+      "empty": "该分组暂无成员",
+      "emptyGroups": "暂无分组",
+      "createFirst": "创建分组来整理项目与工作区",
+      "directWorkspaces": "工作区",
+      "projects": "项目",
+      "nameRequired": "请输入分组名称",
+      "createFailed": "无法创建分组",
+      "renameFailed": "无法重命名分组",
+      "deleteFailed": "无法删除分组",
+      "adoptWorkspaces": {
+        "title": "是否一并移动工作区？",
+        "description": "「{projectName}」下有 {count} 个工作区已绑定分组。是否取消这些工作区的分组关联，使其只随项目出现在目标分组中？",
+        "targetGroup": "目标分组",
+        "adopt": "取消关联并随项目并入（{count}）",
+        "projectOnly": "仅移动项目"
+      },
+      "followProject": {
+        "title": "随项目出现在该分组？",
+        "description": "「{projectName}」已在该分组中。是否取消工作区「{workspaceName}」的单独分组关联，使其只随项目展示？",
+        "targetGroup": "目标分组",
+        "followProject": "取消工作区分组（随项目）",
+        "assignWorkspace": "仍将工作区加入该分组"
+      }
+    },
     "leftPinnedSection": {
       "sortingDisabledMessage": "文件夹同步时无法调整工作区顺序。",
       "pinned": "已固定",
@@ -498,6 +535,7 @@
       },
       "grouping": {
         "project": "按项目",
+        "group": "按分组",
         "status": "按状态",
         "time": "按时间",
         "label": "按标签",
@@ -508,12 +546,15 @@
         "trigger": "筛选",
         "sectionLabel": "筛选",
         "project": "项目",
+        "group": "分组",
         "status": "状态",
         "priority": "优先级",
         "labels": "标签",
         "searchProjects": "搜索项目...",
+        "searchGroups": "搜索分组...",
         "searchLabels": "搜索标签...",
         "noMatchingProjects": "没有匹配的项目",
+        "noMatchingGroups": "没有匹配的分组",
         "noMatchingLabels": "没有匹配的标签",
         "clearAll": "清空所有筛选",
         "automationWorkspace": "自动化工作区",
@@ -3996,6 +4037,9 @@
             "byLabelGroupUsesSecondColumn": {
               "label": "按标签分组时使用第二列"
             },
+            "byGroupUsesSecondColumn": {
+              "label": "按分组使用第二列"
+            },
             "headerLayout": {
               "label": "Header 布局"
             },
@@ -4860,7 +4904,7 @@
       },
       "workspaceSidebar": {
         "title": "工作区侧边栏双列布局",
-        "description": "配置 Project、By Time、By Status、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
+        "description": "配置 Project、By Group、By Time、By Status、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
         "enabled": "已启用",
         "disabled": "已关闭",
         "projectTwoColumnTitle": "Project 侧边栏双列布局",
@@ -4876,7 +4920,9 @@
         "byPriorityTitle": "By Priority 分组使用第二列",
         "byPriorityDescription": "在侧边栏的 By Priority 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
         "byLabelTitle": "By Label 分组使用第二列",
-        "byLabelDescription": "在侧边栏的 By Label 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。"
+        "byLabelDescription": "在侧边栏的 By Label 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
+        "byGroupTitle": "By Group 使用第二列",
+        "byGroupDescription": "在侧边栏的 By Group 模式下，点击分组会在可调整大小的第二列中打开其项目与工作区，而不是内联展开。"
       },
       "footer": {
         "title": "页脚布局",

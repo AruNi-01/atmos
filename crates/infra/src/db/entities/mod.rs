@@ -2,6 +2,8 @@ pub mod automation;
 pub mod automation_github_delivery_claim;
 pub mod automation_run;
 pub mod base;
+pub mod item_group;
+pub mod item_group_member;
 pub mod project;
 pub mod review_agent_run;
 pub mod review_comment;

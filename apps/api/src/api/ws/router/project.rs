@@ -119,9 +119,10 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_project_workspace_bootstrap(&self) -> Result<Value> {
-        let (projects_result, labels_result) = tokio::join!(
+        let (projects_result, labels_result, groups_result) = tokio::join!(
             self.project_service.list_projects(),
             self.workspace_service.list_labels(false),
+            self.group_service.list_groups(),
         );
 
         let projects = projects_result?;
@@ -129,6 +130,13 @@ impl WsMessageService {
             Ok(labels) => labels,
             Err(error) => {
                 tracing::warn!("Failed to fetch workspace labels during bootstrap: {error}");
+                Vec::new()
+            }
+        };
+        let groups = match groups_result {
+            Ok(groups) => groups,
+            Err(error) => {
+                tracing::warn!("Failed to fetch groups during bootstrap: {error}");
                 Vec::new()
             }
         };
@@ -170,6 +178,7 @@ impl WsMessageService {
             projects,
             workspace_labels,
             workspaces_by_project,
+            groups,
         }))
     }
 

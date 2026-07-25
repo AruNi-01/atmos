@@ -9,6 +9,7 @@ mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
+mod group;
 mod local_model;
 mod local_services;
 mod project;
@@ -38,7 +39,7 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, DiskAnalyzerService,
+    AgentService, AgentSessionService, AutomationService, DiskAnalyzerService, GroupService,
     LocalServicesService, NotificationService, ProjectService, ReviewService, TerminalService,
     WorkspaceService,
 };
@@ -53,6 +54,7 @@ pub struct WsMessageService {
     github_engine: core_engine::GithubEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
+    group_service: Arc<GroupService>,
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
     agent_session_service: Arc<AgentSessionService>,
@@ -73,6 +75,7 @@ impl WsMessageService {
     pub fn new(
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
+        group_service: Arc<GroupService>,
         terminal_service: Arc<TerminalService>,
         agent_service: Arc<AgentService>,
         agent_session_service: Arc<AgentSessionService>,
@@ -99,6 +102,7 @@ impl WsMessageService {
             github_engine: core_engine::GithubEngine::new(),
             project_service,
             workspace_service,
+            group_service,
             terminal_service,
             agent_service,
             agent_session_service,
@@ -304,6 +308,28 @@ impl WsMessageService {
             }
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
+            }
+
+            // Group (APP-044)
+            WsAction::GroupList => self.handle_group_list().await,
+            WsAction::GroupCreate => self.handle_group_create(parse_request(request.data)?).await,
+            WsAction::GroupUpdate => self.handle_group_update(parse_request(request.data)?).await,
+            WsAction::GroupUpdateOrder => {
+                self.handle_group_update_order(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GroupDelete => self.handle_group_delete(parse_request(request.data)?).await,
+            WsAction::GroupSetMember => {
+                self.handle_group_set_member(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GroupRemoveMember => {
+                self.handle_group_remove_member(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GroupUpdateMemberOrder => {
+                self.handle_group_update_member_order(parse_request(request.data)?)
+                    .await
             }
 
             // Script
@@ -1032,6 +1058,7 @@ impl WsMessageHandler for WsMessageService {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
         // APP-015: drop any canvas-bridge registrations associated with this conn
         self.canvas_agent_relay.unregister_conn(conn_id);
-        self.disk_analyzer_service.remove_connection_sessions(conn_id);
+        self.disk_analyzer_service
+            .remove_connection_sessions(conn_id);
     }
 }

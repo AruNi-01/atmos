@@ -14,10 +14,11 @@ import {
   projectBootstrapQueryOptions,
   type ProjectBootstrapSnapshot,
 } from "@/features/project/lib/project-query-options";
-import type { Project, WorkspaceLabel } from "@/shared/types/domain";
+import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
 
 const EMPTY_PROJECTS: Project[] = [];
 const EMPTY_WORKSPACE_LABELS: WorkspaceLabel[] = [];
+const EMPTY_GROUPS: Group[] = [];
 
 export function projectBootstrapKey(scope = getComputerQueryScope()) {
   return queryKeys.computer.projectBootstrap(scope);
@@ -79,6 +80,11 @@ export function useProjects(options?: { enabled?: boolean }): Project[] {
 export function useWorkspaceLabels(options?: { enabled?: boolean }): WorkspaceLabel[] {
   const query = useProjectBootstrapQuery(options);
   return query.data?.workspaceLabels ?? EMPTY_WORKSPACE_LABELS;
+}
+
+export function useGroups(options?: { enabled?: boolean }): Group[] {
+  const query = useProjectBootstrapQuery(options);
+  return query.data?.groups ?? EMPTY_GROUPS;
 }
 
 export function useProjectsLoading(): boolean {

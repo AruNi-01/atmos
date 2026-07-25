@@ -270,6 +270,43 @@
       "older": "Older",
       "untagged": "No label"
     },
+    "groups": {
+      "ungrouped": "Ungrouped",
+      "create": "New Group",
+      "createPlaceholder": "Group name",
+      "defaultName": "New Group",
+      "rename": "Rename Group",
+      "delete": "Delete Group",
+      "deleteConfirm": "Delete this group? Projects and workspaces are not deleted.",
+      "cancel": "Cancel",
+      "addToGroup": "Add to Group",
+      "moveToGroup": "Move to Group",
+      "removeFromGroup": "Remove from Group",
+      "trigger": "Group",
+      "empty": "No members in this group",
+      "emptyGroups": "No groups yet",
+      "createFirst": "Create a group to organize projects and workspaces",
+      "directWorkspaces": "Workspaces",
+      "projects": "Projects",
+      "nameRequired": "Enter a group name",
+      "createFailed": "Could not create group",
+      "renameFailed": "Could not rename group",
+      "deleteFailed": "Could not delete group",
+      "adoptWorkspaces": {
+        "title": "Also move workspaces?",
+        "description": "{count, plural, one {# workspace under {projectName} is already in a group} other {# workspaces under {projectName} are already in groups}}. Unlink them so they only appear under this project in the target group?",
+        "targetGroup": "Target group",
+        "adopt": "Unlink and move with project ({count})",
+        "projectOnly": "Move project only"
+      },
+      "followProject": {
+        "title": "Follow project in this group?",
+        "description": "“{projectName}” is already in this group. Unlink workspace “{workspaceName}” from any group membership so it only appears under the project?",
+        "targetGroup": "Target group",
+        "followProject": "Unlink workspace (follow project)",
+        "assignWorkspace": "Still assign workspace to group"
+      }
+    },
     "leftPinnedSection": {
       "sortingDisabledMessage": "Workspace order cannot be updated while folders are syncing.",
       "pinned": "Pinned",
@@ -498,6 +535,7 @@
       },
       "grouping": {
         "project": "By Project",
+        "group": "By Group",
         "status": "By Status",
         "time": "By Time",
         "label": "By Label",
@@ -508,12 +546,15 @@
         "trigger": "Filter",
         "sectionLabel": "Filter",
         "project": "Project",
+        "group": "Group",
         "status": "Status",
         "priority": "Priority",
         "labels": "Labels",
         "searchProjects": "Search projects...",
+        "searchGroups": "Search groups...",
         "searchLabels": "Search labels...",
         "noMatchingProjects": "No matching projects",
+        "noMatchingGroups": "No matching groups",
         "noMatchingLabels": "No matching labels",
         "clearAll": "Clear All Filters",
         "automationWorkspace": "Automation Workspace",
@@ -3996,6 +4037,9 @@
             "byLabelGroupUsesSecondColumn": {
               "label": "By Label group uses second column"
             },
+            "byGroupUsesSecondColumn": {
+              "label": "By Group uses second column"
+            },
             "headerLayout": {
               "label": "Header layout"
             },
@@ -4860,7 +4904,7 @@
       },
       "workspaceSidebar": {
         "title": "Workspace Sidebar Two-Column Layout",
-        "description": "Configure the optional two-column workspace browser for Project, By Time, By Status, By Priority, and By Label sidebar modes.",
+        "description": "Configure the optional two-column workspace browser for Project, By Group, By Time, By Status, By Priority, and By Label sidebar modes.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "projectTwoColumnTitle": "Project sidebar two-column layout",
@@ -4876,7 +4920,9 @@
         "byPriorityTitle": "By Priority group uses second column",
         "byPriorityDescription": "In the sidebar's By Priority mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
         "byLabelTitle": "By Label group uses second column",
-        "byLabelDescription": "In the sidebar's By Label mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline."
+        "byLabelDescription": "In the sidebar's By Label mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
+        "byGroupTitle": "By Group uses second column",
+        "byGroupDescription": "In the sidebar's By Group mode, clicking a group opens its projects and workspaces in a second resizable column instead of expanding inline."
       },
       "footer": {
         "title": "Footer layout",

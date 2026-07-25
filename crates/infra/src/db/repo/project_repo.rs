@@ -1,9 +1,9 @@
-use sea_orm::sea_query::Expr;
+use sea_orm::sea_query::{Expr, Query};
 use sea_orm::*;
 use std::collections::HashSet;
 
 use crate::db::entities::base::BaseFields;
-use crate::db::entities::project;
+use crate::db::entities::{item_group_member, project, workspace};
 use crate::db::repo::base::BaseRepo;
 use crate::error::Result;
 
@@ -154,6 +154,87 @@ impl<'a> ProjectRepo<'a> {
         if result.rows_affected == 0 {
             return Err(crate::error::InfraError::Custom("Project not found".into()));
         }
+        Ok(())
+    }
+
+    /// Soft-delete project/workspace group memberships, workspaces, and project atomically.
+    ///
+    /// One transaction so a mid-flight DB error cannot leave partial membership cleanup
+    /// or half-deleted children committed. Workspace memberships are resolved inside the
+    /// transaction via a subquery on `workspace` for this project (not a pre-txn snapshot),
+    /// so a workspace created after a service-layer list cannot leave a dangling membership.
+    pub async fn soft_delete_with_group_memberships(&self, guid: &str) -> Result<()> {
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        // All workspace guids for this project (including already soft-deleted rows).
+        let workspace_guids_for_project = || {
+            Query::select()
+                .column(workspace::Column::Guid)
+                .from(workspace::Entity)
+                .and_where(Expr::col(workspace::Column::ProjectGuid).eq(guid))
+                .to_owned()
+        };
+
+        // Soft-delete the project first so concurrent create paths that re-check
+        // `find_by_guid` (filters is_deleted=false) fail closed once this txn commits.
+        // Within this txn we still clean children; SQLite holds the writer lock for
+        // the whole transaction.
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::IsDeleted, Expr::value(true))
+            .col_expr(project::Column::UpdatedAt, Expr::value(now))
+            .filter(project::Column::Guid.eq(guid))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+
+        // Soft-delete group memberships for every workspace of this project.
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(
+                item_group_member::Column::MemberGuid.in_subquery(workspace_guids_for_project()),
+            )
+            .exec(&txn)
+            .await?;
+
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("project"))
+            .filter(item_group_member::Column::MemberGuid.eq(guid))
+            .exec(&txn)
+            .await?;
+
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsDeleted, Expr::value(true))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::ProjectGuid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+
+        // Re-run membership cleanup after workspace soft-delete to close the tiny race of a
+        // workspace inserted between the first membership pass and workspace soft-delete
+        // (still inside this writer lock).
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(
+                item_group_member::Column::MemberGuid.in_subquery(workspace_guids_for_project()),
+            )
+            .exec(&txn)
+            .await?;
+
+        txn.commit().await?;
         Ok(())
     }
 

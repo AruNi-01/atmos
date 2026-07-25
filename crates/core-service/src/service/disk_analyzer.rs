@@ -10,9 +10,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    clear_path_cache, finalize_tree, invalidate_path_cache, CleanupSuggestion, DEFAULT_TREE_DEPTH,
-    DiskAnalyzerEngine, DiskNode, DiskVolumeInfo, FsEngine, GitEngine, ProgressCallback,
-    ScanProgress, ScanStats, ScanStatus,
+    clear_path_cache, finalize_tree, invalidate_path_cache, CleanupSuggestion, DiskAnalyzerEngine,
+    DiskNode, DiskVolumeInfo, FsEngine, GitEngine, ProgressCallback, ScanProgress, ScanStats,
+    ScanStatus, DEFAULT_TREE_DEPTH,
 };
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -177,10 +177,9 @@ impl DiskAnalyzerService {
                 return;
             }
             let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
-            if entries
-                .iter()
-                .any(|e: &EntryRoot| std::fs::canonicalize(&e.path).unwrap_or_else(|_| e.path.clone()) == canon)
-            {
+            if entries.iter().any(|e: &EntryRoot| {
+                std::fs::canonicalize(&e.path).unwrap_or_else(|_| e.path.clone()) == canon
+            }) {
                 return;
             }
             entries.push(EntryRoot {
@@ -488,7 +487,15 @@ impl DiskAnalyzerService {
         path: Option<&str>,
         max_children: Option<usize>,
     ) -> Result<Value> {
-        let (target_key, project_roots, workspace_roots, session_max, cancel, entry_roots, inflight) = {
+        let (
+            target_key,
+            project_roots,
+            workspace_roots,
+            session_max,
+            cancel,
+            entry_roots,
+            inflight,
+        ) = {
             let sessions = self.sessions.lock();
             let session = sessions
                 .get(scan_id)
@@ -496,7 +503,9 @@ impl DiskAnalyzerService {
             Self::ensure_owner(session, owner_conn_id)?;
 
             let target_key = match path {
-                Some(p) if !p.is_empty() && (p == ATMOS_OVERVIEW_PATH || p.starts_with("atmos://")) => {
+                Some(p)
+                    if !p.is_empty() && (p == ATMOS_OVERVIEW_PATH || p.starts_with("atmos://")) =>
+                {
                     // Synthetic Atmos overview root — not a real filesystem path.
                     p.to_string()
                 }
@@ -704,87 +713,91 @@ impl DiskAnalyzerService {
 
         tokio::task::spawn_blocking(move || {
             let started = Instant::now();
-            let parts: Arc<Mutex<HashMap<String, DiskNode>>> =
-                Arc::new(Mutex::new(HashMap::new()));
+            let parts: Arc<Mutex<HashMap<String, DiskNode>>> = Arc::new(Mutex::new(HashMap::new()));
             let files_scanned = Arc::new(AtomicU64::new(0));
             let bytes_scanned = Arc::new(AtomicU64::new(0));
             let dirs_scanned = Arc::new(AtomicU64::new(0));
             let error_count = Arc::new(AtomicU64::new(0));
 
-            let emit_assembled = |status: ScanStatus,
-                                  current: Option<String>,
-                                  parts: &HashMap<String, DiskNode>,
-                                  suggestions: Option<&[CleanupSuggestion]>| {
-                let Some(mut tree) =
-                    assemble_overview(kind, parts, &root_path_str, &root_display_name, &entry_labels)
-                else {
-                    return;
-                };
-                // Completed assembly prunes root; partial progress keeps all root children.
-                // Depth 3 keeps entry children (target / node_modules / .next / workspaces).
-                let prune_root = matches!(status, ScanStatus::Completed);
-                finalize_tree(&mut tree, max_children, OVERVIEW_TREE_DEPTH, prune_root);
-                bytes_scanned.store(tree.size, Ordering::Relaxed);
+            let emit_assembled =
+                |status: ScanStatus,
+                 current: Option<String>,
+                 parts: &HashMap<String, DiskNode>,
+                 suggestions: Option<&[CleanupSuggestion]>| {
+                    let Some(mut tree) = assemble_overview(
+                        kind,
+                        parts,
+                        &root_path_str,
+                        &root_display_name,
+                        &entry_labels,
+                    ) else {
+                        return;
+                    };
+                    // Completed assembly prunes root; partial progress keeps all root children.
+                    // Depth 3 keeps entry children (target / node_modules / .next / workspaces).
+                    let prune_root = matches!(status, ScanStatus::Completed);
+                    finalize_tree(&mut tree, max_children, OVERVIEW_TREE_DEPTH, prune_root);
+                    bytes_scanned.store(tree.size, Ordering::Relaxed);
 
-                let stats = ScanStats {
-                    root_path: root_path_str.clone(),
-                    total_size: tree.size,
-                    files_scanned: files_scanned.load(Ordering::Relaxed),
-                    dirs_scanned: dirs_scanned.load(Ordering::Relaxed),
-                    error_count: error_count.load(Ordering::Relaxed),
-                    elapsed_ms: started.elapsed().as_millis() as u64,
-                };
+                    let stats = ScanStats {
+                        root_path: root_path_str.clone(),
+                        total_size: tree.size,
+                        files_scanned: files_scanned.load(Ordering::Relaxed),
+                        dirs_scanned: dirs_scanned.load(Ordering::Relaxed),
+                        error_count: error_count.load(Ordering::Relaxed),
+                        elapsed_ms: started.elapsed().as_millis() as u64,
+                    };
 
-                if let Some(session) = sessions.lock().get_mut(&scan_id) {
-                    session.tree = Some(Arc::new(tree.clone()));
-                    // Avoid publishing empty stats at placeholder start (UI used to show 0 files · 0 dirs).
-                    if matches!(status, ScanStatus::Completed | ScanStatus::Cancelled)
-                        || stats.files_scanned > 0
-                        || stats.dirs_scanned > 0
-                    {
-                        session.stats = Some(stats.clone());
-                    }
-                    if matches!(
-                        status,
-                        ScanStatus::Completed | ScanStatus::Cancelled | ScanStatus::Failed
-                    ) {
-                        session.inflight_root = None;
-                        session.completed_at = Some(Instant::now());
-                        if matches!(status, ScanStatus::Completed) {
-                            if let Some(s) = suggestions {
-                                session.suggestions = Some(s.to_vec());
+                    if let Some(session) = sessions.lock().get_mut(&scan_id) {
+                        session.tree = Some(Arc::new(tree.clone()));
+                        // Avoid publishing empty stats at placeholder start (UI used to show 0 files · 0 dirs).
+                        if matches!(status, ScanStatus::Completed | ScanStatus::Cancelled)
+                            || stats.files_scanned > 0
+                            || stats.dirs_scanned > 0
+                        {
+                            session.stats = Some(stats.clone());
+                        }
+                        if matches!(
+                            status,
+                            ScanStatus::Completed | ScanStatus::Cancelled | ScanStatus::Failed
+                        ) {
+                            session.inflight_root = None;
+                            session.completed_at = Some(Instant::now());
+                            if matches!(status, ScanStatus::Completed) {
+                                if let Some(s) = suggestions {
+                                    session.suggestions = Some(s.to_vec());
+                                }
                             }
                         }
                     }
-                }
 
-                let payload = json!({
-                    "scan_id": scan_id,
-                    "status": status,
-                    "files_scanned": stats.files_scanned,
-                    "bytes_scanned": tree.size,
-                    "dirs_scanned": stats.dirs_scanned,
-                    "error_count": stats.error_count,
-                    "current_path": current,
-                    "percent": if matches!(status, ScanStatus::Completed) { json!(100.0) } else { Value::Null },
-                    "error": Value::Null,
-                    "tree": tree,
-                    "level_path": root_path_str,
-                    "stats": if matches!(status, ScanStatus::Completed)
-                        || stats.files_scanned > 0
-                        || stats.dirs_scanned > 0
-                    {
-                        json!(stats)
-                    } else {
-                        Value::Null
-                    },
-                    "suggestions": suggestions,
-                });
-                let _ = event_tx.send(DiskAnalyzerScanEvent {
-                    owner_conn_id: owner.clone(),
-                    payload,
-                });
-            };
+                    let payload = json!({
+                        "scan_id": scan_id,
+                        "status": status,
+                        "files_scanned": stats.files_scanned,
+                        "bytes_scanned": tree.size,
+                        "dirs_scanned": stats.dirs_scanned,
+                        "error_count": stats.error_count,
+                        "current_path": current,
+                        "percent": if matches!(status, ScanStatus::Completed) { json!(100.0) } else { Value::Null },
+                        "error": Value::Null,
+                        "tree": tree,
+                        "level_path": root_path_str,
+                        "stats": if matches!(status, ScanStatus::Completed)
+                            || stats.files_scanned > 0
+                            || stats.dirs_scanned > 0
+                        {
+                            json!(stats)
+                        } else {
+                            Value::Null
+                        },
+                        "suggestions": suggestions,
+                    });
+                    let _ = event_tx.send(DiskAnalyzerScanEvent {
+                        owner_conn_id: owner.clone(),
+                        payload,
+                    });
+                };
 
             // Placeholder shell so UI can mount immediately.
             {
@@ -855,11 +868,7 @@ impl DiskAnalyzerService {
                     let (is_project, is_workspace) = match entry.kind {
                         Some(AtmosEntryKind::Project) => (true, false),
                         Some(AtmosEntryKind::Workspace) => (false, true),
-                        None => Self::classify_path(
-                            &real_path,
-                            &project_roots,
-                            &workspace_roots,
-                        ),
+                        None => Self::classify_path(&real_path, &project_roots, &workspace_roots),
                     };
                     let tree = DiskNode {
                         name: display_name,
@@ -907,7 +916,8 @@ impl DiskAnalyzerService {
             std::thread::scope(|scope| {
                 for entry in ordered_entries {
                     // Skip entries already filled from cache (still remeasure home).
-                    if !(matches!(kind, OverviewKind::HomeWithApps) && entry.label == ENTRY_KEY_HOME)
+                    if !(matches!(kind, OverviewKind::HomeWithApps)
+                        && entry.label == ENTRY_KEY_HOME)
                     {
                         let already = parts
                             .lock()
@@ -1032,27 +1042,25 @@ impl DiskAnalyzerService {
                         });
 
                         // Cap concurrent `du` so large roots are not starved.
-                        let acquire_du = || {
-                            loop {
-                                if cancel.load(Ordering::Relaxed) {
-                                    return false;
-                                }
-                                let cur = du_budget.load(Ordering::Relaxed);
-                                if cur == 0 {
-                                    std::thread::yield_now();
-                                    continue;
-                                }
-                                if du_budget
-                                    .compare_exchange_weak(
-                                        cur,
-                                        cur - 1,
-                                        Ordering::SeqCst,
-                                        Ordering::Relaxed,
-                                    )
-                                    .is_ok()
-                                {
-                                    return true;
-                                }
+                        let acquire_du = || loop {
+                            if cancel.load(Ordering::Relaxed) {
+                                return false;
+                            }
+                            let cur = du_budget.load(Ordering::Relaxed);
+                            if cur == 0 {
+                                std::thread::yield_now();
+                                continue;
+                            }
+                            if du_budget
+                                .compare_exchange_weak(
+                                    cur,
+                                    cur - 1,
+                                    Ordering::SeqCst,
+                                    Ordering::Relaxed,
+                                )
+                                .is_ok()
+                            {
+                                return true;
                             }
                         };
                         let release_du = || {
@@ -1063,7 +1071,10 @@ impl DiskAnalyzerService {
                         // home). Measure-only shells never surface target/node_modules/.next.
                         let expand_children = matches!(kind, OverviewKind::HomeWithApps)
                             && part_key == ENTRY_KEY_HOME
-                            || matches!(entry_kind, Some(AtmosEntryKind::Project | AtmosEntryKind::Workspace))
+                            || matches!(
+                                entry_kind,
+                                Some(AtmosEntryKind::Project | AtmosEntryKind::Workspace)
+                            )
                             || part_key == ".atmos"
                             || entry_path
                                 .file_name()
@@ -1091,56 +1102,55 @@ impl DiskAnalyzerService {
                             if !acquire_du() {
                                 return;
                             }
-                            let out = match engine
-                                .measure_path(&entry_path, Some(Arc::clone(&cancel)))
-                            {
-                                Ok(m) => {
-                                    let (is_project, is_workspace) = match entry_kind {
-                                        Some(AtmosEntryKind::Project) => (true, false),
-                                        Some(AtmosEntryKind::Workspace) => (false, true),
-                                        None => DiskAnalyzerService::classify_path(
-                                            &real_path,
-                                            &project_roots,
-                                            &workspace_roots,
-                                        ),
-                                    };
-                                    let tree = DiskNode {
-                                        name: display_name.clone(),
-                                        path: real_path.clone(),
-                                        size: m.size,
-                                        is_dir: true,
-                                        is_project,
-                                        is_workspace,
-                                        file_count: m.file_count,
-                                        dir_count: m.dir_count,
-                                        children_loaded: false,
-                                        children: vec![],
-                                    };
-                                    let stats = ScanStats {
-                                        root_path: real_path.clone(),
-                                        total_size: m.size,
-                                        files_scanned: m.file_count,
-                                        dirs_scanned: m.dir_count.saturating_add(1),
-                                        error_count: m.error_count,
-                                        elapsed_ms: 0,
-                                    };
-                                    on_progress(ScanProgress {
-                                        scan_id: scan_id.clone(),
-                                        status: ScanStatus::Running,
-                                        files_scanned: m.file_count,
-                                        bytes_scanned: m.size,
-                                        dirs_scanned: m.dir_count.saturating_add(1),
-                                        error_count: m.error_count,
-                                        current_path: Some(real_path.clone()),
-                                        percent: None,
-                                        error: None,
-                                        tree: Some(tree.clone()),
-                                        level_path: Some(root_path_str.clone()),
-                                    });
-                                    Ok((tree, stats, Vec::new()))
-                                }
-                                Err(e) => Err(e),
-                            };
+                            let out =
+                                match engine.measure_path(&entry_path, Some(Arc::clone(&cancel))) {
+                                    Ok(m) => {
+                                        let (is_project, is_workspace) = match entry_kind {
+                                            Some(AtmosEntryKind::Project) => (true, false),
+                                            Some(AtmosEntryKind::Workspace) => (false, true),
+                                            None => DiskAnalyzerService::classify_path(
+                                                &real_path,
+                                                &project_roots,
+                                                &workspace_roots,
+                                            ),
+                                        };
+                                        let tree = DiskNode {
+                                            name: display_name.clone(),
+                                            path: real_path.clone(),
+                                            size: m.size,
+                                            is_dir: true,
+                                            is_project,
+                                            is_workspace,
+                                            file_count: m.file_count,
+                                            dir_count: m.dir_count,
+                                            children_loaded: false,
+                                            children: vec![],
+                                        };
+                                        let stats = ScanStats {
+                                            root_path: real_path.clone(),
+                                            total_size: m.size,
+                                            files_scanned: m.file_count,
+                                            dirs_scanned: m.dir_count.saturating_add(1),
+                                            error_count: m.error_count,
+                                            elapsed_ms: 0,
+                                        };
+                                        on_progress(ScanProgress {
+                                            scan_id: scan_id.clone(),
+                                            status: ScanStatus::Running,
+                                            files_scanned: m.file_count,
+                                            bytes_scanned: m.size,
+                                            dirs_scanned: m.dir_count.saturating_add(1),
+                                            error_count: m.error_count,
+                                            current_path: Some(real_path.clone()),
+                                            percent: None,
+                                            error: None,
+                                            tree: Some(tree.clone()),
+                                            level_path: Some(root_path_str.clone()),
+                                        });
+                                        Ok((tree, stats, Vec::new()))
+                                    }
+                                    Err(e) => Err(e),
+                                };
                             release_du();
                             out
                         };
@@ -1511,18 +1521,21 @@ fn assemble_overview(
 
     match kind {
         OverviewKind::HomeWithApps => {
-            let mut root = parts.get(ENTRY_KEY_HOME).cloned().unwrap_or_else(|| DiskNode {
-                name: root_display_name.to_string(),
-                path: root_path.to_string(),
-                size: 0,
-                is_dir: true,
-                is_project: false,
-                is_workspace: false,
-                file_count: 0,
-                dir_count: 0,
-                children_loaded: true,
-                children: vec![],
-            });
+            let mut root = parts
+                .get(ENTRY_KEY_HOME)
+                .cloned()
+                .unwrap_or_else(|| DiskNode {
+                    name: root_display_name.to_string(),
+                    path: root_path.to_string(),
+                    size: 0,
+                    is_dir: true,
+                    is_project: false,
+                    is_workspace: false,
+                    file_count: 0,
+                    dir_count: 0,
+                    children_loaded: true,
+                    children: vec![],
+                });
             root.name = root_display_name.to_string();
             root.path = root_path.to_string();
             root.children_loaded = true;
@@ -1556,8 +1569,8 @@ fn assemble_overview(
 
             let total_size: u64 = children.iter().map(|c| c.size).sum();
             let file_count: u64 = children.iter().map(|c| c.file_count).sum();
-            let dir_count: u64 = children.len() as u64
-                + children.iter().map(|c| c.dir_count).sum::<u64>();
+            let dir_count: u64 =
+                children.len() as u64 + children.iter().map(|c| c.dir_count).sum::<u64>();
 
             Some(DiskNode {
                 name: root_display_name.to_string(),
@@ -1691,10 +1704,8 @@ mod tests {
     /// `if inflight || cached { return loading }` short-circuit bug.
     #[tokio::test]
     async fn get_tree_spawns_walk_for_unloaded_directory() {
-        let base = std::env::temp_dir().join(format!(
-            "disk-analyzer-get-tree-{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("disk-analyzer-get-tree-{}", std::process::id()));
         let entry = base.join(".atmos");
         let nested = entry.join("cache");
         let _ = std::fs::remove_dir_all(&base);
@@ -1762,7 +1773,13 @@ mod tests {
             .expect("get_tree");
         assert_eq!(resp["status"], "loading");
         assert_eq!(
-            service.sessions.lock().get("scan-1").unwrap().inflight_root.as_deref(),
+            service
+                .sessions
+                .lock()
+                .get("scan-1")
+                .unwrap()
+                .inflight_root
+                .as_deref(),
             Some(entry_key.as_str()),
             "unloaded dir must mark inflight so a walk is spawned"
         );
@@ -1853,7 +1870,10 @@ mod tests {
         assert_eq!(resp["status"], "ready");
         assert_eq!(resp["tree"]["name"], ".atmos");
         assert!(
-            resp["tree"]["children"].as_array().map(|a| !a.is_empty()).unwrap_or(false),
+            resp["tree"]["children"]
+                .as_array()
+                .map(|a| !a.is_empty())
+                .unwrap_or(false),
             "loaded dir should include children"
         );
 

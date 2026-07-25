@@ -3,7 +3,7 @@ use sea_orm::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::db::entities::base::BaseFields;
-use crate::db::entities::{workspace, workspace_label};
+use crate::db::entities::{item_group_member, project, workspace, workspace_label};
 use crate::db::repo::base::BaseRepo;
 use crate::error::Result;
 
@@ -115,6 +115,25 @@ impl<'a> WorkspaceRepo<'a> {
             None => None,
         };
 
+        // Claim project liveness with a write under the same transaction as the insert.
+        // A plain SELECT is not enough on SQLite deferred txns: a concurrent soft-delete
+        // can commit between SELECT and INSERT. UPDATE ... WHERE is_deleted=false takes
+        // the writer lock and fails closed if the project is already gone.
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+        let claimed = project::Entity::update_many()
+            .col_expr(project::Column::UpdatedAt, Expr::value(now))
+            .filter(project::Column::Guid.eq(project_guid.clone()))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        if claimed.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(format!(
+                "Project {} not found",
+                project_guid
+            )));
+        }
+
         let model = workspace::ActiveModel {
             guid: Set(base.guid),
             project_guid: Set(project_guid),
@@ -145,7 +164,8 @@ impl<'a> WorkspaceRepo<'a> {
             create_source: Set(create_source.as_str().to_string()),
         };
 
-        let result = model.insert(self.db).await?;
+        let result = model.insert(&txn).await?;
+        txn.commit().await?;
         Ok(result)
     }
 
@@ -164,6 +184,22 @@ impl<'a> WorkspaceRepo<'a> {
 
         // 生成占位分支名（不实际创建）
         let placeholder_branch = format!("issue-only-{}", &base.guid[..8]);
+
+        // Same write-claim + insert pattern as create() (SQLite deferred-txn safety).
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+        let claimed = project::Entity::update_many()
+            .col_expr(project::Column::UpdatedAt, Expr::value(now))
+            .filter(project::Column::Guid.eq(input.project_guid.clone()))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        if claimed.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(format!(
+                "Project {} not found",
+                input.project_guid
+            )));
+        }
 
         let model = workspace::ActiveModel {
             guid: Set(base.guid),
@@ -197,7 +233,8 @@ impl<'a> WorkspaceRepo<'a> {
             create_source: Set(WorkspaceCreateSource::IssueOnly.as_str().to_string()),
         };
 
-        let result = model.insert(self.db).await?;
+        let result = model.insert(&txn).await?;
+        txn.commit().await?;
         Ok(result)
     }
 
@@ -591,6 +628,47 @@ impl<'a> WorkspaceRepo<'a> {
             guid,
             result.rows_affected
         );
+        Ok(())
+    }
+
+    /// Soft-delete a workspace and clear its group memberships in one transaction.
+    pub async fn soft_delete_with_group_memberships(&self, guid: &str) -> Result<()> {
+        tracing::info!(
+            "[soft_delete_with_group_memberships] Soft deleting workspace + memberships: {}",
+            guid
+        );
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(item_group_member::Column::MemberGuid.eq(guid))
+            .exec(&txn)
+            .await?;
+
+        let result = workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsDeleted, Expr::value(true))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        tracing::info!(
+            "[soft_delete_with_group_memberships] Soft delete result for {}: {} rows affected",
+            guid,
+            result.rows_affected
+        );
+        if result.rows_affected == 0 {
+            // Abort so membership cleanup does not commit without a workspace delete.
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
+
+        txn.commit().await?;
         Ok(())
     }
 

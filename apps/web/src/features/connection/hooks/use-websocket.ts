@@ -80,6 +80,15 @@ export type WsAction =
   | "project_update_order"
   | "project_delete"
   | "project_validate_path"
+  // Group 操作 (APP-044)
+  | "group_list"
+  | "group_create"
+  | "group_update"
+  | "group_update_order"
+  | "group_delete"
+  | "group_set_member"
+  | "group_remove_member"
+  | "group_update_member_order"
   // Script 操作
   | "script_get"
   | "script_save"

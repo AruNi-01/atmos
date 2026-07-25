@@ -2,7 +2,13 @@
 
 import React from "react";
 import { useSortable, CSS, toastManager } from "@workspace/ui";
-import type { Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
+import type {
+  Group,
+  Workspace,
+  WorkspaceLabel,
+  WorkspacePriority,
+  WorkspaceWorkflowStatus,
+} from "@/shared/types/domain";
 import { WorkspaceContent } from "./WorkspaceContent";
 import { createWorkspacePrimePrefetch } from "@/app-shell/workspace-surface-prefetch";
 
@@ -33,6 +39,9 @@ export interface WorkspaceItemProps {
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  groups?: Group[];
+  onSetWorkspaceGroup?: (workspaceId: string, groupId: string | null) => void;
+  onCreateGroup?: (name: string) => Promise<{ id: string } | void> | { id: string } | void;
 }
 
 function workspaceItemPropsAreEqual(
@@ -50,7 +59,8 @@ function workspaceItemPropsAreEqual(
     prev.suppressInfoPopover === next.suppressInfoPopover &&
     prev.sortingDisabled === next.sortingDisabled &&
     prev.sortingDisabledMessage === next.sortingDisabledMessage &&
-    prev.availableLabels === next.availableLabels
+    prev.availableLabels === next.availableLabels &&
+    prev.groups === next.groups
   );
 }
 
@@ -76,6 +86,9 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  groups,
+  onSetWorkspaceGroup,
+  onCreateGroup,
 }) {
   const {
     attributes,
@@ -102,16 +115,25 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   }, [sortingDisabledMessage]);
 
   const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!sortingDisabled || event.button !== 0) return;
+    // Only prime the disabled-drag warning when a message is provided (e.g. filters).
+    // Silent disable (By Group) should not toast or treat the row as a drag host.
+    if (!sortingDisabled || !sortingDisabledMessage || event.button !== 0) return;
     pointerStartRef.current = {
       x: event.clientX,
       y: event.clientY,
       warned: false,
     };
-  }, [sortingDisabled]);
+  }, [sortingDisabled, sortingDisabledMessage]);
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!sortingDisabled || !pointerStartRef.current || pointerStartRef.current.warned) return;
+    if (
+      !sortingDisabled ||
+      !sortingDisabledMessage ||
+      !pointerStartRef.current ||
+      pointerStartRef.current.warned
+    ) {
+      return;
+    }
 
     const deltaX = event.clientX - pointerStartRef.current.x;
     const deltaY = event.clientY - pointerStartRef.current.y;
@@ -119,7 +141,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
 
     pointerStartRef.current.warned = true;
     showSortingDisabledWarning();
-  }, [showSortingDisabledWarning, sortingDisabled]);
+  }, [showSortingDisabledWarning, sortingDisabled, sortingDisabledMessage]);
 
   const handlePointerEnd = React.useCallback(() => {
     pointerStartRef.current = null;
@@ -159,8 +181,8 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         isActive={isActive}
         suppressInfoPopover={suppressInfoPopover}
         isPlaceholder={isDragging}
-        attributes={attributes}
-        listeners={listeners}
+        attributes={sortingDisabled ? undefined : attributes}
+        listeners={sortingDisabled ? undefined : listeners}
         onPin={onPin}
         onUnpin={onUnpin}
         onArchive={onArchive}
@@ -172,6 +194,9 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         onCreateLabel={onCreateLabel}
         onUpdateLabel={onUpdateLabel}
         onUpdateLabels={onUpdateLabels}
+        groups={groups}
+        onSetWorkspaceGroup={onSetWorkspaceGroup}
+        onCreateGroup={onCreateGroup}
       />
     </div>
   );

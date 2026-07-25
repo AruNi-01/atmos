@@ -133,10 +133,25 @@ export type WorkspaceModel = {
   create_source: string;
 };
 
+export type GroupMemberModel = {
+  guid: string;
+  member_type: string;
+  member_guid: string;
+  sort_order: number;
+};
+
+export type GroupModel = {
+  guid: string;
+  name: string;
+  sidebar_order: number;
+  members: GroupMemberModel[];
+};
+
 export type ProjectWorkspaceBootstrapResponse = {
   projects: ProjectModel[];
   workspace_labels: WorkspaceLabelModel[];
   workspaces_by_project: Record<string, WorkspaceModel[]>;
+  groups?: GroupModel[];
 };
 
 export type GitStatusResponse = {

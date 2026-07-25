@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { Project, Workspace, WorkspaceLabel } from '@/shared/types/domain';
+import type { Group, Project, Workspace, WorkspaceLabel } from '@/shared/types/domain';
 import {
     getPinnedWorkspaceEntries,
     getProjectModeProjects,
@@ -20,6 +20,12 @@ import {
     getWorkspaceTimeGroupKey,
     groupWorkspaces,
 } from '@/app-shell/sidebar/workspace-grouping';
+import {
+    buildUserGroupViews,
+    findGroupIdForMember,
+    UNGROUPED_USER_GROUP_KEY,
+    type UserGroupView,
+} from '@/app-shell/sidebar/user-groups';
 import type { SidebarGroupingMode } from '@/app-shell/sidebar/workspace-status';
 
 interface UseLeftSidebarWorkspaceDerivedParams {
@@ -27,17 +33,20 @@ interface UseLeftSidebarWorkspaceDerivedParams {
     currentSidebarRouteKey: string;
     currentWorkspace: Workspace | undefined;
     groupingMode: SidebarGroupingMode;
+    groups: Group[];
     kanbanFilters: WorkspaceKanbanFilters;
     labelGroupOrder: string[];
     projectSidebarSelectionRouteKey: string | null;
     projects: Project[];
     selectedProjectSidebarId: string | null;
     selectedWorkspaceGroupKey: string | null;
+    ungroupedLabel: string;
     workspaceGroupSelectionRouteKey: string | null;
     workspaceSidebarStatusTwoColumn: boolean;
     workspaceSidebarTimeTwoColumn: boolean;
     workspaceSidebarPriorityTwoColumn: boolean;
     workspaceSidebarLabelTwoColumn: boolean;
+    workspaceSidebarGroupTwoColumn: boolean;
     workspaceSidebarTwoColumn: boolean;
     workspaceLabels: WorkspaceLabel[];
 }
@@ -47,17 +56,20 @@ export function useLeftSidebarWorkspaceDerived({
     currentSidebarRouteKey,
     currentWorkspace,
     groupingMode,
+    groups,
     kanbanFilters,
     labelGroupOrder,
     projectSidebarSelectionRouteKey,
     projects,
     selectedProjectSidebarId,
     selectedWorkspaceGroupKey,
+    ungroupedLabel,
     workspaceGroupSelectionRouteKey,
     workspaceSidebarStatusTwoColumn,
     workspaceSidebarTimeTwoColumn,
     workspaceSidebarPriorityTwoColumn,
     workspaceSidebarLabelTwoColumn,
+    workspaceSidebarGroupTwoColumn,
     workspaceSidebarTwoColumn,
     workspaceLabels,
 }: UseLeftSidebarWorkspaceDerivedParams) {
@@ -68,6 +80,7 @@ export function useLeftSidebarWorkspaceDerived({
     const filteredFlattenedWorkspaces = filterWorkspaceKanbanEntries(
         flattenedWorkspaces,
         kanbanFilters,
+        groups,
     );
     const projectModeProjects = useMemo(
         () => getProjectModeProjects(projects, filteredFlattenedWorkspaces, {
@@ -86,19 +99,25 @@ export function useLeftSidebarWorkspaceDerived({
         [filteredFlattenedWorkspaces],
     );
     const groupedWorkspaces = useMemo(() => {
-        if (groupingMode === 'project') return [];
+        if (groupingMode === 'project' || groupingMode === 'group') return [];
         return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode, {
             availableLabels: workspaceLabels,
             labelGroupOrder,
         });
     }, [groupingMode, labelGroupOrder, unpinnedFlattenedWorkspaces, workspaceLabels]);
+    const userGroupViews = useMemo((): UserGroupView[] => {
+        if (groupingMode !== 'group') return [];
+        return buildUserGroupViews(groups, projectModeProjects, ungroupedLabel);
+    }, [groupingMode, groups, projectModeProjects, ungroupedLabel]);
     const isProjectTwoColumn = groupingMode === 'project' && workspaceSidebarTwoColumn;
+    const isGroupTwoColumn = groupingMode === 'group' && workspaceSidebarGroupTwoColumn;
     const isTimeTwoColumn = groupingMode === 'time' && workspaceSidebarTimeTwoColumn;
     const isStatusTwoColumn = groupingMode === 'status' && workspaceSidebarStatusTwoColumn;
     const isPriorityTwoColumn = groupingMode === 'priority' && workspaceSidebarPriorityTwoColumn;
     const isLabelTwoColumn = groupingMode === 'label' && workspaceSidebarLabelTwoColumn;
     const isTwoColumnSidebar =
         isProjectTwoColumn ||
+        isGroupTwoColumn ||
         isTimeTwoColumn ||
         isStatusTwoColumn ||
         isPriorityTwoColumn ||
@@ -106,6 +125,15 @@ export function useLeftSidebarWorkspaceDerived({
     const shouldShowGlobalPinnedSection = pinnedWorkspaces.length > 0;
     const currentWorkspaceGroupKey = useMemo(() => {
         if (!currentWorkspace || currentWorkspace.isPinned) return null;
+        if (groupingMode === 'group') {
+            // Ungrouped workspaces must resolve to the ungrouped bucket so two-column
+            // mode does not fall through to the first named group.
+            return (
+                findGroupIdForMember(groups, 'workspace', currentWorkspace.id) ??
+                findGroupIdForMember(groups, 'project', currentWorkspace.projectId) ??
+                UNGROUPED_USER_GROUP_KEY
+            );
+        }
         if (groupingMode === 'status') {
             return currentWorkspace.workflowStatus;
         }
@@ -123,7 +151,7 @@ export function useLeftSidebarWorkspaceDerived({
             );
         }
         return null;
-    }, [currentWorkspace, groupingMode, labelGroupOrder, workspaceLabels]);
+    }, [currentWorkspace, groupingMode, groups, labelGroupOrder, workspaceLabels]);
     const effectiveSelectedProjectSidebarId = useMemo(() => {
         if (!isProjectTwoColumn || projectModeProjects.length === 0) return null;
         const visibleIds = new Set(projectModeProjects.map((project) => project.id));
@@ -147,7 +175,23 @@ export function useLeftSidebarWorkspaceDerived({
         selectedProjectSidebarId,
     ]);
     const effectiveSelectedWorkspaceGroupKey = useMemo(() => {
-        if (groupingMode === 'project' || !isTwoColumnSidebar || groupedWorkspaces.length === 0) return null;
+        if (groupingMode === 'project' || !isTwoColumnSidebar) return null;
+        if (groupingMode === 'group') {
+            if (userGroupViews.length === 0) return null;
+            const visibleKeys = new Set(userGroupViews.map((view) => view.key));
+            if (
+                selectedWorkspaceGroupKey &&
+                workspaceGroupSelectionRouteKey === currentSidebarRouteKey &&
+                visibleKeys.has(selectedWorkspaceGroupKey)
+            ) {
+                return selectedWorkspaceGroupKey;
+            }
+            if (currentWorkspaceGroupKey && visibleKeys.has(currentWorkspaceGroupKey)) {
+                return currentWorkspaceGroupKey;
+            }
+            return userGroupViews[0]?.key ?? null;
+        }
+        if (groupedWorkspaces.length === 0) return null;
         const visibleKeys = new Set(groupedWorkspaces.map((group) => group.key));
         if (
             selectedWorkspaceGroupKey &&
@@ -167,6 +211,7 @@ export function useLeftSidebarWorkspaceDerived({
         groupingMode,
         isTwoColumnSidebar,
         selectedWorkspaceGroupKey,
+        userGroupViews,
         workspaceGroupSelectionRouteKey,
     ]);
     const selectedProjectForSidebar = useMemo(
@@ -176,6 +221,10 @@ export function useLeftSidebarWorkspaceDerived({
     const selectedGroupForSidebar = useMemo(
         () => groupedWorkspaces.find((group) => group.key === effectiveSelectedWorkspaceGroupKey) ?? null,
         [effectiveSelectedWorkspaceGroupKey, groupedWorkspaces],
+    );
+    const selectedUserGroupForSidebar = useMemo(
+        () => userGroupViews.find((view) => view.key === effectiveSelectedWorkspaceGroupKey) ?? null,
+        [effectiveSelectedWorkspaceGroupKey, userGroupViews],
     );
     const selectedProjectPinnedEntries = useMemo(
         () => getSelectedProjectPinnedEntries(selectedProjectForSidebar),
@@ -193,6 +242,7 @@ export function useLeftSidebarWorkspaceDerived({
         filteredFlattenedWorkspaces,
         flattenedWorkspaces,
         groupedWorkspaces,
+        isGroupTwoColumn,
         isPinnedSortingDisabled,
         isProjectTwoColumn,
         isTwoColumnSidebar,
@@ -202,7 +252,9 @@ export function useLeftSidebarWorkspaceDerived({
         selectedProjectForSidebar,
         selectedProjectPinnedEntries,
         selectedProjectUnpinnedWorkspaces,
+        selectedUserGroupForSidebar,
         shouldShowGlobalPinnedSection,
         shouldApplyWorkspaceFilter,
+        userGroupViews,
     };
 }
