@@ -3,7 +3,7 @@ use sea_orm::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::db::entities::base::BaseFields;
-use crate::db::entities::{workspace, workspace_label};
+use crate::db::entities::{item_group_member, workspace, workspace_label};
 use crate::db::repo::base::BaseRepo;
 use crate::error::Result;
 
@@ -591,6 +591,73 @@ impl<'a> WorkspaceRepo<'a> {
             guid,
             result.rows_affected
         );
+        Ok(())
+    }
+
+    /// Soft-delete a workspace and clear its group memberships in one transaction.
+    pub async fn soft_delete_with_group_memberships(&self, guid: &str) -> Result<()> {
+        tracing::info!(
+            "[soft_delete_with_group_memberships] Soft deleting workspace + memberships: {}",
+            guid
+        );
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(item_group_member::Column::MemberGuid.eq(guid))
+            .exec(&txn)
+            .await?;
+
+        let result = workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsDeleted, Expr::value(true))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(&txn)
+            .await?;
+        tracing::info!(
+            "[soft_delete_with_group_memberships] Soft delete result for {}: {} rows affected",
+            guid,
+            result.rows_affected
+        );
+
+        txn.commit().await?;
+        Ok(())
+    }
+
+    /// Soft-delete workspace membership and the workspace row in one transaction.
+    pub async fn soft_delete_with_group_membership(&self, guid: &str) -> Result<()> {
+        use crate::db::entities::item_group_member;
+
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        item_group_member::Entity::update_many()
+            .col_expr(item_group_member::Column::IsDeleted, Expr::value(true))
+            .col_expr(item_group_member::Column::UpdatedAt, Expr::value(now))
+            .filter(item_group_member::Column::IsDeleted.eq(false))
+            .filter(item_group_member::Column::MemberType.eq("workspace"))
+            .filter(item_group_member::Column::MemberGuid.eq(guid))
+            .exec(&txn)
+            .await?;
+
+        let result = workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsDeleted, Expr::value(true))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::Guid.eq(guid))
+            .exec(&txn)
+            .await?;
+        tracing::info!(
+            "[soft_delete_with_group_membership] Soft delete result for {}: {} rows affected",
+            guid,
+            result.rows_affected
+        );
+
+        txn.commit().await?;
         Ok(())
     }
 

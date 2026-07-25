@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::sync::Arc;
 
 use core_engine::{GitEngine, TmuxEngine};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
@@ -136,11 +135,11 @@ impl WorkspaceService {
 
     /// 删除工作区（仅软删除数据库记录，不清理 worktree）
     pub async fn soft_delete_workspace(&self, guid: &str) -> Result<()> {
-        let group_service = crate::service::group::GroupService::new(Arc::clone(&self.db));
-        // Propagate cleanup failures so active memberships never dangle after delete.
-        group_service.remove_memberships_for_workspace(guid).await?;
+        // Membership cleanup + workspace soft-delete share one transaction.
         let workspace_repo = WorkspaceRepo::new(&self.db);
-        Ok(workspace_repo.soft_delete(guid).await?)
+        Ok(workspace_repo
+            .soft_delete_with_group_membership(guid)
+            .await?)
     }
 
     /// 获取工作区的 GitHub PR/Issue 数据用于删除时清理
