@@ -24,16 +24,22 @@
   "featureShowcase": {
     "badge": "Features",
     "title": "See Atmos in Action",
+    "video": {
+      "play": "Play",
+      "pause": "Pause",
+      "fullscreen": "Enter fullscreen",
+      "exitFullscreen": "Exit fullscreen"
+    },
     "features": {
       "agent": {
         "title": "Agent Terminal Use Flow",
         "label": "Agent Terminal Use Flow",
         "description": "Streaming responses, tool-call updates, permissions, and custom ACP agents in one workspace."
       },
-      "wiki": {
-        "title": "Project Wiki",
-        "label": "Wiki",
-        "description": "URL-synced project knowledge that agents can generate, refresh, and use as working context."
+      "browser": {
+        "title": "Browser Element Inspector",
+        "label": "Browser Element Inspector",
+        "description": "Hover and click to select elements in live browser preview, locating source code in React, Vue, Angular, and Svelte projects."
       },
       "search": {
         "title": "Global Search Command Panel",
@@ -75,10 +81,10 @@
         "label": "Remote",
         "description": "Register remote machines, connect from Desktop or Hosted Web, and run terminals anywhere."
       },
-      "models": {
-        "title": "Local Model Runtime",
-        "label": "Models",
-        "description": "Run lightweight llama-server models locally for TODO extraction and commit-message help."
+      "appshots": {
+        "title": "Appshots",
+        "label": "Appshots",
+        "description": "Cross-app desktop snapshots as lightweight clipboard references for quick capture during development."
       },
       "hooks": {
         "title": "Agent Status Notifications",
