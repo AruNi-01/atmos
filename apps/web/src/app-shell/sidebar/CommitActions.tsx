@@ -31,6 +31,7 @@ import {
   PopoverTrigger,
   toastManager,
 } from "@workspace/ui";
+import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 import {
   CloudSync,
   MessageCircleReply,
@@ -304,7 +305,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     });
 
     try {
-      await navigator.clipboard.writeText(prompt);
+      await navigator.clipboard.writeText(wrapAiContextClipboard("git-conflict", prompt));
       toastManager.add({
         title: t("commitActions.conflictPromptCopiedTitle"),
         description: t("commitActions.conflictPromptCopiedDescription"),

@@ -10,6 +10,10 @@ import type {
   AgentFixPromptSource,
 } from "@/features/agent-fix/types";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
+import {
+  agentFixSourceToAiContextKind,
+  wrapAiContextClipboard,
+} from "@/shared/lib/ai-context-protocol";
 
 export function useAgentFixActions({
   agent,
@@ -43,7 +47,10 @@ export function useAgentFixActions({
     setIsCopying(true);
     try {
       const result = await resolveAgentFixPrompt(source);
-      await navigator.clipboard.writeText(result.clipboardText ?? result.prompt);
+      const body = result.clipboardText ?? result.prompt;
+      await navigator.clipboard.writeText(
+        wrapAiContextClipboard(agentFixSourceToAiContextKind(source), body),
+      );
       await source.onCopied?.(result);
     } catch (error) {
       handleError(error, t("toasts.copyFailed.title"));
@@ -67,7 +74,10 @@ export function useAgentFixActions({
       const result = await resolveAgentFixPrompt(source);
       rememberAgent(agent.id);
       if (!runner) {
-        await navigator.clipboard.writeText(result.clipboardText ?? result.prompt);
+        const body = result.clipboardText ?? result.prompt;
+        await navigator.clipboard.writeText(
+          wrapAiContextClipboard(agentFixSourceToAiContextKind(source), body),
+        );
         toastManager.add({
           title: t("toasts.promptCopiedFallback.title"),
           description: t("toasts.promptCopiedFallback.description"),

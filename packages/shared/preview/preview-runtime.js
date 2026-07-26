@@ -1120,7 +1120,7 @@
       var context = element && doc.contains(element) ? inspectPreviewElement(element) : null;
       // Protocol first line so PromptComposer can collapse paste into a chip while
       // keeping the body (from line 2) as the exact AI prompt on send.
-      var lines = ['atmos://preview-element', '## Preview Element'];
+      var lines = ['atmos://context/preview-element', '## Preview Element'];
       var pageUrl = (meta && meta.pageUrl) || win.location.href;
       if (pageUrl) lines.push('- **Page**: `' + pageUrl + '`');
       if (context && context.selector) lines.push('- **Selector**: `' + context.selector + '`');

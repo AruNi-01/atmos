@@ -22,13 +22,14 @@ import {
   type SkillDisableSessionAction,
 } from "@/features/skills/lib/skill-disable-protocol";
 import {
-  parsePreviewElementProtocol,
-  parsePreviewElementToken,
-  previewElementChipLabel,
-  previewElementChipTooltip,
-  registerPreviewElementPrompt,
-  resolvePreviewElementPrompt,
-} from "@/shared/lib/preview-element-protocol";
+  parseAiContextProtocol,
+  parseAiContextToken,
+  presentAiContextChip,
+  registerAiContextPrompt,
+  resolveAiContextPrompt,
+  type AiContextChipIcon,
+  type AiContextChipTone,
+} from "@/shared/lib/ai-context-protocol";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -118,7 +119,7 @@ interface PromptComposerProps extends ComposerCallbacks {
 }
 
 const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#preview-element:[a-zA-Z0-9_-]+\]`;
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -245,8 +246,7 @@ function buildMessagesSquareIcon(): SVGSVGElement {
   return svg;
 }
 
-/** Lucide `MousePointerClick` — used for preview element-selection chips. */
-function buildMousePointerClickIcon(): SVGSVGElement {
+function buildStrokeIcon(paths: string[]): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("viewBox", "0 0 24 24");
@@ -258,20 +258,97 @@ function buildMousePointerClickIcon(): SVGSVGElement {
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
   svg.style.flexShrink = "0";
-
-  for (const d of [
-    "M14 4.1 12 6",
-    "m5.1 8-2.9-.8",
-    "m6 12-1.9 2",
-    "M7.2 2.2 8 5.1",
-    "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
-  ]) {
+  for (const d of paths) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", d);
     svg.appendChild(path);
   }
-
   return svg;
+}
+
+/** Lucide path sets used by unified AI-context chips. */
+function buildAiContextIcon(icon: AiContextChipIcon): SVGSVGElement {
+  switch (icon) {
+    case "code":
+      return buildStrokeIcon(["m16 18 6-6-6-6", "m8 6-6 6 6 6"]);
+    case "diff":
+      return buildStrokeIcon([
+        "M12 3v14",
+        "m7 8 5-5 5 5",
+        "M5 21h14",
+        "M9 17h6",
+      ]);
+    case "book":
+      return buildStrokeIcon([
+        "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20",
+      ]);
+    case "mouse-pointer-click":
+      return buildStrokeIcon([
+        "M14 4.1 12 6",
+        "m5.1 8-2.9-.8",
+        "m6 12-1.9 2",
+        "M7.2 2.2 8 5.1",
+        "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
+      ]);
+    case "terminal":
+      return buildStrokeIcon(["m4 17 6-6-6-6", "M12 19h8"]);
+    case "layers":
+      return buildStrokeIcon([
+        "m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z",
+        "m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65",
+        "m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65",
+      ]);
+    case "wrench":
+      return buildStrokeIcon([
+        "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+      ]);
+    case "scan":
+      return buildStrokeIcon([
+        "M3 7V5a2 2 0 0 1 2-2h2",
+        "M17 3h2a2 2 0 0 1 2 2v2",
+        "M21 17v2a2 2 0 0 1-2 2h-2",
+        "M7 21H5a2 2 0 0 1-2-2v-2",
+        "M7 12h10",
+      ]);
+    case "git-merge":
+      return buildStrokeIcon([
+        "M15 18a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+        "M6 6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+        "M6 21V9a9 9 0 0 0 9 9",
+      ]);
+    case "layout":
+      return buildStrokeIcon([
+        "M3 3h7v9H3z",
+        "M14 3h7v5h-7z",
+        "M14 12h7v9h-7z",
+        "M3 16h7v5H3z",
+      ]);
+  }
+}
+
+function aiContextToneClassName(tone: AiContextChipTone): string {
+  switch (tone) {
+    case "violet":
+      return " border-violet-500/35 bg-violet-500/10 text-violet-700 dark:text-violet-300";
+    case "blue":
+      return " border-blue-500/35 bg-blue-500/10 text-blue-700 dark:text-blue-300";
+    case "amber":
+      return " border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300";
+    case "emerald":
+      return " border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    case "cyan":
+      return " border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
+    case "rose":
+      return " border-rose-500/35 bg-rose-500/10 text-rose-700 dark:text-rose-300";
+    case "orange":
+      return " border-orange-500/35 bg-orange-500/10 text-orange-700 dark:text-orange-300";
+    case "indigo":
+      return " border-indigo-500/35 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300";
+    case "fuchsia":
+      return " border-fuchsia-500/35 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300";
+    case "slate":
+      return " border-slate-500/35 bg-slate-500/10 text-slate-700 dark:text-slate-300";
+  }
 }
 
 function tokenForMention(mention: MentionRef): string {
@@ -405,19 +482,19 @@ function buildChipNode(token: string): HTMLSpanElement {
     const label = document.createElement("span");
     label.textContent = `Appshot · ${timestamp}`;
     span.appendChild(label);
-  } else if (parsePreviewElementToken(token)) {
-    span.dataset.kind = "preview-element";
-    const promptText = resolvePreviewElementPrompt(token) ?? "";
-    span.dataset.tooltip =
-      promptText
-        ? previewElementChipTooltip(promptText)
-        : promptComposerT("selectionContext.previewElementTooltip");
-    span.className += " border-violet-500/35 bg-violet-500/10 text-violet-700 dark:text-violet-300";
-    span.appendChild(buildMousePointerClickIcon());
+  } else if (parseAiContextToken(token)) {
+    const parsed = parseAiContextToken(token)!;
+    const payload = resolveAiContextPrompt(token);
+    const presentation = presentAiContextChip(
+      parsed.kind,
+      payload?.promptText ?? "",
+    );
+    span.dataset.kind = `ai-context:${parsed.kind}`;
+    span.dataset.tooltip = presentation.tooltip;
+    span.className += aiContextToneClassName(presentation.tone);
+    span.appendChild(buildAiContextIcon(presentation.icon));
     const label = document.createElement("span");
-    label.textContent = promptText
-      ? previewElementChipLabel(promptText)
-      : promptComposerT("selectionContext.previewElementChip");
+    label.textContent = presentation.label;
     span.appendChild(label);
   }
   return span;
@@ -1451,10 +1528,10 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         fireChange();
         return;
       }
-      const previewElementProtocol = parsePreviewElementProtocol(text);
-      if (previewElementProtocol && editorRef.current) {
+      const aiContext = parseAiContextProtocol(text);
+      if (aiContext && editorRef.current) {
         event.preventDefault();
-        const token = registerPreviewElementPrompt(previewElementProtocol.promptText);
+        const token = registerAiContextPrompt(aiContext.kind, aiContext.promptText);
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();

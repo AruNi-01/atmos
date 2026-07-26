@@ -1,6 +1,6 @@
 import { agentApi as agentRestApi } from "@/api/rest-api";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
-import { expandPreviewElementTokens } from "@/shared/lib/preview-element-protocol";
+import { materializeAiContextText } from "@/shared/lib/ai-context-protocol";
 
 export type TerminalAgentPromptAttachment = {
   number: number;
@@ -60,7 +60,7 @@ export async function resolveTerminalAgentPrompt({
     );
   }
 
-  return expandPreviewElementTokens(
+  return materializeAiContextText(
     text
       .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
       .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => `@${relativePath}`)

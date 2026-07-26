@@ -8,6 +8,7 @@ import {
   type QueuedAgentPrompt,
 } from "@/app-shell/state/use-dialog-store";
 import type { AgentChatMode } from "@/features/agent/types/index";
+import { materializeAiContextText } from "@/shared/lib/ai-context-protocol";
 
 type SubmitMessage = {
   text: string;
@@ -72,7 +73,8 @@ export function useAgentChatSubmitHandler({
         setIsAutoGeneratingTitle(false);
         setShouldScrambleAutoTitle(false);
       }
-      let finalPrompt = text;
+      const materializedText = materializeAiContextText(text);
+      let finalPrompt = materializedText;
       let attachmentPaths: string[] | undefined;
 
       const uploadPath = localPath ?? sessionCwd;
@@ -87,7 +89,7 @@ export function useAgentChatSubmitHandler({
             }))
           );
           attachmentPaths = paths.length > 0 ? paths : undefined;
-          finalPrompt = buildQueuedAgentPromptContent(text, attachmentPaths);
+          finalPrompt = buildQueuedAgentPromptContent(materializedText, attachmentPaths);
         } catch (err) {
           console.error("Failed to upload attachments:", err);
         }
@@ -95,7 +97,7 @@ export function useAgentChatSubmitHandler({
 
       enqueueAgentChatPrompt({
         prompt: transformPrompt ? transformPrompt(finalPrompt) : finalPrompt,
-        displayPrompt: text,
+        displayPrompt: materializedText,
         attachmentPaths,
         files: displayFiles,
         workspaceId: sessionWorkspaceId,

@@ -30,6 +30,7 @@ import {
   sortComments,
 } from "@/features/diff/components/review/utils";
 import { useReviewDefaultAgentId } from "@/shared/stores/use-ui-pref-hooks";
+import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 
 export type RunArtifactKind = "prompt" | "patch" | "summary";
 
@@ -776,7 +777,9 @@ export function useReviewContext({
         const result = await createAgentRun("fix", "copy_prompt", null, selectedCommentGuids);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
-        await navigator.clipboard.writeText(result.prompt);
+        await navigator.clipboard.writeText(
+          wrapAiContextClipboard("review-run", result.prompt),
+        );
         toastManager.add({
           title: t("copyAgentPrompt.successTitle"),
           description: t("copyAgentPrompt.successDescription"),
@@ -911,7 +914,9 @@ export function useReviewContext({
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         if (executionMode === "copy_prompt") {
-          await navigator.clipboard.writeText(result.prompt);
+          await navigator.clipboard.writeText(
+            wrapAiContextClipboard("review-run", result.prompt),
+          );
           toastManager.add({
             title: t("runAgentReview.copySuccessTitle"),
             description: t("runAgentReview.copySuccessDescription"),

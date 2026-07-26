@@ -7,6 +7,7 @@ import { cn } from "@workspace/ui";
 
 import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
 import { clampSelectionToolbarPosition } from "@/features/terminal/lib/terminal-selection-toolbar-position";
+import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 
 export function TerminalSelectionToolbar({
   className,
@@ -80,7 +81,11 @@ export function TerminalSelectionToolbar({
       onMouseDown={stopToolbarEvent}
       onDoubleClick={stopToolbarEvent}
     >
-      <CopyButton text={snapshot.text} label={t("copy")} onDone={onDismiss} />
+      <CopyButton
+        text={wrapAiContextClipboard("terminal-selection", snapshot.text)}
+        label={t("copy")}
+        onDone={onDismiss}
+      />
       <button
         type="button"
         className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

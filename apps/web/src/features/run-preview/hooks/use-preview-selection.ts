@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { formatPreviewSelectionForAI, type SelectionInfo } from "@/shared/lib/format-selection-for-ai";
-import { wrapPreviewElementClipboardText } from "@/shared/lib/preview-element-protocol";
+import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 import type { PreviewHelperPayload } from "../lib/preview-helper/types";
 import type { PreviewBridgeController, PreviewTransportMode } from "../lib/preview-bridge/types";
 
@@ -291,7 +291,10 @@ export function usePreviewSelection({
     if (info && info.transportMode === 'desktop-native') {
       try {
         await navigator.clipboard.writeText(
-          wrapPreviewElementClipboardText(formatPreviewSelectionForAI(info, userNote)),
+          wrapAiContextClipboard(
+            "preview-element",
+            formatPreviewSelectionForAI(info, userNote),
+          ),
         );
       } catch {
         // Ignore — preview runtime should already have written the clipboard.
@@ -367,7 +370,10 @@ export function usePreviewSelection({
 
     try {
       await navigator.clipboard.writeText(
-        wrapPreviewElementClipboardText(formatPreviewAnnotationsForAI(annotations, t)),
+        wrapAiContextClipboard(
+          "preview-element",
+          formatPreviewAnnotationsForAI(annotations, t),
+        ),
       );
       selectionAnnotationsRef.current = [];
       setSelectionAnnotations([]);

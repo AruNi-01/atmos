@@ -10,7 +10,7 @@ import type {
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
-import { expandPreviewElementTokens } from "@/shared/lib/preview-element-protocol";
+import { materializeAiContextText } from "@/shared/lib/ai-context-protocol";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
 
 export interface RepoContext {
@@ -356,7 +356,7 @@ export function resolvePromptPlaceholders(
   atts: ComposerAttachment[],
   options?: { preserveFileMentions?: boolean },
 ): string {
-  return expandPreviewElementTokens(
+  return materializeAiContextText(
     text
       .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
       .replace(/@file:([^\s]+)/g, (match, relativePath: string) =>

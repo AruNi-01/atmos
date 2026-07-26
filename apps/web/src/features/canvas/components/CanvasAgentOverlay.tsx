@@ -21,6 +21,7 @@ import {
   type CanvasAgentViewState,
   resolveCanvasAgentIndicatorActive,
 } from "../lib/canvas-agent-activity";
+import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 
 const SKILL_PATH = "~/.atmos/skills/.system/atmos-canvas-agent/SKILL.md";
 
@@ -237,7 +238,9 @@ function BridgePopoverBody({
 
   const handleCopy = React.useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(instructionBlurb);
+      await navigator.clipboard.writeText(
+        wrapAiContextClipboard("canvas-agent", instructionBlurb),
+      );
       setIsCopied(true);
       toastManager.add({
         title: t("toast.title"),
