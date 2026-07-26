@@ -994,12 +994,10 @@ fn file_identity(path: &Path, meta: &std::fs::Metadata) -> Option<(u64, u64)> {
     }
     #[cfg(windows)]
     {
+        // Avoid unstable `std::os::windows::fs::MetadataExt::{volume_serial_number,file_index}`
+        // (`windows_by_handle`); use the stable Win32 handle path instead.
         let _ = meta;
-        let opened = std::fs::metadata(path).ok()?;
-        use std::os::windows::fs::MetadataExt;
-        let volume = opened.volume_serial_number()? as u64;
-        let index = opened.file_index()?;
-        Some((volume, index))
+        windows_file_identity(path)
     }
     #[cfg(not(any(unix, windows)))]
     {
@@ -1008,34 +1006,55 @@ fn file_identity(path: &Path, meta: &std::fs::Metadata) -> Option<(u64, u64)> {
     }
 }
 
+/// Open a path for Win32 file-information queries (works for files and directories).
+#[cfg(windows)]
+fn windows_open_for_info(path: &Path) -> Option<std::fs::File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_BACKUP_SEMANTICS;
+
+    std::fs::OpenOptions::new()
+        .read(true)
+        // Allow opening directories; required for allocated-size / identity on folders.
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(path)
+        .ok()
+}
+
+#[cfg(windows)]
+fn windows_file_identity(path: &Path) -> Option<(u64, u64)> {
+    use std::mem::MaybeUninit;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    };
+
+    let file = windows_open_for_info(path)?;
+    let handle = file.as_raw_handle() as windows_sys::Win32::Foundation::HANDLE;
+    let mut info = MaybeUninit::<BY_HANDLE_FILE_INFORMATION>::uninit();
+    let ok = unsafe { GetFileInformationByHandle(handle, info.as_mut_ptr()) };
+    if ok == 0 {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    let volume = info.dwVolumeSerialNumber as u64;
+    let index = ((info.nFileIndexHigh as u64) << 32) | (info.nFileIndexLow as u64);
+    Some((volume, index))
+}
+
 #[cfg(windows)]
 fn windows_allocated_size(path: &Path) -> Option<u64> {
     use std::mem::MaybeUninit;
     use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, INVALID_HANDLE_VALUE};
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::GetLastError;
     use windows_sys::Win32::Storage::FileSystem::{
-        CreateFileW, FileStandardInfo, GetCompressedFileSizeW, GetFileInformationByHandleEx,
-        FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
-        FILE_STANDARD_INFO, INVALID_FILE_SIZE, OPEN_EXISTING,
+        FileStandardInfo, GetCompressedFileSizeW, GetFileInformationByHandleEx, FILE_STANDARD_INFO,
+        INVALID_FILE_SIZE,
     };
 
-    let wide: Vec<u16> = path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-    let handle = unsafe {
-        CreateFileW(
-            wide.as_ptr(),
-            0,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            std::ptr::null(),
-            OPEN_EXISTING,
-            FILE_FLAG_BACKUP_SEMANTICS,
-            std::ptr::null_mut(),
-        )
-    };
-    if handle != INVALID_HANDLE_VALUE {
+    // Prefer AllocationSize from FILE_STANDARD_INFO (stable Win32; no CreateFileW import).
+    if let Some(file) = windows_open_for_info(path) {
+        let handle = file.as_raw_handle() as windows_sys::Win32::Foundation::HANDLE;
         let mut info = MaybeUninit::<FILE_STANDARD_INFO>::uninit();
         let ok = unsafe {
             GetFileInformationByHandleEx(
@@ -1045,9 +1064,6 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
                 std::mem::size_of::<FILE_STANDARD_INFO>() as u32,
             )
         };
-        unsafe {
-            CloseHandle(handle);
-        }
         if ok != 0 {
             let info = unsafe { info.assume_init() };
             let allocated = info.AllocationSize;
@@ -1057,6 +1073,11 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
         }
     }
 
+    let wide: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
     let mut high: u32 = 0;
     let low = unsafe { GetCompressedFileSizeW(wide.as_ptr(), &mut high) };
     if low != INVALID_FILE_SIZE || unsafe { GetLastError() } == 0 {
