@@ -1,5 +1,6 @@
 import { agentApi as agentRestApi } from "@/api/rest-api";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
+import { expandPreviewElementTokens } from "@/shared/lib/preview-element-protocol";
 
 export type TerminalAgentPromptAttachment = {
   number: number;
@@ -59,16 +60,18 @@ export async function resolveTerminalAgentPrompt({
     );
   }
 
-  return text
-    .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
-    .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => `@${relativePath}`)
-    .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
-      formatAppshotPrompt(timestamp),
-    )
-    .replace(/\[#img-(\d+)\]/g, (match, number: string) => {
-      const path = attachmentPathByNumber.get(Number(number));
-      return path ? `@${path}` : match;
-    });
+  return expandPreviewElementTokens(
+    text
+      .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
+      .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => `@${relativePath}`)
+      .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
+        formatAppshotPrompt(timestamp),
+      )
+      .replace(/\[#img-(\d+)\]/g, (match, number: string) => {
+        const path = attachmentPathByNumber.get(Number(number));
+        return path ? `@${path}` : match;
+      }),
+  );
 }
 
 export function buildTerminalAgentFlyingMessage({

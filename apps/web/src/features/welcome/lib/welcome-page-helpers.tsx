@@ -10,6 +10,7 @@ import type {
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
+import { expandPreviewElementTokens } from "@/shared/lib/preview-element-protocol";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
 
 export interface RepoContext {
@@ -355,18 +356,20 @@ export function resolvePromptPlaceholders(
   atts: ComposerAttachment[],
   options?: { preserveFileMentions?: boolean },
 ): string {
-  return text
-    .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
-    .replace(/@file:([^\s]+)/g, (match, relativePath: string) =>
-      options?.preserveFileMentions ? match : relativePath,
-    )
-    .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
-      formatAppshotPrompt(timestamp),
-    )
-    .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
-      const att = atts.find((a) => a.number === Number(n));
-      return att ? `.atmos/attachments/${att.filename}` : match;
-    });
+  return expandPreviewElementTokens(
+    text
+      .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
+      .replace(/@file:([^\s]+)/g, (match, relativePath: string) =>
+        options?.preserveFileMentions ? match : relativePath,
+      )
+      .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
+        formatAppshotPrompt(timestamp),
+      )
+      .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
+        const att = atts.find((a) => a.number === Number(n));
+        return att ? `.atmos/attachments/${att.filename}` : match;
+      }),
+  );
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

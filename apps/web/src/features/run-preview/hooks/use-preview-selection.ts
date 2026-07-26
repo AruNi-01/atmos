@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { formatPreviewSelectionForAI, type SelectionInfo } from "@/shared/lib/format-selection-for-ai";
+import { wrapPreviewElementClipboardText } from "@/shared/lib/preview-element-protocol";
 import type { PreviewHelperPayload } from "../lib/preview-helper/types";
 import type { PreviewBridgeController, PreviewTransportMode } from "../lib/preview-bridge/types";
 
@@ -289,7 +290,9 @@ export function usePreviewSelection({
     // never sticks open when the async bridge clipboard path is blocked.
     if (info && info.transportMode === 'desktop-native') {
       try {
-        await navigator.clipboard.writeText(formatPreviewSelectionForAI(info, userNote));
+        await navigator.clipboard.writeText(
+          wrapPreviewElementClipboardText(formatPreviewSelectionForAI(info, userNote)),
+        );
       } catch {
         // Ignore — preview runtime should already have written the clipboard.
       }
@@ -363,7 +366,9 @@ export function usePreviewSelection({
     if (annotations.length === 0) return;
 
     try {
-      await navigator.clipboard.writeText(formatPreviewAnnotationsForAI(annotations, t));
+      await navigator.clipboard.writeText(
+        wrapPreviewElementClipboardText(formatPreviewAnnotationsForAI(annotations, t)),
+      );
       selectionAnnotationsRef.current = [];
       setSelectionAnnotations([]);
       await Promise.resolve(controller?.clearAnnotations?.()).catch(() => undefined);

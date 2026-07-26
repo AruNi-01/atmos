@@ -19,6 +19,7 @@ import {
   formatPreviewSelectionForAI,
   formatWikiSelectionForAI,
 } from '@/shared/lib/format-selection-for-ai';
+import { wrapPreviewElementClipboardText } from '@/shared/lib/preview-element-protocol';
 import { SelectionPopoverDetails } from './SelectionPopoverDetails';
 
 export type SelectionType = 'editor' | 'diff' | 'wiki' | 'preview';
@@ -137,9 +138,11 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     if (!displayInfo) return;
     const formatted = buildFormattedText(includeNote);
     if (!formatted) return;
+    const clipboardText =
+      type === 'preview' ? wrapPreviewElementClipboardText(formatted) : formatted;
 
     try {
-      await navigator.clipboard.writeText(formatted);
+      await navigator.clipboard.writeText(clipboardText);
       setCopied(true);
       toastManager.add({
         title: t('popover.toast.copiedTitle'),

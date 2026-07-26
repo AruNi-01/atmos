@@ -8016,6 +8016,8 @@
         "selectionChip": "选区",
         "sideChip": "Side",
         "spawnChip": "Spawn",
+        "previewElementChip": "元素",
+        "previewElementTooltip": "浏览器元素选区",
         "selectionTooltip": "用户选择的终端上下文",
         "sideMissingContext": "这个 side chat 上下文已不可用。",
         "selectionTruncated": "选区已被截断。"

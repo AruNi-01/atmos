@@ -8016,6 +8016,8 @@
         "selectionChip": "Selection",
         "sideChip": "Side",
         "spawnChip": "Spawn",
+        "previewElementChip": "Element",
+        "previewElementTooltip": "Browser element selection",
         "selectionTooltip": "User-selected terminal context",
         "sideMissingContext": "This side chat context is no longer available.",
         "selectionTruncated": "Selection was truncated."
