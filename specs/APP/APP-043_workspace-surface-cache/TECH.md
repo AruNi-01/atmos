@@ -83,13 +83,15 @@ const frameActiveTab = isActiveFrame
   ? resolveActiveTabFromUrlAndEditor(contextId) // Active path
   : readLastCenterTab(contextId);              // Warm path
 
-// each panel:
-hidden = !isActiveFrame || panelTabId !== frameActiveTab
+// each panel (layout-ready inside the frame shell):
+hidden = panelTabId !== frameActiveTab
 // terminal multi-tab inside frame:
-hidden = !isActiveFrame || frameActiveTab !== terminalTabId
+hidden = frameActiveTab !== terminalTabId
+// outer shell (Active/Warm paint gate only):
+frame.hidden = !isActiveFrame
 ```
 
-Warm frames stay mounted but all panels stay `hidden` relative to viewport (frame itself is `hidden`); internally they still key off **their** `frameActiveTab` so re-show does not flash the wrong panel.
+Warm frames stay mounted; only the **outer shell** is viewport-hidden. Last-tab panels stay layout-ready so a hop can unhide the shell (including a pre-React DOM flip) without rebuilding panel trees. Focus / polling still gate on `isActiveFrame` at call sites.
 
 ---
 
@@ -438,7 +440,8 @@ Measured with temporary `wsc-switch` frontend debug logs (desktop API cwd: `apps
 | **Sticky** | `stickyLeavingIds` keeps leaving frame mounted until warm owns it (tracks live URL id) |
 | **Display id** | Prefer mounted `visualActiveContextId` when it leads `effectiveContextId`; else URL. Removed `useDeferredValue` delay on the visible frame |
 | **URL-synced props** | Handlers, grid refs, and parent live tab/file lists apply only when `contextId === effectiveContextId`. Optimistic frames read per-context stores + `lastCenterTab` |
-| **Warm paint** | inactive frames: `hidden` + `contentVisibility: "hidden"`; light panels on warm frames only when last-active (or URL-synced mountPlan) |
+| **Warm paint** | inactive **shells**: `hidden` + `contentVisibility: "hidden"`; last-tab panels stay layout-ready inside (IMP-010); DOM visual flip on nav; light mount set still last-active / mountPlan |
+| **Frame isolation** | `WorkspaceCenterFrame` is `React.memo`’d (IMP-011); warm siblings skip host re-renders unless their paint/mount keys change |
 | **Terminal structure vs title** | CenterStagePanels must **not** subscribe to full `workspacePanes`. Subscribe to a **structural fingerprint** (scope → sorted pane ids) only. Dynamic title updates stay local to terminal chrome. |
 | **Snapshots** | Idle publish of `setSurfaceSnapshot`; generation guard skips superseded batches; store no-ops identical snapshots and stable `mountPlan` refs |
 | **Sidebar rows** | Pass `isActive` from parent; memo rows ignoring handler identity; click closes info popover and does **not** open on focus |

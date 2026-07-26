@@ -39,6 +39,11 @@ export interface TerminalGridProps {
     terminalTabId: string;
     isLastPane: boolean;
   }) => void;
+  /**
+   * False while this grid's host frame/tab is hidden (warm keep-alive).
+   * Forwards to each Terminal so fit/ResizeObserver stay off-screen quiet.
+   */
+  isSurfaceActive?: boolean;
 }
 
 export interface TerminalGridHandle {

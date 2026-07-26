@@ -39,7 +39,10 @@ import {
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { planTerminalLastTabRestore } from "@/app-shell/workspace-surface-restore";
-import { scheduleAfterPaint } from "@/app-shell/workspace-surface-switch";
+import {
+  scheduleAfterPaint,
+  scheduleIdle,
+} from "@/app-shell/workspace-surface-switch";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
 import { systemApi } from "@/api/rest-api";
@@ -170,7 +173,22 @@ const CenterStage: React.FC = () => {
   // Wait for editor store hydration to avoid SSR mismatch
   const isEditorHydrated = useEditorStoreHydration();
 
-  const { workspaceId, projectId: projectIdFromUrl, effectiveContextId, currentView } = useContextParams();
+  const {
+    workspaceId: liveWorkspaceId,
+    projectId: liveProjectIdFromUrl,
+    effectiveContextId: liveEffectiveContextId,
+    currentView,
+  } = useContextParams();
+  // IMP-013: heavy tab/file/terminal rebind follows deferred IDs (same pattern as
+  // RightSidebar). Live IDs stay for promote + paint so the left sidebar's urgent
+  // URL update is not stuck behind a multi-frame center commit.
+  const workspaceId = React.useDeferredValue(liveWorkspaceId);
+  const projectIdFromUrl = React.useDeferredValue(liveProjectIdFromUrl);
+  const effectiveContextId = React.useDeferredValue(liveEffectiveContextId);
+  const isCenterContextSettled =
+    workspaceId === liveWorkspaceId &&
+    projectIdFromUrl === liveProjectIdFromUrl &&
+    effectiveContextId === liveEffectiveContextId;
 
   const githubTabs = useGithubCenterTabsStore((state) =>
     effectiveContextId
@@ -441,13 +459,13 @@ const CenterStage: React.FC = () => {
     }
   };
 
-  // Sync effective context ID with editor store after first paint so switch chrome
-  // (frame visibility + tabs) is not blocked by editor/git rebind work.
+  // Sync editor workspace id only after deferred center settles (IMP-013).
   React.useEffect(() => {
+    if (!isCenterContextSettled) return;
     return scheduleAfterPaint(() => {
       setWorkspaceId(effectiveContextId);
     });
-  }, [effectiveContextId, setWorkspaceId]);
+  }, [effectiveContextId, isCenterContextSettled, setWorkspaceId]);
 
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
@@ -554,9 +572,10 @@ const CenterStage: React.FC = () => {
     void setUrlParams({ tab: tab.value, wikiPage: null });
   }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
 
+  // Promote / sticky leave track the live URL so warm membership is not deferred.
   useTerminalTabMountLifecycle({
     activeValue,
-    effectiveContextId,
+    effectiveContextId: liveEffectiveContextId,
     setMountedTerminalTabsByContext,
     visibleTerminalTabs,
   });
@@ -602,19 +621,20 @@ const CenterStage: React.FC = () => {
     userTriggeredRef: codeReviewUserTriggeredRef,
   });
 
-  // Prime after paint — warm frames already mounted; cold hydrate can wait one frame.
+  // Cold hydrate only after deferred center caught up — never on the hop frame.
   React.useEffect(() => {
-    if (!effectiveContextId) return;
-    return scheduleAfterPaint(() => {
+    if (!isCenterContextSettled || !effectiveContextId) return;
+    return scheduleIdle(() => {
       primeWorkspace(effectiveContextId, currentView === "project");
-    });
-  }, [currentView, effectiveContextId, primeWorkspace]);
+    }, 250);
+  }, [currentView, effectiveContextId, isCenterContextSettled, primeWorkspace]);
 
   // Restore the last active center tab when switching workspace/project context,
   // then persist the settled selection. Must not persist the transient fallback tab
   // (first terminal / URL mismatch) before restore runs — that clobbers the saved tab.
+  // Wait for deferred context so restore URL writes do not stack on the hop frame.
   React.useEffect(() => {
-    if (!effectiveContextId || !activeValue) return;
+    if (!isCenterContextSettled || !effectiveContextId || !activeValue) return;
 
     if (pendingCenterTabRestoreContextRef.current === effectiveContextId) {
       const restoreTarget = restoringCenterTabToRef.current;
@@ -713,6 +733,7 @@ const CenterStage: React.FC = () => {
     codeReviewTabVisible,
     experimentPrefsLoaded,
     githubTabs,
+    isCenterContextSettled,
     isEditorHydrated,
     isTerminalWorkspaceReady,
     openFiles,
@@ -1490,7 +1511,8 @@ const CenterStage: React.FC = () => {
     setCodeReviewCloseConfirmOpen(false);
   };
 
-  if (!effectiveContextId) {
+  // Gate on live URL so deferred lag never flashes the empty/welcome chrome mid-hop.
+  if (!liveEffectiveContextId) {
     return (
       <CenterStageNoContextView
         currentView={currentView}
@@ -1502,6 +1524,11 @@ const CenterStage: React.FC = () => {
       />
     );
   }
+
+  // After the live guard, paint id is a definite string. Deferred may still be
+  // null for one frame when entering a context from welcome — fall back to live.
+  const paintContextId: string = liveEffectiveContextId;
+  const renderContextId: string = effectiveContextId ?? liveEffectiveContextId;
 
   // Show setup progress if active workspace is being initialized
   if (currentSetupProgress && isSetupBlocking) {
@@ -1530,7 +1557,7 @@ const CenterStage: React.FC = () => {
           browserFallbackLabel={browserFallbackLabel}
           browserTabs={browserTabs}
           codeReviewTabVisible={codeReviewTabVisible}
-          effectiveContextId={effectiveContextId}
+          effectiveContextId={renderContextId}
           githubTabs={githubTabs}
           isTabGroupItemActive={isTabGroupItemActive}
           openFiles={openFiles}
@@ -1577,7 +1604,10 @@ const CenterStage: React.FC = () => {
           currentRepoPath={currentRepoPath}
           currentView={currentView}
           currentWorkspace={currentWorkspace}
-          effectiveContextId={effectiveContextId}
+          // Deferred: URL-synced live props rebind only after hop settles.
+          effectiveContextId={renderContextId}
+          // Live: shell paint identity tracks the route immediately (DOM may lead).
+          paintContextId={paintContextId}
           githubTabs={githubTabs}
           handleCloseGithubTab={handleCloseGithubTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}

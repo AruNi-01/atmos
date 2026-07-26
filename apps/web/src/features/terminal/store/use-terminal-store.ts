@@ -746,8 +746,14 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
 
       if (persistedLayout) {
         const persistedTab = persistedLayout.tabs.find((tab) => tab.id === targetTabId);
+        const livePanesForScope = get().workspacePanes[targetScopeKey!] ?? null;
         const hydratedTab = persistedTab
-          ? hydratePersistedTab(workspaceId, persistedTab, existingWindowNames)
+          ? hydratePersistedTab(
+              workspaceId,
+              persistedTab,
+              existingWindowNames,
+              livePanesForScope,
+            )
           : null;
 
         if (hydratedTab) {
@@ -941,10 +947,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const panes = get().workspacePanes[scopeKey];
     if (!panes || !panes[paneId]) return;
-    
+
     // Only update if the title actually changed (avoid unnecessary re-renders)
     if (panes[paneId].dynamicTitle === dynamicTitle) return;
-    
+
     set((state) => ({
       workspacePanes: {
         ...state.workspacePanes,

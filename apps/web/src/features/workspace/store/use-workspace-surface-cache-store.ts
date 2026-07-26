@@ -58,6 +58,8 @@ interface WorkspaceSurfaceCacheState extends SurfaceBudgets {
   freeze: (id: string, reason: EvictReason) => void;
   enforceMountBudgets: (reason?: BudgetRunReason) => void;
   setSurfaceSnapshot: (snapshot: ContextSurfaceSnapshot) => void;
+  /** Batch publish many snapshots in one store notification (one mountPlan pass). */
+  setSurfaceSnapshots: (snapshots: ContextSurfaceSnapshot[]) => void;
   setProtectOverride: (signals: ProtectSignals | null) => void;
   sweepExpired: (now?: number) => void;
   clearAll: () => void;
@@ -100,6 +102,28 @@ function sameMountPlan(a: MountPlan, b: MountPlan): boolean {
     if (a.mounted[i] !== b.mounted[i]) return false;
   }
   return true;
+}
+
+function surfaceSnapshotEqual(
+  prev: ContextSurfaceSnapshot,
+  next: ContextSurfaceSnapshot,
+): boolean {
+  return (
+    prev.frameActiveTab === next.frameActiveTab &&
+    prev.terminalTabIds.join("\0") === next.terminalTabIds.join("\0") &&
+    Object.entries(prev.terminalPaneCountByTabId ?? {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}:${v}`)
+      .join("\0") ===
+      Object.entries(next.terminalPaneCountByTabId ?? {})
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}:${v}`)
+        .join("\0") &&
+    prev.editorPathsRecent.join("\0") === next.editorPathsRecent.join("\0") &&
+    prev.browserTabValues.join("\0") === next.browserTabValues.join("\0") &&
+    prev.lightIds.join("\0") === next.lightIds.join("\0") &&
+    (prev.namedTerminals ?? []).join("\0") === (next.namedTerminals ?? []).join("\0")
+  );
 }
 
 function withMountPlan(
@@ -345,12 +369,17 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
       runFreezeSideEffects(f.contextId, generation, get);
     }
 
-    if (typeof queueMicrotask === "function") {
-      queueMicrotask(() => {
-        get().enforceMountBudgets("switch");
-      });
+    // Idle — never microtask: switch already costs a React commit; mount plan
+    // recompute must not queue another commit before the next sidebar input.
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(
+        () => {
+          get().enforceMountBudgets("switch");
+        },
+        { timeout: 200 },
+      );
     } else {
-      setTimeout(() => get().enforceMountBudgets("switch"), 0);
+      setTimeout(() => get().enforceMountBudgets("switch"), 32);
     }
   },
 
@@ -376,29 +405,33 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     set((s) => {
       const prev = s.surfaceSnapshots[snapshot.contextId];
       // Avoid infinite CenterStagePanels effect loops (React #185).
-      if (
-        prev &&
-        prev.frameActiveTab === snapshot.frameActiveTab &&
-        prev.terminalTabIds.join("\0") === snapshot.terminalTabIds.join("\0") &&
-        Object.entries(prev.terminalPaneCountByTabId ?? {})
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, v]) => `${k}:${v}`)
-          .join("\0") ===
-          Object.entries(snapshot.terminalPaneCountByTabId ?? {})
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, v]) => `${k}:${v}`)
-            .join("\0") &&
-        prev.editorPathsRecent.join("\0") === snapshot.editorPathsRecent.join("\0") &&
-        prev.browserTabValues.join("\0") === snapshot.browserTabValues.join("\0") &&
-        prev.lightIds.join("\0") === snapshot.lightIds.join("\0") &&
-        (prev.namedTerminals ?? []).join("\0") === (snapshot.namedTerminals ?? []).join("\0")
-      ) {
+      if (prev && surfaceSnapshotEqual(prev, snapshot)) {
         return s;
       }
       const surfaceSnapshots = {
         ...s.surfaceSnapshots,
         [snapshot.contextId]: snapshot,
       };
+      return withMountPlan(s, { surfaceSnapshots });
+    });
+  },
+
+  /**
+   * Batch many context snapshots into one store notify + one mountPlan recompute.
+   * Prefer this after a multi-frame host idle pass (IMP-012).
+   */
+  setSurfaceSnapshots: (snapshots) => {
+    if (snapshots.length === 0) return;
+    set((s) => {
+      let changed = false;
+      const surfaceSnapshots = { ...s.surfaceSnapshots };
+      for (const snapshot of snapshots) {
+        const prev = surfaceSnapshots[snapshot.contextId];
+        if (prev && surfaceSnapshotEqual(prev, snapshot)) continue;
+        surfaceSnapshots[snapshot.contextId] = snapshot;
+        changed = true;
+      }
+      if (!changed) return s;
       return withMountPlan(s, { surfaceSnapshots });
     });
   },

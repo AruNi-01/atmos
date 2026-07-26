@@ -11,8 +11,13 @@
  * 3. Full promote still runs after the route commits (CenterStage effect).
  * 4. Rapid hops coalesce visual + promote to the latest target (IMP-009) so
  *    intermediate multi-frame commits do not stack on the main thread.
+ * 5. Visual paint is applied to `[data-workspace-frame]` in the DOM immediately
+ *    (IMP-010) so the retained shell shows before React commits multi-frame work.
+ * 6. Switch-time React store updates are non-urgent (startTransition) and mount
+ *    budgets run on idle (IMP-012) so sidebar hover/click stay interruptible.
  */
 
+import { startTransition } from "react";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 
@@ -29,6 +34,70 @@ function nowMs(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
 
+/**
+ * Non-urgent React work during switches. Lets pointer events on the left
+ * sidebar preempt multi-frame commits instead of queueing behind them.
+ */
+export function scheduleNonUrgent(fn: () => void): void {
+  if (typeof startTransition === "function") {
+    startTransition(fn);
+    return;
+  }
+  fn();
+}
+
+/**
+ * Instant paint: flip already-mounted workspace frames in the live DOM.
+ * React will reconcile `hidden` / `data-tier` on the next commit; this avoids
+ * waiting on multi-frame React work for the retained surface to reappear.
+ *
+ * Requires last-tab panels inside Warm frames to stay layout-ready (see
+ * {@link isFramePanelVisible}) so unhiding the shell reveals real content.
+ */
+export function applyWorkspaceFrameVisualDom(activeContextId: string | null): void {
+  if (typeof document === "undefined") return;
+  const frames = document.querySelectorAll<HTMLElement>("[data-workspace-frame]");
+  if (frames.length === 0) return;
+
+  for (const el of frames) {
+    const id = el.getAttribute("data-workspace-frame");
+    if (!id) continue;
+    const isActive = activeContextId != null && id === activeContextId;
+    el.hidden = !isActive;
+    el.classList.toggle("hidden", !isActive);
+    el.setAttribute("data-tier", isActive ? "active" : "warm");
+    if (isActive) {
+      el.style.removeProperty("content-visibility");
+      el.style.removeProperty("contain-intrinsic-size");
+    } else {
+      el.style.contentVisibility = "hidden";
+      el.style.containIntrinsicSize = "auto 800px";
+    }
+  }
+}
+
+/**
+ * Optimistic left-sidebar row highlight without re-rendering the whole list.
+ * Matches WorkspaceContent active styles via `data-ws-row` (IMP-012).
+ */
+export function applyWorkspaceSidebarSelectionDom(activeWorkspaceId: string | null): void {
+  if (typeof document === "undefined") return;
+  const rows = document.querySelectorAll<HTMLElement>("[data-workspace-id]");
+  if (rows.length === 0) return;
+
+  for (const host of rows) {
+    const id = host.getAttribute("data-workspace-id");
+    const isActive = activeWorkspaceId != null && id === activeWorkspaceId;
+    host.dataset.paintActive = isActive ? "true" : "false";
+    const row = host.querySelector<HTMLElement>("[data-ws-row]");
+    if (!row) continue;
+    row.classList.toggle("bg-sidebar-accent/50", isActive);
+    row.classList.toggle("text-sidebar-foreground", isActive);
+    row.classList.toggle("shadow-sm", isActive);
+    row.classList.toggle("text-muted-foreground", !isActive);
+  }
+}
+
 // --- Visual lead scheduler (nav path) ---------------------------------------
 
 let lastVisualFlushAt = -Infinity;
@@ -40,7 +109,13 @@ function flushPendingVisualSwitch(): void {
   const id = pendingVisualId;
   pendingVisualId = undefined;
   lastVisualFlushAt = nowMs();
-  useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(id);
+  // Paint first (center + sidebar). Store update is non-urgent so it cannot
+  // monopolize the main thread before the next sidebar hover/click.
+  applyWorkspaceFrameVisualDom(id);
+  applyWorkspaceSidebarSelectionDom(id);
+  scheduleNonUrgent(() => {
+    useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(id);
+  });
 }
 
 /**
@@ -112,9 +187,13 @@ function flushPendingPromote(): void {
 
   if (store.activeContextId === nextId) {
     if (store.visualActiveContextId !== nextId || nextWarm.length !== store.warm.length) {
-      useWorkspaceSurfaceCacheStore.setState({
-        visualActiveContextId: nextId,
-        warm: nextWarm,
+      applyWorkspaceFrameVisualDom(nextId);
+      applyWorkspaceSidebarSelectionDom(nextId);
+      scheduleNonUrgent(() => {
+        useWorkspaceSurfaceCacheStore.setState({
+          visualActiveContextId: nextId,
+          warm: nextWarm,
+        });
       });
     }
     return;
@@ -135,20 +214,19 @@ function flushPendingPromote(): void {
       .sort((a, b) => b.lastAccessed - a.lastAccessed)
       .slice(0, maxWarm);
   }
-  useWorkspaceSurfaceCacheStore.setState({
-    activeContextId: nextId,
-    visualActiveContextId: nextId,
-    warm,
-  });
-  if (typeof queueMicrotask === "function") {
-    queueMicrotask(() => {
-      useWorkspaceSurfaceCacheStore.getState().enforceMountBudgets("switch");
+  applyWorkspaceFrameVisualDom(nextId);
+  applyWorkspaceSidebarSelectionDom(nextId);
+  scheduleNonUrgent(() => {
+    useWorkspaceSurfaceCacheStore.setState({
+      activeContextId: nextId,
+      visualActiveContextId: nextId,
+      warm,
     });
-  } else {
-    setTimeout(() => {
-      useWorkspaceSurfaceCacheStore.getState().enforceMountBudgets("switch");
-    }, 0);
-  }
+  });
+  // Mount budgets after the hop settles — never on the click/URL critical frame.
+  scheduleIdle(() => {
+    useWorkspaceSurfaceCacheStore.getState().enforceMountBudgets("switch");
+  }, 200);
 }
 
 /**
@@ -267,11 +345,19 @@ export function promoteWorkspaceSurfaceSwitch(nextContextId: string | null): {
   if (previousContextId === nextContextId) {
     // URL caught up to an optimistic visual flip — keep visual aligned.
     if (store.visualActiveContextId !== nextContextId) {
-      store.beginVisualSwitch(nextContextId);
+      applyWorkspaceFrameVisualDom(nextContextId);
+      applyWorkspaceSidebarSelectionDom(nextContextId);
+      scheduleNonUrgent(() => {
+        store.beginVisualSwitch(nextContextId);
+      });
     }
     return { previousContextId, alreadyActive: true };
   }
-  store.switchContext(nextContextId);
+  applyWorkspaceFrameVisualDom(nextContextId);
+  applyWorkspaceSidebarSelectionDom(nextContextId);
+  scheduleNonUrgent(() => {
+    store.switchContext(nextContextId);
+  });
   return { previousContextId, alreadyActive: false };
 }
 
@@ -312,7 +398,11 @@ export function primeWorkspaceSurfaceNavigation(path: string): boolean {
         store.visualActiveContextId != null &&
         store.visualActiveContextId !== store.activeContextId
       ) {
-        store.beginVisualSwitch(store.activeContextId);
+        applyWorkspaceFrameVisualDom(store.activeContextId);
+        applyWorkspaceSidebarSelectionDom(store.activeContextId);
+        scheduleNonUrgent(() => {
+          store.beginVisualSwitch(store.activeContextId);
+        });
         lastVisualFlushAt = nowMs();
       }
       return false;

@@ -1,6 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it, beforeEach } from "bun:test";
 import {
+  applyWorkspaceFrameVisualDom,
   injectLastCenterTabIfMissing,
   parseWorkspaceContextHref,
   promoteWorkspaceSurfaceSwitch,
@@ -107,6 +108,23 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     // Full promote still waits for URL commit.
     expect(s.activeContextId).toBe("ws-b");
     expect(s.warm.map((w) => w.contextId)).toContain("ws-a");
+  });
+
+  it("applyWorkspaceFrameVisualDom toggles shell hidden without unmount markers", () => {
+    // jsdom may not exist in bun unit tests; skip when document is unavailable.
+    if (typeof document === "undefined") return;
+    document.body.innerHTML = `
+      <div data-workspace-frame="ws-a" data-tier="active"></div>
+      <div data-workspace-frame="ws-b" data-tier="warm" hidden class="hidden"></div>
+    `;
+    applyWorkspaceFrameVisualDom("ws-b");
+    const a = document.querySelector('[data-workspace-frame="ws-a"]') as HTMLElement;
+    const b = document.querySelector('[data-workspace-frame="ws-b"]') as HTMLElement;
+    expect(a.hidden).toBe(true);
+    expect(a.getAttribute("data-tier")).toBe("warm");
+    expect(b.hidden).toBe(false);
+    expect(b.getAttribute("data-tier")).toBe("active");
+    expect(b.classList.contains("hidden")).toBe(false);
   });
 
   it("prime does not claim cold targets and clears stale visual lead", () => {

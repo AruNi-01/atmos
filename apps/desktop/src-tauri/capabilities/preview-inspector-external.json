@@ -15,7 +15,9 @@
   "remote": {
     "urls": [
       "http://*",
-      "https://*"
+      "http://*:*",
+      "https://*",
+      "https://*:*"
     ]
   },
   "permissions": [

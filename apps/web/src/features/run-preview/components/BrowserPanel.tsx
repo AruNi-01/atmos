@@ -279,7 +279,13 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     return (
       <div className={panelShellClassName}>
         {createPortal(
-          <div className="fixed inset-0 z-[1000] h-screen w-screen overflow-hidden bg-background animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+          // Fullscreen browser is a custom portal overlay. Mark it for APP-029
+          // native-surface occlusion so sibling desktop-native webviews (e.g.
+          // center-stage browser) hide instead of covering this surface.
+          <div
+            data-atmos-native-surface-overlay="true"
+            className="fixed inset-0 z-[1000] h-screen w-screen overflow-hidden bg-background animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
+          >
             {browserContent}
           </div>,
           document.body,

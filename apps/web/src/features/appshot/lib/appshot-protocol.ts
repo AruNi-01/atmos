@@ -42,10 +42,23 @@ export function formatAppshotProtocolUrl(timestamp: string): string {
   return `${APPSHOT_PROTOCOL_PREFIX}${timestamp}`;
 }
 
+/**
+ * Expand an Appshot timestamp into the same multi-line protocol text that
+ * desktop copy writes to the clipboard.
+ *
+ * Must stay aligned with `apps/desktop/src-tauri/src/appshot/protocol.rs`
+ * `format_prompt`. Agent-facing instruction is English (not locale-dependent)
+ * so chip expand matches Copy regardless of UI language.
+ */
 export function formatAppshotPrompt(timestamp: string): string {
   assertValidTimestamp(timestamp);
-  return `${formatAppshotProtocolUrl(timestamp)}
-${appshotLibT("protocol.promptBody", { timestamp })}`;
+  return (
+    `${formatAppshotProtocolUrl(timestamp)}\n` +
+    `Appshot record is stored locally in Atmos appshots records for timestamp ${timestamp}. ` +
+    `The default location is ~/.atmos/appshots/records/${timestamp}/. ` +
+    `Read metadata.json, context.md, and snapshot.png before answering. ` +
+    `Inspect snapshot.png when visual context matters.`
+  );
 }
 
 export function parseAppshotProtocol(text: string): ParsedAppshotProtocol | null {

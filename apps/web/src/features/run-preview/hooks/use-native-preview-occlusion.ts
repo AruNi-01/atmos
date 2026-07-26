@@ -81,6 +81,25 @@ type OcclusionSnapshot = {
   isOccluded: boolean;
 };
 
+/** Pure geometry check used by the hook and unit tests. */
+export function readNativePreviewOcclusionSnapshot(
+  surface: HTMLElement | null,
+  ignoredRoot: HTMLElement | null = null,
+): OcclusionSnapshot {
+  const surfaceRect = surface?.getBoundingClientRect();
+  if (!surface || !surfaceRect || !hasVisibleRect(surfaceRect)) {
+    return { candidates: [], isOccluded: false };
+  }
+
+  const candidates = getVisibleOverlayCandidates(ignoredRoot, surface);
+  return {
+    candidates,
+    isOccluded: candidates.some((candidate) =>
+      rectsIntersect(surfaceRect, candidate.getBoundingClientRect()),
+    ),
+  };
+}
+
 export function useNativePreviewOcclusion({
   enabled,
   surfaceRef,
@@ -110,19 +129,11 @@ export function useNativePreviewOcclusion({
       setIsOccluded(nextOccluded);
     };
 
-    const readOcclusionSnapshot = (): OcclusionSnapshot => {
-      const surface = surfaceRef.current;
-      const surfaceRect = surface?.getBoundingClientRect();
-      if (!surface || !surfaceRect || !hasVisibleRect(surfaceRect)) {
-        return { candidates: [], isOccluded: false };
-      }
-
-      const candidates = getVisibleOverlayCandidates(ignoredRootRef?.current ?? null, surface);
-      return {
-        candidates,
-        isOccluded: candidates.some((candidate) => rectsIntersect(surfaceRect, candidate.getBoundingClientRect())),
-      };
-    };
+    const readOcclusionSnapshot = (): OcclusionSnapshot =>
+      readNativePreviewOcclusionSnapshot(
+        surfaceRef.current,
+        ignoredRootRef?.current ?? null,
+      );
 
     const applyOcclusion = (nextOccluded: boolean, settleImmediately = false) => {
       if (nextOccluded) {

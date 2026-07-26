@@ -63,7 +63,7 @@ function isRestorableTerminalFocusElement(element: HTMLElement): boolean {
   return element.isContentEditable || tagName === "TEXTAREA" || tagName === "INPUT";
 }
 
-export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false, onNewTerminalTab, onTerminalPaneClosed }, ref) => {
+export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false, onNewTerminalTab, onTerminalPaneClosed, isSurfaceActive = true }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   const agentInputOverlayRefsMap = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
@@ -870,6 +870,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           deliverPendingRunForPane={deliverPendingRunForPane}
           markPaneAttached={markPaneAttached}
           spawnTerminalWithRun={spawnTerminalWithRun}
+          surfaceActive={isSurfaceActive}
         />
       );
     }
@@ -909,9 +910,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         setDynamicTitle={setDynamicTitleForScope}
         setPaneAgent={setPaneAgentForScope}
         markPaneAttached={isCodeReview ? markCodeReviewPaneAttached : markProjectWikiPaneAttached}
+        surfaceActive={isSurfaceActive}
       />
     );
   }, [
+    isSurfaceActive,
     panes,
     performSplit,
     splitAndRunAgentWithRemember,

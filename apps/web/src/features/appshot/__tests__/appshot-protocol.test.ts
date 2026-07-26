@@ -17,6 +17,18 @@ describe("appshot protocol", () => {
     expect(parsed?.promptText).toBe(formatAppshotPrompt("1760000000000"));
   });
 
+  it("formats Appshot prompt with local record path and read instructions", () => {
+    const prompt = formatAppshotPrompt("1760000000000");
+
+    expect(prompt.startsWith("atmos://appshots/1760000000000\n")).toBe(true);
+    expect(prompt).toContain("~/.atmos/appshots/records/1760000000000/");
+    expect(prompt).toContain("metadata.json");
+    expect(prompt).toContain("context.md");
+    expect(prompt).toContain("snapshot.png");
+    // Must not depend on short UI-only labels that omit the record path.
+    expect(prompt).not.toContain("Appshot captured at");
+  });
+
   it("rejects malformed timestamps", () => {
     expect(parseAppshotProtocol("atmos://appshots/176000000000")).toBeNull();
     expect(parseAppshotProtocol("atmos://appshots/17600000000000")).toBeNull();

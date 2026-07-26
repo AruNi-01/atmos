@@ -62,6 +62,7 @@ export interface PreviewBridgeEventHandlers {
     action: 'copy' | 'add' | 'update' | 'delete',
     note?: string,
     annotationId?: string,
+    selectionSnapshot?: PreviewHelperPayload,
   ) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;

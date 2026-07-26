@@ -42,7 +42,21 @@ export async function connectDesktopPreviewTransport(
           payload.action !== 'delete'
         )
       ) return;
-      options.onToolbarAction?.(payload.action, payload.note, payload.annotationId);
+      const selectionSnapshot =
+        payload.rect && payload.elementContext
+          ? {
+              pageUrl: payload.pageUrl,
+              rect: payload.rect,
+              elementContext: payload.elementContext as never,
+              sourceLocation: (payload.sourceLocation as never) ?? null,
+            }
+          : undefined;
+      options.onToolbarAction?.(
+        payload.action,
+        payload.note,
+        payload.annotationId,
+        selectionSnapshot,
+      );
     }),
     listenDesktopPreviewBridge('desktop-preview:cleared', (payload) => {
       if (payload.sessionId !== options.sessionId) return;

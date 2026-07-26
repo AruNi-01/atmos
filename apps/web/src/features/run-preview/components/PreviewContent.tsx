@@ -47,6 +47,11 @@ export function PreviewContent({
   const content = (
     <div
       ref={previewRootRef}
+      // Maximized preview portals above the shell; opt into APP-029 so other
+      // desktop-native webviews suspend while this surface covers them.
+      data-atmos-native-surface-overlay={
+        shouldPortalMaximizedLayout ? "true" : undefined
+      }
       className={cn(
         "flex flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out",
         shouldPortalMaximizedLayout

@@ -101,6 +101,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const storage = useAppStorage();
     const router = useAppRouter();
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
+    // Row isActive follows URL only. Optimistic hop highlight is DOM-only
+    // (applyWorkspaceSidebarSelectionDom) so this tree is not re-rendered on every click.
     const projects = useProjects();
     const workspaceLabels = useWorkspaceLabels();
     const groups = useGroups();

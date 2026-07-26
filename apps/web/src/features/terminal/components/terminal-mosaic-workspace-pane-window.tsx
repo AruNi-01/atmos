@@ -95,6 +95,8 @@ type TerminalMosaicWorkspacePaneWindowProps = {
   deliverPendingRunForPane: (paneId: string) => void;
   markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
   spawnTerminalWithRun: (request: SpawnTerminalRequest) => void;
+  /** False when host frame/tab is off-screen (warm keep-alive). */
+  surfaceActive?: boolean;
 };
 
 /** Center-grid terminal tile: shared title hook + mosaic chrome (default scope only). */
@@ -134,6 +136,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     deliverPendingRunForPane,
     markPaneAttached,
     spawnTerminalWithRun,
+    surfaceActive = true,
   } = props;
 
   const storeWrite = useMemo(
@@ -461,6 +464,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           isNewPane={pane.isNewPane}
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
+          surfaceActive={surfaceActive}
           onTitleChange={onTitleChange}
           onAddSelectionAsContext={(snapshot) => {
             setActivePaneId(id);

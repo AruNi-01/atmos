@@ -98,7 +98,7 @@ mock.module("next-intl", () => ({
   createTranslator: () =>
     (key: string, values?: Record<string, string | number>) => {
       const protocolMessages: Record<string, string> = {
-        "protocol.promptBody": "Appshot captured at {timestamp}",
+        "protocol.promptBody": "Appshot record is stored locally in Atmos appshots records for timestamp {timestamp}. The default location is ~/.atmos/appshots/records/{timestamp}/. Read metadata.json, context.md, and snapshot.png before answering. Inspect snapshot.png when visual context matters.",
         "protocol.unknownApp": "Unknown app",
         "protocol.appshotTitle": "Appshot {timestamp}",
         "protocol.quality.screenshotAndUiTree": "Screenshot + UI tree",

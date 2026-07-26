@@ -131,6 +131,7 @@ const Terminal = ({
   onSelectionSnapshotChange,
   onAddSelectionAsContext,
   onStartSideChatForSelection,
+  surfaceActive = true,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -143,6 +144,10 @@ const Terminal = ({
   const resizeRafIdRef = useRef(0);
   const resizeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readOnlyRef = useRef(readOnly);
+  // Authoritative off-screen gate from host (warm frame / inactive tab). Prefer
+  // this over reading layout so hop does not force reflow for hidden xterms.
+  const surfaceActiveRef = useRef(surfaceActive);
+  surfaceActiveRef.current = surfaceActive;
   // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
   const onTitleChangeRef = useRef(onTitleChange);
   useEffect(() => { onTitleChangeRef.current = onTitleChange; });
@@ -307,7 +312,13 @@ const Terminal = ({
 
     // Re-fit before sending the post-connect size so full-screen TUIs see the
     // browser's current grid, not the constructor's default 80x24 grid.
-    if (terminalRef.current && fitAddonRef.current) {
+    // Skip measure/fit while the host frame is off-screen (warm keep-alive).
+    if (
+      surfaceActiveRef.current &&
+      terminalRef.current &&
+      fitAddonRef.current &&
+      isTerminalContainerVisible(containerRef.current)
+    ) {
       fitTerminalPreservingScroll(terminalRef.current, fitAddonRef.current);
       sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
     }
@@ -585,7 +596,11 @@ const Terminal = ({
     }
 
     terminal.options.fontSize = scaledTerminalFontSize;
+    if (!surfaceActiveRef.current) {
+      return;
+    }
     const frame = requestAnimationFrame(() => {
+      if (!surfaceActiveRef.current) return;
       if (!isTerminalContainerVisible(containerRef.current)) {
         return;
       }
@@ -892,6 +907,8 @@ const Terminal = ({
       return runtimeWsUrl;
     };
     const tryFitAndReadGrid = () => {
+      // Off-screen warm panes: never measure (avoids forced layout storms on hop).
+      if (!surfaceActiveRef.current) return null;
       if (!isTerminalContainerVisible(containerRef.current)) return null;
 
       fitAddon.fit();
@@ -998,6 +1015,8 @@ const Terminal = ({
       const term = terminalRef.current;
       const fit = fitAddonRef.current;
       if (!term || !fit) return;
+      // Host said off-screen — do not read layout (forced-layout thrash source).
+      if (!surfaceActiveRef.current) return;
       // Skip when terminal container is hidden (e.g. tab not visible)
       if (!isTerminalContainerVisible(containerRef.current)) return;
 
@@ -1005,10 +1024,12 @@ const Terminal = ({
       connectWhenVisible();
     };
     const scheduleResizeFit = () => {
+      if (!surfaceActiveRef.current) return;
       if (resizeRafIdRef.current) return;
       resizeRafIdRef.current = requestAnimationFrame(runResizeFit);
     };
     const resizeObserver = new ResizeObserver(() => {
+      if (!surfaceActiveRef.current) return;
       if (!isCanvasScaledTerminal) {
         scheduleResizeFit();
         return;
@@ -1030,11 +1051,12 @@ const Terminal = ({
       }, CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS);
     });
 
-    resizeObserver.observe(containerRef.current);
     resizeObserverRef.current = resizeObserver;
-
-    // Focus terminal
-    terminal.focus();
+    // Only observe while this surface is the active frame/tab (IMP-014).
+    if (surfaceActiveRef.current) {
+      resizeObserver.observe(containerRef.current);
+      terminal.focus();
+    }
     }; // end initTerminal
 
     initTerminal();
@@ -1069,6 +1091,44 @@ const Terminal = ({
       fitAddonRef.current = null;
     };
   }, [sessionId, workspaceId, cwd, projectRootPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Warm/inactive: disconnect RO so sibling hops do not thrash. Reveal: re-observe + one fit.
+  useEffect(() => {
+    const ro = resizeObserverRef.current;
+    const el = containerRef.current;
+    if (!ro || !el || !terminalRef.current) return;
+
+    if (!surfaceActive) {
+      ro.disconnect();
+      if (resizeRafIdRef.current) {
+        cancelAnimationFrame(resizeRafIdRef.current);
+        resizeRafIdRef.current = 0;
+      }
+      if (resizeDebounceTimerRef.current) {
+        clearTimeout(resizeDebounceTimerRef.current);
+        resizeDebounceTimerRef.current = null;
+      }
+      return;
+    }
+
+    ro.observe(el);
+    let cancelled = false;
+    const outer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled || !surfaceActiveRef.current) return;
+        const term = terminalRef.current;
+        const fit = fitAddonRef.current;
+        if (!term || !fit) return;
+        if (!isTerminalContainerVisible(containerRef.current)) return;
+        fitTerminalPreservingScroll(term, fit);
+        sendResizeRef.current({ cols: term.cols, rows: term.rows });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
+  }, [surfaceActive]);
 
   return (
     <TerminalChrome

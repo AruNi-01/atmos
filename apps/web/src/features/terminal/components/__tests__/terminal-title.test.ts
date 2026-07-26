@@ -1,6 +1,10 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import { getTerminalDisplayMeta, resolveAgentForTitle } from "@atmos/shared/terminal";
+import {
+  getTerminalDisplayMeta,
+  isDynamicTitleDowngrade,
+  resolveAgentForTitle,
+} from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "../../types";
 
 const hermesAgent: TerminalPaneAgent = {
@@ -38,6 +42,27 @@ describe("terminal title runtime wrapper fallback", () => {
       displayTitle: "Hermes Agent",
       toolbarAgent: hermesAgent,
     });
+  });
+
+  it("keeps the pane agent title when reattach injects a bare process name", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: "agy",
+        agent: hermesAgent,
+      }),
+    ).toMatchObject({
+      displayTitle: "Hermes Agent",
+      toolbarAgent: hermesAgent,
+    });
+  });
+
+  it("classifies bare process titles for display fallback only (does not block CMD_START writes)", () => {
+    // Pure helper for display/meta — must NOT be used to drop legitimate
+    // shell CMD_START updates (e.g. "npm run dev" → "vim").
+    expect(isDynamicTitleDowngrade("Hermes Agent", "agy")).toBe(true);
+    expect(isDynamicTitleDowngrade(".../foo/bar", "agy")).toBe(false);
+    expect(isDynamicTitleDowngrade("agy", "node")).toBe(false);
   });
 
   it("falls back to the base title for versioned runtime wrapper commands", () => {

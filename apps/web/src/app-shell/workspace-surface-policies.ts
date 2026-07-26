@@ -123,13 +123,23 @@ export function resolveFrameActiveTab(input: {
   return input.lastCenterTab || input.fallbackTab;
 }
 
-/** Whether a panel for `panelTabId` should be visually shown in this frame. */
+/**
+ * Whether a panel for `panelTabId` should stay layout-ready inside its frame.
+ *
+ * Only the outer workspace frame is toggled for Active/Warm paint (CSS `hidden` /
+ * DOM flip). Last-tab panels inside Warm frames stay non-hidden so a hop only
+ * needs to unhide the frame shell — no React rebuild of panel trees to reveal
+ * the retained surface (IMP-010).
+ *
+ * Focus / polling / “surface active” still gate on `isActiveFrame` at call sites.
+ */
 export function isFramePanelVisible(input: {
   isActiveFrame: boolean;
   frameActiveTab: string;
   panelTabId: string;
 }): boolean {
-  return input.isActiveFrame && input.frameActiveTab === input.panelTabId;
+  void input.isActiveFrame;
+  return input.frameActiveTab === input.panelTabId;
 }
 
 /**

@@ -221,6 +221,41 @@ function isRuntimeWrapperTitle(value: string | undefined): boolean {
   );
 }
 
+/**
+ * Single-token process basename from tmux `pane_current_command` / CMD_START
+ * inject (e.g. "agy", "node", "python3.11") — not a path, cwd, or multi-word title.
+ */
+export function isBareProcessTitle(value: string | undefined): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 48) return false;
+  if (isPathLikeTitle(trimmed)) return false;
+  if (trimmed.includes("·") || trimmed.includes(" - ")) return false;
+  // Allow versioned binaries (python3.11) but reject multi-word shell titles.
+  if (/\s/.test(trimmed)) return false;
+  return true;
+}
+
+/**
+ * Reattach injects CMD_START:<process> which must not clobber a richer title
+ * already held in the pane store (warm workspace switch keep-alive).
+ */
+export function isDynamicTitleDowngrade(
+  existing: string | undefined,
+  next: string | undefined,
+): boolean {
+  const prev = existing?.trim();
+  const n = next?.trim();
+  if (!prev || !n || prev === n) return false;
+  if (!isBareProcessTitle(n)) return false;
+  // Process just started over a cwd/path title — that is an upgrade, allow it.
+  if (isPathLikeTitle(prev)) return false;
+  // Both bare process names — allow agy → node style swaps.
+  if (isBareProcessTitle(prev)) return false;
+  // Existing is richer (agent brand, custom OSC, multi-word) — keep it.
+  return true;
+}
+
 function shouldPreferBaseTitleOverDynamic<TAgent extends TerminalTitleAgent>(
   dynamicTitle: string | undefined,
   dynamicTitleIsVersion: boolean,
@@ -424,11 +459,14 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     !matchedDynamicAgent &&
     !isPathOnlyTitle(dynamicTitle);
   const labelAgent = resolveAgentForLabel(baseTitle, configuredAgents);
-  const fallbackAgent = isRuntimeWrapperTitle(dynamicTitle)
-    ? agent ?? labelAgent
-    : dynamicTitleIsVersion
-      ? labelAgent ?? agent
-      : undefined;
+  // Runtime wrappers (python3.11) and bare process basenames from reattach
+  // CMD_START inject (agy, node) should not hide a known pane agent brand.
+  const fallbackAgent =
+    isRuntimeWrapperTitle(dynamicTitle) || isBareProcessTitle(dynamicTitle)
+      ? agent ?? labelAgent
+      : dynamicTitleIsVersion
+        ? labelAgent ?? agent
+        : undefined;
   const toolbarAgent = unresolvedContestedDynamic
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;

@@ -103,6 +103,9 @@ export type PreviewHelperMessage =
       action: 'copy' | 'add' | 'update' | 'delete';
       annotationId?: string;
       note?: string;
+      rect?: PreviewElementRect;
+      elementContext?: PreviewElementContext;
+      sourceLocation?: SourceLocationResult | null;
     }
   | {
       type: 'atmos-preview:pong';

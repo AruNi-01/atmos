@@ -573,17 +573,24 @@ export const Preview: React.FC<PreviewProps> = ({
       action: 'copy' | 'add' | 'update' | 'delete',
       note?: string,
       annotationId?: string,
+      selectionSnapshot?: PreviewHelperPayload,
     ) => {
       if (mode === 'desktop-native' && action === 'copy') {
+        if (selectionSnapshot) {
+          handleSelectedPayload(mode, selectionSnapshot);
+        }
         void handleDesktopToolbarCopy(note);
       } else if (mode === 'desktop-native' && action === 'add') {
+        if (selectionSnapshot) {
+          handleSelectedPayload(mode, selectionSnapshot);
+        }
         handleAddSelectionAnnotation(note, undefined, annotationId);
       } else if (mode === 'desktop-native' && action === 'update') {
         handleUpdateSelectionAnnotation(annotationId, note);
       } else if (mode === 'desktop-native' && action === 'delete') {
         handleDeleteSelectionAnnotation(annotationId);
       }
-      extraHandlers?.onToolbarAction?.(action, note, annotationId);
+      extraHandlers?.onToolbarAction?.(action, note, annotationId, selectionSnapshot);
     },
     onCleared: () => {
       setHoverCursorLabel(null);

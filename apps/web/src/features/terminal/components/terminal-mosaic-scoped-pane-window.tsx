@@ -81,6 +81,7 @@ type ScopedPaneWindowProps = {
   setDynamicTitle: (workspaceId: string, paneId: string, title: string) => void;
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markPaneAttached: (workspaceId: string, paneId: string) => void;
+  surfaceActive?: boolean;
 };
 
 export function TerminalMosaicScopedPaneWindow({
@@ -117,6 +118,7 @@ export function TerminalMosaicScopedPaneWindow({
   setDynamicTitle,
   setPaneAgent,
   markPaneAttached,
+  surfaceActive = true,
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
@@ -392,6 +394,7 @@ export function TerminalMosaicScopedPaneWindow({
           isNewPane={pane.isNewPane}
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
+          surfaceActive={surfaceActive}
           onAddSelectionAsContext={(snapshot) => {
             setActivePaneId(id);
             agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);

@@ -293,6 +293,8 @@ export function PanelLayout({
       }}
       className={cn(
         "h-full flex flex-col",
+        // Isolate left list layout/paint from center thrash (IMP-013).
+        "[contain:layout_paint]",
         !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
         isLeftCollapsed && "min-w-0!"
       )}
@@ -332,7 +334,7 @@ export function PanelLayout({
           order={2}
           defaultSize={showRightSidebar ? 80 - DEFAULT_LEFT_SIDEBAR_SIZE : 100 - DEFAULT_LEFT_SIDEBAR_SIZE}
           minSize={25}
-          className="h-full"
+          className="h-full [contain:layout]"
         >
           {centerStage}
         </Panel>

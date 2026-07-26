@@ -6727,7 +6727,7 @@
         "oversizedWarning": "由于内联图片载荷过大，截图预览已被隐藏。"
       },
       "protocol": {
-        "promptBody": "Appshot 捕获时间：{timestamp}",
+        "promptBody": "Appshot record is stored locally in Atmos appshots records for timestamp {timestamp}. The default location is ~/.atmos/appshots/records/{timestamp}/. Read metadata.json, context.md, and snapshot.png before answering. Inspect snapshot.png when visual context matters.",
         "unknownApp": "未知应用",
         "appshotTitle": "Appshot {timestamp}",
         "quality": {

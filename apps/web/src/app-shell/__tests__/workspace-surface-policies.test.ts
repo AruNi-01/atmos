@@ -53,14 +53,16 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     ).toBe("file/local.ts");
   });
 
-  it("panel visibility requires active frame + matching tab", () => {
+  it("panel visibility matches last tab even when frame is warm (outer shell gates paint)", () => {
+    // Warm frames keep the last-tab panel layout-ready so unhiding the shell
+    // reveals retained content without waiting for a React isActiveFrame flip.
     expect(
       isFramePanelVisible({
         isActiveFrame: false,
         frameActiveTab: "file/x.ts",
         panelTabId: "file/x.ts",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isFramePanelVisible({
         isActiveFrame: true,
@@ -68,6 +70,13 @@ describe("resolveFrameActiveTab / panel visibility", () => {
         panelTabId: "file/x.ts",
       }),
     ).toBe(true);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: false,
+        frameActiveTab: "file/x.ts",
+        panelTabId: "terminal",
+      }),
+    ).toBe(false);
   });
 });
 

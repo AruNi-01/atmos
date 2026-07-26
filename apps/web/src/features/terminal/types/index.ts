@@ -63,6 +63,12 @@ export interface TerminalProps {
   terminalScale?: number;
   /** Called when the terminal's dynamic title changes (from shell shim OSC sequences) */
   onTitleChange?: (title: string) => void;
+  /**
+   * When false, this terminal is off-screen (warm workspace / inactive tab).
+   * Skip ResizeObserver + fit so hop does not thrash layout for hidden xterms.
+   * Default true for standalone / canvas embeds.
+   */
+  surfaceActive?: boolean;
   /** Called when the terminal has a non-empty text selection that can become AI context. */
   onSelectionSnapshotChange?: (snapshot: TerminalSelectionSnapshot | null) => void;
   /** Adds the current terminal selection to terminal AI Input context. */

@@ -1083,22 +1083,106 @@
       }
     }
 
+    function writeClipboardText(text) {
+      var value = text == null ? '' : String(text);
+      if (!value) return false;
+      // Prefer the synchronous path first: it still has the click user gesture in
+      // WebKit/Tauri webviews. Async clipboard.writeText can race gesture expiry.
+      var synced = false;
+      try {
+        var helper = doc.createElement('textarea');
+        helper.value = value;
+        helper.setAttribute('readonly', '');
+        helper.style.position = 'fixed';
+        helper.style.left = '-9999px';
+        helper.style.top = '0';
+        helper.style.opacity = '0';
+        doc.documentElement.appendChild(helper);
+        helper.focus();
+        helper.select();
+        helper.setSelectionRange(0, value.length);
+        synced = doc.execCommand('copy');
+        helper.remove();
+      } catch (_) {
+        synced = false;
+      }
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          void navigator.clipboard.writeText(value);
+        }
+      } catch (_) {}
+      return synced;
+    }
+
+    function formatSelectionForClipboard(meta, note) {
+      var source = (meta && meta.sourceLocation) || {};
+      var element = meta && meta.element;
+      var context = element && doc.contains(element) ? inspectPreviewElement(element) : null;
+      var lines = ['## Preview Element'];
+      var pageUrl = (meta && meta.pageUrl) || win.location.href;
+      if (pageUrl) lines.push('- **Page**: `' + pageUrl + '`');
+      if (context && context.selector) lines.push('- **Selector**: `' + context.selector + '`');
+      if (context && context.tagName) lines.push('- **Tag**: `' + context.tagName + '`');
+      if (context && context.attributesSummary) lines.push('- **Attributes**: ' + context.attributesSummary);
+      if (source.framework) lines.push('- **Framework**: ' + source.framework);
+      if (source.componentName) lines.push('- **Source Component**: `' + source.componentName + '`');
+      if (source.filePath || source.fileName) {
+        var sourcePath = source.filePath || source.fileName;
+        var sourceLoc = sourcePath;
+        if (source.line != null) sourceLoc += ':' + source.line;
+        if (source.column != null) sourceLoc += ':' + source.column;
+        lines.push('- **Source**: `' + sourceLoc + '`');
+      }
+      if (source.confidence) lines.push('- **Confidence**: ' + source.confidence);
+      if (context && context.textPreview) {
+        lines.push('', '### Element Text', context.textPreview);
+      }
+      if (context && context.htmlPreview) {
+        lines.push('', '### Element HTML', '```html', context.htmlPreview, '```');
+      }
+      if (note) {
+        lines.push('', '## Note', note);
+      }
+      return lines.join('\n').trim();
+    }
+
+    // Prevent pointerdown + click + button listener from firing the same action thrice.
+    var toolbarActionInFlight = false;
+
     function toolbarActionFromEvent(action, event) {
+      if (toolbarActionInFlight) return;
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
+      toolbarActionInFlight = true;
+      win.setTimeout(function () {
+        toolbarActionInFlight = false;
+      }, 0);
+
       var annotationId = null;
       var note = (noteInput.value || '').trim();
-      if (action === 'add') {
+      if (action === 'copy') {
+        // Write clipboard in the inspector webview while the user gesture is still valid.
+        // Host-side clipboard after the Tauri bridge loses transient activation and fails silently.
+        writeClipboardText(formatSelectionForClipboard(currentMeta, note));
+        detailsCard.style.display = 'none';
+        noteInput.value = '';
+      } else if (action === 'add') {
         var annotation = addAnnotationFromCurrent(note);
-        if (!annotation) return;
+        if (!annotation) {
+          toolbarActionInFlight = false;
+          return;
+        }
         annotationId = annotation.id;
         detailsCard.style.display = 'none';
         currentMeta = null;
         noteInput.value = '';
       } else if (action === 'update') {
-        if (!currentEditingAnnotation) return;
+        if (!currentEditingAnnotation) {
+          toolbarActionInFlight = false;
+          return;
+        }
         currentEditingAnnotation.note = note;
         annotationId = currentEditingAnnotation.id;
         currentEditingAnnotation = null;
@@ -1112,18 +1196,9 @@
       }
     }
 
-    function handleOverlayButtonPointerDown(event) {
-      if (eventTargetInside(event, footerCancelButton)) {
-        cancelFromEvent(event);
-      } else if (eventTargetInside(event, footerAddButton)) {
-        toolbarActionFromEvent('add', event);
-      } else if (eventTargetInside(event, footerCopyButton)) {
-        toolbarActionFromEvent('copy', event);
-      } else if (eventTargetInside(event, footerUpdateButton)) {
-        toolbarActionFromEvent('update', event);
-      }
-    }
-
+    // Use capture-phase click only (not pointerdown) so we fire once per activation.
+    // Button-level listeners below are the primary path; this catches clicks that
+    // land on child SVG/text nodes when a parent stopPropagation interferes.
     function handleOverlayButtonClick(event) {
       if (eventTargetInside(event, footerCancelButton)) {
         cancelFromEvent(event);
@@ -1136,7 +1211,6 @@
       }
     }
 
-    win.addEventListener('pointerdown', handleOverlayButtonPointerDown, true);
     win.addEventListener('click', handleOverlayButtonClick, true);
 
     footerCancelButton.addEventListener('click', cancelFromEvent);
@@ -1274,7 +1348,6 @@
         win.__ATMOS_PREVIEW_PICK_CURSOR__ = '';
         win.removeEventListener('scroll', syncAnnotationOverlays, true);
         win.removeEventListener('resize', syncAnnotationOverlays, true);
-        win.removeEventListener('pointerdown', handleOverlayButtonPointerDown, true);
         win.removeEventListener('click', handleOverlayButtonClick, true);
         detailsCard.remove();
         annotations.forEach(function (annotation) {
@@ -2040,14 +2113,34 @@
         event.preventDefault();
         event.stopPropagation();
       }
-      if ((action === 'copy' || action === 'add') && !state.locked) return;
+      // Copy needs a live locked element. Add may still emit when the local
+      // annotation was already created even if lock was cleared mid-click.
+      if (action === 'copy' && !state.locked) return;
+      if (action === 'add' && !state.locked && !annotationId) return;
+      // Include selection snapshot so the host can recover if the earlier
+      // `selected` event was dropped or cleared before the toolbar action arrived.
+      var lockedElement = state.locked;
+      var rect = lockedElement && doc.contains(lockedElement)
+        ? getPreviewElementRect(lockedElement)
+        : null;
+      var elementContext = lockedElement && doc.contains(lockedElement)
+        ? inspectPreviewElement(lockedElement)
+        : null;
+      var sourceLocation = lockedElement && doc.contains(lockedElement)
+        ? locateSourceForElement(lockedElement, win)
+        : null;
       emit({
         type: 'atmos-preview:toolbar-action',
         action: action === 'copy' || action === 'update' || action === 'delete' ? action : 'add',
         annotationId: annotationId || undefined,
         note: note || undefined,
+        rect: rect || undefined,
+        elementContext: elementContext || undefined,
+        sourceLocation: sourceLocation || undefined,
       });
-      if (action === 'add') {
+      // Copy already wrote the clipboard in the overlay click path (user gesture).
+      // Unlock so the host does not need a successful async clipboard write to clear UI.
+      if (action === 'add' || action === 'copy') {
         unlockSelectionForNextPick();
       }
     });

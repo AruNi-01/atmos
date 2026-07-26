@@ -349,11 +349,13 @@ export function PreviewToolbar({
           </button>
         )}
 
-        {activeUrl && !shouldUseCompactToolbar ? (
+        {activeUrl && (!shouldUseCompactToolbar || showsAnnotationCopyButton) ? (
           <div
             className={cn(
               "hidden shrink-0 items-center overflow-hidden rounded-md border border-border/60 bg-background/60 md:flex",
-              shouldHideToolbarStatus && "md:hidden",
+              // Keep the group visible when annotations exist so the count/copy
+              // control is never collapsed away after Add.
+              shouldHideToolbarStatus && !showsAnnotationCopyButton && "md:hidden",
             )}
           >
             <TooltipProvider delayDuration={150}>

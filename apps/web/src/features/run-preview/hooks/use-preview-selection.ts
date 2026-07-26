@@ -284,19 +284,18 @@ export function usePreviewSelection({
 
   const handleDesktopToolbarCopy = useCallback(async (userNote?: string) => {
     const info = selectionInfoRef.current;
-    if (!info || info.transportMode !== 'desktop-native') return;
-
-    try {
-      await navigator.clipboard.writeText(formatPreviewSelectionForAI(info, userNote));
-      dismissSelectionPopover();
-    } catch {
-      toastManager.add({
-        title: t("toast.copyFailedTitle"),
-        description: t("toast.selectionCopyFailedDescription"),
-        type: 'error',
-      });
+    // Runtime already copies during the button click (user gesture). Host tries a
+    // richer i18n format as a best-effort upgrade, then always dismisses so UI
+    // never sticks open when the async bridge clipboard path is blocked.
+    if (info && info.transportMode === 'desktop-native') {
+      try {
+        await navigator.clipboard.writeText(formatPreviewSelectionForAI(info, userNote));
+      } catch {
+        // Ignore — preview runtime should already have written the clipboard.
+      }
     }
-  }, [dismissSelectionPopover, t]);
+    dismissSelectionPopover();
+  }, [dismissSelectionPopover]);
 
   const handleAddSelectionAnnotation = useCallback((userNote?: string, explicitInfo?: SelectionInfo, annotationId?: string) => {
     const info = explicitInfo ?? selectionInfoRef.current;

@@ -29,17 +29,22 @@ describe("Welcome Appshot prompt placeholders", () => {
       },
     ];
 
-    expect(
-      resolvePromptPlaceholders(
-        `Fix @issue#123 with @file:src/app.ts [#img-1] [#appshot:${timestamp}]`,
-        attachments,
-      ),
-    ).toBe(
+    const expanded = resolvePromptPlaceholders(
+      `Fix @issue#123 with @file:src/app.ts [#img-1] [#appshot:${timestamp}]`,
+      attachments,
+    );
+
+    expect(expanded).toBe(
       [
         "Fix .atmos/context/requirement.md with src/app.ts .atmos/attachments/img-1.png",
         formatAppshotPrompt(timestamp),
       ].join(" "),
     );
+    // Chip expand must carry the same path instructions as desktop Copy.
+    expect(expanded).toContain(`~/.atmos/appshots/records/${timestamp}/`);
+    expect(expanded).toContain("metadata.json");
+    expect(expanded).toContain("context.md");
+    expect(expanded).toContain("snapshot.png");
   });
 
   it("leaves malformed Appshot chips untouched", () => {

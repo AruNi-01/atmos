@@ -366,6 +366,12 @@ export function hydratePersistedTab(
   workspaceId: string,
   tab: PersistedTerminalTabDocument,
   existingWindowNames: Set<string>,
+  /**
+   * Optional in-memory panes for this scope. When present, preserve transient
+   * display fields (`dynamicTitle`) that are intentionally not persisted.
+   * `sessionId` is always fresh — callers that need reattach must reconnect.
+   */
+  livePanes?: Record<string, TerminalPaneProps> | null,
 ): {
   panes: Record<string, TerminalPaneProps>;
   layout: MosaicNode<string> | null;
@@ -382,6 +388,16 @@ export function hydratePersistedTab(
     const legacyTitle = (pane as unknown as { title?: string }).title;
     const windowName = pane.tmuxWindowName || pane.label || legacyTitle || getNextWindowName(validatedPanes);
     const windowExists = existingWindowNames.has(windowName);
+    const live = livePanes?.[id];
+    // Match live pane by id first, then by tmux window name (ids can churn).
+    const liveByWindow =
+      live ??
+      (livePanes
+        ? Object.values(livePanes).find(
+            (candidate) =>
+              (candidate.tmuxWindowName || candidate.label) === windowName,
+          )
+        : undefined);
 
     validatedPanes[id] = {
       ...pane,
@@ -389,8 +405,17 @@ export function hydratePersistedTab(
       // Ensure label is always set — old data only has `title`, not `label`.
       label: pane.label || legacyTitle || windowName,
       tmuxWindowName: windowName,
+      // Always mint a new frontend session id (WS attach identity).
       sessionId: uuidv4(),
-      isNewPane: !windowExists,
+      isNewPane: liveByWindow ? false : !windowExists,
+      // dynamicTitle is display-only and not written to layout persistence —
+      // keep the warm in-memory value across a hydrate rewrite.
+      dynamicTitle: liveByWindow?.dynamicTitle,
+      // Prefer live agent, then persisted agent.
+      agent: liveByWindow?.agent ?? pane.agent,
+      customLabel: liveByWindow?.customLabel ?? pane.customLabel,
+      keepAgentName: liveByWindow?.keepAgentName ?? pane.keepAgentName,
+      keepCwd: liveByWindow?.keepCwd ?? pane.keepCwd,
     };
   }
 

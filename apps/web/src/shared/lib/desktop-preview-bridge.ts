@@ -21,6 +21,7 @@ interface PreviewBridgeEventPayload {
   };
   elementContext?: unknown;
   sourceLocation?: unknown;
+  /** Present on toolbar-action when the runtime includes a selection snapshot. */
   error?: string;
 }
 

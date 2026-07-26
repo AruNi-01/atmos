@@ -496,6 +496,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             }}
             role="button"
             tabIndex={0}
+            data-ws-row=""
             className={cn(
               // transition-colors only — transition-all + backdrop-blur on hover made
               // rapid hopping feel sticky even with few rows.

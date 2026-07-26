@@ -6727,7 +6727,7 @@
         "oversizedWarning": "Screenshot preview was hidden because the inline image payload is too large."
       },
       "protocol": {
-        "promptBody": "Appshot captured at {timestamp}",
+        "promptBody": "Appshot record is stored locally in Atmos appshots records for timestamp {timestamp}. The default location is ~/.atmos/appshots/records/{timestamp}/. Read metadata.json, context.md, and snapshot.png before answering. Inspect snapshot.png when visual context matters.",
         "unknownApp": "Unknown app",
         "appshotTitle": "Appshot {timestamp}",
         "quality": {
