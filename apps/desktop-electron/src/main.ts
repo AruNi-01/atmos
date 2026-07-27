@@ -32,9 +32,14 @@ let bootPromise: Promise<void> | null = null;
 
 function registerIpc() {
   ipcMain.removeHandler("atmos:desktop-invoke");
-  ipcMain.handle("atmos:desktop-invoke", async (_event, payload) => {
+  ipcMain.handle("atmos:desktop-invoke", async (event, payload) => {
     const cmd = (payload as { cmd?: string })?.cmd ?? "";
-    const args = (payload as { args?: Record<string, unknown> })?.args ?? {};
+    const args = {
+      ...((payload as { args?: Record<string, unknown> })?.args ?? {}),
+      // Internal: let preview_bridge_* attach WebContentsView to the invoking window
+      // (standalone browser) instead of always using main. Not a public API.
+      __electronSenderWebContentsId: event.sender.id,
+    };
     return router.invokeSafe(cmd, args);
   });
 }

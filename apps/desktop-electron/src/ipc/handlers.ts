@@ -12,9 +12,10 @@ import {
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import type { BrowserWindow } from "electron";
 import type { AppState } from "../app-state.js";
 import { electronLogPath, appDataDir } from "../runtime/ensure.js";
-import type { DesktopCommandHandler } from "../types.js";
+import type { DesktopCommandHandler, DesktopInvokeArgs } from "../types.js";
 import * as cookies from "../cookies/service.js";
 import type { ProviderKind } from "../tunnel/service.js";
 
@@ -24,6 +25,33 @@ async function electron() {
 
 function str(v: unknown): string {
   return typeof v === "string" ? v : String(v ?? "");
+}
+
+/**
+ * Resolve the BrowserWindow that invoked a desktop command (from main.ts inject).
+ * Preview bridge needs this so standalone browser windows host their own WebContentsView.
+ */
+async function hostWindowFromArgs(
+  args: DesktopInvokeArgs,
+  state: AppState,
+): Promise<BrowserWindow | null> {
+  const id = args.__electronSenderWebContentsId;
+  if (typeof id === "number" && Number.isFinite(id)) {
+    try {
+      const { BrowserWindow, webContents } = await electron();
+      const wc = webContents.fromId(id);
+      if (wc && !wc.isDestroyed()) {
+        const win = BrowserWindow.fromWebContents(wc);
+        if (win && !win.isDestroyed()) return win;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+    return state.mainWindow;
+  }
+  return null;
 }
 
 function handoffDir(): string {
@@ -265,13 +293,19 @@ export function createAllHandlers(
         height: number;
         zoom?: number;
       };
-      state.preview?.open(sessionId, url, {
-        x: Number(bounds.x),
-        y: Number(bounds.y),
-        width: Number(bounds.width),
-        height: Number(bounds.height),
-        zoom: bounds.zoom != null ? Number(bounds.zoom) : 1,
-      });
+      const host = await hostWindowFromArgs(args, state);
+      state.preview?.open(
+        sessionId,
+        url,
+        {
+          x: Number(bounds.x),
+          y: Number(bounds.y),
+          width: Number(bounds.width),
+          height: Number(bounds.height),
+          zoom: bounds.zoom != null ? Number(bounds.zoom) : 1,
+        },
+        host,
+      );
       return null;
     },
 
@@ -310,13 +344,20 @@ export function createAllHandlers(
         height: number;
         zoom?: number;
       };
-      state.preview?.setDetached(sessionId, url, {
-        x: Number(bounds.x),
-        y: Number(bounds.y),
-        width: Number(bounds.width),
-        height: Number(bounds.height),
-        zoom: bounds.zoom != null ? Number(bounds.zoom) : 1,
-      }, detached);
+      const host = await hostWindowFromArgs(args, state);
+      state.preview?.setDetached(
+        sessionId,
+        url,
+        {
+          x: Number(bounds.x),
+          y: Number(bounds.y),
+          width: Number(bounds.width),
+          height: Number(bounds.height),
+          zoom: bounds.zoom != null ? Number(bounds.zoom) : 1,
+        },
+        detached,
+        host,
+      );
       return null;
     },
 

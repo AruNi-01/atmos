@@ -577,7 +577,9 @@ export function AgentChatPanel({
       )}
 
       {showTrafficLightsHistoryToggle ? (
-        <div className="absolute left-[86px] top-3 z-50 flex h-7 items-center">
+        // desktop-no-drag: Electron -webkit-app-region:drag on the standalone header
+        // otherwise steals hits from this sibling overlay (collapse → expand broken).
+        <div className="desktop-no-drag absolute left-[86px] top-3 z-50 flex h-7 items-center">
           {trafficLightsHistorySidebarToggle}
         </div>
       ) : null}

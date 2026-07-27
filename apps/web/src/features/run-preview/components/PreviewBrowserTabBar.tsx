@@ -161,7 +161,9 @@ export function PreviewBrowserTabBar({
       onMouseDown={handleDesktopWindowMouseDown}
       data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
       className={cn(
-        "flex h-9 shrink-0 items-center gap-1 overflow-hidden bg-muted/10 px-2 select-none",
+        // Match main app header (h-12) + traffic-light geometry so tabs sit with
+        // the same vertical rhythm as the home shell / ACP Chat Panel chrome.
+        "flex h-12 shrink-0 items-center gap-1 overflow-hidden bg-muted/10 px-2 py-1.5 select-none",
         isDesktopDragEnabled && "desktop-drag-region",
       )}
     >
@@ -169,7 +171,8 @@ export function PreviewBrowserTabBar({
         ref={tabsScrollRef}
         className={cn(
           "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
-          chromeControls?.needsDesktopPreviewSafeInset && "pl-[84px]",
+          // Main header uses pl-[92px]; keep the same inset so lights aren't cramped.
+          chromeControls?.needsDesktopPreviewSafeInset && "pl-[92px]",
         )}
       >
         {tabs.map((tab, index) => {

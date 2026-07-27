@@ -47,6 +47,8 @@ type SurfaceState = {
   pickMode: boolean;
   bounds: Required<PreviewBounds> | null;
   view: WebContentsView | null;
+  /** Product UI window that owns this surface (main or standalone browser). */
+  hostWindow: BrowserWindow | null;
   detachedWindow: BrowserWindow | null;
 };
 
@@ -136,12 +138,30 @@ export class PreviewSurfaceManager {
     this.previewSession = session.fromPartition(PREVIEW_PARTITION);
   }
 
-  private hostWindow(): BrowserWindow {
-    const w = this.state.mainWindow;
-    if (!w || w.isDestroyed()) {
-      throw new Error("preview host window not available: main");
+  /**
+   * Resolve the product UI host for a preview command.
+   * Prefer the invoking BrowserWindow (standalone preview browser); fall back to main.
+   */
+  resolveHostWindow(preferred?: BrowserWindow | null): BrowserWindow {
+    if (preferred && !preferred.isDestroyed()) {
+      return preferred;
     }
-    return w;
+    const main = this.state.mainWindow;
+    if (main && !main.isDestroyed()) {
+      return main;
+    }
+    throw new Error("preview host window not available: main");
+  }
+
+  private surfaceHost(s: SurfaceState): BrowserWindow | null {
+    if (s.hostWindow && !s.hostWindow.isDestroyed()) {
+      return s.hostWindow;
+    }
+    const main = this.state.mainWindow;
+    if (main && !main.isDestroyed()) {
+      return main;
+    }
+    return null;
   }
 
   private getOrCreateState(sessionId: string): SurfaceState {
@@ -156,6 +176,7 @@ export class PreviewSurfaceManager {
         pickMode: false,
         bounds: null,
         view: null,
+        hostWindow: null,
         detachedWindow: null,
       };
       this.surfaces.set(sessionId, s);
@@ -163,21 +184,86 @@ export class PreviewSurfaceManager {
     return s;
   }
 
-  private emitToApp(channel: string, payload: unknown) {
-    const main = this.state.mainWindow;
-    if (main && !main.isDestroyed()) {
-      main.webContents.send(`atmos:desktop-event:${channel}`, payload);
+  /** Emit preview lifecycle events to the surface host (Tauri `emit_to(host_label)` parity). */
+  private emitToApp(
+    channel: string,
+    payload: unknown,
+    host?: BrowserWindow | null,
+  ) {
+    const targets = new Set<BrowserWindow>();
+    if (host && !host.isDestroyed()) {
+      targets.add(host);
     }
+    // Fallback so boot/probe errors still surface somewhere if host is gone.
+    if (targets.size === 0) {
+      const main = this.state.mainWindow;
+      if (main && !main.isDestroyed()) {
+        targets.add(main);
+      }
+    }
+    for (const win of targets) {
+      win.webContents.send(`atmos:desktop-event:${channel}`, payload);
+    }
+  }
+
+  private emitToSession(sessionId: string, channel: string, payload: unknown) {
+    const s = this.surfaces.get(sessionId);
+    this.emitToApp(channel, payload, s ? this.surfaceHost(s) : null);
   }
 
   private emitLoadError(sessionId: string, url: string, err: unknown) {
     console.error(`[preview] loadURL failed session=${sessionId}`, err);
-    this.emitToApp("desktop-preview:error", {
+    this.emitToSession(sessionId, "desktop-preview:error", {
       type: "atmos-preview:error",
       sessionId,
       pageUrl: url,
       error: err instanceof Error ? err.message : String(err),
     });
+  }
+
+  private removeViewFromHost(s: SurfaceState) {
+    if (!s.view) return;
+    const host = this.surfaceHost(s);
+    if (host) {
+      try {
+        host.contentView.removeChildView(s.view);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  private attachViewToHost(s: SurfaceState, host: BrowserWindow) {
+    if (!s.view) return;
+    const previous = s.hostWindow;
+    const hostChanged = previous !== host;
+    if (previous && !previous.isDestroyed() && hostChanged) {
+      try {
+        previous.contentView.removeChildView(s.view);
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      // addChildView is safe to re-call for the same parent; required after recreate.
+      host.contentView.addChildView(s.view);
+    } catch (err) {
+      console.error(
+        `[preview] addChildView failed session=${s.sessionId}`,
+        err,
+      );
+      throw err;
+    }
+    s.hostWindow = host;
+    // Drop surface when the product UI window that hosts it is closed.
+    // Only wire once per host switch so repeated open() does not stack listeners.
+    if (hostChanged) {
+      host.once("closed", () => {
+        if (s.hostWindow === host && this.surfaces.get(s.sessionId) === s) {
+          this.close(s.sessionId);
+        }
+      });
+    }
   }
 
   private destroyViewWebContents(view: WebContentsView) {
@@ -234,7 +320,7 @@ export class PreviewSurfaceManager {
       console.error(
         `[preview] did-fail-load session=${sessionId} code=${code} ${desc} url=${validatedURL}`,
       );
-      this.emitToApp("desktop-preview:error", {
+      this.emitToSession(sessionId, "desktop-preview:error", {
         type: "atmos-preview:error",
         sessionId,
         pageUrl: validatedURL,
@@ -249,7 +335,7 @@ export class PreviewSurfaceManager {
       if (!s) return;
       const pageTitle = (title || "").trim();
       if (!pageTitle) return;
-      this.emitToApp("desktop-preview:title-changed", {
+      this.emitToSession(sessionId, "desktop-preview:title-changed", {
         type: "atmos-preview:title-changed",
         sessionId,
         pageUrl: wc.getURL(),
@@ -265,7 +351,7 @@ export class PreviewSurfaceManager {
           : undefined;
       if (!faviconUrl) return;
       const pageTitle = (wc.getTitle() || "").trim();
-      this.emitToApp("desktop-preview:title-changed", {
+      this.emitToSession(sessionId, "desktop-preview:title-changed", {
         type: "atmos-preview:title-changed",
         sessionId,
         pageUrl: wc.getURL(),
@@ -283,7 +369,7 @@ export class PreviewSurfaceManager {
     bridgeToken: string,
     pickMode: boolean,
   ): Promise<void> {
-    this.emitToApp("desktop-preview:navigation-changed", {
+    this.emitToSession(sessionId, "desktop-preview:navigation-changed", {
       type: "atmos-preview:navigation-changed",
       sessionId,
       pageUrl: url,
@@ -413,8 +499,10 @@ export class PreviewSurfaceManager {
     sessionId: string,
     url: string,
     bounds: PreviewBounds,
+    hostWindow?: BrowserWindow | null,
   ): void {
     const s = this.getOrCreateState(sessionId);
+    const host = this.resolveHostWindow(hostWindow ?? s.hostWindow);
     s.currentUrl = url;
     s.detached = false;
     s.visible = true;
@@ -426,11 +514,23 @@ export class PreviewSurfaceManager {
       s.detachedWindow = null;
     }
 
-    const host = this.hostWindow();
+    // Tauri parity: if the product UI host changes, rebuild the surface there.
+    const previousHost = s.hostWindow;
+    if (
+      previousHost &&
+      !previousHost.isDestroyed() &&
+      previousHost !== host &&
+      s.view
+    ) {
+      this.removeViewFromHost(s);
+      this.destroyViewWebContents(s.view);
+      s.view = null;
+    }
+
     if (!s.view) {
       s.view = this.createView(sessionId, s.bridgeToken);
-      host.contentView.addChildView(s.view);
     }
+    this.attachViewToHost(s, host);
     // Ensure non-zero bounds (0×0 paints a blank surface over the panel).
     const b = s.bounds;
     if (b.width < 2 || b.height < 2) {
@@ -471,16 +571,20 @@ export class PreviewSurfaceManager {
     url: string,
     bounds: PreviewBounds,
     detached: boolean,
+    hostWindow?: BrowserWindow | null,
   ): void {
     const s = this.getOrCreateState(sessionId);
+    if (hostWindow && !hostWindow.isDestroyed()) {
+      s.hostWindow = hostWindow;
+    }
     s.currentUrl = url;
     if (detached) {
       this.detach(sessionId, url);
     } else {
-      this.open(sessionId, url, bounds);
+      this.open(sessionId, url, bounds, hostWindow ?? s.hostWindow);
     }
     s.detached = detached;
-    this.emitToApp("desktop-preview:detached-changed", {
+    this.emitToSession(sessionId, "desktop-preview:detached-changed", {
       type: "atmos-preview:detached-changed",
       sessionId,
       detached,
@@ -490,10 +594,7 @@ export class PreviewSurfaceManager {
   private detach(sessionId: string, url: string): void {
     const s = this.getOrCreateState(sessionId);
     if (s.view) {
-      const host = this.state.mainWindow;
-      if (host && !host.isDestroyed()) {
-        host.contentView.removeChildView(s.view);
-      }
+      this.removeViewFromHost(s);
       this.destroyViewWebContents(s.view);
       s.view = null;
     }
@@ -593,14 +694,7 @@ export class PreviewSurfaceManager {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
     if (s.view) {
-      const host = this.state.mainWindow;
-      if (host && !host.isDestroyed()) {
-        try {
-          host.contentView.removeChildView(s.view);
-        } catch {
-          /* ignore */
-        }
-      }
+      this.removeViewFromHost(s);
       // Match detach(): tear down WebContents so open/close does not leak renderers.
       this.destroyViewWebContents(s.view);
       s.view = null;
@@ -608,6 +702,7 @@ export class PreviewSurfaceManager {
     if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {
       s.detachedWindow.close();
     }
+    s.hostWindow = null;
     this.surfaces.delete(sessionId);
   }
 
@@ -664,7 +759,7 @@ export class PreviewSurfaceManager {
       if (typeof pageUrl === "string") surface.currentUrl = pageUrl;
     }
 
-    this.emitToApp(gated.channel, gated.body);
+    this.emitToApp(gated.channel, gated.body, surface ? this.surfaceHost(surface) : null);
   }
 
   getPreviewSession(): Session {
