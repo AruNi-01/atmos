@@ -101,19 +101,20 @@ function bootOnce(): Promise<void> {
   return bootPromise;
 }
 
-/** Best-effort: stop every known provider so tunnels do not outlive the app. */
-function stopAllTunnelsOnQuit(): void {
+/** Await every provider stop so Tailscale reset finishes before process exit. */
+async function stopAllTunnelsBeforeExit(): Promise<void> {
   const tunnel = state.tunnel;
   if (!tunnel) return;
   const providers: ProviderKind[] = ["cloudflare", "ngrok", "tailscale"];
   for (const p of providers) {
-    // stop() may throw (e.g. Tailscale reset failure); swallow on quit.
-    void tunnel.stop(p).catch((err) => {
+    try {
+      await tunnel.stop(p);
+    } catch (err) {
       console.error(
         `[desktop-electron] tunnel stop on quit failed (${p}):`,
         err,
       );
-    });
+    }
   }
 }
 
@@ -156,12 +157,20 @@ if (!gotLock) {
     bootOnce().catch(console.error);
   });
 
-  app.on("before-quit", () => {
-    stopAllTunnelsOnQuit();
-  });
-
-  app.on("will-quit", () => {
-    stopAllTunnelsOnQuit();
+  // Async quit: preventDefault, await tunnel teardown, then exit.
+  // (Fire-and-forget stop() races process exit before Tailscale reset.)
+  let isQuitting = false;
+  app.on("before-quit", (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    isQuitting = true;
+    void (async () => {
+      try {
+        await stopAllTunnelsBeforeExit();
+      } finally {
+        app.exit(0);
+      }
+    })();
   });
 }
 
