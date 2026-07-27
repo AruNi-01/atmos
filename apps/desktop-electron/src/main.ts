@@ -107,8 +107,13 @@ function stopAllTunnelsOnQuit(): void {
   if (!tunnel) return;
   const providers: ProviderKind[] = ["cloudflare", "ngrok", "tailscale"];
   for (const p of providers) {
-    // stop() is async-shaped but its body is sync (kill + execFileSync).
-    void tunnel.stop(p);
+    // stop() may throw (e.g. Tailscale reset failure); swallow on quit.
+    void tunnel.stop(p).catch((err) => {
+      console.error(
+        `[desktop-electron] tunnel stop on quit failed (${p}):`,
+        err,
+      );
+    });
   }
 }
 

@@ -364,20 +364,41 @@ export class TunnelService {
     } catch {
       /* ignore */
     }
-    // Parity with Tauri/Rust: reset Tailscale serve + funnel on stop (best-effort).
+    // Parity with Tauri/Rust: both serve + funnel must reset, else surface Error
+    // (do not claim "stopped" while Tailscale may still be serving).
     if (provider === "tailscale") {
       const bin = which("tailscale");
-      if (bin) {
-        for (const args of [
-          ["serve", "reset"],
-          ["funnel", "reset"],
-        ] as const) {
-          try {
-            execFileSync(bin, [...args], { stdio: "ignore" });
-          } catch {
-            /* best-effort; ignore failures */
-          }
+      if (!bin) {
+        const error = "tailscale not found on PATH during stop";
+        a.exited = true;
+        a.exitError = true;
+        a.message = error;
+        this.persist();
+        throw new Error(error);
+      }
+      const failures: string[] = [];
+      for (const args of [
+        ["serve", "reset"],
+        ["funnel", "reset"],
+      ] as const) {
+        try {
+          execFileSync(bin, [...args], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "pipe"],
+          });
+        } catch (err) {
+          const detail =
+            err instanceof Error ? err.message : String(err);
+          failures.push(`tailscale ${args.join(" ")} failed: ${detail}`);
         }
+      }
+      if (failures.length > 0) {
+        const error = failures.join("; ");
+        a.exited = true;
+        a.exitError = true;
+        a.message = error;
+        this.persist();
+        throw new Error(error);
       }
     }
     this.active.delete(provider);
@@ -445,12 +466,9 @@ export class TunnelService {
   saveCredential(provider: ProviderKind, credential: string): void {
     const path = credentialPath(provider);
     writeFileSync(path, credential.trim(), "utf8");
+    // Unix: require 0600 — do not silently leave world-readable secrets.
     if (process.platform !== "win32") {
-      try {
-        chmodSync(path, 0o600);
-      } catch {
-        /* best-effort */
-      }
+      chmodSync(path, 0o600);
     }
   }
 
