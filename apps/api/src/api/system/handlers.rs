@@ -466,7 +466,7 @@ pub async fn kill_tmux_window(
     match state.terminal_service.kill_window_by_name_for_workspace(
         &workspace_id,
         &session_name,
-        &tmux_window_name,
+        tmux_window_name,
     ) {
         Ok(killed) => Ok(Json(ApiResponse::success(json!({
             "killed": killed,

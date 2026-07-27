@@ -458,7 +458,10 @@ impl AgentHooksService {
                 kind,
                 StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
             )
-            && matches!(state, AgentHookState::Running | AgentHookState::PermissionRequest)
+            && matches!(
+                state,
+                AgentHookState::Running | AgentHookState::PermissionRequest
+            )
         {
             // Still refresh timestamp for running/permission so stale TTL stays honest.
         }
@@ -683,10 +686,7 @@ mod tests {
             StateUpdateKind::NewTurn,
         );
         service.force_session_idle("ws-1:agent");
-        assert_eq!(
-            service.get_all_sessions()[0].state,
-            AgentHookState::Idle
-        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
 
         service.update_state(
             "ws-1:agent",
@@ -724,10 +724,7 @@ mod tests {
             &ctx,
             StateUpdateKind::NewTurn,
         );
-        assert_eq!(
-            service.get_all_sessions()[0].state,
-            AgentHookState::Running
-        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
     }
 
     #[test]
@@ -749,10 +746,7 @@ mod tests {
             s.timestamp = (Utc::now() - chrono::Duration::minutes(45)).to_rfc3339();
         }
         service.clear_stale_active_older_than(30);
-        assert_eq!(
-            service.get_all_sessions()[0].state,
-            AgentHookState::Idle
-        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 
     #[test]

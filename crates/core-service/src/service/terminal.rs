@@ -111,10 +111,7 @@ impl TerminalService {
     }
 
     /// Wire agent-hooks cleanup when terminal panes / tmux windows are destroyed.
-    pub fn set_agent_hooks_service(
-        &self,
-        service: Arc<super::agent_hooks::AgentHooksService>,
-    ) {
+    pub fn set_agent_hooks_service(&self, service: Arc<super::agent_hooks::AgentHooksService>) {
         *self.agent_hooks.write().expect("agent_hooks lock") = Some(service);
     }
 
