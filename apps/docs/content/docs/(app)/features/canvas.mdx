@@ -1,9 +1,11 @@
 ---
 title: Canvas
-description: Pin terminals, notes, and diagrams on a shared visual board.
+description: Pin terminals, notes, diagrams, and widgets on named local boards.
 ---
 
-Canvas is a visual board for work that spans more than one terminal, workspace, or idea. Pin terminal cards, add notes, sketch flows, and ask agents to organize the board when the context gets too large for a list.
+Canvas is a visual board for work that spans more than one terminal, workspace, or idea. Pin terminal cards, add notes, sketch flows, drop GitHub widgets, and ask agents to organize the board when the context gets too large for a list.
+
+Boards are **local documents** under `~/.atmos/canvas/` (`.atmos.tldr` files). You can keep several named boards, switch between them, and rely on autosave while you work.
 
 ## Why it matters
 
@@ -11,21 +13,36 @@ Canvas is a visual board for work that spans more than one terminal, workspace, 
 - Keep architecture sketches next to live terminal output.
 - Plan migrations or multi-repo work visually.
 - Let agents update layout, notes, or diagrams on the board.
+- Save separate boards for different threads (ops desk, incident, architecture).
 
 ## What you can place
 
 - Terminal cards from different workspaces or projects.
 - Sticky notes for goals, risks, or decisions.
 - Diagrams and layouts created by you or an agent.
+- Workspace surfaces and widgets (files, diffs, review, GitHub PR / Actions).
+- Browser and screenshot previews when the workflow needs them.
+
+## Documents
+
+1. Open **Canvas** from the Management Center.
+2. Use the **Documents** control in the Canvas toolbar to list local boards.
+3. **New** starts an empty board; **Save** / **Save As** names a file under `~/.atmos/canvas/`.
+4. Switching documents prompts if the current board has unsaved changes.
+5. Pages stay inside one document file — adding a page does not create a new file.
 
 ## Get started
 
 1. Open **Canvas** from Atmos.
 2. Pin the terminal or workspace you care about.
 3. Add a short note for the current goal.
-4. Ask an agent to help arrange or document the board when useful.
+4. Optionally add a GitHub PR or Actions widget for the change you are watching.
+5. Ask an agent to help arrange or document the board when useful.
+6. Save the board under a name you will recognize later.
 
 ## Tips
 
-- Treat Canvas as a working board—archive cards when the task ships.
+- Treat Canvas as a working board—archive or close cards when the task ships.
 - Pair with [Multi-Workspace Development](/features/multi-workspace) for parallel efforts.
+- Use [Build in Canvas](/workflows/build-in-canvas) for the full pin-and-organize workflow.
+- Back up or browse boards on disk under `~/.atmos/canvas/` if you manage files outside the app.

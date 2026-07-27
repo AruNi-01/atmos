@@ -26,6 +26,16 @@ Windows 和 Linux 构建请使用 [GitHub Releases](https://github.com/AruNi-01/
 
 安装后，像打开普通应用一样打开 Atmos。在 macOS 上关闭主窗口会隐藏应用；退出应用会停止本地 Atmos Server。
 
+### 首次运行引导
+
+首次启动时，Atmos 会打开简短的**新手引导**向导：
+
+1. **Welcome** — Atmos 能做什么。
+2. **Environment** — 检查 `tmux`、`git`、`gh` 等工具，并提供安装指引；需要时可用临时 Atmos 终端安装。
+3. **First project** — 选择文件夹（Desktop 使用系统原生文件夹对话框）并走通第一个工作空间路径。
+
+你可以跳过缺失的工具稍后再装，但在必需工具就绪前，终端、worktree 或 GitHub 同步可能不可用。
+
 ## 浏览器应用
 
 当你希望在浏览器标签页中使用 UI，或计划连接到 Atmos Computer 时，使用浏览器应用。
@@ -55,7 +65,7 @@ Runtime 会安装到 `~/.atmos/runtime/current`，写入 `~/.atmos/runtime_manif
 ## 第一个工作空间
 
 1. 启动桌面应用、在浏览器中打开 Atmos，或连接到 Atmos Computer。
-2. 当 Atmos 要求时，添加项目文件夹。
+2. 当 Atmos 要求时，添加项目文件夹（Desktop：系统文件夹选择器）。
 3. 为你想并行处理的任务创建工作空间。
 4. Atmos 会为该任务准备隔离的工作目录和分支。
 5. 打开工作空间终端。
@@ -64,15 +74,21 @@ Runtime 会安装到 `~/.atmos/runtime/current`，写入 `~/.atmos/runtime_manif
 
 ## 第一个 Code Agent 终端
 
-Atmos 是终端优先的：在工作空间终端里启动你已经使用的 code-agent。内置 Agent 预设包括 Claude Code、Codex、Gemini、Devin、Amp、Droid、OpenCode、Kimi、Cursor Agent、Kilo Code、Kiro、CommandCode、Pi、OpenClaw 和 Hermes Agent。
+Atmos 是终端优先的：在工作空间终端里启动你已经使用的 code-agent。内置 Agent 预设包括 Claude Code、Codex、Gemini、Grok Build、Devin、Amp、Droid、OpenCode、Kimi、Cursor Agent、Kilo Code、Kiro、CommandCode、Pi、OpenClaw、Hermes Agent，以及 **Settings** → **Code Agent** 中列出的其他 Agent。
 
 每个工作空间保留自己的终端会话、分支、文件和 diff，因此你可以并排运行多个 Agent，而不会混淆它们的工作。使用 **Settings** -> **Code Agent** 启用 Agent、调整命令、添加自定义 Agent，或保存包含模型、reasoning 和额外参数的运行配置。
+
+在终端 AI Input 中还可以：
+
+- 用 **`/side`** 开启临时 side chat — [终端 Side Chat](/zh/features/terminal-side-chat)
+- 用 **`/spawn`** 打开复用当前 Agent 上下文的新面板
+- 打开 **Dynamic Skills** 临时关闭本会话中的 Skills
 
 对于并行工作，为每个任务创建一个工作空间，并在每个工作空间终端中启动一个 Agent。使用侧边栏、Kanban、Canvas 和 Review 视图跟踪进展，并把完成的变更带回正常 Git 流程。
 
 ## 下一步
 
-- [项目与工作空间管理](/zh/workflows/project-and-workspace-manager) 了解项目、工作空间、脚本和 Kanban。
+- [项目与工作空间管理](/zh/workflows/project-and-workspace-manager) 了解项目、工作空间、分组、脚本和 Kanban。
 - [通用构建流程](/zh/workflows/general-build-process) 了解日常构建循环。
 - [远程构建](/zh/workflows/remote-build) 适用于工作需要跑在另一台机器上的情况。
 - [CLI 概览](/zh/cli) 适用于设置、状态检查或 Agent 集成命令。

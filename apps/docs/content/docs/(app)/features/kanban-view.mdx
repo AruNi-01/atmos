@@ -1,9 +1,9 @@
 ---
 title: Kanban View
-description: Manage workspace status, priority, and labels on a board when running many tasks.
+description: Manage workspace status, priority, labels, and groups on a board when running many tasks.
 ---
 
-Kanban view turns your workspaces into a board—columns for status, labels for theme, and priority when you need to decide what to pick up next.
+Kanban view turns your workspaces into a board—columns for status, labels for theme, priority when you need to decide what to pick up next, and **Groups** when you organize by custom clusters.
 
 ## Why it matters
 
@@ -11,21 +11,26 @@ Kanban view turns your workspaces into a board—columns for status, labels for 
 - Spot blocked or stale work quickly.
 - Coordinate parallel workspaces without a separate PM tool.
 - Drag cards instead of hunting through lists.
+- Align the board with sidebar grouping modes (status, project, time, label, priority, or group).
 
 ## What you can track
 
-- Workspace status (active, blocked, done, and custom columns).
+- Workspace status (Backlog, To Do, In Progress, In Review, Blocked, Completed, Canceled, and related columns).
 - Priority when multiple tasks compete.
 - Labels for area, repo, or agent type.
+- **Group** membership when the board is set to group mode — drag cards between group columns to reassign.
 
 ## Get started
 
-1. Open **Kanban** from Atmos.
-2. Place each workspace in the right column.
+1. Open **Kanban** from Atmos (sidebar or `⌘⇧K` for the expanded board).
+2. Place each workspace in the right column for status, or switch grouping for project / time / label / priority / group views.
 3. Add labels or priority where helpful.
 4. Open a card to jump into that workspace.
+5. Use filters (status, priority, labels, project) and sort (last visit, create time, priority) when the board is dense.
 
 ## Tips
 
 - Answer one question with the board: “What should I work on next?”
 - Do not over-tag—lightweight columns beat perfect taxonomy.
+- Import GitHub issues as **Issue Only** cards when you want board tracking before a real workspace exists.
+- For named project/workspace clusters, create **Groups** in the sidebar first, then use **By Group** on the board. See [Multi-Workspace Development](/features/multi-workspace).

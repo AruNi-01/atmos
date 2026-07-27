@@ -1,9 +1,9 @@
 ---
 title: 项目与工作空间管理
-description: 创建和管理项目与工作空间，这是每个 Atmos 工作流的基础。
+description: 创建和管理项目、工作空间与分组，这是每个 Atmos 工作流的基础。
 ---
 
-项目和工作空间是 Atmos 组织真实工作的方式。**项目**是磁盘上的代码库。**工作空间**是一个围绕单个任务的聚焦区域，有自己的分支、终端、编辑器、Agent 和 Review 历史。
+项目和工作空间是 Atmos 组织真实工作的方式。**项目**是磁盘上的代码库。**工作空间**是一个围绕单个任务的聚焦区域，有自己的分支、终端、编辑器、Agent 和 Review 历史。**分组（Group）**是可选的命名聚类，用来按客户、产品、实验等导航项目与工作空间。
 
 ## 概览
 
@@ -23,17 +23,19 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 
 | 能力 | 作用 |
 |------|------|
-| **Import Project** | 把项目文件夹添加到 Atmos |
+| **Import Project** | 把项目文件夹添加到 Atmos（Desktop 使用系统原生文件夹对话框） |
 | **Create workspace** | 为任务创建一个聚焦工作空间 |
 | **Quick New Workspace** | 一键创建带自动名称和分支的工作空间 |
-| **Kanban** | 跨工作空间管理状态、优先级和标签 |
+| **Groups** | 项目和/或工作空间的命名顶层聚类（侧边栏 **By Group**） |
+| **Kanban** | 跨工作空间管理状态、优先级、标签与分组看板 |
 | **Workspace scripts** | 为每个项目配置 setup、run 和 purge 自动化 |
 | **Ignored folder sync** | 把选定的忽略文件夹带入新工作空间 |
+| **Disk Analyzer** | 从管理中心检查 Atmos 相关磁盘占用 |
 
 ## 1. 添加项目
 
 1. 在左侧边栏底部点击 **Add Project**（文件夹图标），或从全局搜索 / New Workspace composer 中使用 **Add Project**。
-2. 在 **Import Project** 中选择 **Project Path**，可以手动输入，也可以点击 **Browse…** → **Select Project Directory**。
+2. 在 **Import Project** 中选择 **Project Path**，可以手动输入，也可以点击 **Browse…** → **Select Project Directory**。在 Desktop 上，Browse 使用系统文件夹选择器。
 3. 确认 Git 检测结果，设置 **Project Name**，然后点击 **Import Project**。
 
 项目会出现在侧边栏里，工作空间会显示在项目下方。
@@ -67,9 +69,24 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 
 如果同步失败，创建工作空间时 Atmos 会显示 **GitIgnore Sync Failed**。
 
-## 4. 创建工作空间
+## 4. 用 Groups 组织
 
-### 4.1 Quick New Workspace（侧边栏）
+Groups 是用户命名的容器。它们不改变 Git 归属：工作空间仍然只属于一个项目。
+
+1. 把侧边栏分组模式切换为 **By Group**（也可从项目/工作空间菜单创建分组）。
+2. 选择 **New Group**，输入名称并确认。
+3. 在项目或工作空间菜单中：**Add to Group**、**Move to Group** 或 **Remove from Group**。
+4. 单栏模式下展开分组可看到成员项目与直接工作空间；双栏模式（在 Settings 中启用）下，左侧选中分组后右侧显示成员。
+5. 未分组的项留在 **Ungrouped**。
+6. **Delete Group** 只删除分组与成员关系——项目和工作空间本身不会被删。
+
+每个项目与工作空间最多属于一个分组。作为分组成员的工作空间，在项目模式下仍会出现在其父项目下。
+
+移动已有其他分组下工作空间的项目时，Atmos 可能询问是否 **adopt** 这些工作空间，或只移动项目。当工作空间所属项目已在目标分组中时，可能提供 **follow project**（取消工作空间的直接分组关系）或继续为工作空间单独指定分组。
+
+## 5. 创建工作空间
+
+### 5.1 Quick New Workspace（侧边栏）
 
 1. 在项目行点击 **Quick New Workspace**（⚡）。
 2. Atmos 会创建一个带自动名称和分支的工作空间，将状态设为 **In Progress**，并准备它。
@@ -77,19 +94,19 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 
 适合：没有 GitHub 链接或自定义分支名的快速探索。
 
-### 4.2 New Workspace Composer
+### 5.2 New Workspace Composer
 
 1. 从 Management Center（`⌘N`）、项目菜单或全局搜索打开 **New Workspace**。
 2. **New Workspace** 覆盖中间和右侧面板，侧边栏仍然可见。
 3. 在 prompt composer 中：
-   - 输入目标，添加有用引用，或粘贴图片。
+   - 输入目标，添加有用引用，或粘贴图片 / 结构化上下文（支持时显示为芯片）。
    - 设置 **Priority**、**Status**、**Labels**，并选择项目。
 4. **Advanced**（`⋯`）：设置 **Name**、**Base branch**、**Current workspace branch**，或关联 **GitHub Issue** / **GitHub PR**。
 5. 点击 **Create Workspace**；Atmos 会创建工作空间、准备它、打开它，并且可以排队第一个 Agent prompt。
 
 适合：带有丰富上下文的 Agent-first 任务。
 
-### 4.3 Create New Workspace 对话框（Kanban 和 issue）
+### 5.3 Create New Workspace 对话框（Kanban 和 issue）
 
 1. 在 **Kanban** 中点击某一列上的 **+**，或在 **Issue Only** 卡片上点击 **Build workspace from issue**。
 2. 在 **Create New Workspace** 或 **Build Workspace from Issue** 中选择项目、名称、分支，以及可选的 GitHub issue 或 pull request。
@@ -97,37 +114,43 @@ description: 创建和管理项目与工作空间，这是每个 Atmos 工作流
 
 移动端工作空间创建支持同样的核心思路，但界面更小：title、base branch、可选 internal name 和 branch、GitHub Issue 或 PR URL、TODO 提取、priority、status、labels、setup progress、**Confirm TODOs**、**Retry Setup** 和 **Open Workspace**。
 
-### 4.4 Kanban：Issue Only 工作空间
+### 5.4 Kanban：Issue Only 工作空间
 
 1. 打开 **Kanban**（侧边栏图标，或 `⌘⇧K` 展开看板）。
 2. 点击 **Import GitHub Issues**，选择仓库，加载 issue，然后点击 **Import N Issue(s)**。
 3. Issue 会以 **GitHub Issue Only Workspace** 卡片出现，在真正创建工作空间前先被看板跟踪。
 4. 准备开始时，使用 **Build workspace from issue** 创建真实工作空间并开始构建。
 
-## 5. 用 Kanban 管理工作空间
+## 6. 用 Kanban 管理工作空间
 
 **列**表示工作流状态：**Backlog**、**To Do**、**In Progress**、**In Review**、**Blocked**、**Completed**、**Canceled**。
 
 **工具栏：**
 
 - 按状态、优先级、标签、项目过滤。
-- 按 **By Project**、**By Status** 或 **By Time** 分组。
+- 按 **By Project**、**By Status**、**By Time**、**By Label**、**By Priority** 或 **By Group** 分组。
 - 按 **Last Visit**、**Create Time** 或 **Priority** 排序。
 - 切换 **Show Issue Only** / **Hide Issue Only**。
 
-**卡片操作：**拖动改变状态，或执行 **Pin**、**Archive**、**Delete**，也可以打开工作空间。
+**卡片操作：**拖动改变状态（分组模式下可改分组归属），或执行 **Pin**、**Archive**、**Delete**，也可以打开工作空间。
 
 用 Kanban 回答一个问题：*我接下来该做什么？*
 
-## 6. Workspace Overview
+## 7. Workspace Overview
 
-Workspace Overview 会在不打开每个面板的情况下总结当前任务。用它检查 requirements、tasks、notes、pull requests、Actions 和 workspace state，再决定下一步运行什么。
+Workspace Overview 会在不打开每个面板的情况下总结当前任务。用它检查 requirements、tasks、notes（可用时含摘要）、pull requests、Actions 和 workspace state，再决定下一步运行什么。
 
 在移动端，**Overview** 是三个工作空间视图之一，另外两个是 **Terminal** 和 **Changes**。
+
+## 8. 磁盘与清理
+
+归档已完成的工作空间，让侧边栏保持可扫读。在 **Settings** → **Workspace** 中配置 **Archive Behavior**。
+
+磁盘占用升高时，从管理中心打开 **Disk Analyzer** 做 Atmos 范围扫描与清理。见 [磁盘分析器](/zh/features/disk-analyzer)。
 
 ## 相关内容
 
 - [通用构建流程](/zh/workflows/general-build-process) — 工作空间创建后的下一步。
-- [多工作空间开发](/zh/features/multi-workspace) — 功能概览。
+- [多工作空间开发](/zh/features/multi-workspace) — 分组与并行工作空间。
 - [Kanban 视图](/zh/features/kanban-view) — 以看板为中心的使用建议。
 - [移动端远程工作](/zh/workflows/mobile-remote-work) — 从手机使用项目和工作空间。

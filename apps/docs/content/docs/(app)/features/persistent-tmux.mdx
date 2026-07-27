@@ -22,6 +22,18 @@ The desktop and web workspace can use multiple panes and tabs. **Terminal Manage
 
 The mobile app uses a smaller terminal surface: one rendered terminal at a time. It can attach to existing sessions or create a new mobile terminal, but it does not queue terminal input while disconnected.
 
+## Terminal AI commands
+
+From the terminal AI Input (`/` menu):
+
+| Command | Use it for |
+|---------|------------|
+| **`/side`** | Temporary side chat seeded from this pane — [Terminal Side Chat](/features/terminal-side-chat) |
+| **`/spawn`** | New terminal panel that reuses this agent context |
+| **Dynamic Skills** | Temporarily hide skills for Agents in this context |
+
+Closing a terminal tab that still has running panes asks for confirmation so you do not kill live work by accident.
+
 ## Get started
 
 1. Open a workspace.

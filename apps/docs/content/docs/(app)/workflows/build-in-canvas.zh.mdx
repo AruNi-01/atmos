@@ -3,7 +3,9 @@ title: 在 Canvas 中构建
 description: 用 Canvas 观察多个工作空间，并以可视化方式组织工作。
 ---
 
-**Canvas** 不只是白板。它是一个可视化工作空间：你可以固定实时终端、整理笔记，并在多个任务同时推进时让 Agent 绘制或整理上下文。
+**Canvas** 不只是白板。它是一个可视化工作空间：你可以固定实时终端、整理笔记、打开 GitHub 小组件，并在多个任务同时推进时让 Agent 绘制或整理上下文。
+
+画板是 `~/.atmos/canvas/` 下的命名本地文档。文档模型见 [Canvas](/zh/features/canvas)。
 
 ## 概览
 
@@ -12,18 +14,29 @@ description: 用 Canvas 观察多个工作空间，并以可视化方式组织�
 | 在多个工作空间之间来回切换 | 多个终端卡片放在同一块画布上 |
 | 切换时丢失上下文 | **Pin to Canvas** 让会话保持可见 |
 | 图放在外部工具里 | Agent 可以帮助编辑画布 |
+| 只有一块匿名画板 | 多个可切换的命名文档 |
 
 从左侧边栏 **Management Center** → **Canvas** 打开 Canvas。
 
 ## 核心能力
 
+- **本地文档** — 从工具栏 **Documents** 保存、命名并切换画板。
 - **固定终端** — 把任何工作空间中的实时终端面板作为卡片放到画布上。
-- **页面** — 用不同页面区分不同工作线索。
+- **页面** — 在同一个文档内用不同页面区分工作线索。
 - **Frame** — 把相关卡片、笔记和图分组。
+- **小组件** — 需要源码与画板并排时，使用工作空间表面与 GitHub PR / Actions 卡片。
 - **Canvas 上的 Agent** — 让 Agent 创建笔记、移动元素并整理画布。
-- **复制图形给 Agent 上下文** — 选择图形，并把内容粘贴到 Agent prompt 中。
+- **复制图形给 Agent 上下文** — 选择图形，并把内容粘贴到 Agent prompt（composer 支持时显示为上下文芯片）。
 
-## 1. 把终端固定到 Canvas
+## 1. 保存与切换文档
+
+1. 打开 **Canvas**。
+2. 在右上角工具栏打开 **Documents**。
+3. **New** 新建空画板；**Save** / **Save As** 写入 `~/.atmos/canvas/<name>.atmos.tldr`。
+4. 从列表选择另一文档会替换当前视图。有未保存改动时会提示保存、丢弃或取消。
+5. 已有路径的文档会在后台自动保存。
+
+## 2. 把终端固定到 Canvas
 
 1. 在工作空间中打开 **Terminal** 标签，并聚焦一个有实时会话的面板。
 2. 在面板工具栏点击 **Pin to Canvas**，或使用右键菜单。
@@ -31,9 +44,9 @@ description: 用 Canvas 观察多个工作空间，并以可视化方式组织�
 4. 打开 **Canvas**；画布会加载，最近固定的卡片会自动聚焦。
 5. 卡片上的 **Source** 会跳回原终端面板；**Unpin** 会移除图形。
 
-你可以对**其他工作空间**里的终端重复这个操作，在一个界面上并行观察多个 Agent。
+你可以对**其他工作空间**里的终端重复这个操作，在一个界面上并行观察多个 Agent。从 Canvas 终端启动的 side chat 会留在该卡片内——见 [终端 Side Chat](/zh/features/terminal-side-chat)。
 
-## 2. 整理页面和 Frame
+## 3. 整理页面、Frame 与小组件
 
 **页面**
 
@@ -46,9 +59,12 @@ description: 用 Canvas 观察多个工作空间，并以可视化方式组织�
 2. 点击 **Frame**，在当前视图中心放置一个带名称的 Frame。
 3. 调整大小并重命名；把相关卡片和图放到 Frame 中。
 
-可以用 Frame 表示 “sprint board”、“service A migration” 或 “incident timeline” 这样的分组。
+**小组件**
 
-## 3. 在 Canvas 上并行运行 Code Agent
+- 添加或打开文件、diff、Review、GitHub PR / Actions 等小组件，让画板紧挨工作本身。
+- Agent 在画板上绘制时，可使用跟随控件与截图预览。
+
+## 4. 在 Canvas 上并行运行 Code Agent
 
 典型模式：
 
@@ -59,22 +75,17 @@ description: 用 Canvas 观察多个工作空间，并以可视化方式组织�
 
 当你需要完整工作空间 UI（编辑器、Review、Run / Preview）时，点击 **Source** 跳转回去。
 
-## 4. 让 Agent 操作 Canvas
+## 5. 让 Agent 操作 Canvas
 
 1. 打开右上角的 Canvas Agent 控件。
 2. 允许 Agent 访问画布。
-3. 需要时，把那里显示的说明复制给你的编码 Agent。
+3. 需要时，把那里显示的说明复制给你的编码 Agent（composer 支持时会粘贴为 Canvas 上下文芯片）。
 4. Agent 工作时：
    - 桥接图标会闪动，图形可能会短暂高亮。
    - 右下角的 **Canvas agent activity** 会列出动作。
    - **Last change · Jump** 会平移到最近的改动。
 
-让 Agent 绘制架构图、时序流程或整理笔记。你也可以把选中的画布内容复制到 Agent 对话中作为上下文。
-
-## 保存与持久化
-
-- **Save** 会保存当前画布状态。
-- 后台也会自动保存。
+让 Agent 绘制架构图、时序流程或整理笔记。当文档定义了 document scripts 时，交互式画板也可使用它们。
 
 ## 相关内容
 

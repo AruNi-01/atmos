@@ -1,0 +1,42 @@
+---
+title: Disk Analyzer
+description: Scan Atmos-related disk usage, drill into large folders, and clean up safely.
+---
+
+Disk Analyzer lives in the Management Center. It scans disk usage so you can see what is taking space under Atmos-related paths, drill into large folders, and remove files you no longer need.
+
+By default the scan stays **Atmos-scoped** (`~/.atmos`, managed projects, and the Atmos app when applicable). You can opt in to **Scan all space** when you need a broader map of the machine.
+
+## Why it matters
+
+- Find large workspaces, runtimes, caches, and build outputs before the disk fills up.
+- Prefer Atmos-scoped scans for day-to-day cleanup without a full-system walk.
+- Drill with list and chart views (treemap / sunburst), then clean with trash or permanent delete.
+
+## Open Disk Analyzer
+
+1. Open the **Management Center** in the left sidebar, or use Global Search for **Disk Analyzer**.
+2. Open **Disk Analyzer**.
+3. Wait for the default Atmos-scoped scan, or start a rescan.
+4. Click folders in the list or chart to drill in. Breadcrumbs show the current path.
+5. Select an item to inspect size and cleanup hints, then **Move to trash…** when it is safe to remove.
+
+Turn on **Scan all space** only when you intentionally want a broader scan. Disk Analyzer is not a full professional system cleaner; for deep system-wide cleanup, use a dedicated disk tool on your OS.
+
+## What you can do
+
+| Action | Result |
+|--------|--------|
+| **Scan / Rescan** | Measure current usage for the chosen scope |
+| **Scan all space** | Expand beyond the default Atmos scope |
+| **Treemap / Sunburst** | Switch chart visualization |
+| **Filter / Top N** | Focus on the largest items |
+| **Enter directory** | Drill into a folder |
+| **Move to trash / Delete permanently** | Reclaim space after confirm |
+
+## Tips
+
+- Prefer trash over permanent delete unless you are sure.
+- Path totals can exceed volume used when files share storage through clones or links; free space shown for the volume is the authoritative remaining capacity.
+- After archiving old workspaces, rescan to confirm **Purge Script** and manual cleanup actually freed space.
+- Pair with [Project & Workspace Manager](/workflows/project-and-workspace-manager) archive and purge flows so unused worktrees do not pile up.

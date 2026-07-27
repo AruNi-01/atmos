@@ -14,6 +14,12 @@ Use it when you want a focused conversation: ask what a file does, request a sma
 - Avoid copy-pasting between chat apps and the repo.
 - Stay in the workspace that owns the task.
 
+## Context chips
+
+When you paste or insert structured context into the Prompt Composer — code or diff selections, wiki text, browser **element** selections from Preview, terminal selections, review prompts, and similar sources — Atmos shows them as **context chips** instead of raw protocol text.
+
+Chips keep the composer readable. On send, Atmos expands each chip back to the exact prompt body for the agent. You can remove a chip before sending if that context is no longer needed.
+
 ## What to ask
 
 - Explain how part of the codebase works.
@@ -27,17 +33,21 @@ Use it when you want a focused conversation: ask what a file does, request a sma
 
 Atmos can use terminal agents and custom ACP agents from the app. Open **Settings** -> **Code Agent** or the agent manager to enable built-in agents, add custom agents, and save run configurations.
 
-Run configurations can include model, reasoning or thinking level, and extra arguments. Atmos blocks conflicting flags when a structured model or reasoning setting is active.
+Built-in terminal agents include Claude Code, Codex, Gemini, Grok Build, Cursor Agent (`cursor-agent`), OpenCode, and others listed under Code Agent settings. Run configurations can include model, reasoning or thinking level, and extra arguments. Atmos blocks conflicting flags when a structured model or reasoning setting is active.
+
+From the composer `/` menu you can also open **Dynamic Skills** to temporarily hide skills for this project or workplace. See [Dynamic Skills](/how-it-works/dynamic-skills).
 
 ## Get started
 
 1. Open the workspace for your task.
 2. Open the agent chat panel or agent manager.
-3. State the goal, useful files, and expected outcome.
-4. Review edits and terminal output before you ship.
+3. Paste or insert any context you need (chips appear for structured sources).
+4. State the goal, useful files, and expected outcome.
+5. Review edits and terminal output before you ship.
 
 ## Tips
 
 - Give agents a clear finish line; split large work into steps.
 - Pair with [Skill Management](/features/skill-management) for repeatable workflows.
 - Pair with [Appshots](/features/appshots) when the missing context is on screen.
+- For terminal-local tangents, prefer [Terminal Side Chat](/features/terminal-side-chat) (`/side`) so the main agent session stays clean.

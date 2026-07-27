@@ -14,6 +14,12 @@ description: 在 Atmos 的任何地方和编码 Agent 对话。
 - 避免在聊天应用和仓库之间来回复制。
 - 始终留在拥有这个任务的工作空间里。
 
+## 上下文芯片
+
+当你把结构化上下文粘贴或插入 Prompt Composer——代码或 diff 选区、Wiki 文本、Preview 中的浏览器**元素**选区、终端选区、Review 提示等——Atmos 会把它们显示为**上下文芯片**，而不是原始协议文本。
+
+芯片让 composer 更易读。发送时，Atmos 会把每个芯片展开为给 Agent 的完整 prompt 正文。若不需要某段上下文，可在发送前移除对应芯片。
+
 ## 可以问什么
 
 - 解释代码库的某一部分如何工作。
@@ -27,17 +33,21 @@ description: 在 Atmos 的任何地方和编码 Agent 对话。
 
 Atmos 可以在应用中使用终端 Agent 和自定义 ACP Agent。打开 **Settings** -> **Code Agent** 或 Agent 管理器，可以启用内置 Agent、添加自定义 Agent，并保存运行配置。
 
-运行配置可以包含模型、reasoning 或 thinking 级别，以及额外参数。当结构化模型或 reasoning 设置启用时，Atmos 会阻止冲突参数。
+内置终端 Agent 包括 Claude Code、Codex、Gemini、Grok Build、Cursor Agent（`cursor-agent`）、OpenCode，以及 Code Agent 设置中列出的其他 Agent。运行配置可以包含模型、reasoning 或 thinking 级别，以及额外参数。当结构化模型或 reasoning 设置启用时，Atmos 会阻止冲突参数。
+
+在 composer 的 `/` 菜单中还可以打开 **Dynamic Skills**，临时隐藏当前项目或 workplace 的 Skills。见 [Dynamic Skills](/zh/how-it-works/dynamic-skills)。
 
 ## 开始使用
 
 1. 打开当前任务的工作空间。
 2. 打开 Agent 聊天面板或 Agent 管理器。
-3. 说明目标、有用文件和预期结果。
-4. 发布前检查改动和终端输出。
+3. 粘贴或插入需要的上下文（结构化来源会显示为芯片）。
+4. 说明目标、有用文件和预期结果。
+5. 发布前检查改动和终端输出。
 
 ## 使用建议
 
 - 给 Agent 一个清晰的终点；大任务拆成小步骤。
 - 和 [技能管理](/zh/features/skill-management) 搭配，处理可重复的工作流。
 - 当缺失的上下文在屏幕上时，配合 [Appshots](/zh/features/appshots) 使用。
+- 终端内的旁支问题优先用 [终端 Side Chat](/zh/features/terminal-side-chat)（`/side`），保持主 Agent 会话干净。

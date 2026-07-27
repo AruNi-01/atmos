@@ -3,7 +3,9 @@ title: Build in Canvas
 description: Use Canvas to watch several workspaces and organize the work visually.
 ---
 
-**Canvas** is not only a whiteboard. It is a visual workspace where you can pin live terminals, organize notes, and ask agents to draw or arrange context while several tasks are moving at once.
+**Canvas** is not only a whiteboard. It is a visual workspace where you can pin live terminals, organize notes, open GitHub widgets, and ask agents to draw or arrange context while several tasks are moving at once.
+
+Boards are named local documents under `~/.atmos/canvas/`. See [Canvas](/features/canvas) for the document model.
 
 ## Overview
 
@@ -12,18 +14,29 @@ description: Use Canvas to watch several workspaces and organize the work visual
 | Alt-tab between workspaces | Multiple terminal cards on one board |
 | Context lost when switching | **Pin to Canvas** keeps sessions visible |
 | Diagrams in external tools | Agents can help edit the board |
+| One anonymous board | Multiple named documents you can switch |
 
 Open Canvas from the left sidebar **Management Center** → **Canvas**.
 
 ## Core capabilities
 
+- **Local documents** — save, name, and switch boards from the **Documents** toolbar control.
 - **Pin terminals** — live terminal panes from any workspace as cards on the board.
-- **Pages** — separate board pages for different threads of work.
+- **Pages** — separate board pages for different threads of work inside one document.
 - **Frames** — group related cards, notes, and diagrams.
+- **Widgets** — workspace surfaces and GitHub PR / Actions cards when you need source next to the board.
 - **Agent on Canvas** — let agents create notes, move items, and organize the board.
-- **Copy shapes to agent context** — Select graphics and paste content into agent prompts.
+- **Copy shapes to agent context** — select graphics and paste content into agent prompts (as context chips when the composer supports them).
 
-## 1. Pin a terminal to Canvas
+## 1. Save and switch documents
+
+1. Open **Canvas**.
+2. Open **Documents** in the top-right toolbar.
+3. **New** starts an empty board; **Save** / **Save As** writes `~/.atmos/canvas/<name>.atmos.tldr`.
+4. Pick another document from the list to replace the current view. Unsaved changes prompt you to save, discard, or cancel.
+5. Autosave runs in the background for the active document path.
+
+## 2. Pin a terminal to Canvas
 
 1. In a workspace, open the **Terminal** tab and focus a pane with a live session.
 2. On the pane toolbar, click **Pin to Canvas**, or use the context menu.
@@ -31,9 +44,9 @@ Open Canvas from the left sidebar **Management Center** → **Canvas**.
 4. Open **Canvas** — the board loads; the last pin is auto-focused.
 5. On the card: **Source** jumps back to that terminal pane; **Unpin** removes the shape.
 
-Repeat for terminals in **other workspaces** to work on multiple agents in parallel on one surface.
+Repeat for terminals in **other workspaces** to work on multiple agents in parallel on one surface. Side chats started from a Canvas terminal stay inside that card — see [Terminal Side Chat](/features/terminal-side-chat).
 
-## 2. Organize pages and frames
+## 3. Organize pages, frames, and widgets
 
 **Pages**
 
@@ -46,9 +59,12 @@ Repeat for terminals in **other workspaces** to work on multiple agents in paral
 2. Click **Frame** to drop a named frame at the viewport center.
 3. Resize and rename it; group related cards and diagrams inside frames.
 
-Use frames for “sprint board”, “service A migration”, or “incident timeline” groupings.
+**Widgets**
 
-## 3. Parallel Code Agents on Canvas
+- Add or open widgets for files, diffs, review, and GitHub PR / Actions so the board stays next to the work.
+- Use follow controls and screenshot previews when an agent is drawing on the board.
+
+## 4. Parallel Code Agents on Canvas
 
 Typical pattern:
 
@@ -59,22 +75,17 @@ Typical pattern:
 
 Jump to **Source** when you need the full workspace UI (editor, Review, Run / Preview).
 
-## 4. Let agents work on Canvas
+## 5. Let agents work on Canvas
 
 1. Open the Canvas agent controls in the top-right corner.
 2. Enable agent access to the board.
-3. Copy the instructions shown there into your coding agent when needed.
+3. Copy the instructions shown there into your coding agent when needed (they paste as a Canvas context chip in the composer when supported).
 4. While the agent works:
    - Bridge icon pulses; shapes may show transient highlights.
    - **Canvas agent activity** island (bottom-right) lists actions.
    - **Last change · Jump** pans to the latest edit.
 
-Ask agents to draw architecture diagrams, sequence flows, or organize notes. You can also copy selected board content into an agent conversation when you need to share context.
-
-## Save and persistence
-
-- **Save** keeps the current board state.
-- Auto-save also runs in the background.
+Ask agents to draw architecture diagrams, sequence flows, or organize notes. Interactive boards can also use document scripts when a document defines them.
 
 ## Related
 

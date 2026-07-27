@@ -3,6 +3,7 @@
   "pages": [
     "multi-workspace",
     "persistent-tmux",
+    "terminal-side-chat",
     "built-in-editor",
     "integrated-git-workflow",
     "agent-chat-panel",
@@ -13,6 +14,7 @@
     "mobile-app",
     "global-search-command-palette",
     "usage-analytics-dashboard",
+    "disk-analyzer",
     "agent-status-notifications",
     "agent-status-tracking",
     "lightweight-local-models",

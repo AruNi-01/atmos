@@ -62,3 +62,19 @@ description: 常见设置、runtime、远程、终端、移动端和 CLI 问题�
 检查你是否打开了正确的工作空间和项目文件夹。然后用更小、更具体的请求重新运行 Agent。
 
 如果启动了错误的终端 Agent，打开 **Settings** -> **Code Agent**，检查启用的 Agent、命令、参数、保存的运行配置、模型、reasoning 和额外参数。
+
+如果同时安装了 **Grok Build** 与 Cursor 相关工具，优先使用内置 **Cursor Agent**（启动 `cursor-agent`），或直接输入 `grok` / `cursor-agent`，避免裸 `agent` 命令被误标。若 Grok 用量行是空的，先运行 `grok login`。
+
+## 磁盘已满或 Atmos 路径占用很大
+
+1. 归档已完成的工作空间，并在已配置时运行项目的 **Purge Script**。
+2. 从管理中心打开 **Disk Analyzer**，做 Atmos 范围扫描。
+3. 清理时优先 **Move to trash**；删除后重新扫描。
+4. 仅在你确实需要更广的整机视图时开启 **Scan all space**。
+
+## Canvas 文档丢失或切换丢了内容
+
+1. 画板位于 `~/.atmos/canvas/`，文件为 `*.atmos.tldr`。
+2. 用 Canvas 工具栏的 **Documents** 打开命名画板。
+3. 若产品提示有未保存改动，请明确选择保存或丢弃——切换会替换当前视图。
+4. 确认你在有本地文件系统的 Desktop / 本地 Atmos Server 上使用。

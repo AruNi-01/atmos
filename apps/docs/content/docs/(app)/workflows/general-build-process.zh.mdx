@@ -18,6 +18,7 @@ description: 从创建工作空间到完成 Review 变更的日常流程。
 - **Quick New Workspace** 适合快速开始。
 - **New Workspace Composer**（`⌘N`）适合带 prompt、GitHub 链接或图片的任务。
 - **Kanban** 适合整理大量任务。
+- **Groups** 适合把相关项目放在同一个命名聚类下。
 
 开始编辑或运行 Agent 前，等待 **Workspace Setup Progress** 完成。
 
@@ -36,8 +37,10 @@ UI 中会显示 **Create Workspace**、**Run Setup Script** 和 **Ready** 等步
 ## 3. 在终端中用 Code Agent 构建
 
 1. 打开工作空间的 **Terminal** 标签。
-2. 在这个 shell 中启动你的编码 Agent。
+2. 在这个 shell 中启动你的编码 Agent（包括从 Agent Select 选择的 **Grok Build** 等内置 Agent）。
 3. 也可以使用**全局 Agent 聊天面板**处理不需要完整终端流程的聚焦任务。
+4. 在 composer 中粘贴结构化上下文时，会显示为**上下文芯片**（代码、diff、浏览器元素、终端选区等）。
+5. 不想污染主 Agent 的旁支问题用 **`/side`**；需要复用同一上下文的完整并行面板用 **`/spawn`**。见 [终端 Side Chat](/zh/features/terminal-side-chat)。
 
 给 Agent 一个清晰的目标、文件和约束。让它在工具中迭代，同时你在同一个面板里查看输出。
 
@@ -65,16 +68,23 @@ UI 中会显示 **Create Workspace**、**Run Setup Script** 和 **Ready** 等步
 
 如果没有 run script，你会看到 **No Run Script Configured**，并可以跳转到 **Workspace Scripts**。
 
-Browser preview 支持标签页、桌面和移动视口、元素选择、注释、收藏、开发者工具、扩展安装，以及独立桌面 Browser 窗口。当你想在不离开工作空间的情况下检查运行中的应用时使用它。
+Browser preview 支持标签页、桌面和移动视口、元素选择（粘贴到 composer 时为 **Element** 芯片）、注释、收藏、开发者工具、扩展安装、中心舞台浏览器标签，以及独立桌面 Browser 窗口。
+
+在 **Desktop macOS 14+** 上，浏览器工具栏溢出菜单还可以：
+
+- 从本机其他浏览器**导入 Cookie** 到 Atmos 浏览器配置（数据留在本机）。
+- **清除缓存**而不登出站点。
+- 需要干净会话时**清除 Cookie 与站点数据**（会登出站点）。
 
 Footer 中的 **Atmos Local Services** 会显示检测到的本地进程。用它重新打开运行中的服务，或查看 Atmos 已识别的本地 URL。
 
 ## 7. 测试、发布和清理
 
 1. 在终端中运行项目测试，例如单元测试、端到端测试、lint，或你的仓库使用的检查。
-2. 用正常 Git 流程提交或打开 PR；Atmos Git 视图可以帮助你先检查 diff。
+2. 用正常 Git 流程提交或打开 PR；Atmos Git 视图可以帮助你先检查 diff；PR 与 CI 详情在中心标签页打开。
 3. 任务完成后，**Archive** 工作空间，可以从侧边栏或 Kanban 执行。
 4. 如果配置了 **Purge Script**，它会删除较重的生成文件，避免旧工作空间占满磁盘。
+5. 需要查看 Atmos 相关路径占用时，使用 [磁盘分析器](/zh/features/disk-analyzer)。
 
 **Settings** → **Workspace** 中的 **Archive Behavior** 控制确认方式，以及归档时如何处理终端会话。
 

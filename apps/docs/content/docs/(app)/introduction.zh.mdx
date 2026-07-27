@@ -15,11 +15,11 @@ Atmos 是一个并发开发工作空间，把 Code Agent、终端、Git、Review
 ## 你可以做什么
 
 - **同时运行多个任务** — 为每个功能、修复、实验或 Review 创建独立工作空间和分支。
-- **让终端可恢复** — 工作空间终端能跨刷新、应用重启、连接中断和机器重启恢复。
-- **使用你已经信任的 Agent** — 在工作空间 shell 中启动 Claude Code、Codex、Gemini、OpenCode、Cursor Agent 或其他终端 Agent。
-- **在工作发生的地方检查结果** — 不离开工作空间就能查看文件、diff、终端输出、Agent 状态、PR、Actions 和笔记。
+- **让终端可恢复** — 工作空间终端能跨刷新、应用重启、连接中断和机器重启恢复。在终端 AI Input 中用 `/side` 与 `/spawn` 处理旁支与并行面板。
+- **使用你已经信任的 Agent** — 在工作空间 shell 中启动 Claude Code、Codex、Gemini、Grok Build、OpenCode、Cursor Agent 或其他终端 Agent。
+- **在工作发生的地方检查结果** — 不离开工作空间就能查看文件、diff、终端输出、Agent 状态、PR、Actions 和笔记；GitHub PR 与 CI 详情在中心标签页打开。
 - **发布前先 Review** — 留下行内评论、让 Agent 修复、运行测试，然后提交或打开 PR。
-- **组织并行工作** — 使用 Kanban、Canvas、标签、优先级、全局搜索和状态通知。
+- **组织并行工作** — 使用 Groups、Kanban、Canvas 文档、标签、优先级、全局搜索、磁盘分析器和状态通知。
 - **自动化重复工作** — 在正确的项目或工作空间中运行手动、定时或 GitHub 触发的自动化。
 - **从其他设备工作** — 当工作需要跑在另一台机器上时，通过 Atmos Computer、Tunnel Connector 或原生移动应用连接。
 
@@ -27,8 +27,8 @@ Atmos 是一个并发开发工作空间，把 Code Agent、终端、Git、Review
 
 | 章节 | 内容 |
 |------|------|
-| [快速开始](/zh/getting-started) | 安装 Atmos，选择 Desktop/Web/Mobile，并创建第一个工作空间 |
-| [项目与工作空间管理](/zh/workflows/project-and-workspace-manager) | 添加项目、创建工作空间、管理任务卡片 |
+| [快速开始](/zh/getting-started) | 安装 Atmos，首次引导，选择 Desktop/Web/Mobile，并创建第一个工作空间 |
+| [项目与工作空间管理](/zh/workflows/project-and-workspace-manager) | 添加项目、创建工作空间与分组、管理任务卡片 |
 | [通用构建流程](/zh/workflows/general-build-process) | 从想法到已 Review 变更的日常流程 |
 | [自动化重复工作](/zh/workflows/automate-recurring-work) | 把 prompt 变成手动、定时或 GitHub 触发的自动化 |
 | [在 Atmos 中做代码 Review](/zh/workflows/code-review-in-atmos) | 查看 diff、评论，并让 Agent 修复问题 |

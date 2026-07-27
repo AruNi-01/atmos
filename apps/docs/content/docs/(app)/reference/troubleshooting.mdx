@@ -62,3 +62,19 @@ On that machine:
 Check that you opened the right workspace and project folder. Then rerun the agent with a smaller, more specific request.
 
 If the wrong terminal agent starts, open **Settings** -> **Code Agent** and check the enabled agent, command, parameters, saved run configuration, model, reasoning, and extra arguments.
+
+If both **Grok Build** and Cursor-related tools are installed, prefer the built-in **Cursor Agent** entry (it launches `cursor-agent`) or freehand `grok` / `cursor-agent` so a bare `agent` command is not mislabeled. For Grok usage rows that look empty, run `grok login` first.
+
+## Disk is full or Atmos paths look huge
+
+1. Archive finished workspaces and run project **Purge Script** when configured.
+2. Open **Disk Analyzer** from the Management Center for an Atmos-scoped scan.
+3. Prefer **Move to trash** for cleanup; rescan after deletes.
+4. Only enable **Scan all space** when you intentionally want a broader machine map.
+
+## Canvas document missing or switch lost work
+
+1. Boards live under `~/.atmos/canvas/` as `*.atmos.tldr` files.
+2. Use **Documents** in the Canvas toolbar to open a named board.
+3. If the product warned about unsaved changes, choose save or discard deliberately — switching replaces the current view.
+4. Confirm you are on a local Atmos Server / Desktop with filesystem access.

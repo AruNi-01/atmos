@@ -1,0 +1,56 @@
+---
+title: Terminal Side Chat
+description: Fork a temporary agent conversation from terminal context without polluting the main session.
+---
+
+Terminal Side Chat lets you ask a tangent question from the terminal AI Input without sending that prompt into the main terminal agent. Use `/side` to open a separate side-chat terminal seeded with a bounded transcript from the current pane.
+
+Use `/spawn` when you want a full new terminal panel that continues from the same context instead of a temporary side chat.
+
+## Why it matters
+
+- Keep the main agent thread focused while you explore an error, design option, or explanation.
+- Seed the side chat with recent terminal output so you do not re-paste context by hand.
+- Hide side chats as small restore dots, then bring them back when you need them.
+- Continue durable parallel agent work with `/spawn` when a full pane is better than a modal.
+
+## `/side` vs `/spawn`
+
+| Command | What you get | Best for |
+|---------|--------------|----------|
+| **`/side`** | Temporary side-chat terminal with Hide/Close only | Quick tangents and explanations |
+| **`/spawn`** | New first-class terminal panel with the same agent context | Parallel agent work that should stay in the grid |
+
+Both commands appear in the **terminal AI Input** slash menu (`/`). They do not appear in the New Workspace welcome composer, because there is no source terminal to fork.
+
+## Get started with `/side`
+
+1. Open a workspace terminal pane that has recent output or a running agent.
+2. Open the terminal AI Input (`⌘G` / `Ctrl+G`, or the floating handle).
+3. Type `/` and choose **`/side`**.
+4. A `/side` chip appears. Type your side question, then press Enter.
+5. Atmos captures a bounded transcript from the source pane, opens a side chat, and sends the prompt there — not into the main terminal.
+6. Use **Hide** to collapse the side chat into a colored restore dot next to the AI Input handle, or **Close** to destroy it.
+
+If the source terminal has no detected agent, Atmos asks you to pick one before the side chat starts.
+
+## Get started with `/spawn`
+
+1. Focus a terminal pane with an active agent or usable context.
+2. Open the terminal AI Input and choose **`/spawn`**.
+3. Type the prompt for the new panel and press Enter.
+4. Atmos creates a **new terminal panel** and continues with that context. The original pane stays in place.
+
+## What stays constrained
+
+- Side chats have a single panel. They do not expose split, pin-to-canvas, or normal terminal grid menus.
+- Side chats opened from a Canvas terminal card stay inside that card.
+- Closing the source terminal also closes side chats forked from it.
+- Hidden side chats can restore after reload while their tmux windows still exist; they return as dots, not auto-opened modals.
+
+## Tips
+
+- Prefer `/side` for “explain this error” style questions; prefer `/spawn` when you want another agent to keep working in parallel.
+- You can also start a side chat from a terminal text selection when the selection toolbar offers **Side chat for selection**.
+- Pair with [Persistent Terminal Sessions](/features/persistent-tmux) and [Multi-Workspace Development](/features/multi-workspace) when several agents run at once.
+- Use [Dynamic Skills](/how-it-works/dynamic-skills) from the same `/` menu when a skill is steering the agent the wrong way for this task.

@@ -1,0 +1,56 @@
+---
+title: 终端 Side Chat
+description: 从终端上下文分叉临时 Agent 对话，而不污染主会话。
+---
+
+终端 Side Chat 让你从终端 AI Input 提出旁支问题，而不会把该 prompt 发送给主终端 Agent。使用 `/side` 打开独立的 side-chat 终端，并附带当前面板的有界终端摘录作为上下文。
+
+当你需要的是完整的新终端面板（而不是临时 side chat）时，使用 `/spawn`，它会基于当前 Agent 上下文继续工作。
+
+## 为什么重要
+
+- 主 Agent 线程保持聚焦，同时你去排查错误、讨论方案或解释细节。
+- 用最近的终端输出初始化 side chat，不必手写粘贴上下文。
+- 可以把 side chat 收成小圆点，需要时再恢复。
+- 需要持久并行工作时，用 `/spawn` 打开完整面板比模态侧聊更合适。
+
+## `/side` 与 `/spawn`
+
+| 命令 | 得到什么 | 适合 |
+|------|----------|------|
+| **`/side`** | 仅含 Hide/Close 的临时 side-chat 终端 | 快速旁支问题和解释 |
+| **`/spawn`** | 带同一 Agent 上下文的新一级终端面板 | 需要留在网格里的并行 Agent 工作 |
+
+两条命令都出现在**终端 AI Input** 的 `/` 菜单中。它们不会出现在 New Workspace 欢迎页的 composer 里，因为那里没有可分叉的源终端。
+
+## 使用 `/side`
+
+1. 打开一个有近期输出或正在运行 Agent 的工作空间终端面板。
+2. 打开终端 AI Input（`⌘G` / `Ctrl+G`，或浮动手柄）。
+3. 输入 `/`，选择 **`/side`**。
+4. 出现 `/side` 芯片后，输入旁支问题并按 Enter。
+5. Atmos 从源面板捕获有界摘录，打开 side chat，并把 prompt 发到那里——而不是主终端。
+6. 用 **Hide** 收成 AI Input 旁的彩色恢复点，或用 **Close** 销毁它。
+
+如果源终端尚未检测到 Agent，Atmos 会先让你选择一个再启动 side chat。
+
+## 使用 `/spawn`
+
+1. 聚焦一个已有活跃 Agent 或可用上下文的终端面板。
+2. 打开终端 AI Input，选择 **`/spawn`**。
+3. 输入新面板的 prompt 并按 Enter。
+4. Atmos 创建**新的终端面板**并沿该上下文继续；原面板保持不动。
+
+## 边界与约束
+
+- Side chat 只有单个面板，不提供分屏、固定到 Canvas 或常规终端网格菜单。
+- 从 Canvas 终端卡片打开的 side chat 会留在该卡片内。
+- 关闭源终端也会关闭从它分叉的 side chat。
+- 在 tmux 窗口仍存在时，隐藏的 side chat 可在刷新后以圆点形式恢复；默认不会自动弹开。
+
+## 使用建议
+
+- “解释这个错误”类问题用 `/side`；需要另一个 Agent 并行继续工作时用 `/spawn`。
+- 从终端文本选区启动时，选区工具栏也可提供 **Side chat for selection**。
+- 多个 Agent 同时运行时，搭配 [持久终端会话](/zh/features/persistent-tmux) 与 [多工作空间开发](/zh/features/multi-workspace)。
+- 当某个 Skill 把 Agent 带偏时，可在同一个 `/` 菜单使用 [Dynamic Skills](/zh/how-it-works/dynamic-skills)。

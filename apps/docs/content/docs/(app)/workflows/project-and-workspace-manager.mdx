@@ -1,9 +1,9 @@
 ---
 title: Project & Workspace Manager
-description: Create and manage projects and workspaces—the foundation of every Atmos workflow.
+description: Create and manage projects, workspaces, and groups—the foundation of every Atmos workflow.
 ---
 
-Projects and workspaces are how Atmos organizes real work. A **project** is a codebase on disk. A **workspace** is a focused place for one task, with its own branch, terminal, editor, agents, and review history.
+Projects and workspaces are how Atmos organizes real work. A **project** is a codebase on disk. A **workspace** is a focused place for one task, with its own branch, terminal, editor, agents, and review history. A **group** is an optional named cluster of projects and workspaces for your own navigation (client, product, experiment).
 
 ## Overview
 
@@ -23,17 +23,19 @@ Separate workspaces let multiple tasks share one project while staying on differ
 
 | Capability | What it does |
 |------------|----------------|
-| **Import Project** | Add a project folder to Atmos |
+| **Import Project** | Add a project folder to Atmos (Desktop uses the native OS folder dialog) |
 | **Create workspace** | Create a focused task workspace |
 | **Quick New Workspace** | One-click workspace with auto-generated name/branch |
-| **Kanban** | Status, priority, labels across workspaces |
+| **Groups** | Named top-level clusters of projects and/or workspaces (**By Group** sidebar mode) |
+| **Kanban** | Status, priority, labels, and group board modes across workspaces |
 | **Workspace scripts** | Setup, run, and purge automation per project |
 | **Ignored folder sync** | Bring selected ignored folders into new workspaces |
+| **Disk Analyzer** | Inspect Atmos-related disk usage from the Management Center |
 
 ## 1. Add a project
 
 1. In the left sidebar footer, click **Add Project** (folder icon), or use **Add Project** from Global Search / the New Workspace composer.
-2. In **Import Project**, pick **Project Path** (type or **Browse…** → **Select Project Directory**).
+2. In **Import Project**, pick **Project Path** (type or **Browse…** → **Select Project Directory**). On Desktop, Browse uses the system folder picker.
 3. Confirm Git detection, set **Project Name**, then **Import Project**.
 
 The project appears in the sidebar with its workspaces underneath.
@@ -67,9 +69,24 @@ Some teams keep agent instructions, prompts, or local tools in folders that are 
 
 If sync fails, Atmos shows a **GitIgnore Sync Failed** message when the workspace is created.
 
-## 4. Create a workspace
+## 4. Organize with Groups
 
-### 4.1 Quick New Workspace (sidebar)
+Groups are user-named containers. They do not change git ownership: a workspace still belongs to exactly one project.
+
+1. Switch the sidebar grouping mode to **By Group** (or create a group from a project/workspace menu).
+2. Choose **New Group**, enter a name, and confirm.
+3. From a project or workspace menu: **Add to Group**, **Move to Group**, or **Remove from Group**.
+4. In one-column mode, expand a group to see member projects and direct workspaces. In two-column mode (when enabled in Settings), select a group on the left to open members on the right.
+5. Items without a group stay under **Ungrouped**.
+6. **Delete Group** only removes the group and membership — projects and workspaces stay.
+
+Each project and workspace belongs to at most one group. A workspace that is a group member still appears under its parent project in project mode.
+
+When you move a project that already has workspaces in other groups, Atmos may ask whether to **adopt** those workspaces or move the project only. When a workspace’s project is already in the target group, you may be offered **follow project** (unlink the workspace membership) or keep a direct workspace assignment.
+
+## 5. Create a workspace
+
+### 5.1 Quick New Workspace (sidebar)
 
 1. On a project row, click **Quick New Workspace** (⚡).
 2. Atmos creates a workspace with an auto-generated name and branch, sets it to **In Progress**, and prepares it.
@@ -77,19 +94,19 @@ If sync fails, Atmos shows a **GitIgnore Sync Failed** message when the workspac
 
 Best for: fast spikes with no GitHub link or custom branch name.
 
-### 4.2 New Workspace Composer
+### 5.2 New Workspace Composer
 
 1. Open **New Workspace** from the Management Center (`⌘N`), the project menu, or Global Search.
 2. The **New Workspace** overlay covers the center and right panels (sidebar stays visible).
 3. In the prompt composer:
-   - Type the goal, add helpful references, or paste images.
+   - Type the goal, add helpful references, or paste images / structured context (shown as chips when supported).
    - Set **Priority**, **Status**, **Labels**, and pick a project.
 4. **Advanced** (`⋯`): set **Name**, **Base branch**, **Current workspace branch**, or link a **GitHub Issue** / **GitHub PR**.
 5. Press **Create Workspace** — Atmos creates the workspace, prepares it, opens it, and can queue the first agent prompt.
 
 Best for: agent-first tasks with rich context up front.
 
-### 4.3 Create New Workspace dialog (Kanban & issues)
+### 5.3 Create New Workspace dialog (Kanban & issues)
 
 1. From **Kanban**, click **+** on a column or **Build workspace from issue** on an **Issue Only** card.
 2. In **Create New Workspace** or **Build Workspace from Issue**, choose the project, name, branch, and optional GitHub issue or pull request.
@@ -97,37 +114,43 @@ Best for: agent-first tasks with rich context up front.
 
 Mobile workspace creation supports the same core idea with a smaller screen: title, base branch, optional internal name and branch, GitHub Issue or PR URL, TODO extraction, priority, status, labels, setup progress, **Confirm TODOs**, **Retry Setup**, and **Open Workspace**.
 
-### 4.4 Kanban: Issue Only workspaces
+### 5.4 Kanban: Issue Only workspaces
 
 1. Open **Kanban** (sidebar icon or `⌘⇧K` for expanded board).
 2. Click **Import GitHub Issues**, select a repo, load issues, then **Import N Issue(s)**.
 3. Issues appear as **GitHub Issue Only Workspace** cards, tracked on the board before a real workspace exists.
 4. When ready, use **Build workspace from issue** to create the real workspace and start building.
 
-## 5. Manage workspaces with Kanban
+## 6. Manage workspaces with Kanban
 
 **Columns** follow workflow status: **Backlog**, **To Do**, **In Progress**, **In Review**, **Blocked**, **Completed**, **Canceled**.
 
 **Toolbar:**
 
 - Filter by status, priority, labels, project.
-- Group **By Project**, **By Status**, or **By Time**.
+- Group **By Project**, **By Status**, **By Time**, **By Label**, **By Priority**, or **By Group**.
 - Sort by **Last Visit**, **Create Time**, or **Priority**.
 - Toggle **Show Issue Only** / **Hide Issue Only**.
 
-**Actions on cards:** drag to change status, **Pin**, **Archive**, **Delete**, or open the workspace.
+**Actions on cards:** drag to change status (or group assignment in group mode), **Pin**, **Archive**, **Delete**, or open the workspace.
 
 Use Kanban to answer: *What should I work on next?*
 
-## 6. Workspace Overview
+## 7. Workspace Overview
 
-The workspace overview summarizes the current task without opening every panel. Use it to check requirements, tasks, notes, pull requests, Actions, and workspace state before deciding what to run next.
+The workspace overview summarizes the current task without opening every panel. Use it to check requirements, tasks, notes (including summaries when available), pull requests, Actions, and workspace state before deciding what to run next.
 
 On mobile, **Overview** is one of the three workspace views alongside **Terminal** and **Changes**.
+
+## 8. Disk and cleanup
+
+Archive finished workspaces so the sidebar stays scannable. Configure **Archive Behavior** under **Settings** → **Workspace**.
+
+When disk usage climbs, open **Disk Analyzer** from the Management Center for Atmos-scoped scans and cleanup. See [Disk Analyzer](/features/disk-analyzer).
 
 ## Related
 
 - [General Build Process](/workflows/general-build-process) — after a workspace exists.
-- [Multi-Workspace Development](/features/multi-workspace) — feature overview.
+- [Multi-Workspace Development](/features/multi-workspace) — groups and parallel workspaces.
 - [Kanban View](/features/kanban-view) — board-centric tips.
 - [Mobile Remote Work](/workflows/mobile-remote-work) — use projects and workspaces from a phone.

@@ -26,6 +26,16 @@ For Windows and Linux builds, use [GitHub Releases](https://github.com/AruNi-01/
 
 After installing, open Atmos like any other app. Closing the main window on macOS hides the app; quitting the app stops the local Atmos Server.
 
+### First-run onboarding
+
+On first launch, Atmos opens a short **onboarding** wizard:
+
+1. **Welcome** — what Atmos is for.
+2. **Environment** — checks for tools such as `tmux`, `git`, and `gh`, with install guides and a temporary Atmos terminal when you need them.
+3. **First project** — pick a folder (Desktop uses the native OS folder dialog) and create your first workspace path.
+
+You can skip missing tools and install them later, but terminals, worktrees, or GitHub sync may not work until the required tools are present.
+
 ## Browser app
 
 Use the browser app when you want the UI in a tab, or when you plan to connect to an Atmos Computer.
@@ -55,7 +65,7 @@ If you have the mobile app installed, start with **Connect Atmos**, create or en
 ## First workspace
 
 1. Launch Desktop, open Atmos in your browser, or connect to an Atmos Computer.
-2. Add a project folder when Atmos asks for one.
+2. Add a project folder when Atmos asks for one (Desktop: native folder picker).
 3. Create a workspace for the task you want to run in parallel.
 4. Atmos prepares an isolated working folder and branch for that task.
 5. Open the workspace terminal.
@@ -64,15 +74,21 @@ If you have the mobile app installed, start with **Connect Atmos**, create or en
 
 ## First Code Agent Terminal
 
-Atmos is terminal-first: start the code agent you already use inside the workspace terminal. Built-in agent presets include Claude Code, Codex, Gemini, Devin, Amp, Droid, OpenCode, Kimi, Cursor Agent, Kilo Code, Kiro, CommandCode, Pi, OpenClaw, and Hermes Agent.
+Atmos is terminal-first: start the code agent you already use inside the workspace terminal. Built-in agent presets include Claude Code, Codex, Gemini, Grok Build, Devin, Amp, Droid, OpenCode, Kimi, Cursor Agent, Kilo Code, Kiro, CommandCode, Pi, OpenClaw, Hermes Agent, and others under **Settings** → **Code Agent**.
 
 Each workspace keeps its own terminal session, branch, files, and diff, so you can run several agents side by side without mixing their work. Use **Settings** -> **Code Agent** to enable agents, adjust commands, add custom agents, or save run configurations with model, reasoning, and extra arguments.
+
+From the terminal AI Input you can also:
+
+- use **`/side`** for a temporary side chat — [Terminal Side Chat](/features/terminal-side-chat)
+- use **`/spawn`** to open a new panel with the same agent context
+- open **Dynamic Skills** to mute skills for this session
 
 For parallel work, create one workspace per task and start one agent in each workspace terminal. Use the sidebar, Kanban, Canvas, and Review views to monitor progress and bring finished changes back into your normal Git flow.
 
 ## Next steps
 
-- [Project & Workspace Manager](/workflows/project-and-workspace-manager) for projects, workspaces, scripts, and Kanban.
+- [Project & Workspace Manager](/workflows/project-and-workspace-manager) for projects, workspaces, groups, scripts, and Kanban.
 - [General Build Process](/workflows/general-build-process) for the daily build loop.
 - [Remote Build](/workflows/remote-build) when work should run on another machine.
 - [CLI overview](/cli) when you need setup, status, or agent integration commands.

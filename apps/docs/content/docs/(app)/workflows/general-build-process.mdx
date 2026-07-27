@@ -18,6 +18,7 @@ Follow [Project & Workspace Manager](/workflows/project-and-workspace-manager):
 - **Quick New Workspace** for speed.
 - **New Workspace Composer** (`⌘N`) when you have prompts, GitHub links, or images.
 - **Kanban** when triaging many tasks.
+- **Groups** when related projects should sit under one named cluster.
 
 Wait for **Workspace Setup Progress** to finish before you start editing or running agents.
 
@@ -36,8 +37,10 @@ Configure scripts under project **⋯** → **Workspace Scripts**.
 ## 3. Build with a Code Agent in the terminal
 
 1. Open the workspace **Terminal** tab.
-2. Start your coding agent in that shell.
+2. Start your coding agent in that shell (including **Grok Build** and other built-ins from Agent Select).
 3. Or use the **global agent chat panel** for focused tasks that do not need a full terminal flow.
+4. Paste structured context into the composer when available — it appears as **context chips** (code, diff, browser element, terminal selection, and more).
+5. For tangents without polluting the main agent, use **`/side`**. For a full parallel pane with the same context, use **`/spawn`**. See [Terminal Side Chat](/features/terminal-side-chat).
 
 Give the agent a clear goal, files, and constraints. Let it iterate with tools while you watch output in the same pane.
 
@@ -65,16 +68,23 @@ Use the **built-in editor** for small fixes, or your primary IDE for large refac
 
 If no run script exists, you will see **No Run Script Configured** with a shortcut to **Workspace Scripts**.
 
-The browser preview supports tabs, desktop and mobile viewport modes, element selection, annotations, favorites, developer tools, extension install, and a standalone desktop Browser window. Use it when you want to inspect the running app without leaving the workspace.
+The browser preview supports tabs, desktop and mobile viewport modes, element selection (pastes into the composer as an **Element** chip), annotations, favorites, developer tools, extension install, center-stage browser tabs, and a standalone desktop Browser window.
+
+On **Desktop macOS 14+**, the browser toolbar overflow menu can:
+
+- **Import cookies** from another browser on this Mac into the Atmos browser profile (stays on-device).
+- **Clear cache** without signing you out.
+- **Clear cookie & storage** when you need a clean site session (this signs you out of sites).
 
 The footer shows **Atmos Local Services** when local processes are detected. Use it to reopen running services or check which local URLs Atmos knows about.
 
 ## 7. Test, ship, and clean up
 
 1. Run project tests in the terminal (unit, e2e, lint—whatever your repo uses).
-2. Commit or open a PR from your normal Git flow (Atmos Git view helps inspect diffs first).
+2. Commit or open a PR from your normal Git flow (Atmos Git view helps inspect diffs; PR and CI details open in center tabs).
 3. **Archive** the workspace when the task is done (sidebar or Kanban **Archive**).
 4. If configured, the **Purge Script** removes heavy generated files so old workspaces do not fill your disk.
+5. Use [Disk Analyzer](/features/disk-analyzer) when you need a usage map of Atmos-related paths.
 
 **Archive Behavior** in **Settings** → **Workspace** controls confirmations and what happens to terminal sessions when a workspace is archived.
 
