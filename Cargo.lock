@@ -530,7 +530,7 @@ dependencies = [
 
 [[package]]
 name = "atmos-desktop"
-version = "2026.7.26-beta.2"
+version = "2026.7.27"
 dependencies = [
  "block2",
  "browser-cookies",
