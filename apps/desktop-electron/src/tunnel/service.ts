@@ -13,6 +13,7 @@ import {
   readFileSync,
   writeFileSync,
   unlinkSync,
+  chmodSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -77,10 +78,21 @@ function statePath(): string {
   return join(dir, "electron-state.json");
 }
 
-function credentialPath(provider: ProviderKind): string {
+function ensureCredentialDir(): string {
   const dir = join(homedir(), ".atmos", "tunnel-connector");
   mkdirSync(dir, { recursive: true });
-  return join(dir, `${provider}.credential`);
+  if (process.platform !== "win32") {
+    try {
+      chmodSync(dir, 0o700);
+    } catch {
+      /* best-effort on non-unix or restricted fs */
+    }
+  }
+  return dir;
+}
+
+function credentialPath(provider: ProviderKind): string {
+  return join(ensureCredentialDir(), `${provider}.credential`);
 }
 
 function sleep(ms: number) {
@@ -278,6 +290,22 @@ export class TunnelService {
     } catch {
       /* ignore */
     }
+    // Parity with Tauri/Rust: reset Tailscale serve + funnel on stop (best-effort).
+    if (provider === "tailscale") {
+      const bin = which("tailscale");
+      if (bin) {
+        for (const args of [
+          ["serve", "reset"],
+          ["funnel", "reset"],
+        ] as const) {
+          try {
+            execFileSync(bin, [...args], { stdio: "ignore" });
+          } catch {
+            /* best-effort; ignore failures */
+          }
+        }
+      }
+    }
     this.active.delete(provider);
     this.persist();
   }
@@ -334,7 +362,15 @@ export class TunnelService {
   }
 
   saveCredential(provider: ProviderKind, credential: string): void {
-    writeFileSync(credentialPath(provider), credential.trim(), "utf8");
+    const path = credentialPath(provider);
+    writeFileSync(path, credential.trim(), "utf8");
+    if (process.platform !== "win32") {
+      try {
+        chmodSync(path, 0o600);
+      } catch {
+        /* best-effort */
+      }
+    }
   }
 
   clearCredential(provider: ProviderKind): void {

@@ -101,7 +101,10 @@ fn main() -> ExitCode {
             };
             match extract(&ProfileHandle(h)) {
                 Ok(result) => {
-                    println!("{}", serde_json::to_string(&result).unwrap_or_else(|_| "{}".into()));
+                    println!(
+                        "{}",
+                        serde_json::to_string(&result).unwrap_or_else(|_| "{}".into())
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => emit_err(e),
