@@ -85,12 +85,9 @@ function statePath(): string {
 function ensureCredentialDir(): string {
   const dir = join(homedir(), ".atmos", "tunnel-connector");
   mkdirSync(dir, { recursive: true });
+  // Unix: require 0700 on the secrets directory — do not continue if hardening fails.
   if (process.platform !== "win32") {
-    try {
-      chmodSync(dir, 0o700);
-    } catch {
-      /* best-effort on non-unix or restricted fs */
-    }
+    chmodSync(dir, 0o700);
   }
   return dir;
 }
@@ -101,6 +98,43 @@ function credentialPath(provider: ProviderKind): string {
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Wait for child exit; SIGKILL after timeout so quit teardown reaps tunnel children. */
+function waitForChildExit(
+  child: ChildProcess,
+  timeoutMs = 3000,
+): Promise<void> {
+  if (child.exitCode != null || child.signalCode != null) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      child.removeListener("exit", onExit);
+      resolve();
+    };
+    const onExit = () => finish();
+    child.once("exit", onExit);
+    // Re-check after attaching listener (exit may have raced the first check).
+    if (child.exitCode != null || child.signalCode != null) {
+      finish();
+      return;
+    }
+    timer = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ignore */
+      }
+      // Brief grace for SIGKILL, then resolve either way.
+      setTimeout(finish, 250);
+    }, timeoutMs);
+  });
 }
 
 export class TunnelService {
@@ -364,6 +398,8 @@ export class TunnelService {
     } catch {
       /* ignore */
     }
+    // Await child exit (SIGKILL after timeout) so before-quit reaps tunnel CLIs.
+    await waitForChildExit(a.child);
     // Parity with Tauri/Rust: both serve + funnel must reset, else surface Error
     // (do not claim "stopped" while Tailscale may still be serving).
     if (provider === "tailscale") {
