@@ -2,12 +2,10 @@
 
 import { createTranslator } from "next-intl";
 import { toastManager } from "@workspace/ui";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
-
-type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
 export interface OpenAgentChatWindowOptions {
   agent?: string | null;
@@ -18,50 +16,40 @@ export interface OpenAgentChatWindowOptions {
   handoffToken?: string | null;
 }
 
-let cachedAgentWindowLocale: 'en' | 'zh' | null = null;
+let cachedAgentWindowLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedAgentWindowTranslator: any = null;
 
 function agentWindowT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedAgentWindowTranslator || cachedAgentWindowLocale !== locale) {
     cachedAgentWindowLocale = locale;
     cachedAgentWindowTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Agent.chrome',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Agent.chrome",
     });
   }
   return cachedAgentWindowTranslator(key as never);
 }
 
-async function getInvoke(): Promise<TauriInvoke> {
-  const internals = (window as {
-    __TAURI_INTERNALS__?: {
-      invoke?: TauriInvoke;
-    };
-  }).__TAURI_INTERNALS__;
-
-  if (internals?.invoke) {
-    return internals.invoke;
-  }
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke as TauriInvoke;
-}
-
-export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = {}): Promise<void> {
+export async function openAgentChatWindow(
+  options: OpenAgentChatWindowOptions = {},
+): Promise<void> {
   const locale = currentAppLocale();
-  if (isTauriRuntime()) {
+  if (isDesktopRuntime()) {
     try {
-      const invoke = await getInvoke();
-      await invoke("open_agent_chat_window", {
+      await desktopInvoke("open_agent_chat_window", {
         locale,
         agent: options.agent || null,
         session: options.session || null,
+        session_cwd: options.sessionCwd || null,
         sessionCwd: options.sessionCwd || null,
+        workspace_id: options.workspaceId || null,
         workspaceId: options.workspaceId || null,
+        project_id: options.projectId || null,
         projectId: options.projectId || null,
+        handoff_token: options.handoffToken || null,
         handoffToken: options.handoffToken || null,
       });
     } catch (error) {
@@ -75,7 +63,11 @@ export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = 
     return;
   }
 
-  window.open(buildBrowserAgentChatUrl(options), "_blank", "noopener,noreferrer");
+  window.open(
+    buildBrowserAgentChatUrl(options),
+    "_blank",
+    "noopener,noreferrer",
+  );
 }
 
 function buildBrowserAgentChatUrl(options: OpenAgentChatWindowOptions): string {

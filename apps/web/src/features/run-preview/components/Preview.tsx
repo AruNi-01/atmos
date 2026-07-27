@@ -7,7 +7,7 @@ import { toastManager } from "@workspace/ui";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -310,7 +310,7 @@ export const Preview: React.FC<PreviewProps> = ({
     if (!normalizedActiveUrl || typeof window === "undefined") return 'unavailable';
 
     try {
-      if (isTauriRuntime()) {
+      if (isDesktopRuntime()) {
         return 'desktop-native';
       }
       const nextUrl = new URL(normalizedActiveUrl);
@@ -319,7 +319,7 @@ export const Preview: React.FC<PreviewProps> = ({
       }
       return isLocalPreviewTarget(normalizedActiveUrl) ? 'extension' : 'unavailable';
     } catch {
-      return isTauriRuntime() ? 'desktop-native' : 'unavailable';
+      return isDesktopRuntime() ? 'desktop-native' : 'unavailable';
     }
   }, [normalizedActiveUrl]);
   const isDesktopNativePreviewOccluded = useNativePreviewOcclusion({
@@ -655,7 +655,10 @@ export const Preview: React.FC<PreviewProps> = ({
       extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle, faviconUrl);
     },
     onTitleChanged: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => {
-      setNormalizedCurrentPageTitle(pageTitle, pageUrl);
+      // Favicon-only native events may pass an empty title — do not wipe a good one.
+      if (pageTitle.trim()) {
+        setNormalizedCurrentPageTitle(pageTitle, pageUrl);
+      }
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
       }
@@ -1194,7 +1197,7 @@ export const Preview: React.FC<PreviewProps> = ({
   // the dialog); here we only decide whether the menu items are eligible to show.
   const cookieToolsAvailable = useMemo(
     () =>
-      isTauriRuntime() &&
+      isDesktopRuntime() &&
       typeof navigator !== "undefined" &&
       /Mac/i.test(navigator.userAgent),
     [],
@@ -1219,7 +1222,10 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [handleRefresh]);
 
   const canOpenPreviewBrowserWindow = useMemo(
-    () => isTauriRuntime() && !isStandaloneBrowserWindow && Boolean(onOpenPreviewBrowserWindow),
+    () =>
+      isDesktopRuntime() &&
+      !isStandaloneBrowserWindow &&
+      Boolean(onOpenPreviewBrowserWindow),
     [isStandaloneBrowserWindow, onOpenPreviewBrowserWindow],
   );
 

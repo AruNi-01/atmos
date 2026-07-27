@@ -71,8 +71,16 @@ export async function connectDesktopPreviewTransport(
       options.onNavigationChanged?.(payload.pageUrl, payload.pageTitle, payload.faviconUrl);
     }),
     listenDesktopPreviewBridge('desktop-preview:title-changed', (payload) => {
-      if (payload.sessionId !== options.sessionId || typeof payload.pageTitle !== 'string') return;
-      options.onTitleChanged?.(payload.pageTitle, payload.faviconUrl, payload.pageUrl);
+      if (payload.sessionId !== options.sessionId) return;
+      // Accept title and/or favicon. Some shells emit favicon-only native events.
+      const hasTitle = typeof payload.pageTitle === 'string';
+      const hasFavicon = typeof payload.faviconUrl === 'string' && payload.faviconUrl.length > 0;
+      if (!hasTitle && !hasFavicon) return;
+      options.onTitleChanged?.(
+        hasTitle ? payload.pageTitle! : '',
+        hasFavicon ? payload.faviconUrl : undefined,
+        payload.pageUrl,
+      );
     }),
     listenDesktopPreviewBridge('desktop-preview:open-tab', (payload) => {
       if (payload.sessionId !== options.sessionId || typeof payload.targetUrl !== 'string') return;

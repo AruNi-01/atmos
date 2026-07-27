@@ -17,7 +17,7 @@ import {
   toastManager,
 } from '@workspace/ui';
 import { ChevronDown, Plus, Trash2, Webhook } from 'lucide-react';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 import {
   type NotificationSettingsFieldUpdater,
   type NotificationSettings,
@@ -241,7 +241,7 @@ export function NotifySettingsSection({
             </div>
           </div>
 
-          {isTauriRuntime() && (
+          {isDesktopRuntime() && (
             <div className="border-b border-border px-2 py-4 last:border-b-0">
               <div className="grid grid-cols-[minmax(0,1fr)_160px] gap-8">
                 <div>

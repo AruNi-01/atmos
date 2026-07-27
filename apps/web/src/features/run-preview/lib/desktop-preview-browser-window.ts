@@ -4,11 +4,9 @@ import { createTranslator } from "next-intl";
 import { toastManager } from "@workspace/ui";
 
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
-
-type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
 export interface OpenPreviewBrowserWindowOptions {
   url?: string | null;
@@ -35,33 +33,20 @@ function previewWindowT(key: string): string {
   return cachedPreviewWindowTranslator(key as never);
 }
 
-async function getInvoke(): Promise<TauriInvoke> {
-  const internals = (window as {
-    __TAURI_INTERNALS__?: {
-      invoke?: TauriInvoke;
-    };
-  }).__TAURI_INTERNALS__;
-
-  if (internals?.invoke) {
-    return internals.invoke;
-  }
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke as TauriInvoke;
-}
-
 export async function openPreviewBrowserWindow(
   options: OpenPreviewBrowserWindowOptions = {},
 ): Promise<void> {
-  if (!isTauriRuntime()) return;
+  if (!isDesktopRuntime()) return;
 
   try {
-    const invoke = await getInvoke();
-    await invoke("open_preview_browser_window", {
+    await desktopInvoke("open_preview_browser_window", {
       locale: currentAppLocale(),
       url: options.url || null,
+      workspace_id: options.workspaceId || null,
       workspaceId: options.workspaceId || null,
+      project_id: options.projectId || null,
       projectId: options.projectId || null,
+      browser_context_id: options.browserContextId || null,
       browserContextId: options.browserContextId || null,
     });
   } catch (error) {

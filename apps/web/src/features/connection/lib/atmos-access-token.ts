@@ -9,7 +9,7 @@ import {
   useAtmosComputerStore,
 } from '@/features/connection/lib/atmos-computer-store';
 import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
 
@@ -78,7 +78,7 @@ export async function registerAccessTokenOnRelay(
       }
     }
 
-    if (isTauriRuntime()) {
+    if (isDesktopRuntime()) {
       return {
         ok: false,
         error: runtimeT('accessToken.errors.cannotConnectLocally'),
@@ -180,7 +180,7 @@ export async function relayFetchWithAccessToken(
     });
   }
 
-  if (isTauriRuntime()) {
+  if (isDesktopRuntime()) {
     throw new Error(runtimeT('accessToken.errors.cannotConnectLocally'));
   }
   if (!token) {

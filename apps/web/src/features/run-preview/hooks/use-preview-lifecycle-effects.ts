@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type {
   PreviewBridgeController,
@@ -462,7 +462,7 @@ export function usePreviewLifecycleEffects({
   ]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!isDesktopRuntime()) return;
     if (
       preferredTransportMode !== "desktop-native" ||
       !isActive ||
@@ -483,7 +483,7 @@ export function usePreviewLifecycleEffects({
   ]);
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!isDesktopRuntime()) return;
     if (
       preferredTransportMode !== "desktop-native" ||
       !isActive ||

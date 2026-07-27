@@ -7,7 +7,7 @@ import {
   openDesktopExternalUrl,
   resolveExternalUrl,
 } from "@/shared/lib/desktop-external-url";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 function shouldOpenExternally(url: URL) {
   if (!isSupportedExternalProtocol(url.protocol)) return false;
@@ -26,7 +26,7 @@ function findAnchorFromEventTarget(event: MouseEvent) {
 
 export function DesktopExternalUrlBridge() {
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!isDesktopRuntime()) return;
 
     const originalWindowOpen = window.open.bind(window);
 

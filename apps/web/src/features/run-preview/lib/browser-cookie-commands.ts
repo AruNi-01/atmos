@@ -1,6 +1,6 @@
 "use client";
 
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 /**
  * APP-041 Browser Cookie Sync — frontend command bindings.
@@ -16,8 +16,6 @@ import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
  *   clear_browser_cache() -> { ok }
  *   clear_browser_site_data() -> { ok }
  */
-
-type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
 /** Source browser family, mirrors Rust `BrowserKind`. */
 export type BrowserProfileKind = "Chrome" | "Edge" | "Brave" | "Firefox";
@@ -93,23 +91,8 @@ export function extractCookieErrorCode(error: unknown): CookieCmdErrorCode {
   return "Unknown";
 }
 
-async function getInvoke(): Promise<TauriInvoke> {
-  const internals = (window as {
-    __TAURI_INTERNALS__?: { invoke?: TauriInvoke };
-  }).__TAURI_INTERNALS__;
-
-  if (internals?.invoke) {
-    return internals.invoke;
-  }
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke as TauriInvoke;
-}
-
 function ensureDesktop(): void {
-  if (!isTauriRuntime()) {
-    // Non-desktop callers should never reach these commands (menu items are hidden),
-    // but guard anyway so a stray call surfaces a stable code instead of a raw throw.
+  if (!isDesktopRuntime()) {
     throw { code: "UnsupportedPlatform" satisfies CookieCmdErrorCode };
   }
 }
@@ -117,31 +100,29 @@ function ensureDesktop(): void {
 /** List detected source browsers + profiles (opaque handles + display names). */
 export async function listImportableBrowsers(): Promise<BrowserProfileDto[]> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  const result = await invoke<BrowserProfileDto[]>("list_importable_browsers");
+  const result = await desktopInvoke<BrowserProfileDto[]>("list_importable_browsers");
   return Array.isArray(result) ? result : [];
 }
 
 /**
  * Import cookies for the chosen profile. Accepts only the opaque `profile_handle`;
- * the Rust side re-runs discovery and resolves the canonical path internally.
+ * the shell re-runs discovery and resolves the canonical path internally.
  */
 export async function importBrowserCookies(profileHandle: string): Promise<ImportReport> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  return invoke<ImportReport>("import_browser_cookies", { profile_handle: profileHandle });
+  return desktopInvoke<ImportReport>("import_browser_cookies", {
+    profile_handle: profileHandle,
+  });
 }
 
 /** Clear cache-class data only (cookies + web storage preserved; stays logged in). */
 export async function clearBrowserCache(): Promise<void> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  await invoke<{ ok: boolean }>("clear_browser_cache");
+  await desktopInvoke<{ ok: boolean }>("clear_browser_cache");
 }
 
 /** Clear caches + web storage + cookies (may sign the user out of sites). */
 export async function clearBrowserSiteData(): Promise<void> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  await invoke<{ ok: boolean }>("clear_browser_site_data");
+  await desktopInvoke<{ ok: boolean }>("clear_browser_site_data");
 }

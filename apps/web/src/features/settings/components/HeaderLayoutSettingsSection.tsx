@@ -19,7 +19,7 @@ import {
   SquareDashedMousePointer,
   StickyNote,
 } from 'lucide-react';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
@@ -33,7 +33,8 @@ export function HeaderLayoutSettingsSection({
   onExpandedChange,
 }: HeaderLayoutSettingsSectionProps) {
   const t = useTranslations('settings.headerLayoutSection');
-  const isDesktop = React.useMemo(() => isTauriRuntime(), []);
+  // Live detect — do not freeze on first paint (Electron preload race).
+  const isDesktop = isDesktopRuntime();
 
   const {
     showHeaderQuickOpen,

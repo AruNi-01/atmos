@@ -1,6 +1,6 @@
 import { createTranslator } from 'next-intl';
 import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { desktopInvoke, isDesktopRuntime } from '@/shared/lib/desktop-bridge';
 import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
 
@@ -39,10 +39,11 @@ function isLocalWebRuntimeBuild(): boolean {
 }
 
 export async function buildRegistrationMeta(): Promise<RegistrationMeta> {
-  if (isTauriRuntime()) {
+  if (isDesktopRuntime()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const info = (await invoke('get_version_info')) as { version?: string };
+      const info = (await desktopInvoke('get_version_info')) as {
+        version?: string;
+      };
       return {
         via: 'desktop',
         version: info.version?.trim() || undefined,

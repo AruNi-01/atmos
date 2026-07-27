@@ -1,17 +1,7 @@
 "use client";
 
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import { debugLog, errorLog } from "@/shared/lib/desktop-logger";
-
-type TauriInternals = {
-  invoke?: (cmd: string, payload?: unknown) => Promise<unknown>;
-};
-
-function getTauriInvoke() {
-  if (typeof window === "undefined") return null;
-  const internals = (window as { __TAURI_INTERNALS__?: TauriInternals })
-    .__TAURI_INTERNALS__;
-  return internals?.invoke ?? null;
-}
 
 export function isSupportedExternalProtocol(protocol: string) {
   return (
@@ -33,20 +23,26 @@ export function resolveExternalUrl(url: string) {
 }
 
 export async function openDesktopExternalUrl(url: string) {
-  const invoke = getTauriInvoke();
+  if (!isDesktopRuntime()) return false;
   const resolved = resolveExternalUrl(url);
 
-  if (!invoke || !resolved || !isSupportedExternalProtocol(resolved.protocol)) {
+  if (!resolved || !isSupportedExternalProtocol(resolved.protocol)) {
     return false;
   }
 
   try {
-    await invoke("plugin:opener|open_url", { url: resolved.toString() });
+    // Prefer generic bridge command; Tauri also accepts opener plugin via adapter fallback.
+    await desktopInvoke("open_external_url", { url: resolved.toString() });
     debugLog(`openDesktopExternalUrl: opened ${resolved.toString()}`);
     return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    errorLog(`openDesktopExternalUrl: failed ${resolved.toString()} err=${message}`);
-    return false;
+  } catch {
+    try {
+      await desktopInvoke("plugin:opener|open_url", { url: resolved.toString() });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errorLog(`openDesktopExternalUrl: failed ${resolved.toString()} err=${message}`);
+      return false;
+    }
   }
 }

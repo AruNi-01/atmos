@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { getRuntimeApiConfig, httpBase, isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 import {
   useTunnelConnector,
   type ProviderKind,
@@ -54,7 +54,7 @@ export {
 
 export function TunnelConnectorSection() {
   const t = useTranslations("tunnelConnector.section");
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     return (
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
@@ -145,7 +145,10 @@ function TunnelConnectorContent() {
               const auth = providerAuthLabel(p);
               const isReady = p.logged_in;
               const providerStatus = statusMap[p.provider];
-              const isThisRunning = !!(providerStatus && providerStatus.provider_status.state === 'Running');
+              const isThisRunning = !!(
+                providerStatus &&
+                providerStatus.provider_status?.state === 'Running'
+              );
               const isThisStarting = startingProviders.has(p.provider);
               const isThisStopping = stoppingProviders.has(p.provider);
               const showTokenConfig = supportsTokenConfig(p.provider) && !p.logged_in;

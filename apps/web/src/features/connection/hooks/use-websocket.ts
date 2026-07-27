@@ -2,12 +2,14 @@
 
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { syncClientSessionFromStore } from "@/features/connection/lib/sync-client-session";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
-import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import {
+  isDesktopRuntime,
+  isHostedAtmosOrigin,
+} from "@/shared/lib/desktop-runtime";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { buildWsUrl, buildWsUrlSync } from "@/shared/lib/ws-url";
 import { debugLog } from "@/shared/lib/desktop-logger";
@@ -362,7 +364,7 @@ const getWsUrl = (): string => buildWsUrlSync("/ws");
 let connectInFlight: Promise<void> | null = null;
 
 const defaultConnectionWaitMs = (): number =>
-  isTauriRuntime() ? 30_000 : 15_000;
+  isDesktopRuntime() ? 30_000 : 15_000;
 
 /**
  * Ensure WebSocket is connected. Awaits bootstrap + handshake (not a blind poll).
@@ -426,7 +428,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           await ensureLocalAppConnectionBootstrap();
         }
         useConnectionStore.getState().syncActiveInstanceFromComputer();
-        const clientType = isTauriRuntime() ? "desktop" : "web";
+        const clientType = isDesktopRuntime() ? "desktop" : "web";
         const computer = useAtmosComputerStore.getState();
         let runtimeUrl: string;
         const relayUrl = computer.relayWebSocketUrl?.trim();

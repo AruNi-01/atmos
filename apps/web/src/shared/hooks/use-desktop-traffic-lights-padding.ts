@@ -1,58 +1,104 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+
+import {
+  desktopInvoke,
+  desktopListen,
+  isTauriShell,
+} from "@/shared/lib/desktop-bridge";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 /**
- * Detects whether the app is running in macOS desktop mode without fullscreen.
- * In this state, the traffic lights (window controls) overlap with content,
- * so additional top padding is needed.
+ * True when the window shows macOS traffic lights that need content inset
+ * (not fullscreen). Used by main Header (pl-[92px]), agent-chat, canvas, etc.
+ *
+ * Fullscreen: lights hide → padding off. Exit fullscreen → padding back.
  */
 export function useDesktopTrafficLightsPadding(): boolean {
   const [needsPadding, setNeedsPadding] = useState(false);
 
   useEffect(() => {
-    // Only check in Tauri runtime
-    if (!isTauriRuntime()) {
+    const isMac =
+      typeof navigator !== "undefined" &&
+      /Macintosh|Mac OS X/i.test(navigator.userAgent);
+
+    if (!isMac || !isDesktopRuntime()) {
       setNeedsPadding(false);
       return;
     }
 
-    // Check if macOS using userAgent
-    const isMac = typeof navigator !== "undefined" && /Macintosh|Mac OS X/i.test(navigator.userAgent);
-    if (!isMac) {
-      setNeedsPadding(false);
-      return;
-    }
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
 
-    // Check fullscreen state
-    const checkPaddingNeeded = async () => {
+    const apply = (fullscreen: boolean) => {
+      if (!disposed) setNeedsPadding(!fullscreen);
+    };
+
+    const sync = async () => {
       try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const currentWindow = getCurrentWindow();
-        const isFullscreen = await currentWindow.isFullscreen();
-        setNeedsPadding(!isFullscreen);
+        if (isTauriShell()) {
+          const { getCurrentWindow } = await import("@tauri-apps/api/window");
+          const fullscreen = await getCurrentWindow().isFullscreen();
+          apply(fullscreen);
+          return;
+        }
+        // Electron
+        const fullscreen = await desktopInvoke<boolean>("window_is_fullscreen");
+        apply(Boolean(fullscreen));
       } catch {
-        // If any error occurs, default to false
-        setNeedsPadding(false);
+        // Desktop shell but query failed — still reserve lights when not browser-FS.
+        apply(!!document.fullscreenElement);
       }
     };
 
-    checkPaddingNeeded();
+    void sync();
 
-    // Listen for window resize events to update fullscreen state
-    let unlisten: (() => void) | null = null;
-    import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
-      const currentWindow = getCurrentWindow();
-      unlisten = await currentWindow.onResized(() => {
-        void checkPaddingNeeded();
+    if (isTauriShell()) {
+      void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+        const currentWindow = getCurrentWindow();
+        const off = await currentWindow.onResized(() => {
+          void sync();
+        });
+        if (disposed) {
+          off();
+          return;
+        }
+        unlisten = off;
       });
-    });
+    } else {
+      void desktopListen(
+        "window-fullscreen-changed",
+        (payload: unknown) => {
+          const fs = Boolean(
+            payload &&
+              typeof payload === "object" &&
+              "fullscreen" in payload &&
+              (payload as { fullscreen?: unknown }).fullscreen,
+          );
+          apply(fs);
+        },
+      ).then((off) => {
+        if (disposed) {
+          off();
+          return;
+        }
+        unlisten = off;
+      });
+    }
+
+    // Browser Fullscreen API (web / electron document FS fallback)
+    const onDocFs = () => {
+      if (isDesktopRuntime() && !isTauriShell()) {
+        void sync();
+      }
+    };
+    document.addEventListener("fullscreenchange", onDocFs);
 
     return () => {
-      if (unlisten) {
-        unlisten();
-      }
+      disposed = true;
+      unlisten?.();
+      document.removeEventListener("fullscreenchange", onDocFs);
     };
   }, []);
 

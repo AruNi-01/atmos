@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isDesktopRuntime, isTauriRuntime } from '@/shared/lib/desktop-runtime';
 
 interface PreviewWindowStateOptions {
   isMaximized?: boolean;
@@ -14,12 +14,14 @@ export function usePreviewWindowState(options: PreviewWindowStateOptions = {}) {
   const [isDesktopWindowFullscreen, setIsDesktopWindowFullscreen] = useState(false);
   const isMaximized = options.isMaximized ?? uncontrolledIsMaximized;
   const setIsMaximized = options.setIsMaximized ?? setUncontrolledIsMaximized;
-  const isMacDesktop = useMemo(
-    () => isTauriRuntime() && typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent),
-    [],
-  );
+  // Traffic-light safe inset applies on any Mac desktop shell (Tauri or Electron).
+  const isMacDesktop =
+    isDesktopRuntime() &&
+    typeof navigator !== 'undefined' &&
+    /Mac/i.test(navigator.userAgent);
 
   useEffect(() => {
+    // Fullscreen tracking via Tauri window API only (Electron uses different path later).
     if (!isTauriRuntime()) return;
 
     let disposed = false;

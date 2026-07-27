@@ -1,6 +1,6 @@
 "use client";
 
-import { isTauriRuntime } from "./desktop-runtime";
+import { isDesktopRuntime, isTauriRuntime } from "./desktop-runtime";
 
 type StandaloneSurfaceAction = "open" | "restore" | "close";
 
@@ -240,5 +240,8 @@ export async function closeCurrentStandaloneWindow(): Promise<void> {
     await getCurrentWindow().close();
     return;
   }
-  window.close();
+  // Electron secondary windows / browser popups
+  if (isDesktopRuntime() || typeof window !== "undefined") {
+    window.close();
+  }
 }

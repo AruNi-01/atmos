@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { ensureProjectBootstrap } from '@/features/project/hooks/use-project-bootstrap-query';
 
@@ -85,7 +85,7 @@ function waitForWebSocketConnected(): Promise<void> {
 }
 
 export function runDesktopStartupPrefetch(): Promise<void> {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     return Promise.resolve();
   }
 
@@ -105,7 +105,7 @@ export function runDesktopStartupPrefetch(): Promise<void> {
 export function waitForDesktopStartupPrefetch(
   timeoutMs = DESKTOP_STARTUP_PREFETCH_TIMEOUT_MS,
 ): Promise<void> {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     return Promise.resolve();
   }
 
@@ -122,7 +122,7 @@ export function waitForDesktopStartupPrefetch(
 }
 
 function startDesktopStartupPrefetchLoading() {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     setDesktopStartupPrefetchStatus('settled');
     return;
   }
@@ -152,13 +152,13 @@ export function useDesktopStartupPrefetchLoading(enabled = true): boolean {
     startDesktopStartupPrefetchLoading();
   }, [enabled]);
 
-  return enabled && isTauriRuntime() && status !== 'settled';
+  return enabled && isDesktopRuntime() && status !== 'settled';
 }
 
 /** Kick off desktop connection bootstrap + project fetch as early as the root layout mounts. */
 export function DesktopStartupPrefetchBootstrap() {
   useEffect(() => {
-    if (!isTauriRuntime()) {
+    if (!isDesktopRuntime()) {
       return;
     }
 

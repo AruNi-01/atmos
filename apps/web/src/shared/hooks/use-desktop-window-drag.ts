@@ -1,30 +1,49 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 const DESKTOP_WINDOW_DRAG_INTERACTIVE_SELECTOR =
   '.desktop-no-drag, button, a, input, textarea, select, summary, [role="button"], [contenteditable], [contenteditable="true"]';
 
+/**
+ * Enables header drag + traffic-light left inset on any desktop shell.
+ * Tauri: CSS drag-region + startDragging fallback.
+ * Electron: CSS `-webkit-app-region: drag` is sufficient.
+ */
 export function useDesktopWindowDrag() {
-  const isDesktopDragEnabled = useMemo(() => isTauriRuntime(), []);
+  const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false);
 
-  const handleDesktopWindowMouseDown = useCallback(async (event: React.MouseEvent<HTMLElement>) => {
-    if (!isDesktopDragEnabled) return;
-    if (event.button !== 0) return;
+  useEffect(() => {
+    const refresh = () => setIsDesktopDragEnabled(isDesktopRuntime());
+    refresh();
+    const t = window.setTimeout(refresh, 100);
+    return () => window.clearTimeout(t);
+  }, []);
 
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-    if (target.closest(DESKTOP_WINDOW_DRAG_INTERACTIVE_SELECTOR)) return;
+  const handleDesktopWindowMouseDown = useCallback(
+    async (event: React.MouseEvent<HTMLElement>) => {
+      if (!isDesktopDragEnabled) return;
+      if (event.button !== 0) return;
 
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().startDragging();
-    } catch {
-      // Ignore drag failures; native drag-region remains as fallback.
-    }
-  }, [isDesktopDragEnabled]);
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(DESKTOP_WINDOW_DRAG_INTERACTIVE_SELECTOR)) return;
+
+      // Electron: app-region: drag handles it — no JS needed.
+      // Tauri: start native drag when available.
+      if (!isTauriRuntime()) return;
+
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await getCurrentWindow().startDragging();
+      } catch {
+        // Ignore drag failures; native drag-region remains as fallback.
+      }
+    },
+    [isDesktopDragEnabled],
+  );
 
   return {
     handleDesktopWindowMouseDown,
