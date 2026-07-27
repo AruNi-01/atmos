@@ -89,7 +89,13 @@ export function resolveBrowserCookiesHelper(): {
   };
 }
 
-function runHelper(args: string[]): { ok: boolean; stdout: string; stderr: string; status: number } {
+function runHelper(args: string[]): {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+  status: number;
+  spawnError?: string;
+} {
   const helper = resolveBrowserCookiesHelper();
   const fullArgs = [...helper.argsPrefix, ...args];
   const r = spawnSync(helper.path, fullArgs, {
@@ -98,15 +104,30 @@ function runHelper(args: string[]): { ok: boolean; stdout: string; stderr: strin
     env: process.env,
     cwd: REPO_ROOT,
   });
+  if (r.error) {
+    console.error(
+      `[cookies] helper spawn failed path=${helper.path} mode=${helper.mode}`,
+      r.error,
+    );
+  } else if (r.status !== 0) {
+    console.error(
+      `[cookies] helper exit=${r.status} args=${args.join(" ")} stdout=${(r.stdout ?? "").slice(0, 400)} stderr=${(r.stderr ?? "").slice(0, 400)}`,
+    );
+  }
   return {
-    ok: r.status === 0,
+    ok: r.status === 0 && !r.error,
     stdout: r.stdout?.toString() ?? "",
     stderr: r.stderr?.toString() ?? "",
     status: r.status ?? 1,
+    spawnError: r.error?.message,
   };
 }
 
-function throwCookieError(stdout: string, fallback: string): never {
+function throwCookieError(
+  stdout: string,
+  fallback: string,
+  extras?: { stderr?: string; spawnError?: string },
+): never {
   try {
     const parsed = JSON.parse(stdout) as {
       error?: { code?: string; message?: string };
@@ -120,7 +141,12 @@ function throwCookieError(stdout: string, fallback: string): never {
   } catch (e) {
     if (e && typeof e === "object" && "code" in e) throw e;
   }
-  throw { code: fallback, message: stdout || "cookie helper failed" };
+  const detail =
+    extras?.spawnError ||
+    stdout.trim() ||
+    extras?.stderr?.trim() ||
+    "cookie helper failed";
+  throw { code: fallback, message: detail };
 }
 
 export function listImportableBrowsers(): BrowserProfileDto[] {
@@ -128,9 +154,22 @@ export function listImportableBrowsers(): BrowserProfileDto[] {
     throw { code: "UnsupportedPlatform" };
   }
   const r = runHelper(["list"]);
-  if (!r.ok) throwCookieError(r.stdout || r.stderr, "Io");
-  const data = JSON.parse(r.stdout) as BrowserProfileDto[];
-  return Array.isArray(data) ? data : [];
+  if (!r.ok) {
+    throwCookieError(r.stdout || r.stderr, "Io", {
+      stderr: r.stderr,
+      spawnError: r.spawnError,
+    });
+  }
+  try {
+    const data = JSON.parse(r.stdout) as BrowserProfileDto[];
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error("[cookies] list JSON parse failed", e, r.stdout.slice(0, 400));
+    throw {
+      code: "Io",
+      message: "cookie helper returned invalid list payload",
+    };
+  }
 }
 
 export async function clearBrowserCache(
@@ -185,9 +224,27 @@ export async function importBrowserCookies(
   }
 
   const r = runHelper(["extract", "--handle", profileHandle]);
-  if (!r.ok) throwCookieError(r.stdout || r.stderr, "Io");
+  if (!r.ok) {
+    throwCookieError(r.stdout || r.stderr, "Io", {
+      stderr: r.stderr,
+      spawnError: r.spawnError,
+    });
+  }
 
-  const extraction = JSON.parse(r.stdout) as ExtractionResult;
+  let extraction: ExtractionResult;
+  try {
+    extraction = JSON.parse(r.stdout) as ExtractionResult;
+  } catch (e) {
+    console.error(
+      "[cookies] extract JSON parse failed",
+      e,
+      r.stdout.slice(0, 400),
+    );
+    throw {
+      code: "Io",
+      message: "cookie helper returned invalid extract payload",
+    };
+  }
   const cookies = extraction.cookies ?? [];
   let imported = 0;
   let failed = 0;

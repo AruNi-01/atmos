@@ -18,13 +18,16 @@ contextBridge.exposeInMainWorld("__ATMOS_DESKTOP__", {
         error?: { message?: string; code?: string; command?: string };
       };
       if (r.ok) return r.data;
-      const err = new Error(r.error?.message ?? "Desktop invoke failed") as Error & {
-        code?: string;
-        command?: string;
+      // Throw a plain object — not `Error`. Electron's contextBridge only keeps
+      // Error.message when rethrowing into the renderer, so typed command codes
+      // (BrowserRunning, KeychainDenied, …) were lost and the cookie UI always
+      // showed the generic "Something went wrong" Unknown string.
+      throw {
+        name: "DesktopCommandError",
+        message: r.error?.message ?? "Desktop invoke failed",
+        code: r.error?.code ?? "DESKTOP_ERROR",
+        command: r.error?.command ?? cmd,
       };
-      err.code = r.error?.code ?? "DESKTOP_ERROR";
-      err.command = r.error?.command ?? cmd;
-      throw err;
     }
     return result;
   },

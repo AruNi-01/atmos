@@ -76,18 +76,32 @@ const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set<CookieCmdErrorCode>([
  * Normalize whatever a rejected `invoke` gives us into a stable {@link CookieCmdErrorCode}.
  * The command layer serializes errors as `{ code: "BrowserRunning" }`, but we defensively
  * accept a bare string or an unknown shape and fall back to `Unknown`.
+ *
+ * Electron note: preload must throw a plain `{ code }` object (not `Error`) so
+ * contextBridge keeps the code; desktop-bridge then rehydrates DesktopBridgeError.
  */
 export function extractCookieErrorCode(error: unknown): CookieCmdErrorCode {
-  const candidate =
-    typeof error === "string"
-      ? error
-      : error && typeof error === "object" && "code" in error
-        ? (error as { code?: unknown }).code
-        : undefined;
-
-  if (typeof candidate === "string" && KNOWN_ERROR_CODES.has(candidate)) {
-    return candidate as CookieCmdErrorCode;
+  if (typeof error === "string") {
+    if (KNOWN_ERROR_CODES.has(error)) return error as CookieCmdErrorCode;
+    return "Unknown";
   }
+
+  if (error && typeof error === "object") {
+    const record = error as {
+      code?: unknown;
+      error?: { code?: unknown };
+      message?: unknown;
+    };
+    const nested =
+      record.error && typeof record.error === "object"
+        ? (record.error as { code?: unknown }).code
+        : undefined;
+    const candidate = record.code ?? nested;
+    if (typeof candidate === "string" && KNOWN_ERROR_CODES.has(candidate)) {
+      return candidate as CookieCmdErrorCode;
+    }
+  }
+
   return "Unknown";
 }
 

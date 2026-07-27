@@ -162,7 +162,25 @@ async function defaultElectronInvoke(
       cmd,
     );
   }
-  return invoke(cmd, args);
+  try {
+    return await invoke(cmd, args);
+  } catch (error) {
+    // Preload throws a plain `{ code, message, command }` so contextBridge
+    // preserves the typed code. Rehydrate to DesktopBridgeError for callers.
+    if (error instanceof DesktopBridgeError) throw error;
+    if (error && typeof error === "object" && "code" in error) {
+      const e = error as { code?: unknown; message?: unknown; command?: unknown };
+      throw new DesktopBridgeError(
+        String(e.code ?? "DESKTOP_ERROR"),
+        String(e.message ?? "Desktop invoke failed"),
+        e.command != null ? String(e.command) : cmd,
+      );
+    }
+    if (error instanceof Error) {
+      throw new DesktopBridgeError("DESKTOP_ERROR", error.message, cmd);
+    }
+    throw new DesktopBridgeError("DESKTOP_ERROR", String(error), cmd);
+  }
 }
 
 /**
