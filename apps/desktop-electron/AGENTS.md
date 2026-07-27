@@ -5,7 +5,7 @@
 ## Stack
 
 - **TypeScript** sources under `src/`
-- **esbuild** → `dist/main.js`, `dist/preload.js`, `dist/preview-preload.cjs` (CJS for sandboxed preview)
+- **esbuild** → `dist/main.js`, `dist/preload.cjs`, `dist/preview-preload.cjs` (CJS preloads for Electron loader)
 - Electron 37+ (`WebContentsView` for native preview)
 
 ## Commands

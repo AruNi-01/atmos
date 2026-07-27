@@ -37,15 +37,17 @@ await esbuild.build({
   entryPoints: [join(root, "src/main.ts")],
   outfile: join(dist, "main.js"),
 });
-// First-party app preload (main / secondary windows use sandbox:false).
+// First-party app preload as CommonJS (.cjs): Electron's preload loader does not
+// treat ESM via package.json "type":"module"; .cjs avoids the .mjs requirement
+// and matches the proven sandboxed preview-preload approach.
 await esbuild.build({
   ...shared,
+  format: "cjs",
   entryPoints: [join(root, "src/preload.ts")],
-  outfile: join(dist, "preload.js"),
+  outfile: join(dist, "preload.cjs"),
 });
-// Untrusted preview surfaces may use sandbox:true — Electron sandboxed
-// preloads require CommonJS (`require("electron")`), not ESM import.
-// Use .cjs so package.json "type":"module" does not force ESM load.
+// Untrusted preview surfaces use sandbox:true — sandboxed preloads require
+// CommonJS (`require("electron")`), not ESM import.
 await esbuild.build({
   ...shared,
   format: "cjs",
@@ -54,5 +56,5 @@ await esbuild.build({
 });
 
 console.log(
-  "[build] dist/main.js, dist/preload.js, dist/preview-preload.cjs",
+  "[build] dist/main.js, dist/preload.cjs, dist/preview-preload.cjs",
 );
