@@ -5,6 +5,10 @@
 
 import { app, ipcMain } from "electron";
 import { createAppState } from "./app-state.js";
+import {
+  applyEarlyAppBranding,
+  applyReadyAppBranding,
+} from "./branding.js";
 import { ensureAtmosServer } from "./runtime/ensure.js";
 import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
@@ -13,6 +17,9 @@ import { PreviewSurfaceManager } from "./preview/surface-manager.js";
 import { TunnelService } from "./tunnel/service.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+
+// Before ready: menu / process name → "Atmos" instead of "Electron".
+applyEarlyAppBranding();
 
 const state = createAppState();
 let router = createDesktopCommandRouter(createAllHandlers(state));
@@ -28,6 +35,7 @@ function registerIpc() {
 
 async function boot() {
   registerIpc();
+  applyReadyAppBranding();
 
   console.log("[desktop-electron] ensuring Atmos Server…");
   const runtime = await ensureAtmosServer();

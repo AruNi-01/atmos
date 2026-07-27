@@ -27,6 +27,7 @@ bun test
 - Product UI loads from Atmos Server loopback static (`http://127.0.0.1:port/`)
 - Preview uses `persist:atmos-preview` session partition + limited preview preload
 - Command names match Tauri (`get_api_config`, `preview_bridge_*`, `appshot_*`, `tunnel_connector_*`, …)
+- **Branding**: product name `Atmos` / id `com.atmos.desktop` (matches Tauri). Icons sync from `apps/desktop/src-tauri/icons` → `resources/icons` on `bun run build` (also falls back to Tauri path at runtime). Dock + window icons applied in `src/branding.ts`.
 
 ## Never
 

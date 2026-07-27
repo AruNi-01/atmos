@@ -1,12 +1,15 @@
 {
   "name": "desktop-electron",
+  "productName": "Atmos",
   "version": "0.1.0",
   "private": true,
   "description": "Atmos desktop shell (Electron / Chromium). Experimental dual-shell track; production default remains Tauri (apps/desktop).",
+  "author": "Atmos",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
     "postinstall": "bun run scripts/ensure-electron.ts",
+    "sync-icons": "bun run scripts/sync-icons.ts",
     "build": "bun run scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "bun run scripts/ensure-electron.ts && bun run build && bun run scripts/dev.ts",

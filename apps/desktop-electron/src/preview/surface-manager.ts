@@ -14,6 +14,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
+import { appWindowBranding } from "../branding.js";
 import type { PreviewBounds } from "../types.js";
 import { gateAndRemapRuntimeEvent } from "./runtime-events.js";
 
@@ -491,8 +492,8 @@ export class PreviewSurfaceManager {
       height: 760,
       minWidth: 480,
       minHeight: 360,
-      title: "Atmos Browser",
       show: false,
+      ...appWindowBranding("Atmos Browser"),
       webPreferences: {
         session: this.previewSession,
         preload: previewPreloadPath(),

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
+import { APP_PRODUCT_NAME, appWindowBranding } from "../branding.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 
@@ -30,7 +31,7 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
     minWidth: 900,
     minHeight: 600,
     show: false,
-    title: "Atmos",
+    ...appWindowBranding(APP_PRODUCT_NAME),
     ...macWindowChromeOptions("primary"),
     backgroundColor: "#06070b",
     webPreferences: {

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
+import { appWindowBranding } from "../branding.js";
 import { uiBaseUrl } from "./main-window.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
@@ -52,7 +53,7 @@ function openOrFocus(
     minWidth: opts.minW,
     minHeight: opts.minH,
     show: false,
-    title: opts.title,
+    ...appWindowBranding(opts.title),
     ...macWindowChromeOptions(opts.chrome ?? "primary"),
     backgroundColor: "#06070b",
     webPreferences: {

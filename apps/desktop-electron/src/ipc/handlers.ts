@@ -46,6 +46,8 @@ export function createAllHandlers(
       return {
         version: process.env.npm_package_version ?? "0.1.0",
         version_type: "electron",
+        product_name: "Atmos",
+        app_id: "com.atmos.desktop",
       };
     },
 

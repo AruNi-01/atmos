@@ -1,7 +1,9 @@
 /**
  * Bundle main + preload with esbuild (TypeScript → dist/).
+ * Also syncs Atmos icons from the Tauri icon pack for branding.
  */
 import * as esbuild from "esbuild";
+import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +11,15 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "dist");
 mkdirSync(dist, { recursive: true });
+
+// Keep local resources/icons in sync with production Tauri assets.
+const sync = spawnSync(process.execPath, [join(root, "scripts/sync-icons.ts")], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (sync.status !== 0) {
+  console.warn("[build] sync-icons exited non-zero; continuing with fallback paths");
+}
 
 const shared: esbuild.BuildOptions = {
   bundle: true,
