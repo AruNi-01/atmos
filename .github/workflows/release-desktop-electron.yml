@@ -280,6 +280,29 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # electron-builder AppImage on Ubuntu 22.04 needs libfuse2 + packaging tools.
+      # Without these the Linux matrix fails during `appimagetool` / fpm steps.
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfuse2 \
+            fuse \
+            fakeroot \
+            dpkg \
+            rpm \
+            xz-utils \
+            libgtk-3-0 \
+            libnss3 \
+            libasound2 \
+            libgbm1 \
+            libxss1 \
+            libxtst6 \
+            xvfb
+
       - name: Build runtime binary (api)
         run: cargo build --release --bin api --target ${{ matrix.target }}
 
