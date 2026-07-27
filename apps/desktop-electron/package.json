@@ -1,7 +1,7 @@
 {
   "name": "desktop-electron",
   "productName": "Atmos Electron",
-  "version": "2026.7.27",
+  "version": "2026.7.27-beta.1",
   "private": true,
   "description": "Atmos desktop shell (Electron / Chromium). Experimental dual-shell track; production default remains Tauri (apps/desktop).",
   "author": "Atmos",
