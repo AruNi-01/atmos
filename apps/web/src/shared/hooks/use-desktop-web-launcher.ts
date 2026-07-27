@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
 import { debugLog, errorLog } from "@/shared/lib/desktop-logger";
@@ -8,7 +8,7 @@ import {
   clearRuntimeApiConfigCache,
   getRuntimeApiConfig,
   httpBase,
-  isTauriRuntime,
+  isDesktopRuntime as detectDesktopRuntime,
 } from "@/shared/lib/desktop-runtime";
 
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
@@ -47,14 +47,36 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Desktop web launcher + shell detection for header actions.
+ * `isDesktopRuntime` is re-checked after mount so Electron preload
+ * (`window.__ATMOS_DESKTOP__`) is visible even if first paint races.
+ */
 export function useDesktopWebLauncher(pathname: string, search: string, enabled = true) {
-  const isDesktopRuntime = useMemo(() => isTauriRuntime(), []);
+  const [isDesktopRuntime, setIsDesktopRuntime] = useState(false);
   const isActive = isDesktopRuntime && enabled;
-  const [status, setStatus] = useState<DesktopWebStatus>(
-    isDesktopRuntime ? "checking" : "unavailable",
-  );
+  const [status, setStatus] = useState<DesktopWebStatus>("unavailable");
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+
+  useEffect(() => {
+    const refreshShell = () => {
+      const next = detectDesktopRuntime();
+      setIsDesktopRuntime(next);
+      if (!next) {
+        setStatus("unavailable");
+        setBrowserUrl(null);
+      }
+    };
+    refreshShell();
+    // Preload is usually ready immediately; retry a few times in case of race.
+    const t1 = window.setTimeout(refreshShell, 50);
+    const t2 = window.setTimeout(refreshShell, 250);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, []);
 
   const checkDesktopWeb = useCallback(async (): Promise<DesktopWebCheckResult> => {
     try {
@@ -74,20 +96,22 @@ export function useDesktopWebLauncher(pathname: string, search: string, enabled 
   }, [pathname, search]);
 
   const refreshStatus = useCallback(async () => {
-    if (!isDesktopRuntime) {
+    if (!detectDesktopRuntime()) {
+      setIsDesktopRuntime(false);
       setStatus("unavailable");
       setBrowserUrl(null);
       return false;
     }
 
+    setIsDesktopRuntime(true);
     setStatus((current) => (current === "ready" ? current : "checking"));
 
     const result = await checkDesktopWeb();
     return result.ready;
-  }, [checkDesktopWeb, isDesktopRuntime]);
+  }, [checkDesktopWeb]);
 
   const openInBrowser = useCallback(async () => {
-    if (!isDesktopRuntime) {
+    if (!detectDesktopRuntime()) {
       return false;
     }
 
@@ -113,7 +137,7 @@ export function useDesktopWebLauncher(pathname: string, search: string, enabled 
     } finally {
       setIsLaunching(false);
     }
-  }, [checkDesktopWeb, isDesktopRuntime]);
+  }, [checkDesktopWeb]);
 
   useEffect(() => {
     if (!isActive) {

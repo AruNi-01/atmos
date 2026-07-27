@@ -35,7 +35,7 @@ import { gitApi } from '@/api/ws-api';
 import { useGitFileDiffQuery } from '@/features/git/hooks/use-git-file-diff-query';
 import type { GitFileDiffParams } from '@/features/git/lib/git-query-options';
 import { loadCodeLanguageSupport } from '@/shared/lib/code-language';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isTauriShell } from '@/shared/lib/desktop-bridge';
 import { createGitChangeGutterExtensions } from '@/shared/lib/codemirror-git-gutter';
 import { createSearchExtension } from './codemirror-search-panel';
 
@@ -617,7 +617,8 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     breadcrumbs,
     lineHighlight,
     gitIntegration,
-    useDrawSelection: !isTauriRuntime(),
+    // WebKit/Tauri only: Chromium (Electron) uses normal draw selection.
+    useDrawSelection: !isTauriShell(),
   });
   const [languageCompartment] = useState(() => new Compartment());
   const [readOnlyCompartment] = useState(() => new Compartment());

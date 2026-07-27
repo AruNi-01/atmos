@@ -30,7 +30,11 @@ export function AgentChatHistorySidebarToggle({
       variant="ghost"
       size="icon"
       onClick={onToggle}
-      className={className ?? "size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"}
+      className={
+        className ??
+        // desktop-no-drag: Electron header drag-region steals clicks without this.
+        "desktop-no-drag size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+      }
       aria-label={label}
       title={label}
     >

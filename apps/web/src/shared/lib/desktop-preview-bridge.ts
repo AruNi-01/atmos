@@ -1,6 +1,6 @@
 'use client';
 
-import { isTauriRuntime } from './desktop-runtime';
+import { desktopInvoke, desktopListen, isDesktopRuntime } from './desktop-bridge';
 import type { PreviewTransportViewport } from '@/features/run-preview/lib/preview-bridge/types';
 
 interface PreviewBridgeEventPayload {
@@ -25,43 +25,24 @@ interface PreviewBridgeEventPayload {
   error?: string;
 }
 
-async function getInvoke() {
-  const internals = (window as {
-    __TAURI_INTERNALS__?: {
-      invoke?: (cmd: string, payload?: unknown) => Promise<unknown>;
-    };
-  }).__TAURI_INTERNALS__;
-
-  if (internals?.invoke) {
-    return internals.invoke;
-  }
-
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke;
-}
-
 export async function invokeDesktopPreviewBridge<T = unknown>(
   command: string,
   payload?: Record<string, unknown>,
 ): Promise<T> {
-  if (!isTauriRuntime()) {
-    throw new Error('Desktop Browser bridge is only available in the Tauri runtime.');
+  if (!isDesktopRuntime()) {
+    throw new Error('Desktop Browser bridge is only available in a desktop shell.');
   }
-
-  const invoke = await getInvoke();
-  return (await invoke(command, payload)) as T;
+  return desktopInvoke<T>(command, payload);
 }
 
 export async function listenDesktopPreviewBridge(
   eventName: string,
   handler: (payload: PreviewBridgeEventPayload) => void,
 ): Promise<() => void> {
-  const { listen } = await import('@tauri-apps/api/event');
-  const unlisten = await listen<PreviewBridgeEventPayload>(eventName, (event) => {
-    if (!event.payload) return;
-    handler(event.payload);
+  return desktopListen(eventName, (payload) => {
+    if (!payload) return;
+    handler(payload as PreviewBridgeEventPayload);
   });
-  return unlisten;
 }
 
 export async function getPreviewViewportBounds(element: HTMLElement): Promise<PreviewTransportViewport> {

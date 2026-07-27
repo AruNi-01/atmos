@@ -1,20 +1,12 @@
 'use client';
 
-type TauriInternals = {
-  invoke?: (cmd: string, payload?: unknown) => Promise<unknown>;
-};
+import { desktopInvoke, isDesktopRuntime } from './desktop-bridge';
 
 type DesktopLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-function getTauriInternals(): TauriInternals | undefined {
-  if (typeof window === 'undefined') return undefined;
-  return (window as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__;
-}
-
 function writeDesktopLog(level: DesktopLogLevel, message: string): void {
-  const internals = getTauriInternals();
-  if (!internals?.invoke) return;
-  internals.invoke('write_log', { level, message }).catch(() => {});
+  if (!isDesktopRuntime()) return;
+  void desktopInvoke('write_log', { level, message }).catch(() => {});
 }
 
 export function debugLog(message: string): void {

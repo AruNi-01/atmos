@@ -1,6 +1,6 @@
 "use client";
 
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 /**
  * APP-041 Browser Cookie Sync — frontend command bindings.
@@ -16,8 +16,6 @@ import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
  *   clear_browser_cache() -> { ok }
  *   clear_browser_site_data() -> { ok }
  */
-
-type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
 /** Source browser family, mirrors Rust `BrowserKind`. */
 export type BrowserProfileKind = "Chrome" | "Edge" | "Brave" | "Firefox";
@@ -78,38 +76,37 @@ const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set<CookieCmdErrorCode>([
  * Normalize whatever a rejected `invoke` gives us into a stable {@link CookieCmdErrorCode}.
  * The command layer serializes errors as `{ code: "BrowserRunning" }`, but we defensively
  * accept a bare string or an unknown shape and fall back to `Unknown`.
+ *
+ * Electron note: preload must throw a plain `{ code }` object (not `Error`) so
+ * contextBridge keeps the code; desktop-bridge then rehydrates DesktopBridgeError.
  */
 export function extractCookieErrorCode(error: unknown): CookieCmdErrorCode {
-  const candidate =
-    typeof error === "string"
-      ? error
-      : error && typeof error === "object" && "code" in error
-        ? (error as { code?: unknown }).code
-        : undefined;
-
-  if (typeof candidate === "string" && KNOWN_ERROR_CODES.has(candidate)) {
-    return candidate as CookieCmdErrorCode;
+  if (typeof error === "string") {
+    if (KNOWN_ERROR_CODES.has(error)) return error as CookieCmdErrorCode;
+    return "Unknown";
   }
+
+  if (error && typeof error === "object") {
+    const record = error as {
+      code?: unknown;
+      error?: { code?: unknown };
+      message?: unknown;
+    };
+    const nested =
+      record.error && typeof record.error === "object"
+        ? (record.error as { code?: unknown }).code
+        : undefined;
+    const candidate = record.code ?? nested;
+    if (typeof candidate === "string" && KNOWN_ERROR_CODES.has(candidate)) {
+      return candidate as CookieCmdErrorCode;
+    }
+  }
+
   return "Unknown";
 }
 
-async function getInvoke(): Promise<TauriInvoke> {
-  const internals = (window as {
-    __TAURI_INTERNALS__?: { invoke?: TauriInvoke };
-  }).__TAURI_INTERNALS__;
-
-  if (internals?.invoke) {
-    return internals.invoke;
-  }
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke as TauriInvoke;
-}
-
 function ensureDesktop(): void {
-  if (!isTauriRuntime()) {
-    // Non-desktop callers should never reach these commands (menu items are hidden),
-    // but guard anyway so a stray call surfaces a stable code instead of a raw throw.
+  if (!isDesktopRuntime()) {
     throw { code: "UnsupportedPlatform" satisfies CookieCmdErrorCode };
   }
 }
@@ -117,31 +114,29 @@ function ensureDesktop(): void {
 /** List detected source browsers + profiles (opaque handles + display names). */
 export async function listImportableBrowsers(): Promise<BrowserProfileDto[]> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  const result = await invoke<BrowserProfileDto[]>("list_importable_browsers");
+  const result = await desktopInvoke<BrowserProfileDto[]>("list_importable_browsers");
   return Array.isArray(result) ? result : [];
 }
 
 /**
  * Import cookies for the chosen profile. Accepts only the opaque `profile_handle`;
- * the Rust side re-runs discovery and resolves the canonical path internally.
+ * the shell re-runs discovery and resolves the canonical path internally.
  */
 export async function importBrowserCookies(profileHandle: string): Promise<ImportReport> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  return invoke<ImportReport>("import_browser_cookies", { profile_handle: profileHandle });
+  return desktopInvoke<ImportReport>("import_browser_cookies", {
+    profile_handle: profileHandle,
+  });
 }
 
 /** Clear cache-class data only (cookies + web storage preserved; stays logged in). */
 export async function clearBrowserCache(): Promise<void> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  await invoke<{ ok: boolean }>("clear_browser_cache");
+  await desktopInvoke<{ ok: boolean }>("clear_browser_cache");
 }
 
 /** Clear caches + web storage + cookies (may sign the user out of sites). */
 export async function clearBrowserSiteData(): Promise<void> {
   ensureDesktop();
-  const invoke = await getInvoke();
-  await invoke<{ ok: boolean }>("clear_browser_site_data");
+  await desktopInvoke<{ ok: boolean }>("clear_browser_site_data");
 }

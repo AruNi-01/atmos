@@ -3,7 +3,7 @@
 import { ensureComputerClientSettingsHydrated } from '@/features/connection/lib/sync-computer-client-settings';
 import { prepareConnectionTargetChange } from '@/app-shell/bootstrap/connection-target-lifecycle';
 import { hydrateRelaySessionFromDisk } from '@/features/connection/lib/hydrate-relay-session';
-import { isHostedAtmosOrigin, isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { isHostedAtmosOrigin, isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 
 let localBootstrapPromise: Promise<void> | null = null;
 
@@ -20,7 +20,7 @@ export function ensureLocalAppConnectionBootstrap(): Promise<void> {
     localBootstrapPromise = (async () => {
       await ensureComputerClientSettingsHydrated();
       await hydrateRelaySessionFromDisk({
-        clientType: isTauriRuntime() ? 'desktop' : 'web',
+        clientType: isDesktopRuntime() ? 'desktop' : 'web',
       });
       await prepareConnectionTargetChange();
     })().catch((err) => {

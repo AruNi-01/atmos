@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  desktopInvoke,
+  isDesktopRuntime as bridgeIsDesktopRuntime,
+  isTauriShell,
+} from './desktop-bridge';
 import { debugLog, errorLog } from './desktop-logger';
 
 export type ApiConfig = {
@@ -58,12 +63,23 @@ export function getHostedLoopbackCandidates(token?: string): ApiConfig[] {
   ];
 }
 
+/**
+ * True when running inside the Tauri desktop shell.
+ * Prefer {@link isDesktopRuntime} for features that apply to any desktop shell
+ * (Tauri or Electron).
+ */
 export function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  return isTauriShell();
+}
+
+/** True when running inside Tauri or Electron desktop shells. */
+export function isDesktopRuntime(): boolean {
+  return bridgeIsDesktopRuntime();
 }
 
 export function isHostedAtmosOrigin(): boolean {
-  if (isTauriRuntime()) {
+  // Desktop shells (Tauri / Electron) are never "hosted web origin".
+  if (isDesktopRuntime()) {
     return false;
   }
 
@@ -106,63 +122,45 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
     return cachedConfig;
   }
 
-  if (isTauriRuntime()) {
-    type TauriApiConfig = { host?: string; port: number; token?: string };
-    const internals = (window as {
-      __TAURI_INTERNALS__?: {
-        invoke?: (cmd: string, payload?: unknown) => Promise<TauriApiConfig>;
-      };
-    }).__TAURI_INTERNALS__;
-    if (internals?.invoke) {
-      const maxWaitMs = 30_000;
-      const startedAt = Date.now();
-      while (true) {
-        try {
-          debugLog('getRuntimeApiConfig: invoking get_api_config...');
-          const result = await internals.invoke('get_api_config');
-          cachedConfig = {
-            host: result.host ?? '127.0.0.1',
-            port: result.port,
-            token: result.token,
-          };
-          debugLog(`getRuntimeApiConfig: success port=${cachedConfig.port}`);
-          return cachedConfig;
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          const apiNotReady = msg === 'API not ready';
-          if (apiNotReady && Date.now() - startedAt < maxWaitMs) {
-            await new Promise((resolve) => setTimeout(resolve, 200));
-            continue;
-          }
-          errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
-          console.warn('[desktop-runtime] invoke get_api_config failed:', e);
-          if (isDesktopBuild) {
-            cachedConfig = desktopBuildFallbackApiConfig(
-              process.env.NEXT_PUBLIC_API_TOKEN || undefined,
-            );
-            console.warn(
-              `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
-            );
-            return cachedConfig;
-          }
-          throw e;
+  if (isDesktopRuntime()) {
+    type DesktopApiConfig = { host?: string; port: number; token?: string };
+    const maxWaitMs = 30_000;
+    const startedAt = Date.now();
+    while (true) {
+      try {
+        debugLog('getRuntimeApiConfig: invoking get_api_config via desktop bridge...');
+        const result = await desktopInvoke<DesktopApiConfig>('get_api_config');
+        cachedConfig = {
+          host: result.host ?? '127.0.0.1',
+          port: result.port,
+          token: result.token,
+        };
+        debugLog(`getRuntimeApiConfig: success port=${cachedConfig.port}`);
+        return cachedConfig;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const apiNotReady = msg === 'API not ready' || msg.includes('API not ready');
+        if (apiNotReady && Date.now() - startedAt < maxWaitMs) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          continue;
         }
+        errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
+        console.warn('[desktop-runtime] invoke get_api_config failed:', e);
+        if (isDesktopBuild) {
+          cachedConfig = desktopBuildFallbackApiConfig(
+            process.env.NEXT_PUBLIC_API_TOKEN || undefined,
+          );
+          console.warn(
+            `[desktop-runtime] falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
+          );
+          return cachedConfig;
+        }
+        throw e;
       }
     }
-    errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
-    if (isDesktopBuild) {
-      cachedConfig = desktopBuildFallbackApiConfig(
-        process.env.NEXT_PUBLIC_API_TOKEN || undefined,
-      );
-      console.warn(
-        `[desktop-runtime] Tauri invoke bridge unavailable; falling back to loopback ${cachedConfig.host}:${cachedConfig.port}`,
-      );
-      return cachedConfig;
-    }
-    throw new Error('Tauri runtime detected but invoke bridge is unavailable');
   }
 
-  // Not Tauri — running in a regular browser.
+  // Not a desktop shell — running in a regular browser.
   if (isHostedAtmosOrigin()) {
     cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     debugLog(`getRuntimeApiConfig: hosted loopback ${cachedConfig.host}:${cachedConfig.port}`);
@@ -204,7 +202,7 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
     return cachedHttpConfig;
   }
 
-  if (isTauriRuntime()) {
+  if (isDesktopRuntime()) {
     cachedHttpConfig = await getRuntimeApiConfig();
     return cachedHttpConfig;
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 export interface AppNotificationPayload {
   title: string;
@@ -41,10 +41,9 @@ export function showBrowserNotification(
 }
 
 export async function showDesktopNotification(payload: AppNotificationPayload): Promise<boolean> {
-  if (!isTauriRuntime()) return false;
+  if (!isDesktopRuntime()) return false;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("send_notification", {
+    await desktopInvoke("send_notification", {
       title: payload.title,
       body: payload.body,
     });

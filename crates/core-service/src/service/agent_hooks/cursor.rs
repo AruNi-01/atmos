@@ -48,10 +48,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 StateUpdateKind::NewTurn,
             );
         }
-        "preToolUse"
-        | "postToolUse"
-        | "postToolUseFailure"
-        | "beforeShellExecution" => {
+        "preToolUse" | "postToolUse" | "postToolUseFailure" | "beforeShellExecution" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Cursor,

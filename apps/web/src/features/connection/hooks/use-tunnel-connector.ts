@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { debugLog, errorLog } from '@/shared/lib/desktop-logger';
-import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import {
+  desktopInvoke,
+  desktopListen,
+  isDesktopRuntime,
+} from '@/shared/lib/desktop-bridge';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,7 +54,14 @@ export type TunnelConnectorStatusMap = Partial<Record<ProviderKind, TunnelConnec
 // ---------------------------------------------------------------------------
 
 export function useTunnelConnector(enabled = true) {
-  const isDesktop = useMemo(() => isTauriRuntime(), []);
+  // Re-check shell after mount (Electron preload can race first render).
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const refresh = () => setIsDesktop(isDesktopRuntime());
+    refresh();
+    const t = window.setTimeout(refresh, 100);
+    return () => window.clearTimeout(t);
+  }, []);
   const isActive = isDesktop && enabled;
 
   const [statusMap, setStatusMap] = useState<TunnelConnectorStatusMap>({});
@@ -63,9 +74,18 @@ export function useTunnelConnector(enabled = true) {
   const refreshStatus = useCallback(async () => {
     if (!isDesktop) return;
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<Record<string, TunnelConnectorStatus>>('tunnel_connector_status');
-      setStatusMap(result as TunnelConnectorStatusMap);
+      const result = await desktopInvoke<Record<string, TunnelConnectorStatus | null | undefined>>(
+        'tunnel_connector_status',
+      );
+      // Drop incomplete entries (missing provider_status) so Header filters
+      // never read `.state` on undefined — Electron once returned a flatter shape.
+      const next: TunnelConnectorStatusMap = {};
+      for (const [key, value] of Object.entries(result ?? {})) {
+        if (value && value.provider_status && typeof value.provider_status.state === 'string') {
+          next[key as ProviderKind] = value;
+        }
+      }
+      setStatusMap(next);
     } catch (err) {
       errorLog(`[tunnel-connector] refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -75,8 +95,7 @@ export function useTunnelConnector(enabled = true) {
     if (!isDesktop) return;
     setIsLoading(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<{ providers: ProviderDiagnostics[] }>('tunnel_connector_detect');
+      const result = await desktopInvoke<{ providers: ProviderDiagnostics[] }>('tunnel_connector_detect');
       setProviders(result.providers);
     } catch (err) {
       errorLog(`[tunnel-connector] detect failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -95,13 +114,12 @@ export function useTunnelConnector(enabled = true) {
       if (!isDesktop) return undefined;
       setStartingProviders((prev) => new Set(prev).add(provider));
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
         const payload = {
           req: { provider, mode, target_base_url: targetBaseUrl, ttl_secs: ttlSecs },
         };
         debugLog(`[tunnel-connector] start: ${JSON.stringify(payload)}`);
         const result = await Promise.race([
-          invoke<TunnelConnectorStatus>('tunnel_connector_start', payload),
+          desktopInvoke<TunnelConnectorStatus>('tunnel_connector_start', payload),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Start tunnel timed out after 30s')), 30_000),
           ),
@@ -129,8 +147,7 @@ export function useTunnelConnector(enabled = true) {
       if (!isDesktop) return;
       setStoppingProviders((prev) => new Set(prev).add(provider));
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('tunnel_connector_stop', { req: { provider } });
+        await desktopInvoke('tunnel_connector_stop', { req: { provider } });
         setStatusMap((prev) => {
           const next = { ...prev };
           delete next[provider];
@@ -157,8 +174,7 @@ export function useTunnelConnector(enabled = true) {
     ): Promise<TunnelConnectorStatus | undefined> => {
       if (!isDesktop) return undefined;
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const result = await invoke<TunnelConnectorStatus>('tunnel_connector_renew', {
+        const result = await desktopInvoke<TunnelConnectorStatus>('tunnel_connector_renew', {
           req: { provider, ttl_secs: ttlSecs, reuse_token: reuseToken ?? true },
         });
         setStatusMap((prev) => ({ ...prev, [provider]: result }));
@@ -175,8 +191,7 @@ export function useTunnelConnector(enabled = true) {
     if (!isDesktop) return;
     setIsLoading(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<Record<string, TunnelConnectorStatus>>('tunnel_connector_recover');
+      const result = await desktopInvoke<Record<string, TunnelConnectorStatus>>('tunnel_connector_recover');
       if (result && Object.keys(result).length > 0) {
         setStatusMap(result as TunnelConnectorStatusMap);
       }
@@ -191,8 +206,7 @@ export function useTunnelConnector(enabled = true) {
     async (provider: ProviderKind): Promise<string[]> => {
       if (!isDesktop) return [];
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        return await invoke<string[]>('tunnel_connector_provider_guide', { provider });
+        return await desktopInvoke<string[]>('tunnel_connector_provider_guide', { provider });
       } catch (err) {
         errorLog(`[tunnel-connector] getProviderGuide failed: ${err instanceof Error ? err.message : String(err)}`);
         return [];
@@ -205,8 +219,7 @@ export function useTunnelConnector(enabled = true) {
     async (provider: ProviderKind, credential: string) => {
       if (!isDesktop) return;
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('tunnel_connector_save_credential', { req: { provider, credential } });
+        await desktopInvoke('tunnel_connector_save_credential', { req: { provider, credential } });
       } catch (err) {
         errorLog(`[tunnel-connector] saveCredential failed: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -218,8 +231,7 @@ export function useTunnelConnector(enabled = true) {
     async (provider: ProviderKind) => {
       if (!isDesktop) return;
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('tunnel_connector_clear_credential', { provider });
+        await desktopInvoke('tunnel_connector_clear_credential', { provider });
       } catch (err) {
         errorLog(`[tunnel-connector] clearCredential failed: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -232,26 +244,28 @@ export function useTunnelConnector(enabled = true) {
     void refreshStatus();
   }, [isActive, refreshStatus]);
 
-  // Listen for the startup recovery event emitted by Rust after sidecar is ready.
+  // Listen for startup recovery event from the desktop shell.
   useEffect(() => {
     if (!isActive) return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
-    import('@tauri-apps/api/event').then(({ listen }) => {
-      if (cancelled) return;
-      listen<Record<string, TunnelConnectorStatus>>('tunnel-connector-recovered', (event) => {
-        if (event.payload && Object.keys(event.payload).length > 0) {
-          setStatusMap(event.payload as TunnelConnectorStatusMap);
-        }
-      }).then((fn) => {
-        if (cancelled) {
-          fn();
-          return;
-        }
-        unlisten = fn;
-      });
+    void desktopListen('tunnel-connector-recovered', (payload) => {
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        Object.keys(payload as object).length > 0
+      ) {
+        setStatusMap(payload as TunnelConnectorStatusMap);
+      }
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
+      unlisten = fn;
     });
+
     return () => {
       cancelled = true;
       unlisten?.();

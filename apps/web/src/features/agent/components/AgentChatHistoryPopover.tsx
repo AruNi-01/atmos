@@ -69,7 +69,8 @@ export function AgentChatHistoryPopover({
               <button
                 type="button"
                 className={cn(
-                  "rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  // desktop-no-drag: header is a drag-region on standalone Electron.
+                  "desktop-no-drag rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
                   triggerClassName,
                 )}
                 aria-label={t("historyPopover.triggerAria")}

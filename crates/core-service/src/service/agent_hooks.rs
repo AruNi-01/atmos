@@ -451,17 +451,9 @@ impl AgentHooksService {
             sessions.get(session_id).map(|s| s.state)
         };
 
-        // Skip no-op writes that would only bump the timestamp for identical state
-        // (except ForcedIdle / TerminalIdle which re-arm suppress intentionally).
-        if previous_state == Some(state)
-            && !matches!(
-                kind,
-                StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
-            )
-            && matches!(state, AgentHookState::Running | AgentHookState::PermissionRequest)
-        {
-            // Still refresh timestamp for running/permission so stale TTL stays honest.
-        }
+        // Always insert/refresh the session row (including identical Running /
+        // PermissionRequest) so the stale-TTL timestamp stays current. Broadcast
+        // and notifications are gated below on actual state change.
 
         let session = AgentHookSession {
             session_id: session_id.to_string(),
@@ -683,10 +675,7 @@ mod tests {
             StateUpdateKind::NewTurn,
         );
         service.force_session_idle("ws-1:agent");
-        assert_eq!(
-            service.get_all_sessions()[0].state,
-            AgentHookState::Idle
-        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
 
         service.update_state(
             "ws-1:agent",
@@ -724,10 +713,7 @@ mod tests {
             &ctx,
             StateUpdateKind::NewTurn,
         );
-        assert_eq!(
-            service.get_all_sessions()[0].state,
-            AgentHookState::Running
-        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
     }
 
     #[test]
@@ -749,10 +735,7 @@ mod tests {
             s.timestamp = (Utc::now() - chrono::Duration::minutes(45)).to_rfc3339();
         }
         service.clear_stale_active_older_than(30);
-        assert_eq!(
-            service.get_all_sessions()[0].state,
-            AgentHookState::Idle
-        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 
     #[test]

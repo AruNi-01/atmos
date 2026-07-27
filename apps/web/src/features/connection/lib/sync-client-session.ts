@@ -6,7 +6,8 @@
  */
 
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/shared/lib/desktop-runtime';
+import { desktopInvoke, isDesktopRuntime } from '@/shared/lib/desktop-bridge';
+import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 
 async function putClientSession(
   body: Record<string, unknown>,
@@ -31,18 +32,11 @@ async function putClientSession(
 
 /** Local session: CLI should read runtime_manifest, not a stale relay session file. */
 export async function syncClientSessionLocal(): Promise<void> {
-  if (isTauriRuntime()) {
-    const internals = (
-      window as {
-        __TAURI_INTERNALS__?: { invoke?: (cmd: string) => Promise<unknown> };
-      }
-    ).__TAURI_INTERNALS__;
-    if (internals?.invoke) {
-      try {
-        await internals.invoke('clear_client_session_cmd');
-      } catch (e) {
-        console.warn('[sync-client-session] desktop clear failed', e);
-      }
+  if (isDesktopRuntime()) {
+    try {
+      await desktopInvoke('clear_client_session_cmd');
+    } catch (e) {
+      console.warn('[sync-client-session] desktop clear failed', e);
     }
     return;
   }

@@ -74,7 +74,7 @@ import {
 } from "@/features/connection/lib/sync-computer-client-settings";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
-import { isHostedAtmosOrigin, isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { UsagePopover } from "./UsagePopover";
 import { TunnelItem } from "./header-parts";
@@ -893,18 +893,17 @@ export function HeaderActionControls({
               </MenuSubmenuPanel>
             </MenuSubmenu>
 
-            {!isTauriRuntime() ? (
-              <MenuItem
-                closeOnClick
-                onClick={() => {
-                  void toggleFullScreen();
-                  setIsActionMenuOpen(false);
-                }}
-              >
-                {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-                {isFullScreenActive ? t("menu.fullScreenExit") : t("menu.fullScreenEnter")}
-              </MenuItem>
-            ) : null}
+            {/* Fullscreen control for all shells (web, Electron, and Tauri menu). */}
+            <MenuItem
+              closeOnClick
+              onClick={() => {
+                void toggleFullScreen();
+                setIsActionMenuOpen(false);
+              }}
+            >
+              {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+              {isFullScreenActive ? t("menu.fullScreenExit") : t("menu.fullScreenEnter")}
+            </MenuItem>
 
             <MenuSeparator />
 

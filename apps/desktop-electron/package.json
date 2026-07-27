@@ -1,0 +1,30 @@
+{
+  "name": "desktop-electron",
+  "productName": "Atmos Electron",
+  "version": "2026.7.27",
+  "private": true,
+  "description": "Atmos desktop shell (Electron / Chromium). Experimental dual-shell track; production default remains Tauri (apps/desktop).",
+  "author": "Atmos",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "postinstall": "bun run scripts/ensure-electron.ts",
+    "sync-icons": "bun run scripts/sync-icons.ts",
+    "build": "bun run scripts/build.ts",
+    "prepare-package": "bun run scripts/prepare-package.ts",
+    "package": "bun run scripts/package.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "bun run scripts/ensure-electron.ts && bun run build && bun run scripts/dev.ts",
+    "start": "bun run scripts/ensure-electron.ts && bun run build && electron .",
+    "test": "bun test src/**/*.test.ts",
+    "smoke:router": "bun run scripts/smoke-router.ts",
+    "smoke:boot": "bun run scripts/smoke-boot.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.2"
+  }
+}

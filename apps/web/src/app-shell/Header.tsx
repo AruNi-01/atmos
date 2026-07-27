@@ -41,6 +41,7 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
+import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-runtime';
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
@@ -227,12 +228,15 @@ const Header: React.FC = () => {
   }, [searchParams]);
   const {
     browserUrl,
-    isDesktopRuntime,
+    isDesktopRuntime: isDesktopShellFromLauncher,
     isLaunching: isOpeningDesktopWeb,
     openInBrowser,
     refreshStatus: refreshDesktopWebStatus,
     status: desktopWebStatus,
   } = useDesktopWebLauncher(pathname, desktopWebSearch, showHeaderRemoteAccess);
+  // Live shell detect for header chrome (AppShot / Atmos Computer). Launcher
+  // state can race Electron preload on first paint — OR the two sources.
+  const isDesktopRuntime = isDesktopShellFromLauncher || detectDesktopShell();
 
   const {
     statusMap: tunnelConnectorStatusMap,
@@ -242,7 +246,8 @@ const Header: React.FC = () => {
   // Collect all active (Running) tunnels for display in the header.
   const activeTunnelConnectors = useMemo(() =>
     Object.values(tunnelConnectorStatusMap).filter(
-      (s): s is NonNullable<typeof s> => !!s && s.provider_status.state === 'Running'
+      (s): s is NonNullable<typeof s> =>
+        !!s && s.provider_status?.state === 'Running',
     ),
     [tunnelConnectorStatusMap]
   );

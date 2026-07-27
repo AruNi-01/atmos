@@ -156,21 +156,25 @@ export function PreviewBrowserTabBar({
     scrollTabIntoView(container, activeTab, behavior);
   }, [activeTabId, tabs.length]);
 
+  const needsTrafficLightsInset = Boolean(chromeControls?.needsDesktopPreviewSafeInset);
+
   return (
     <div
       onMouseDown={handleDesktopWindowMouseDown}
       data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
       className={cn(
-        "flex h-9 shrink-0 items-center gap-1 overflow-hidden bg-muted/10 px-2 select-none",
+        // Match main app header (h-12) + traffic-light geometry so tabs sit with
+        // the same vertical rhythm as the home shell / ACP Chat Panel chrome.
+        // Traffic-light inset is on this non-scrolling outer bar (not the tab
+        // scrollport) so overflowing tabs never slide under the lights.
+        "flex h-12 shrink-0 items-center gap-1 overflow-hidden bg-muted/10 py-1.5 pr-2 select-none transition-[padding] duration-300 ease-out",
+        needsTrafficLightsInset ? "pl-[92px]" : "pl-2",
         isDesktopDragEnabled && "desktop-drag-region",
       )}
     >
       <div
         ref={tabsScrollRef}
-        className={cn(
-          "flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar",
-          chromeControls?.needsDesktopPreviewSafeInset && "pl-[84px]",
-        )}
+        className="flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar"
       >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;

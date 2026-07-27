@@ -3,10 +3,10 @@
  */
 
 import { systemApi } from '@/api/rest-api';
+import { desktopInvoke, isDesktopRuntime } from '@/shared/lib/desktop-bridge';
 import {
   getLoopbackHttpBase,
   isHostedAtmosOrigin,
-  isTauriRuntime,
 } from '@/shared/lib/desktop-runtime';
 import type { ShellEnvInfo } from '@/api/rest-api';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
@@ -80,20 +80,14 @@ function stripLocalSuffix(hostname: string | null | undefined): string | null {
   return stripped || trimmed;
 }
 
-async function tauriComputerDisplayName(): Promise<string | null> {
-  if (!isTauriRuntime()) {
-    return null;
-  }
-  const invoke = (
-    window as {
-      __TAURI_INTERNALS__?: { invoke?: (cmd: string) => Promise<string | null> };
-    }
-  ).__TAURI_INTERNALS__?.invoke;
-  if (!invoke) {
+async function desktopComputerDisplayName(): Promise<string | null> {
+  if (!isDesktopRuntime()) {
     return null;
   }
   try {
-    const name = await invoke('get_local_computer_display_name');
+    const name = await desktopInvoke<string | null>(
+      'get_local_computer_display_name',
+    );
     const trimmed = name?.trim();
     return trimmed || null;
   } catch {
@@ -163,7 +157,7 @@ export async function loadLocalComputerStatus(
   }
 
   const [tauriName, overview] = await Promise.all([
-    tauriComputerDisplayName(),
+    desktopComputerDisplayName(),
     systemApi.getTerminalOverview().catch(() => null),
   ]);
 

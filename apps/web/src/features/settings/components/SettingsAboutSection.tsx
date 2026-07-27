@@ -11,7 +11,7 @@ import {
   type UpdateInfo,
   type UpdateStatus,
 } from "@/features/settings/hooks/use-updater";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 interface SettingsAboutSectionProps {
   appVersion: string;
@@ -59,7 +59,7 @@ export function SettingsAboutSection({
             </p>
           </div>
           <div className="flex items-center text-sm font-medium text-foreground">
-            {isTauriRuntime() ? t("runtime.desktop") : t("runtime.web")}
+            {isDesktopRuntime() ? t("runtime.desktop") : t("runtime.web")}
           </div>
         </div>
 

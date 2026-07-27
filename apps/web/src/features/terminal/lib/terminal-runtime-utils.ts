@@ -5,7 +5,7 @@ import type {
 } from "@xterm/addon-clipboard";
 import type { TerminalPaneAgent } from "../types/index";
 
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import { terminalFont } from "./theme";
 
 const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
@@ -33,7 +33,7 @@ let terminalFontLoadPromise: Promise<void> | null = null;
 export class SafeClipboardProvider implements IClipboardProvider {
   async readText(selection: ClipboardSelectionType): Promise<string> {
     if (selection !== "c") return "";
-    if (!isTauriRuntime() && !navigator.userActivation?.isActive) return "";
+    if (!isDesktopRuntime() && !navigator.userActivation?.isActive) return "";
     try {
       return await navigator.clipboard.readText();
     } catch {
@@ -65,7 +65,7 @@ export class SafeClipboardProvider implements IClipboardProvider {
 
   async writeText(selection: ClipboardSelectionType, text: string): Promise<void> {
     if (selection !== "c" || !text?.trim()) return;
-    if (!isTauriRuntime() && !navigator.userActivation?.isActive) return;
+    if (!isDesktopRuntime() && !navigator.userActivation?.isActive) return;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -81,7 +81,7 @@ export function wrapBracketedPaste(text: string): string {
 }
 
 export function shiftEnterInput(): string {
-  return isTauriRuntime() ? SHIFT_ENTER_CSI_U : "\n";
+  return isDesktopRuntime() ? SHIFT_ENTER_CSI_U : "\n";
 }
 
 export function ctrlEnterInput(): string {

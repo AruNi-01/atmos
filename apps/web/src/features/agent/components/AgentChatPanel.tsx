@@ -85,8 +85,6 @@ export function AgentChatPanel({
   const isFullscreen = canFullscreen && fullscreenRequested;
   const isEmbeddedPausedForStandalone = variant !== "standalone" && isStandaloneChatOpen;
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
-  const reserveDesktopTrafficLights =
-    needsTrafficLightsPadding && (variant === "standalone" || isFullscreen);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
@@ -446,6 +444,7 @@ export function AgentChatPanel({
   const historySidebarToggle = (
     <AgentChatHistorySidebarToggle
       collapsed={historySidebarCollapsed}
+      className="desktop-no-drag size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
       expandLabel={historySidebarExpandLabel}
       hideLabel={historySidebarHideLabel}
       onToggle={() => setHistorySidebarCollapsed((current) => !current)}
@@ -454,16 +453,39 @@ export function AgentChatPanel({
   const trafficLightsHistorySidebarToggle = (
     <AgentChatHistorySidebarToggle
       collapsed={historySidebarCollapsed}
-      className="size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+      // desktop-no-drag: must be a *descendant* of the header drag-region.
+      // Sibling overlays with no-drag are still stolen by Electron app-region.
+      className="desktop-no-drag size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
       expandLabel={historySidebarExpandLabel}
       hideLabel={historySidebarHideLabel}
       iconClassName="size-4"
       onToggle={() => setHistorySidebarCollapsed((current) => !current)}
     />
   );
-  const showTrafficLightsHistoryToggle = showsWideHistoryLayout && reserveDesktopTrafficLights;
+  // Wide standalone/fullscreen chrome:
+  // - Collapsed: expand control lives *inside* the header (descendant of
+  //   desktop-drag-region) so Electron does not steal clicks. History popover
+  //   stays visible in the header.
+  // - Expanded: collapse control is a floating overlay over the history sidebar
+  //   (outside the main header drag strip). History popover is hidden because
+  //   sessions already live in the sidebar.
+  const usesStandaloneTrafficChrome =
+    showsWideHistoryLayout && (variant === "standalone" || isFullscreen);
   const insetHeaderForTrafficLights =
-    reserveDesktopTrafficLights && (!showsWideHistoryLayout || historySidebarCollapsed);
+    needsTrafficLightsPadding &&
+    (variant === "standalone" || isFullscreen) &&
+    (!showsWideHistoryLayout || historySidebarCollapsed);
+  const historySidebarControl = showsWideHistoryLayout
+    ? usesStandaloneTrafficChrome
+      ? historySidebarCollapsed
+        ? trafficLightsHistorySidebarToggle
+        : null
+      : historySidebarToggle
+    : null;
+  // When the wide sidebar is open, hide the header History popover trigger.
+  // When collapsed (or not wide), keep the session-history button visible.
+  const historyTriggerClassName =
+    showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined;
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
     : "w-full";
@@ -576,8 +598,16 @@ export function AgentChatPanel({
         </>
       )}
 
-      {showTrafficLightsHistoryToggle ? (
-        <div className="absolute left-[86px] top-3 z-50 flex h-7 items-center">
+      {usesStandaloneTrafficChrome && !historySidebarCollapsed ? (
+        // Floating collapse over the open sidebar — not under the header's
+        // full-width drag region, so Electron hits work. (Collapsed expand is
+        // rendered inside AgentChatHeader via historySidebarControl.)
+        <div
+          className={cn(
+            "desktop-no-drag absolute top-3 z-50 flex h-7 items-center",
+            needsTrafficLightsPadding ? "left-[86px]" : "left-3",
+          )}
+        >
           {trafficLightsHistorySidebarToggle}
         </div>
       ) : null}
@@ -595,7 +625,11 @@ export function AgentChatPanel({
         >
           <AgentChatHistorySidebar
             className="flex"
-            reserveTrafficLightsInset={showTrafficLightsHistoryToggle}
+            // Leave room for traffic lights and/or the floating collapse control
+            // so New Session is not covered.
+            reserveTrafficLightsInset={
+              usesStandaloneTrafficChrome && !historySidebarCollapsed
+            }
             historySessions={historySessions}
             historyHasMore={historyHasMore}
             historyLoading={historyLoading}
@@ -664,8 +698,8 @@ export function AgentChatPanel({
           trafficLightsContentInset={insetHeaderForTrafficLights}
           loadHistorySessions={loadHistorySessions}
           handleSelectHistorySession={handleSelectHistorySession}
-          historyTriggerClassName={showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined}
-          historySidebarControl={showsWideHistoryLayout && !showTrafficLightsHistoryToggle ? historySidebarToggle : null}
+          historyTriggerClassName={historyTriggerClassName}
+          historySidebarControl={historySidebarControl}
           handleClose={handleClosePanel}
           handleLogoutAgent={handleLogoutAgent}
           displaySessionTitle={displaySessionTitle}

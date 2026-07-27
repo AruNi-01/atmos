@@ -1,7 +1,7 @@
 "use client";
 
 import { createTranslator } from "next-intl";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, desktopListen, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -21,8 +21,6 @@ import type {
   AppshotStatus,
 } from "../types";
 
-type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
-
 const PREVIEW_EVENT = "appshot://preview";
 let cachedAppshotLibLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,39 +39,22 @@ function appshotLibT(key: string): string {
   return cachedAppshotLibTranslator(key as never);
 }
 
-async function getInvoke(): Promise<TauriInvoke> {
-  const internals = (window as {
-    __TAURI_INTERNALS__?: {
-      invoke?: TauriInvoke;
-    };
-  }).__TAURI_INTERNALS__;
-
-  if (internals?.invoke) {
-    return internals.invoke;
-  }
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke as TauriInvoke;
-}
-
 async function invokeAppshot<T>(
   command: string,
   payload?: Record<string, unknown>,
 ): Promise<T> {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     throw new Error(appshotLibT("client.desktopOnly"));
   }
-
-  const invoke = await getInvoke();
-  return await invoke<T>(command, payload);
+  return desktopInvoke<T>(command, payload);
 }
 
 export function isAppshotRuntimeAvailable(): boolean {
-  return isTauriRuntime();
+  return isDesktopRuntime();
 }
 
 export async function getAppshotStatus(): Promise<AppshotStatus> {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     return nonDesktopStatus();
   }
 
@@ -106,7 +87,7 @@ export async function setAppshotPendingAutoAccept(
 }
 
 export async function listAppshotRecords(): Promise<AppshotRecordListItem[]> {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     return [];
   }
 
@@ -116,7 +97,7 @@ export async function listAppshotRecords(): Promise<AppshotRecordListItem[]> {
 export async function readAppshotRecords(
   timestamps: string[],
 ): Promise<AppshotRecordDetail[]> {
-  if (!isTauriRuntime() || timestamps.length === 0) {
+  if (!isDesktopRuntime() || timestamps.length === 0) {
     return [];
   }
 
@@ -162,18 +143,15 @@ export async function showAppshotPermissionsWindow(
 export async function listenAppshotPreview(
   handler: (preview: AppshotPendingPreview) => void,
 ): Promise<() => void> {
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     return () => {};
   }
 
-  const { listen } = await import("@tauri-apps/api/event");
-  const unlisten = await listen<AppshotPendingPreview>(PREVIEW_EVENT, (event) => {
-    if (event.payload) {
-      handler(event.payload);
+  return desktopListen(PREVIEW_EVENT, (payload) => {
+    if (payload) {
+      handler(payload as AppshotPendingPreview);
     }
   });
-
-  return unlisten;
 }
 
 export function watchAppshotStatusAfterPermissionOpen(

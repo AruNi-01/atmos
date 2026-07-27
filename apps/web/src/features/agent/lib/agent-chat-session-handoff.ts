@@ -3,7 +3,7 @@
 import type { AgentPlan } from "@/features/agent/hooks/use-agent-session";
 import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
 import type { PendingPermission } from "@/features/agent/lib/chat-helpers";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 export interface AgentChatSessionHandoffSnapshot {
   version: 1;
@@ -33,8 +33,6 @@ interface AgentChatSessionHandoffEvent {
   at: number;
 }
 
-type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
-
 const CHANNEL_NAME = "atmos:agent-chat-handoff";
 const STORAGE_PREFIX = "atmos:agent-chat-handoff:";
 const SNAPSHOT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -53,18 +51,8 @@ function storageKey(contextKey: string): string {
   return `${STORAGE_PREFIX}${contextKey}`;
 }
 
-async function getInvoke(): Promise<TauriInvoke | null> {
-  if (!canUseWindow() || !isTauriRuntime()) return null;
-
-  const internals = (window as {
-    __TAURI_INTERNALS__?: {
-      invoke?: TauriInvoke;
-    };
-  }).__TAURI_INTERNALS__;
-  if (internals?.invoke) return internals.invoke;
-
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke as TauriInvoke;
+async function desktopCmdAvailable(): Promise<boolean> {
+  return canUseWindow() && isDesktopRuntime();
 }
 
 function snapshotIdentity(snapshot: AgentChatSessionHandoffSnapshot): string {
@@ -154,11 +142,10 @@ export async function writeAgentChatSessionHandoff(
 ): Promise<string | null> {
   if (!canUseWindow()) return null;
 
-  if (isTauriRuntime()) {
+  if (isDesktopRuntime()) {
     try {
-      const invoke = await getInvoke();
-      if (!invoke) return null;
-      const nextToken = await invoke<string>("write_agent_chat_handoff", {
+      if (!(await desktopCmdAvailable())) return null;
+      const nextToken = await desktopInvoke<string>("write_agent_chat_handoff", {
         token: token || null,
         snapshot,
       });
@@ -194,11 +181,12 @@ export async function readAgentChatSessionHandoff(
 ): Promise<AgentChatSessionHandoffSnapshot | null> {
   if (!canUseWindow()) return null;
 
-  if (token && isTauriRuntime()) {
+  if (token && isDesktopRuntime()) {
     try {
-      const invoke = await getInvoke();
-      if (!invoke) return null;
-      const snapshot = await invoke<unknown | null>("read_agent_chat_handoff", { token });
+      if (!(await desktopCmdAvailable())) return null;
+      const snapshot = await desktopInvoke<unknown | null>("read_agent_chat_handoff", {
+        token,
+      });
       return normalizeSnapshot(snapshot, contextKey, expectedAcpSessionId);
     } catch {
       return null;
@@ -210,7 +198,7 @@ export async function readAgentChatSessionHandoff(
 
   try {
     const parsed = JSON.parse(raw) as AgentChatSessionHandoffSnapshot | AgentChatSessionHandoffEvent;
-    if ("token" in parsed && parsed.token && isTauriRuntime()) {
+    if ("token" in parsed && parsed.token && isDesktopRuntime()) {
       return readAgentChatSessionHandoff(contextKey, expectedAcpSessionId, parsed.token);
     }
     if ("snapshot" in parsed && parsed.snapshot) {
