@@ -184,7 +184,8 @@ export function AgentChatHeader({
       }
       data-tauri-drag-region={useNativeWindowDrag ? "true" : undefined}
       className={cn(
-        "flex shrink-0 flex-col gap-1 py-3 pr-4",
+        // Match main Header: animate traffic-light inset on enter/leave fullscreen.
+        "flex shrink-0 flex-col gap-1 py-3 pr-4 transition-[padding] duration-300 ease-out",
         trafficLightsContentInset ? "pl-[124px]" : "pl-4",
         useNativeWindowDrag && "desktop-drag-region select-none",
         variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"

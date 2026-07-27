@@ -20,6 +20,13 @@ import { join } from "node:path";
 
 export type ProviderKind = "cloudflare" | "ngrok" | "tailscale";
 
+/** Canonical provider set — keep detect/quit paths in sync. */
+export const ALL_PROVIDERS: readonly ProviderKind[] = [
+  "cloudflare",
+  "ngrok",
+  "tailscale",
+] as const;
+
 /** Matches Tauri `ProviderStatus` / web `ProviderStatus`. */
 export type ProviderStatus = {
   state: "Unavailable" | "Idle" | "Running" | "Error";
@@ -222,8 +229,7 @@ export class TunnelService {
   }
 
   async detectAll(): Promise<ProviderDiagnostics[]> {
-    const providers: ProviderKind[] = ["cloudflare", "ngrok", "tailscale"];
-    return providers.map((provider) => {
+    return ALL_PROVIDERS.map((provider) => {
       const bin =
         provider === "cloudflare"
           ? which("cloudflared")

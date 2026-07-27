@@ -451,20 +451,9 @@ impl AgentHooksService {
             sessions.get(session_id).map(|s| s.state)
         };
 
-        // Skip no-op writes that would only bump the timestamp for identical state
-        // (except ForcedIdle / TerminalIdle which re-arm suppress intentionally).
-        if previous_state == Some(state)
-            && !matches!(
-                kind,
-                StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
-            )
-            && matches!(
-                state,
-                AgentHookState::Running | AgentHookState::PermissionRequest
-            )
-        {
-            // Still refresh timestamp for running/permission so stale TTL stays honest.
-        }
+        // Always insert/refresh the session row (including identical Running /
+        // PermissionRequest) so the stale-TTL timestamp stays current. Broadcast
+        // and notifications are gated below on actual state change.
 
         let session = AgentHookSession {
             session_id: session_id.to_string(),

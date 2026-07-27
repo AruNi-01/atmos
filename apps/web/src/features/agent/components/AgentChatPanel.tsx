@@ -85,8 +85,6 @@ export function AgentChatPanel({
   const isFullscreen = canFullscreen && fullscreenRequested;
   const isEmbeddedPausedForStandalone = variant !== "standalone" && isStandaloneChatOpen;
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
-  const reserveDesktopTrafficLights =
-    needsTrafficLightsPadding && (variant === "standalone" || isFullscreen);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(0);
   const showsWideHistoryLayout = panelWidth >= WIDE_HISTORY_LAYOUT_MIN_WIDTH;
@@ -461,9 +459,15 @@ export function AgentChatPanel({
       onToggle={() => setHistorySidebarCollapsed((current) => !current)}
     />
   );
-  const showTrafficLightsHistoryToggle = showsWideHistoryLayout && reserveDesktopTrafficLights;
+  // Wide standalone/fullscreen chrome owns a floating history toggle next to the
+  // traffic lights (or at left-3 when lights are hidden). Keep it mounted across
+  // fullscreen so the control only slides, like the main Header.
+  const showTrafficLightsHistoryToggle =
+    showsWideHistoryLayout && (variant === "standalone" || isFullscreen);
   const insetHeaderForTrafficLights =
-    reserveDesktopTrafficLights && (!showsWideHistoryLayout || historySidebarCollapsed);
+    needsTrafficLightsPadding &&
+    (variant === "standalone" || isFullscreen) &&
+    (!showsWideHistoryLayout || historySidebarCollapsed);
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
     : "w-full";
@@ -579,7 +583,14 @@ export function AgentChatPanel({
       {showTrafficLightsHistoryToggle ? (
         // desktop-no-drag: Electron -webkit-app-region:drag on the standalone header
         // otherwise steals hits from this sibling overlay (collapse → expand broken).
-        <div className="desktop-no-drag absolute left-[86px] top-3 z-50 flex h-7 items-center">
+        // left tracks traffic-light inset so the control shifts with main-shell chrome
+        // when entering/leaving native fullscreen.
+        <div
+          className={cn(
+            "desktop-no-drag absolute top-3 z-50 flex h-7 items-center transition-[left] duration-300 ease-out",
+            needsTrafficLightsPadding ? "left-[86px]" : "left-3",
+          )}
+        >
           {trafficLightsHistorySidebarToggle}
         </div>
       ) : null}
@@ -597,7 +608,9 @@ export function AgentChatPanel({
         >
           <AgentChatHistorySidebar
             className="flex"
-            reserveTrafficLightsInset={showTrafficLightsHistoryToggle}
+            reserveTrafficLightsInset={
+              showTrafficLightsHistoryToggle && needsTrafficLightsPadding
+            }
             historySessions={historySessions}
             historyHasMore={historyHasMore}
             historyLoading={historyLoading}

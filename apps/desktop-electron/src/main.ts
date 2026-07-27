@@ -14,10 +14,7 @@ import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
 import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { PreviewSurfaceManager } from "./preview/surface-manager.js";
-import {
-  TunnelService,
-  type ProviderKind,
-} from "./tunnel/service.js";
+import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -110,8 +107,7 @@ function bootOnce(): Promise<void> {
 async function stopAllTunnelsBeforeExit(): Promise<void> {
   const tunnel = state.tunnel;
   if (!tunnel) return;
-  const providers: ProviderKind[] = ["cloudflare", "ngrok", "tailscale"];
-  for (const p of providers) {
+  for (const p of ALL_PROVIDERS) {
     try {
       await tunnel.stop(p);
     } catch (err) {
