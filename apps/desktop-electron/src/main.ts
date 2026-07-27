@@ -167,7 +167,7 @@ if (!gotLock) {
   let isQuitting = false;
   app.on("before-quit", (event) => {
     if (isQuitting) return;
-    // Let window close handlers destroy without re-prompting hide/quit dialog.
+    // Allow main-window close to destroy instead of hide-to-background.
     markAllowWindowDestroy();
     event.preventDefault();
     isQuitting = true;

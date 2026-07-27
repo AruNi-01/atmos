@@ -29,7 +29,7 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
   });
 
   wireFullscreenEvents(win);
-  // Close button → ask / hide (keep process) / quit — avoid destroy+reload on Dock.
+  // Close button hides/minimizes (keep process); Cmd+Q still quits fully.
   wireMainWindowCloseBehavior(win);
 
   void win.loadURL(uiUrl);
