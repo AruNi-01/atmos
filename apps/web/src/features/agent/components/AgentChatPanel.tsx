@@ -608,9 +608,10 @@ export function AgentChatPanel({
         >
           <AgentChatHistorySidebar
             className="flex"
-            reserveTrafficLightsInset={
-              showTrafficLightsHistoryToggle && needsTrafficLightsPadding
-            }
+            // Reserve top space whenever the floating history toggle is shown,
+            // not only when macOS traffic-light inset applies — otherwise the
+            // toggle at left-3 overlaps New Session (pt-3 sidebar chrome).
+            reserveTrafficLightsInset={showTrafficLightsHistoryToggle}
             historySessions={historySessions}
             historyHasMore={historyHasMore}
             historyLoading={historyLoading}
