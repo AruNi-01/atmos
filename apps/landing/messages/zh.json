@@ -24,16 +24,22 @@
   "featureShowcase": {
     "badge": "功能",
     "title": "看看 Atmos 如何运作",
+    "video": {
+      "play": "播放",
+      "pause": "暂停",
+      "fullscreen": "全屏",
+      "exitFullscreen": "退出全屏"
+    },
     "features": {
       "agent": {
         "title": "Agent Terminal Use Flow",
         "label": "智能体",
         "description": "在同一个工作区查看流式回复、工具调用更新、权限控制和自定义 ACP 智能体。"
       },
-      "wiki": {
-        "title": "项目 Wiki",
-        "label": "Wiki",
-        "description": "和 URL 同步的项目知识库，智能体可以生成、刷新，并作为工作上下文使用。"
+      "browser": {
+        "title": "Browser Element Inspector",
+        "label": "元素检查",
+        "description": "在实时浏览器预览中悬停并点击选中元素，定位 React、Vue、Angular 和 Svelte 项目中的源码。"
       },
       "search": {
         "title": "Global Search Command Panel",
@@ -75,10 +81,10 @@
         "label": "远程",
         "description": "注册远程机器，从桌面端或托管 Web 连接，并在任何位置运行终端。"
       },
-      "models": {
-        "title": "本地模型运行时",
-        "label": "模型",
-        "description": "本地运行轻量 llama-server 模型，用于 TODO 提取和提交信息辅助。"
+      "appshots": {
+        "title": "Appshots",
+        "label": "截图",
+        "description": "跨应用桌面快照，可作为轻量剪贴板引用，方便开发过程中快速捕获界面。"
       },
       "hooks": {
         "title": "Agent Status Notifications",
