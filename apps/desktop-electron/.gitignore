@@ -3,6 +3,9 @@ node_modules/
 dist/
 release/
 
+# Staged branded Electron.app for macOS `just dev-desktop-electron`
+.cache/
+
 # Synced from apps/desktop/src-tauri/icons at build time (see scripts/sync-icons.ts)
 resources/icons/*
 !resources/icons/README.md

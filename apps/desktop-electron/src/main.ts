@@ -13,6 +13,7 @@ import { ensureAtmosServer } from "./runtime/ensure.js";
 import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
 import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
+import { markAllowWindowDestroy } from "./windows/close-behavior.js";
 import { PreviewSurfaceManager } from "./preview/surface-manager.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { existsSync } from "node:fs";
@@ -140,13 +141,16 @@ if (!gotLock) {
   });
 
   app.on("activate", () => {
+    // Dock / taskbar click: restore existing window without reloading when possible.
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+      if (state.mainWindow.isMinimized()) {
+        state.mainWindow.restore();
+      }
       state.mainWindow.show();
       state.mainWindow.focus();
       return;
     }
-    // Services already up (e.g. dock click after all windows closed on macOS):
-    // only recreate the main window — do not rebuild preview/tunnel.
+    // Window was fully destroyed (Quit path or crash): recreate shell only.
     if (servicesReady()) {
       try {
         ensureMainWindow();
@@ -163,6 +167,8 @@ if (!gotLock) {
   let isQuitting = false;
   app.on("before-quit", (event) => {
     if (isQuitting) return;
+    // Let window close handlers destroy without re-prompting hide/quit dialog.
+    markAllowWindowDestroy();
     event.preventDefault();
     isQuitting = true;
     void (async () => {

@@ -4,6 +4,7 @@ import type { AppState } from "../app-state.js";
 import { APP_PRODUCT_NAME, appWindowBranding } from "../branding.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
+import { wireMainWindowCloseBehavior } from "./close-behavior.js";
 import { resolveAppPreloadPath } from "./preload-path.js";
 
 export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow {
@@ -28,6 +29,8 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
   });
 
   wireFullscreenEvents(win);
+  // Close button → ask / hide (keep process) / quit — avoid destroy+reload on Dock.
+  wireMainWindowCloseBehavior(win);
 
   void win.loadURL(uiUrl);
   win.webContents.on("did-finish-load", () => {

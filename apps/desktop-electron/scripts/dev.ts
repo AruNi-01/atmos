@@ -2,14 +2,12 @@
  * Dogfood entry: prepare shared runtime if needed, then launch Electron.
  */
 import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "../..");
-const require = createRequire(join(appRoot, "package.json"));
 
 function run(command: string, args: string[], opts: { cwd?: string } = {}) {
   return new Promise<void>((resolve, reject) => {
@@ -55,8 +53,14 @@ async function prepareIfNeeded() {
 
 async function main() {
   await prepareIfNeeded();
+  // Sync icons into resources/icons before staging the macOS dev .app.
+  await run(process.execPath, [join(appRoot, "scripts/sync-icons.ts")]);
   await run(process.execPath, [join(appRoot, "scripts/build.ts")]);
-  const electronBin = require("electron") as string;
+
+  // macOS: stock Electron.app hardcodes Dock name/icon as "Electron". Stage a
+  // branded copy (Info.plist + icns) so just dev-desktop-electron looks right.
+  const { resolveDevElectronBinary } = await import("./prepare-dev-app.ts");
+  const electronBin = resolveDevElectronBinary();
   if (!electronBin || !existsSync(electronBin)) {
     throw new Error("Electron binary missing");
   }

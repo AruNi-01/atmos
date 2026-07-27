@@ -44,6 +44,8 @@ Release notes: `releasenotes/Atmos Desktop Electron <version>.md`.
 - Preview uses `persist:atmos-preview` session partition + limited preview preload
 - Command names match Tauri (`get_api_config`, `preview_bridge_*`, `appshot_*`, `tunnel_connector_*`, …)
 - **Branding**: `Atmos Electron` / `com.atmos.desktop.electron`. Icons sync from `apps/desktop/src-tauri/icons` → `resources/icons` on build. Packaged runtime lives under `process.resourcesPath/runtime/current`.
+- **macOS dev Dock name/icon**: Stock `Electron.app` always shows “Electron” (bundle `Info.plist`). `just dev-desktop-electron` stages a branded copy under `.cache/dev-app/Atmos Electron.app` via `scripts/prepare-dev-app.ts`. Packaged builds use electron-builder identity instead.
+- **Close button**: Intercepted (`windows/close-behavior.ts`). Dialog asks Keep running (hide/minimize, process stays) vs Quit; optional “Don’t ask again” → `userData/close-behavior.json`. Dock click restores the existing window without reloading when hidden.
 - **Packaging**: `electron-builder.yml` + `scripts/package.ts`; artifacts named `Atmos-Electron_<version>_<arch>.*`.
 
 ## Never
