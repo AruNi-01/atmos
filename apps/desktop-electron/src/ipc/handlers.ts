@@ -44,10 +44,10 @@ export function createAllHandlers(
 
     async get_version_info() {
       return {
-        version: process.env.npm_package_version ?? "0.1.0",
+        version: process.env.npm_package_version ?? "0.0.0",
         version_type: "electron",
-        product_name: "Atmos",
-        app_id: "com.atmos.desktop",
+        product_name: "Atmos Electron",
+        app_id: "com.atmos.desktop.electron",
       };
     },
 

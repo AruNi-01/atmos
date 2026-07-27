@@ -1,0 +1,440 @@
+# APP-045 experimental Electron desktop shell release.
+# Separate from production Tauri (release-desktop.yml / desktop-* tags).
+# Tag format: desktop-electron-<YYYY.M.D>
+name: Desktop Electron CI & Release
+
+permissions:
+  contents: write
+
+on:
+  pull_request:
+    paths:
+      - "apps/desktop-electron/**"
+      - "apps/web/src/shared/lib/desktop-bridge.ts"
+      - "apps/web/src/shared/lib/desktop-runtime.ts"
+      - "scripts/desktop/**"
+      - "scripts/release/check-desktop-electron-version.mjs"
+      - "scripts/release/bump-desktop-electron-version.mjs"
+      - "scripts/release/release-desktop-electron.mjs"
+      - ".github/workflows/release-desktop-electron.yml"
+      - "bun.lock"
+      - "package.json"
+  push:
+    tags:
+      - "desktop-electron-*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (branch, tag or SHA)"
+        required: false
+        default: "main"
+      platform:
+        description: "Target platform"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "macos-14"
+          - "macos-15-intel"
+          - "ubuntu-22.04"
+          - "windows-latest"
+      create_release:
+        description: "Create GitHub Release and attach artifacts"
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: "Release tag when create_release=true (example: desktop-electron-2026.7.28)"
+        required: false
+      prerelease:
+        description: "Mark release as prerelease"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: desktop-electron-${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  pr-smoke:
+    name: PR smoke (unit + bundle)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Version check
+        run: node ./scripts/release/check-desktop-electron-version.mjs
+
+      - name: Unit tests
+        working-directory: apps/desktop-electron
+        run: bun test
+
+      - name: Build main/preload bundles
+        working-directory: apps/desktop-electron
+        run: bun run build
+
+      - name: Router smoke
+        working-directory: apps/desktop-electron
+        run: bun run smoke:router
+
+  resolve-release-config:
+    name: Resolve release config
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      create_release: ${{ steps.resolve.outputs.create_release }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+      build_matrix: ${{ steps.resolve.outputs.build_matrix }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve values
+        id: resolve
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          matrix_for_platform() {
+            case "$1" in
+              "all" )
+                # electron-builder arch is selected via CLI on each runner OS.
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","builder_args":"--mac --arm64"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin","builder_args":"--mac --x64"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","builder_args":"--linux --x64"},{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","builder_args":"--win --x64"}]}'
+                ;;
+              "macos-14" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","builder_args":"--mac --arm64"}]}'
+                ;;
+              "macos-15-intel" )
+                printf '%s\n' '{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin","builder_args":"--mac --x64"}]}'
+                ;;
+              "ubuntu-22.04" )
+                printf '%s\n' '{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","builder_args":"--linux --x64"}]}'
+                ;;
+              "windows-latest" )
+                printf '%s\n' '{"include":[{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","builder_args":"--win --x64"}]}'
+                ;;
+              * )
+                echo "❌ Unsupported platform input: $1"
+                exit 1
+                ;;
+            esac
+          }
+
+          validate_checkout_ref() {
+            local ref="$1"
+            local encoded_ref
+            encoded_ref="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ref")"
+            local status
+            status="$(
+              curl -sS -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${encoded_ref}"
+            )"
+            if [ "$status" != "200" ]; then
+              echo "❌ Invalid Git ref to build: $ref (HTTP $status)"
+              exit 1
+            fi
+          }
+
+          require_tag_commit_on_main() {
+            git fetch --no-tags origin main
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "❌ Refusing to publish ${GITHUB_REF_NAME}: tag commit ${GITHUB_SHA} is not on origin/main."
+              echo "   Use workflow_dispatch with create_release=false for branch validation builds."
+              exit 1
+            fi
+          }
+
+          EVENT="${{ github.event_name }}"
+
+          if [ "$EVENT" = "push" ]; then
+            require_tag_commit_on_main
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+              echo "❌ Unexpected release tag: ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+            if [[ "${GITHUB_REF_NAME}" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
+              IS_PRERELEASE="true"
+            else
+              IS_PRERELEASE="false"
+            fi
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
+            echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            BUILD_MATRIX="$(matrix_for_platform "all")"
+            echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CREATE_RELEASE="${{ github.event.inputs.create_release }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          CHECKOUT_REF="${{ github.event.inputs.ref }}"
+          PLATFORM="${{ github.event.inputs.platform }}"
+
+          if [ -z "$CHECKOUT_REF" ]; then
+            CHECKOUT_REF="main"
+          fi
+
+          if [ "$CREATE_RELEASE" = "true" ] && [ -z "$RELEASE_TAG" ]; then
+            echo "❌ release_tag is required when create_release=true"
+            exit 1
+          fi
+
+          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "❌ release_tag must match desktop-electron-<YYYY.M.D>"
+            exit 1
+          fi
+
+          validate_checkout_ref "$CHECKOUT_REF"
+
+          echo "create_release=$CREATE_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "checkout_ref=$CHECKOUT_REF" >> "$GITHUB_OUTPUT"
+          BUILD_MATRIX="$(matrix_for_platform "$PLATFORM")"
+          echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure draft GitHub release exists
+        if: steps.resolve.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.release_tag }}"
+          PRERELEASE="${{ steps.resolve.outputs.prerelease }}"
+          VERSION="${TAG#desktop-electron-}"
+
+          if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "✅ Release already exists for ${TAG}"
+            exit 0
+          fi
+
+          ARGS=(--repo "${GITHUB_REPOSITORY}" --draft --title "Atmos Desktop Electron ${VERSION}" --notes "Draft — notes applied in publish step.")
+          if [ "$PRERELEASE" = "true" ]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "$TAG" "${ARGS[@]}"
+          echo "✅ Created draft release for ${TAG}"
+
+  build-and-package:
+    name: Build Electron (${{ matrix.target }})
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: resolve-release-config
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-release-config.outputs.build_matrix) }}
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Verify desktop-electron version vs tag
+        if: needs.resolve-release-config.outputs.create_release == 'true'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: node ./scripts/release/check-desktop-electron-version.mjs
+
+      - name: Verify desktop-electron version
+        if: needs.resolve-release-config.outputs.create_release != 'true'
+        run: node ./scripts/release/check-desktop-electron-version.mjs
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: electron-release-${{ matrix.target }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build runtime binary (api)
+        run: cargo build --release --bin api --target ${{ matrix.target }}
+
+      - name: Build web static (desktop)
+        env:
+          NEXT_PUBLIC_TLDRAW_LICENSE_KEY: ${{ secrets.TLDRAW_LICENSE_KEY }}
+        run: node ./scripts/desktop/build-web-static.mjs "$PWD"
+
+      - name: Layout desktop runtime bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXT=""
+          if [ "${{ matrix.platform }}" = "windows-latest" ]; then EXT=".exe"; fi
+          mkdir -p apps/desktop/src-tauri/binaries/web-out
+          node scripts/desktop/layout-runtime-bundle.mjs "$PWD" "${{ matrix.target }}" "$EXT"
+
+      - name: Stage runtime into electron resources
+        run: bun run --cwd apps/desktop-electron scripts/prepare-package.ts
+
+      - name: Build Electron bundles
+        working-directory: apps/desktop-electron
+        run: bun run build
+
+      - name: Package with electron-builder
+        working-directory: apps/desktop-electron
+        env:
+          # Prefer explicit identity when provided; otherwise leave unsigned dogfood builds.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '' }}
+          # Disable publish; CI uploads artifacts.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ATMOS_ELECTRON_SKIP_RUNTIME_STAGE: "1"
+          ATMOS_ELECTRON_BUILDER_ARGS: ${{ matrix.builder_args }}
+        run: bun run package
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/desktop-electron-artifacts/${{ matrix.target }}"
+          mkdir -p "$OUT_DIR"
+          RELEASE_DIR="apps/desktop-electron/release"
+          if [ ! -d "$RELEASE_DIR" ]; then
+            echo "❌ Missing $RELEASE_DIR"
+            exit 1
+          fi
+          find "$RELEASE_DIR" -type f \
+            \( -name 'Atmos-Electron_*' -o -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
+            ! -name 'builder-*.yml' \
+            -exec cp {} "$OUT_DIR/" \;
+          if [ -z "$(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+            echo "❌ No package artifacts under $RELEASE_DIR"
+            ls -laR "$RELEASE_DIR" || true
+            exit 1
+          fi
+          echo "Collected:"
+          find "$OUT_DIR" -maxdepth 1 -type f -print
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-electron-${{ matrix.target }}
+          path: ${{ runner.temp }}/desktop-electron-artifacts/${{ matrix.target }}
+          if-no-files-found: error
+
+      - name: Attach artifacts to GitHub Release
+        if: needs.resolve-release-config.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/desktop-electron-artifacts/${{ matrix.target }}"
+          shopt -s nullglob
+          files=("$OUT_DIR"/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "❌ No files to upload"
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "${files[@]}" --repo "${GITHUB_REPOSITORY}" --clobber
+          echo "✅ Uploaded ${#files[@]} asset(s) to ${RELEASE_TAG}"
+
+  publish-release:
+    name: Publish GitHub Release
+    if: needs.resolve-release-config.outputs.create_release == 'true'
+    needs: [resolve-release-config, build-and-package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Resolve release notes
+        id: notes
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#desktop-electron-}"
+          NOTES_PATH="releasenotes/Atmos Desktop Electron ${VERSION}.md"
+          if [ ! -f "$NOTES_PATH" ]; then
+            echo "⚠️ Missing $NOTES_PATH — using minimal body"
+            NOTES_PATH="${RUNNER_TEMP}/electron-notes.md"
+            cat > "$NOTES_PATH" <<EOF
+          # Atmos Desktop Electron ${VERSION}
+
+          Experimental Chromium shell (APP-045). Production default remains Tauri (\`desktop-*\`).
+          EOF
+          fi
+          echo "notes_path=${NOTES_PATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          PRERELEASE: ${{ needs.resolve-release-config.outputs.prerelease }}
+          NOTES_PATH: ${{ steps.notes.outputs.notes_path }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_ID=$(
+            curl -sS -f \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            | jq -r --arg tag "${RELEASE_TAG}" '.[] | select(.tag_name == $tag) | .id' \
+            | head -n 1
+          )
+
+          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+            echo "Release for tag ${RELEASE_TAG} was not found." >&2
+            exit 1
+          fi
+
+          # Never make Electron experimental the "latest" release for the repo.
+          IS_PRE="${PRERELEASE}"
+          if [[ "${RELEASE_TAG}" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
+            IS_PRE="true"
+          fi
+
+          if [ "$IS_PRE" = "true" ]; then
+            jq -Rs '{draft: false, body: ., make_latest: false, prerelease: true}' \
+              "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+          else
+            # Stable electron tags still never become GitHub "latest" (Tauri owns that).
+            jq -Rs '{draft: false, body: ., make_latest: false, prerelease: false}' \
+              "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+          fi
+
+          curl -sS -f -X PATCH \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --data @"${RUNNER_TEMP}/release-payload.json"
+
+          echo "✅ Published release ${RELEASE_TAG} (id=${RELEASE_ID}, make_latest=false)"

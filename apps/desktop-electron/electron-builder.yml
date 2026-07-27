@@ -1,0 +1,71 @@
+# APP-045 experimental Electron packaging.
+# Separate identity from production Tauri (`Atmos` / com.atmos.desktop / desktop-* tags).
+# Do not point publish at Tauri updater feeds.
+
+appId: com.atmos.desktop.electron
+productName: Atmos Electron
+copyright: Atmos
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.map"
+  - "!release/**"
+  - "!resources/runtime/**"
+  - "!scripts/**"
+  - "!src/**"
+  - "!**/*.test.ts"
+  - "!tsconfig.json"
+
+extraResources:
+  - from: resources/runtime/current
+    to: runtime/current
+    filter:
+      - "**/*"
+  - from: resources/icons
+    to: icons
+    filter:
+      - "**/*"
+
+asar: true
+
+mac:
+  category: public.app-category.developer-tools
+  icon: resources/icons/icon.icns
+  # Unsigned dogfood by default; set CSC_* secrets later for signed builds.
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  # Arch selected by CI via `electron-builder --mac --arm64| --x64`.
+  target:
+    - dmg
+    - zip
+  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+
+dmg:
+  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+
+win:
+  icon: resources/icons/icon.ico
+  target:
+    - nsis
+  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Atmos-Electron_${version}_${arch}-setup.${ext}
+
+linux:
+  icon: resources/icons
+  category: Development
+  target:
+    - AppImage
+  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+
+# Never auto-publish to GitHub from electron-builder; CI attaches artifacts.
+publish: null

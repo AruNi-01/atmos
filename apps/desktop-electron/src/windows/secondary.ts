@@ -105,7 +105,7 @@ export function openAgentChatWindow(
     "agent-chat",
     `agent-chat/${qs ? `?${qs}` : ""}`,
     {
-      title: "Atmos Chat",
+      title: "Atmos Electron Chat",
       width: 1180,
       height: 820,
       minW: 720,
@@ -146,7 +146,7 @@ export function openPreviewBrowserWindow(
     label,
     `preview/${qs ? `?${qs}` : ""}`,
     {
-      title: "Atmos Browser",
+      title: "Atmos Electron Browser",
       width: 1280,
       height: 860,
       minW: 760,
@@ -166,7 +166,7 @@ export function openAppshotPermissionsWindow(
     "appshot-permissions",
     `appshot-permissions/?locale=${encodeURIComponent(locale)}`,
     {
-      title: "Atmos AppShot Permissions",
+      title: "Atmos Electron AppShot Permissions",
       width: 560,
       height: 640,
       minW: 420,

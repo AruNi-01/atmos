@@ -493,7 +493,7 @@ export class PreviewSurfaceManager {
       minWidth: 480,
       minHeight: 360,
       show: false,
-      ...appWindowBranding("Atmos Browser"),
+      ...appWindowBranding("Atmos Electron Browser"),
       webPreferences: {
         session: this.previewSession,
         preload: previewPreloadPath(),

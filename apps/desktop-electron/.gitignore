@@ -1,10 +1,14 @@
 # Local deps / build
 node_modules/
 dist/
+release/
 
 # Synced from apps/desktop/src-tauri/icons at build time (see scripts/sync-icons.ts)
 resources/icons/*
 !resources/icons/README.md
+
+# Staged Atmos Server + web for electron-builder extraResources
+resources/runtime/
 
 # Runtime logs
 logs/

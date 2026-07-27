@@ -31,32 +31,27 @@ const shared: esbuild.BuildOptions = {
   logLevel: "info",
 };
 
-await Promise.all([
-  esbuild.build({
-    ...shared,
-    entryPoints: [join(root, "src/main.ts")],
-    outfile: join(dist, "main.js"),
-    banner: {
-      // Allow __dirname-like resolution when needed via import.meta
-      js: "",
-    },
-  }),
-  // First-party app preload (main / secondary windows use sandbox:false).
-  esbuild.build({
-    ...shared,
-    entryPoints: [join(root, "src/preload.ts")],
-    outfile: join(dist, "preload.js"),
-  }),
-  // Untrusted preview surfaces may use sandbox:true — Electron sandboxed
-  // preloads require CommonJS (`require("electron")`), not ESM import.
-  // Use .cjs so package.json "type":"module" does not force ESM load.
-  esbuild.build({
-    ...shared,
-    format: "cjs",
-    entryPoints: [join(root, "src/preview/preview-preload.ts")],
-    outfile: join(dist, "preview-preload.cjs"),
-  }),
-]);
+// Sequential builds: parallel esbuild services can flake under bun's process model.
+await esbuild.build({
+  ...shared,
+  entryPoints: [join(root, "src/main.ts")],
+  outfile: join(dist, "main.js"),
+});
+// First-party app preload (main / secondary windows use sandbox:false).
+await esbuild.build({
+  ...shared,
+  entryPoints: [join(root, "src/preload.ts")],
+  outfile: join(dist, "preload.js"),
+});
+// Untrusted preview surfaces may use sandbox:true — Electron sandboxed
+// preloads require CommonJS (`require("electron")`), not ESM import.
+// Use .cjs so package.json "type":"module" does not force ESM load.
+await esbuild.build({
+  ...shared,
+  format: "cjs",
+  entryPoints: [join(root, "src/preview/preview-preload.ts")],
+  outfile: join(dist, "preview-preload.cjs"),
+});
 
 console.log(
   "[build] dist/main.js, dist/preload.js, dist/preview-preload.cjs",
