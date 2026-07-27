@@ -197,11 +197,13 @@ export async function importBrowserCookies(
     const urlHost = domain.startsWith(".") ? domain.slice(1) : domain;
     const scheme = c.secure ? "https" : "http";
     try {
+      // Host-only: omit `domain` so Chromium treats the cookie as host-only
+      // (Electron/Chromium ignore hostOnly flags; domain presence decides).
       await previewSession.cookies.set({
         url: `${scheme}://${urlHost}${c.identity.path || "/"}`,
         name: c.identity.name,
         value: c.value,
-        domain: c.host_only ? urlHost : domain,
+        ...(c.host_only ? {} : { domain }),
         path: c.identity.path || "/",
         secure: c.secure,
         httpOnly: c.http_only,
@@ -210,7 +212,11 @@ export async function importBrowserCookies(
         sameSite: sameSiteToElectron(c.same_site),
       });
       imported += 1;
-    } catch {
+    } catch (e) {
+      console.error(
+        `[cookies] inject failed name=${c.identity.name} domain=${domain}`,
+        e,
+      );
       failed += 1;
     }
   }

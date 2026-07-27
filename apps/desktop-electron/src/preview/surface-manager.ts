@@ -170,6 +170,34 @@ export class PreviewSurfaceManager {
     }
   }
 
+  private emitLoadError(sessionId: string, url: string, err: unknown) {
+    console.error(`[preview] loadURL failed session=${sessionId}`, err);
+    this.emitToApp("desktop-preview:error", {
+      type: "atmos-preview:error",
+      sessionId,
+      pageUrl: url,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  private destroyViewWebContents(view: WebContentsView) {
+    try {
+      if (!view.webContents.isDestroyed()) {
+        // Prefer close(); fall back to destroy if present on older Electron types.
+        const wc = view.webContents as Electron.WebContents & {
+          destroy?: () => void;
+        };
+        if (typeof wc.close === "function") {
+          wc.close();
+        } else {
+          wc.destroy?.();
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   bridgeTokenFor(sessionId: string): string | null {
     return this.surfaces.get(sessionId)?.bridgeToken ?? null;
   }
@@ -412,15 +440,9 @@ export class PreviewSurfaceManager {
     }
     this.applyBounds(s.view, s.bounds);
     s.view.setVisible(true);
-    void s.view.webContents.loadURL(url).catch((err) => {
-      console.error(`[preview] loadURL failed session=${sessionId}`, err);
-      this.emitToApp("desktop-preview:error", {
-        type: "atmos-preview:error",
-        sessionId,
-        pageUrl: url,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
+    void s.view.webContents
+      .loadURL(url)
+      .catch((err) => this.emitLoadError(sessionId, url, err));
   }
 
   updateBounds(sessionId: string, bounds: PreviewBounds): void {
@@ -472,18 +494,17 @@ export class PreviewSurfaceManager {
       if (host && !host.isDestroyed()) {
         host.contentView.removeChildView(s.view);
       }
-      // destroy view
-      try {
-        (s.view.webContents as unknown as { destroy?: () => void }).destroy?.();
-      } catch {
-        /* ignore */
-      }
+      this.destroyViewWebContents(s.view);
       s.view = null;
     }
 
     if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {
-      void s.detachedWindow.loadURL(url);
-      s.detachedWindow.show();
+      void s.detachedWindow
+        .loadURL(url)
+        .then(() => {
+          s.detachedWindow?.show();
+        })
+        .catch((err) => this.emitLoadError(sessionId, url, err));
       return;
     }
 
@@ -507,10 +528,13 @@ export class PreviewSurfaceManager {
       if (s.detachedWindow === win) s.detachedWindow = null;
     });
     this.attachWebContentsListeners(sessionId, win.webContents);
-    void win.loadURL(url).then(() => {
-      win.center();
-      win.show();
-    });
+    void win
+      .loadURL(url)
+      .then(() => {
+        win.center();
+        win.show();
+      })
+      .catch((err) => this.emitLoadError(sessionId, url, err));
   }
 
   navigate(sessionId: string, url: string): void {
@@ -518,11 +542,15 @@ export class PreviewSurfaceManager {
     if (!s) return;
     s.currentUrl = url;
     if (s.detached && s.detachedWindow && !s.detachedWindow.isDestroyed()) {
-      void s.detachedWindow.loadURL(url);
+      void s.detachedWindow
+        .loadURL(url)
+        .catch((err) => this.emitLoadError(sessionId, url, err));
       return;
     }
     if (s.view) {
-      void s.view.webContents.loadURL(url);
+      void s.view.webContents
+        .loadURL(url)
+        .catch((err) => this.emitLoadError(sessionId, url, err));
     }
   }
 
@@ -573,6 +601,8 @@ export class PreviewSurfaceManager {
           /* ignore */
         }
       }
+      // Match detach(): tear down WebContents so open/close does not leak renderers.
+      this.destroyViewWebContents(s.view);
       s.view = null;
     }
     if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {

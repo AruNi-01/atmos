@@ -61,6 +61,10 @@ type ActiveTunnel = {
   mode: string;
   startedAt: string;
   message: string | null;
+  /** True once the child has exited or failed to spawn. */
+  exited: boolean;
+  /** True when exit/error should surface as Error rather than Idle. */
+  exitError: boolean;
 };
 
 function which(bin: string): string | null {
@@ -104,13 +108,17 @@ export class TunnelService {
 
   private buildStatus(a: ActiveTunnel): TunnelConnectorStatus {
     const publicUrl = a.publicUrl ?? null;
+    let state: ProviderStatus["state"] = "Running";
+    if (a.exited) {
+      state = a.exitError ? "Error" : "Idle";
+    }
     return {
       gateway_url: null,
       public_url: publicUrl,
       share_url: publicUrl,
       provider: a.provider,
       provider_status: {
-        state: "Running",
+        state,
         public_url: publicUrl,
         message: a.message,
         started_at: a.startedAt,
@@ -118,6 +126,65 @@ export class TunnelService {
       entry_token: null,
       expires_at: null,
     };
+  }
+
+  /** Wire error/exit so status reflects dead processes instead of forever Running. */
+  private wireChildLifecycle(entry: ActiveTunnel): void {
+    const { child, provider } = entry;
+    child.on("error", (err) => {
+      const current = this.active.get(provider);
+      if (!current || current !== entry) return;
+      current.exited = true;
+      current.exitError = true;
+      current.message = err.message || String(err);
+      this.persist();
+    });
+    child.on("exit", (code, signal) => {
+      const current = this.active.get(provider);
+      if (!current || current !== entry) return;
+      current.exited = true;
+      // Intentional stop() kills with SIGTERM — treat as Idle, not Error.
+      if (signal === "SIGTERM" || signal === "SIGKILL") {
+        current.exitError = false;
+        current.message = current.message ?? "stopped";
+      } else if (code !== 0 && code !== null) {
+        current.exitError = true;
+        current.message =
+          current.message ??
+          `process exited with code ${code}${signal ? ` (${signal})` : ""}`;
+      } else {
+        current.exitError = false;
+        current.message = current.message ?? "exited";
+      }
+      this.persist();
+    });
+  }
+
+  private registerActive(
+    provider: ProviderKind,
+    child: ChildProcess,
+    fields: {
+      publicUrl: string | null;
+      targetBaseUrl: string;
+      mode: string;
+      startedAt: string;
+      message: string | null;
+    },
+  ): ActiveTunnel {
+    const entry: ActiveTunnel = {
+      provider,
+      child,
+      publicUrl: fields.publicUrl,
+      targetBaseUrl: fields.targetBaseUrl,
+      mode: fields.mode,
+      startedAt: fields.startedAt,
+      message: fields.message,
+      exited: false,
+      exitError: false,
+    };
+    this.wireChildLifecycle(entry);
+    this.active.set(provider, entry);
+    return entry;
   }
 
   async detectAll(): Promise<ProviderDiagnostics[]> {
@@ -187,9 +254,7 @@ export class TunnelService {
       };
       child.stdout?.on("data", onData);
       child.stderr?.on("data", onData);
-      this.active.set(provider, {
-        provider,
-        child,
+      this.registerActive(provider, child, {
         publicUrl,
         targetBaseUrl,
         mode,
@@ -199,10 +264,17 @@ export class TunnelService {
       for (let i = 0; i < 40; i++) {
         await sleep(250);
         const entry = this.active.get(provider);
+        if (!entry || entry.exited) break;
         if (entry) entry.publicUrl = publicUrl;
         if (publicUrl) break;
       }
-      const entry = this.active.get(provider)!;
+      const entry = this.active.get(provider);
+      if (!entry) {
+        throw new Error("cloudflared tunnel failed to start");
+      }
+      if (entry.exited && entry.exitError) {
+        throw new Error(entry.message ?? "cloudflared tunnel failed");
+      }
       if (!publicUrl) entry.message = "waiting for public URL";
       this.persist();
       return this.buildStatus(entry);
@@ -240,9 +312,7 @@ export class TunnelService {
       };
       child.stdout?.on("data", onData);
       child.stderr?.on("data", onData);
-      this.active.set(provider, {
-        provider,
-        child,
+      this.registerActive(provider, child, {
         publicUrl,
         targetBaseUrl,
         mode,
@@ -252,10 +322,17 @@ export class TunnelService {
       for (let i = 0; i < 40; i++) {
         await sleep(250);
         const entry = this.active.get(provider);
+        if (!entry || entry.exited) break;
         if (entry) entry.publicUrl = publicUrl;
         if (publicUrl) break;
       }
-      const entry = this.active.get(provider)!;
+      const entry = this.active.get(provider);
+      if (!entry) {
+        throw new Error("ngrok tunnel failed to start");
+      }
+      if (entry.exited && entry.exitError) {
+        throw new Error(entry.message ?? "ngrok tunnel failed");
+      }
       this.persist();
       return this.buildStatus(entry);
     }
@@ -268,16 +345,13 @@ export class TunnelService {
       ["serve", "--bg", `${u.protocol}//${u.host}`],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
-    const entry: ActiveTunnel = {
-      provider,
-      child,
+    const entry = this.registerActive(provider, child, {
       publicUrl: null,
       targetBaseUrl,
       mode,
       startedAt,
       message: null,
-    };
-    this.active.set(provider, entry);
+    });
     this.persist();
     return this.buildStatus(entry);
   }
@@ -308,6 +382,13 @@ export class TunnelService {
     }
     this.active.delete(provider);
     this.persist();
+  }
+
+  /** Stop every active provider (used on app quit). */
+  async stopAll(): Promise<void> {
+    for (const provider of [...this.active.keys()]) {
+      await this.stop(provider);
+    }
   }
 
   async renew(
@@ -382,12 +463,15 @@ export class TunnelService {
   }
 
   private persist() {
-    const tunnels = [...this.active.values()].map((a) => ({
-      provider: a.provider,
-      targetBaseUrl: a.targetBaseUrl,
-      mode: a.mode,
-      publicUrl: a.publicUrl,
-    }));
+    // Only persist still-live tunnels for recover()
+    const tunnels = [...this.active.values()]
+      .filter((a) => !a.exited)
+      .map((a) => ({
+        provider: a.provider,
+        targetBaseUrl: a.targetBaseUrl,
+        mode: a.mode,
+        publicUrl: a.publicUrl,
+      }));
     writeFileSync(statePath(), JSON.stringify({ tunnels }, null, 2), "utf8");
   }
 }

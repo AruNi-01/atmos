@@ -134,7 +134,20 @@ export function createAllHandlers(
                   ? "vim"
                   : null;
       if (!cmd) throw new Error(`Unknown editor: ${editor}`);
-      spawn(cmd, [path], { detached: true, stdio: "ignore" }).unref();
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(cmd, [path], { detached: true, stdio: "ignore" });
+        child.on("error", (err) => {
+          reject(
+            new Error(
+              `Failed to open editor "${cmd}": ${err.message || String(err)}`,
+            ),
+          );
+        });
+        child.on("spawn", () => {
+          child.unref();
+          resolve();
+        });
+      });
       return null;
     },
 

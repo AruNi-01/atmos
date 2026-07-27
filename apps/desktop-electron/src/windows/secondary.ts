@@ -1,27 +1,12 @@
 import { BrowserWindow } from "electron";
-import { existsSync } from "node:fs";
-import { join, dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
 import { uiBaseUrl } from "./main-window.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { resolveAppPreloadPath } from "./preload-path.js";
 
 const secondaryWindows = new Map<string, BrowserWindow>();
-
-function appPreload(): string {
-  const candidates = [
-    join(__dirname, "preload.js"),
-    resolve(process.cwd(), "dist/preload.js"),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return candidates[0]!;
-}
 
 function openOrFocus(
   label: string,
@@ -57,7 +42,7 @@ function openOrFocus(
     ...macWindowChromeOptions(opts.chrome ?? "primary"),
     backgroundColor: "#06070b",
     webPreferences: {
-      preload: appPreload(),
+      preload: resolveAppPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,

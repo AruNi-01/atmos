@@ -14,7 +14,10 @@ import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
 import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { PreviewSurfaceManager } from "./preview/surface-manager.js";
-import { TunnelService } from "./tunnel/service.js";
+import {
+  TunnelService,
+  type ProviderKind,
+} from "./tunnel/service.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -24,6 +27,9 @@ applyEarlyAppBranding();
 const state = createAppState();
 let router = createDesktopCommandRouter(createAllHandlers(state));
 
+/** Shared boot promise so whenReady + activate cannot double-start services. */
+let bootPromise: Promise<void> | null = null;
+
 function registerIpc() {
   ipcMain.removeHandler("atmos:desktop-invoke");
   ipcMain.handle("atmos:desktop-invoke", async (_event, payload) => {
@@ -31,6 +37,25 @@ function registerIpc() {
     const args = (payload as { args?: Record<string, unknown> })?.args ?? {};
     return router.invokeSafe(cmd, args);
   });
+}
+
+function servicesReady(): boolean {
+  return (
+    state.apiPort != null &&
+    state.preview != null &&
+    state.tunnel != null
+  );
+}
+
+function ensureMainWindow(): void {
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+    state.mainWindow.show();
+    state.mainWindow.focus();
+    return;
+  }
+  const uiUrl = `${uiBaseUrl(state)}/`;
+  createMainWindow(state, uiUrl);
+  console.log(`[desktop-electron] main window ${uiUrl}`);
 }
 
 async function boot() {
@@ -52,15 +77,39 @@ async function boot() {
     );
   }
 
-  state.preview = new PreviewSurfaceManager(state);
-  state.tunnel = new TunnelService();
+  // Only create services once — activate must not clobber live tunnels/previews.
+  if (!state.preview) {
+    state.preview = new PreviewSurfaceManager(state);
+  }
+  if (!state.tunnel) {
+    state.tunnel = new TunnelService();
+  }
   // rebuild handlers with services attached
   router = createDesktopCommandRouter(createAllHandlers(state));
   registerIpc();
 
-  const uiUrl = `${uiBaseUrl(state)}/`;
-  createMainWindow(state, uiUrl);
-  console.log(`[desktop-electron] main window ${uiUrl}`);
+  ensureMainWindow();
+}
+
+function bootOnce(): Promise<void> {
+  if (!bootPromise) {
+    bootPromise = boot().catch((err) => {
+      bootPromise = null;
+      throw err;
+    });
+  }
+  return bootPromise;
+}
+
+/** Best-effort: stop every known provider so tunnels do not outlive the app. */
+function stopAllTunnelsOnQuit(): void {
+  const tunnel = state.tunnel;
+  if (!tunnel) return;
+  const providers: ProviderKind[] = ["cloudflare", "ngrok", "tailscale"];
+  for (const p of providers) {
+    // stop() is async-shaped but its body is sync (kill + execFileSync).
+    void tunnel.stop(p);
+  }
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -73,7 +122,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
-    boot().catch((err) => {
+    bootOnce().catch((err) => {
       console.error("[desktop-electron] boot failed:", err);
       app.exit(1);
     });
@@ -84,9 +133,30 @@ if (!gotLock) {
   });
 
   app.on("activate", () => {
-    if (!state.mainWindow) {
-      boot().catch(console.error);
+    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+      state.mainWindow.show();
+      state.mainWindow.focus();
+      return;
     }
+    // Services already up (e.g. dock click after all windows closed on macOS):
+    // only recreate the main window — do not rebuild preview/tunnel.
+    if (servicesReady()) {
+      try {
+        ensureMainWindow();
+      } catch (err) {
+        console.error("[desktop-electron] recreate main window failed:", err);
+      }
+      return;
+    }
+    bootOnce().catch(console.error);
+  });
+
+  app.on("before-quit", () => {
+    stopAllTunnelsOnQuit();
+  });
+
+  app.on("will-quit", () => {
+    stopAllTunnelsOnQuit();
   });
 }
 

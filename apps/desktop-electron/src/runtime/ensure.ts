@@ -214,7 +214,8 @@ function spawnViaShell(
   runtimeDir: string,
 ): Promise<number> {
   return new Promise((resolve, reject) => {
-    const shell = process.env.SHELL || "/bin/sh";
+    // Always POSIX /bin/sh — process.env.SHELL may be fish/csh and break -c scripts.
+    const shell = "/bin/sh";
     const child = spawn(
       shell,
       [

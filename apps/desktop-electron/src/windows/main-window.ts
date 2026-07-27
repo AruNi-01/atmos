@@ -1,28 +1,13 @@
 import { BrowserWindow } from "electron";
 import { existsSync } from "node:fs";
-import { join, dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
 import { APP_PRODUCT_NAME, appWindowBranding } from "../branding.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function resolvePreloadPath(): string {
-  const candidates = [
-    join(__dirname, "preload.js"),
-    resolve(process.cwd(), "dist/preload.js"),
-    resolve(process.cwd(), "apps/desktop-electron/dist/preload.js"),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return candidates[0]!;
-}
+import { resolveAppPreloadPath } from "./preload-path.js";
 
 export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow {
-  const preload = resolvePreloadPath();
+  const preload = resolveAppPreloadPath();
   console.log(`[desktop-electron] main preload=${preload} exists=${existsSync(preload)}`);
 
   const win = new BrowserWindow({
