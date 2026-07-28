@@ -362,10 +362,46 @@ jobs:
             echo "❌ Missing $RELEASE_DIR"
             exit 1
           fi
+
+          # Local builds emit Atmos.dmg / Atmos.zip; GitHub multi-arch releases need
+          # unique versioned names (Homebrew cask expects Atmos_<ver>_<arch>.dmg).
+          VERSION="$(node -p "require('./apps/desktop-electron/package.json').version")"
+          # matrix.target is a Rust triple (e.g. aarch64-apple-darwin).
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin) ARCH_LABEL="aarch64" ;;
+            x86_64-apple-darwin) ARCH_LABEL="x64" ;;
+            x86_64-pc-windows-msvc) ARCH_LABEL="x64" ;;
+            x86_64-unknown-linux-gnu) ARCH_LABEL="x64" ;;
+            *) ARCH_LABEL="$(echo '${{ matrix.target }}' | cut -d- -f1)" ;;
+          esac
+
           find "$RELEASE_DIR" -type f \
-            \( -name 'Atmos_*' -o -name 'Atmos-Electron_*' -o -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
+            \( -name 'Atmos*' -o -name 'Atmos-Electron_*' -o -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
             ! -name 'builder-*.yml' \
-            -exec cp {} "$OUT_DIR/" \;
+            -print0 | while IFS= read -r -d '' f; do
+            base="$(basename "$f")"
+            # Atmos.dmg → Atmos_<version>_<arch>.dmg
+            # Atmos-setup.exe → Atmos_<version>_<arch>-setup.exe
+            # Atmos.AppImage → Atmos_<version>_<arch>.AppImage
+            # Keep blockmaps aligned with the renamed primary artifact.
+            renamed="$base"
+            if [[ "$base" == Atmos-setup.* ]]; then
+              ext="${base#Atmos-setup.}"
+              renamed="Atmos_${VERSION}_${ARCH_LABEL}-setup.${ext}"
+            elif [[ "$base" == Atmos.* ]]; then
+              ext="${base#Atmos.}"
+              # Atmos.dmg.blockmap → Atmos_ver_arch.dmg.blockmap
+              if [[ "$ext" == *.blockmap ]]; then
+                primary="${ext%.blockmap}"
+                renamed="Atmos_${VERSION}_${ARCH_LABEL}.${primary}.blockmap"
+              else
+                renamed="Atmos_${VERSION}_${ARCH_LABEL}.${ext}"
+              fi
+            fi
+            cp "$f" "$OUT_DIR/$renamed"
+            echo "  $base → $renamed"
+          done
+
           if [ -z "$(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
             echo "❌ No package artifacts under $RELEASE_DIR"
             ls -laR "$RELEASE_DIR" || true
