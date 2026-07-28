@@ -24,9 +24,9 @@ function main() {
     "apps/desktop-electron/package.json version",
   );
 
-  if (pkg.productName !== "Atmos Electron") {
+  if (pkg.productName !== "Atmos") {
     throw new Error(
-      `apps/desktop-electron/package.json productName must be "Atmos Electron" (got ${JSON.stringify(pkg.productName)})`,
+      `apps/desktop-electron/package.json productName must be "Atmos" (got ${JSON.stringify(pkg.productName)})`,
     );
   }
 

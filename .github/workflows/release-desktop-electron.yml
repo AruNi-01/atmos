@@ -232,7 +232,7 @@ jobs:
             exit 0
           fi
 
-          ARGS=(--repo "${GITHUB_REPOSITORY}" --draft --title "Atmos Desktop Electron ${VERSION}" --notes "Draft — notes applied in publish step.")
+          ARGS=(--repo "${GITHUB_REPOSITORY}" --draft --title "Atmos Desktop ${VERSION}" --notes "Draft — notes applied in publish step.")
           if [ "$PRERELEASE" = "true" ]; then
             ARGS+=(--prerelease)
           fi
