@@ -36,9 +36,12 @@ asar: true
 mac:
   category: public.app-category.developer-tools
   icon: resources/icons/icon.icns
-  # Unsigned dogfood by default; set CSC_* secrets later for signed builds.
-  identity: null
-  hardenedRuntime: false
+  # Ad-hoc dogfood: full app-bundle codesign (sealed resources), same idea as
+  # Tauri `APPLE_SIGNING_IDENTITY: '-'`. Avoids Gatekeeper "damaged" for
+  # unsigned packages; users still confirm "unidentified developer".
+  # Developer ID later: set CSC_LINK + CSC_KEY_PASSWORD (optional CSC_NAME).
+  identity: "-"
+  hardenedRuntime: true
   gatekeeperAssess: false
   # Arch selected by CI via `electron-builder --mac --arm64| --x64`.
   target:

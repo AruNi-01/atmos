@@ -330,9 +330,11 @@ jobs:
       - name: Package with electron-builder
         working-directory: apps/desktop-electron
         env:
-          # Prefer explicit identity when provided; otherwise leave unsigned dogfood builds.
+          # Prefer Developer ID when configured; otherwise ad-hoc dogfood (`-`),
+          # matching Tauri release-desktop.yml APPLE_SIGNING_IDENTITY fallback.
+          # electron-builder reads CSC_NAME (not APPLE_SIGNING_IDENTITY).
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '' }}
+          CSC_NAME: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
           # Disable publish; CI uploads artifacts.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ATMOS_ELECTRON_SKIP_RUNTIME_STAGE: "1"
