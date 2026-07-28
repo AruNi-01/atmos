@@ -3,7 +3,12 @@ use tokio::fs;
 
 const DEFAULT_BEST_FOR: &str = "Code review tasks configured in system skills";
 
-/// Parse field from YAML frontmatter (standard single-line format)
+/// Parse a scalar field from YAML frontmatter.
+///
+/// Supports:
+/// - plain / quoted single-line values: `description: "hello"`
+/// - folded block scalars: `description: >-` / `>` / `>+` (continuation lines joined with spaces)
+/// - literal block scalars: `description: |` / `|-` / `|+` (newlines preserved)
 fn parse_frontmatter_field(content: &str, field: &str) -> Option<String> {
     // Find frontmatter block
     let content = content.trim_start();
@@ -12,17 +17,54 @@ fn parse_frontmatter_field(content: &str, field: &str) -> Option<String> {
     let frontmatter = &rest[..second_dash];
     let field_with_colon = format!("{field}:");
 
-    // Look for field: "value" or field: value
-    for line in frontmatter.lines() {
-        let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix(&field_with_colon) {
-            let rest = rest.trim();
-            if !rest.is_empty() {
-                return Some(rest.trim_matches('"').trim_matches('\'').to_string());
+    let lines: Vec<&str> = frontmatter.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let trimmed = lines[i].trim();
+        if let Some(value) = trimmed.strip_prefix(&field_with_colon) {
+            let val = value.trim();
+
+            // YAML block scalars: `>`, `>-`, `>+`, `|`, `|-`, `|+`
+            if is_yaml_block_scalar_indicator(val) {
+                let folded = val.starts_with('>');
+                let mut collected = Vec::new();
+                i += 1;
+                while i < lines.len() {
+                    let line = lines[i];
+                    // Block content is indented or blank; the next top-level key ends it.
+                    if line.is_empty() || line.starts_with(' ') || line.starts_with('\t') {
+                        collected.push(line.trim());
+                        i += 1;
+                    } else {
+                        break;
+                    }
+                }
+                let joined = if folded {
+                    collected
+                        .into_iter()
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                } else {
+                    collected.join("\n").trim().to_string()
+                };
+                if !joined.is_empty() {
+                    return Some(joined);
+                }
+                continue;
+            }
+
+            if !val.is_empty() {
+                return Some(val.trim_matches('"').trim_matches('\'').to_string());
             }
         }
+        i += 1;
     }
     None
+}
+
+fn is_yaml_block_scalar_indicator(val: &str) -> bool {
+    matches!(val, ">" | ">-" | ">+" | "|" | "|-" | "|+")
 }
 
 /// Scan the code_review_skills directory and return structured skill metadata.
@@ -376,6 +418,48 @@ bestForExtended: "Do not use this either"
 
         assert_eq!(parse_frontmatter_field(content, "description"), None);
         assert_eq!(parse_frontmatter_field(content, "bestFor"), None);
+    }
+
+    #[test]
+    fn parses_folded_block_scalar_description() {
+        let content = r#"---
+name: demo-skill
+description: >-
+  Expert reviewer for multi-line
+  skill descriptions and best practices.
+bestFor: >-
+  Large PRs across
+  frontend and backend.
+---
+
+# Skill
+"#;
+
+        assert_eq!(
+            parse_frontmatter_field(content, "description"),
+            Some("Expert reviewer for multi-line skill descriptions and best practices.".to_string())
+        );
+        assert_eq!(
+            parse_frontmatter_field(content, "bestFor"),
+            Some("Large PRs across frontend and backend.".to_string())
+        );
+    }
+
+    #[test]
+    fn parses_literal_block_scalar_description() {
+        let content = r#"---
+description: |
+  line one
+  line two
+---
+
+# Skill
+"#;
+
+        assert_eq!(
+            parse_frontmatter_field(content, "description"),
+            Some("line one\nline two".to_string())
+        );
     }
 
     #[test]

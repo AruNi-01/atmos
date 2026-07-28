@@ -1,12 +1,7 @@
 ---
 name: atmos-canvas-agent
 version: "2.3.0"
-description: >-
-  Drive the user's open Atmos Canvas via `atmos canvas` CLI: diagrams, layout,
-  screenshots, local .atmos.tldr documents, and (when needed) durable document
-  scripts or one-shot exec. Use for sketch/draw/diagram/layout requests, and
-  for interactive surfaces or clickable UI only when the user asks for that
-  behavior.
+description: "Drive the user's open Atmos Canvas via `atmos canvas` CLI: diagrams, layout, screenshots, local .atmos.tldr documents, and (when needed) durable document scripts or one-shot exec. Use for sketch/draw/diagram/layout requests, and for interactive surfaces or clickable UI only when the user asks for that behavior."
 license: MIT
 ---
 

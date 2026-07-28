@@ -251,6 +251,51 @@ export interface ParsedFrontmatter {
   [key: string]: unknown;
 }
 
+const YAML_BLOCK_SCALAR = /^(?:>|>-|>+|\||\|-|\|+)$/;
+
+function stripYamlQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function isYamlBlockContinuation(line: string): boolean {
+  return line === "" || line.startsWith(" ") || line.startsWith("\t");
+}
+
+/**
+ * Parse YAML-like frontmatter scalars, including folded (`>`, `>-`) and literal
+ * (`|`, `|-`) block scalars. Without this, `title: >-` would surface as `>-`.
+ */
+function parseYamlScalarLines(lines: string[], startIndex: number, rawValue: string): {
+  value: string;
+  nextIndex: number;
+} {
+  const indicator = rawValue.trim();
+  if (YAML_BLOCK_SCALAR.test(indicator)) {
+    const folded = indicator.startsWith(">");
+    const collected: string[] = [];
+    let i = startIndex + 1;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!isYamlBlockContinuation(line)) break;
+      collected.push(line.trim());
+      i += 1;
+    }
+    const value = folded
+      ? collected.filter(Boolean).join(" ")
+      : collected.join("\n").trim();
+    return { value, nextIndex: i };
+  }
+
+  return { value: stripYamlQuotes(rawValue), nextIndex: startIndex + 1 };
+}
+
 export function parseFrontmatter(markdown: string): {
   frontmatter: ParsedFrontmatter;
   body: string;
@@ -262,26 +307,66 @@ export function parseFrontmatter(markdown: string): {
   const [, raw, body] = match;
   const frontmatter: ParsedFrontmatter = {};
   if (raw) {
-    for (const line of raw.split(/\r?\n/)) {
+    const lines = raw.split(/\r?\n/);
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
       const keyMatch = line.match(/^([a-z_]+):\s*(.*)$/);
-      if (keyMatch) {
-        const key = keyMatch[1];
-        const val = keyMatch[2].trim();
-        if (val.startsWith("[") && val.endsWith("]")) {
-          try {
-            (frontmatter as Record<string, unknown>)[key] = JSON.parse(val);
-          } catch {
-            (frontmatter as Record<string, unknown>)[key] = val;
+      if (!keyMatch) {
+        i += 1;
+        continue;
+      }
+
+      const key = keyMatch[1];
+      const rawVal = keyMatch[2].trim();
+
+      if (key === "sources") {
+        // Multi-line list: sources:\n  - a\n  - b
+        // Inline list: sources: ["a", "b"] or sources: []
+        if (!rawVal || rawVal === "[]") {
+          const items: string[] = [];
+          let j = i + 1;
+          while (j < lines.length) {
+            const itemLine = lines[j];
+            const itemMatch = itemLine.match(/^\s+-\s+(.+)$/);
+            if (!itemMatch) break;
+            items.push(itemMatch[1].trim().replace(/^['"]|['"]$/g, ""));
+            j += 1;
           }
-        } else if (val) {
-          (frontmatter as Record<string, unknown>)[key] = val;
+          if (items.length > 0) {
+            frontmatter.sources = items;
+          } else if (rawVal === "[]") {
+            frontmatter.sources = [];
+          }
+          i = j;
+          continue;
+        }
+        if (rawVal.startsWith("[") && rawVal.endsWith("]")) {
+          try {
+            frontmatter.sources = JSON.parse(rawVal) as string[];
+          } catch {
+            frontmatter.sources = [rawVal];
+          }
+          i += 1;
+          continue;
         }
       }
-    }
-    const sourcesMatch = raw.match(/sources:\r?\n((?:\s+-\s+[^\n]+\r?\n?)+)/);
-    if (sourcesMatch) {
-      const items = sourcesMatch[1].match(/-\s+(.+)/g)?.map((s) => s.replace(/^-\s+/, "").trim()) ?? [];
-      frontmatter.sources = items;
+
+      if (rawVal.startsWith("[") && rawVal.endsWith("]")) {
+        try {
+          (frontmatter as Record<string, unknown>)[key] = JSON.parse(rawVal);
+        } catch {
+          (frontmatter as Record<string, unknown>)[key] = rawVal;
+        }
+        i += 1;
+        continue;
+      }
+
+      const { value, nextIndex } = parseYamlScalarLines(lines, i, rawVal);
+      if (value) {
+        (frontmatter as Record<string, unknown>)[key] = value;
+      }
+      i = nextIndex;
     }
   }
   return { frontmatter, body };
