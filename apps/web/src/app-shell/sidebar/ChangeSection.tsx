@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  Binary,
   Button,
   ChevronRight,
   Plus,
@@ -176,8 +177,12 @@ function ChangeFileRow({
               )}
             >
               {file.is_binary || isLikelyBinaryPath(file.path) ? (
-                <span className="text-muted-foreground font-sans text-[10px] font-medium uppercase tracking-wide">
-                  {t("changeSection.binaryBadge")}
+                <span
+                  className="inline-flex items-center text-muted-foreground"
+                  title={t("changeSection.binaryBadge")}
+                  aria-label={t("changeSection.binaryBadge")}
+                >
+                  <Binary className="size-3.5 shrink-0" strokeWidth={2} />
                 </span>
               ) : (
                 <>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { Binary, ChevronRight } from "lucide-react";
 import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
@@ -14,7 +14,7 @@ export interface DiffFileTreeItem {
   annotation?: React.ReactNode;
   additions?: number;
   deletions?: number;
-  /** When true, show a Binary badge instead of +/- line counts. */
+  /** When true, show a binary icon instead of +/- line counts. */
   isBinary?: boolean;
 }
 
@@ -237,11 +237,13 @@ function defaultDecoration(
         <div
           ref={options?.changeCountsRef}
           className={cn(
-            "font-sans text-[10px] font-medium uppercase tracking-wide text-muted-foreground",
+            "flex items-center text-muted-foreground",
             options?.hideChangeCounts && "hidden",
           )}
+          title="Binary"
+          aria-label="Binary"
         >
-          Binary
+          <Binary className="size-3.5 shrink-0" strokeWidth={2} />
         </div>
       )
     : item.gitStatus !== "?"
