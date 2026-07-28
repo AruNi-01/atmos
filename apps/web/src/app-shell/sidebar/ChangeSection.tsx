@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  Binary,
   Button,
   ChevronRight,
   Plus,
@@ -22,6 +23,7 @@ import { buildDiffGroupPath, type DiffChangeGroupKind } from "@/features/diff/li
 import { DiffFileTree } from "@/features/diff/components/DiffFileTree";
 import { DiffFilePathLabel } from "@/features/diff/components/DiffFilePathLabel";
 import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
+import { isLikelyBinaryPath } from "@/features/diff/lib/diff-content-kind";
 import { useOverflowAwareDecorationVisibility } from "@/shared/hooks/use-overflow-aware-decoration-visibility";
 import { setAgentContextDragData } from "@/shared/lib/agent-context-drag";
 
@@ -174,15 +176,27 @@ function ChangeFileRow({
                 shouldHideCounts && "hidden",
               )}
             >
-              {file.additions > 0 && (
-                <span className="text-emerald-500">
-                  +{file.additions}
+              {file.is_binary || isLikelyBinaryPath(file.path) ? (
+                <span
+                  className="inline-flex items-center text-muted-foreground"
+                  title={t("changeSection.binaryBadge")}
+                  aria-label={t("changeSection.binaryBadge")}
+                >
+                  <Binary className="size-3.5 shrink-0" strokeWidth={2} />
                 </span>
-              )}
-              {file.deletions > 0 && (
-                <span className="text-red-500">
-                  -{file.deletions}
-                </span>
+              ) : (
+                <>
+                  {file.additions > 0 && (
+                    <span className="text-emerald-500">
+                      +{file.additions}
+                    </span>
+                  )}
+                  {file.deletions > 0 && (
+                    <span className="text-red-500">
+                      -{file.deletions}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -444,6 +458,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 gitStatus: file.status,
                 additions: file.additions,
                 deletions: file.deletions,
+                isBinary:
+                  Boolean(file.is_binary) || isLikelyBinaryPath(file.path),
               }))}
               selectedPath={selectedDiffFilePath}
               ariaLabel={t("changeSection.treeAriaLabel", { title })}

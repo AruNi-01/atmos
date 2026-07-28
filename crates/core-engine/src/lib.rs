@@ -22,8 +22,9 @@ pub use fs::{
     compensate_path, CompensateStrategy, FileTreeItem, FsEngine, FsEntry, GitValidationResult,
 };
 pub use git::{
-    list_ignored_paths, list_ignored_paths_for_many, sync_worktree_local_excludes, ChangedFileInfo,
-    ChangedFilesInfo, CommitInfo, FileDiffInfo, GitEngine, GitStatus, WorktreeInfo,
+    list_ignored_paths, list_ignored_paths_for_many, show_git_blob_bytes,
+    sync_worktree_local_excludes, ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind,
+    DiffPreviewKind, FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, WorktreeInfo,
 };
 pub use github::GithubEngine;
 pub use local_services::{

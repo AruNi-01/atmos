@@ -8,17 +8,50 @@ use core_service::service::git_commit_message::GitCommitMessageGenerator;
 use core_service::{Result, ServiceError};
 
 use super::{
-    GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitFileDiffResponse,
-    GitFilesDiffRequest, GitFilesDiffResponse, GitFilesDiffResult, GitGenerateCommitMessageRequest,
-    GitGetCommitCountRequest, GitGetHeadCommitRequest, GitGetStatusBatchRequest,
-    GitGetStatusBatchResponse, GitGetStatusBatchResult, GitGetStatusRequest,
-    GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest, GitPullRequest, GitPushRequest,
-    GitRenameBranchRequest, GitStageRequest, GitStatusResponse, GitSyncRequest, GitUnstageRequest,
-    WsEvent, WsMessage, WsMessageService,
+    DiffContentKind, DiffPreviewKind, GitBlobLocator, GitChangedFilesRequest, GitCommitRequest,
+    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    GitFileDiffResponse, GitFilesDiffRequest, GitFilesDiffResponse, GitFilesDiffResult,
+    GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
+    GitGetStatusBatchRequest, GitGetStatusBatchResponse, GitGetStatusBatchResult,
+    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest,
+    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitStatusResponse,
+    GitSyncRequest, GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 const GIT_BATCH_CONCURRENCY: usize = 8;
+
+fn file_diff_to_response(diff: core_engine::FileDiffInfo) -> GitFileDiffResponse {
+    GitFileDiffResponse {
+        file_path: diff.file_path,
+        status: diff.status,
+        compare_ref: diff.compare_ref,
+        kind: match diff.kind {
+            core_engine::DiffContentKind::Text => DiffContentKind::Text,
+            core_engine::DiffContentKind::Binary => DiffContentKind::Binary,
+            core_engine::DiffContentKind::TooLarge => DiffContentKind::TooLarge,
+        },
+        preview_kind: match diff.preview_kind {
+            core_engine::DiffPreviewKind::None => DiffPreviewKind::None,
+            core_engine::DiffPreviewKind::Image => DiffPreviewKind::Image,
+            core_engine::DiffPreviewKind::Media => DiffPreviewKind::Media,
+        },
+        old_text: diff.old_text,
+        new_text: diff.new_text,
+        old_size: diff.old_size,
+        new_size: diff.new_size,
+        old_sha256: diff.old_sha256,
+        new_sha256: diff.new_sha256,
+        old_blob: diff.old_blob.map(map_blob_locator),
+        new_blob: diff.new_blob.map(map_blob_locator),
+    }
+}
+
+fn map_blob_locator(locator: core_engine::GitBlobLocator) -> GitBlobLocator {
+    match locator {
+        core_engine::GitBlobLocator::Worktree { path } => GitBlobLocator::Worktree { path },
+        core_engine::GitBlobLocator::Git { rev, path } => GitBlobLocator::Git { rev, path },
+    }
+}
 
 impl WsMessageService {
     fn get_git_status(
@@ -192,6 +225,7 @@ impl WsMessageService {
                 "status": f.status,
                 "additions": f.additions,
                 "deletions": f.deletions,
+                "is_binary": f.is_binary,
                 "staged": f.staged,
             })
         };
@@ -232,13 +266,7 @@ impl WsMessageService {
                 .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?
         };
 
-        Ok(GitFileDiffResponse {
-            file_path: diff.file_path,
-            old_content: diff.old_content,
-            new_content: diff.new_content,
-            status: diff.status,
-            compare_ref: diff.compare_ref,
-        })
+        Ok(file_diff_to_response(diff))
     }
 
     pub(super) fn handle_git_file_diff(&self, req: GitFileDiffRequest) -> Result<Value> {

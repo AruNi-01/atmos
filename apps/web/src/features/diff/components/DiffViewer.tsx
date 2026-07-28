@@ -43,6 +43,7 @@ import {
 } from '@/features/diff/lib/diff-view-constants';
 import { diffSideCacheKey } from '@/features/diff/lib/diff-code-view-shared';
 import { DiffViewerHeader } from '@/features/diff/components/DiffViewerHeader';
+import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 
 interface DiffViewerProps {
@@ -439,21 +440,33 @@ export const DiffViewer = ({
     }
 
     if (gitDiffQuery.data) {
+      const data = gitDiffQuery.data;
+      if (data.kind !== 'text') {
+        setOldFile(null);
+        setNewFile(null);
+        setWorkingDiff(null);
+        setDiffCompareRef(data.compare_ref);
+        setIsLoading(false);
+        setError(null);
+        return;
+      }
       const fileName = filePath.split('/').pop() || filePath;
+      const oldText = data.old_text ?? '';
+      const newText = data.new_text ?? '';
       const nextOldFile = {
         name: fileName,
-        contents: gitDiffQuery.data.old_content,
-        cacheKey: diffSideCacheKey(fileName, gitDiffQuery.data.old_content),
+        contents: oldText,
+        cacheKey: diffSideCacheKey(fileName, oldText),
       };
       const nextNewFile = {
         name: fileName,
-        contents: gitDiffQuery.data.new_content,
-        cacheKey: diffSideCacheKey(fileName, gitDiffQuery.data.new_content),
+        contents: newText,
+        cacheKey: diffSideCacheKey(fileName, newText),
       };
       setOldFile(nextOldFile);
       setNewFile(nextNewFile);
       setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
-      setDiffCompareRef(gitDiffQuery.data.compare_ref);
+      setDiffCompareRef(data.compare_ref);
       setIsLoading(false);
       setError(null);
       return;
@@ -925,6 +938,21 @@ export const DiffViewer = ({
           <p className="text-red-500 mb-2">{viewerT('errors.loadTitle')}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
+      </div>
+    );
+  }
+
+  const binaryGitDiff =
+    gitDiffEnabled &&
+    gitDiffQuery.data &&
+    gitDiffQuery.data.kind !== 'text'
+      ? gitDiffQuery.data
+      : null;
+
+  if (binaryGitDiff) {
+    return (
+      <div className="flex h-full flex-col overflow-auto bg-background p-3">
+        <BinaryDiffCard diff={binaryGitDiff} repoPath={repoPath} />
       </div>
     );
   }

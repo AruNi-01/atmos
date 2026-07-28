@@ -54,10 +54,12 @@ mac:
   target:
     - dmg
     - zip
-  artifactName: Atmos_${version}_${arch}.${ext}
+  # Local packages use a clean product name (like historical Tauri). CI renames
+  # with version + arch before multi-arch GitHub Release upload.
+  artifactName: Atmos.${ext}
 
 dmg:
-  artifactName: Atmos_${version}_${arch}.${ext}
+  artifactName: Atmos.${ext}
   # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
   # Regenerate: python3 scripts/generate-dmg-background.py
   background: resources/dmg/background.png
@@ -78,19 +80,19 @@ win:
   icon: resources/icons/icon.ico
   target:
     - nsis
-  artifactName: Atmos_${version}_${arch}.${ext}
+  artifactName: Atmos.${ext}
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: Atmos_${version}_${arch}-setup.${ext}
+  artifactName: Atmos-setup.${ext}
 
 linux:
   icon: resources/icons
   category: Development
   target:
     - AppImage
-  artifactName: Atmos_${version}_${arch}.${ext}
+  artifactName: Atmos.${ext}
 
 # Never auto-publish to GitHub from electron-builder; CI attaches artifacts.
 publish: null

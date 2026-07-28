@@ -38,7 +38,7 @@ bun test
 | Dev bundle id | `com.atmos.desktop.dev` | `com.atmos.desktop.tauri.dev` |
 | Tag | `desktop-electron-<version>` | ~~`desktop-*` (do not ship)~~ |
 | Workflow | `release-desktop-electron.yml` | deprecated |
-| Artifacts | `Atmos_<version>_<arch>.*` | n/a |
+| Artifacts | local: `Atmos.*` · release (CI rename): `Atmos_<version>_<arch>.*` | n/a |
 
 Shared data contracts:
 

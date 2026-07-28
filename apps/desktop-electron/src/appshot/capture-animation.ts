@@ -306,10 +306,6 @@ export async function playCaptureAnimation(
 
     win.showInactive();
 
-    mainLog(
-      `[appshot-capture] animation overlay ${frame.width}x${frame.height} @ ${frame.x},${frame.y}`,
-    );
-
     await sleep(OVERLAY_DURATION_MS);
 
     if (gen !== playGeneration || win.isDestroyed()) return;

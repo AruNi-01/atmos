@@ -3,8 +3,6 @@
  *
  * Native dylib (dedicated CFRunLoop thread) + poll take_chord — Tauri parity.
  * No poll-only path, no double-tap fallback.
- *
- * Logs → ~/.atmos/logs/desktop-main.log
  */
 
 import type { AppState } from "../app-state.js";
@@ -33,10 +31,9 @@ let tapHandle: TapHandle | null = null;
 /** Accessibility trust observed at last successful arm. */
 let armedWithAx = false;
 
-function fireCapture(source: string): void {
+function fireCapture(): void {
   if (captureRunning) return;
   captureRunning = true;
-  mainLog(`[appshot-trigger] CHORD DETECTED (${source}) — starting capture`);
   const run = onTrigger;
   void Promise.resolve()
     .then(() => run?.())
@@ -88,9 +85,6 @@ export async function ensureTriggerListener(
 
   // Re-arm when Accessibility flips true after a cold start without trust.
   if (tapHandle && status.enabled && ax && !armedWithAx) {
-    mainLog(
-      "[appshot-trigger] Accessibility granted after arm — restarting native tap",
-    );
     disarm();
     status = {
       enabled: false,
@@ -101,20 +95,14 @@ export async function ensureTriggerListener(
   }
 
   if (status.enabled || status.starting || tapHandle) {
-    mainLog(
-      `[appshot-trigger] already armed mode=${status.mode} enabled=${status.enabled} ax=${ax} armedWithAx=${armedWithAx}`,
-    );
     return triggerListenerStatus();
   }
 
   status = { ...status, starting: true, lastError: null };
-  mainLog(
-    `[appshot-trigger] arming dual-shift helper process (global FlagsChanged) ax=${ax}…`,
-  );
 
   try {
     const handle = startShiftFlagsEventTap(() => {
-      fireCapture("event-tap");
+      fireCapture();
     });
     if (!handle) {
       status = {
@@ -137,11 +125,6 @@ export async function ensureTriggerListener(
         : "Accessibility is off — dual-shift will not receive keys until Atmos is trusted (System Settings → Privacy → Accessibility)",
       mode: "event-tap",
     };
-    mainLog(
-      ax
-        ? "[appshot-trigger] ENABLED mode=event-tap — hold Left Shift + Right Shift"
-        : "[appshot-trigger] tap started but Accessibility=false — enable Atmos in Accessibility then restart or Refresh",
-    );
   } catch (error) {
     status = {
       enabled: false,
@@ -164,7 +147,6 @@ export function stopTriggerListener(): void {
     lastError: status.lastError,
     mode: "none",
   };
-  mainLog("[appshot-trigger] listener stopped");
 }
 
 export function resetTriggerListenerForTest(): void {

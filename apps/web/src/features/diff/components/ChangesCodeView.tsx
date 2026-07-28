@@ -32,8 +32,14 @@ import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   applyCollapseModeToItems,
   diffSideCacheKey,
-  type CopyAnnotationMeta,
+  type DiffListAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
+import {
+  binaryDiffPlaceholders,
+  isLikelyBinaryPath,
+  isNonTextDiff,
+} from '@/features/diff/lib/diff-content-kind';
+import type { GitFileDiffResponse } from '@/api/ws-api-types';
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
@@ -121,7 +127,7 @@ export function ChangesCodeView({
   const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
   const [loadedItemVersion, setLoadedItemVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [initialItems, setInitialItems] = useState<CodeViewItem<CopyAnnotationMeta>[]>(
+  const [initialItems, setInitialItems] = useState<CodeViewItem<DiffListAnnotationMeta>[]>(
     [],
   );
   const stashedPromptScope = `${repoPath}:${groupPath}`;
@@ -147,10 +153,10 @@ export function ChangesCodeView({
     'expanded',
   );
 
-  const codeViewRef = useRef<CodeViewHandle<CopyAnnotationMeta>>(null);
+  const codeViewRef = useRef<CodeViewHandle<DiffListAnnotationMeta>>(null);
   const lastHandledNavRef = useRef<string | null>(null);
   const itemIdsRef = useRef<string[]>([]);
-  const pendingAppendRef = useRef<CodeViewItem<CopyAnnotationMeta>[]>([]);
+  const pendingAppendRef = useRef<CodeViewItem<DiffListAnnotationMeta>[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
   const loadedContentsRef = useRef<Map<string, LoadedDiffContents>>(new Map());
   const collapseModeRef = useRef(collapseMode);
@@ -158,6 +164,7 @@ export function ChangesCodeView({
     useDiffPromptStash({
       agentFixContext,
       scope: stashedPromptScope,
+      repoPath,
       viewerRef: codeViewRef,
       loadedContentsRef,
     });
@@ -198,8 +205,10 @@ export function ChangesCodeView({
     () =>
       groupFiles.map((file) => ({
         path: file.path,
+        gitStatus: file.status,
         additions: file.additions,
         deletions: file.deletions,
+        isBinary: Boolean(file.is_binary) || isLikelyBinaryPath(file.path),
       })),
     [groupFiles],
   );
@@ -249,7 +258,7 @@ export function ChangesCodeView({
   }, [compareBaseRef, compareRef, effectiveGroupKind]);
 
   const renderHeaderPrefix = useCallback(
-    (item: CodeViewItem<CopyAnnotationMeta>) =>
+    (item: CodeViewItem<DiffListAnnotationMeta>) =>
       renderDiffHeaderPrefix({
         item,
         viewerRef: codeViewRef,
@@ -321,7 +330,8 @@ export function ChangesCodeView({
           const resultByPath = new Map(
             batchResponse.results.map((result) => [result.file_path, result]),
           );
-          const results = batch.map((file) => {
+          const codeItems: CodeViewItem<DiffListAnnotationMeta>[] = [];
+          for (const file of batch) {
             try {
               const result = resultByPath.get(file.path);
               if (!result?.diff) {
@@ -329,55 +339,94 @@ export function ChangesCodeView({
                   result?.error ?? `Missing diff result for ${file.path}`,
                 );
               }
-              const diff = result.diff;
+              const diff = result.diff as GitFileDiffResponse;
+
+              if (isNonTextDiff(diff)) {
+                // Keep binary files inside pierre CodeView: non-empty placeholder
+                // hunks + BinaryDiffCard annotations. Modified files get two
+                // annotations so split layout places Previous left / Current right.
+                const { oldText, newText, annotations: binaryAnns } =
+                  binaryDiffPlaceholders(diff.status);
+                const fileDiff = parseDiffFromFile(
+                  {
+                    name: file.path,
+                    contents: oldText,
+                    cacheKey: diffSideCacheKey(
+                      file.path,
+                      `binary-old:${diff.old_size ?? 0}:${diff.old_sha256 ?? ""}`,
+                    ),
+                  },
+                  {
+                    name: file.path,
+                    contents: newText,
+                    cacheKey: diffSideCacheKey(
+                      file.path,
+                      `binary-new:${diff.new_size ?? 0}:${diff.new_sha256 ?? ""}`,
+                    ),
+                  },
+                );
+                nextPathByFileName.set(fileDiff.name, file.path);
+                loadedContentsRef.current.set(file.path, {
+                  oldContent: oldText,
+                  newContent: newText,
+                });
+                codeItems.push({
+                  id: file.path,
+                  type: 'diff',
+                  fileDiff,
+                  collapsed: collapseModeRef.current === 'collapsed',
+                  annotations: binaryAnns.map((ann) => ({
+                    side: ann.side,
+                    lineNumber: ann.lineNumber,
+                    metadata: {
+                      kind: 'binary' as const,
+                      filePath: file.path,
+                      diff,
+                      panel: ann.panel,
+                    },
+                  })),
+                } as CodeViewItem<DiffListAnnotationMeta>);
+                continue;
+              }
+
+              const oldText = diff.old_text ?? "";
+              const newText = diff.new_text ?? "";
               const fileDiff = parseDiffFromFile(
                 {
                   name: file.path,
-                  contents: diff.old_content,
-                  cacheKey: diffSideCacheKey(file.path, diff.old_content),
+                  contents: oldText,
+                  cacheKey: diffSideCacheKey(file.path, oldText),
                 },
                 {
                   name: file.path,
-                  contents: diff.new_content,
-                  cacheKey: diffSideCacheKey(file.path, diff.new_content),
+                  contents: newText,
+                  cacheKey: diffSideCacheKey(file.path, newText),
                 },
               );
               nextPathByFileName.set(fileDiff.name, file.path);
-              return {
+              loadedContentsRef.current.set(file.path, {
+                oldContent: oldText,
+                newContent: newText,
+              });
+              codeItems.push({
                 id: file.path,
+                type: 'diff',
                 fileDiff,
-                oldContent: diff.old_content,
-                newContent: diff.new_content,
-              };
+                collapsed: collapseModeRef.current === 'collapsed',
+              } as CodeViewItem<DiffListAnnotationMeta>);
             } catch (err) {
               console.error(`Failed to load diff for ${file.path}:`, err);
-              return null;
             }
-          });
-
-          if (cancelled) return;
-
-          const codeItems: CodeViewItem<CopyAnnotationMeta>[] = [];
-          for (const result of results) {
-            if (!result) continue;
-            loadedContentsRef.current.set(result.id, {
-              oldContent: result.oldContent,
-              newContent: result.newContent,
-            });
-            codeItems.push({
-              id: result.id,
-              type: 'diff',
-              fileDiff: result.fileDiff,
-              collapsed: collapseModeRef.current === 'collapsed',
-            } as CodeViewItem<CopyAnnotationMeta>);
           }
 
+          if (cancelled) return;
           if (codeItems.length === 0) continue;
+
+          setPathByFileName(new Map(nextPathByFileName));
 
           if (!hasPublishedInitial) {
             hasPublishedInitial = true;
             itemIdsRef.current = codeItems.map((item) => item.id);
-            setPathByFileName(new Map(nextPathByFileName));
             setInitialItems(codeItems);
             setLoadedItemVersion((value) => value + 1);
             setIsLoading(false);
@@ -387,7 +436,6 @@ export function ChangesCodeView({
               ...itemIdsRef.current,
               ...codeItems.map((item) => item.id),
             ];
-            setPathByFileName(new Map(nextPathByFileName));
             const viewer = codeViewRef.current;
             if (viewer != null) {
               viewer.addItems(codeItems);
@@ -469,16 +517,31 @@ export function ChangesCodeView({
       }),
       onLineSelectionEnd(
         range: SelectedLineRange | null,
-        context: { item: CodeViewItem<CopyAnnotationMeta> },
+        context: { item: CodeViewItem<DiffListAnnotationMeta> },
       ) {
         if (!range || context.item.type !== 'diff') return;
+        // Binary placeholder lines are anchors for BinaryDiffCard only.
+        if (
+          context.item.annotations?.some(
+            (a) => a.metadata?.kind === 'binary',
+          )
+        ) {
+          return;
+        }
         openCopyAnnotation(context.item.id, range);
       },
       onGutterUtilityClick(
         range: SelectedLineRange,
-        context: { item: CodeViewItem<CopyAnnotationMeta> },
+        context: { item: CodeViewItem<DiffListAnnotationMeta> },
       ) {
         if (context.item.type !== 'diff') return;
+        if (
+          context.item.annotations?.some(
+            (a) => a.metadata?.kind === 'binary',
+          )
+        ) {
+          return;
+        }
         openCopyAnnotation(context.item.id, range);
       },
     }),
@@ -494,7 +557,7 @@ export function ChangesCodeView({
   );
 
   const handleViewerRef = useCallback(
-    (handle: CodeViewHandle<CopyAnnotationMeta> | null) => {
+    (handle: CodeViewHandle<DiffListAnnotationMeta> | null) => {
       codeViewRef.current = handle;
       setViewerMounted(handle != null);
     },

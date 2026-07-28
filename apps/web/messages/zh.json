@@ -1320,7 +1320,8 @@
         "deleteFolderTitle": "要删除 {label} 中的所有文件吗？",
         "discardFolderTitle": "要丢弃 {label} 中的所有更改吗？",
         "deleteFolderDescription": "这会从磁盘中移除该文件夹里的所有未跟踪文件。",
-        "discardFolderDescription": "这会将该文件夹里的所有更改文件恢复到最近一次提交的状态。"
+        "discardFolderDescription": "这会将该文件夹里的所有更改文件恢复到最近一次提交的状态。",
+        "binaryBadge": "二进制"
       },
       "commitActions": {
         "unknownError": "未知错误",
@@ -6443,6 +6444,23 @@
     }
   },
   "diff": {
+    "binary": {
+      "binaryChanged": "二进制文件已更改",
+      "binaryAdded": "二进制文件已新增",
+      "binaryDeleted": "二进制文件已删除",
+      "tooLarge": "文件过大，无法以文本显示",
+      "identicalContent": "内容相同",
+      "previewUnavailable": "无法预览",
+      "previous": "之前",
+      "current": "当前",
+      "status": {
+        "added": "新增",
+        "deleted": "删除",
+        "renamed": "重命名",
+        "copied": "复制",
+        "modified": "修改"
+      }
+    },
     "reviewView": {
       "empty": {
         "noContext": "没有评审上下文",

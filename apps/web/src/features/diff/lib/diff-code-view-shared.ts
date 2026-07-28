@@ -19,12 +19,32 @@ export type CopyAnnotationMeta = {
   range: SelectedLineRange;
 };
 
+/** Binary / too-large file annotation rendered as BinaryDiffCard. */
+export type BinaryAnnotationMeta = {
+  kind: 'binary';
+  filePath: string;
+  /** Serialized subset of GitFileDiffResponse used by BinaryDiffCard. */
+  diff: import('@/api/ws-api-types').GitFileDiffResponse;
+  /** Split layout: previous → left/deletions, current → right/additions. */
+  panel: import('@/features/diff/lib/diff-content-kind').BinaryDiffPanel;
+};
+
+export type DiffListAnnotationMeta = CopyAnnotationMeta | BinaryAnnotationMeta;
+
 export function isCopyAnnotation(
-  annotation: DiffLineAnnotation<CopyAnnotationMeta>,
-): annotation is DiffLineAnnotation<CopyAnnotationMeta> & {
+  annotation: DiffLineAnnotation<DiffListAnnotationMeta>,
+): annotation is DiffLineAnnotation<DiffListAnnotationMeta> & {
   metadata: CopyAnnotationMeta;
 } {
   return annotation.metadata?.kind === 'copy';
+}
+
+export function isBinaryAnnotation(
+  annotation: DiffLineAnnotation<DiffListAnnotationMeta>,
+): annotation is DiffLineAnnotation<DiffListAnnotationMeta> & {
+  metadata: BinaryAnnotationMeta;
+} {
+  return annotation.metadata?.kind === 'binary';
 }
 
 export function getNextItemVersion<LAnnotation>(

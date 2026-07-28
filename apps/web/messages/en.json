@@ -1320,7 +1320,8 @@
         "deleteFolderTitle": "Delete all files in {label}?",
         "discardFolderTitle": "Discard all changes in {label}?",
         "deleteFolderDescription": "This removes every untracked file in this folder from disk.",
-        "discardFolderDescription": "This restores every changed file in this folder to its last committed state."
+        "discardFolderDescription": "This restores every changed file in this folder to its last committed state.",
+        "binaryBadge": "Binary"
       },
       "commitActions": {
         "unknownError": "Unknown error",
@@ -6443,6 +6444,23 @@
     }
   },
   "diff": {
+    "binary": {
+      "binaryChanged": "Binary file changed",
+      "binaryAdded": "Binary file added",
+      "binaryDeleted": "Binary file deleted",
+      "tooLarge": "File too large to display as text",
+      "identicalContent": "Identical content",
+      "previewUnavailable": "Preview unavailable",
+      "previous": "Previous",
+      "current": "Current",
+      "status": {
+        "added": "Added",
+        "deleted": "Deleted",
+        "renamed": "Renamed",
+        "copied": "Copied",
+        "modified": "Modified"
+      }
+    },
     "reviewView": {
       "empty": {
         "noContext": "No review context",

@@ -1,4 +1,16 @@
-use super::{remote_branch_fetch_target, sync_worktree_local_excludes, GitEngine};
+use super::{
+    remote_branch_fetch_target, show_git_blob_bytes, sync_worktree_local_excludes, DiffContentKind,
+    DiffPreviewKind, GitBlobLocator, GitEngine,
+};
+
+// Minimal 1x1 PNG
+const TINY_PNG: &[u8] = &[
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+    0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00,
+    0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xfe, 0xd4, 0xef, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
+    0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+];
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -514,8 +526,9 @@ fn changed_files_for_commit_returns_only_that_commit_patch() {
         .get_file_diff_for_commit(&repo_path, "first.txt", &first_commit)
         .expect("commit patch file diff should be available");
 
-    assert_eq!(diff.old_content, "");
-    assert_eq!(diff.new_content, "first\n");
+    assert_eq!(diff.old_text.as_deref(), Some(""));
+    assert_eq!(diff.new_text.as_deref(), Some("first\n"));
+    assert_eq!(diff.kind, DiffContentKind::Text);
 
     fs::remove_dir_all(root).expect("temp repo should be removed");
 }
@@ -558,8 +571,9 @@ fn changed_files_preserve_rename_numstat_counts() {
         .get_file_diff(&repo_path, "src/new_name.txt", Some(&base_commit), false)
         .expect("branch compare renamed file diff should be available");
     assert_eq!(branch_diff.status, "R");
-    assert_eq!(branch_diff.old_content, "one\ntwo\n");
-    assert_eq!(branch_diff.new_content, "one\ntwo\nthree\n");
+    assert_eq!(branch_diff.old_text.as_deref(), Some("one\ntwo\n"));
+    assert_eq!(branch_diff.new_text.as_deref(), Some("one\ntwo\nthree\n"));
+    assert_eq!(branch_diff.kind, DiffContentKind::Text);
 
     let commit_changes = engine
         .get_changed_files_for_commit(&repo_path, &rename_commit)
@@ -661,8 +675,9 @@ fn changed_files_for_merge_commit_uses_first_parent_patch() {
         .expect("merge commit patch file diff should be available");
 
     assert_eq!(diff.status, "A");
-    assert_eq!(diff.old_content, "");
-    assert_eq!(diff.new_content, "feature from branch\n");
+    assert_eq!(diff.old_text.as_deref(), Some(""));
+    assert_eq!(diff.new_text.as_deref(), Some("feature from branch\n"));
+    assert_eq!(diff.kind, DiffContentKind::Text);
 
     fs::remove_dir_all(root).expect("temp repo should be removed");
 }
@@ -763,8 +778,96 @@ fn file_diff_reads_symlink_target_instead_of_following_link() {
         .get_file_diff(&repo_path, "CLAUDE.md", None, true)
         .expect("file diff should be available");
 
-    assert_eq!(diff.old_content, "AGENTS.md");
-    assert_eq!(diff.new_content, "AGENTS.md");
+    assert_eq!(diff.old_text.as_deref(), Some("AGENTS.md"));
+    assert_eq!(diff.new_text.as_deref(), Some("AGENTS.md"));
+    assert_eq!(diff.kind, DiffContentKind::Text);
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn file_diff_classifies_png_as_binary_without_text() {
+    let (root, origin_path) = setup_remote_repo("binary-png-diff");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    let png_path = repo_path.join("icon.png");
+    fs::write(&png_path, TINY_PNG).expect("write png");
+    git(&repo_path, &["add", "icon.png"]);
+    git(&repo_path, &["commit", "-m", "add png"]);
+
+    // Modify PNG bytes
+    let mut modified = TINY_PNG.to_vec();
+    if let Some(last) = modified.last_mut() {
+        *last = last.wrapping_add(1);
+    }
+    fs::write(&png_path, &modified).expect("modify png");
+
+    let changes = engine
+        .get_changed_files(&repo_path, None, false)
+        .expect("changed files");
+    let entry = changes
+        .unstaged_files
+        .iter()
+        .find(|f| f.path == "icon.png")
+        .expect("png should be unstaged");
+    assert!(entry.is_binary, "numstat should mark png binary");
+    assert_eq!(entry.additions, 0);
+    assert_eq!(entry.deletions, 0);
+
+    let diff = engine
+        .get_file_diff(&repo_path, "icon.png", None, true)
+        .expect("file diff");
+    assert_eq!(diff.kind, DiffContentKind::Binary);
+    assert_eq!(diff.preview_kind, DiffPreviewKind::Image);
+    assert!(diff.old_text.is_none());
+    assert!(diff.new_text.is_none());
+    assert_eq!(diff.old_size, Some(TINY_PNG.len() as u64));
+    assert_eq!(diff.new_size, Some(modified.len() as u64));
+    assert!(diff.old_blob.is_some());
+    assert!(diff.new_blob.is_some());
+    match diff.old_blob.as_ref().unwrap() {
+        GitBlobLocator::Git { rev, path } => {
+            assert_eq!(rev, ":icon.png");
+            assert_eq!(path, "icon.png");
+        }
+        other => panic!("expected index git locator, got {other:?}"),
+    }
+    match diff.new_blob.as_ref().unwrap() {
+        GitBlobLocator::Worktree { path } => assert_eq!(path, "icon.png"),
+        other => panic!("expected worktree locator, got {other:?}"),
+    }
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn show_git_blob_bytes_rejects_option_like_specs() {
+    let (root, origin_path) = setup_remote_repo("blob-reject-opt");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+
+    let err = show_git_blob_bytes(&repo_path, "--output=/tmp/pwned")
+        .expect_err("option-like show-spec must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("Invalid") || msg.contains("invalid"),
+        "unexpected error: {msg}"
+    );
+
+    fs::remove_dir_all(root).expect("temp repo should be removed");
+}
+
+#[test]
+fn show_git_blob_bytes_reads_index_path_spec() {
+    let (root, origin_path) = setup_remote_repo("blob-index-spec");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+
+    let png_path = repo_path.join("icon.png");
+    fs::write(&png_path, TINY_PNG).expect("write png");
+    git(&repo_path, &["add", "icon.png"]);
+
+    let bytes = show_git_blob_bytes(&repo_path, ":icon.png").expect("index blob");
+    assert_eq!(bytes, TINY_PNG);
 
     fs::remove_dir_all(root).expect("temp repo should be removed");
 }

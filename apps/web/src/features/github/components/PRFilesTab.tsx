@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
-import { processFile } from '@pierre/diffs';
+import { parseDiffFromFile, processFile } from '@pierre/diffs';
 import { useLocale, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
@@ -12,11 +12,17 @@ import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
+import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
+import { binaryDiffPlaceholders } from '@/features/diff/lib/diff-content-kind';
 import type { PrFile } from '@/features/github/hooks/use-github';
+import type { GitFileDiffResponse } from '@/api/ws-api-types';
+import {
+  applyCollapseModeToItems,
+  diffSideCacheKey,
+} from '@/features/diff/lib/diff-code-view-shared';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
-import { applyCollapseModeToItems } from '@/features/diff/lib/diff-code-view-shared';
 import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import {
@@ -194,11 +200,25 @@ function FileCommentThread({
   );
 }
 
-type PrAnnotationMeta = {
-  kind: 'line-thread';
-  threadIndex: number;
-  path: string;
-};
+type PrAnnotationMeta =
+  | {
+      kind: 'line-thread';
+      threadIndex: number;
+      path: string;
+    }
+  | {
+      kind: 'binary';
+      path: string;
+      diff: GitFileDiffResponse;
+      panel: 'previous' | 'current';
+    };
+
+function prStatusToGitStatus(status: string): string {
+  if (status === 'added') return 'A';
+  if (status === 'removed') return 'D';
+  if (status === 'renamed') return 'R';
+  return 'M';
+}
 
 export function PRFilesTab({
   agentFixContext = null,
@@ -299,17 +319,17 @@ export function PRFilesTab({
   );
   const treeItems = useMemo(
     () =>
-      orderedFiles
-        .filter((file) => Boolean(file.patch))
-        .map((file) => ({
-          path: file.filename,
-          additions: file.additions,
-          deletions: file.deletions,
-        })),
+      orderedFiles.map((file) => ({
+        path: file.filename,
+        additions: file.additions,
+        deletions: file.deletions,
+        isBinary: file.kind === 'binary' || (!file.patch && file.kind !== 'text'),
+      })),
     [orderedFiles],
   );
 
-  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } = useMemo(() => {
+  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } =
+    useMemo(() => {
     const items: CodeViewItem<PrAnnotationMeta>[] = [];
     const fileThreads = new Map<string, ReviewComment[][]>();
     const nextPathByFileName = new Map<string, string>();
@@ -326,7 +346,56 @@ export function PRFilesTab({
         fileThreads.set(file.filename, nonLineThreads);
       }
 
-      if (!file.patch) continue;
+      if (!file.patch || file.kind === 'binary' || file.kind === 'too_large') {
+        const gitStatus = prStatusToGitStatus(file.status);
+        const { oldText, newText, annotations: binaryAnns } =
+          binaryDiffPlaceholders(gitStatus);
+        const fileDiff = parseDiffFromFile(
+          {
+            name: file.filename,
+            contents: oldText,
+            cacheKey: diffSideCacheKey(file.filename, `pr-bin-old:${file.sha}`),
+          },
+          {
+            name: file.filename,
+            contents: newText,
+            cacheKey: diffSideCacheKey(file.filename, `pr-bin-new:${file.sha}`),
+          },
+        );
+        const synthetic: GitFileDiffResponse = {
+          file_path: file.filename,
+          status: gitStatus,
+          compare_ref: null,
+          kind: file.kind === 'too_large' ? 'too_large' : 'binary',
+          preview_kind: file.preview_kind ?? 'none',
+          old_text: null,
+          new_text: null,
+          old_size: null,
+          new_size: null,
+          old_sha256: null,
+          new_sha256: null,
+          old_blob: null,
+          new_blob: null,
+        };
+        nextPathByFileName.set(fileDiff.name, file.filename);
+        items.push({
+          id: file.filename,
+          type: 'diff',
+          fileDiff,
+          annotations: binaryAnns.map((ann) => ({
+            side: ann.side,
+            lineNumber: ann.lineNumber,
+            metadata: {
+              kind: 'binary' as const,
+              path: file.filename,
+              diff: synthetic,
+              panel: ann.panel,
+            },
+          })),
+          cacheKey: file.filename,
+        } as CodeViewItem<PrAnnotationMeta> & { cacheKey: string });
+        continue;
+      }
 
       const patch = `--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`;
       const fileDiff = processFile(patch, { cacheKey: file.filename });
@@ -401,6 +470,17 @@ export function PRFilesTab({
 
   const renderAnnotation = useCallback(
     (annotation: DiffLineAnnotation<PrAnnotationMeta>) => {
+      if (annotation.metadata?.kind === 'binary') {
+        return (
+          <BinaryDiffCard
+            embedded
+            compact
+            panel={annotation.metadata.panel}
+            diff={annotation.metadata.diff}
+            repoPath=""
+          />
+        );
+      }
       if (annotation.metadata?.kind !== 'line-thread') return null;
       const threads = commentsByPath.get(annotation.metadata.path) ?? [];
       const lineThreads = threads.filter(
@@ -548,7 +628,10 @@ export function PRFilesTab({
         onSelectFile={handleSelect}
       >
           {workerPoolReady && codeViewItems.length > 0 ? (
-          <div className="min-h-0 flex-1 overflow-hidden" onWheelCapture={handleCodeViewWheelCapture}>
+          <div
+            className="min-h-0 flex-1 overflow-hidden"
+            onWheelCapture={handleCodeViewWheelCapture}
+          >
             <CodeView
               key={codeViewMountKey}
               ref={handleViewerRef}

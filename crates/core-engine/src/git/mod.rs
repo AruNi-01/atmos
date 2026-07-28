@@ -16,11 +16,18 @@ mod worktrees;
 
 pub use excludes::{list_ignored_paths, list_ignored_paths_for_many, sync_worktree_local_excludes};
 pub use types::{
-    ChangedFileInfo, ChangedFilesInfo, CommitInfo, FileDiffInfo, GitStatus, WorktreeInfo,
+    ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind, DiffPreviewKind, FileDiffInfo,
+    GitBlobLocator, GitStatus, WorktreeInfo,
 };
 
 /// Run a git command in the given repo directory and return stdout on success.
 fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
+    let bytes = run_git_bytes(repo_path, args)?;
+    Ok(String::from_utf8_lossy(&bytes).to_string())
+}
+
+/// Run a git command and return raw stdout bytes on success.
+fn run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Vec<u8>> {
     let output = Command::new("git")
         .current_dir(repo_path)
         .args(args)
@@ -40,11 +47,18 @@ fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
             stderr
         )));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(output.stdout)
 }
 
 /// Like `run_git` but returns Ok(None) instead of Err on non-zero exit.
 fn try_run_git(repo_path: &Path, args: &[&str]) -> Result<Option<String>> {
+    Ok(try_run_git_bytes(repo_path, args)?.map(|bytes| {
+        String::from_utf8_lossy(&bytes).to_string()
+    }))
+}
+
+/// Like `run_git_bytes` but returns Ok(None) instead of Err on non-zero exit.
+fn try_run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Option<Vec<u8>>> {
     let output = Command::new("git")
         .current_dir(repo_path)
         .args(args)
@@ -57,10 +71,40 @@ fn try_run_git(repo_path: &Path, args: &[&str]) -> Result<Option<String>> {
             ))
         })?;
     if output.status.success() {
-        Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
+        Ok(Some(output.stdout))
     } else {
         Ok(None)
     }
+}
+
+/// Show a blob (`rev:path` or `:path`) as raw bytes.
+///
+/// Resolves the object with `rev-parse` then reads via `cat-file blob` so the
+/// spec is never parsed as a `git show` option (e.g. `--output=...`).
+pub fn show_git_blob_bytes(repo_path: &Path, rev_path_spec: &str) -> Result<Vec<u8>> {
+    let spec = rev_path_spec.trim();
+    if !is_safe_blob_show_spec(spec) {
+        return Err(EngineError::Git(
+            "Invalid git blob show-spec".to_string(),
+        ));
+    }
+    let oid = run_git(
+        repo_path,
+        &["rev-parse", "--verify", "--quiet", spec],
+    )?;
+    let oid = oid.trim();
+    if oid.is_empty() {
+        return Err(EngineError::Git("Blob object not found".to_string()));
+    }
+    run_git_bytes(repo_path, &["cat-file", "blob", oid])
+}
+
+fn is_safe_blob_show_spec(spec: &str) -> bool {
+    if spec.is_empty() || spec.contains('\0') || spec.starts_with('-') {
+        return false;
+    }
+    // Reject shell-ish / multi-arg payloads.
+    !spec.chars().any(|c| matches!(c, ' ' | '\n' | '\r' | '\t'))
 }
 
 pub(super) struct RemoteBranchFetchTarget {

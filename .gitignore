@@ -71,6 +71,18 @@ Desktop.ini
 *.swo
 *~
 
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # ===== Rust =====
 target/
 **/*.rs.bk

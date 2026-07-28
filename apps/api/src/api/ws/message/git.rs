@@ -123,10 +123,13 @@ pub struct GitChangedFile {
     pub path: String,
     /// 文件状态: M(修改), A(新增), D(删除), R(重命名), C(复制), U(未合并)
     pub status: String,
-    /// 新增行数
+    /// 新增行数（二进制时为 0）
     pub additions: u32,
-    /// 删除行数
+    /// 删除行数（二进制时为 0）
     pub deletions: u32,
+    /// Git/内容判定的二进制文件
+    #[serde(default)]
+    pub is_binary: bool,
 }
 
 /// 获取变更文件列表响应
@@ -200,19 +203,55 @@ pub struct GitPatchChunkResponse {
     pub error: Option<String>,
 }
 
+/// Diff content classification for the client renderer.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffContentKind {
+    Text,
+    Binary,
+    TooLarge,
+}
+
+/// Preview affordance for non-text files.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffPreviewKind {
+    None,
+    Image,
+    Media,
+}
+
+/// How the client fetches raw bytes for a binary/image preview.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum GitBlobLocator {
+    Worktree { path: String },
+    /// `rev` is a git revision (`HEAD`, `abc123`, `origin/main`) or an index
+    /// show-spec (`:path`) when the side is the index.
+    Git { rev: String, path: String },
+}
+
 /// 获取单个文件 diff 响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitFileDiffResponse {
     /// 文件相对路径
     pub file_path: String,
-    /// 旧文件内容 (HEAD 版本)
-    pub old_content: String,
-    /// 新文件内容 (工作区版本)
-    pub new_content: String,
     /// 文件状态
     pub status: String,
     /// 实际使用的 compare ref
     pub compare_ref: Option<String>,
+    pub kind: DiffContentKind,
+    pub preview_kind: DiffPreviewKind,
+    /// Present only when `kind == text`
+    pub old_text: Option<String>,
+    /// Present only when `kind == text`
+    pub new_text: Option<String>,
+    pub old_size: Option<u64>,
+    pub new_size: Option<u64>,
+    pub old_sha256: Option<String>,
+    pub new_sha256: Option<String>,
+    pub old_blob: Option<GitBlobLocator>,
+    pub new_blob: Option<GitBlobLocator>,
 }
 
 /// 单个批量文件 diff 结果

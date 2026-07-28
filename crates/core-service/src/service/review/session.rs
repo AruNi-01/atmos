@@ -228,10 +228,15 @@ impl ReviewService {
                 anchor_file_snapshot_abs_paths(&session.guid, &revision.guid, &file_snapshot_guid)
                     .map_err(ServiceError::Infra)?;
 
-            write_text_atomic(&old_abs_path, &diff.old_content)
+            let is_binary = !matches!(diff.kind, core_engine::DiffContentKind::Text);
+            let old_text = diff.old_text.clone().unwrap_or_default();
+            let new_text = diff.new_text.clone().unwrap_or_default();
+            // Text snapshots only — binary sides store empty placeholders and
+            // rely on is_binary + size/hash metadata (no mojibake freeze).
+            write_text_atomic(&old_abs_path, &old_text)
                 .await
                 .map_err(ServiceError::Infra)?;
-            write_text_atomic(&new_abs_path, &diff.new_content)
+            write_text_atomic(&new_abs_path, &new_text)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -239,13 +244,19 @@ impl ReviewService {
                 schema_version: 1,
                 file_path: file_path.clone(),
                 git_status: status.clone(),
-                is_binary: false,
+                is_binary,
                 old_rel_path: old_abs_path.to_string_lossy().to_string(),
                 new_rel_path: new_abs_path.to_string_lossy().to_string(),
-                old_sha256: sha256_hex(&diff.old_content),
-                new_sha256: sha256_hex(&diff.new_content),
-                old_size: diff.old_content.len(),
-                new_size: diff.new_content.len(),
+                old_sha256: diff
+                    .old_sha256
+                    .clone()
+                    .unwrap_or_else(|| sha256_hex(&old_text)),
+                new_sha256: diff
+                    .new_sha256
+                    .clone()
+                    .unwrap_or_else(|| sha256_hex(&new_text)),
+                old_size: diff.old_size.unwrap_or(old_text.len() as u64) as usize,
+                new_size: diff.new_size.unwrap_or(new_text.len() as u64) as usize,
             };
             write_json_atomic(&meta_abs_path, &meta)
                 .await
@@ -264,7 +275,7 @@ impl ReviewService {
                     Some(meta.new_sha256.clone()),
                     meta.old_size as i64,
                     meta.new_size as i64,
-                    false,
+                    is_binary,
                     index as i32,
                 )
                 .await?;

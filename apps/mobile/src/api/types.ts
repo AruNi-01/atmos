@@ -174,6 +174,7 @@ export type GitChangedFile = {
   status: string;
   additions: number;
   deletions: number;
+  is_binary?: boolean;
   staged: boolean;
 };
 
@@ -189,8 +190,16 @@ export type GitChangedFilesResponse = {
 
 export type GitFileDiffResponse = {
   file_path: string;
-  old_content: string;
-  new_content: string;
+  /** @deprecated use old_text — kept optional during mobile transition */
+  old_content?: string;
+  /** @deprecated use new_text */
+  new_content?: string;
+  kind?: "text" | "binary" | "too_large";
+  preview_kind?: "none" | "image" | "media";
+  old_text?: string | null;
+  new_text?: string | null;
+  old_size?: number | null;
+  new_size?: number | null;
   status: string;
   compare_ref: string | null;
 };
