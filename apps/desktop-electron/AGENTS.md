@@ -57,7 +57,7 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - UI from Atmos Server loopback static
 - Preview: `WebContentsView` + `persist:atmos-preview`
 - Commands match historical names (`get_api_config`, `preview_bridge_*`, `appshot_*`, `tunnel_connector_*`, …)
-- AppShot: dual-shift, live TCC, frontmost capture, pending auto-accept, shared `appshots` layout
+- AppShot: dual-shift, live TCC, frontmost capture, target-window border/flash overlay, pending auto-accept + fly-in preview (`source_bounds`), shared `appshots` layout
 - Cookies: `atmos-browser-cookies` under `resources/bin`
 - Tunnel: shared local gateway + share URL
 - Quit: stop Server when this process started it

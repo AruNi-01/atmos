@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
+      /*
+        Keep this cheap on Electron transparent windows:
+        - animate opacity only (GPU-friendly)
+        - no multi-layer blurred box-shadow keyframes (main-thread paint + full-window composite)
+        - no scale transforms on a near-fullscreen surface
+      */
       html,
       body {
         width: 100%;
@@ -17,47 +23,41 @@
       .frame {
         position: fixed;
         inset: 12px;
-        border: 3px solid rgba(66, 153, 255, 0.95);
+        border: 3px solid rgba(66, 153, 255, 0.98);
         border-radius: 14px;
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.35),
-          0 0 18px rgba(66, 153, 255, 0.75),
-          0 0 46px rgba(66, 153, 255, 0.36);
-        animation: appshot-border-breathe 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        /* solid ring only — blur/glow forces huge transparent surface repaints */
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+        opacity: 0;
+        transform: translateZ(0);
+        will-change: opacity;
       }
 
       .flash {
         position: fixed;
         inset: 0;
-        background: white;
+        background: rgba(255, 255, 255, 0.55);
         opacity: 0;
-        animation: appshot-camera-flash 520ms cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both;
+        transform: translateZ(0);
+        will-change: opacity;
       }
 
-      @keyframes appshot-border-breathe {
+      body.run .frame {
+        animation: appshot-border-pulse 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      body.run .flash {
+        animation: appshot-camera-flash 360ms cubic-bezier(0.2, 0.8, 0.2, 1) 80ms both;
+      }
+
+      @keyframes appshot-border-pulse {
         0% {
           opacity: 0;
-          transform: scale(0.992);
-          box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.15),
-            0 0 0 rgba(66, 153, 255, 0),
-            0 0 0 rgba(66, 153, 255, 0);
         }
-        34% {
+        22% {
           opacity: 1;
-          transform: scale(1);
-          box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.42),
-            0 0 22px rgba(66, 153, 255, 0.85),
-            0 0 58px rgba(66, 153, 255, 0.42);
         }
         100% {
           opacity: 0;
-          transform: scale(1.006);
-          box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0),
-            0 0 28px rgba(66, 153, 255, 0),
-            0 0 78px rgba(66, 153, 255, 0);
         }
       }
 
@@ -65,8 +65,8 @@
         0% {
           opacity: 0;
         }
-        14% {
-          opacity: 0.72;
+        18% {
+          opacity: 0.55;
         }
         100% {
           opacity: 0;
@@ -77,5 +77,15 @@
   <body>
     <div class="frame"></div>
     <div class="flash"></div>
+    <script>
+      // Called from the desktop shell to restart the one-shot animation without
+      // reloading the page (reloading re-creates the renderer and feels laggy).
+      window.__atmosAppshotPlay = function () {
+        document.body.classList.remove("run");
+        // Force reflow so re-adding the class restarts CSS animations.
+        void document.body.offsetWidth;
+        document.body.classList.add("run");
+      };
+    </script>
   </body>
 </html>

@@ -76,14 +76,15 @@ export async function readFrontmostWindow(): Promise<FrontmostWindow> {
   const bounds = (lines[2] ?? "").split(",").map((s) => parseInt(s.trim(), 10));
   const processId = parseInt((lines[3] ?? "").trim(), 10);
   const [x, y, width, height] = bounds;
+  // Allow negative x/y for multi-monitor layouts (left/above primary display).
   return {
     appName,
     windowTitle,
     bundleId: null,
     processId: Number.isFinite(processId) ? processId : null,
     windowId: null,
-    x: Number.isFinite(x) && x >= 0 ? x : null,
-    y: Number.isFinite(y) && y >= 0 ? y : null,
+    x: Number.isFinite(x) ? x : null,
+    y: Number.isFinite(y) ? y : null,
     width: Number.isFinite(width) && width > 0 ? width : null,
     height: Number.isFinite(height) && height > 0 ? height : null,
   };
@@ -238,14 +239,15 @@ export function parseFrontmostScriptOutput(stdout: string): FrontmostWindow {
   const bounds = (lines[2] ?? "").split(",").map((s) => parseInt(s.trim(), 10));
   const processId = parseInt((lines[3] ?? "").trim(), 10);
   const [x, y, width, height] = bounds;
+  // Allow negative x/y for multi-monitor layouts (left/above primary display).
   return {
     appName,
     windowTitle,
     bundleId: null,
     processId: Number.isFinite(processId) ? processId : null,
     windowId: null,
-    x: Number.isFinite(x) && x >= 0 ? x : null,
-    y: Number.isFinite(y) && y >= 0 ? y : null,
+    x: Number.isFinite(x) ? x : null,
+    y: Number.isFinite(y) ? y : null,
     width: Number.isFinite(width) && width > 0 ? width : null,
     height: Number.isFinite(height) && height > 0 ? height : null,
   };

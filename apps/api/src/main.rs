@@ -347,6 +347,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
+    // GUI / Electron launches often omit Homebrew and other user bin dirs from
+    // PATH. Merge login-shell PATH + common bins before any CLI probes (tmux/gh/git).
+    if let Err(error) = infra::utils::user_path::ensure_user_cli_path_on_startup() {
+        warn!(
+            "Non-critical startup task failed: user CLI PATH augmentation: {}",
+            error
+        );
+    }
     if let Err(error) = infra::utils::atmos_cli::ensure_atmos_cli_on_startup() {
         warn!(
             "Non-critical startup task failed: Atmos CLI PATH setup: {}",

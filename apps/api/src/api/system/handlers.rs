@@ -6,7 +6,6 @@ use core_service::build_terminal_overview_active_sessions_json;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
-use std::process::Command;
 use tracing::{info, warn};
 
 use crate::api::dto::ApiResponse;
@@ -59,11 +58,12 @@ pub struct GhCliStatusResponse {
 
 /// GET /api/system/gh-cli-status
 pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusResponse>>> {
-    let installed = Command::new("gh").arg("--version").output().is_ok();
+    // Resolve via login-shell / Homebrew PATH (GUI launches often omit it).
+    let installed = infra::utils::user_path::command_exists("gh");
 
     let (authenticated, username) = if installed {
         // Try to get auth status using JSON format
-        match Command::new("gh")
+        match infra::utils::user_path::command("gh")
             .args(["auth", "status", "--json", "hosts"])
             .output()
         {
@@ -152,7 +152,10 @@ pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusRespon
             }
             Err(_) => {
                 // If JSON command fails, try basic check
-                match Command::new("gh").args(["auth", "status"]).output() {
+                match infra::utils::user_path::command("gh")
+                    .args(["auth", "status"])
+                    .output()
+                {
                     Ok(output) => {
                         let stdout = String::from_utf8_lossy(&output.stdout);
                         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -175,7 +178,7 @@ pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusRespon
     };
 
     let version = if installed {
-        Command::new("gh")
+        infra::utils::user_path::command("gh")
             .arg("--version")
             .output()
             .ok()
@@ -206,11 +209,15 @@ pub struct GitStatusResponse {
 /// GET /api/system/git-status
 pub async fn get_git_status() -> ApiResult<Json<ApiResponse<GitStatusResponse>>> {
     let status = tokio::task::spawn_blocking(|| {
-        let version_output = Command::new("git").arg("--version").output().ok();
+        let version_output = infra::utils::user_path::command("git")
+            .arg("--version")
+            .output()
+            .ok();
         let installed = version_output
             .as_ref()
             .map(|output| output.status.success())
-            .unwrap_or(false);
+            .unwrap_or(false)
+            || infra::utils::user_path::resolve_binary("git").is_some();
 
         let version = if installed {
             version_output.and_then(|output| {
@@ -229,7 +236,7 @@ pub async fn get_git_status() -> ApiResult<Json<ApiResponse<GitStatusResponse>>>
         };
 
         let username = if installed {
-            Command::new("git")
+            infra::utils::user_path::command("git")
                 .args(["config", "--global", "user.name"])
                 .output()
                 .ok()
@@ -246,7 +253,7 @@ pub async fn get_git_status() -> ApiResult<Json<ApiResponse<GitStatusResponse>>>
         };
 
         let email = if installed {
-            Command::new("git")
+            infra::utils::user_path::command("git")
                 .args(["config", "--global", "user.email"])
                 .output()
                 .ok()

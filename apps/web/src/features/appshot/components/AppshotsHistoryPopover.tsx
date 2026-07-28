@@ -308,7 +308,9 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
         </div>
       ) : null}
 
-      {status?.trigger.last_error ? (
+      {/* When permissions are denied, the CTA below already covers recovery — skip
+          trigger.last_error so users do not see two near-identical warning blocks. */}
+      {status?.trigger.last_error && deniedPermissions.length === 0 ? (
         <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           {status.trigger.last_error}
         </div>

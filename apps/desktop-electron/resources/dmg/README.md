@@ -9,9 +9,9 @@ Ultra-minimal classic install window (no brand art / no Atmos title).
 
 Contents:
 
-- Top: slogan only — `Atmosphere for Agentic Builders`
+- Top: slogan only (Helvetica Neue Bold) — `Atmosphere for Agentic Builders`
 - Center: solid arrow (App + Applications from Finder)
-- Bottom: `Drag **Atmos** to Applications to install`
+- Bottom: same family as slogan — `Drag **Atmos** to Applications to install`
 
 ```bash
 python3 scripts/generate-dmg-background.py

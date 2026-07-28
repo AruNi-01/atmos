@@ -18,6 +18,16 @@ describe("frontmost parsing + context", () => {
     expect(fm.processId).toBe(1234);
   });
 
+  it("keeps negative multi-monitor origins for source_bounds / animation", () => {
+    const fm = parseFrontmostScriptOutput(
+      "Notes\nShopping\n-1440,100,1280,800\n42\n",
+    );
+    expect(fm.x).toBe(-1440);
+    expect(fm.y).toBe(100);
+    expect(fm.width).toBe(1280);
+    expect(fm.height).toBe(800);
+  });
+
   it("context markdown names the captured app/window (not Atmos placeholders)", () => {
     const md = buildContextMarkdown(
       {

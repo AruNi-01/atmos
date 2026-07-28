@@ -22,6 +22,11 @@ export default function OnboardingClientPage() {
     } catch {
       /* private browsing / storage disabled — still leave onboarding */
     }
+    try {
+      window.dispatchEvent(new Event('atmos:onboarding-done'));
+    } catch {
+      /* ignore */
+    }
     router.replace('/');
   };
 

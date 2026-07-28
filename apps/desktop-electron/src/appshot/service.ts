@@ -19,7 +19,15 @@ import {
 import { join } from "node:path";
 import type { AppState } from "../app-state.js";
 import { APP_PRODUCT_NAME } from "../branding-paths.js";
-import { captureFrontmostWindow } from "./frontmost.js";
+import {
+  playCaptureAnimation,
+  shouldPlayCaptureAnimation,
+  type CaptureAnimationBounds,
+} from "./capture-animation.js";
+import {
+  captureFrontmostWindow,
+  readFrontmostWindow,
+} from "./frontmost.js";
 import { mainLog } from "../main-log.js";
 import {
   CONTEXT_FILE,
@@ -39,6 +47,10 @@ import {
   formatProtocolPrompt,
   isValidTimestamp,
 } from "./protocol.js";
+import {
+  buildInlineSnapshotDataUrl,
+  buildScreenshotPreviewBase64,
+} from "./thumbnail.js";
 
 export type AppshotPermissionState = {
   name: "accessibility" | "screen_recording";
@@ -390,7 +402,8 @@ export async function readRecords(
       /* ignore */
     }
     const snapPath = metadata.snapshot_path || join(dir, SNAPSHOT_FILE);
-    const snapshotUrl = dataUrlForPngFile(snapPath);
+    // History rows only need a small thumb — full Retina PNG gets stripped by web guards.
+    const snapshotUrl = await buildInlineSnapshotDataUrl(snapPath);
     out.push({
       timestamp: ts,
       metadata,
@@ -431,20 +444,19 @@ export async function deleteRecord(timestamp: string): Promise<void> {
   }
 }
 
-function previewBase64FromPng(png: Buffer | null): string | null {
-  if (!png || png.length === 0) return null;
-  // Cap inline preview roughly like Tauri thumbnail path — full small PNGs OK.
-  if (png.length > 1_500_000) return null;
-  return png.toString("base64");
-}
+
 
 export async function triggerCapture(state: AppState): Promise<void> {
   if (process.platform !== "darwin") {
     throw new Error("AppShot capture is only supported on macOS");
   }
 
-  // Capture BEFORE activating Atmos so the external frontmost app is still current.
+  // Play border/flash on the *current* frontmost window before screenshot so
+  // snapshot.png does not include the affordance (Tauri APP-021 parity).
+  // Do not activate Atmos until after capture completes.
   const permissions = await macosPermissions();
+  await playCaptureAnimationIfPossible();
+
   const result = await captureFrontmostWindow();
   const pngBytes = result.png?.length ?? 0;
   mainLog(
@@ -453,6 +465,14 @@ export async function triggerCapture(state: AppState): Promise<void> {
 
   const capturedAt = new Date().toISOString();
   const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  // Retina full-window PNGs often exceed the web inline budget (~512KB data URL).
+  // Always build a bounded thumbnail for the pending popover (Tauri parity).
+  const screenshotPreviewBase64 = await buildScreenshotPreviewBase64(result.png);
+  if (result.png && result.png.length > 0 && !screenshotPreviewBase64) {
+    result.warnings.push(
+      "Screenshot preview was hidden because the inline image payload is too large.",
+    );
+  }
   const capture: PendingCapture = {
     previewId,
     appName: result.frontmost.appName,
@@ -460,7 +480,7 @@ export async function triggerCapture(state: AppState): Promise<void> {
     capturedAt,
     quality: result.quality,
     screenshotPng: result.png,
-    screenshotPreviewBase64: previewBase64FromPng(result.png),
+    screenshotPreviewBase64,
     contextMarkdown: result.contextMarkdown,
     sourceBounds:
       result.frontmost.x != null &&
@@ -519,11 +539,49 @@ export async function triggerCapture(state: AppState): Promise<void> {
     expires_in_ms: expiresInMs || PREVIEW_EXPIRES_IN_MS,
   });
   mainLog(
-    `[appshot-capture] preview sent id=${previewId} app=${capture.appName}`,
+    `[appshot-capture] preview sent id=${previewId} app=${capture.appName} bounds=${
+      capture.sourceBounds
+        ? `${capture.sourceBounds.x},${capture.sourceBounds.y} ${capture.sourceBounds.width}x${capture.sourceBounds.height}`
+        : "none"
+    }`,
   );
 
   if (expiresInMs > 0) {
     spawnAutoAccept(state, previewId);
+  }
+}
+
+async function playCaptureAnimationIfPossible(): Promise<void> {
+  try {
+    const frontmost = await readFrontmostWindow();
+    const bounds: CaptureAnimationBounds | null =
+      frontmost.x != null &&
+      frontmost.y != null &&
+      frontmost.width != null &&
+      frontmost.height != null
+        ? {
+            x: frontmost.x,
+            y: frontmost.y,
+            width: frontmost.width,
+            height: frontmost.height,
+          }
+        : null;
+    if (
+      !shouldPlayCaptureAnimation({
+        appName: frontmost.appName,
+        bounds,
+      }) ||
+      !bounds
+    ) {
+      mainLog(
+        `[appshot-capture] skip animation app=${frontmost.appName} bounds=${bounds ? `${bounds.width}x${bounds.height}` : "none"}`,
+      );
+      return;
+    }
+    await playCaptureAnimation(bounds);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    mainLog(`[appshot-capture] animation preflight failed: ${msg}`, "error");
   }
 }
 

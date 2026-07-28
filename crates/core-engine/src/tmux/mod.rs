@@ -116,7 +116,8 @@ impl TmuxEngine {
     fn run_tmux_output(&self, args: &[&str]) -> Result<String> {
         self.ensure_socket_dir()?;
 
-        let mut cmd = Command::new("tmux");
+        // Prefer Homebrew absolute path when GUI-launched PATH omits it.
+        let mut cmd = Command::new(install::tmux_bin_for_engine());
         cmd.arg("-u")
             .arg("-f")
             .arg("/dev/null") // Isolate from local ~/.tmux.conf

@@ -13,16 +13,10 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
 } from '@workspace/ui';
 import {
   CheckCircle2,
   AlertCircle,
-  Copy,
-  Check,
   RefreshCw,
   FolderOpen,
   ArrowRight,
@@ -31,8 +25,6 @@ import {
   Github,
   Sparkles,
   Loader2,
-  ExternalLink,
-  SquareTerminal,
 } from 'lucide-react';
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { FileBrowser } from '@/features/files/components/FileBrowser';
@@ -41,231 +33,13 @@ import { wsProjectApi } from '@/api/ws-api';
 import { systemApi } from '@/api/rest-api';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
-import {
-  PackageInstallTerminalDialog,
-  type OnboardingInstallToolId,
-} from '@/features/welcome/components/PackageInstallTerminalDialog';
+import { InstallToolPopover } from '@/features/welcome/components/InstallToolPopover';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {
   canUseNativeDirectoryPicker,
   pickLocalDirectory,
 } from '@/shared/lib/desktop-directory-picker';
-
-type OS = 'macos' | 'linux' | 'windows';
-
-interface InstallMethod {
-  label: string;
-  command?: string;
-  notes?: string;
-  link?: string;
-}
-
-const INSTALL_GUIDES: Record<string, Record<OS, InstallMethod[]>> = {
-  tmux: {
-    macos: [
-      { label: 'Homebrew', command: 'brew install tmux' },
-      { label: 'MacPorts', command: 'port install tmux' },
-    ],
-    linux: [
-      { label: 'APT (Ubuntu/Debian)', command: 'sudo apt update && sudo apt install -y tmux' },
-      { label: 'DNF (Fedora/RHEL)', command: 'sudo dnf install -y tmux' },
-      { label: 'Pacman (Arch)', command: 'sudo pacman -S --noconfirm tmux' },
-    ],
-    windows: [
-      { label: 'WSL', notes: 'tmux is not natively supported on Windows. Please install WSL (Windows Subsystem for Linux) first, then run:', command: 'sudo apt install tmux' },
-    ],
-  },
-  git: {
-    macos: [
-      { label: 'Homebrew', command: 'brew install git' },
-      { label: 'Xcode Tools', command: 'xcode-select --install' },
-    ],
-    linux: [
-      { label: 'APT (Ubuntu/Debian)', command: 'sudo apt update && sudo apt install -y git' },
-      { label: 'DNF (Fedora/RHEL)', command: 'sudo dnf install -y git' },
-      { label: 'Pacman (Arch)', command: 'sudo pacman -S --noconfirm git' },
-    ],
-    windows: [
-      { label: 'Winget', command: 'winget install --id Git.Git -e --source winget' },
-      { label: 'Chocolatey', command: 'choco install git' },
-      { label: 'Installer', link: 'https://git-scm.com/download/win', notes: 'Or download the official standalone Git installer.' },
-    ],
-  },
-  gh: {
-    macos: [
-      { label: 'Homebrew', command: 'brew install gh' },
-      { label: 'MacPorts', command: 'port install gh' },
-    ],
-    linux: [
-      {
-        label: 'APT (Ubuntu/Debian)',
-        command: 'sudo mkdir -p -m 755 /etc/apt/keyrings \\\n&& wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \\\n&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \\\n&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\\n&& sudo apt update \\\n&& sudo apt install -y gh',
-      },
-      {
-        label: 'DNF (Fedora/RHEL)',
-        command: 'sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo \\\n&& sudo dnf install -y gh',
-      },
-      { label: 'Pacman (Arch)', command: 'sudo pacman -S --noconfirm github-cli' },
-    ],
-    windows: [
-      { label: 'Winget', command: 'winget install --id GitHub.cli' },
-      { label: 'Chocolatey', command: 'choco install gh' },
-      { label: 'Installer', link: 'https://github.com/cli/cli/releases', notes: 'Or download the latest standalone installer.' },
-    ],
-  },
-};
-
-interface InstallPopoverProps {
-  toolId: OnboardingInstallToolId;
-  toolName: string;
-  onInstalled: () => void | Promise<void>;
-}
-
-function InstallPopover({ toolId, toolName, onInstalled }: InstallPopoverProps) {
-  const t = useTranslations('onboarding');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [terminalOpen, setTerminalOpen] = useState(false);
-
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const guides = INSTALL_GUIDES[toolId];
-
-  return (
-    <>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full px-3 py-1 text-[11px] font-semibold h-7 border-border/40 hover:bg-muted/20 text-foreground cursor-pointer"
-          >
-            {t('check.install.button')}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-[420px] p-5 border border-border bg-popover text-popover-foreground rounded-2xl shadow-xl z-50">
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">
-                {t('check.install.title', { toolName })}
-              </h4>
-              <p className="text-xs text-muted-foreground mt-1">
-                {t('check.install.description')}
-              </p>
-            </div>
-
-            <Button
-              size="sm"
-              className="w-full rounded-xl gap-2 cursor-pointer"
-              onClick={() => setTerminalOpen(true)}
-            >
-              <SquareTerminal className="size-3.5" />
-              {t('check.install.runInTerminal')}
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
-              <p className="relative mx-auto w-fit bg-popover px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                {t('check.install.orManual')}
-              </p>
-            </div>
-
-            <Tabs defaultValue="macos" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-muted/40 p-1 rounded-xl">
-                <TabsTrigger value="macos" className="rounded-lg text-xs py-1.5 cursor-pointer">
-                  {t('check.install.os.macos')}
-                </TabsTrigger>
-                <TabsTrigger value="linux" className="rounded-lg text-xs py-1.5 cursor-pointer">
-                  {t('check.install.os.linux')}
-                </TabsTrigger>
-                <TabsTrigger value="windows" className="rounded-lg text-xs py-1.5 cursor-pointer">
-                  {t('check.install.os.windows')}
-                </TabsTrigger>
-              </TabsList>
-
-              {(['macos', 'linux', 'windows'] as OS[]).map((os) => {
-                const methods = guides[os];
-                return (
-                  <TabsContent key={os} value={os} className="mt-4 space-y-4">
-                    {methods.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('check.install.empty')}</p>
-                    ) : (
-                      <Tabs defaultValue={methods[0].label} className="w-full">
-                        {methods.length > 1 && (
-                          <TabsList className="flex flex-wrap gap-1 bg-transparent p-0 border-b border-border/40 pb-2 mb-3">
-                            {methods.map((m) => (
-                              <TabsTrigger
-                                key={m.label}
-                                value={m.label}
-                                className="text-[11px] px-2.5 py-1 rounded-md border border-transparent data-[state=active]:bg-muted/40 data-[state=active]:border-border/40 cursor-pointer"
-                              >
-                                {m.label}
-                              </TabsTrigger>
-                            ))}
-                          </TabsList>
-                        )}
-
-                        {methods.map((m, idx) => (
-                          <TabsContent key={m.label} value={m.label} className="space-y-3 outline-none">
-                            {m.notes && (
-                              <p className="text-xs text-muted-foreground leading-relaxed">{m.notes}</p>
-                            )}
-                            {m.command && (
-                              <div className="relative group">
-                                <pre className="text-[11px] font-mono bg-muted/40 p-3 pr-10 rounded-xl border border-border/40 overflow-x-auto leading-relaxed text-foreground max-h-[160px] whitespace-pre-wrap break-all">
-                                  {m.command}
-                                </pre>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="absolute right-2 top-2 h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg"
-                                  onClick={() => handleCopy(m.command!, `${os}-${idx}`)}
-                                >
-                                  {copiedId === `${os}-${idx}` ? (
-                                    <Check className="size-3.5 text-emerald-500" />
-                                  ) : (
-                                    <Copy className="size-3.5" />
-                                  )}
-                                </Button>
-                              </div>
-                            )}
-                            {m.link && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full text-xs font-medium cursor-pointer rounded-xl"
-                                onClick={() => window.open(m.link, '_blank', 'noopener,noreferrer')}
-                              >
-                                <ExternalLink className="mr-2 size-3.5" />
-                                {t('check.install.download')}
-                              </Button>
-                            )}
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                    )}
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <PackageInstallTerminalDialog
-        open={terminalOpen}
-        onOpenChange={setTerminalOpen}
-        toolId={toolId}
-        toolName={toolName}
-        onInstalled={onInstalled}
-      />
-    </>
-  );
-}
 
 interface OnboardingPageProps {
   onComplete: () => void;
@@ -635,7 +409,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {t('check.statusInstalled')} {tmuxData?.version && `(${tmuxData.version})`}
                           </span>
                         ) : (
-                          <InstallPopover toolId="tmux" toolName="tmux" onInstalled={handleRecheck} />
+                          <InstallToolPopover toolId="tmux" toolName="tmux" onInstalled={handleRecheck} />
                         )}
                       </CardContent>
                     </Card>
@@ -657,7 +431,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {t('check.statusInstalled')} {gitData?.version && `(${gitData.version})`}
                           </span>
                         ) : (
-                          <InstallPopover toolId="git" toolName="Git" onInstalled={handleRecheck} />
+                          <InstallToolPopover toolId="git" toolName="Git" onInstalled={handleRecheck} />
                         )}
                       </CardContent>
                     </Card>
@@ -679,7 +453,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                             {t('check.statusInstalled')} {ghData?.username && `(@${ghData.username})`}
                           </span>
                         ) : (
-                          <InstallPopover toolId="gh" toolName="GitHub CLI (gh)" onInstalled={handleRecheck} />
+                          <InstallToolPopover toolId="gh" toolName="GitHub CLI (gh)" onInstalled={handleRecheck} />
                         )}
                       </CardContent>
                     </Card>

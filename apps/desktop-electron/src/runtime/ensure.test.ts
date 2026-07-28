@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+  electronServerPath,
   resolveAtmosDataDir,
   setOwnedServerPidForTest,
   stopOwnedAtmosServer,
@@ -46,5 +47,13 @@ describe("Server data dir + quit ownership", () => {
     const r = stopOwnedAtmosServer();
     expect(r.stopped).toBe(false);
     expect(r.reason).toBe("already_dead");
+  });
+
+  it("electronServerPath prepends Homebrew bins for GUI-launched Server", () => {
+    const path = electronServerPath("/usr/bin:/bin");
+    expect(path.startsWith("/opt/homebrew/bin:")).toBe(true);
+    expect(path).toContain("/usr/local/bin");
+    expect(path).toContain("/usr/bin");
+    expect(path).toContain("/bin");
   });
 });

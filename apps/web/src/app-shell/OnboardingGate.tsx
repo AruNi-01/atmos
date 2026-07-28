@@ -12,6 +12,7 @@ interface OnboardingGateProps {
 }
 
 const ONBOARDING_DONE_KEY = 'atmos_onboarding_done';
+const ONBOARDING_DONE_EVENT = 'atmos:onboarding-done';
 
 const subscribeMounted = () => () => {};
 const getClientMountedSnapshot = () => true;
@@ -30,6 +31,11 @@ function writeOnboardingDone(): void {
     localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
   } catch {
     /* private browsing / storage disabled */
+  }
+  try {
+    window.dispatchEvent(new Event(ONBOARDING_DONE_EVENT));
+  } catch {
+    /* ignore */
   }
 }
 

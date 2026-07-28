@@ -613,6 +613,13 @@ fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {
 
 fn local_process_path(_layout: &RuntimeLayout) -> Result<String, String> {
     let mut paths = Vec::new();
+    // Homebrew first — GUI-launched runtimes otherwise cannot find tmux/gh/git.
+    paths.extend([
+        std::path::PathBuf::from("/opt/homebrew/bin"),
+        std::path::PathBuf::from("/opt/homebrew/sbin"),
+        std::path::PathBuf::from("/usr/local/bin"),
+        std::path::PathBuf::from("/usr/local/sbin"),
+    ]);
     if let Some(home) = dirs::home_dir() {
         paths.extend([
             home.join(".atmos").join("bin"),
@@ -624,12 +631,20 @@ fn local_process_path(_layout: &RuntimeLayout) -> Result<String, String> {
             home.join(".yarn").join("bin"),
             home.join(".local").join("share").join("pnpm"),
             home.join("Library").join("pnpm"),
+            home.join(".grok").join("bin"),
         ]);
     }
     paths.extend(std::env::split_paths(
         &std::env::var_os("PATH").unwrap_or_default(),
     ));
-    std::env::join_paths(paths)
+    // Dedupe while preserving order.
+    let mut deduped = Vec::new();
+    for path in paths {
+        if !deduped.iter().any(|existing| existing == &path) {
+            deduped.push(path);
+        }
+    }
+    std::env::join_paths(deduped)
         .map_err(|e| format!("Failed to construct PATH: {e}"))
         .map(|v| v.to_string_lossy().to_string())
 }

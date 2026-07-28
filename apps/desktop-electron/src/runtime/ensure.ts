@@ -278,6 +278,31 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** PATH for Atmos Server so Homebrew-installed tmux/gh/git remain discoverable. */
+export function electronServerPath(envPath: string = process.env.PATH ?? ""): string {
+  const home = process.env.HOME ?? homedir();
+  const extras = [
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+    "/usr/local/bin",
+    "/usr/local/sbin",
+    join(home, ".atmos", "bin"),
+    join(home, ".local", "bin"),
+    join(home, ".bun", "bin"),
+    join(home, ".cargo", "bin"),
+    join(home, ".grok", "bin"),
+  ];
+  const parts = [...extras, ...envPath.split(":").filter(Boolean)];
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const part of parts) {
+    if (!part || seen.has(part)) continue;
+    seen.add(part);
+    deduped.push(part);
+  }
+  return deduped.join(":");
+}
+
 function spawnViaShell(
   apiBin: string,
   host: string,
@@ -300,6 +325,7 @@ function spawnViaShell(
       {
         env: {
           ...process.env,
+          PATH: electronServerPath(),
           SERVER_HOST: host,
           ATMOS_PORT: String(port),
           ATMOS_STATIC_DIR: web,

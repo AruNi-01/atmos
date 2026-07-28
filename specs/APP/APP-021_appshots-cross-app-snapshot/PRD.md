@@ -5,8 +5,8 @@
 ## Context
 
 - **Problem**: Atmos users often need to bring context from another desktop app into Atmos, but the current workaround is manual description, screenshots, or ad hoc copy-paste.
-- **Why now**: Atmos has a Tauri desktop shell with native Rust commands, which can request OS-level screen and accessibility permissions that the web app cannot access.
-- **Related specs**: `APP-009_desktop-tauri`, `APP-004_local-agent-integration-acp`, `APP-016_atmos-computer`.
+- **Why now**: Atmos ships a production Electron desktop shell (and historically Tauri) with native capture, which can request OS-level screen and accessibility permissions that the web app cannot access.
+- **Related specs**: `APP-045_desktop-electron-dual-shell` (production desktop), `APP-009_desktop-tauri` (legacy), `APP-004_local-agent-integration-acp`, `APP-016_atmos-computer`.
 
 ## Goals
 
@@ -53,7 +53,7 @@ flowchart LR
 
 ### Must Have
 
-- **M1**: Desktop users can trigger Appshot capture from any focused app through a native global shortcut. The requested chord is `Fn + Cmd + Option`; implementation must validate whether modifier-only registration is possible on each target OS.
+- **M1**: Desktop users can trigger Appshot capture from any focused app through a native global modifier gesture. **Shipped (macOS Electron)**: hold **Left Shift + Right Shift** together. Earlier drafts considered `Fn + Cmd + Option`; product dogfood settled on dual-shift for reliability and discoverability.
 - **M2**: After a successful capture, Atmos shows a small right-top popover with a screenshot preview, a Copy button, and a Delete button.
 - **M3**: The capture popover auto-resolves after 6 seconds with a visible countdown. Hover pauses the countdown and auto-accept; mouse leave resumes it. Delete discards the capture without writing a record. Copy or timeout writes the record and copies a protocol reference.
 - **M4**: Accepted captures are written under `~/.atmos/appshots/records/{timestamp}/`, where `{timestamp}` is a 13-digit Unix epoch millisecond id.
@@ -69,11 +69,11 @@ flowchart LR
 - **M14**: Captured sensitive fields are omitted or redacted where the platform exposes secure text semantics.
 - **M15**: Appshot capture is available only through explicit user action; Atmos does not run background capture or automatic periodic sampling.
 - **M16**: Non-Desktop runtimes and unsupported desktop platforms show an unsupported state rather than a broken control.
-- **M17**: When Appshots require missing macOS permissions, Atmos identifies the missing permission, explains why it is needed, provides an Open System Settings action for the relevant pane, and re-checks permission status after the user returns.
+- **M17**: When Appshots require missing macOS permissions, Atmos identifies the missing permission, explains why it is needed, provides a recovery action (dedicated Appshots permissions window and/or Open System Settings for the relevant pane), and re-checks permission status after the user returns. The Header Appshots history popover must not stack a second near-identical warning above the single permission CTA when permissions are denied.
 
 ### Nice to Have
 
-- **N1**: User-configurable global shortcut if `Fn + Cmd + Option` conflicts or cannot be registered as a complete chord.
+- **N1**: User-configurable global shortcut if dual-shift conflicts or users prefer a different chord.
 - **N2**: OCR or vision-model fallback when accessibility data is poor.
 - **N3**: Manual redaction tools for screenshot regions or accessibility tree nodes before copying.
 - **N4**: Windows and Linux platform backends with parity to the macOS user flow.
@@ -103,7 +103,7 @@ flowchart LR
 ## Risks & Open Questions
 
 - **Risk**: Users may overestimate what accessibility can read from canvas, games, virtualized lists, or self-drawn controls.
-- **Risk**: `Fn + Cmd + Option` may not be registerable as a modifier-only global shortcut through standard OS shortcut APIs; a lower-level event tap may require extra permissions and careful conflict handling.
+- **Risk**: Dual-shift (Left + Right Shift) and other modifier-only gestures require a lower-level event tap; Accessibility permission and careful conflict handling are required.
 - **Risk**: The capture action can accidentally capture Atmos unless native code tracks the last external window.
 - **Risk**: Record directories can accumulate screenshots and text over time; history deletion and future retention cleanup must be predictable.
 - **Open**: Should timeout auto-accept also show a toast after the popover disappears?

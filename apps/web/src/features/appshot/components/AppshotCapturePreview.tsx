@@ -31,10 +31,6 @@ export function AppshotCapturePreview() {
   const [error, setError] = React.useState<string | null>(null);
   const [remainingMs, setRemainingMs] = React.useState(0);
   const [countdownPaused, setCountdownPaused] = React.useState(false);
-  const [entranceOffset, setEntranceOffset] = React.useState<EntranceOffset>({
-    x: 0,
-    y: -18,
-  });
   const previewRef = React.useRef<AppshotPendingPreview | null>(null);
   const timerRef = React.useRef<number | null>(null);
   const countdownIntervalRef = React.useRef<number | null>(null);
@@ -227,7 +223,6 @@ export function AppshotCapturePreview() {
       clearTimer();
       resolvingRef.current = false;
       previewRef.current = nextPreview;
-      setEntranceOffset(computeEntranceOffset(nextPreview));
       setPreview(nextPreview);
       setResolveState("idle");
       setError(null);
@@ -270,6 +265,9 @@ export function AppshotCapturePreview() {
   const busy = resolveState !== "idle";
   const deniedPermissions = (preview.permissions ?? []).filter((permission) => !permission.granted);
   const countdownSeconds = Math.ceil(remainingMs / 1_000);
+  // Compute on render so the first paint of a new preview_id has correct CSS vars
+  // (fly-in from the captured window into Atmos right-top).
+  const entranceOffset = computeEntranceOffset(preview);
 
   return createPortal(
     <div

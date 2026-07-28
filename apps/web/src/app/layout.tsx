@@ -8,7 +8,6 @@ import { ThemeProvider } from "@/providers/app/theme-provider";
 import { QueryProvider } from "@/providers/app/query-provider";
 import { WebSocketProvider } from "@/providers/app/websocket-provider";
 import { DesktopStartupPrefetchBootstrap } from "@/app-shell/bootstrap/DesktopStartupPrefetchBootstrap";
-import { TmuxCheckProvider } from "@/providers/app/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-bridge";
 import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
@@ -79,17 +78,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <WebSocketProvider>
                   <ServerStateEventBridge />
                   <DesktopStartupPrefetchBootstrap />
-                  <TmuxCheckProvider>
-                    <ToastProvider position="bottom-right">
-                      <AgentToastProvider>
-                        <AnchoredToastProvider>
-                          <TooltipProvider>
-                            {children}
-                          </TooltipProvider>
-                        </AnchoredToastProvider>
-                      </AgentToastProvider>
-                    </ToastProvider>
-                  </TmuxCheckProvider>
+                  <ToastProvider position="bottom-right">
+                    <AgentToastProvider>
+                      <AnchoredToastProvider>
+                        <TooltipProvider>
+                          {children}
+                        </TooltipProvider>
+                      </AnchoredToastProvider>
+                    </AgentToastProvider>
+                  </ToastProvider>
                 </WebSocketProvider>
               </QueryProvider>
             </WorkbenchIntlProvider>

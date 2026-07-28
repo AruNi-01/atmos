@@ -78,7 +78,20 @@ fn methods_for_os(os: &str) -> &'static [InstallMethod] {
 }
 
 fn command_exists(binary: &str) -> bool {
-    Command::new(binary).arg("--version").output().is_ok()
+    // Prefer absolute Homebrew paths when GUI-launched PATH is sparse.
+    for candidate in [
+        format!("/opt/homebrew/bin/{binary}"),
+        format!("/usr/local/bin/{binary}"),
+    ] {
+        if std::path::Path::new(&candidate).is_file() {
+            return true;
+        }
+    }
+    Command::new(binary)
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 fn build_install_plan(
@@ -154,10 +167,20 @@ pub(crate) fn detect_install_plan(installed: bool) -> TmuxInstallPlan {
     build_install_plan(os, installed, &available_commands)
 }
 
+/// Resolve the `tmux` binary, including common Homebrew paths when process PATH is sparse.
+pub(crate) fn tmux_bin_for_engine() -> String {
+    for candidate in ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux"] {
+        if std::path::Path::new(candidate).is_file() {
+            return candidate.to_string();
+        }
+    }
+    "tmux".to_string()
+}
+
 impl TmuxEngine {
     /// Check if tmux is installed on the system
     pub fn check_installed() -> bool {
-        Command::new("tmux")
+        Command::new(tmux_bin_for_engine())
             .arg("-V")
             .output()
             .map(|o| o.status.success())
@@ -171,7 +194,7 @@ impl TmuxEngine {
 
     /// Get tmux version information
     pub fn get_version() -> Result<TmuxVersion> {
-        let output = Command::new("tmux")
+        let output = Command::new(tmux_bin_for_engine())
             .arg("-V")
             .output()
             .map_err(|e| EngineError::Tmux(format!("Failed to get tmux version: {}", e)))?;

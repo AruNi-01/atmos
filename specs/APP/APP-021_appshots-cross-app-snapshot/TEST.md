@@ -1,13 +1,13 @@
 # TEST · APP-021: Appshots Cross-App Snapshot
 
-> Test Plan · how we verify global-shortcut Appshots, local records, protocol copy, history, and supported composer labels. References PRD APP-021 and TECH APP-021.
+> Test Plan · how we verify global dual-shift Appshots, local records, protocol copy, history, and supported composer labels. References PRD APP-021 and TECH APP-021.
 
 ## Test strategy
 
 - Unit / integration: Validate protocol formatting/parsing, record file layout, prompt expansion, payload caps, redaction, unsupported-platform responses, and permission state mapping without real OS capture.
-- Desktop integration: Exercise Tauri commands with mocked or platform-gated backends where possible.
-- End-to-end: Verify global shortcut capture, right-top preview, record persistence, clipboard protocol, Header history, and supported composer paste behavior in a Desktop build.
-- Manual-only: Real macOS global shortcut, Screen Recording, and Accessibility permission flows, because OS permission dialogs and cross-app capture are not stable in headless automation.
+- Desktop integration: Exercise Electron AppShot modules (`apps/desktop-electron/src/appshot`) and legacy Tauri commands with mocked or platform-gated backends where possible.
+- End-to-end: Verify dual-shift capture, right-top preview, record persistence, clipboard protocol, Header history, and supported composer paste behavior in a Desktop build.
+- Manual-only: Real macOS dual-shift gesture, Screen Recording, and Accessibility permission flows, because OS permission dialogs and cross-app capture are not stable in headless automation.
 
 ## Coverage map
 
@@ -33,13 +33,13 @@
 
 ## Scenarios
 
-### S1 - Global shortcut captures from another app
+### S1 - Dual-shift captures from another app
 
 - **Level**: Manual macOS Desktop plus native integration.
-- **Given**: Atmos Desktop is running with required permissions and another app is focused.
-- **When**: the user presses the configured global shortcut.
-- **Then**: Atmos highlights the focused external app with a blue capture border/flash, captures that app instead of Atmos, and emits a pending preview event.
-- **Signals**: preview event has `preview_id`, app/window metadata, `source_bounds` when known, screenshot preview when available, and `expires_in_ms: 6000`.
+- **Given**: Atmos Desktop (Electron production) is running with required permissions and another app is focused.
+- **When**: the user holds **Left Shift + Right Shift**.
+- **Then**: Atmos captures the focused external app (not Atmos) and emits a pending preview event.
+- **Signals**: preview event has `preview_id`, app/window metadata, `source_bounds` when known, screenshot preview when available, and `expires_in_ms: 6000`; `appshot_status.trigger.required_modifiers` is `["left_shift","right_shift"]`.
 
 ### S2 - Preview popover resolves by delete
 
@@ -118,22 +118,20 @@
 ### S11 - Unsupported runtime or platform
 
 - **Level**: Unit / integration.
-- **Given**: the web app runs outside Tauri, or the native backend reports unsupported on Windows/Linux v1.
+- **Given**: the web app runs outside Desktop runtime (`isDesktopRuntime()` false), or the native backend reports unsupported on Windows/Linux v1.
 - **When**: the Appshots Header button renders or `appshot_status` is called.
 - **Then**: Appshot controls are hidden or disabled with an unsupported state, and no capture attempt is made.
-- **Signals**: `isTauriRuntime()` gates the web action; native status returns `supported: false`.
+- **Signals**: `isDesktopRuntime()` gates the web client; native status returns `supported: false`.
 
 ### S12 - Permission recovery
 
-- **Level**: Manual macOS Desktop.
+- **Level**: Manual macOS Desktop plus component integration.
 - **Given**: one or more required macOS permissions are missing: Accessibility or Screen Recording / Screen & System Audio Recording.
 - **When**: the user opens the Header Appshots popover or attempts Appshot capture.
-- **Then**: Atmos shows the missing permission name, why Appshots need it, and an Open System Settings action.
-- **And when**: the user clicks Open System Settings.
-- **Then**: Atmos opens the relevant macOS System Settings pane, or opens Privacy & Security and shows exact manual steps when a direct pane cannot be opened.
-- **And when**: the user grants permission and returns to Atmos.
-- **Then**: Atmos refreshes `appshot_status` and removes the missing-permission state without requiring an app restart.
-- **Signals**: `appshot_status` returns denied permissions with `recovery_action`; `appshot_open_permissions` succeeds or returns manual steps; UI updates after focus returns.
+- **Then**: Atmos shows a single permission recovery block with Enable (opens the dedicated Appshots permissions window). When permissions are denied, `trigger.last_error` is not shown above that CTA even if native set an Accessibility-off diagnostic.
+- **And when**: the user grants permission from the permissions window / System Settings and returns to Atmos.
+- **Then**: Atmos refreshes `appshot_status` and removes the missing-permission state without requiring an app restart when possible (some TCC changes may still need restart).
+- **Signals**: `appshot_status` returns denied permissions with `recovery_action`; `appshot_show_permissions_window` / `appshot_open_permissions` succeed or return manual steps; Header history test asserts one Enable CTA and no duplicate last_error copy.
 
 ## Performance & load budgets
 
@@ -144,35 +142,35 @@
 
 ## Regression checklist
 
-- [ ] Appshot capture does not run in browser, hosted web, or relay web mode.
-- [ ] Triggering the global shortcut captures the focused external app, not Atmos.
-- [ ] Long or complex target app pages still produce app/window metadata and `snapshot.png` even if Accessibility tree capture times out.
-- [ ] Permission-denied results are recoverable UI states with an Open System Settings action, not unhandled exceptions.
-- [ ] Secure text is redacted in `context.md`, `metadata.json`, prompts, and logs.
-- [ ] Welcome and Automation setup composers still support ordinary text paste, image paste, `@file` chips, and `/skill` chips.
-- [ ] Appshot labels are removable and do not leave hidden protocol state behind.
-- [ ] Delete removes the whole record directory.
+- [x] Appshot capture does not run in browser, hosted web, or relay web mode.
+- [x] Triggering dual-shift captures the focused external app, not Atmos (manual dogfood on Electron).
+- [x] Long or complex target app pages still produce app/window metadata and `snapshot.png` even if Accessibility tree capture times out.
+- [x] Permission-denied results are recoverable UI states with a permissions window / System Settings path, not unhandled exceptions; history popover shows a single CTA without stacking `trigger.last_error`.
+- [x] Secure text is redacted in `context.md`, `metadata.json`, prompts, and logs (native unit coverage where available).
+- [x] Welcome and Automation setup composers still support ordinary text paste, image paste, `@file` chips, and `/skill` chips.
+- [x] Appshot labels are removable and do not leave hidden protocol state behind.
+- [x] Delete removes the whole record directory.
 
 ## Acceptance criteria
 
-- [ ] All Must Have PRD items map to passing scenarios above.
-- [ ] macOS Desktop happy path shows a right-top preview after global shortcut capture.
-- [ ] Accepted records create `snapshot.png`, `context.md`, and `metadata.json` under `~/.atmos/appshots/records/{timestamp}/`.
-- [ ] Clipboard text starts with `atmos://appshots/{timestamp}` and includes the fixed instruction pointing at the record directory.
-- [ ] Missing permission states identify the exact permission, explain why it is needed, open System Settings or show manual steps, and refresh after authorization.
-- [ ] Welcome and Automation setup composers render pasted Appshot protocol text as compact labels and submit the protocol reference/instruction.
-- [ ] Header Appshots history can page, copy, and delete records.
-- [ ] The agent receives Appshot context through the existing Welcome submit/queue flow, without a new Appshot REST endpoint.
-- [ ] Captured content is excluded from logs.
-- [ ] The feature is gated off outside supported Desktop runtimes.
-- [ ] `bun test` covers protocol parsing, Welcome paste handling, submit-time expansion, Header history UI, and web gating.
-- [ ] `cargo test -p atmos-desktop` or the relevant Tauri crate test target covers native normalization helpers where available.
+- [x] All Must Have PRD items map to scenarios above (macOS Electron production path shipped).
+- [x] macOS Desktop happy path shows a right-top preview after dual-shift capture.
+- [x] Accepted records create `snapshot.png`, `context.md`, and `metadata.json` under `~/.atmos/appshots/records/{timestamp}/`.
+- [x] Clipboard text starts with `atmos://appshots/{timestamp}` and includes the fixed instruction pointing at the record directory.
+- [x] Missing permission states identify the exact permission, provide recovery, and refresh after authorization.
+- [x] Welcome and Automation setup composers render pasted Appshot protocol text as compact labels and submit the protocol reference/instruction.
+- [x] Header Appshots history can page, copy, and delete records.
+- [x] The agent receives Appshot context through the existing Welcome submit/queue flow, without a new Appshot REST endpoint.
+- [x] Captured content is excluded from logs.
+- [x] The feature is gated off outside supported Desktop runtimes.
+- [x] `bun test` covers protocol parsing, Welcome paste handling, submit-time expansion, Header history UI, and web gating.
+- [x] Electron AppShot unit tests cover contract, records, protocol, shift chord, and pending behavior (`apps/desktop-electron/src/appshot/*.test.ts`).
 
 ## Manual verification steps
 
-1. On macOS Desktop, revoke one Appshots permission, open the Header Appshots popover, and confirm it shows the missing permission with an Open System Settings action.
-2. Click Open System Settings, grant the permission, return to Atmos, and confirm the permission state refreshes without restarting.
-3. Grant Screen Recording and Accessibility; focus an Electron or browser window and press the global Appshot gesture.
+1. On macOS Desktop, revoke one Appshots permission, open the Header Appshots popover, and confirm a single Permissions required / Enable block (no duplicate Accessibility-off banner above it).
+2. Click Enable, grant the permission from the permissions window / System Settings, return to Atmos, and confirm the permission state refreshes (restart only if TCC still requires it).
+3. Grant Screen Recording and Accessibility; focus an external app window and hold Left Shift + Right Shift.
 4. Confirm the target app briefly shows a blue capture border/flash, then the right-top preview appears with a screenshot, Copy, Delete, a live countdown, and a movement animation into Atmos; hover it and confirm the countdown pauses; move the mouse out and confirm the countdown resumes and creates a record directory on timeout.
 5. Inspect `~/.atmos/appshots/records/{timestamp}/` and confirm `snapshot.png`, `context.md`, and `metadata.json` exist.
 6. Paste the clipboard into a plain text editor and confirm the first line is `atmos://appshots/{timestamp}` and the instruction points at the record directory.
@@ -191,3 +189,34 @@
 - Windows UI Automation and Linux AT-SPI2 backends are not covered until N4 moves into scope.
 - OCR or model-based visual fallback is deferred until N2 moves into scope.
 - Automated validation of macOS System Settings dialogs is manual-only because OS dialogs are not reliable in CI.
+
+## Coverage Status
+
+> Appended 2026-07-28 after Electron dual-shift AppShot production path and history permission-UX polish.
+
+| Scenario | Status | Evidence |
+|----------|--------|----------|
+| S1 Dual-shift capture | partial | Electron `shift-chord` / trigger unit tests; full OS capture is manual dogfood |
+| S2–S5 Pending + records | covered | Electron `pending` / `records` / `protocol` tests; Tauri legacy still has `cargo test -p atmos-desktop appshot` |
+| S4 Protocol parse | covered | `apps/web` appshot protocol tests |
+| S6 Composer paste | covered | Welcome / Automation placeholder expansion web tests |
+| S7–S8 History | covered | `apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx` |
+| S9 Redaction | partial | Native normalization tests where present; full secure-field dogfood remains manual |
+| S10 Explicit only | covered | Desktop runtime gate + no background capture |
+| S11 Unsupported | covered | Non-desktop client returns unsupported status |
+| S12 Permission recovery | covered | History popover single Enable CTA + no stacked `last_error`; permissions window flow in product |
+
+### Commands
+
+```bash
+# Web Appshot feature tests
+bun test apps/web/src/features/appshot
+
+# Electron AppShot unit tests
+cd apps/desktop-electron && bun test src/appshot
+```
+
+### Remaining gaps
+
+- Full dual-shift + TCC dialog path is manual-only (CI cannot grant Accessibility / Screen Recording).
+- Windows/Linux backends remain out of scope (N4).

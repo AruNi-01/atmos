@@ -6,9 +6,17 @@
 
 This design adds user-triggered cross-app snapshots to Atmos Desktop, shows a short-lived preview, persists accepted captures as local timestamped records, and copies a lightweight `atmos://appshots/{timestamp}` protocol reference. Atmos consumers, starting with the Welcome page composer and Automation setup composer, detect pasted references and render compact Appshot labels while submitting the protocol reference plus fixed agent instruction. It addresses PRD M1-M17. N1 configurable shortcut, N2 OCR, N3 manual redaction, N4 full Windows/Linux parity, and N5 broader all-composer support are deferred unless explicitly pulled into implementation.
 
+<!-- updated 2026-07-28: production host is Electron (`apps/desktop-electron`); Tauri path remains legacy. Shipped trigger is dual Left+Right Shift. -->
+
 ## Architecture overview
 
-Appshot capture is a desktop-native capability. The web app cannot read other windows or OS accessibility trees, and the local API process is not the foreground desktop app. The first implementation therefore lives in the Tauri process. Native capture creates a pending in-memory Appshot, emits a preview event to the WebView, and resolves the pending capture by delete, explicit copy, or a 6-second auto-accept timeout.
+Appshot capture is a desktop-native capability. The web app cannot read other windows or OS accessibility trees, and the local API process is not the foreground desktop app.
+
+**Production host (shipped)**: `apps/desktop-electron` AppShot module (`src/appshot/`), shared on-disk contract `~/.atmos/appshots/records/{timestamp}/`, Desktop Bridge `invoke`/`on` for `appshot_*` commands and `appshot://preview` events. See [APP-045](../APP-045_desktop-electron-dual-shell/TECH.md).
+
+**Legacy host**: `apps/desktop` (Tauri) `src-tauri/src/appshot/` — same protocol and record layout; product work should not land there.
+
+Native capture creates a pending in-memory Appshot, emits a preview event to the WebView, and resolves the pending capture by delete, explicit copy, or a 6-second auto-accept timeout.
 
 ```mermaid
 sequenceDiagram
@@ -142,50 +150,33 @@ Accepted Appshots are stored as directories, not single JSON blobs:
 
 #### Global modifier gesture
 
-The requested trigger is `Fn + Option + Command`. Treat it as a modifier-only gesture, not a traditional global shortcut. Do not build macOS v1 on Tauri/global-shortcut or Carbon-style hotkey registration because those APIs usually model a shortcut as modifier flags plus one non-modifier key.
+**Shipped trigger (macOS Electron)**: **Left Shift + Right Shift** held together (dual-shift chord). `appshot_status.trigger.required_modifiers` is `["left_shift", "right_shift"]`. Treat it as a modifier-only gesture, not a traditional global shortcut (no non-modifier key). Do not rely on ordinary hotkey registration APIs for this.
 
-Preferred macOS implementation:
+Earlier drafts considered `Fn + Option + Command`; production dogfood replaced that chord with dual-shift for reliability and keyboard coverage.
 
-- Install a listen-only global event tap for modifier state changes, for example `CGEventTapCreate(..., kCGEventTapOptionListenOnly, CGEventMaskBit(kCGEventFlagsChanged), ...)`.
-- If the event tap path is not viable in Rust bindings, use `NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged)` behind a small Swift/Objective-C bridge.
+Preferred / shipped macOS implementation:
+
+- Install a listen-only global event tap for modifier state changes (`CGEventTap` / `FlagsChanged`), matching the Electron in-process tap in `apps/desktop-electron/src/appshot/trigger-event-tap.ts`.
 - Subscribe only to `flagsChanged` / modifier events for the Appshot trigger. Do not monitor normal `keyDown` text input for this feature.
-- Derive the active modifier state from event flags and key codes. Track `function`, `option`, and `command` as booleans.
-- Fire only on the transition from "not all required modifiers down" to "all required modifiers down".
-- Keep a `fired` latch until any required modifier is released, plus a short cooldown such as 800 ms, so repeated `flagsChanged` events cannot create duplicate captures.
+- Derive active left/right shift state from event flags and key codes.
+- Fire only on the dual-shift chord edge (second side pressed while the other is already down, or both rise in the same sample), with re-arm after both shifts release, plus a short cooldown so repeated events cannot create duplicate captures.
 - If Atmos is frontmost when the gesture fires, return a no-target preview/status instead of capturing Atmos. A future tracker can recover the last non-Atmos foreground window if dogfood proves that flow is needed.
 
-Pseudo-code:
+Pseudo-code (dual-shift chord — see `shift-chord.ts` / Electron event tap):
 
-```rust
-struct ModifierGestureState {
-    function_down: bool,
-    option_down: bool,
-    command_down: bool,
-    fired: bool,
-    last_fire_at_ms: Option<u64>,
-}
-
-fn on_flags_changed(flags: ModifierFlags, state: &mut ModifierGestureState) {
-    state.function_down = flags.function;
-    state.option_down = flags.option;
-    state.command_down = flags.command;
-
-    let gesture_down = state.function_down && state.option_down && state.command_down;
-    if gesture_down && !state.fired && cooldown_elapsed(state.last_fire_at_ms) {
-        state.fired = true;
-        state.last_fire_at_ms = Some(now_ms());
-        take_appshot_for_frontmost_or_last_non_atmos_window();
-    }
-
-    if !gesture_down {
-        state.fired = false;
-    }
-}
+```text
+on flagsChanged:
+  left = left_shift_down
+  right = right_shift_down
+  if chord_edge(left, right) and cooldown_ok:
+    take_appshot_for_frontmost_window()
+  if not left and not right:
+    rearm_chord()
 ```
 
 Implementation notes:
 
-- `Fn` / Globe behavior can vary by keyboard and macOS settings. `appshot_status` must report when the function modifier cannot be observed, and the feature must not silently remap the gesture to `Option + Command`.
+- Dual-shift requires distinguishing left vs right shift key codes; status must report when the listener cannot arm.
 - The implemented macOS listener uses Accessibility-trusted global modifier events; Input Monitoring is not treated as a required permission for the Appshot gesture. Permission failure is a normal disabled state with recovery UI.
 - The listener should be registered during Desktop app startup and torn down on app shutdown. If macOS disables the event tap, re-enable it once and then report a degraded trigger status if it repeatedly fails.
 
@@ -203,12 +194,12 @@ Required macOS permission surfaces:
 Native owns settings navigation:
 
 1. `appshot_status()` returns `permissions` and `trigger.permissions`, each with display text, `granted`, why it is needed, and an optional recovery action.
-2. Web UI renders missing permissions in the preview error state and Header Appshots popover with an "Open System Settings" action.
-3. Clicking the action calls `appshot_open_permissions({ target })`.
+2. Web UI renders missing permissions in the capture preview and Header Appshots history popover with a single Enable CTA that opens the dedicated Appshots permissions window (`appshot_show_permissions_window`). That window offers per-permission Grant actions via `appshot_open_permissions({ target })`.
+3. When permissions are denied, the history popover must **not** also render `trigger.last_error` above the Enable CTA (native often sets an Accessibility-off diagnostic that would duplicate the permission recovery block).
 4. Native opens the best available macOS System Settings destination for that target. Prefer a direct Privacy & Security pane deep link after validating it on the supported macOS versions; fall back to the Privacy & Security root pane plus manual instructions if a direct pane cannot be opened.
-5. When Atmos regains focus, and once per second for up to 10 seconds after opening settings, Web UI calls `appshot_status()` again so the state updates immediately after authorization.
+5. When Atmos regains focus, and once per second for up to 10 seconds after opening settings/permissions UI, Web UI calls `appshot_status()` again so the state updates immediately after authorization.
 
-Do not hardcode System Settings URL schemes in `apps/web`; macOS pane identifiers and labels are native compatibility details. The web layer only receives `AppshotSettingsTarget` and user-facing fallback instructions from Tauri.
+Do not hardcode System Settings URL schemes in `apps/web`; macOS pane identifiers and labels are native compatibility details. The web layer only receives `AppshotSettingsTarget` and user-facing fallback instructions from the desktop bridge.
 
 ### macOS backend
 
@@ -621,7 +612,7 @@ No new REST endpoint.
 - Permission-denied responses are normal results with `status.permissions`, not internal errors. Every required denied permission must include a recovery action or explicit manual steps.
 - The clipboard protocol text is plain text; users can paste it anywhere. Atmos consumers should show a compact label only in surfaces that explicitly support Appshot parsing.
 - Welcome and Automation setup composers must show a compact chip before submit and allow deletion.
-- Hosted web, relay web, and non-Tauri browser sessions must not show a working capture control.
+- Hosted web, relay web, and non-desktop browser sessions must not show a working capture control.
 - `snapshot.png`, `context.md`, and `metadata.json` can contain sensitive screen content. Delete must remove the whole record directory.
 - Remote relay clients must not trigger native capture on a remote machine through the API. Appshots are local Desktop-only in v1.
 
@@ -645,11 +636,11 @@ No new REST endpoint.
 
 ## Risks & tradeoffs
 
-- **Tradeoff**: Capture lives in Tauri instead of `apps/api` because only the foreground native app process can reliably observe OS window state and request desktop permissions.
+- **Tradeoff**: Capture lives in the desktop shell (Electron production / Tauri legacy) instead of `apps/api` because only the foreground native app process can reliably observe OS window state and request desktop permissions.
 - **Tradeoff**: macOS ships first because its accessibility and screen capture APIs are the most predictable for this workflow.
-- **Tradeoff**: macOS uses a modifier-state listener instead of a normal hotkey registration because `Fn + Option + Command` has no non-modifier key.
+- **Tradeoff**: macOS uses a modifier-state listener instead of a normal hotkey registration because dual-shift has no non-modifier key.
 - **Risk**: Accessibility trees vary by target app. The UI and prompt must label partial capture quality clearly.
-- **Risk**: `Fn` / Globe may be intercepted by macOS settings or unavailable on some external keyboards. `appshot_status` must surface this explicitly and product review should decide whether a configurable fallback chord is needed.
+- **Risk**: Dual-shift may conflict with other system/app bindings on some setups. `appshot_status` must surface arm failures; N1 can add a configurable fallback chord.
 - **Risk**: Global event taps can be disabled by permission changes, secure input modes, or OS behavior. The listener must recover once, then expose a disabled/degraded state rather than silently failing.
 - **Risk**: Active-window detection can still pick the wrong target on fast focus changes. The preview must include app/window title so users can delete bad captures before persistence.
 - **Risk**: Appshot records can grow large over time. The history UI ships delete controls in v1; retention policy can be a follow-up.
@@ -659,7 +650,8 @@ No new REST endpoint.
 
 ## Dependencies & compatibility
 
-- Depends on Desktop Tauri runtime from `APP-009_desktop-tauri`.
+- **Production desktop**: Electron shell from `APP-045_desktop-electron-dual-shell` (`apps/desktop-electron`).
+- **Legacy desktop**: Tauri from `APP-009_desktop-tauri` (`apps/desktop`) — same on-disk contracts; do not add product features there.
 - Integrates first with `apps/web/src/features/welcome/components/PromptComposer.tsx` consumers: Welcome page and Automation setup.
 - Still works with agent execution because Welcome submit expands the Appshot chip into protocol prompt text before `queueAgentRun`, and Automation setup expands the same chip before saving instructions used by terminal automation runs.
 - Minimum v1 platform: macOS Desktop.
@@ -667,7 +659,7 @@ No new REST endpoint.
 
 ## Open questions
 
-- [ ] Exact macOS screenshot API choice: ScreenCaptureKit vs. CoreGraphics per-window image, based on OS support and permission behavior during implementation.
-- [ ] Whether `Fn` / Globe is observable reliably enough across built-in and common external keyboards, or needs a configurable fallback chord.
+- [x] Exact macOS screenshot API choice: v1 uses frontmost-window capture (Electron) / `screencapture -R` (legacy Tauri); ScreenCaptureKit remains a hardening option.
+- [x] Trigger chord: shipped as Left + Right Shift (dual-shift); configurable fallback remains N1.
 - [ ] Whether timeout auto-accept should show a notification after the preview disappears.
 - [ ] Final `context.md` size caps after dogfood with real accessibility trees.

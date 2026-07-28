@@ -17,6 +17,7 @@ import {
   useTmuxStatusQuery,
   useGitStatusQuery,
 } from '@/features/system/hooks/use-system-status-queries';
+import { InstallToolPopover } from '@/features/welcome/components/InstallToolPopover';
 
 export function IntegrationsSettingsSection() {
   const t = useTranslations('settings.integrationsSection');
@@ -27,6 +28,16 @@ export function IntegrationsSettingsSection() {
   const tmuxStatus = tmuxQuery.data ?? null;
   const gitStatus = gitQuery.data ?? null;
   const isLoading = ghCliQuery.isLoading || tmuxQuery.isLoading || gitQuery.isLoading;
+
+  const refetchGh = React.useCallback(() => {
+    void ghCliQuery.refetch();
+  }, [ghCliQuery]);
+  const refetchGit = React.useCallback(() => {
+    void gitQuery.refetch();
+  }, [gitQuery]);
+  const refetchTmux = React.useCallback(() => {
+    void tmuxQuery.refetch();
+  }, [tmuxQuery]);
 
   return (
     <div className="space-y-4">
@@ -84,15 +95,12 @@ export function IntegrationsSettingsSection() {
                   </div>
                 </div>
                 {!ghCliStatus?.installed && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://cli.github.com/', '_blank', 'noopener,noreferrer')}
-                    className="cursor-pointer"
-                  >
-                    <ExternalLink className="mr-2 size-4" />
-                    {t('githubCli.actions.install')}
-                  </Button>
+                  <InstallToolPopover
+                    toolId="gh"
+                    toolName="GitHub CLI (gh)"
+                    onInstalled={refetchGh}
+                    triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                  />
                 )}
               </div>
               {ghCliStatus?.installed && (
@@ -182,15 +190,12 @@ export function IntegrationsSettingsSection() {
                   </div>
                 </div>
                 {!gitStatus?.installed && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://git-scm.com/', '_blank', 'noopener,noreferrer')}
-                    className="cursor-pointer"
-                  >
-                    <ExternalLink className="mr-2 size-4" />
-                    {t('git.actions.install')}
-                  </Button>
+                  <InstallToolPopover
+                    toolId="git"
+                    toolName="Git"
+                    onInstalled={refetchGit}
+                    triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                  />
                 )}
               </div>
               {gitStatus?.installed && (gitStatus.username || gitStatus.email) && (
@@ -258,15 +263,12 @@ export function IntegrationsSettingsSection() {
                   </div>
                 </div>
                 {!tmuxStatus?.installed && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://github.com/tmux/tmux/wiki', '_blank', 'noopener,noreferrer')}
-                    className="cursor-pointer"
-                  >
-                    <ExternalLink className="mr-2 size-4" />
-                    {t('tmux.actions.install')}
-                  </Button>
+                  <InstallToolPopover
+                    toolId="tmux"
+                    toolName="tmux"
+                    onInstalled={refetchTmux}
+                    triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                  />
                 )}
               </div>
               {tmuxStatus?.installed && (

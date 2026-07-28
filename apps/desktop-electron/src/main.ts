@@ -97,6 +97,15 @@ async function boot() {
 
   // Arm Appshots Left+Right Shift global gesture (macOS). Always attempt on boot.
   if (process.platform === "darwin") {
+    // Pre-create the transparent capture overlay so first dual-shift is smooth.
+    try {
+      const { warmCaptureAnimationOverlay } = await import(
+        "./appshot/capture-animation.js"
+      );
+      warmCaptureAnimationOverlay();
+    } catch (e) {
+      console.warn("[desktop-electron] AppShot overlay warm failed", e);
+    }
     try {
       const appshot = await import("./appshot/service.js");
       const status = await appshot.appshotStatus(state);

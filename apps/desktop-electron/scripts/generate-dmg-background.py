@@ -23,15 +23,19 @@ SLOGAN = "Atmosphere for Agentic Builders"
 
 
 def load_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
+    # Prefer Helvetica Neue for both weights so slogan + caption share one family.
+    # (Mixing SFNS regular with Helvetica Neue bold made the bottom line look off.)
     if bold:
         cands = (
-            ("/System/Library/Fonts/HelveticaNeue.ttc", 1),
-            ("/System/Library/Fonts/SFNS.ttf", 0),
+            ("/System/Library/Fonts/HelveticaNeue.ttc", 1),  # Bold
+            ("/System/Library/Fonts/Helvetica.ttc", 1),
+            ("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 0),
         )
     else:
         cands = (
-            ("/System/Library/Fonts/SFNS.ttf", 0),
-            ("/System/Library/Fonts/HelveticaNeue.ttc", 0),
+            ("/System/Library/Fonts/HelveticaNeue.ttc", 0),  # Regular
+            ("/System/Library/Fonts/Helvetica.ttc", 0),
+            ("/System/Library/Fonts/Supplemental/Arial.ttf", 0),
         )
     for path, idx in cands:
         try:
@@ -94,7 +98,8 @@ def compose(scale: int) -> Image.Image:
     layer = img.convert("RGBA")
     draw = ImageDraw.Draw(layer)
 
-    slogan_font = load_font(int(14 * s), bold=False)
+    # Same family for slogan + caption (Helvetica Neue); slogan is bold.
+    slogan_font = load_font(int(14 * s), bold=True)
     cap_font = load_font(int(13 * s), bold=False)
     cap_bold = load_font(int(13 * s), bold=True)
     ink = (40, 40, 44, 245)

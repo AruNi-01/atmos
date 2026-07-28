@@ -213,7 +213,7 @@ mock.module("../lib/appshot-client", () => ({
   deleteAppshotRecord: async (timestamp: string): Promise<void> => {
     calls.delete.push(timestamp);
   },
-  getAppshotStatus: async (): Promise<AppshotStatus> => desktopStatus,
+  getAppshotStatus: async (): Promise<AppshotStatus> => appshotStatus,
   getDeniedAppshotPermissions: () => deniedPermissions,
   listAppshotRecords: async (): Promise<AppshotRecordListItem[]> => {
     calls.list += 1;
@@ -255,7 +255,7 @@ const { AppshotsHistoryPopover } = await import(
   "../components/AppshotsHistoryPopover"
 );
 
-const desktopStatus: AppshotStatus = {
+const defaultDesktopStatus = (): AppshotStatus => ({
   supported: true,
   platform: "macos",
   reason: null,
@@ -267,8 +267,9 @@ const desktopStatus: AppshotStatus = {
     permissions: [],
   },
   permissions: [],
-};
+});
 
+let appshotStatus: AppshotStatus = defaultDesktopStatus();
 let root: Root | null = null;
 
 beforeEach(() => {
@@ -283,6 +284,7 @@ beforeEach(() => {
   recordDetails = new Map();
   deniedPermissions = [];
   listDelayMs = 0;
+  appshotStatus = defaultDesktopStatus();
 });
 
 afterEach(async () => {
@@ -359,12 +361,24 @@ describe("S7/S8 - Header Appshots history", () => {
       makeDeniedPermission("accessibility", "Accessibility"),
       makeDeniedPermission("screen_recording", "Screen Recording"),
     ];
+    // Native often also sets trigger.last_error when Accessibility is off — must not
+    // render a second warning above the Enable CTA.
+    appshotStatus = {
+      ...defaultDesktopStatus(),
+      trigger: {
+        ...defaultDesktopStatus().trigger,
+        enabled: false,
+        last_error:
+          "Accessibility is off — dual-shift will not receive keys until Atmos is trusted",
+      },
+    };
 
     const container = await renderHistoryPopover();
     await flushUntil(() => container.textContent?.includes("Permissions required") ?? false);
 
     expect(getButtonsByText(container, "Enable")).toHaveLength(1);
     expect(getButtonsByText(container, "Grant")).toHaveLength(0);
+    expect(container.textContent).not.toContain("dual-shift will not receive keys");
 
     await click(getButtonByText(container, "Enable"));
 
