@@ -10,7 +10,12 @@ import React, {
 } from "react";
 import { useTranslations } from "next-intl";
 import { useGitStore } from "@/features/git/store/use-git-store";
-import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
+import {
+  useGitChangedFilesQuery,
+  invalidateGitQueries,
+  forceRefreshGitQueries,
+  GIT_WORKTREE_PARAMS,
+} from "@/features/git/hooks/use-git-changed-files-query";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
@@ -513,18 +518,21 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   );
 
   const handleChangesRefresh = useCallback(async () => {
+    // User clicked Refresh → force re-request. Opening Changes tab still uses cache.
     if (changesScope === "commit" && selectedCommitHash) {
       await compareAgainstRef(selectedCommitHash);
+      if (currentProjectPath) await forceRefreshGitQueries(currentProjectPath);
       return;
     }
 
     if (changesScope === "staged" || changesScope === "unstaged") {
       await compareWorktreeChanges();
-      if (currentProjectPath) await invalidateGitQueries(currentProjectPath);
+      if (currentProjectPath) await forceRefreshGitQueries(currentProjectPath);
       return;
     }
 
     resetCompareMode();
+    // Remote `git fetch` then invalidate active git queries (real re-request).
     await fetchChanges();
   }, [
     changesScope,
@@ -685,7 +693,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           await commitLog.refresh();
                         }}
                         isRefreshing={
-                          changesSubTab === "commits" && commitLog.loading
+                          changesSubTab === "commits" &&
+                          (commitLog.loading || commitLog.refreshing)
                         }
                         className="h-full! basis-1/3 flex-[1_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       >
@@ -925,7 +934,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           value="open"
                           activeValue={prSubTab}
                           refreshTitle={t("rightSidebar.pr.refreshOpenPullRequests")}
-                          onRefresh={() => prPanelRef.current?.refreshOpen()}
+                          onRefresh={async () => {
+                            await prPanelRef.current?.refreshOpen();
+                          }}
                           isRefreshing={
                             prSubTab === "open" && prPanelLoading.open
                           }
@@ -938,7 +949,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           value="closed"
                           activeValue={prSubTab}
                           refreshTitle={t("rightSidebar.pr.refreshClosedPullRequests")}
-                          onRefresh={() => prPanelRef.current?.refreshClosed()}
+                          onRefresh={async () => {
+                            await prPanelRef.current?.refreshClosed();
+                          }}
                           isRefreshing={
                             prSubTab === "closed" && prPanelLoading.closed
                           }

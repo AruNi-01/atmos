@@ -11,6 +11,7 @@ import {
 export { GIT_WORKTREE_PARAMS };
 export type { GitCompareParams };
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { forceRefetchActiveQueries } from "@/api/query/force-refetch";
 import { queryKeys } from "@/api/query/query-keys";
 import type { GitChangedFilesResponse } from "@/api/ws-api";
 import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
@@ -42,7 +43,10 @@ export function useGitChangedFilesQuery(
   );
 }
 
-/** Imperative invalidation: invalidates all git queries under the given repo path. */
+/**
+ * Soft invalidation after mutations / remote events: mark git queries stale and
+ * refetch active observers. Prefer this when the user did not click Refresh.
+ */
 export async function invalidateGitQueries(repoPath: string): Promise<void> {
   try {
     const client = getAtmosWebQueryClient();
@@ -50,6 +54,20 @@ export async function invalidateGitQueries(repoPath: string): Promise<void> {
     await client.invalidateQueries({
       queryKey: queryKeys.computer.git(scope, repoPath),
     });
+  } catch {
+    // ignore outside browser / before provider mounts
+  }
+}
+
+/**
+ * User clicked Refresh on Changes: force active git queries to re-run queryFn.
+ * Entering the Changes tab still paints from Query + session-list cache.
+ */
+export async function forceRefreshGitQueries(repoPath: string): Promise<void> {
+  try {
+    const client = getAtmosWebQueryClient();
+    const scope = getComputerQueryScope();
+    await forceRefetchActiveQueries(queryKeys.computer.git(scope, repoPath), client);
   } catch {
     // ignore outside browser / before provider mounts
   }

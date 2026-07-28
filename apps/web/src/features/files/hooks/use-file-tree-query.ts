@@ -5,6 +5,7 @@ import { useComputerQueryScope, getComputerQueryScope } from "@/api/query/query-
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { queryKeys } from "@/api/query/query-keys";
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { forceRefetchActiveQueries } from "@/api/query/force-refetch";
 import {
   fileTreeQueryOptions,
   listDirQueryOptions,
@@ -90,15 +91,16 @@ export function useSearchDirsQuery(
 }
 
 /**
- * Invalidate the file tree query for the current scope + rootPath.
- * Called by FileTree mutations (rename, delete, create) as onRefresh.
+ * User Refresh / post-mutation: force re-hit the server for this file tree.
+ * Navigating into Files still paints from Query + session-list cache.
  */
 export async function invalidateFileTree(rootPath: string, showHidden: boolean): Promise<void> {
   const client = getAtmosWebQueryClient();
   const scope = getComputerQueryScope();
-  await client.invalidateQueries({
-    queryKey: queryKeys.computer.fileTree(scope, rootPath, showHidden),
-  });
+  await forceRefetchActiveQueries(
+    queryKeys.computer.fileTree(scope, rootPath, showHidden),
+    client,
+  );
 }
 
 /**

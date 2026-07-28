@@ -37,8 +37,8 @@ interface PRPanelProps {
 }
 
 export interface PRPanelHandle {
-  refreshOpen: () => void;
-  refreshClosed: () => void;
+  refreshOpen: () => void | Promise<unknown>;
+  refreshClosed: () => void | Promise<unknown>;
   isOpenLoading: boolean;
   isClosedLoading: boolean;
 }
@@ -68,16 +68,20 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
     enabled: enabled && prSubTab === 'closed',
   });
 
+  const openBusy = openPrList.loading || openPrList.refreshing;
+  const closedBusy = closedPrList.loading || closedPrList.refreshing;
+
   useEffect(() => {
-    onLoadingChange?.({ open: openPrList.loading, closed: closedPrList.loading });
-  }, [closedPrList.loading, onLoadingChange, openPrList.loading]);
+    onLoadingChange?.({ open: openBusy, closed: closedBusy });
+  }, [closedBusy, onLoadingChange, openBusy]);
 
   React.useImperativeHandle(ref, () => ({
-    refreshOpen: () => void openPrList.refresh(),
-    refreshClosed: () => void closedPrList.refresh(),
-    isOpenLoading: openPrList.loading,
-    isClosedLoading: closedPrList.loading,
-  }), [openPrList.refresh, openPrList.loading, closedPrList.refresh, closedPrList.loading]);
+    // Return the refetch promise so hover-tab Refresh can await and show pending state.
+    refreshOpen: () => openPrList.refresh(),
+    refreshClosed: () => closedPrList.refresh(),
+    isOpenLoading: openBusy,
+    isClosedLoading: closedBusy,
+  }), [openPrList.refresh, openBusy, closedPrList.refresh, closedBusy]);
 
   const activePrList = stateFilter === 'OPEN' ? openPrList : closedPrList;
   const prs = activePrList.data;

@@ -6,10 +6,8 @@ import { Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { FileTree } from "@/features/files/components/FileTree";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
-import {
-  useFileTreeQuery,
-  invalidateFileTree,
-} from "@/features/files/hooks/use-file-tree-query";
+import { useFileTreeQuery } from "@/features/files/hooks/use-file-tree-query";
+import { FORCE_REFETCH_OPTIONS } from "@/api/query/force-refetch";
 import type { FileTreeNode } from "@/api/ws-api";
 
 interface FileTreePanelProps {
@@ -58,13 +56,17 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
 
   const effectiveData = data ?? fileTreeQuery.data?.tree ?? [];
   // Do not treat background refetch as empty-tree loading (session hop paint).
+  // Only the first load without data should blank the tree; refresh uses a local spinner.
   const effectiveIsLoading = isLoading ?? fileTreeQuery.isLoading;
+  const isRefreshInFlight =
+    onRefresh == null && fileTreeQuery.isFetching && !fileTreeQuery.isLoading;
   const effectiveRefresh =
     onRefresh ??
-    (() =>
-      effectiveRootPath
-        ? invalidateFileTree(effectiveRootPath, effectiveShowHidden)
-        : Promise.resolve());
+    (async () => {
+      if (!effectiveRootPath) return;
+      // User clicked Refresh → force network; open-tab paint may still use cache.
+      await fileTreeQuery.refetch(FORCE_REFETCH_OPTIONS);
+    });
   const handleShowHiddenChange = onShowHiddenChange ?? setStoreShowHidden;
 
   if (!effectiveRootPath) {
@@ -109,12 +111,15 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
             </button>
             <button
               type="button"
-              onClick={effectiveRefresh}
+              onClick={() => {
+                void effectiveRefresh();
+              }}
               className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
               title={t("fileTreePanel.actions.refreshFiles")}
-              disabled={effectiveIsLoading}
+              disabled={effectiveIsLoading || isRefreshInFlight}
+              aria-busy={effectiveIsLoading || isRefreshInFlight}
             >
-              {effectiveIsLoading ? (
+              {effectiveIsLoading || isRefreshInFlight ? (
                 <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" />
               ) : (
                 <RotateCcw className="size-3.5 text-muted-foreground" />
@@ -125,9 +130,12 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
       )}
       <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-1.5">
         <FileTree
-          key={effectiveRootPath}
+          // Remount when root or eye-toggle changes so headless-tree does not keep
+          // a truthy empty children cache (`[]`) from the previous visibility mode.
+          key={`${effectiveRootPath}:${effectiveShowHidden ? "h" : "v"}`}
           data={effectiveData}
           rootPath={effectiveRootPath}
+          showHidden={effectiveShowHidden}
           isLoading={effectiveIsLoading}
           onRefresh={effectiveRefresh}
           contextId={contextId}

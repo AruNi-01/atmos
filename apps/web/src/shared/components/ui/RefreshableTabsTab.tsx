@@ -9,6 +9,10 @@ interface RefreshableTabsTabProps {
   value: string;
   activeValue: string;
   refreshTitle: string;
+  /**
+   * User-clicked Refresh handler. Callers must force a network re-request
+   * (see FORCE_REFETCH_OPTIONS). Navigating into the tab may still use cache.
+   */
   onRefresh: () => Promise<unknown> | void;
   isRefreshing?: boolean;
   forceActionsVisible?: boolean;
@@ -38,7 +42,7 @@ export function RefreshableTabsTab({
 
   const handleRefresh = useCallback(
     (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
-      if (!showRefreshButton || isRefreshPending) {
+      if (!showRefreshButton || isRefreshPending || isRefreshing) {
         return;
       }
 
@@ -46,11 +50,13 @@ export function RefreshableTabsTab({
       event.stopPropagation();
 
       setIsRefreshPending(true);
+      // Prefer awaiting the caller's thenable so hover Refresh keeps spinning
+      // until the Query refetch finishes (not just until a voided call returns).
       Promise.resolve(onRefresh()).finally(() => {
         setIsRefreshPending(false);
       });
     },
-    [isRefreshPending, onRefresh, showRefreshButton],
+    [isRefreshPending, isRefreshing, onRefresh, showRefreshButton],
   );
 
   const refreshLabel = useMemo(

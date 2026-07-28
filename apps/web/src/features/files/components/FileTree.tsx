@@ -28,6 +28,8 @@ interface FileTreeProps {
   data: FileTreeNode[];
   rootPath: string | null;
   isLoading?: boolean;
+  /** When true, listDir / project tree include dotfiles (matches eye toggle). */
+  showHidden?: boolean;
   onRefresh?: () => Promise<void> | void;
   /**
    * @deprecated Context menu always uses viewport client coords via a
@@ -50,6 +52,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   data,
   rootPath,
   isLoading,
+  showHidden = false,
   onRefresh,
   beforeOpenFile,
   contextId,
@@ -95,29 +98,52 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [lazyItemsMap, setLazyItemsMap] = useState<Map<string, FileTreeItem>>(new Map());
   const rootItemIds = useMemo(() => data.map((node) => node.path), [data]);
 
+  // Keep a sync mirror of every known node. listDir resolves inside async
+  // getChildren *before* React re-renders; headless-tree then calls getItem
+  // for each child in the same turn. Writing here (not only setState) is what
+  // makes expand-after-listDir actually render rows.
   if (knownItemsRef.current.rootPath !== rootPath) {
     knownItemsRef.current = { rootPath, items: new Map() };
   }
   initialItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
   lazyItemsMap.forEach((value, key) => knownItemsRef.current.items.set(key, value));
 
+  const resolveItem = useCallback(
+    (itemId: string): FileTreeItem | undefined => {
+      return (
+        initialItemsMap.get(itemId) ||
+        lazyItemsMap.get(itemId) ||
+        knownItemsRef.current.items.get(itemId)
+      );
+    },
+    [initialItemsMap, lazyItemsMap],
+  );
+
   useEffect(() => {
-    // Reset lazily-loaded entries only when the project root itself
-    // changes. Resetting on every `data` update (e.g. show-hidden toggle
-    // or refresh) would orphan already-expanded deep directories, since
-    // they live exclusively in this map (not in `initialItemsMap`).
+    // Drop lazy listings when root, eye-toggle, or server tree payload changes.
+    // Keep only recursive list_project_files nodes so ignored-dir expands
+    // re-list from disk instead of reusing a blank listDir cache.
     setLazyItemsMap(new Map());
-  }, [rootPath]);
+    knownItemsRef.current = {
+      rootPath,
+      items: new Map(initialItemsMap),
+    };
+  }, [rootPath, showHidden, data]); // eslint-disable-line react-hooks/exhaustive-deps -- initialItemsMap is derived from data
 
   const loadDirectoryChildren = useCallback(async (itemPath: string): Promise<string[]> => {
-    const existingItem = initialItemsMap.get(itemPath) || lazyItemsMap.get(itemPath);
+    const existingItem = resolveItem(itemPath);
     if (!existingItem?.isDir) return [];
 
+    // Prefer authoritative recursive children from list_project_files when present.
+    // Empty/missing children (gitignored dirs, max-depth cutoffs) always re-list from disk.
     if (existingItem.children && existingItem.children.length > 0) {
       return existingItem.children;
     }
 
-    const response = await fsApi.listDir(itemPath, { showHidden: true, dirsOnly: false });
+    const response = await fsApi.listDir(itemPath, {
+      showHidden,
+      dirsOnly: false,
+    });
     const newChildren = response.entries.map((entry) => entry.path);
     const newEntriesMap = new Map<string, FileTreeItem>();
 
@@ -140,20 +166,26 @@ export const FileTree: React.FC<FileTreeProps> = ({
       });
     });
 
+    // Sync write BEFORE returning so getItem(child) in the same async turn
+    // sees real isDir/name instead of a file-like fallback.
+    newEntriesMap.forEach((value, key) => {
+      knownItemsRef.current.items.set(key, value);
+    });
+    const parentUpdate: FileTreeItem = {
+      ...existingItem,
+      children: newChildren,
+    };
+    knownItemsRef.current.items.set(itemPath, parentUpdate);
+
     setLazyItemsMap((prev) => {
       const next = new Map(prev);
       newEntriesMap.forEach((value, key) => next.set(key, value));
-
-      const parent = initialItemsMap.get(itemPath) || next.get(itemPath);
-      if (parent) {
-        next.set(itemPath, { ...parent, children: newChildren });
-      }
-
+      next.set(itemPath, parentUpdate);
       return next;
     });
 
     return newChildren;
-  }, [initialItemsMap, lazyItemsMap]);
+  }, [resolveItem, showHidden]);
 
   const tree = useTree<FileTreeItem>({
     rootItemId: 'root',
@@ -173,17 +205,19 @@ export const FileTree: React.FC<FileTreeProps> = ({
             children: rootItemIds,
           };
         }
-        const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
+        const item = resolveItem(itemId);
         return item || buildFallbackFileTreeItem(itemId, knownItemsRef.current.items);
       },
       getChildren: async (itemId: string): Promise<string[]> => {
         if (itemId === 'root') return rootItemIds;
 
-        const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
+        const item = resolveItem(itemId);
         if (!item) return [];
         if (item.children && item.children.length > 0) return item.children;
         if (item.isDir) {
           try {
+            // Always hit the filesystem for dirs without recursive children
+            // (typically gitignored / hidden roots after the eye toggle).
             return await loadDirectoryChildren(item.path);
           } catch (error) {
             console.error('Failed to load children for', itemId, error);
@@ -199,26 +233,33 @@ export const FileTree: React.FC<FileTreeProps> = ({
   // The async data loader caches children IDs keyed by itemId, so simply
   // updating the `data` prop (e.g. after toggling show-hidden or
   // refreshing) would otherwise keep the UI pinned to the previously
-  // cached tree structure. Re-running the dataLoader closures via
-  // invalidate picks up the latest `data`.
+  // cached tree structure. Re-running the dataLoader via invalidate picks
+  // up the latest `data`.
   //
-  // Only invalidate children IDs — not item data — because the store's
-  // fetch briefly sets `data` to `[]` mid-refresh, during which
-  // `initialItemsMap` is empty and `getItem(path)` would otherwise cache
-  // the fallback `{ name: path, isDir: false }` placeholder for every
-  // item, flattening the tree once real data arrives.
+  // Use optimistic=false so a previously cached empty `[]` (truthy in JS)
+  // is deleted before reload — otherwise expand/refresh stays blank forever.
+  //
+  // Only invalidate children IDs — not item data — because a mid-refresh
+  // empty `data` would otherwise cache file-like fallbacks for every path.
   useEffect(() => {
-    void tree.getRootItem().invalidateChildrenIds(true);
+    if (data.length === 0) return;
+    void tree.getRootItem().invalidateChildrenIds(false);
     for (const item of tree.getItems()) {
       if (item.isFolder()) {
-        void item.invalidateChildrenIds(true);
+        void item.invalidateChildrenIds(false);
       }
     }
   }, [data, tree]);
 
   const handleRefresh = useCallback(async () => {
+    // Drop lazy listings so the next expand re-lists from disk after force refetch.
+    setLazyItemsMap(new Map());
+    knownItemsRef.current = {
+      rootPath,
+      items: new Map(initialItemsMap),
+    };
     await onRefresh?.();
-  }, [onRefresh]);
+  }, [initialItemsMap, onRefresh, rootPath]);
 
   const closePanel = useCallback(() => {
     setPanelState(null);

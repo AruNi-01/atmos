@@ -13,6 +13,7 @@ import {
 } from '@/features/github/hooks/use-github-pr-query';
 import type { PrFile } from '@/features/github/lib/github-query-options';
 import { gitLogQueryOptions } from '@/features/git/lib/git-query-options';
+import { FORCE_REFETCH_OPTIONS } from '@/api/query/force-refetch';
 import { useSessionListQuery } from '@/features/workspace/hooks/use-session-list-query';
 import { sessionListKeys } from '@/features/workspace/store/session-list-snapshot-store';
 
@@ -49,8 +50,9 @@ export function useGithubPRList({
   });
 
   const { refetch, data, isLoading, isFetching } = query;
-  const refresh = useCallback(() => {
-    return refetch();
+  const refresh = useCallback(async () => {
+    // User clicked Refresh → force WS re-request; opening PR tab may use cache.
+    await refetch(FORCE_REFETCH_OPTIONS);
   }, [refetch]);
 
   return {
@@ -308,14 +310,17 @@ export function useGitLog({
     if (hasMore) setPage((p) => p + 1);
   }, [hasMore]);
 
-  const refresh = useCallback(() => {
-    void query.refetch();
-  }, [query]);
+  const refresh = useCallback(async () => {
+    // User clicked Refresh → force WS re-request; opening Commits may use cache.
+    await query.refetch(FORCE_REFETCH_OPTIONS);
+  }, [query.refetch]);
 
   return {
     commits,
     // Session snapshot / Query cache both suppress first-load spinner on hop-back.
     loading: query.isLoading,
+    // Background/manual refetch keeps list painted; expose for refresh affordances.
+    refreshing: query.isFetching && !query.isLoading,
     page,
     hasMore,
     goToPrevPage,
