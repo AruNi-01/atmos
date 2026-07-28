@@ -111,7 +111,8 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
   mkdirSync(join(runtimeRoot, "bin"), { recursive: true });
   rmSync(join(runtimeRoot, "bin", `api${binExt}`), { force: true });
   rmSync(join(runtimeRoot, "bin", `atmos-api${binExt}`), { force: true });
-  cpSync(apiSrc, join(runtimeRoot, "bin", `Atmos Server${binExt}`));
+  rmSync(join(runtimeRoot, "bin", `Atmos Server${binExt}`), { force: true });
+  copyFileSync(apiSrc, join(runtimeRoot, "bin", `Atmos Server${binExt}`));
 
   if (existsSync(webSrc)) {
     rmSync(join(runtimeRoot, "web"), { recursive: true, force: true });
