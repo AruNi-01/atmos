@@ -99,4 +99,4 @@
 | **Phase 4** | Packaging / internal dogfood channel | N6, M8 |
 | **Phase 5 (decision)** | Parity review → optional default-shell switch proposal | not automatic |
 
-Tauri remains production default through Phase 4 unless product explicitly promotes Phase 5.
+**Status (2026-07-28):** Phase 5 product cutover applied — Electron is the production default desktop shell for maintainers and release entry points. Tauri remains buildable for non-regression. Shared data contracts are mandatory (not shell-forked).

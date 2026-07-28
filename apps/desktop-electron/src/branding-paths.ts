@@ -6,14 +6,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * User-visible product name for the Electron shell.
- * Distinct from production Tauri (`Atmos` / com.atmos.desktop) so dual installs
- * and release artifacts never collide (APP-045 M8).
+ * User-visible product name for the production desktop shell.
+ * Users should not need to know the framework (Electron).
  */
-export const APP_PRODUCT_NAME = "Atmos Electron";
+export const APP_PRODUCT_NAME = "Atmos";
 
-/** Reverse-DNS id for the Electron shell only. */
-export const APP_ID = "com.atmos.desktop.electron";
+/** Reverse-DNS id for the production desktop shell (primary). */
+export const APP_ID = "com.atmos.desktop";
 
 export function resolveIconFile(
   fileName: string,

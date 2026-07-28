@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Atmos",
+  "productName": "Atmos (Tauri)",
   "version": "2026.7.27",
-  "identifier": "com.atmos.desktop",
+  "identifier": "com.atmos.desktop.tauri",
   "build": {
     "beforeDevCommand": "bun --filter web dev",
     "beforeBuildCommand": "node ../../scripts/desktop/before-build.mjs",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Atmos",
+        "title": "Atmos (Tauri)",
         "url": "/",
         "width": 1400,
         "height": 900,

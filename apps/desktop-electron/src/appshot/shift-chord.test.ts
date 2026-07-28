@@ -51,6 +51,13 @@ describe("observeShiftChordFromSamples (polling)", () => {
     ).toBe(false);
   });
 
+  it("triggers when both shifts rise in the same poll sample", () => {
+    const state = createShiftChordState();
+    expect(
+      observeShiftChordFromSamples(state, true, true, false, false),
+    ).toBe(true);
+  });
+
   it("rearms after full release", () => {
     const state = createShiftChordState();
     observeShiftChordFromSamples(state, true, false, false, false);

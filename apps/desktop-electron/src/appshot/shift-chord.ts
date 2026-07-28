@@ -1,6 +1,7 @@
 /**
  * Dual-shift chord detector (Left Shift + Right Shift).
- * Ported from apps/desktop/src-tauri/src/appshot/macos/trigger.rs ShiftChordState.
+ * Ported from apps/desktop/src-tauri/src/appshot/macos/trigger.rs ShiftChordState,
+ * with polling-friendly same-tick dual rising-edge support.
  */
 
 export type ShiftSide = "left" | "right";
@@ -21,8 +22,6 @@ export function createShiftChordState(): ShiftChordState {
 
 /**
  * Observe a shift-side sample.
- * @param side Physical shift key that changed or is part of the chord
- * @param shiftActive Whether any shift modifier is currently down
  * @returns true when the second side is pressed while the other side is held
  */
 export function observeShiftChord(
@@ -58,6 +57,9 @@ export function resetShiftChord(state: ShiftChordState): void {
 /**
  * Edge-driven update from absolute left/right key-down samples (polling).
  * Returns true on the frame where the second shift becomes down.
+ *
+ * Handles both sequential presses and same-sample dual rising edges
+ * (both shifts go down between two 30ms polls).
  */
 export function observeShiftChordFromSamples(
   state: ShiftChordState,
@@ -72,17 +74,19 @@ export function observeShiftChordFromSamples(
     return false;
   }
 
-  // Rising edges only — matches FlagsChanged side detection.
-  if (leftDown && !prevLeft) {
+  const leftRise = leftDown && !prevLeft;
+  const rightRise = rightDown && !prevRight;
+
+  // Same poll window: both rose → first establish one side, then the other triggers.
+  if (leftRise && rightRise) {
+    observeShiftChord(state, "left", true);
+    return observeShiftChord(state, "right", true);
+  }
+  if (leftRise) {
     return observeShiftChord(state, "left", shiftActive);
   }
-  if (rightDown && !prevRight) {
+  if (rightRise) {
     return observeShiftChord(state, "right", shiftActive);
-  }
-
-  // Held without new side press: keep chord state but do not re-trigger.
-  if (!leftDown && !rightDown) {
-    resetShiftChord(state);
   }
   return false;
 }

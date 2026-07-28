@@ -17,6 +17,13 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+  createGatewaySession,
+  GATEWAY_URL,
+  LocalGateway,
+  statusFieldsForSession,
+  type GatewaySession,
+} from "./gateway.js";
 
 export type ProviderKind = "cloudflare" | "ngrok" | "tailscale";
 
@@ -72,6 +79,7 @@ type ActiveTunnel = {
   exited: boolean;
   /** True when exit/error should surface as Error rather than Idle. */
   exitError: boolean;
+  session: GatewaySession;
 };
 
 function which(bin: string): string | null {
@@ -146,6 +154,7 @@ function waitForChildExit(
 
 export class TunnelService {
   private active = new Map<ProviderKind, ActiveTunnel>();
+  private gateway: LocalGateway | null = null;
 
   private buildStatus(a: ActiveTunnel): TunnelConnectorStatus {
     const publicUrl = a.publicUrl ?? null;
@@ -153,10 +162,11 @@ export class TunnelService {
     if (a.exited) {
       state = a.exitError ? "Error" : "Idle";
     }
+    const fields = statusFieldsForSession(a.session, publicUrl);
     return {
-      gateway_url: null,
+      gateway_url: fields.gateway_url,
       public_url: publicUrl,
-      share_url: publicUrl,
+      share_url: fields.share_url ?? publicUrl,
       provider: a.provider,
       provider_status: {
         state,
@@ -164,9 +174,24 @@ export class TunnelService {
         message: a.message,
         started_at: a.startedAt,
       },
-      entry_token: null,
-      expires_at: null,
+      entry_token: fields.entry_token,
+      expires_at: fields.expires_at,
     };
+  }
+
+  private async ensureGateway(targetBaseUrl: string): Promise<LocalGateway> {
+    if (this.gateway) return this.gateway;
+    const gw = new LocalGateway(targetBaseUrl);
+    await gw.start();
+    this.gateway = gw;
+    return gw;
+  }
+
+  private async maybeStopGateway(): Promise<void> {
+    if (this.active.size > 0) return;
+    if (!this.gateway) return;
+    await this.gateway.stop();
+    this.gateway = null;
   }
 
   /** Wire error/exit so status reflects dead processes instead of forever Running. */
@@ -210,6 +235,7 @@ export class TunnelService {
       mode: string;
       startedAt: string;
       message: string | null;
+      session: GatewaySession;
     },
   ): ActiveTunnel {
     const entry: ActiveTunnel = {
@@ -222,6 +248,7 @@ export class TunnelService {
       message: fields.message,
       exited: false,
       exitError: false,
+      session: fields.session,
     };
     this.wireChildLifecycle(entry);
     this.active.set(provider, entry);
@@ -272,11 +299,20 @@ export class TunnelService {
     provider: ProviderKind,
     mode: string,
     targetBaseUrl: string,
-    _ttlSecs: number,
+    ttlSecs: number = 3600,
   ): Promise<TunnelConnectorStatus> {
     await this.stop(provider);
 
     const startedAt = new Date().toISOString();
+    const session = createGatewaySession({
+      provider,
+      mode,
+      ttlSecs: ttlSecs || 3600,
+    });
+    // Tunnel CLIs point at the shared gateway (Tauri GATEWAY_URL parity).
+    const gateway = await this.ensureGateway(targetBaseUrl);
+    gateway.registerSession(session);
+    const tunnelTarget = GATEWAY_URL;
 
     if (provider === "cloudflare") {
       const bin = which("cloudflared");
@@ -284,7 +320,7 @@ export class TunnelService {
       let publicUrl: string | null = null;
       const child = spawn(
         bin,
-        ["tunnel", "--url", targetBaseUrl, "--no-autoupdate"],
+        ["tunnel", "--url", tunnelTarget, "--no-autoupdate"],
         { stdio: ["ignore", "pipe", "pipe"] },
       );
       const onData = (buf: Buffer) => {
@@ -300,19 +336,27 @@ export class TunnelService {
         mode,
         startedAt,
         message: null,
+        session,
       });
       for (let i = 0; i < 40; i++) {
         await sleep(250);
         const entry = this.active.get(provider);
         if (!entry || entry.exited) break;
-        if (entry) entry.publicUrl = publicUrl;
+        if (entry) {
+          entry.publicUrl = publicUrl;
+          if (publicUrl) gateway.setPublicUrl(session.entryToken, publicUrl);
+        }
         if (publicUrl) break;
       }
       const entry = this.active.get(provider);
       if (!entry) {
+        gateway.revokeSession(session.entryToken);
+        await this.maybeStopGateway();
         throw new Error("cloudflared tunnel failed to start");
       }
       if (entry.exited && entry.exitError) {
+        gateway.revokeSession(session.entryToken);
+        await this.maybeStopGateway();
         throw new Error(entry.message ?? "cloudflared tunnel failed");
       }
       if (!publicUrl) entry.message = "waiting for public URL";
@@ -337,7 +381,7 @@ export class TunnelService {
           /* ignore */
         }
       }
-      const u = new URL(targetBaseUrl);
+      const u = new URL(tunnelTarget);
       let publicUrl: string | null = null;
       const child = spawn(bin, ["http", u.host, "--log=stdout"], {
         stdio: ["ignore", "pipe", "pipe"],
@@ -358,19 +402,27 @@ export class TunnelService {
         mode,
         startedAt,
         message: null,
+        session,
       });
       for (let i = 0; i < 40; i++) {
         await sleep(250);
         const entry = this.active.get(provider);
         if (!entry || entry.exited) break;
-        if (entry) entry.publicUrl = publicUrl;
+        if (entry) {
+          entry.publicUrl = publicUrl;
+          if (publicUrl) gateway.setPublicUrl(session.entryToken, publicUrl);
+        }
         if (publicUrl) break;
       }
       const entry = this.active.get(provider);
       if (!entry) {
+        gateway.revokeSession(session.entryToken);
+        await this.maybeStopGateway();
         throw new Error("ngrok tunnel failed to start");
       }
       if (entry.exited && entry.exitError) {
+        gateway.revokeSession(session.entryToken);
+        await this.maybeStopGateway();
         throw new Error(entry.message ?? "ngrok tunnel failed");
       }
       this.persist();
@@ -379,7 +431,8 @@ export class TunnelService {
 
     const bin = which("tailscale");
     if (!bin) throw new Error("tailscale not found on PATH");
-    const u = new URL(targetBaseUrl);
+    // Tailscale serve can target gateway host for share-tokenized access.
+    const u = new URL(tunnelTarget);
     const child = spawn(
       bin,
       ["serve", "--bg", `${u.protocol}//${u.host}`],
@@ -391,6 +444,7 @@ export class TunnelService {
       mode,
       startedAt,
       message: null,
+      session,
     });
     this.persist();
     return this.buildStatus(entry);
@@ -443,14 +497,28 @@ export class TunnelService {
         throw new Error(error);
       }
     }
+    try {
+      this.gateway?.revokeSession(a.session.entryToken);
+    } catch {
+      /* ignore */
+    }
     this.active.delete(provider);
+    await this.maybeStopGateway();
     this.persist();
   }
 
   /** Stop every active provider (used on app quit). */
   async stopAll(): Promise<void> {
     for (const provider of [...this.active.keys()]) {
-      await this.stop(provider);
+      try {
+        await this.stop(provider);
+      } catch {
+        /* continue other providers */
+      }
+    }
+    if (this.gateway) {
+      await this.gateway.stop();
+      this.gateway = null;
     }
   }
 

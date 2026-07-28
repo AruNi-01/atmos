@@ -1,5 +1,5 @@
 /**
- * Dogfood entry: prepare shared runtime if needed, then launch Electron.
+ * Production desktop dev entry: prepare shared runtime if needed, then launch Electron.
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";

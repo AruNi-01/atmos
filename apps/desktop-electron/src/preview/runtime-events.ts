@@ -5,6 +5,40 @@
 
 export type PreviewRuntimePayload = Record<string, unknown>;
 
+/**
+ * Decide whether a Chromium window-open (target=_blank / window.open) should
+ * become a product browser tab. Returns null for non-http(s) or empty URLs.
+ */
+export function openTabTargetFromWindowOpenUrl(
+  rawUrl: string | null | undefined,
+): string | null {
+  const trimmed = (rawUrl ?? "").trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+/** Build the desktop-preview:open-tab payload shape the web UI expects. */
+export function buildOpenTabEventPayload(opts: {
+  sessionId: string;
+  pageUrl: string;
+  targetUrl: string;
+}): PreviewRuntimePayload {
+  return {
+    type: "atmos-preview:open-tab",
+    sessionId: opts.sessionId,
+    pageUrl: opts.pageUrl,
+    targetUrl: opts.targetUrl,
+  };
+}
+
 export function remapRuntimeEventName(eventType: string): string | null {
   switch (eventType) {
     case "atmos-preview:ready":

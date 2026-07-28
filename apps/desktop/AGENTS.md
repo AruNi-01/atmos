@@ -1,78 +1,44 @@
-# Desktop Application - AGENTS.md
+# Desktop Application (Tauri) — **DEPRECATED**
 
-> **🖥️ Tauri Frontend**: Cross-platform desktop wrapper for the ATMOS ecosystem.
+> ⚠️ **DEPRECATED. Do not implement features or ship from this package.**  
+> **All desktop product work goes to** [`apps/desktop-electron`](../desktop-electron/AGENTS.md).  
+> Commands: `just dev-desktop` · `just build-desktop` · `just release-desktop` · `/atmos-desktop-release`
 
----
+## Rule for agents and humans
 
-## Build And Test
+| Do | Don't |
+|----|--------|
+| Edit **`apps/desktop-electron/**`** for any desktop shell change | Edit `apps/desktop/**` for new features, fixes, or UX |
+| Release via `just release-desktop` / `/atmos-desktop-release` | Cut Tauri `desktop-*` production releases |
+| Point docs/commands at production desktop | Treat this tree as the default desktop |
 
-- **Dev**: `just dev-desktop` — `prepare-sidecar.sh` (rebuilds web static + Atmos Server) then `tauri dev --no-dev-server-wait --no-watch` (no `dev-web` required)
-- **Build**: `just build-desktop`
-- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (builds latest `apps/web/out`, Atmos Server, lays out `binaries/runtime/current`)
-- **Faster re-run** (Rust-only): `ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop`
----
+This tree (`apps/desktop` + Tauri) is **read-mostly**: emergency/local reference only. Production product identity is **Atmos** / `com.atmos.desktop` under `apps/desktop-electron`.
 
+- Secondary identity (if you must open this shell): `com.atmos.desktop.tauri` / `Atmos (Tauri)`
+- **No production release** from this package (`release-desktop.yml` is deprecated)
 
-## Local Atmos Server Runtime (unified with CLI / local-web)
+## Local only (discouraged)
 
-Desktop **does not** spawn a dedicated Tauri sidecar with a per-launch `ATMOS_LOCAL_TOKEN`.
-
-On startup, `src-tauri/src/runtime.rs` calls `runtime-manager::supervisor::ensure_running` against the bundled layout:
-
-```text
-apps/desktop/src-tauri/binaries/runtime/current/
-  bin/Atmos Server
-  web/              # static export loaded by the Tauri app protocol
-  system-skills/
+```bash
+just dev-desktop-tauri    # deprecation warning
+just build-desktop-tauri  # deprecation warning
 ```
 
-- Discovery: `~/.atmos/runtime_manifest.json` (written by Atmos Server; **no auth token** in the manifest).
-- Data dir: `ATMOS_DATA_DIR` → Tauri app data directory.
-- **Quit also stops Atmos Server** — `RunEvent::Exit` in `src-tauri/src/main.rs` calls `runtime_manager::supervisor::stop_running(false)`. Desktop owns the runtime lifecycle for end users; closing the app should not leave a loopback server listening in the background. CLI / local-web-runtime can independently re-`ensure` it later.
+Prefer:
 
-`get_api_config` returns `{ host: "127.0.0.1", port }` only. The main WebView stays on the Tauri app protocol; Atmos Server access goes through loopback fetch/WebSocket calls. Web reads it via `apps/web/src/shared/lib/desktop-runtime.ts`.
-
----
-
-## 📁 Directory Structure
-
-```
-apps/desktop/
-├── src/
-│   ├── components/           # React UI components
-│   ├── hooks/                # Custom React hooks
-│   ├── pages/                # Page components
-│   ├── styles/               # Component styles
-│   └── types/                # TypeScript definitions
-├── src-tauri/                # Rust-based native layer
-│   ├── src/
-│   │   ├── runtime.rs        # ensure shared local Atmos Server (runtime-manager)
-│   │   └── commands.rs       # Hand-written Rust commands (JS ↔ Rust bridge)
-│   ├── tauri.conf.json       # Tauri configuration
-│   └── tauri.debug.conf.json # Debug configuration
-└── package.json
+```bash
+just dev-desktop
+just build-desktop
+just release-desktop <version>
 ```
 
----
+## Runtime note
 
-## Coding Conventions
+Sidecar layout under `apps/desktop/src-tauri/binaries/runtime/current/` is still the **shared** prepare-sidecar output consumed by production packaging. Do not delete that path without updating `apps/desktop-electron` prepare/package scripts. **Do not** put product logic back into Tauri `src-tauri` for ship.
 
-### Native Bridges
-- Use `commands.ts` (auto-generated) for calling Rust logic from React
-- Hand-written Rust commands live in `src-tauri/src/commands.rs`
+## NEVER
 
-### State Management
-- Manage native app state in `src-tauri/src/state.rs`
-
----
-
-## Safety Rails
-
-### NEVER
-- Modify Tauri configuration without understanding desktop-specific constraints
-- Assume desktop has same network behavior as web — handle offline/local scenarios
-- Re-introduce a Desktop-only API token or kill the shared API on app exit without an explicit product decision
-
-### ALWAYS
-- Run `prepare-sidecar.sh` before dev/build (creates `binaries/runtime/current`)
-- Test native commands work correctly before integrating with React
+- Implement desktop features here instead of `apps/desktop-electron`
+- Advertise this shell as the product desktop
+- Run Tauri release automation for production ship
+- Point production updater feeds at this package

@@ -1,14 +1,13 @@
-# Atmos Desktop Electron 2026.7.27-beta.1
+# Atmos Desktop 2026.7.27-beta.1
 
-Experimental Chromium shell (APP-045). **Production default remains Tauri** (`desktop-*` releases).
+Atmos desktop release `2026.7.27-beta.1` (tag `desktop-electron-2026.7.27-beta.1`).
 
 ## Highlights
 
-- Packaged Electron shell with bundled Atmos Server runtime
-- Separate release identity: tag `desktop-electron-2026.7.27-beta.1`, app id `com.atmos.desktop.electron`
+- Packaged desktop app with bundled Atmos Server runtime
+- Shared on-disk contracts: AppShot `~/.atmos/appshots`, Server data `~/.atmos/desktop`, tunnel gateway + entry_token
+- App identity: `com.atmos.desktop`
 
 ## Install
 
 Download the platform artifact from this GitHub Release (DMG / NSIS / AppImage).
-
-Do **not** use this channel to replace Tauri auto-update until Phase 5 product sign-off.

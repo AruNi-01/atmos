@@ -1,6 +1,6 @@
 # AI Agent Guide
 
-> **⏱ 60-Second Architecture Overview**: Multi-layered monorepo with Rust backend (infra/engine/service layers), Next.js/Tauri frontend, and Expo mobile app.
+> **⏱ 60-Second Architecture Overview**: Multi-layered monorepo with Rust backend (infra/engine/service layers), Next.js + **desktop (Electron, product name Atmos)** / deprecated Tauri under `apps/desktop`, and Expo mobile app.
 
 ---
 
@@ -24,7 +24,8 @@
 | **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
-| **Desktop** (Tauri + shared local API) | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
+| **Desktop (production — all shell work)** | [apps/desktop-electron/AGENTS.md](apps/desktop-electron/AGENTS.md) |
+| **Desktop Tauri (DEPRECATED — do not change for product)** | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
 | **Mobile** (Expo / React Native) | [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
@@ -58,7 +59,8 @@ atmos/
 ├── apps/                      # 🚀 Applications
 │   ├── api/                   # Rust/Axum API Entry
 │   ├── web/                   # Next.js Web Application
-│   ├── desktop/               # Tauri Desktop App
+│   ├── desktop-electron/      # Production desktop (Atmos) — ALL desktop changes go here
+│   ├── desktop/               # DEPRECATED Tauri — do not implement features or ship
 │   ├── mobile/                # Expo / React Native Mobile App
 │   ├── cli/                   # Rust CLI (atmos)
 │   ├── docs/                  # Documentation Site
@@ -170,7 +172,9 @@ bun install             # Install frontend dependencies
 just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
 just dev-mobile         # Start Expo mobile dev server
-just dev-desktop        # Desktop (rebuilds web static + prepare-sidecar + tauri dev --no-watch)
+just dev-desktop        # Production desktop (Atmos) → apps/desktop-electron
+just release-desktop    # Production desktop release (/atmos-desktop-release)
+# apps/desktop (Tauri) is DEPRECATED — do not put product work there
 just typecheck          # Native TypeScript 7 typecheck (QUALITY-005)
 just typecheck-bench    # Typecheck wall time vs QUALITY-005 baseline
 just test               # Run all tests

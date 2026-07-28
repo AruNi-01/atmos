@@ -4,12 +4,12 @@
 
 ## Scope summary
 
-This document defines a **dual-shell architecture**:
+This document defines a **dual-shell architecture** (historical design + current cutover):
 
-- **Tauri shell** remains at `apps/desktop` (production default).
-- **Electron shell** is added at `apps/desktop-electron` (experimental / dogfood).
-- **Shared**: `apps/web` desktop static export, Atmos Server runtime bundle, and a **Desktop Bridge protocol**.
-- **Not in scope for first implementation PR**: deleting Tauri, flipping public release default, CEF-in-Tauri, Node rewrite of Atmos Server.
+- **Electron shell** at `apps/desktop-electron` is the **production default** desktop (`just dev-desktop` / `build-desktop` / `release-desktop`).
+- **Tauri shell** remains at `apps/desktop` as a **legacy non-regression** path (`just dev-desktop-tauri` / `release-desktop-tauri`).
+- **Shared**: `apps/web` desktop static export, Atmos Server runtime bundle, Desktop Bridge protocol, and on-disk contracts (`~/.atmos/appshots`, `~/.atmos/desktop`, tunnel gateway).
+- **Not in scope**: deleting Tauri immediately, CEF-in-Tauri, Node rewrite of Atmos Server.
 
 **Clarification (M9):** Keeping Rust does **not** mean keeping Tauri. Electron must not load Tauri. Rust continues as:
 
@@ -32,7 +32,7 @@ There is **one UI engine per running shell** (WKWebView under Tauri on macOS, Ch
       │ apps/desktop        │              │ apps/desktop-electron   │
       │ Tauri 2 + wry       │              │ Electron main/preload   │
       │ adapter: tauri      │              │ adapter: electron IPC   │
-      │ (production)        │              │ (experimental)          │
+      │ (legacy)            │              │ (production default)    │
       └──────────┬──────────┘              └────────────┬────────────┘
                  │                                      │
                  └──────────────────┬───────────────────┘

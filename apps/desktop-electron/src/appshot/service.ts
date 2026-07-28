@@ -1,42 +1,44 @@
 /**
- * AppShot for Electron — DTOs match apps/web Appshot* types / Tauri serde shapes.
- *
- * Layout (aligned with Tauri records):
- *   ~/.atmos/appshot/records/<timestamp>/
- *     snapshot.png
- *     context.txt
- *     metadata.json
+ * AppShot for Electron — production contracts match Tauri APP-021:
+ *   ~/.atmos/appshots/records/<13-digit-ts>/{snapshot.png,context.md,metadata.json}
+ *   protocol: atmos://appshots/{ts}
+ *   pending preview + auto-accept hold/resume
+ *   non-interactive frontmost-window capture
  */
 
-import { execFile } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
   statSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import type { AppState } from "../app-state.js";
 import { APP_PRODUCT_NAME } from "../branding-paths.js";
-
-const execFileAsync = promisify(execFile);
-
-function appshotRoot(): string {
-  return join(homedir(), ".atmos", "appshot");
-}
-
-function recordsRoot(): string {
-  return join(appshotRoot(), "records");
-}
-
-function recordDir(timestamp: string): string {
-  return join(recordsRoot(), timestamp);
-}
+import { captureFrontmostWindow } from "./frontmost.js";
+import { mainLog } from "../main-log.js";
+import {
+  CONTEXT_FILE,
+  METADATA_FILE,
+  recordDir as recordDirPath,
+  recordsRoot,
+  SNAPSHOT_FILE,
+  tmpRoot,
+} from "./paths.js";
+import {
+  globalPendingStore,
+  type PendingCapture,
+  PREVIEW_EXPIRES_IN_MS,
+} from "./pending.js";
+import {
+  allocateTimestamp,
+  formatProtocolPrompt,
+  isValidTimestamp,
+} from "./protocol.js";
 
 export type AppshotPermissionState = {
   name: "accessibility" | "screen_recording";
@@ -62,6 +64,8 @@ export type AppshotStatus = {
     enabled: boolean;
     required_modifiers: string[];
     last_error: string | null;
+    /** Present on Electron for diagnostics: event-tap | none */
+    backend?: string | null;
     permissions: AppshotPermissionState[];
   };
   permissions: AppshotPermissionState[];
@@ -74,31 +78,33 @@ export type AppshotRecordListItem = {
 
 export type AppshotRecordDetail = {
   timestamp: string;
-  metadata: {
-    timestamp: string;
-    captured_at: string;
-    platform: "macos" | "windows" | "linux" | "unknown";
-    app_name: string;
-    bundle_id: string | null;
-    process_id: number | null;
-    window_title: string | null;
-    window_id: string | null;
-    quality: string;
-    record_dir: string;
-    snapshot_path: string;
-    context_path: string;
-    metadata_path: string;
-    screenshot: {
-      available: boolean;
-      width: number | null;
-      height: number | null;
-      media_type: string;
-    };
-    warnings: string[];
-    context_bytes: number;
-  };
+  metadata: AppshotRecordMetadata;
   context_preview: string;
   snapshot_url: string | null;
+};
+
+export type AppshotRecordMetadata = {
+  timestamp: string;
+  captured_at: string;
+  platform: "macos" | "windows" | "linux" | "unknown";
+  app_name: string;
+  bundle_id: string | null;
+  process_id: number | null;
+  window_title: string | null;
+  window_id: string | null;
+  quality: string;
+  record_dir: string;
+  snapshot_path: string;
+  context_path: string;
+  metadata_path: string;
+  screenshot: {
+    available: boolean;
+    width: number | null;
+    height: number | null;
+    media_type: string;
+  };
+  warnings: string[];
+  context_bytes: number;
 };
 
 /** Same contract as Tauri `data_url_for_png` — http UI cannot load file:// images. */
@@ -137,7 +143,7 @@ export function buildMacosPermissions(flags: {
       name: "accessibility",
       display_name: "Accessibility",
       granted: flags.accessibility,
-      required_for: ["accessibility_tree"],
+      required_for: ["accessibility_tree", "global_trigger"],
       target: "accessibility",
       manual_steps: [
         "System Settings → Privacy & Security → Accessibility",
@@ -212,11 +218,8 @@ async function macosPermissions(): Promise<AppshotPermissionState[]> {
 
 /**
  * Report live status and (re)arm the dual-shift listener when Accessibility is on.
- * Pass AppState so the gesture can invoke capture; without it, status is read-only.
  */
-export async function appshotStatus(
-  state?: AppState,
-): Promise<AppshotStatus> {
+export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
   if (process.platform !== "darwin") {
     return {
       supported: false,
@@ -242,11 +245,18 @@ export async function appshotStatus(
     const { ensureTriggerListener, triggerListenerStatus } = await import(
       "./trigger.js"
     );
+    // In-process CGEventTap FlagsChanged (Tauri parity). Always (re)arm so a
+    // false TCC reading cannot leave the shortcut dead.
     await ensureTriggerListener(state, triggerCapture, flags.accessibility);
     const listener = triggerListenerStatus();
-    triggerEnabled = listener.enabled;
+    triggerEnabled = listener.enabled || listener.starting;
     triggerLastError = listener.lastError;
   }
+
+  const backend =
+    state != null
+      ? (await import("./trigger.js")).triggerListenerStatus().mode
+      : null;
 
   return {
     supported: true,
@@ -257,6 +267,7 @@ export async function appshotStatus(
       enabled: triggerEnabled,
       required_modifiers: ["left_shift", "right_shift"],
       last_error: triggerLastError,
+      backend,
       permissions,
     },
     permissions,
@@ -268,70 +279,88 @@ export async function listRecords(): Promise<AppshotRecordListItem[]> {
   if (!existsSync(root)) return [];
   const items: AppshotRecordListItem[] = [];
   for (const name of readdirSync(root)) {
+    if (!isValidTimestamp(name)) continue;
     const dir = join(root, name);
     try {
       if (!statSync(dir).isDirectory()) continue;
     } catch {
       continue;
     }
-    // Accept either dir layout or legacy flat json
-    const meta = join(dir, "metadata.json");
-    const legacy = join(root, `${name}.json`);
-    if (existsSync(meta) || existsSync(join(dir, "snapshot.png"))) {
-      items.push({ timestamp: name, record_dir: dir });
-    } else if (existsSync(legacy)) {
-      items.push({ timestamp: name.replace(/\.json$/, ""), record_dir: root });
-    }
-  }
-  // also scan legacy flat files
-  for (const name of readdirSync(root)) {
-    if (!name.endsWith(".json")) continue;
-    const ts = name.replace(/\.json$/, "");
-    if (items.some((i) => i.timestamp === ts)) continue;
-    items.push({
-      timestamp: ts,
-      record_dir: root,
-    });
+    items.push({ timestamp: name, record_dir: dir });
   }
   items.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   return items;
 }
 
-function buildMetadata(
+function buildMetadataFromCapture(
   timestamp: string,
   dir: string,
-  opts: { title?: string; capturedAt?: string; contextBytes?: number } = {},
-) {
-  const snapshotPath = join(dir, "snapshot.png");
-  const contextPath = join(dir, "context.txt");
-  const metadataPath = join(dir, "metadata.json");
-  const available = existsSync(snapshotPath);
+  capture: PendingCapture,
+): AppshotRecordMetadata {
+  const snapshotPath = join(dir, SNAPSHOT_FILE);
+  const contextPath = join(dir, CONTEXT_FILE);
+  const metadataPath = join(dir, METADATA_FILE);
+  const available =
+    capture.screenshotPng != null && capture.screenshotPng.length > 0;
   return {
     timestamp,
-    captured_at: opts.capturedAt ?? new Date().toISOString(),
-    platform: "macos" as const,
-    app_name: "Atmos",
-    bundle_id: null,
-    process_id: null,
-    window_title: opts.title ?? "Screenshot",
-    window_id: null,
-    quality: "screenshot_only",
+    captured_at: capture.capturedAt,
+    platform: capture.platform,
+    app_name: capture.appName,
+    bundle_id: capture.bundleId,
+    process_id: capture.processId,
+    window_title: capture.windowTitle,
+    window_id: capture.windowId,
+    quality: capture.quality,
     record_dir: dir,
     snapshot_path: snapshotPath,
     context_path: contextPath,
     metadata_path: metadataPath,
     screenshot: {
       available,
-      width: null as number | null,
-      height: null as number | null,
+      width: capture.sourceBounds?.width ?? null,
+      height: capture.sourceBounds?.height ?? null,
       media_type: "image/png",
     },
-    warnings: [
-      "electron_screencapture_backend",
-      "accessibility_tree_not_available_on_electron",
-    ],
-    context_bytes: opts.contextBytes ?? 0,
+    warnings: capture.warnings,
+    context_bytes: Buffer.byteLength(capture.contextMarkdown),
   };
+}
+
+export function writeRecordFromCapture(capture: PendingCapture): {
+  timestamp: string;
+  record_dir: string;
+  protocol_text: string;
+  metadata: AppshotRecordMetadata;
+} {
+  const root = recordsRoot();
+  const tmp = tmpRoot();
+  mkdirSync(root, { recursive: true });
+  mkdirSync(tmp, { recursive: true });
+  const timestamp = allocateTimestamp(root, existsSync, Date.now(), join);
+  const tmpDir = join(tmp, timestamp);
+  if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+  mkdirSync(tmpDir, { recursive: true });
+
+  const png = capture.screenshotPng ?? MINIMAL_PNG_BYTES;
+  writeFileSync(join(tmpDir, SNAPSHOT_FILE), png);
+  writeFileSync(join(tmpDir, CONTEXT_FILE), capture.contextMarkdown, "utf8");
+
+  const finalDir = join(root, timestamp);
+  const metadata = buildMetadataFromCapture(timestamp, finalDir, capture);
+  writeFileSync(
+    join(tmpDir, METADATA_FILE),
+    JSON.stringify(metadata, null, 2),
+    "utf8",
+  );
+
+  if (existsSync(finalDir)) {
+    rmSync(tmpDir, { recursive: true, force: true });
+    throw new Error(`appshot record already exists: ${timestamp}`);
+  }
+  renameSync(tmpDir, finalDir);
+  const protocol_text = formatProtocolPrompt(timestamp);
+  return { timestamp, record_dir: finalDir, protocol_text, metadata };
 }
 
 export async function readRecords(
@@ -339,38 +368,29 @@ export async function readRecords(
 ): Promise<AppshotRecordDetail[]> {
   const out: AppshotRecordDetail[] = [];
   for (const ts of timestamps) {
-    const dir = recordDir(ts);
-    const metaPath = join(dir, "metadata.json");
-    let metadata;
-    if (existsSync(metaPath)) {
-      metadata = JSON.parse(readFileSync(metaPath, "utf8")) as AppshotRecordDetail["metadata"];
-    } else if (existsSync(join(recordsRoot(), `${ts}.json`))) {
-      // legacy flat
-      const legacy = JSON.parse(
-        readFileSync(join(recordsRoot(), `${ts}.json`), "utf8"),
-      ) as { timestamp?: string; title?: string; image_path?: string };
-      metadata = buildMetadata(ts, recordsRoot(), {
-        title: legacy.title,
-      });
-      if (legacy.image_path) {
-        metadata.snapshot_path = legacy.image_path;
-        metadata.screenshot.available = existsSync(legacy.image_path);
-      }
-    } else {
+    if (!isValidTimestamp(ts)) continue;
+    const dir = recordDirPath(ts);
+    const metaPath = join(dir, METADATA_FILE);
+    if (!existsSync(metaPath)) continue;
+    let metadata: AppshotRecordMetadata;
+    try {
+      metadata = JSON.parse(
+        readFileSync(metaPath, "utf8"),
+      ) as AppshotRecordMetadata;
+    } catch {
       continue;
     }
     let contextPreview = "";
     try {
-      if (existsSync(metadata.context_path)) {
-        contextPreview = readFileSync(metadata.context_path, "utf8").slice(
-          0,
-          2000,
-        );
+      const ctxPath = metadata.context_path || join(dir, CONTEXT_FILE);
+      if (existsSync(ctxPath)) {
+        contextPreview = readFileSync(ctxPath, "utf8").slice(0, 2000);
       }
     } catch {
       /* ignore */
     }
-    const snapshotUrl = dataUrlForPngFile(metadata.snapshot_path);
+    const snapPath = metadata.snapshot_path || join(dir, SNAPSHOT_FILE);
+    const snapshotUrl = dataUrlForPngFile(snapPath);
     out.push({
       timestamp: ts,
       metadata,
@@ -384,100 +404,167 @@ export async function readRecords(
 export async function readSnapshot(
   timestamp: string,
 ): Promise<{ timestamp: string; snapshot_url: string }> {
-  const dir = recordDir(timestamp);
-  const png = join(dir, "snapshot.png");
+  if (!isValidTimestamp(timestamp)) throw new Error("invalid appshot timestamp");
+  const png = join(recordDirPath(timestamp), SNAPSHOT_FILE);
   const fromDir = dataUrlForPngFile(png);
-  if (fromDir) {
-    return { timestamp, snapshot_url: fromDir };
-  }
-  const legacy = join(recordsRoot(), `${timestamp}.png`);
-  const fromLegacy = dataUrlForPngFile(legacy);
-  if (fromLegacy) {
-    return { timestamp, snapshot_url: fromLegacy };
-  }
+  if (fromDir) return { timestamp, snapshot_url: fromDir };
   throw new Error("record not found");
 }
 
 export async function copyRecord(
   timestamp: string,
 ): Promise<{ timestamp: string; protocol_text: string; copied: boolean }> {
-  const details = await readRecords([timestamp]);
-  const detail = details[0];
-  if (!detail) throw new Error("record not found");
-  const protocolText = JSON.stringify(detail.metadata, null, 2);
-  const { clipboard, nativeImage } = await import("electron");
-  if (existsSync(detail.metadata.snapshot_path)) {
-    try {
-      clipboard.writeImage(
-        nativeImage.createFromPath(detail.metadata.snapshot_path),
-      );
-      return { timestamp, protocol_text: protocolText, copied: true };
-    } catch {
-      /* fall through */
-    }
-  }
+  if (!isValidTimestamp(timestamp)) throw new Error("invalid appshot timestamp");
+  const dir = recordDirPath(timestamp);
+  if (!existsSync(dir)) throw new Error("record not found");
+  const protocolText = formatProtocolPrompt(timestamp);
+  const { clipboard } = await import("electron");
   clipboard.writeText(protocolText);
   return { timestamp, protocol_text: protocolText, copied: true };
 }
 
 export async function deleteRecord(timestamp: string): Promise<void> {
-  const dir = recordDir(timestamp);
+  if (!isValidTimestamp(timestamp)) return;
+  const dir = recordDirPath(timestamp);
   if (existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true });
   }
-  const legacyJson = join(recordsRoot(), `${timestamp}.json`);
-  if (existsSync(legacyJson)) rmSync(legacyJson);
-  const legacyPng = join(recordsRoot(), `${timestamp}.png`);
-  if (existsSync(legacyPng)) rmSync(legacyPng);
+}
+
+function previewBase64FromPng(png: Buffer | null): string | null {
+  if (!png || png.length === 0) return null;
+  // Cap inline preview roughly like Tauri thumbnail path — full small PNGs OK.
+  if (png.length > 1_500_000) return null;
+  return png.toString("base64");
 }
 
 export async function triggerCapture(state: AppState): Promise<void> {
   if (process.platform !== "darwin") {
     throw new Error("AppShot capture is only supported on macOS");
   }
-  mkdirSync(recordsRoot(), { recursive: true });
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const dir = recordDir(timestamp);
-  mkdirSync(dir, { recursive: true });
-  const png = join(dir, "snapshot.png");
+
+  // Capture BEFORE activating Atmos so the external frontmost app is still current.
+  const permissions = await macosPermissions();
+  const result = await captureFrontmostWindow();
+  const pngBytes = result.png?.length ?? 0;
+  mainLog(
+    `[appshot-capture] frontmost="${result.frontmost.appName}" title=${JSON.stringify(result.frontmost.windowTitle)} png=${pngBytes} quality=${result.quality} warnings=${result.warnings.join(" | ") || "none"}`,
+  );
+
+  const capturedAt = new Date().toISOString();
+  const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const capture: PendingCapture = {
+    previewId,
+    appName: result.frontmost.appName,
+    windowTitle: result.frontmost.windowTitle,
+    capturedAt,
+    quality: result.quality,
+    screenshotPng: result.png,
+    screenshotPreviewBase64: previewBase64FromPng(result.png),
+    contextMarkdown: result.contextMarkdown,
+    sourceBounds:
+      result.frontmost.x != null &&
+      result.frontmost.y != null &&
+      result.frontmost.width != null &&
+      result.frontmost.height != null
+        ? {
+            x: result.frontmost.x,
+            y: result.frontmost.y,
+            width: result.frontmost.width,
+            height: result.frontmost.height,
+          }
+        : null,
+    permissions,
+    warnings: result.warnings,
+    bundleId: result.frontmost.bundleId,
+    processId: result.frontmost.processId,
+    windowId: result.frontmost.windowId,
+    platform: "macos",
+  };
+
+  const { expiresInMs } = globalPendingStore.insert(capture);
+
+  // Bring Atmos to front for the preview sheet (steal focus from the captured app).
+  const { app } = await import("electron");
   try {
-    await execFileAsync("screencapture", ["-i", "-x", png]);
-  } catch (e) {
-    rmSync(dir, { recursive: true, force: true });
-    throw new Error(
-      `screencapture failed: ${e instanceof Error ? e.message : String(e)}`,
+    if (process.platform === "darwin") {
+      app.focus({ steal: true });
+      app.dock?.show();
+    }
+  } catch {
+    /* ignore */
+  }
+  if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+    mainLog(
+      "[appshot-capture] mainWindow missing — preview event has no target",
+      "error",
     );
+  } else {
+    if (state.mainWindow.isMinimized()) state.mainWindow.restore();
+    state.mainWindow.show();
+    state.mainWindow.moveTop();
+    state.mainWindow.focus();
   }
-  if (!existsSync(png)) {
-    rmSync(dir, { recursive: true, force: true });
-    return;
-  }
-  const context = "Captured via Electron screencapture backend.\n";
-  writeFileSync(join(dir, "context.txt"), context, "utf8");
-  const metadata = buildMetadata(timestamp, dir, {
-    title: "Screenshot",
-    contextBytes: Buffer.byteLength(context),
-  });
-  writeFileSync(join(dir, "metadata.json"), JSON.stringify(metadata, null, 2));
+
   state.mainWindow?.webContents.send("atmos:desktop-event:appshot://preview", {
-    preview_id: timestamp,
-    app_name: "Atmos",
-    window_title: "Screenshot",
-    captured_at: metadata.captured_at,
-    quality: "screenshot_only",
-    screenshot_preview_base64: null,
-    source_bounds: null,
-    permissions: await macosPermissions(),
-    warnings: metadata.warnings,
-    expires_in_ms: 60_000,
+    preview_id: previewId,
+    app_name: capture.appName,
+    window_title: capture.windowTitle ?? "Untitled window",
+    captured_at: capturedAt,
+    quality: capture.quality,
+    screenshot_preview_base64: capture.screenshotPreviewBase64,
+    source_bounds: capture.sourceBounds,
+    permissions,
+    warnings: capture.warnings,
+    expires_in_ms: expiresInMs || PREVIEW_EXPIRES_IN_MS,
   });
+  mainLog(
+    `[appshot-capture] preview sent id=${previewId} app=${capture.appName}`,
+  );
+
+  if (expiresInMs > 0) {
+    spawnAutoAccept(state, previewId);
+  }
+}
+
+function spawnAutoAccept(state: AppState, previewId: string): void {
+  const tick = async () => {
+    for (;;) {
+      const st = globalPendingStore.autoAcceptState(previewId);
+      if (st.kind === "missing") return;
+      if (st.kind === "held") {
+        await sleep(250);
+        continue;
+      }
+      if (st.kind === "wait") {
+        await sleep(Math.min(st.delayMs, 500));
+        continue;
+      }
+      // ready
+      try {
+        await acceptPending(previewId);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!msg.toLowerCase().includes("no longer pending")) {
+          console.error("[desktop-electron] appshot auto-accept failed:", msg);
+          state.mainWindow?.webContents.send(
+            "atmos:desktop-event:appshot://error",
+            msg,
+          );
+        }
+      }
+      return;
+    }
+  };
+  void tick();
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function openPermissions(target: string): Promise<void> {
   if (process.platform !== "darwin") return;
-  // Open the relevant Privacy pane only — do not also call
-  // isTrustedAccessibilityClient(true), which stacks a second
-  // "Open System Settings" system dialog on top of this navigation.
   const urls: Record<string, string> = {
     screen_recording:
       "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
@@ -494,41 +581,93 @@ export async function openPermissions(target: string): Promise<void> {
   await shell.openExternal(url);
 }
 
-export async function acceptPending(
-  previewId: string,
-): Promise<{
+export async function acceptPending(previewId: string): Promise<{
   timestamp: string;
   record_dir: string;
   protocol_text: string;
-  metadata: AppshotRecordDetail["metadata"];
+  metadata: AppshotRecordMetadata;
 }> {
-  const details = await readRecords([previewId]);
-  const detail = details[0];
-  if (!detail) {
-    // Capture may have written already
-    const dir = recordDir(previewId);
-    const meta = buildMetadata(previewId, dir);
+  const entry = globalPendingStore.take(previewId);
+  if (!entry) {
+    // Already saved path: try treat previewId as timestamp if valid
+    if (isValidTimestamp(previewId)) {
+      const details = await readRecords([previewId]);
+      const d = details[0];
+      if (d) {
+        const protocol_text = formatProtocolPrompt(previewId);
+        try {
+          const { clipboard } = await import("electron");
+          clipboard.writeText(protocol_text);
+        } catch {
+          /* tests */
+        }
+        return {
+          timestamp: previewId,
+          record_dir: d.metadata.record_dir,
+          protocol_text,
+          metadata: d.metadata,
+        };
+      }
+    }
+    throw new Error("appshot preview is no longer pending");
+  }
+
+  if (entry.savedTimestamp) {
+    const protocol_text = formatProtocolPrompt(entry.savedTimestamp);
+    try {
+      const { clipboard } = await import("electron");
+      clipboard.writeText(protocol_text);
+    } catch {
+      /* tests */
+    }
+    const details = await readRecords([entry.savedTimestamp]);
+    const d = details[0];
+    if (!d) throw new Error("appshot record not found after save");
     return {
-      timestamp: previewId,
-      record_dir: dir,
-      protocol_text: JSON.stringify(meta, null, 2),
-      metadata: meta,
+      timestamp: entry.savedTimestamp,
+      record_dir: d.metadata.record_dir,
+      protocol_text,
+      metadata: d.metadata,
     };
   }
-  return {
-    timestamp: previewId,
-    record_dir: detail.metadata.record_dir,
-    protocol_text: JSON.stringify(detail.metadata, null, 2),
-    metadata: detail.metadata,
-  };
+
+  try {
+    const written = writeRecordFromCapture(entry.capture);
+    try {
+      const { clipboard } = await import("electron");
+      clipboard.writeText(written.protocol_text);
+    } catch {
+      /* unit tests without electron */
+    }
+    return written;
+  } catch (e) {
+    globalPendingStore.restore(previewId, entry);
+    throw e;
+  }
 }
 
 export async function discardPending(previewId: string): Promise<void> {
-  await deleteRecord(previewId);
+  const entry = globalPendingStore.take(previewId);
+  if (entry?.savedTimestamp) {
+    await deleteRecord(entry.savedTimestamp);
+  }
 }
 
-export async function setPendingAutoAccept(_req: unknown): Promise<void> {
-  /* no-op */
+export async function setPendingAutoAccept(req: unknown): Promise<void> {
+  const r = (req ?? {}) as {
+    preview_id?: string;
+    previewId?: string;
+    held?: boolean;
+    resume_in_ms?: number;
+    resumeInMs?: number;
+  };
+  const previewId = String(r.preview_id ?? r.previewId ?? "");
+  if (!previewId) return;
+  globalPendingStore.setAutoAcceptHold(
+    previewId,
+    Boolean(r.held),
+    r.resume_in_ms ?? r.resumeInMs ?? null,
+  );
 }
 
 /** Test helpers */
@@ -539,20 +678,58 @@ export function appshotRecordsDirForTest(): string {
 export function writeTestRecord(
   timestamp: string,
   title: string,
-  opts: { withPng?: boolean } = {},
+  opts: { withPng?: boolean; appName?: string } = {},
 ): void {
-  const dir = recordDir(timestamp);
-  mkdirSync(dir, { recursive: true });
-  const context = `test ${title}\n`;
-  writeFileSync(join(dir, "context.txt"), context, "utf8");
-  const withPng = opts.withPng !== false;
-  if (withPng) {
-    writeFileSync(join(dir, "snapshot.png"), MINIMAL_PNG_BYTES);
+  if (!isValidTimestamp(timestamp)) {
+    // Allow tests that still use old ids by writing only when valid
+    throw new Error(
+      `writeTestRecord requires 13-digit timestamp, got ${timestamp}`,
+    );
   }
-  const metadata = buildMetadata(timestamp, dir, {
-    title,
-    contextBytes: Buffer.byteLength(context),
-  });
-  metadata.screenshot.available = withPng;
-  writeFileSync(join(dir, "metadata.json"), JSON.stringify(metadata, null, 2));
+  const appName = opts.appName ?? "TestApp";
+  const capture: PendingCapture = {
+    previewId: `test-${timestamp}`,
+    appName,
+    windowTitle: title,
+    capturedAt: new Date().toISOString(),
+    quality: "screenshot_only",
+    screenshotPng: opts.withPng === false ? null : MINIMAL_PNG_BYTES,
+    screenshotPreviewBase64: null,
+    contextMarkdown: `# Appshot Context\n\n- App: ${appName}\n- Window: ${title}\n`,
+    sourceBounds: null,
+    permissions: [],
+    warnings: [],
+    bundleId: null,
+    processId: null,
+    windowId: null,
+    platform: "macos",
+  };
+  // Force timestamp by writing directly
+  const root = recordsRoot();
+  mkdirSync(root, { recursive: true });
+  const dir = join(root, timestamp);
+  mkdirSync(dir, { recursive: true });
+  if (opts.withPng !== false) {
+    writeFileSync(join(dir, SNAPSHOT_FILE), MINIMAL_PNG_BYTES);
+  }
+  writeFileSync(join(dir, CONTEXT_FILE), capture.contextMarkdown, "utf8");
+  const metadata = buildMetadataFromCapture(timestamp, dir, capture);
+  writeFileSync(
+    join(dir, METADATA_FILE),
+    JSON.stringify(metadata, null, 2),
+    "utf8",
+  );
 }
+
+// Re-export path helpers for tests
+export {
+  recordsRoot as appshotRecordsRoot,
+  appshotsRoot,
+  setTestAppshotsRoot,
+} from "./paths.js";
+export {
+  formatProtocolPrompt,
+  isValidTimestamp,
+  allocateTimestamp,
+} from "./protocol.js";
+export { globalPendingStore, PendingStore } from "./pending.js";

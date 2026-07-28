@@ -3,7 +3,7 @@
  * (apps/desktop/src-tauri/binaries/runtime/current — shared artifact location).
  */
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import {
   appendFileSync,
   existsSync,
@@ -132,7 +132,71 @@ export type EnsureResult = {
   runtimeDir: string;
   webDir: string;
   started: boolean;
+  /** PID when this process started the Server (for quit-time stop). */
+  pid: number | null;
 };
+
+/** PID of Server started by this Electron process; null if reused existing. */
+let ownedServerPid: number | null = null;
+
+export function getOwnedServerPid(): number | null {
+  return ownedServerPid;
+}
+
+/**
+ * Stop the Atmos Server only when this Electron process started it.
+ * Safe no-op when Server was reused (another owner) or already gone.
+ */
+export function stopOwnedAtmosServer(): {
+  stopped: boolean;
+  pid: number | null;
+  reason: string;
+} {
+  const pid = ownedServerPid;
+  if (pid == null) {
+    return { stopped: false, pid: null, reason: "not_owned" };
+  }
+  try {
+    process.kill(pid, 0);
+  } catch {
+    ownedServerPid = null;
+    return { stopped: false, pid, reason: "already_dead" };
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch (e) {
+    ownedServerPid = null;
+    return {
+      stopped: false,
+      pid,
+      reason: `sigterm_failed: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+  // Best-effort: if still alive shortly after, SIGKILL (sync sleep via spawn).
+  try {
+    execFileSync("sleep", ["0.4"], { stdio: "ignore" });
+  } catch {
+    /* ignore */
+  }
+  try {
+    process.kill(pid, 0);
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* ignore */
+    }
+    ownedServerPid = null;
+    return { stopped: true, pid, reason: "sigkill" };
+  } catch {
+    ownedServerPid = null;
+    return { stopped: true, pid, reason: "sigterm" };
+  }
+}
+
+/** Test helper */
+export function setOwnedServerPidForTest(pid: number | null): void {
+  ownedServerPid = pid;
+}
 
 export async function ensureAtmosServer(
   options: {
@@ -160,7 +224,8 @@ export async function ensureAtmosServer(
   }
 
   if (await isHealthy(host, port)) {
-    return { host, port, runtimeDir, webDir: web, started: false };
+    ownedServerPid = null;
+    return { host, port, runtimeDir, webDir: web, started: false, pid: null };
   }
 
   const logPath = runtimeLogPath();
@@ -170,8 +235,8 @@ export async function ensureAtmosServer(
     `\n--- desktop-electron ensure ${new Date().toISOString()} ---\n`,
   );
 
-  const dataDir =
-    process.env.ATMOS_DATA_DIR || join(atmosHome(), "desktop-electron");
+  // Shared production data dir (not a shell-forked desktop-electron sandbox).
+  const dataDir = resolveAtmosDataDir();
   mkdirSync(dataDir, { recursive: true });
 
   const pid = await spawnViaShell(
@@ -188,8 +253,9 @@ export async function ensureAtmosServer(
   const attempts = options.healthAttempts ?? 80;
   for (let i = 0; i < attempts; i++) {
     if (await isHealthy(host, port)) {
+      ownedServerPid = pid;
       writeManifest(host, port, pid);
-      return { host, port, runtimeDir, webDir: web, started: true };
+      return { host, port, runtimeDir, webDir: web, started: true, pid };
     }
     await sleep(500);
   }
@@ -197,6 +263,15 @@ export async function ensureAtmosServer(
   throw new Error(
     `Timed out waiting for Atmos Server at http://${host}:${port} (see ${logPath})`,
   );
+}
+
+/**
+ * Production Server user-data directory.
+ * Prefer ATMOS_DATA_DIR; otherwise shared `~/.atmos/desktop` (not desktop-electron).
+ */
+export function resolveAtmosDataDir(home: string = homedir()): string {
+  if (process.env.ATMOS_DATA_DIR) return process.env.ATMOS_DATA_DIR;
+  return join(home, ".atmos", "desktop");
 }
 
 function sleep(ms: number) {
@@ -268,13 +343,11 @@ function spawnViaShell(
 }
 
 export function appDataDir(): string {
-  return (
-    process.env.ATMOS_DATA_DIR || join(atmosHome(), "desktop-electron")
-  );
+  return resolveAtmosDataDir();
 }
 
 export function electronLogPath(): string {
-  return join(atmosHome(), "logs", "desktop-electron.log");
+  return join(atmosHome(), "logs", "desktop.log");
 }
 
 export function readManifestPort(): number | null {

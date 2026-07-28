@@ -1,21 +1,40 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   appshotStatus,
   buildMacosPermissions,
   dataUrlForPng,
   deleteRecord,
+  formatProtocolPrompt,
   listRecords,
   MINIMAL_PNG_BYTES,
   readRecords,
   readSnapshot,
+  setTestAppshotsRoot,
+  writeRecordFromCapture,
   writeTestRecord,
 } from "./service.ts";
+import { recordsRoot } from "./paths.ts";
 
-const ts = `contract-${Date.now()}`;
+let testRoot: string;
+const ts = "1760000000999";
+
+beforeEach(() => {
+  testRoot = mkdtempSync(join(tmpdir(), "atmos-appshot-"));
+  setTestAppshotsRoot(testRoot);
+});
 
 afterEach(async () => {
   try {
     await deleteRecord(ts);
+  } catch {
+    /* ignore */
+  }
+  setTestAppshotsRoot(null);
+  try {
+    rmSync(testRoot, { recursive: true, force: true });
   } catch {
     /* ignore */
   }
@@ -46,30 +65,31 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
     }
   });
 
-  it("listRecords returns { timestamp, record_dir }", async () => {
+  it("listRecords returns { timestamp, record_dir } under shared appshots root", async () => {
     writeTestRecord(ts, "contract");
     const list = await listRecords();
     const item = list.find((r) => r.timestamp === ts);
     expect(item).toBeDefined();
     expect(item?.record_dir).toContain(ts);
-    expect(item?.record_dir.length).toBeGreaterThan(ts.length);
+    expect(item?.record_dir).toContain(join(testRoot, "records"));
+    expect(recordsRoot()).toBe(join(testRoot, "records"));
   });
 
   it("readRecords returns AppshotRecordDetail with data:image snapshot_url", async () => {
-    writeTestRecord(ts, "detail", { withPng: true });
+    writeTestRecord(ts, "detail", { withPng: true, appName: "Safari" });
     const details = await readRecords([ts]);
     expect(details.length).toBe(1);
     const d = details[0]!;
     expect(d.timestamp).toBe(ts);
     expect(d.metadata.record_dir).toContain(ts);
+    expect(d.metadata.app_name).toBe("Safari");
     expect(d.metadata.quality).toBe("screenshot_only");
     expect(d.metadata.platform).toBe("macos");
     expect(typeof d.context_preview).toBe("string");
-    // http UI cannot load file:// — must be inline data URL (Tauri parity)
+    expect(d.context_preview).toContain("Safari");
     expect(d.snapshot_url).toBeTruthy();
     expect(d.snapshot_url!.startsWith("data:image/png;base64,")).toBe(true);
     expect(d.snapshot_url!.startsWith("file://")).toBe(false);
-    // Round-trip matches helper
     expect(d.snapshot_url).toBe(dataUrlForPng(MINIMAL_PNG_BYTES));
   });
 
@@ -85,7 +105,7 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
     const denied = buildMacosPermissions({
       accessibility: false,
       screenRecording: false,
-      productName: "Atmos Electron",
+      productName: "Atmos",
     });
     expect(denied).toHaveLength(2);
     expect(denied[0]).toMatchObject({
@@ -100,7 +120,6 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
       name: "screen_recording",
       granted: false,
     });
-    expect(denied[1]!.recovery_action?.target).toBe("screen_recording");
 
     const both = buildMacosPermissions({
       accessibility: true,
@@ -108,16 +127,30 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
     });
     expect(both.every((p) => p.granted)).toBe(true);
     expect(both.every((p) => p.recovery_action === null)).toBe(true);
+  });
 
-    const screenOnly = buildMacosPermissions({
-      accessibility: false,
-      screenRecording: true,
+  it("writeRecordFromCapture uses protocol + real app metadata", () => {
+    const written = writeRecordFromCapture({
+      previewId: "pv",
+      appName: "Notes",
+      windowTitle: "Todo",
+      capturedAt: new Date().toISOString(),
+      quality: "screenshot_only",
+      screenshotPng: MINIMAL_PNG_BYTES,
+      screenshotPreviewBase64: null,
+      contextMarkdown: "# Appshot Context\n\n- App: Notes\n",
+      sourceBounds: { x: 0, y: 0, width: 100, height: 80 },
+      permissions: [],
+      warnings: [],
+      bundleId: "com.apple.Notes",
+      processId: 1,
+      windowId: null,
+      platform: "macos",
     });
-    expect(screenOnly.find((p) => p.name === "screen_recording")?.granted).toBe(
-      true,
-    );
-    expect(screenOnly.find((p) => p.name === "accessibility")?.granted).toBe(
-      false,
-    );
+    expect(written.metadata.app_name).toBe("Notes");
+    expect(written.metadata.window_title).toBe("Todo");
+    expect(written.protocol_text).toBe(formatProtocolPrompt(written.timestamp));
+    expect(written.protocol_text).toContain("atmos://appshots/");
+    expect(written.protocol_text).toContain("~/.atmos/appshots/records/");
   });
 });

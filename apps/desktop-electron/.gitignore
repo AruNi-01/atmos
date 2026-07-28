@@ -15,3 +15,8 @@ resources/runtime/
 
 # Runtime logs
 logs/
+
+# Packaged cookie helper binary (staged by prepare-package from target/release)
+resources/bin/*
+!resources/bin/.gitkeep
+main.js

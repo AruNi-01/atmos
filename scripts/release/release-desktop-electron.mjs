@@ -1,21 +1,19 @@
 #!/usr/bin/env node
 /**
- * Cut an experimental Atmos Desktop Electron release (APP-045).
+ * Cut a production Atmos Desktop release (Electron ship path).
  *
- * Tag format: desktop-electron-<version>  (never desktop-* — that is Tauri).
+ * Tag format: desktop-electron-<version>
+ * Invoked by `just release-desktop` and `/atmos-desktop-release`.
  *
  *   node scripts/release/release-desktop-electron.mjs 2026.7.28
  *   node scripts/release/release-desktop-electron.mjs 2026.7.28 --dry-run
- *   node scripts/release/release-desktop-electron.mjs 2026.7.28 --prerelease
- *   node scripts/release/release-desktop-electron.mjs 2026.7.28 --allow-dirty
- *
- * Does not flip production Tauri release-desktop / Homebrew.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureCalendarVersion } from "./lib/calendar-version.mjs";
+import { defaultElectronReleaseNotes } from "./electron-release-notes.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../..");
@@ -88,12 +86,20 @@ Workflow: .github/workflows/release-desktop-electron.yml
 
   const tag = `${TAG_PREFIX}${version}`;
   const notesDir = resolve(repoRoot, "releasenotes");
-  const notesPath = resolve(notesDir, `Atmos Desktop Electron ${version}.md`);
+  // Prefer product-facing "Atmos Desktop <version>.md"; keep legacy Electron filename as fallback.
+  const notesPathPrimary = resolve(notesDir, `Atmos Desktop ${version}.md`);
+  const notesPathLegacy = resolve(
+    notesDir,
+    `Atmos Desktop Electron ${version}.md`,
+  );
+  const notesPath = existsSync(notesPathLegacy) && !existsSync(notesPathPrimary)
+    ? notesPathLegacy
+    : notesPathPrimary;
 
-  console.log("=== Atmos Desktop Electron release plan ===");
+  console.log("=== Atmos Desktop release plan ===");
   console.log(`version:     ${version}`);
   console.log(`tag:         ${tag}`);
-  console.log(`notes file:  releasenotes/Atmos Desktop Electron ${version}.md`);
+  console.log(`notes file:  ${notesPath}`);
   console.log(`dry-run:     ${opts.dryRun}`);
   console.log("");
 
@@ -121,21 +127,7 @@ Workflow: .github/workflows/release-desktop-electron.yml
     mkdirSync(notesDir, { recursive: true });
     writeFileSync(
       notesPath,
-      `# Atmos Desktop Electron ${version}
-
-Experimental Chromium shell (APP-045). **Production default remains Tauri** (\`desktop-*\` releases).
-
-## Highlights
-
-- Packaged Electron shell with bundled Atmos Server runtime
-- Separate release identity: tag \`${tag}\`, app id \`com.atmos.desktop.electron\`
-
-## Install
-
-Download the platform artifact from this GitHub Release (DMG / NSIS / AppImage).
-
-Do **not** use this channel to replace Tauri auto-update until Phase 5 product sign-off.
-`,
+      defaultElectronReleaseNotes(version, tag),
       "utf8",
     );
     console.log(`✅ Wrote release notes stub: ${notesPath}`);

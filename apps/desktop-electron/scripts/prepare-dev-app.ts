@@ -22,8 +22,8 @@ import { fileURLToPath } from "node:url";
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(appRoot, "package.json"));
 
-const PRODUCT_NAME = "Atmos Electron";
-const DEV_BUNDLE_ID = "com.atmos.desktop.electron.dev";
+const PRODUCT_NAME = "Atmos";
+const DEV_BUNDLE_ID = "com.atmos.desktop.dev";
 
 function resolveElectronBinary(): string {
   const bin = require("electron") as string;

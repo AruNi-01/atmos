@@ -1,6 +1,6 @@
-# APP-045 experimental Electron desktop shell release.
-# Separate from production Tauri (release-desktop.yml / desktop-* tags).
+# Production Electron desktop shell CI & release (default ship path).
 # Tag format: desktop-electron-<YYYY.M.D>
+# Legacy Tauri remains release-desktop.yml / desktop-* (non-regression / Homebrew).
 name: Desktop Electron CI & Release
 
 permissions:
@@ -306,6 +306,14 @@ jobs:
       - name: Build runtime binary (api)
         run: cargo build --release --bin api --target ${{ matrix.target }}
 
+      # Required for packaged cookie import — CI matrix uses --target so the
+      # binary lands under target/<triple>/release (prepare-package resolves that).
+      - name: Build atmos-browser-cookies helper
+        run: >
+          cargo build --release -p browser-cookies
+          --bin atmos-browser-cookies
+          --target ${{ matrix.target }}
+
       - name: Build web static (desktop)
         env:
           NEXT_PUBLIC_TLDRAW_LICENSE_KEY: ${{ secrets.TLDRAW_LICENSE_KEY }}
@@ -320,7 +328,10 @@ jobs:
           mkdir -p apps/desktop/src-tauri/binaries/web-out
           node scripts/desktop/layout-runtime-bundle.mjs "$PWD" "${{ matrix.target }}" "$EXT"
 
-      - name: Stage runtime into electron resources
+      - name: Stage runtime + cookie helper into electron resources
+        env:
+          ATMOS_CARGO_TARGET: ${{ matrix.target }}
+          ATMOS_REQUIRE_COOKIE_HELPER: "1"
         run: bun run --cwd apps/desktop-electron scripts/prepare-package.ts
 
       - name: Build Electron bundles
@@ -330,8 +341,7 @@ jobs:
       - name: Package with electron-builder
         working-directory: apps/desktop-electron
         env:
-          # Prefer Developer ID when configured; otherwise ad-hoc dogfood (`-`),
-          # matching Tauri release-desktop.yml APPLE_SIGNING_IDENTITY fallback.
+          # Prefer Developer ID when configured; otherwise ad-hoc (`-`).
           # electron-builder reads CSC_NAME (not APPLE_SIGNING_IDENTITY).
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           CSC_NAME: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
@@ -353,7 +363,7 @@ jobs:
             exit 1
           fi
           find "$RELEASE_DIR" -type f \
-            \( -name 'Atmos-Electron_*' -o -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
+            \( -name 'Atmos_*' -o -name 'Atmos-Electron_*' -o -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
             ! -name 'builder-*.yml' \
             -exec cp {} "$OUT_DIR/" \;
           if [ -z "$(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
@@ -410,14 +420,18 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#desktop-electron-}"
-          NOTES_PATH="releasenotes/Atmos Desktop Electron ${VERSION}.md"
+          NOTES_PATH="releasenotes/Atmos Desktop ${VERSION}.md"
           if [ ! -f "$NOTES_PATH" ]; then
-            echo "⚠️ Missing $NOTES_PATH — using minimal body"
-            NOTES_PATH="${RUNNER_TEMP}/electron-notes.md"
+            # Legacy filename from earlier dual-shell period
+            NOTES_PATH="releasenotes/Atmos Desktop Electron ${VERSION}.md"
+          fi
+          if [ ! -f "$NOTES_PATH" ]; then
+            echo "⚠️ Missing release notes — using minimal body"
+            NOTES_PATH="${RUNNER_TEMP}/desktop-notes.md"
             cat > "$NOTES_PATH" <<EOF
-          # Atmos Desktop Electron ${VERSION}
+          # Atmos Desktop ${VERSION}
 
-          Experimental Chromium shell (APP-045). Production default remains Tauri (\`desktop-*\`).
+          Atmos desktop release \`${VERSION}\` (tag \`${RELEASE_TAG}\`).
           EOF
           fi
           echo "notes_path=${NOTES_PATH}" >> "$GITHUB_OUTPUT"
@@ -445,7 +459,7 @@ jobs:
             exit 1
           fi
 
-          # Never make Electron experimental the "latest" release for the repo.
+          # Electron is the production desktop ship path: stable tags may be latest.
           IS_PRE="${PRERELEASE}"
           if [[ "${RELEASE_TAG}" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}- ]]; then
             IS_PRE="true"
@@ -454,10 +468,11 @@ jobs:
           if [ "$IS_PRE" = "true" ]; then
             jq -Rs '{draft: false, body: ., make_latest: false, prerelease: true}' \
               "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+            MAKE_LATEST="false"
           else
-            # Stable electron tags still never become GitHub "latest" (Tauri owns that).
-            jq -Rs '{draft: false, body: ., make_latest: false, prerelease: false}' \
+            jq -Rs '{draft: false, body: ., make_latest: true, prerelease: false}' \
               "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+            MAKE_LATEST="true"
           fi
 
           curl -sS -f -X PATCH \
@@ -466,4 +481,4 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --data @"${RUNNER_TEMP}/release-payload.json"
 
-          echo "✅ Published release ${RELEASE_TAG} (id=${RELEASE_ID}, make_latest=false)"
+          echo "✅ Published release ${RELEASE_TAG} (id=${RELEASE_ID}, make_latest=${MAKE_LATEST})"

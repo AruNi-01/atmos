@@ -1,206 +1,178 @@
 /**
- * macOS Appshots global trigger: Left Shift + Right Shift chord.
+ * macOS Appshots global trigger: Left + Right Shift chord only.
  *
- * Tauri uses a CGEventTap (FlagsChanged). Electron polls
- * CGEventSourceKeyState via koffi so we avoid a native addon build,
- * while matching the same chord semantics and Accessibility gate.
+ * Native dylib (dedicated CFRunLoop thread) + poll take_chord — Tauri parity.
+ * No poll-only path, no double-tap fallback.
+ *
+ * Logs → ~/.atmos/logs/desktop-main.log
  */
 
-import { createRequire } from "node:module";
 import type { AppState } from "../app-state.js";
+import { mainLog } from "../main-log.js";
 import {
-  createShiftChordState,
-  observeShiftChordFromSamples,
-} from "./shift-chord.js";
-
-const POLL_MS = 30;
-/** HID system state — see CGEventSourceStateID */
-const HID_SYSTEM_STATE = 1;
-/** Carbon virtual key codes */
-const VK_SHIFT = 0x38;
-const VK_RIGHT_SHIFT = 0x3c;
-
-const require = createRequire(import.meta.url);
+  startShiftFlagsEventTap,
+  type TapHandle,
+} from "./trigger-event-tap.js";
 
 export type TriggerListenerStatus = {
   enabled: boolean;
   starting: boolean;
   lastError: string | null;
+  mode: "event-tap" | "none";
 };
 
-type KeyStateFn = (sourceStateId: number, keyCode: number) => boolean;
-
-let keyStateFn: KeyStateFn | null | undefined;
-let pollTimer: ReturnType<typeof setInterval> | null = null;
 let status: TriggerListenerStatus = {
   enabled: false,
   starting: false,
   lastError: null,
+  mode: "none",
 };
 let captureRunning = false;
-let prevLeft = false;
-let prevRight = false;
-const chord = createShiftChordState();
 let onTrigger: (() => void | Promise<void>) | null = null;
+let tapHandle: TapHandle | null = null;
+/** Accessibility trust observed at last successful arm. */
+let armedWithAx = false;
 
-function loadKeyStateFn(): KeyStateFn | null {
-  if (keyStateFn !== undefined) return keyStateFn;
-  if (process.platform !== "darwin") {
-    keyStateFn = null;
-    return null;
-  }
-  try {
-    // koffi is a native module — load at runtime (esbuild external).
-    const koffi = require("koffi") as typeof import("koffi");
-    const cg = koffi.load(
-      "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
-    );
-    const CGEventSourceKeyState = cg.func(
-      "CGEventSourceKeyState",
-      "bool",
-      ["int", "uint16"],
-    );
-    keyStateFn = (sourceStateId, keyCode) =>
-      Boolean(CGEventSourceKeyState(sourceStateId, keyCode));
-    return keyStateFn;
-  } catch (error) {
-    status.lastError = `failed to load CoreGraphics key-state probe: ${
-      error instanceof Error ? error.message : String(error)
-    }`;
-    keyStateFn = null;
-    return null;
-  }
-}
-
-export function triggerListenerStatus(): TriggerListenerStatus {
-  return { ...status };
-}
-
-/**
- * Start (or no-op) the dual-shift listener when Accessibility is granted.
- * Safe to call repeatedly (e.g. on each appshot_status refresh).
- */
-export async function ensureTriggerListener(
-  state: AppState,
-  triggerCapture: (state: AppState) => Promise<void>,
-  accessibilityGranted: boolean,
-): Promise<TriggerListenerStatus> {
-  if (process.platform !== "darwin") {
-    status = {
-      enabled: false,
-      starting: false,
-      lastError: "Appshots gesture trigger is only available on macOS",
-    };
-    return triggerListenerStatus();
-  }
-
-  if (!accessibilityGranted) {
-    stopTriggerListener();
-    status = {
-      enabled: false,
-      starting: false,
-      lastError: null,
-    };
-    return triggerListenerStatus();
-  }
-
-  // Refresh capture callback even if already running (state may be rebuilt).
-  onTrigger = () => triggerCapture(state);
-
-  if (status.enabled || status.starting) {
-    return triggerListenerStatus();
-  }
-
-  status = { ...status, starting: true, lastError: null };
-
-  const probe = loadKeyStateFn();
-  if (!probe) {
-    status = {
-      enabled: false,
-      starting: false,
-      lastError:
-        status.lastError ??
-        "failed to create Appshots trigger listener; verify Accessibility permission for Atmos Electron.",
-    };
-    return triggerListenerStatus();
-  }
-
-  prevLeft = false;
-  prevRight = false;
-  chord.shiftActive = false;
-  chord.lastSide = null;
-  chord.chordDown = false;
-  captureRunning = false;
-
-  pollTimer = setInterval(() => {
-    try {
-      tick(probe);
-    } catch (error) {
-      status.lastError = `Appshots trigger poll failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`;
-    }
-  }, POLL_MS);
-  // Do not keep the process alive solely for the poller.
-  pollTimer.unref?.();
-
-  status = { enabled: true, starting: false, lastError: null };
-  console.log(
-    "[desktop-electron] Appshots dual-shift trigger listener enabled",
-  );
-  return triggerListenerStatus();
-}
-
-export function stopTriggerListener(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
-  onTrigger = null;
-  captureRunning = false;
-  status = {
-    enabled: false,
-    starting: false,
-    lastError: status.lastError,
-  };
-}
-
-function tick(probe: KeyStateFn): void {
-  const leftDown = probe(HID_SYSTEM_STATE, VK_SHIFT);
-  const rightDown = probe(HID_SYSTEM_STATE, VK_RIGHT_SHIFT);
-  const shouldCapture = observeShiftChordFromSamples(
-    chord,
-    leftDown,
-    rightDown,
-    prevLeft,
-    prevRight,
-  );
-  prevLeft = leftDown;
-  prevRight = rightDown;
-
-  if (!shouldCapture || captureRunning) return;
+function fireCapture(source: string): void {
+  if (captureRunning) return;
   captureRunning = true;
+  mainLog(`[appshot-trigger] CHORD DETECTED (${source}) — starting capture`);
   const run = onTrigger;
   void Promise.resolve()
     .then(() => run?.())
     .catch((error) => {
-      console.error("[desktop-electron] Appshots capture failed:", error);
-      status.lastError =
-        error instanceof Error ? error.message : String(error);
+      const msg = error instanceof Error ? error.message : String(error);
+      mainLog(`[appshot-trigger] capture failed: ${msg}`, "error");
+      status.lastError = msg;
     })
     .finally(() => {
       captureRunning = false;
     });
 }
 
-/** Test helper: reset module-level listener state. */
+export function triggerListenerStatus(): TriggerListenerStatus {
+  return { ...status };
+}
+
+function disarm(): void {
+  if (tapHandle) {
+    try {
+      tapHandle.stop();
+    } catch {
+      /* ignore */
+    }
+    tapHandle = null;
+  }
+  captureRunning = false;
+  armedWithAx = false;
+}
+
+export async function ensureTriggerListener(
+  state: AppState,
+  triggerCapture: (state: AppState) => Promise<void>,
+  accessibilityGranted?: boolean,
+): Promise<TriggerListenerStatus> {
+  if (process.platform !== "darwin") {
+    status = {
+      enabled: false,
+      starting: false,
+      lastError: "Appshots gesture trigger is only available on macOS",
+      mode: "none",
+    };
+    return triggerListenerStatus();
+  }
+
+  onTrigger = () => triggerCapture(state);
+
+  const ax = Boolean(accessibilityGranted);
+
+  // Re-arm when Accessibility flips true after a cold start without trust.
+  if (tapHandle && status.enabled && ax && !armedWithAx) {
+    mainLog(
+      "[appshot-trigger] Accessibility granted after arm — restarting native tap",
+    );
+    disarm();
+    status = {
+      enabled: false,
+      starting: false,
+      lastError: null,
+      mode: "none",
+    };
+  }
+
+  if (status.enabled || status.starting || tapHandle) {
+    mainLog(
+      `[appshot-trigger] already armed mode=${status.mode} enabled=${status.enabled} ax=${ax} armedWithAx=${armedWithAx}`,
+    );
+    return triggerListenerStatus();
+  }
+
+  status = { ...status, starting: true, lastError: null };
+  mainLog(
+    `[appshot-trigger] arming dual-shift helper process (global FlagsChanged) ax=${ax}…`,
+  );
+
+  try {
+    const handle = startShiftFlagsEventTap(() => {
+      fireCapture("event-tap");
+    });
+    if (!handle) {
+      status = {
+        enabled: false,
+        starting: false,
+        lastError:
+          "failed to create dual-shift event tap — grant Accessibility to Atmos, then refresh Appshots (or restart)",
+        mode: "none",
+      };
+      mainLog(`[appshot-trigger] arm FAILED: ${status.lastError}`, "error");
+      return triggerListenerStatus();
+    }
+    tapHandle = handle;
+    armedWithAx = ax;
+    status = {
+      enabled: true,
+      starting: false,
+      lastError: ax
+        ? null
+        : "Accessibility is off — dual-shift will not receive keys until Atmos is trusted (System Settings → Privacy → Accessibility)",
+      mode: "event-tap",
+    };
+    mainLog(
+      ax
+        ? "[appshot-trigger] ENABLED mode=event-tap — hold Left Shift + Right Shift"
+        : "[appshot-trigger] tap started but Accessibility=false — enable Atmos in Accessibility then restart or Refresh",
+    );
+  } catch (error) {
+    status = {
+      enabled: false,
+      starting: false,
+      lastError: error instanceof Error ? error.message : String(error),
+      mode: "none",
+    };
+    mainLog(`[appshot-trigger] arm FAILED: ${status.lastError}`, "error");
+  }
+
+  return triggerListenerStatus();
+}
+
+export function stopTriggerListener(): void {
+  disarm();
+  onTrigger = null;
+  status = {
+    enabled: false,
+    starting: false,
+    lastError: status.lastError,
+    mode: "none",
+  };
+  mainLog("[appshot-trigger] listener stopped");
+}
+
 export function resetTriggerListenerForTest(): void {
   stopTriggerListener();
-  keyStateFn = undefined;
-  status = { enabled: false, starting: false, lastError: null };
-  prevLeft = false;
-  prevRight = false;
-  chord.shiftActive = false;
-  chord.lastSide = null;
-  chord.chordDown = false;
+  status = {
+    enabled: false,
+    starting: false,
+    lastError: null,
+    mode: "none",
+  };
 }

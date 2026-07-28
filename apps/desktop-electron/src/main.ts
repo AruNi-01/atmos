@@ -1,6 +1,6 @@
 /**
- * Atmos Desktop — Electron shell (APP-045).
- * Does not load Tauri. Production default remains apps/desktop.
+ * Atmos Desktop — production Electron shell.
+ * Does not load Tauri. Legacy Tauri lives under apps/desktop for non-regression.
  */
 
 import { app, ipcMain } from "electron";
@@ -16,11 +16,13 @@ import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
 import { PreviewSurfaceManager } from "./preview/surface-manager.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
+import { mainLog, mainLogPath } from "./main-log.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 // Before ready: menu / process name → "Atmos" instead of "Electron".
 applyEarlyAppBranding();
+mainLog(`[boot] main process start log=${mainLogPath()}`);
 
 const state = createAppState();
 let router = createDesktopCommandRouter(createAllHandlers(state));
@@ -93,13 +95,19 @@ async function boot() {
 
   ensureMainWindow();
 
-  // Arm Appshots Left+Right Shift gesture when Accessibility is already granted.
+  // Arm Appshots Left+Right Shift global gesture (macOS). Always attempt on boot.
   if (process.platform === "darwin") {
     try {
       const appshot = await import("./appshot/service.js");
-      await appshot.appshotStatus(state);
+      const status = await appshot.appshotStatus(state);
+      mainLog(
+        `[boot] appshot arm trigger.enabled=${status.trigger.enabled} last_error=${status.trigger.last_error ?? "null"} ax=${status.permissions.find((p) => p.name === "accessibility")?.granted} screen=${status.permissions.find((p) => p.name === "screen_recording")?.granted}`,
+      );
     } catch (err) {
-      console.warn("[desktop-electron] Appshots trigger arm failed:", err);
+      mainLog(
+        `[boot] Appshots trigger arm failed: ${err instanceof Error ? err.message : String(err)}`,
+        "error",
+      );
     }
   }
 }
@@ -192,6 +200,18 @@ if (!gotLock) {
           }
         }
         await stopAllTunnelsBeforeExit();
+        // Production ownership: stop Server only when this process started it.
+        try {
+          const { stopOwnedAtmosServer } = await import("./runtime/ensure.js");
+          const result = stopOwnedAtmosServer();
+          if (result.stopped) {
+            console.log(
+              `[desktop-electron] stopped owned Atmos Server pid=${result.pid} (${result.reason})`,
+            );
+          }
+        } catch (err) {
+          console.warn("[desktop-electron] stop owned Server failed:", err);
+        }
       } finally {
         app.exit(0);
       }

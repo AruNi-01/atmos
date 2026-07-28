@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "identifier": "com.atmos.desktop.dev",
+  "identifier": "com.atmos.desktop.tauri.dev",
   "build": {
     "beforeDevCommand": null,
     "devUrl": null,

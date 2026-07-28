@@ -55,7 +55,13 @@ await esbuild.build({
   entryPoints: [join(root, "src/preview/preview-preload.ts")],
   outfile: join(dist, "preview-preload.cjs"),
 });
+// Dual-shift helper: spawned as ELECTRON_RUN_AS_NODE child (global keys).
+await esbuild.build({
+  ...shared,
+  entryPoints: [join(root, "src/appshot/shift-helper-main.ts")],
+  outfile: join(dist, "shift-helper-main.js"),
+});
 
 console.log(
-  "[build] dist/main.js, dist/preload.cjs, dist/preview-preload.cjs",
+  "[build] dist/main.js, dist/preload.cjs, dist/preview-preload.cjs, dist/shift-helper-main.js",
 );

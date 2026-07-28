@@ -16,7 +16,11 @@ import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
 import type { PreviewBounds } from "../types.js";
-import { gateAndRemapRuntimeEvent } from "./runtime-events.js";
+import {
+  buildOpenTabEventPayload,
+  gateAndRemapRuntimeEvent,
+  openTabTargetFromWindowOpenUrl,
+} from "./runtime-events.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PREVIEW_PARTITION = "persist:atmos-preview";
@@ -300,7 +304,31 @@ export class PreviewSurfaceManager {
     sessionId: string,
     wc: Electron.WebContents,
   ) {
-    wc.setWindowOpenHandler(() => ({ action: "deny" }));
+    // target=_blank / window.open: do not spawn a native OS window — ask the
+    // product UI to open a center/browser tab (desktop-preview:open-tab).
+    // In-page preview-runtime also intercepts clicks; this is the Chromium
+    // safety net when the native new-window path still fires.
+    wc.setWindowOpenHandler((details) => {
+      const targetUrl = openTabTargetFromWindowOpenUrl(details.url);
+      if (targetUrl) {
+        let pageUrl = "";
+        try {
+          pageUrl = wc.isDestroyed() ? "" : wc.getURL();
+        } catch {
+          pageUrl = "";
+        }
+        this.emitToSession(
+          sessionId,
+          "desktop-preview:open-tab",
+          buildOpenTabEventPayload({
+            sessionId,
+            pageUrl,
+            targetUrl,
+          }),
+        );
+      }
+      return { action: "deny" };
+    });
     wc.on("did-finish-load", () => {
       const s = this.surfaces.get(sessionId);
       if (!s) return;
@@ -615,7 +643,7 @@ export class PreviewSurfaceManager {
       minWidth: 480,
       minHeight: 360,
       show: false,
-      ...appWindowBranding("Atmos Electron Browser"),
+      ...appWindowBranding("Atmos Browser"),
       webPreferences: {
         session: this.previewSession,
         preload: previewPreloadPath(),

@@ -73,53 +73,70 @@ dev-docs:
 dev-mobile:
     cd apps/mobile && bun run start
 
-# 启动 Desktop (Tauri) 开发环境
-# prepare-sidecar 会先 next build 最新 web 静态包，再由 sidecar 提供 UI（无需 just dev-web）
-# --no-dev-server-wait 不等待 localhost:3030；--no-watch 避免改 Rust 时反复重启
+# ── Desktop (Electron is the production default shell) ──────────────────────
+# prepare-sidecar stages shared Atmos Server + web static under the runtime layout.
+# Faster re-run: ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop
+# Skip prepare if runtime already present: ATMOS_ELECTRON_SKIP_PREPARE=1 just dev-desktop
 dev-desktop:
+    cd apps/desktop-electron && bun run dev
+
+# Alias kept for clarity / muscle memory
+dev-desktop-electron:
+    just dev-desktop
+
+# Deprecated Tauri shell (apps/desktop) — local-only; not for release.
+dev-desktop-tauri:
+    @echo "⚠️  apps/desktop (Tauri) is deprecated. Prefer: just dev-desktop"
     bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json
 
 # Desktop 分开启动: 仅后端 (开发模式，使用 cargo run)
 dev-desktop-backend:
     RUST_LOG=info cargo run --bin api
 
-# Desktop 调试模式：主窗口先显示，sidecar 异常弹窗提示（单命令）
+# Deprecated Tauri debug mode
 dev-desktop-debug:
+    @echo "⚠️  apps/desktop (Tauri) is deprecated. Prefer: just dev-desktop"
     bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json --verbose
 
-# Experimental Electron desktop shell (APP-045). Production default remains Tauri (dev-desktop / release-desktop).
-# Shares prepare-sidecar runtime layout under apps/desktop/src-tauri/binaries/runtime/current.
-# Faster re-run: ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop-electron
-# Skip prepare entirely if runtime already present: ATMOS_ELECTRON_SKIP_PREPARE=1 just dev-desktop-electron
-dev-desktop-electron:
-    cd apps/desktop-electron && bun run dev
-
-# Headless Electron Phase-0 smokes (no GUI): router + ensure Server + get_api_config
+# Headless desktop smokes (no GUI): router + ensure Server + get_api_config
 test-desktop-electron-smoke:
     cd apps/desktop-electron && bun run smoke:router && bun run smoke:boot
 
-# Package local Electron installers (DMG/NSIS/AppImage). Requires prepare-sidecar first.
-#   just build-desktop-electron
-#   ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just build-desktop-electron
-build-desktop-electron:
+# Package production desktop installers (DMG/NSIS/AppImage). Requires prepare-sidecar first.
+build-desktop:
     bash ./scripts/desktop/prepare-sidecar.sh
     cd apps/desktop-electron && bun run package
 
-# Bump Electron shell calendar version only (does not touch Tauri desktop version files)
-#   just bump-desktop-electron-version 2026.7.28
-bump-desktop-electron-version version *args:
+build-desktop-electron:
+    just build-desktop
+
+# Deprecated Tauri package (local only — do not use for shipping)
+build-desktop-tauri:
+    @echo "⚠️  Deprecated: Tauri package is not the production ship path. Prefer: just build-desktop"
+    bash ./scripts/desktop/prepare-sidecar.sh
+    cd apps/desktop && bun run tauri build
+
+# Bump production desktop version (apps/desktop-electron/package.json)
+bump-desktop-version version *args:
     node ./scripts/release/bump-desktop-electron-version.mjs "{{version}}" {{args}}
 
-# Cut experimental Electron release: bump + notes stub + tag desktop-electron-<version> + push
-#   just release-desktop-electron 2026.7.28
-#   just release-desktop-electron 2026.7.28 --dry-run
-#   just release-desktop-electron 2026.7.28-rc.1 --prerelease
-# Does NOT run release-desktop / Homebrew / R2 Tauri channels.
+bump-desktop-electron-version version *args:
+    just bump-desktop-version {{version}} {{args}}
+
+# Production desktop release (Electron ship path). Same as /atmos-desktop-release.
+#   just release-desktop 2026.7.28
+#   just release-desktop 2026.7.28 --dry-run
+release-desktop version *args:
+    node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" {{args}}
+
 release-desktop-electron version *args:
-    node ./scripts/release/release-desktop-electron.mjs "{{version}}" {{args}}
+    just release-desktop {{version}} {{args}}
+
+release-desktop-dry-run version *args:
+    node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" --dry-run {{args}}
 
 release-desktop-electron-dry-run version *args:
-    node ./scripts/release/release-desktop-electron.mjs "{{version}}" --dry-run {{args}}
+    just release-desktop-dry-run {{version}} {{args}}
 
 # 启动 API 服务器
 # 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序
@@ -266,40 +283,13 @@ dev-all *args:
 # 版本命令 (Release / Version)
 # ============================================
 
-# 校验 Desktop 版本是否在 package / Cargo / Tauri 配置中保持一致
+# 校验 production desktop 版本（apps/desktop-electron/package.json）
 check-desktop-version:
-    node ./scripts/release/check-desktop-version.mjs
-
-# 同步更新 Desktop 版本
-# 用法:
-#   just bump-desktop-version 2026.7.2
-#   just bump-desktop-version 2026.7.2 --dry-run
-bump-desktop-version version *args:
-    node ./scripts/release/bump-desktop-version.mjs "{{version}}" {{args}}
-
-# Atmos Desktop 发布辅助
-# 用法:
-#   just release-desktop 2026.7.2
-#   just release-desktop 2026.7.2 --dry-run
-#   just release-desktop 2026.7.2-rc.1 --prerelease
-release-desktop version *args:
-    node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" {{args}}
-
-# Atmos Desktop 发布预演
-# 用法:
-#   just release-desktop-dry-run 2026.7.2
-#   just release-desktop-dry-run 2026.7.2 --allow-dirty
-release-desktop-dry-run version *args:
-    node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" --dry-run {{args}}
+    node -e "const p=require('./apps/desktop-electron/package.json'); if(!p.version) process.exit(1); console.log('desktop-electron version', p.version);"
 
 # ============================================
 # 构建命令 (Build)
 # ============================================
-
-# 构建 Desktop 应用
-build-desktop:
-    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run build
-
 # 构建 API 服务器 (release 模式)
 build-api:
     cargo build --release --bin api
@@ -482,6 +472,7 @@ alias dw := dev-web
 alias dwp := dev-web-portless
 alias dd := dev-desktop
 alias dde := dev-desktop-electron
+alias ddt := dev-desktop-tauri
 alias bde := build-desktop-electron
 alias ddb := dev-desktop-backend
 alias dl := dev-landing

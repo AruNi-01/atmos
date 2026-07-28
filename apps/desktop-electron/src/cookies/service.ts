@@ -9,6 +9,10 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  cookieHelperBinName,
+  findCookieHelperBinary,
+} from "./helper-resolve.js";
 
 export type BrowserProfileDto = {
   profile_handle: string;
@@ -61,31 +65,80 @@ function findRepoRoot(start: string): string {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = findRepoRoot(__dirname);
 
-/** Prefer built release/debug helper; fall back to cargo run. */
-export function resolveBrowserCookiesHelper(): {
-  mode: "bin" | "cargo";
+export type CookieHelperResolution = {
+  mode: "bin" | "cargo" | "missing";
   path: string;
   argsPrefix: string[];
-} {
-  const triples = [
-    join(REPO_ROOT, "target/release/atmos-browser-cookies"),
-    join(REPO_ROOT, "target/debug/atmos-browser-cookies"),
-  ];
-  for (const p of triples) {
-    if (existsSync(p)) return { mode: "bin", path: p, argsPrefix: [] };
+  source: string;
+};
+
+/**
+ * Resolve atmos-browser-cookies for production.
+ * Prefer packaged resources, then monorepo bins including target/<triple>/release
+ * (CI cargo --target layout). Cargo only with ATMOS_ALLOW_CARGO_COOKIE_HELPER=1.
+ */
+export function resolveBrowserCookiesHelper(
+  options: {
+    resourcesPath?: string;
+    repoRoot?: string;
+    allowCargo?: boolean;
+    platform?: NodeJS.Platform;
+    cargoTargets?: string[];
+    env?: NodeJS.ProcessEnv;
+  } = {},
+): CookieHelperResolution {
+  const platform = options.platform ?? process.platform;
+  const binName = cookieHelperBinName(platform);
+  const resourcesPath =
+    options.resourcesPath ??
+    (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+  const repoRoot = options.repoRoot ?? REPO_ROOT;
+  const env = options.env ?? process.env;
+  const allowCargo =
+    options.allowCargo ?? env.ATMOS_ALLOW_CARGO_COOKIE_HELPER === "1";
+
+  const found = findCookieHelperBinary({
+    repoRoot,
+    binName,
+    resourcesPath: resourcesPath || undefined,
+    packageResourcesBin: join(
+      repoRoot,
+      "apps/desktop-electron/resources/bin",
+    ),
+    cargoTargets: options.cargoTargets,
+    env,
+  });
+  if (found) {
+    return {
+      mode: "bin",
+      path: found.path,
+      argsPrefix: [],
+      source: found.source,
+    };
   }
+
+  if (allowCargo) {
+    return {
+      mode: "cargo",
+      path: "cargo",
+      argsPrefix: [
+        "run",
+        "-q",
+        "-p",
+        "browser-cookies",
+        "--bin",
+        "atmos-browser-cookies",
+        "--",
+      ],
+      source: "cargo-fallback",
+    };
+  }
+
   return {
-    mode: "cargo",
-    path: "cargo",
-    argsPrefix: [
-      "run",
-      "-q",
-      "-p",
-      "browser-cookies",
-      "--bin",
-      "atmos-browser-cookies",
-      "--",
-    ],
+    mode: "missing",
+    path: "",
+    argsPrefix: [],
+    source: "missing",
   };
 }
 
@@ -97,6 +150,16 @@ function runHelper(args: string[]): {
   spawnError?: string;
 } {
   const helper = resolveBrowserCookiesHelper();
+  if (helper.mode === "missing") {
+    return {
+      ok: false,
+      stdout: "",
+      stderr:
+        "atmos-browser-cookies helper not found. Package it under resources/bin/ or build target/release/atmos-browser-cookies. Cargo fallback is disabled in production (set ATMOS_ALLOW_CARGO_COOKIE_HELPER=1 for monorepo-only dev).",
+      status: 127,
+      spawnError: "helper_missing",
+    };
+  }
   const fullArgs = [...helper.argsPrefix, ...args];
   const r = spawnSync(helper.path, fullArgs, {
     encoding: "utf8",
@@ -106,7 +169,7 @@ function runHelper(args: string[]): {
   });
   if (r.error) {
     console.error(
-      `[cookies] helper spawn failed path=${helper.path} mode=${helper.mode}`,
+      `[cookies] helper spawn failed path=${helper.path} mode=${helper.mode} source=${helper.source}`,
       r.error,
     );
   } else if (r.status !== 0) {
@@ -292,7 +355,7 @@ export async function importBrowserCookies(
 /** Test helper: ensure binary can be resolved or cargo fallback works. */
 export function helperProbe(): string {
   const h = resolveBrowserCookiesHelper();
-  return `${h.mode}:${h.path}`;
+  return `${h.mode}:${h.source}:${h.path}`;
 }
 
 void execFileSync;

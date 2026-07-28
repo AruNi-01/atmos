@@ -1,9 +1,8 @@
-# APP-045 experimental Electron packaging.
-# Separate identity from production Tauri (`Atmos` / com.atmos.desktop / desktop-* tags).
-# Do not point publish at Tauri updater feeds.
+# Production Atmos desktop packaging (Electron engine).
+# Primary product identity: Atmos / com.atmos.desktop.
 
-appId: com.atmos.desktop.electron
-productName: Atmos Electron
+appId: com.atmos.desktop
+productName: Atmos
 copyright: Atmos
 
 directories:
@@ -30,19 +29,24 @@ extraResources:
     to: icons
     filter:
       - "**/*"
+  - from: resources/bin
+    to: bin
+    filter:
+      - "**/*"
 
 asar: true
 # koffi ships platform native binaries that must load outside asar.
+# shift-helper-main is spawned via ELECTRON_RUN_AS_NODE and needs a real path.
 asarUnpack:
   - "**/node_modules/koffi/**"
+  - "**/dist/shift-helper-main.js"
 
 mac:
   category: public.app-category.developer-tools
   icon: resources/icons/icon.icns
-  # Ad-hoc dogfood: full app-bundle codesign (sealed resources), same idea as
-  # Tauri `APPLE_SIGNING_IDENTITY: '-'`. Avoids Gatekeeper "damaged" for
-  # unsigned packages; users still confirm "unidentified developer".
-  # Developer ID later: set CSC_LINK + CSC_KEY_PASSWORD (optional CSC_NAME).
+  # Default ad-hoc codesign (sealed resources). Avoids Gatekeeper "damaged" for
+  # packages without Developer ID. Override with CSC_LINK + CSC_KEY_PASSWORD
+  # (optional CSC_NAME) for production Developer ID signing.
   identity: "-"
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -50,10 +54,10 @@ mac:
   target:
     - dmg
     - zip
-  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+  artifactName: Atmos_${version}_${arch}.${ext}
 
 dmg:
-  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+  artifactName: Atmos_${version}_${arch}.${ext}
   # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
   # Regenerate: python3 scripts/generate-dmg-background.py
   background: resources/dmg/background.png
@@ -74,19 +78,19 @@ win:
   icon: resources/icons/icon.ico
   target:
     - nsis
-  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+  artifactName: Atmos_${version}_${arch}.${ext}
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: Atmos-Electron_${version}_${arch}-setup.${ext}
+  artifactName: Atmos_${version}_${arch}-setup.${ext}
 
 linux:
   icon: resources/icons
   category: Development
   target:
     - AppImage
-  artifactName: Atmos-Electron_${version}_${arch}.${ext}
+  artifactName: Atmos_${version}_${arch}.${ext}
 
 # Never auto-publish to GitHub from electron-builder; CI attaches artifacts.
 publish: null

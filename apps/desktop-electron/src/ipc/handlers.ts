@@ -71,11 +71,21 @@ export function createAllHandlers(
     },
 
     async get_version_info() {
+      const { APP_ID, APP_PRODUCT_NAME } = await import("../branding-paths.js");
+      let version = process.env.npm_package_version ?? "0.0.0";
+      try {
+        const { app } = await electron();
+        if (typeof app.getVersion === "function") {
+          version = app.getVersion() || version;
+        }
+      } catch {
+        /* unit / smoke without app ready */
+      }
       return {
-        version: process.env.npm_package_version ?? "0.0.0",
-        version_type: "electron",
-        product_name: "Atmos Electron",
-        app_id: "com.atmos.desktop.electron",
+        version,
+        version_type: "desktop",
+        product_name: APP_PRODUCT_NAME,
+        app_id: APP_ID,
       };
     },
 

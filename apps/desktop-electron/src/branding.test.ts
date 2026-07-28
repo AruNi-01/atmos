@@ -10,9 +10,9 @@ import {
 } from "./branding-paths.ts";
 
 describe("branding-paths", () => {
-  it("exposes Electron experimental identity (not production Tauri)", () => {
-    expect(APP_PRODUCT_NAME).toBe("Atmos Electron");
-    expect(APP_ID).toBe("com.atmos.desktop.electron");
+  it("exposes primary Atmos product identity", () => {
+    expect(APP_PRODUCT_NAME).toBe("Atmos");
+    expect(APP_ID).toBe("com.atmos.desktop");
   });
 
   it("resolves icon files from the first root that contains them", () => {

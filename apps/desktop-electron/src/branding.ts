@@ -28,7 +28,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Candidate roots for icon assets (first hit wins per file name).
  * - packaged: process.resourcesPath/icons
  * - local package resources (synced at build)
- * - monorepo Tauri icons (dev dogfood)
+ * - monorepo Tauri icons (shared asset source in monorepo)
  */
 export function iconSearchRoots(): string[] {
   const roots: string[] = [];

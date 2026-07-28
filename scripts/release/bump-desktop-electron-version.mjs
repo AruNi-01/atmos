@@ -37,7 +37,7 @@ function main() {
   const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
   const prev = pkg.version;
   pkg.version = version;
-  pkg.productName = "Atmos Electron";
+  pkg.productName = "Atmos";
 
   if (dryRun) {
     console.log(`[dry-run] ${packageJsonPath}: ${prev} → ${version}`);

@@ -1,4 +1,7 @@
-name: Desktop CI & Release
+# DEPRECATED — production desktop ships via release-desktop-electron.yml
+# (`just release-desktop` / `/atmos-desktop-release`). Do not cut new Tauri
+# desktop-* production releases. Workflow kept only for emergency workflow_dispatch.
+name: Desktop CI & Release (DEPRECATED Tauri)
 
 permissions:
   contents: write
@@ -9,25 +12,11 @@ env:
   DESKTOP_PACKAGE_JSON: apps/desktop/package.json
 
 on:
-  pull_request:
-    paths:
-      - "apps/desktop/**"
-      - "apps/api/**"
-      - "apps/cli/**"
-      - "crates/**"
-      - "scripts/desktop/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "bun.lock"
-      - "package.json"
-      - ".github/workflows/release-desktop.yml"
-  push:
-    tags:
-      - "desktop-*"
+  # Tag/PR auto-ship disabled. Emergency rebuild only.
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref to build (branch, tag or SHA)"
+        description: "EMERGENCY ONLY — Git ref to build (branch, tag or SHA). Prefer release-desktop-electron.yml."
         required: false
         default: "main"
       platform:
@@ -42,9 +31,9 @@ on:
           - "ubuntu-22.04"
           - "windows-latest"
       create_release:
-        description: "Create GitHub Release"
+        description: "Create GitHub Release (discouraged — Tauri path is deprecated)"
         required: true
-        default: true
+        default: false
         type: boolean
       release_tag:
         description: "Release tag when create_release=true (example: desktop-2026.7.2-rc.1)"
