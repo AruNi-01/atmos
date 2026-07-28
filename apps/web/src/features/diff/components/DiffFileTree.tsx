@@ -14,6 +14,8 @@ export interface DiffFileTreeItem {
   annotation?: React.ReactNode;
   additions?: number;
   deletions?: number;
+  /** When true, show a Binary badge instead of +/- line counts. */
+  isBinary?: boolean;
 }
 
 interface DiffFileTreeProps {
@@ -230,8 +232,19 @@ function defaultDecoration(
   },
 ) {
   const status = item.gitStatus === "?" ? "U" : item.gitStatus;
-  const changeCounts =
-    item.gitStatus !== "?"
+  const changeCounts = item.isBinary
+    ? (
+        <div
+          ref={options?.changeCountsRef}
+          className={cn(
+            "font-sans text-[10px] font-medium uppercase tracking-wide text-muted-foreground",
+            options?.hideChangeCounts && "hidden",
+          )}
+        >
+          Binary
+        </div>
+      )
+    : item.gitStatus !== "?"
       ? changeCountDecoration(item.additions, item.deletions, {
           ref: options?.changeCountsRef,
           className: options?.hideChangeCounts ? "hidden" : undefined,

@@ -55,6 +55,7 @@ pub fn routes() -> Router<AppState> {
         .route("/cli-install", post(cli::install_cli))
         .route("/ws-connections", get(handlers::list_ws_connections))
         .route("/file", get(files::serve_file))
+        .route("/git-blob", get(files::serve_git_blob))
         .route("/debug-log", post(debug_log::ingest_frontend_debug_log))
         .route(
             "/client-session",

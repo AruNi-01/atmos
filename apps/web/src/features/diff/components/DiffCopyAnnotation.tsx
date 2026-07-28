@@ -6,12 +6,12 @@ import type { DiffLineAnnotation } from '@pierre/diffs';
 import { Check, MessageSquarePlus, Save, Trash2 } from 'lucide-react';
 import { Button, Textarea } from '@workspace/ui';
 import { cn } from '@/shared/lib/utils';
-import type { CopyAnnotationMeta } from '@/features/diff/lib/diff-code-view-shared';
+import type { CopyAnnotationMeta, DiffListAnnotationMeta } from '@/features/diff/lib/diff-code-view-shared';
 import { AgentFixToolbar } from '@/features/agent-fix/components/AgentFixToolbar';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 
 interface DiffCopyAnnotationProps {
-  annotation: DiffLineAnnotation<CopyAnnotationMeta>;
+  annotation: DiffLineAnnotation<CopyAnnotationMeta> | DiffLineAnnotation<DiffListAnnotationMeta>;
   itemId: string;
   isStashed: boolean;
   note: string;
@@ -34,7 +34,8 @@ export function DiffCopyAnnotation({
   agentFixSource,
 }: DiffCopyAnnotationProps) {
   const t = useTranslations('diff.copyAnnotation');
-  const { key } = annotation.metadata;
+  const key =
+    annotation.metadata.kind === 'copy' ? annotation.metadata.key : '';
   const [isEditingStashed, setIsEditingStashed] = useState(false);
   const savePointerDownRef = useRef(false);
   const isEditingStashedPrompt = isStashed && isEditingStashed;

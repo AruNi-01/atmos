@@ -12,8 +12,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
+import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import type { PrFile } from '@/features/github/hooks/use-github';
+import type { GitFileDiffResponse } from '@/api/ws-api-types';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
 import { applyCollapseModeToItems } from '@/features/diff/lib/diff-code-view-shared';
@@ -299,18 +301,19 @@ export function PRFilesTab({
   );
   const treeItems = useMemo(
     () =>
-      orderedFiles
-        .filter((file) => Boolean(file.patch))
-        .map((file) => ({
-          path: file.filename,
-          additions: file.additions,
-          deletions: file.deletions,
-        })),
+      orderedFiles.map((file) => ({
+        path: file.filename,
+        additions: file.additions,
+        deletions: file.deletions,
+        isBinary: file.kind === 'binary' || (!file.patch && file.kind !== 'text'),
+      })),
     [orderedFiles],
   );
 
-  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } = useMemo(() => {
+  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds, binaryFiles } =
+    useMemo(() => {
     const items: CodeViewItem<PrAnnotationMeta>[] = [];
+    const binary: PrFile[] = [];
     const fileThreads = new Map<string, ReviewComment[][]>();
     const nextPathByFileName = new Map<string, string>();
 
@@ -326,11 +329,17 @@ export function PRFilesTab({
         fileThreads.set(file.filename, nonLineThreads);
       }
 
-      if (!file.patch) continue;
+      if (!file.patch || file.kind === 'binary' || file.kind === 'too_large') {
+        binary.push(file);
+        continue;
+      }
 
       const patch = `--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`;
       const fileDiff = processFile(patch, { cacheKey: file.filename });
-      if (!fileDiff) continue;
+      if (!fileDiff) {
+        binary.push(file);
+        continue;
+      }
 
       const annotations: DiffLineAnnotation<PrAnnotationMeta>[] = lineThreads.map(
         (thread, threadIndex) => {
@@ -361,6 +370,7 @@ export function PRFilesTab({
 
     return {
       codeViewItems: items,
+      binaryFiles: binary,
       fileLevelThreads: fileThreads,
       pathByFileName: nextPathByFileName,
       itemIds: items.map((item) => item.id),
@@ -547,17 +557,59 @@ export function PRFilesTab({
         }}
         onSelectFile={handleSelect}
       >
-          {workerPoolReady && codeViewItems.length > 0 ? (
-          <div className="min-h-0 flex-1 overflow-hidden" onWheelCapture={handleCodeViewWheelCapture}>
-            <CodeView
-              key={codeViewMountKey}
-              ref={handleViewerRef}
-              initialItems={codeViewItems}
-              options={codeViewOptions}
-              renderAnnotation={renderAnnotation}
-              renderHeaderPrefix={renderHeaderPrefix}
-              className={CODE_VIEW_HOST_CLASS}
-            />
+          {workerPoolReady && (codeViewItems.length > 0 || binaryFiles.length > 0) ? (
+          <div
+            className="min-h-0 flex-1 overflow-auto"
+            onWheelCapture={handleCodeViewWheelCapture}
+          >
+            {codeViewItems.length > 0 ? (
+              <CodeView
+                key={codeViewMountKey}
+                ref={handleViewerRef}
+                initialItems={codeViewItems}
+                options={codeViewOptions}
+                renderAnnotation={renderAnnotation}
+                renderHeaderPrefix={renderHeaderPrefix}
+                className={CODE_VIEW_HOST_CLASS}
+              />
+            ) : null}
+            {binaryFiles.length > 0 ? (
+              <div className="flex flex-col gap-2 px-1 py-2">
+                {binaryFiles.map((file) => {
+                  const status =
+                    file.status === 'added'
+                      ? 'A'
+                      : file.status === 'removed'
+                        ? 'D'
+                        : file.status === 'renamed'
+                          ? 'R'
+                          : 'M';
+                  const synthetic: GitFileDiffResponse = {
+                    file_path: file.filename,
+                    status,
+                    compare_ref: null,
+                    kind: file.kind === 'too_large' ? 'too_large' : 'binary',
+                    preview_kind: file.preview_kind ?? 'none',
+                    old_text: null,
+                    new_text: null,
+                    old_size: null,
+                    new_size: null,
+                    old_sha256: null,
+                    new_sha256: null,
+                    old_blob: null,
+                    new_blob: null,
+                  };
+                  return (
+                    <BinaryDiffCard
+                      key={file.filename}
+                      compact
+                      diff={synthetic}
+                      repoPath=""
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
           ) : !loading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

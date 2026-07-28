@@ -15,11 +15,18 @@ type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecti
 export interface PrFile {
   sha: string;
   filename: string;
+  previous_filename?: string;
   status: string;
   additions: number;
   deletions: number;
   changes: number;
   patch?: string;
+  raw_url?: string;
+  blob_url?: string;
+  contents_url?: string;
+  /** Derived client-side after normalize — not from GitHub JSON. */
+  kind?: "text" | "binary" | "too_large";
+  preview_kind?: "none" | "image" | "media";
 }
 
 export interface RepoPrListParams {
@@ -181,7 +188,17 @@ export function githubPrFilesQueryOptions(
         repo,
         pr_number: prNumber,
       });
-      return Array.isArray(result) ? (result as PrFile[]) : [];
+      if (!Array.isArray(result)) return [];
+      const { classifyPrFileWithoutPatch } = await import(
+        "@/features/diff/lib/diff-content-kind"
+      );
+      return (result as PrFile[]).map((file) => {
+        if (file.patch) {
+          return { ...file, kind: "text" as const, preview_kind: "none" as const };
+        }
+        const classified = classifyPrFileWithoutPatch(file.filename);
+        return { ...file, ...classified };
+      });
     },
     staleTime: 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && prNumber),

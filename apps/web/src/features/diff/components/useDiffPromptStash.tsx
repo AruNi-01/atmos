@@ -20,11 +20,13 @@ import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-con
 import {
   buildDiffSelectionInfo,
   formatSelectedRangeLabel,
+  isBinaryAnnotation,
   isCopyAnnotation,
-  type CopyAnnotationMeta,
+  type DiffListAnnotationMeta,
   updateViewerDiffItem,
 } from '@/features/diff/lib/diff-code-view-shared';
 import { formatDiffSelectionForAI } from '@/shared/lib/format-selection-for-ai';
+import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 
 export type LoadedDiffContents = {
   oldContent: string;
@@ -63,13 +65,16 @@ function formatMergedDiffPrompt(prompts: StashedDiffPrompt[]) {
 type UseDiffPromptStashArgs = {
   agentFixContext?: AgentFixContextRef | null;
   scope: string;
-  viewerRef: MutableRefObject<CodeViewHandle<CopyAnnotationMeta> | null>;
+  /** Repo root for resolving binary preview URLs. */
+  repoPath?: string;
+  viewerRef: MutableRefObject<CodeViewHandle<DiffListAnnotationMeta> | null>;
   loadedContentsRef: MutableRefObject<Map<string, LoadedDiffContents>>;
 };
 
 export function useDiffPromptStash({
   agentFixContext: agentFixContextOverride,
   scope,
+  repoPath = '',
   viewerRef,
   loadedContentsRef,
 }: UseDiffPromptStashArgs) {
@@ -109,7 +114,9 @@ export function useDiffPromptStash({
     (itemId: string, key: string) => {
       updateViewerDiffItem(viewerRef.current, itemId, (item) => {
         if (!item.annotations?.length) return false;
-        const next = item.annotations.filter((a) => a.metadata?.key !== key);
+        const next = item.annotations.filter(
+          (a) => !(isCopyAnnotation(a) && a.metadata.key === key),
+        );
         if (next.length === item.annotations.length) return false;
         item.annotations = next;
         return true;
@@ -369,7 +376,16 @@ export function useDiffPromptStash({
   );
 
   const renderAnnotation = useCallback(
-    (annotation: DiffLineAnnotation<CopyAnnotationMeta>) => {
+    (annotation: DiffLineAnnotation<DiffListAnnotationMeta>) => {
+      if (isBinaryAnnotation(annotation)) {
+        return (
+          <BinaryDiffCard
+            compact
+            diff={annotation.metadata.diff}
+            repoPath={repoPath}
+          />
+        );
+      }
       if (!isCopyAnnotation(annotation)) return null;
       const isStashed = stashedPrompts.some(
         (entry) =>
@@ -445,6 +461,7 @@ export function useDiffPromptStash({
       cleanupAnnotationPrompt,
       draftNotes,
       getText,
+      repoPath,
       scope,
       stashedPrompts,
     ],

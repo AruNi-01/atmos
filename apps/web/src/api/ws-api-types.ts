@@ -176,6 +176,8 @@ export interface GitChangedFile {
   status: string; // M, A, D, R, C, U, ?
   additions: number;
   deletions: number;
+  /** True when Git/content reports a binary change. */
+  is_binary?: boolean;
   staged: boolean;
 }
 
@@ -190,13 +192,28 @@ export interface GitChangedFilesResponse {
   compare_ref: string | null;
 }
 
-// 文件 diff 响应
+export type DiffContentKind = "text" | "binary" | "too_large";
+export type DiffPreviewKind = "none" | "image" | "media";
+
+export type GitBlobLocator =
+  | { type: "worktree"; path: string }
+  | { type: "git"; rev: string; path: string };
+
+// 文件 diff 响应 — text sides only when kind === "text"
 export interface GitFileDiffResponse {
   file_path: string;
-  old_content: string;
-  new_content: string;
   status: string;
   compare_ref: string | null;
+  kind: DiffContentKind;
+  preview_kind: DiffPreviewKind;
+  old_text: string | null;
+  new_text: string | null;
+  old_size: number | null;
+  new_size: number | null;
+  old_sha256: string | null;
+  new_sha256: string | null;
+  old_blob: GitBlobLocator | null;
+  new_blob: GitBlobLocator | null;
 }
 
 export interface GitFilesDiffResult {

@@ -29,8 +29,12 @@ pub struct GitStatus {
 pub struct ChangedFileInfo {
     pub path: String,
     pub status: String,
+    /// Line additions; 0 when `is_binary` (Git numstat uses `-`).
     pub additions: u32,
+    /// Line deletions; 0 when `is_binary`.
     pub deletions: u32,
+    /// True when Git reports a binary change (numstat `-`) or content is non-text.
+    pub is_binary: bool,
     /// Whether the file is staged (in index)
     pub staged: bool,
 }
@@ -49,14 +53,50 @@ pub struct ChangedFilesInfo {
     pub compare_ref: Option<String>,
 }
 
-/// File diff information with old and new content
+/// How file content should be rendered in a diff surface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffContentKind {
+    Text,
+    Binary,
+    TooLarge,
+}
+
+/// Product preview affordance for non-text (or large) files.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffPreviewKind {
+    None,
+    Image,
+    Media,
+}
+
+/// How the client can fetch raw bytes for a preview (never embedded in WS JSON).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum GitBlobLocator {
+    Worktree { path: String },
+    Git { rev: String, path: String },
+}
+
+/// File diff information — text sides only when `kind == text`.
 #[derive(Debug, Clone, Serialize)]
 pub struct FileDiffInfo {
     pub file_path: String,
-    pub old_content: String,
-    pub new_content: String,
     pub status: String,
     pub compare_ref: Option<String>,
+    pub kind: DiffContentKind,
+    pub preview_kind: DiffPreviewKind,
+    /// Present only when `kind == text`.
+    pub old_text: Option<String>,
+    /// Present only when `kind == text`.
+    pub new_text: Option<String>,
+    pub old_size: Option<u64>,
+    pub new_size: Option<u64>,
+    pub old_sha256: Option<String>,
+    pub new_sha256: Option<String>,
+    pub old_blob: Option<GitBlobLocator>,
+    pub new_blob: Option<GitBlobLocator>,
 }
 
 /// Information about a single git commit

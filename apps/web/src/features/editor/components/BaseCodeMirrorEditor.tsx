@@ -902,12 +902,18 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     }
 
     const diff = editorGitDiffQuery.data;
+    if (diff.kind !== "text") {
+      view.dispatch({
+        effects: gitIntegrationCompartment.reconfigure([]),
+      });
+      return;
+    }
     view.dispatch({
       effects: gitIntegrationCompartment.reconfigure(
         createGitChangeGutterExtensions({
           fileRelativePath: gitDiffSource.fileRelativePath,
           fileStatus: diff.status,
-          originalContent: diff.old_content,
+          originalContent: diff.old_text ?? "",
           stagePatch: async (patch) => {
             try {
               const r = await gitApi.stagePatchChunk(

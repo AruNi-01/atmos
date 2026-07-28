@@ -174,15 +174,23 @@ function ChangeFileRow({
                 shouldHideCounts && "hidden",
               )}
             >
-              {file.additions > 0 && (
-                <span className="text-emerald-500">
-                  +{file.additions}
+              {file.is_binary ? (
+                <span className="text-muted-foreground font-sans text-[10px] font-medium uppercase tracking-wide">
+                  {t("changeSection.binaryBadge")}
                 </span>
-              )}
-              {file.deletions > 0 && (
-                <span className="text-red-500">
-                  -{file.deletions}
-                </span>
+              ) : (
+                <>
+                  {file.additions > 0 && (
+                    <span className="text-emerald-500">
+                      +{file.additions}
+                    </span>
+                  )}
+                  {file.deletions > 0 && (
+                    <span className="text-red-500">
+                      -{file.deletions}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -444,6 +452,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 gitStatus: file.status,
                 additions: file.additions,
                 deletions: file.deletions,
+                isBinary: Boolean(file.is_binary),
               }))}
               selectedPath={selectedDiffFilePath}
               ariaLabel={t("changeSection.treeAriaLabel", { title })}

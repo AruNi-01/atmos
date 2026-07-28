@@ -1,14 +1,44 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use sha2::{Digest, Sha256};
+
 use crate::error::Result;
 
-use super::{run_git, try_run_git, ChangedFileInfo, ChangedFilesInfo, FileDiffInfo, GitEngine};
+use super::{
+    run_git, try_run_git, try_run_git_bytes, ChangedFileInfo, ChangedFilesInfo, DiffContentKind,
+    DiffPreviewKind, FileDiffInfo, GitBlobLocator, GitEngine,
+};
+
+/// Max UTF-8 text side size shipped over the git-diff WS channel.
+const TEXT_DIFF_MAX_BYTES: u64 = (1536 * 1024) as u64; // 1.5 MiB
 
 struct NameStatusEntry {
     status: String,
     old_path: String,
     new_path: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct NumstatCounts {
+    additions: u32,
+    deletions: u32,
+    is_binary: bool,
+}
+
+struct SideBytes {
+    bytes: Vec<u8>,
+    /// Symlink target stored as text blob; never classified as binary.
+    is_symlink_target: bool,
+}
+
+struct ClassifiedSide {
+    is_binary: bool,
+    size: u64,
+    sha256: String,
+    /// Set only for UTF-8 text under the WS size cap.
+    text: Option<String>,
+    too_large: bool,
 }
 
 fn is_unmerged_porcelain_status(status: &str) -> bool {
@@ -126,13 +156,16 @@ impl GitEngine {
                 let y = line.chars().nth(1).unwrap_or(' ');
                 if x == '?' && y == '?' {
                     let file_path = Self::unquote_path(&line[3..]);
-                    let additions = Self::count_file_lines(repo_path, &file_path);
-                    total_additions += additions;
+                    let (additions, is_binary) = Self::count_untracked_stats(repo_path, &file_path);
+                    if !is_binary {
+                        total_additions += additions;
+                    }
                     untracked_files.push(ChangedFileInfo {
                         path: file_path,
                         status: "?".to_string(),
                         additions,
                         deletions: 0,
+                        is_binary,
                         staged: false,
                     });
                 }
@@ -143,16 +176,25 @@ impl GitEngine {
                     continue;
                 }
 
-                let (additions, deletions) =
-                    staged_numstat.get(&file_path).copied().unwrap_or((0, 0));
-                total_additions += additions;
-                total_deletions += deletions;
+                let counts = staged_numstat
+                    .get(&file_path)
+                    .copied()
+                    .unwrap_or(NumstatCounts {
+                        additions: 0,
+                        deletions: 0,
+                        is_binary: false,
+                    });
+                if !counts.is_binary {
+                    total_additions += counts.additions;
+                    total_deletions += counts.deletions;
+                }
 
                 staged_files.push(ChangedFileInfo {
                     path: file_path,
                     status,
-                    additions,
-                    deletions,
+                    additions: counts.additions,
+                    deletions: counts.deletions,
+                    is_binary: counts.is_binary,
                     staged: true,
                 });
             }
@@ -178,21 +220,32 @@ impl GitEngine {
             let file_path = Self::unquote_path(&line[3..]);
 
             if x == '?' && y == '?' {
-                let additions = Self::count_file_lines(repo_path, &file_path);
-                total_additions += additions;
+                let (additions, is_binary) = Self::count_untracked_stats(repo_path, &file_path);
+                if !is_binary {
+                    total_additions += additions;
+                }
                 untracked_files.push(ChangedFileInfo {
                     path: file_path,
                     status: "?".to_string(),
                     additions,
                     deletions: 0,
+                    is_binary,
                     staged: false,
                 });
             } else {
                 if x != ' ' && x != '?' {
-                    let (additions, deletions) =
-                        staged_numstat.get(&file_path).copied().unwrap_or((0, 0));
-                    total_additions += additions;
-                    total_deletions += deletions;
+                    let counts = staged_numstat
+                        .get(&file_path)
+                        .copied()
+                        .unwrap_or(NumstatCounts {
+                            additions: 0,
+                            deletions: 0,
+                            is_binary: false,
+                        });
+                    if !counts.is_binary {
+                        total_additions += counts.additions;
+                        total_deletions += counts.deletions;
+                    }
 
                     let status = if is_unmerged {
                         porcelain_status.clone()
@@ -212,17 +265,26 @@ impl GitEngine {
                     staged_files.push(ChangedFileInfo {
                         path: file_path.clone(),
                         status,
-                        additions,
-                        deletions,
+                        additions: counts.additions,
+                        deletions: counts.deletions,
+                        is_binary: counts.is_binary,
                         staged: true,
                     });
                 }
 
                 if y != ' ' {
-                    let (additions, deletions) =
-                        unstaged_numstat.get(&file_path).copied().unwrap_or((0, 0));
-                    total_additions += additions;
-                    total_deletions += deletions;
+                    let counts = unstaged_numstat
+                        .get(&file_path)
+                        .copied()
+                        .unwrap_or(NumstatCounts {
+                            additions: 0,
+                            deletions: 0,
+                            is_binary: false,
+                        });
+                    if !counts.is_binary {
+                        total_additions += counts.additions;
+                        total_deletions += counts.deletions;
+                    }
 
                     let status = if is_unmerged {
                         porcelain_status.clone()
@@ -239,8 +301,9 @@ impl GitEngine {
                     unstaged_files.push(ChangedFileInfo {
                         path: file_path,
                         status,
-                        additions,
-                        deletions,
+                        additions: counts.additions,
+                        deletions: counts.deletions,
+                        is_binary: counts.is_binary,
                         staged: false,
                     });
                 }
@@ -345,15 +408,22 @@ impl GitEngine {
                 continue;
             }
 
-            let (additions, deletions) = numstat.get(&file_path).copied().unwrap_or((0, 0));
-            total_additions += additions;
-            total_deletions += deletions;
+            let counts = numstat.get(&file_path).copied().unwrap_or(NumstatCounts {
+                additions: 0,
+                deletions: 0,
+                is_binary: false,
+            });
+            if !counts.is_binary {
+                total_additions += counts.additions;
+                total_deletions += counts.deletions;
+            }
 
             staged_files.push(ChangedFileInfo {
                 path: file_path,
                 status,
-                additions,
-                deletions,
+                additions: counts.additions,
+                deletions: counts.deletions,
+                is_binary: counts.is_binary,
                 staged: true,
             });
         }
@@ -368,10 +438,13 @@ impl GitEngine {
         })
     }
 
-    /// Get file diff content (old vs new)
+    /// Get file diff content (old vs new).
     ///
-    /// When `against_index` is true, `old_content` is read from the Git index (`git show :path`)
+    /// When `against_index` is true, the old side is the Git index (`git show :path`)
     /// so the diff reflects **unstaged** changes only (index vs worktree).
+    ///
+    /// Binary / oversized sides never return text content — only sizes, hashes, and
+    /// blob locators for HTTP preview.
     pub fn get_file_diff(
         &self,
         repo_path: &Path,
@@ -439,36 +512,51 @@ impl GitEngine {
             )
         };
 
-        let old_content = if against_index {
-            if status == "A" {
-                String::new()
-            } else {
-                let spec = format!(":{old_path}");
-                try_run_git(repo_path, &["show", &spec])?.unwrap_or_default()
-            }
-        } else if status == "A" {
-            String::new()
+        let (old_side, old_blob) = if status == "A" {
+            (None, None)
+        } else if against_index {
+            // Index blob: `git show :path`
+            let spec = format!(":{old_path}");
+            let side = Self::load_git_side(repo_path, &spec);
+            let blob = side.as_ref().map(|_| GitBlobLocator::Git {
+                rev: format!(":{old_path}"),
+                path: old_path.clone(),
+            });
+            (side, blob)
         } else {
-            let show_ref = compare_ref
+            let rev = compare_ref
                 .as_deref()
-                .map(|base_ref| format!("{base_ref}:{old_path}"))
-                .unwrap_or_else(|| format!("HEAD:{old_path}"));
-            try_run_git(repo_path, &["show", &show_ref])?.unwrap_or_default()
+                .map(|base_ref| base_ref.to_string())
+                .unwrap_or_else(|| "HEAD".to_string());
+            let spec = format!("{rev}:{old_path}");
+            let side = Self::load_git_side(repo_path, &spec);
+            let blob = side.as_ref().map(|_| GitBlobLocator::Git {
+                rev,
+                path: old_path.clone(),
+            });
+            (side, blob)
         };
 
-        let new_content = if status == "D" {
-            String::new()
+        let (new_side, new_blob) = if status == "D" {
+            (None, None)
         } else {
-            Self::read_worktree_blob_content(repo_path, &new_path)
+            // Working-tree diffs always use the worktree as the new side.
+            let side = Self::load_worktree_side(repo_path, &new_path);
+            let blob = side.as_ref().map(|_| GitBlobLocator::Worktree {
+                path: new_path.clone(),
+            });
+            (side, blob)
         };
 
-        Ok(FileDiffInfo {
-            file_path: file_path.to_string(),
-            old_content,
-            new_content,
-            status,
+        Ok(Self::build_file_diff_info(
+            file_path,
+            &status,
             compare_ref,
-        })
+            old_side,
+            new_side,
+            old_blob,
+            new_blob,
+        ))
     }
 
     pub fn get_file_diff_for_commit(
@@ -521,39 +609,45 @@ impl GitEngine {
                 }
             });
 
-        let old_content = if entry.status == "A" {
-            String::new()
+        let (old_side, old_blob) = if entry.status == "A" {
+            (None, None)
         } else if let Some(parent_ref) = parent_ref.as_deref() {
-            try_run_git(
-                repo_path,
-                &["show", &format!("{parent_ref}:{}", entry.old_path)],
-            )?
-            .unwrap_or_default()
+            let spec = format!("{parent_ref}:{}", entry.old_path);
+            let side = Self::load_git_side(repo_path, &spec);
+            let blob = side.as_ref().map(|_| GitBlobLocator::Git {
+                rev: parent_ref.to_string(),
+                path: entry.old_path.clone(),
+            });
+            (side, blob)
         } else {
-            String::new()
+            (None, None)
         };
 
-        let new_content = if entry.status == "D" {
-            String::new()
+        let (new_side, new_blob) = if entry.status == "D" {
+            (None, None)
         } else {
-            try_run_git(
-                repo_path,
-                &["show", &format!("{commit}:{}", entry.new_path)],
-            )?
-            .unwrap_or_default()
+            let spec = format!("{commit}:{}", entry.new_path);
+            let side = Self::load_git_side(repo_path, &spec);
+            let blob = side.as_ref().map(|_| GitBlobLocator::Git {
+                rev: commit.clone(),
+                path: entry.new_path.clone(),
+            });
+            (side, blob)
         };
 
-        Ok(FileDiffInfo {
-            file_path: file_path.to_string(),
-            old_content,
-            new_content,
-            status: entry.status,
-            compare_ref: Some(commit),
-        })
+        Ok(Self::build_file_diff_info(
+            file_path,
+            &entry.status,
+            Some(commit),
+            old_side,
+            new_side,
+            old_blob,
+            new_blob,
+        ))
     }
 
-    /// Parse `git diff --numstat` output into a map of file_path -> (additions, deletions).
-    fn build_numstat_map(output: Option<&str>) -> HashMap<String, (u32, u32)> {
+    /// Parse `git diff --numstat` output into path → counts (binary when columns are `-`).
+    fn build_numstat_map(output: Option<&str>) -> HashMap<String, NumstatCounts> {
         let Some(output) = output else {
             return HashMap::new();
         };
@@ -564,9 +658,22 @@ impl GitEngine {
                 continue;
             }
 
-            let additions = parts[0].parse().unwrap_or(0);
-            let deletions = parts[1].parse().unwrap_or(0);
-            let counts = (additions, deletions);
+            let is_binary = parts[0] == "-" || parts[1] == "-";
+            let additions = if is_binary {
+                0
+            } else {
+                parts[0].parse().unwrap_or(0)
+            };
+            let deletions = if is_binary {
+                0
+            } else {
+                parts[1].parse().unwrap_or(0)
+            };
+            let counts = NumstatCounts {
+                additions,
+                deletions,
+                is_binary,
+            };
             let raw_path = Self::unquote_path(parts[2]);
             if let Some(normalized_path) = Self::normalize_numstat_rename_path(&raw_path) {
                 files.entry(normalized_path).or_insert(counts);
@@ -680,15 +787,215 @@ impl GitEngine {
         )
     }
 
-    /// Count lines in a file (used for untracked file additions count).
-    fn count_file_lines(repo_path: &Path, file_path: &str) -> u32 {
+    /// Untracked file stats: line count for text, or binary with 0 lines.
+    fn count_untracked_stats(repo_path: &Path, file_path: &str) -> (u32, bool) {
         let full_path = repo_path.join(file_path);
-        if full_path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&full_path) {
-                return content.lines().count() as u32;
-            }
+        let Ok(bytes) = std::fs::read(&full_path) else {
+            return (0, false);
+        };
+        if Self::bytes_look_binary(&bytes) {
+            return (0, true);
         }
-        0
+        match std::str::from_utf8(&bytes) {
+            Ok(text) => (text.lines().count() as u32, false),
+            Err(_) => (0, true),
+        }
+    }
+
+    fn load_git_side(repo_path: &Path, rev_path_spec: &str) -> Option<SideBytes> {
+        try_run_git_bytes(repo_path, &["show", rev_path_spec])
+            .ok()
+            .flatten()
+            .map(|bytes| SideBytes {
+                bytes,
+                is_symlink_target: false,
+            })
+    }
+
+    fn load_worktree_side(repo_path: &Path, file_path: &str) -> Option<SideBytes> {
+        let full_path = repo_path.join(file_path);
+        let metadata = std::fs::symlink_metadata(&full_path).ok()?;
+        if metadata.file_type().is_symlink() {
+            let target = std::fs::read_link(&full_path)
+                .map(|t| t.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            return Some(SideBytes {
+                bytes: target.into_bytes(),
+                is_symlink_target: true,
+            });
+        }
+        std::fs::read(&full_path).ok().map(|bytes| SideBytes {
+            bytes,
+            is_symlink_target: false,
+        })
+    }
+
+    fn classify_side(side: &SideBytes) -> ClassifiedSide {
+        let size = side.bytes.len() as u64;
+        let sha256 = {
+            let mut hasher = Sha256::new();
+            hasher.update(&side.bytes);
+            hex::encode(hasher.finalize())
+        };
+
+        if side.is_symlink_target {
+            let text = String::from_utf8_lossy(&side.bytes).into_owned();
+            return ClassifiedSide {
+                is_binary: false,
+                size,
+                sha256,
+                text: Some(text),
+                too_large: false,
+            };
+        }
+
+        if Self::bytes_look_binary(&side.bytes) {
+            return ClassifiedSide {
+                is_binary: true,
+                size,
+                sha256,
+                text: None,
+                too_large: false,
+            };
+        }
+
+        match std::str::from_utf8(&side.bytes) {
+            Ok(_) if size > TEXT_DIFF_MAX_BYTES => ClassifiedSide {
+                is_binary: false,
+                size,
+                sha256,
+                text: None,
+                too_large: true,
+            },
+            Ok(text) => ClassifiedSide {
+                is_binary: false,
+                size,
+                sha256,
+                text: Some(text.to_string()),
+                too_large: false,
+            },
+            Err(_) => ClassifiedSide {
+                is_binary: true,
+                size,
+                sha256,
+                text: None,
+                too_large: false,
+            },
+        }
+    }
+
+    /// Git-style binary heuristic: NUL in the first 8 KiB, or invalid UTF-8.
+    fn bytes_look_binary(bytes: &[u8]) -> bool {
+        let probe = &bytes[..bytes.len().min(8192)];
+        if probe.contains(&0) {
+            return true;
+        }
+        std::str::from_utf8(bytes).is_err()
+    }
+
+    fn preview_kind_for_path(path: &str, kind: DiffContentKind) -> DiffPreviewKind {
+        if kind == DiffContentKind::Text {
+            return DiffPreviewKind::None;
+        }
+        let ext = Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        match ext.as_str() {
+            "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" | "ico" | "tiff" | "tif" => {
+                DiffPreviewKind::Image
+            }
+            "mp4" | "webm" | "ogg" | "mov" | "mp3" | "wav" => DiffPreviewKind::Media,
+            _ => DiffPreviewKind::None,
+        }
+    }
+
+    fn build_file_diff_info(
+        file_path: &str,
+        status: &str,
+        compare_ref: Option<String>,
+        old_side: Option<SideBytes>,
+        new_side: Option<SideBytes>,
+        old_blob: Option<GitBlobLocator>,
+        new_blob: Option<GitBlobLocator>,
+    ) -> FileDiffInfo {
+        let old_classified = old_side.as_ref().map(Self::classify_side);
+        let new_classified = new_side.as_ref().map(Self::classify_side);
+
+        let any_binary = old_classified
+            .as_ref()
+            .is_some_and(|s| s.is_binary)
+            || new_classified.as_ref().is_some_and(|s| s.is_binary);
+        let any_too_large = old_classified
+            .as_ref()
+            .is_some_and(|s| s.too_large)
+            || new_classified.as_ref().is_some_and(|s| s.too_large);
+
+        let kind = if any_binary {
+            DiffContentKind::Binary
+        } else if any_too_large {
+            DiffContentKind::TooLarge
+        } else {
+            DiffContentKind::Text
+        };
+        let preview_kind = Self::preview_kind_for_path(file_path, kind);
+
+        let (old_text, new_text) = if kind == DiffContentKind::Text {
+            (
+                old_classified
+                    .as_ref()
+                    .and_then(|s| s.text.clone())
+                    .or_else(|| old_side.as_ref().map(|_| String::new())),
+                new_classified
+                    .as_ref()
+                    .and_then(|s| s.text.clone())
+                    .or_else(|| new_side.as_ref().map(|_| String::new())),
+            )
+        } else {
+            (None, None)
+        };
+
+        // For pure text with a missing side (add/delete), still provide empty string.
+        let (old_text, new_text) = if kind == DiffContentKind::Text {
+            let old_text = if old_side.is_none() {
+                Some(String::new())
+            } else {
+                old_text
+            };
+            let new_text = if new_side.is_none() {
+                Some(String::new())
+            } else {
+                new_text
+            };
+            (old_text, new_text)
+        } else {
+            (old_text, new_text)
+        };
+
+        FileDiffInfo {
+            file_path: file_path.to_string(),
+            status: status.to_string(),
+            compare_ref,
+            kind,
+            preview_kind,
+            old_text,
+            new_text,
+            old_size: old_classified.as_ref().map(|s| s.size),
+            new_size: new_classified.as_ref().map(|s| s.size),
+            old_sha256: old_classified.as_ref().map(|s| s.sha256.clone()),
+            new_sha256: new_classified.as_ref().map(|s| s.sha256.clone()),
+            old_blob: if kind == DiffContentKind::Text {
+                None
+            } else {
+                old_blob
+            },
+            new_blob: if kind == DiffContentKind::Text {
+                None
+            } else {
+                new_blob
+            },
+        }
     }
 
     /// Helper to unquote path from git output, handling common escape sequences.
@@ -720,23 +1027,4 @@ impl GitEngine {
         }
     }
 
-    /// Read the worktree content the same way Git would materialize the blob.
-    ///
-    /// For regular files we return the file bytes as UTF-8 text. For symlinks, Git stores the
-    /// link target path in the blob rather than the target file's content, so we must read the
-    /// symlink target itself instead of following the link.
-    fn read_worktree_blob_content(repo_path: &Path, file_path: &str) -> String {
-        let full_path = repo_path.join(file_path);
-        let Ok(metadata) = std::fs::symlink_metadata(&full_path) else {
-            return String::new();
-        };
-
-        if metadata.file_type().is_symlink() {
-            return std::fs::read_link(&full_path)
-                .map(|target| target.to_string_lossy().into_owned())
-                .unwrap_or_default();
-        }
-
-        std::fs::read_to_string(&full_path).unwrap_or_default()
-    }
 }
