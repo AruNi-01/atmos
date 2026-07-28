@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { FileWarning, ImageIcon } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import type { GitBlobLocator, GitFileDiffResponse } from "@/api/ws-api-types";
-import {
-  formatSizeTransition,
-} from "@/features/diff/lib/diff-content-kind";
+import { formatByteSize } from "@/features/diff/lib/diff-content-kind";
 import { resolveBlobUrl } from "@/features/diff/lib/resolve-blob-url";
 import { cn } from "@/shared/lib/utils";
 import { getFileIconProps } from "@workspace/ui";
@@ -19,7 +17,7 @@ interface BinaryDiffCardProps {
   compact?: boolean;
   /**
    * When true, omit the file-path header (pierre CodeView already shows it)
-   * and use a borderless body suited for line annotations inside a diff item.
+   * and use a body suited for line annotations inside a diff item.
    */
   embedded?: boolean;
   className?: string;
@@ -46,35 +44,40 @@ function statusLabel(
 
 function SideImage({
   label,
+  sizeLabel,
   url,
   emptyLabel,
 }: {
   label: string;
+  sizeLabel: string | null;
   url: string | null;
   emptyLabel: string;
 }) {
-  if (!url) {
-    return (
-      <div className="flex min-h-[120px] flex-1 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
-        <ImageIcon className="size-5 text-muted-foreground/50" />
-        <span className="text-[11px] text-muted-foreground">{emptyLabel}</span>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex min-h-[120px] items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt={label}
-          className="max-h-[320px] max-w-full object-contain"
-        />
+      <div className="flex items-baseline gap-1.5 text-[12px] text-muted-foreground">
+        <span className="font-medium text-foreground/80">{label}</span>
+        {sizeLabel ? (
+          <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
+            {sizeLabel}
+          </span>
+        ) : null}
       </div>
+      {url ? (
+        <div className="flex min-h-[120px] items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={label}
+            className="max-h-[320px] max-w-full object-contain"
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-[120px] flex-1 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
+          <ImageIcon className="size-5 text-muted-foreground/50" />
+          <span className="text-[11px] text-muted-foreground">{emptyLabel}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -97,13 +100,18 @@ export function BinaryDiffCard({
     isDir: false,
     className: "size-4 shrink-0",
   });
-  const sizeLabel = formatSizeTransition(diff.old_size, diff.new_size);
+  const oldSizeLabel =
+    diff.old_size != null ? formatByteSize(diff.old_size) : null;
+  const newSizeLabel =
+    diff.new_size != null ? formatByteSize(diff.new_size) : null;
   const identical =
     Boolean(diff.old_sha256) &&
     Boolean(diff.new_sha256) &&
     diff.old_sha256 === diff.new_sha256;
   const showImagePreview =
     diff.preview_kind === "image" && !loadError && !identical;
+  const showPrevious = diff.status !== "A" && diff.status !== "?";
+  const showCurrent = diff.status !== "D";
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +121,10 @@ export function BinaryDiffCard({
 
     if (diff.preview_kind !== "image") return;
 
-    const load = async (locator: GitBlobLocator | null, setter: (u: string | null) => void) => {
+    const load = async (
+      locator: GitBlobLocator | null,
+      setter: (u: string | null) => void,
+    ) => {
       try {
         const url = await resolveBlobUrl(locator, repoPath);
         if (!cancelled) setter(url);
@@ -129,15 +140,6 @@ export function BinaryDiffCard({
       cancelled = true;
     };
   }, [diff.old_blob, diff.new_blob, diff.preview_kind, repoPath]);
-
-  const title =
-    diff.kind === "too_large"
-      ? t("tooLarge")
-      : diff.status === "A" || diff.status === "?"
-        ? t("binaryAdded")
-        : diff.status === "D"
-          ? t("binaryDeleted")
-          : t("binaryChanged");
 
   return (
     <div
@@ -160,49 +162,58 @@ export function BinaryDiffCard({
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
             {diff.file_path}
           </span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {statusLabel(diff.status, t)}
           </span>
         </div>
       ) : null}
 
       <div className={cn("flex flex-col gap-3 p-3", (compact || embedded) && "p-2.5")}>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5 font-medium text-foreground/80">
-            <FileWarning className="size-3.5 text-muted-foreground" />
-            {title}
-          </span>
-          {sizeLabel ? (
-            <span className="font-mono tabular-nums text-[11px]">{sizeLabel}</span>
-          ) : null}
-          {identical ? (
-            <span className="text-[11px] text-muted-foreground">{t("identicalContent")}</span>
-          ) : null}
-          {embedded ? (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {statusLabel(diff.status, t)}
-            </span>
-          ) : null}
-        </div>
-
         {showImagePreview ? (
           <div className="flex flex-col gap-3 sm:flex-row">
-            {diff.status !== "A" && diff.status !== "?" ? (
+            {showPrevious ? (
               <SideImage
                 label={t("previous")}
+                sizeLabel={oldSizeLabel}
                 url={oldUrl}
                 emptyLabel={t("previewUnavailable")}
               />
             ) : null}
-            {diff.status !== "D" ? (
+            {showCurrent ? (
               <SideImage
                 label={t("current")}
+                sizeLabel={newSizeLabel}
                 url={newUrl}
                 emptyLabel={t("previewUnavailable")}
               />
             ) : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+            {showPrevious ? (
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="font-medium text-foreground/80">{t("previous")}</span>
+                {oldSizeLabel ? (
+                  <span className="font-mono tabular-nums text-[11px]">{oldSizeLabel}</span>
+                ) : null}
+              </span>
+            ) : null}
+            {showCurrent ? (
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="font-medium text-foreground/80">{t("current")}</span>
+                {newSizeLabel ? (
+                  <span className="font-mono tabular-nums text-[11px]">{newSizeLabel}</span>
+                ) : null}
+              </span>
+            ) : null}
+            {identical ? (
+              <span className="text-[11px]">{t("identicalContent")}</span>
+            ) : null}
+            {diff.kind === "too_large" ? (
+              <span className="text-[11px]">{t("tooLarge")}</span>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );
