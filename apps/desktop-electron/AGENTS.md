@@ -47,6 +47,7 @@ Release notes: `releasenotes/Atmos Desktop Electron <version>.md`.
 - **macOS dev Dock name/icon**: Stock `Electron.app` always shows “Electron” (bundle `Info.plist`). `just dev-desktop-electron` stages a branded copy under `.cache/dev-app/Atmos Electron.app` via `scripts/prepare-dev-app.ts`. Packaged builds use electron-builder identity instead.
 - **Close button**: Intercepted (`windows/close-behavior.ts`) — always hide (macOS) / minimize (other); process stays. Dock click restores without reload. Full quit via Cmd+Q / menu only.
 - **Packaging**: `electron-builder.yml` + `scripts/package.ts`; artifacts named `Atmos-Electron_<version>_<arch>.*`.
+- **macOS DMG layout**: minimal plain backdrop under `resources/dmg/`. Window **540×380**, icons at (148,170) / (392,170), `iconSize: 96`. Top: slogan only; center solid arrow; bottom `Drag Atmos to Applications to install`. Regenerate with `python3 scripts/generate-dmg-background.py` if you move icons.
 - **macOS signing**: default **ad-hoc** (`mac.identity: "-"`, hardened runtime) so GitHub Release DMGs get a sealed app signature and Gatekeeper’s “unidentified developer” path instead of “damaged”. Override with `CSC_LINK` / `CSC_KEY_PASSWORD` (and optional `CSC_NAME` / `APPLE_SIGNING_IDENTITY` secret in CI) for Developer ID. Not notarized.
 
 ## Never

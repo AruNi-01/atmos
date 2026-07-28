@@ -54,6 +54,21 @@ mac:
 
 dmg:
   artifactName: Atmos-Electron_${version}_${arch}.${ext}
+  # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
+  # Regenerate: python3 scripts/generate-dmg-background.py
+  background: resources/dmg/background.png
+  icon: resources/icons/icon.icns
+  iconSize: 96
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 148
+      y: 170
+    - x: 392
+      y: 170
+      type: link
+      path: /Applications
 
 win:
   icon: resources/icons/icon.ico
