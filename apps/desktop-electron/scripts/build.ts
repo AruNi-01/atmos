@@ -27,7 +27,8 @@ const shared: esbuild.BuildOptions = {
   target: "node20",
   format: "esm",
   sourcemap: true,
-  external: ["electron"],
+  // Native modules stay external so Electron loads platform binaries from node_modules.
+  external: ["electron", "koffi"],
   logLevel: "info",
 };
 

@@ -22,6 +22,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import type { AppState } from "../app-state.js";
+import { APP_PRODUCT_NAME } from "../branding-paths.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -121,40 +122,101 @@ export const MINIMAL_PNG_BYTES = Buffer.from(
   "base64",
 );
 
-function macosPermissions(): AppshotPermissionState[] {
+/**
+ * Build permission DTOs from real (or injected) grant flags.
+ * Shape matches Tauri: recovery_action is null once granted.
+ */
+export function buildMacosPermissions(flags: {
+  accessibility: boolean;
+  screenRecording: boolean;
+  productName?: string;
+}): AppshotPermissionState[] {
+  const product = flags.productName ?? APP_PRODUCT_NAME;
   return [
-    {
-      name: "screen_recording",
-      display_name: "Screen Recording",
-      granted: true,
-      required_for: ["screenshot"],
-      recovery_action: {
-        label: "Open Screen Recording settings",
-        target: "screen_recording",
-        manual_steps: [
-          "System Settings → Privacy & Security → Screen Recording",
-          "Enable Atmos Electron",
-        ],
-      },
-    },
-    {
+    permissionState({
       name: "accessibility",
       display_name: "Accessibility",
-      granted: false,
+      granted: flags.accessibility,
       required_for: ["accessibility_tree"],
-      recovery_action: {
-        label: "Open Accessibility settings",
-        target: "accessibility",
-        manual_steps: [
-          "System Settings → Privacy & Security → Accessibility",
-          "Enable Atmos Electron for richer capture (Tauri parity)",
-        ],
-      },
-    },
+      target: "accessibility",
+      manual_steps: [
+        "System Settings → Privacy & Security → Accessibility",
+        `Enable ${product}, then return here and Refresh (restart the app if it stays off)`,
+      ],
+    }),
+    permissionState({
+      name: "screen_recording",
+      display_name: "Screen Recording",
+      granted: flags.screenRecording,
+      required_for: ["screenshot"],
+      target: "screen_recording",
+      manual_steps: [
+        "System Settings → Privacy & Security → Screen & System Audio Recording",
+        `Enable ${product}, then return here and Refresh (restart the app if it stays off)`,
+      ],
+    }),
   ];
 }
 
-export async function appshotStatus(): Promise<AppshotStatus> {
+function permissionState(opts: {
+  name: AppshotPermissionState["name"];
+  display_name: string;
+  granted: boolean;
+  required_for: string[];
+  target: NonNullable<AppshotPermissionState["recovery_action"]>["target"];
+  manual_steps: string[];
+}): AppshotPermissionState {
+  return {
+    name: opts.name,
+    display_name: opts.display_name,
+    granted: opts.granted,
+    required_for: opts.required_for,
+    recovery_action: opts.granted
+      ? null
+      : {
+          label: "Grant",
+          target: opts.target,
+          manual_steps: opts.manual_steps,
+        },
+  };
+}
+
+/**
+ * Query live macOS TCC state via Electron systemPreferences.
+ * Outside the Electron main process (e.g. bun unit tests) both return false.
+ */
+export async function queryMacosPermissionFlags(): Promise<{
+  accessibility: boolean;
+  screenRecording: boolean;
+}> {
+  if (process.platform !== "darwin") {
+    return { accessibility: false, screenRecording: false };
+  }
+  try {
+    const { systemPreferences } = await import("electron");
+    const accessibility = systemPreferences.isTrustedAccessibilityClient(false);
+    const screenStatus = systemPreferences.getMediaAccessStatus("screen");
+    return {
+      accessibility: Boolean(accessibility),
+      screenRecording: screenStatus === "granted",
+    };
+  } catch {
+    return { accessibility: false, screenRecording: false };
+  }
+}
+
+async function macosPermissions(): Promise<AppshotPermissionState[]> {
+  const flags = await queryMacosPermissionFlags();
+  return buildMacosPermissions(flags);
+}
+
+/**
+ * Report live status and (re)arm the dual-shift listener when Accessibility is on.
+ * Pass AppState so the gesture can invoke capture; without it, status is read-only.
+ */
+export async function appshotStatus(
+  state?: AppState,
+): Promise<AppshotStatus> {
   if (process.platform !== "darwin") {
     return {
       supported: false,
@@ -171,16 +233,30 @@ export async function appshotStatus(): Promise<AppshotStatus> {
     };
   }
 
-  const permissions = macosPermissions();
+  const flags = await queryMacosPermissionFlags();
+  const permissions = buildMacosPermissions(flags);
+
+  let triggerEnabled = false;
+  let triggerLastError: string | null = null;
+  if (state) {
+    const { ensureTriggerListener, triggerListenerStatus } = await import(
+      "./trigger.js"
+    );
+    await ensureTriggerListener(state, triggerCapture, flags.accessibility);
+    const listener = triggerListenerStatus();
+    triggerEnabled = listener.enabled;
+    triggerLastError = listener.lastError;
+  }
+
   return {
     supported: true,
     platform: "macos",
     reason: null,
     trigger: {
-      mode: "regular_hotkey_fallback",
-      enabled: true,
-      required_modifiers: [],
-      last_error: null,
+      mode: "macos_modifier_gesture",
+      enabled: triggerEnabled,
+      required_modifiers: ["left_shift", "right_shift"],
+      last_error: triggerLastError,
       permissions,
     },
     permissions,
@@ -391,7 +467,7 @@ export async function triggerCapture(state: AppState): Promise<void> {
     quality: "screenshot_only",
     screenshot_preview_base64: null,
     source_bounds: null,
-    permissions: macosPermissions(),
+    permissions: await macosPermissions(),
     warnings: metadata.warnings,
     expires_in_ms: 60_000,
   });
@@ -399,6 +475,9 @@ export async function triggerCapture(state: AppState): Promise<void> {
 
 export async function openPermissions(target: string): Promise<void> {
   if (process.platform !== "darwin") return;
+  // Open the relevant Privacy pane only — do not also call
+  // isTrustedAccessibilityClient(true), which stacks a second
+  // "Open System Settings" system dialog on top of this navigation.
   const urls: Record<string, string> = {
     screen_recording:
       "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",

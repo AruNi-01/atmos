@@ -32,6 +32,9 @@ extraResources:
       - "**/*"
 
 asar: true
+# koffi ships platform native binaries that must load outside asar.
+asarUnpack:
+  - "**/node_modules/koffi/**"
 
 mac:
   category: public.app-category.developer-tools

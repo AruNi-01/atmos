@@ -92,6 +92,16 @@ async function boot() {
   registerIpc();
 
   ensureMainWindow();
+
+  // Arm Appshots Left+Right Shift gesture when Accessibility is already granted.
+  if (process.platform === "darwin") {
+    try {
+      const appshot = await import("./appshot/service.js");
+      await appshot.appshotStatus(state);
+    } catch (err) {
+      console.warn("[desktop-electron] Appshots trigger arm failed:", err);
+    }
+  }
 }
 
 function bootOnce(): Promise<void> {
@@ -173,6 +183,14 @@ if (!gotLock) {
     isQuitting = true;
     void (async () => {
       try {
+        if (process.platform === "darwin") {
+          try {
+            const { stopTriggerListener } = await import("./appshot/trigger.js");
+            stopTriggerListener();
+          } catch {
+            /* ignore */
+          }
+        }
         await stopAllTunnelsBeforeExit();
       } finally {
         app.exit(0);

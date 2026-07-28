@@ -448,7 +448,7 @@ export function createAllHandlers(
     // --- appshot ---
     async appshot_status() {
       const appshot = await import("../appshot/service.js");
-      return appshot.appshotStatus();
+      return appshot.appshotStatus(state);
     },
     async appshot_accept_pending(args) {
       const appshot = await import("../appshot/service.js");

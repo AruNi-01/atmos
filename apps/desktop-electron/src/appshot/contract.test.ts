@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   appshotStatus,
+  buildMacosPermissions,
   dataUrlForPng,
   deleteRecord,
   listRecords,
@@ -28,6 +29,11 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
       expect(status.supported).toBe(true);
       expect(status.platform).toBe("macos");
       expect(status.trigger).toBeDefined();
+      expect(status.trigger.mode).toBe("macos_modifier_gesture");
+      expect(status.trigger.required_modifiers).toEqual([
+        "left_shift",
+        "right_shift",
+      ]);
       expect(Array.isArray(status.permissions)).toBe(true);
       expect(status.permissions.length).toBeGreaterThan(0);
       expect(status.permissions[0]).toMatchObject({
@@ -73,5 +79,45 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
     expect(snap.timestamp).toBe(ts);
     expect(snap.snapshot_url.startsWith("data:image/png;base64,")).toBe(true);
     expect(snap.snapshot_url.startsWith("file://")).toBe(false);
+  });
+
+  it("buildMacosPermissions reflects grant flags (not hardcoded stubs)", () => {
+    const denied = buildMacosPermissions({
+      accessibility: false,
+      screenRecording: false,
+      productName: "Atmos Electron",
+    });
+    expect(denied).toHaveLength(2);
+    expect(denied[0]).toMatchObject({
+      name: "accessibility",
+      granted: false,
+    });
+    expect(denied[0]!.recovery_action).toMatchObject({
+      label: "Grant",
+      target: "accessibility",
+    });
+    expect(denied[1]).toMatchObject({
+      name: "screen_recording",
+      granted: false,
+    });
+    expect(denied[1]!.recovery_action?.target).toBe("screen_recording");
+
+    const both = buildMacosPermissions({
+      accessibility: true,
+      screenRecording: true,
+    });
+    expect(both.every((p) => p.granted)).toBe(true);
+    expect(both.every((p) => p.recovery_action === null)).toBe(true);
+
+    const screenOnly = buildMacosPermissions({
+      accessibility: false,
+      screenRecording: true,
+    });
+    expect(screenOnly.find((p) => p.name === "screen_recording")?.granted).toBe(
+      true,
+    );
+    expect(screenOnly.find((p) => p.name === "accessibility")?.granted).toBe(
+      false,
+    );
   });
 });
