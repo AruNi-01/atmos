@@ -34,6 +34,82 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.7.29",
+    title: {
+      zh: "生产桌面壳 · AppShot 双 Shift · 二进制安全 Diff",
+      en: "Production Desktop Shell, AppShot Dual-Shift & Binary-Safe Diffs",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.7.29 将 2026.7.27-beta.1 dogfood 线升级为正式版。带来生产级 Atmos 桌面壳（`Atmos` / `com.atmos.desktop`）、内置 Server 运行时、原生 AppShot 双 Shift 截图、二进制安全的 Git Diff 与图片预览、安装包打磨，以及 Skills、终端与刷新链路的可靠性修复。",
+      en: "Atmos Desktop 2026.7.29 graduates the 2026.7.27-beta.1 dogfood line into a stable production release. It ships the production Atmos shell (`Atmos` / `com.atmos.desktop`) with bundled Server runtime, native AppShot dual-shift capture, binary-safe git diffs with image previews, packaging polish, and reliability fixes across skills, terminal, and refresh flows.",
+    },
+    date: "2026-07-28",
+    version: "2026.7.29",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.7.29",
+    tags: [
+      { zh: "生产桌面", en: "Production Desktop" },
+      { zh: "AppShot", en: "AppShot" },
+      { zh: "二进制 Diff", en: "Binary Diffs" },
+      { zh: "安装包", en: "Packaging" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**生产 Atmos 桌面包** — 打包桌面应用内置 Atmos Server 运行时，统一磁盘约定（`~/.atmos/appshots`、`~/.atmos/desktop`、隧道网关与 entry token），应用身份为 `com.atmos.desktop`。",
+          "**原生 AppShot 双 Shift** — 支持双 Shift 触发截图、实时 TCC 权限处理、更准确的前台应用识别，以及更顺滑的捕获体验 / CLI 检测。",
+          "**二进制安全文件 Diff** — 将内容分类为 text / binary / too-large，不再通过 Git Diff WebSocket 传输二进制字节，并以宿主 `BinaryDiffCard` 展示预览（含图片前后对比与点击放大）。",
+          "**安全 Git Blob 预览** — 新增 `GET /api/system/git-blob`，支持本地与 index blob 预览，并做严格 rev/path 校验与大小上限。",
+          "**精简 macOS DMG 布局** — 自定义更干净的安装磁盘镜像布局。",
+        ],
+        fixes: [
+          "**Skills / Wiki YAML 块标量** — 正确解析折叠/字面量 block scalar 描述，多行字段不再显示 `>-` 等指示符。",
+          "**终端鼠标悬停** — 修复重连后 TUI 鼠标悬停失效（APP-046）。",
+          "**手动 Refresh** — 用户点击 Refresh 时强制重新拉取 files / git / PRs，避免陈旧快照。",
+          "**禁用 Skill 图标** — 禁用的 skill agent 图标正确置灰，不再看起来像可点状态。",
+          "**Windows 技能打包** — 修复 skill 符号链接打包，并在 symlink-safe 复制后恢复二进制拷贝。",
+          "**macOS Gatekeeper dogfood** — 对封包资源做 ad-hoc codesign，缓解“已损坏”提示。",
+          "**二进制 Diff UI** — 左右 Previous/Current 面板、文件列表紧凑二进制图标，以及嵌入 Pierre CodeView 的预览。",
+        ],
+        improvements: [
+          "**产物命名** — 本地包使用干净的 `Atmos.*` 名称；CI 再按版本与架构重命名为多架构 GitHub 资源。",
+          "**AppShot 日志** — 减少主进程冗长 debug 噪音。",
+          "**隧道与 Cookie 助手** — 改进生产桌面壳中的隧道网关处理与 cookie helper 解析。",
+        ],
+        others: [
+          "发布标签：`desktop-electron-2026.7.29`。",
+          "完整对比：https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.7.27-beta.1...desktop-electron-2026.7.29",
+        ],
+      },
+      en: {
+        features: [
+          "**Production Atmos desktop package** — Packaged desktop app with bundled Atmos Server runtime, shared on-disk contracts (`~/.atmos/appshots`, `~/.atmos/desktop`, tunnel gateway + entry token), and app identity `com.atmos.desktop`.",
+          "**Native AppShot dual-shift** — Dual-shift capture with live TCC permission handling, improved frontmost-app detection, and polished capture UX / CLI detection.",
+          "**Binary-safe file diffs** — Classify content as text, binary, or too-large; never ship binary bytes over the git-diff WebSocket path; and render host `BinaryDiffCard` previews (including image before/after with click-to-zoom).",
+          "**Secure git-blob previews** — `GET /api/system/git-blob` for local and index blobs, with strict rev/path validation and size caps.",
+          "**Minimal macOS DMG layout** — Cleaner custom install packaging.",
+        ],
+        fixes: [
+          "**Skills / wiki YAML block scalars** — Parse folded and literal block scalar descriptions so multi-line fields no longer show indicators like `>-`.",
+          "**Terminal mouse hover** — Restored TUI mouse hover after reattach (APP-046).",
+          "**Manual Refresh** — User Refresh re-fetches files, git status, and PRs instead of serving stale snapshots.",
+          "**Disabled skill icons** — Disabled skill agent icons render grayed out instead of looking active.",
+          "**Windows skills packaging** — Fixed skill symlink packaging and restored binary copy after symlink-safe skill packaging.",
+          "**macOS Gatekeeper dogfood** — Ad-hoc codesign of sealed resources to reduce “damaged” package prompts.",
+          "**Binary diff UI** — Left/right Previous/Current panels, compact binary icons in file lists, and previews embedded inside Pierre CodeView items.",
+        ],
+        improvements: [
+          "**Artifact naming** — Local packages use clean `Atmos.*` names; CI renames multi-arch GitHub assets with version and architecture.",
+          "**AppShot logging** — Dropped verbose main-process debug noise.",
+          "**Tunnel & cookie helper** — Improved tunnel gateway handling and cookie-helper resolution in the production desktop shell.",
+        ],
+        others: [
+          "Release tag: `desktop-electron-2026.7.29`.",
+          "Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.7.27-beta.1...desktop-electron-2026.7.29",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.7.27",
     title: {
       zh: "项目/工作区分组 · 热缓存 · 磁盘分析 · Canvas 与协议芯片",
