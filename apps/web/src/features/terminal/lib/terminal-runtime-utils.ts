@@ -16,8 +16,30 @@ const CTRL_ENTER_CSI_U = "\x1b[13;5u";
 const MIN_TERMINAL_COLS = 20;
 const MIN_TERMINAL_ROWS = 8;
 
-export const ENABLE_TUI_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+// Keep in sync with @atmos/shared ENABLE_TUI_MOUSE_TRACKING.
+// 1003 (any-motion) is required for TUI hover; without it xterm stays in DRAG
+// and only reports moves while a button is held.
+export const ENABLE_TUI_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h";
 export const DISABLE_TUI_MOUSE_TRACKING = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l";
+
+/** Prefer backend-observed sequence; else flag/alternate heuristic with full default. */
+export function mouseTrackingRestoreSequence(snapshot: {
+  alternate?: boolean;
+  restore_mouse_tracking?: boolean;
+  mouse_tracking_sequence?: string | null;
+}): string {
+  if (
+    typeof snapshot.mouse_tracking_sequence === "string" &&
+    snapshot.mouse_tracking_sequence.length > 0
+  ) {
+    return snapshot.mouse_tracking_sequence;
+  }
+  const restore =
+    typeof snapshot.restore_mouse_tracking === "boolean"
+      ? snapshot.restore_mouse_tracking
+      : snapshot.alternate === true;
+  return restore ? ENABLE_TUI_MOUSE_TRACKING : "";
+}
 
 /** Keep in sync with @atmos/shared and core-engine inline mouse TUI whitelist. */
 export function isInlineMouseTuiCommand(cmd: string): boolean {

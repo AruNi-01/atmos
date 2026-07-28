@@ -33,6 +33,8 @@ pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{
     is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
-    should_restore_tui_mouse_tracking, TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage,
-    TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo,
+    resolve_mouse_tracking_restore, should_restore_tui_mouse_tracking, MouseEventMode, MouseFormat,
+    MouseModeState, TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot,
+    TmuxSessionInfo, TmuxVersion, TmuxWindowAtmosMetadata, TmuxWindowInfo, ATMOS_MOUSE_TRACKING_OPTION,
+    DEFAULT_TUI_MOUSE_RESTORE,
 };

@@ -49,6 +49,7 @@
 | APP | `APP-043_workspace-surface-cache` | **shipped** | TEST Coverage Status present |
 | APP | `APP-044_project-workspace-groups` | **shipped** | TEST Coverage Status present |
 | APP | `APP-045_desktop-electron-dual-shell` | **shipped** | TS Electron dual-shell + atmos-browser-cookies Keychain helper + AppShot screencapture records; smokes 52 cmds |
+| APP | `APP-046_terminal-tui-mouse-tracking` | **partial** | unit tests green; manual Claude/Grok hover dogfood pending |
 | QUALITY | `QUALITY-001_large-file-code-debt-cleanup` | **shipped** | quality program docs; not product Must Have blocker |
 | QUALITY | `QUALITY-002_spec-test-execution-loop` | **shipped** | quality program docs; not product Must Have blocker |
 | QUALITY | `QUALITY-003_playwright-e2e-harness` | **shipped** | quality program docs; not product Must Have blocker |
@@ -57,6 +58,6 @@
 
 ## Counts
 - shipped: 50
-- partial: 0
+- partial: 1
 - open: 0
 - obsolete: 0

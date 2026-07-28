@@ -39,16 +39,20 @@ pub struct TmuxPaneSnapshot {
     pub alternate: bool,
     /// Whether the frontend should re-enable TUI mouse tracking after reattach.
     ///
-    /// `capture-pane` restores cells, not DEC modes. Restore when:
-    /// - the pane is on the alternate screen (standard full-screen TUIs), or
-    /// - the foreground is a known **inline** mouse TUI (see
-    ///   [`is_inline_mouse_tui_command`]) that enables mouse reporting without
-    ///   alt-screen.
+    /// `capture-pane` restores cells, not DEC modes. Prefer modes observed on
+    /// the live stream and persisted as `@atmos_mouse_tracking`. Fall back to:
+    /// - alternate screen (standard full-screen TUIs), or
+    /// - known **inline** mouse TUIs ([`is_inline_mouse_tui_command`]).
     ///
     /// Do **not** enable for arbitrary non-shell processes: that steals the
     /// wheel from xterm scrollback (`npm run dev`, non-mouse agent TUIs, etc.).
     #[serde(default)]
     pub restore_mouse_tracking: bool,
+    /// Exact DECSET sequence to re-enable mouse after hydrate (when known).
+    /// Prefer this over a fixed client-side default so hover (`1003`) and
+    /// encoding match what the TUI actually enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mouse_tracking_sequence: Option<String>,
 }
 
 /// Shell names treated as "idle at prompt" for title/mouse restore heuristics.

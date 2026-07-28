@@ -27,6 +27,7 @@ import { createTerminalLinkProvider } from "../lib/terminal-link-routing";
 import {
   DISABLE_TUI_MOUSE_TRACKING,
   ENABLE_TUI_MOUSE_TRACKING,
+  mouseTrackingRestoreSequence,
   SafeClipboardProvider,
   cloneTerminalWriteChunk,
   coalesceTerminalWriteChunks,
@@ -354,18 +355,15 @@ const Terminal = ({
     pendingWriteRef.current = [];
     outputTextDecoderRef.current = new TextDecoder();
     const useAlternateScreen = snapshot.alternate === true;
-    // capture-pane restores cells, not DEC mouse modes. Prefer backend flag
-    // (alternate or inline mouse-TUI whitelist like Grok).
-    const restoreMouseTracking =
-      typeof snapshot.restore_mouse_tracking === "boolean"
-        ? snapshot.restore_mouse_tracking
-        : useAlternateScreen;
+    // capture-pane restores cells, not DEC mouse modes. Prefer the exact
+    // sequence observed on the live stream; fall back to flag / alternate
+    // heuristic with the full default (includes 1003 hover).
+    const mouseRestore = mouseTrackingRestoreSequence(snapshot);
     const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
     const clearScrollback = useAlternateScreen ? "" : "\x1b[3J";
     const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
     const data = normalizeSnapshotData(snapshot.data);
     const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
-    const mouseRestore = restoreMouseTracking ? ENABLE_TUI_MOUSE_TRACKING : "";
     term.reset();
     if (
       isUsableTerminalGrid(snapshot.cols, snapshot.rows) &&

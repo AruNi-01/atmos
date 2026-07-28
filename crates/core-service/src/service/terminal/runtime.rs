@@ -11,6 +11,7 @@ use core_engine::tmux::control::{
     encode_refresh_client_report_command, encode_send_keys_hex_commands, parse_control_line_bytes,
     ControlModeEvent, TmuxPassthroughUnwrapper,
 };
+use core_engine::{MouseModeState, TmuxEngine};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
@@ -214,6 +215,15 @@ pub(super) fn run_control_mode_tmux_session(
         let mut reader = BufReader::new(stdout);
         let mut line = Vec::new();
         let mut passthrough_unwrapper = TmuxPassthroughUnwrapper::default();
+        // Observe DEC mouse modes on the live stream and persist on the pane so
+        // reattach can restore the exact protocol (including 1003 hover) instead
+        // of a fixed guess. Seed from any prior observation on this pane.
+        let tmux = TmuxEngine::new();
+        let mut mouse_modes = tmux
+            .get_pane_mouse_tracking_by_id(&reader_pane_id)
+            .ok()
+            .flatten()
+            .unwrap_or_else(MouseModeState::default);
 
         // Suppress %output bytes that flow during the tmux control client's
         // initial attach/resize/refresh cycle. Those bytes are tmux replaying
@@ -230,6 +240,9 @@ pub(super) fn run_control_mode_tmux_session(
         // exactly two init commands below (resize-window + refresh-client),
         // so the 2nd %end / %error means all redundant repaint %output is
         // behind us and any subsequent %output is genuine PTY activity.
+        //
+        // Still parse mouse modes during suppress: apps often re-DECSET mouse
+        // on SIGWINCH from our init resize, and those sequences must not be lost.
         let mut suppress_pane_output = true;
         let mut init_responses_remaining: u8 = 2;
 
@@ -244,17 +257,26 @@ pub(super) fn run_control_mode_tmux_session(
                     | Some(ControlModeEvent::ExtendedOutput { pane_id, data, .. })
                         if pane_id == reader_pane_id =>
                     {
+                        // Always feed bytes through the DCS passthrough
+                        // unwrapper so its state machine stays in sync
+                        // with the live stream even while we drop them.
+                        let data = passthrough_unwrapper.push(&data);
+                        if !data.is_empty() && mouse_modes.observe_bytes(&data) {
+                            if let Err(error) =
+                                tmux.set_pane_mouse_tracking_by_id(&reader_pane_id, &mouse_modes)
+                            {
+                                debug!(
+                                    "Failed to persist mouse tracking for {}: {}",
+                                    reader_session_id, error
+                                );
+                            }
+                        }
                         if suppress_pane_output {
-                            // Always feed bytes through the DCS passthrough
-                            // unwrapper so its state machine stays in sync
-                            // with the live stream even while we drop them.
-                            let _ = passthrough_unwrapper.push(&data);
                             continue;
                         }
                         // Preserve synchronized-output markers. Modern TUIs use
                         // them to bracket a complete redraw frame; xterm.js can
                         // use that hint to avoid presenting half-drawn frames.
-                        let data = passthrough_unwrapper.push(&data);
                         if !data.is_empty() && output_tx.send(data).is_err() {
                             break;
                         }

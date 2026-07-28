@@ -12,6 +12,7 @@ mod capture;
 pub mod control;
 mod install;
 mod locale;
+mod mouse_modes;
 mod session;
 mod types;
 
@@ -22,6 +23,10 @@ use tracing::debug;
 use crate::error::{EngineError, Result};
 use locale::apply_utf8_env;
 
+pub use mouse_modes::{
+    resolve_mouse_tracking_restore, MouseEventMode, MouseFormat, MouseModeState,
+    ATMOS_MOUSE_TRACKING_OPTION, DEFAULT_TUI_MOUSE_RESTORE,
+};
 pub use types::{
     is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
     should_restore_tui_mouse_tracking, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot,
@@ -356,6 +361,71 @@ impl TmuxEngine {
             source_pane_id: parts.next().flatten(),
             source_tmux_window_name: parts.next().flatten(),
         })
+    }
+
+    /// Read observed mouse-tracking state persisted on a pane (`@atmos_mouse_tracking`).
+    ///
+    /// `None` means never observed (use alt-screen / inline-TUI heuristic).
+    pub fn get_pane_mouse_tracking(
+        &self,
+        session_name: &str,
+        window_index: u32,
+    ) -> Result<Option<MouseModeState>> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let raw = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            &format!("#{{{ATMOS_MOUSE_TRACKING_OPTION}}}"),
+        ])?;
+        Ok(MouseModeState::decode_persist(raw.trim()))
+    }
+
+    /// Persist observed mouse-tracking state on a pane for reattach restore.
+    pub fn set_pane_mouse_tracking(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        state: &MouseModeState,
+    ) -> Result<()> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        self.run_tmux(&[
+            "set-option",
+            "-pt",
+            &target,
+            ATMOS_MOUSE_TRACKING_OPTION,
+            &state.encode_persist(),
+        ])?;
+        Ok(())
+    }
+
+    /// Persist mouse-tracking by stable pane id (control-mode reader path).
+    pub fn set_pane_mouse_tracking_by_id(
+        &self,
+        pane_id: &str,
+        state: &MouseModeState,
+    ) -> Result<()> {
+        self.run_tmux(&[
+            "set-option",
+            "-pt",
+            pane_id,
+            ATMOS_MOUSE_TRACKING_OPTION,
+            &state.encode_persist(),
+        ])?;
+        Ok(())
+    }
+
+    /// Load mouse-tracking by stable pane id (control-mode reader seed).
+    pub fn get_pane_mouse_tracking_by_id(&self, pane_id: &str) -> Result<Option<MouseModeState>> {
+        let raw = self.run_tmux(&[
+            "display-message",
+            "-t",
+            pane_id,
+            "-p",
+            &format!("#{{{ATMOS_MOUSE_TRACKING_OPTION}}}"),
+        ])?;
+        Ok(MouseModeState::decode_persist(raw.trim()))
     }
 }
 

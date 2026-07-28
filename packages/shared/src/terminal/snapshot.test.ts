@@ -4,6 +4,7 @@ import {
   ENABLE_TUI_MOUSE_TRACKING,
   buildTerminalSnapshotRestorePayload,
   isInlineMouseTuiCommand,
+  mouseTrackingRestoreSequence,
   shouldRestoreTuiMouseTracking,
 } from "./snapshot";
 import type { TerminalSnapshot } from "./protocol";
@@ -56,6 +57,42 @@ describe("shouldRestoreTuiMouseTracking", () => {
   });
 });
 
+describe("ENABLE_TUI_MOUSE_TRACKING", () => {
+  test("includes any-motion (1003) so hover reports reach the TUI", () => {
+    // xterm.js treats 1000/1002/1003 as exclusive; the last SET wins.
+    // Order ends with 1003 before SGR 1006 so activeProtocol is ANY.
+    expect(ENABLE_TUI_MOUSE_TRACKING).toContain("\x1b[?1003h");
+    expect(ENABLE_TUI_MOUSE_TRACKING.indexOf("\x1b[?1003h")).toBeGreaterThan(
+      ENABLE_TUI_MOUSE_TRACKING.indexOf("\x1b[?1002h"),
+    );
+    expect(ENABLE_TUI_MOUSE_TRACKING.indexOf("\x1b[?1006h")).toBeGreaterThan(
+      ENABLE_TUI_MOUSE_TRACKING.indexOf("\x1b[?1003h"),
+    );
+  });
+});
+
+describe("mouseTrackingRestoreSequence", () => {
+  test("prefers exact backend sequence over the default", () => {
+    const exact = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+    expect(
+      mouseTrackingRestoreSequence({
+        alternate: true,
+        restore_mouse_tracking: true,
+        mouse_tracking_sequence: exact,
+      }),
+    ).toBe(exact);
+  });
+
+  test("falls back to full default (with 1003) when only the flag is set", () => {
+    expect(
+      mouseTrackingRestoreSequence({
+        alternate: true,
+        restore_mouse_tracking: true,
+      }),
+    ).toBe(ENABLE_TUI_MOUSE_TRACKING);
+  });
+});
+
 describe("buildTerminalSnapshotRestorePayload", () => {
   test("restores mouse tracking for non-alternate inline TUI snapshots", () => {
     const { payload, useAlternateScreen, restoreMouseTracking } =
@@ -85,6 +122,21 @@ describe("buildTerminalSnapshotRestorePayload", () => {
     expect(restoreMouseTracking).toBe(true);
     expect(payload.includes("\x1b[?1049h")).toBe(true);
     expect(payload.endsWith(ENABLE_TUI_MOUSE_TRACKING)).toBe(true);
+  });
+
+  test("uses exact mouse_tracking_sequence when provided", () => {
+    const exact = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+    const { payload, restoreMouseTracking } = buildTerminalSnapshotRestorePayload(
+      baseSnapshot({
+        alternate: true,
+        restore_mouse_tracking: true,
+        mouse_tracking_sequence: exact,
+      }),
+    );
+
+    expect(restoreMouseTracking).toBe(true);
+    expect(payload.endsWith(exact)).toBe(true);
+    expect(payload.includes("\x1b[?1003h")).toBe(false);
   });
 
   test("skips mouse restore for idle shell snapshots", () => {

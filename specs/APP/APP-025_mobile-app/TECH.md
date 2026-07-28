@@ -242,6 +242,7 @@ Rules:
 - `packages/shared/src/terminal/snapshot.ts`
   - Owns snapshot restore payload generation currently embedded in `apps/web/src/features/terminal/components/Terminal.tsx`.
   - Exports a pure helper that returns the xterm payload for alternate-screen, cursor restore, scrollback clear, and mouse tracking restore.
+  - Mouse restore prefers backend `mouse_tracking_sequence` (exact DEC modes) then the full default including `1003` hover — see [APP-046 Terminal TUI Mouse Tracking](../APP-046_terminal-tui-mouse-tracking/TECH.md).
 - `packages/shared/src/terminal/output.ts`
   - Owns terminal write chunk cloning/coalescing currently in `apps/web/src/features/terminal/lib/terminal-runtime-utils.ts`.
   - Mobile uses the same batching semantics when forwarding `write_b64` chunks into WebView.

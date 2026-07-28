@@ -572,6 +572,7 @@ pub async fn capture_tmux_window(
         "cols": snapshot.cols,
         "alternate": snapshot.alternate,
         "restore_mouse_tracking": snapshot.restore_mouse_tracking,
+        "mouse_tracking_sequence": snapshot.mouse_tracking_sequence,
         "skip_lines": page.skip_from_bottom,
         "lines_returned": page.lines_returned,
         "has_more_older": page.has_more_older,

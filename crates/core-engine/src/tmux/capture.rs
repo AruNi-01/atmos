@@ -1,6 +1,6 @@
 use crate::error::Result;
 
-use super::{should_restore_tui_mouse_tracking, TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot};
+use super::{resolve_mouse_tracking_restore, TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct PaneMetadata {
@@ -229,8 +229,15 @@ impl TmuxEngine {
         let current_command = self
             .get_pane_current_command(session_name, window_index)
             .unwrap_or_default();
-        let restore_mouse_tracking =
-            should_restore_tui_mouse_tracking(metadata.alternate, &current_command);
+        let observed = self
+            .get_pane_mouse_tracking(session_name, window_index)
+            .ok()
+            .flatten();
+        let (restore_mouse_tracking, mouse_tracking_sequence) = resolve_mouse_tracking_restore(
+            observed,
+            metadata.alternate,
+            &current_command,
+        );
 
         Ok(TmuxPaneCapturePage {
             snapshot: TmuxPaneSnapshot {
@@ -241,6 +248,7 @@ impl TmuxEngine {
                 rows: metadata.rows,
                 alternate: metadata.alternate,
                 restore_mouse_tracking,
+                mouse_tracking_sequence,
             },
             skip_from_bottom: skip,
             lines_returned,
@@ -279,8 +287,15 @@ impl TmuxEngine {
         let current_command = self
             .get_pane_current_command(session_name, window_index)
             .unwrap_or_default();
-        let restore_mouse_tracking =
-            should_restore_tui_mouse_tracking(metadata.alternate, &current_command);
+        let observed = self
+            .get_pane_mouse_tracking(session_name, window_index)
+            .ok()
+            .flatten();
+        let (restore_mouse_tracking, mouse_tracking_sequence) = resolve_mouse_tracking_restore(
+            observed,
+            metadata.alternate,
+            &current_command,
+        );
 
         Ok(TmuxPaneSnapshot {
             data,
@@ -290,6 +305,7 @@ impl TmuxEngine {
             rows: metadata.rows,
             alternate: metadata.alternate,
             restore_mouse_tracking,
+            mouse_tracking_sequence,
         })
     }
 }

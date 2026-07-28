@@ -233,6 +233,8 @@ export interface TerminalSnapshot {
   alternate?: boolean;
   /** Re-enable TUI mouse tracking after reattach (backend-computed). */
   restore_mouse_tracking?: boolean;
+  /** Exact DECSET sequence from observed TUI modes (preferred over default). */
+  mouse_tracking_sequence?: string | null;
 }
 
 export interface WsTerminalCreated {

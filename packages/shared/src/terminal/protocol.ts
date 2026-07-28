@@ -10,12 +10,19 @@ export type TerminalSnapshot = TerminalSize & {
   alternate: boolean;
   /**
    * Re-enable TUI mouse tracking after reattach hydration.
-   * Set by the backend when the pane is on the alternate screen, or the
-   * foreground is a known inline mouse TUI (e.g. Grok). Not set for arbitrary
-   * non-shell processes so wheel scrollback stays usable.
+   * Set by the backend when:
+   * - live stream observed active DEC mouse modes (preferred), or
+   * - pane is on the alternate screen / known inline mouse TUI (fallback).
+   * Not set for arbitrary non-shell processes so wheel scrollback stays usable.
    * Older servers omit this; clients fall back to `alternate`.
    */
   restore_mouse_tracking?: boolean;
+  /**
+   * Exact DECSET sequence to restore mouse modes after hydrate.
+   * When present, prefer over the client default so hover (`1003`) and
+   * encoding match what the TUI actually enabled.
+   */
+  mouse_tracking_sequence?: string | null;
 };
 
 export type TerminalOpenMessage = {
