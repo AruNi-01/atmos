@@ -78,9 +78,6 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
   if (!script) return null;
 
   const electronPath = process.execPath;
-  mainLog(
-    `[appshot-tap] spawning helper process exec=${electronPath} script=${script}`,
-  );
 
   let child: ChildProcessWithoutNullStreams;
   try {
@@ -100,10 +97,7 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
     return null;
   }
 
-  let stopped = false;
-  let ready = false;
   let buf = "";
-  let restartAttempts = 0;
   let onChordRef = onChord;
 
   const handleLine = (line: string): void => {
@@ -121,28 +115,15 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
     try {
       msg = JSON.parse(trimmed) as typeof msg;
     } catch {
-      mainLog(`[appshot-tap] helper non-json: ${trimmed.slice(0, 160)}`);
       return;
     }
     switch (msg.t) {
       case "boot":
-        mainLog(
-          `[appshot-tap] helper boot ax=${msg.ax} ${trimmed.slice(0, 200)}`,
-        );
-        break;
       case "ready":
-        ready = true;
-        mainLog(
-          `[appshot-tap] helper READY ax=${msg.ax} (global dual-shift, separate process)`,
-        );
-        break;
       case "edge":
-        mainLog(
-          `[appshot-tap] edge side=${msg.side} down=${msg.down} keycode=0x${Number(msg.keycode ?? 0).toString(16)} n=${msg.n}`,
-        );
+      case "exit":
         break;
       case "chord":
-        mainLog("[appshot-tap] CHORD (helper process)");
         try {
           onChordRef();
         } catch (e) {
@@ -155,11 +136,8 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
       case "error":
         mainLog(`[appshot-tap] helper error: ${msg.msg}`, "error");
         break;
-      case "exit":
-        mainLog("[appshot-tap] helper exit msg");
-        break;
       default:
-        mainLog(`[appshot-tap] helper: ${trimmed.slice(0, 200)}`);
+        break;
     }
   };
 
@@ -179,26 +157,12 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
     if (t) mainLog(`[appshot-tap] helper stderr: ${t.slice(0, 400)}`, "error");
   });
 
-  child.on("exit", (code, signal) => {
-    mainLog(
-      `[appshot-tap] helper process exit code=${code} signal=${signal} ready=${ready}`,
-    );
-    if (!stopped && restartAttempts < 5) {
-      restartAttempts += 1;
-      mainLog(
-        `[appshot-tap] will not auto-respawn here (parent trigger owns restarts) attempts=${restartAttempts}`,
-      );
-    }
-  });
-
-  // Do not busy-wait on the Electron main thread — READY arrives async via stdout.
-  child.once("spawn", () => {
-    mainLog(`[appshot-tap] helper pid=${child.pid}`);
+  child.on("exit", () => {
+    /* parent trigger owns restarts */
   });
 
   return {
     stop: () => {
-      stopped = true;
       try {
         child.kill("SIGTERM");
       } catch {
@@ -212,7 +176,6 @@ export function startShiftFlagsEventTap(onChord: () => void): TapHandle | null {
           /* ignore */
         }
       }, 500);
-      mainLog("[appshot-tap] helper stop requested");
     },
   };
 }

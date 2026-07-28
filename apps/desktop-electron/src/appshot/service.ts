@@ -458,10 +458,6 @@ export async function triggerCapture(state: AppState): Promise<void> {
   await playCaptureAnimationIfPossible();
 
   const result = await captureFrontmostWindow();
-  const pngBytes = result.png?.length ?? 0;
-  mainLog(
-    `[appshot-capture] frontmost="${result.frontmost.appName}" title=${JSON.stringify(result.frontmost.windowTitle)} png=${pngBytes} quality=${result.quality} warnings=${result.warnings.join(" | ") || "none"}`,
-  );
 
   const capturedAt = new Date().toISOString();
   const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -538,13 +534,6 @@ export async function triggerCapture(state: AppState): Promise<void> {
     warnings: capture.warnings,
     expires_in_ms: expiresInMs || PREVIEW_EXPIRES_IN_MS,
   });
-  mainLog(
-    `[appshot-capture] preview sent id=${previewId} app=${capture.appName} bounds=${
-      capture.sourceBounds
-        ? `${capture.sourceBounds.x},${capture.sourceBounds.y} ${capture.sourceBounds.width}x${capture.sourceBounds.height}`
-        : "none"
-    }`,
-  );
 
   if (expiresInMs > 0) {
     spawnAutoAccept(state, previewId);
@@ -573,9 +562,6 @@ async function playCaptureAnimationIfPossible(): Promise<void> {
       }) ||
       !bounds
     ) {
-      mainLog(
-        `[appshot-capture] skip animation app=${frontmost.appName} bounds=${bounds ? `${bounds.width}x${bounds.height}` : "none"}`,
-      );
       return;
     }
     await playCaptureAnimation(bounds);
