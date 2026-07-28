@@ -36,26 +36,27 @@ export const changelogData: ChangelogItem[] = [
   {
     id: "desktop-2026.7.29",
     title: {
-      zh: "生产桌面壳 · AppShot 双 Shift · 二进制安全 Diff",
-      en: "Production Desktop Shell, AppShot Dual-Shift & Binary-Safe Diffs",
+      zh: "生产桌面切到 Electron · AppShot 双 Shift · 二进制安全 Diff",
+      en: "Production Desktop Moves to Electron, AppShot Dual-Shift & Binary-Safe Diffs",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.29 将 2026.7.27-beta.1 dogfood 线升级为正式版。带来生产级 Atmos 桌面壳（`Atmos` / `com.atmos.desktop`）、内置 Server 运行时、原生 AppShot 双 Shift 截图、二进制安全的 Git Diff 与图片预览、安装包打磨，以及 Skills、终端与刷新链路的可靠性修复。",
-      en: "Atmos Desktop 2026.7.29 graduates the 2026.7.27-beta.1 dogfood line into a stable production release. It ships the production Atmos shell (`Atmos` / `com.atmos.desktop`) with bundled Server runtime, native AppShot dual-shift capture, binary-safe git diffs with image previews, packaging polish, and reliability fixes across skills, terminal, and refresh flows.",
+      zh: "Atmos Desktop 2026.7.29 将 2026.7.27-beta.1 dogfood 线升级为正式版。本期最大架构变化是生产桌面从 Tauri 切换到 Electron 壳（产品名仍为 Atmos / `com.atmos.desktop`，Tauri 桌面路径退出产品发布）；同时带来内置 Server 运行时、原生 AppShot 双 Shift 截图、二进制安全的 Git Diff 与图片预览、安装包打磨，以及 Skills、终端与刷新链路的可靠性修复。",
+      en: "Atmos Desktop 2026.7.29 graduates the 2026.7.27-beta.1 dogfood line into a stable production release. The headline architecture change is the production desktop cutover from Tauri to the Electron shell (product identity remains Atmos / `com.atmos.desktop`; the Tauri desktop path is no longer the product ship path). It also ships bundled Server runtime, native AppShot dual-shift capture, binary-safe git diffs with image previews, packaging polish, and reliability fixes across skills, terminal, and refresh flows.",
     },
     date: "2026-07-28",
     version: "2026.7.29",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.7.29",
     tags: [
+      { zh: "Electron 切换", en: "Electron Cutover" },
       { zh: "生产桌面", en: "Production Desktop" },
       { zh: "AppShot", en: "AppShot" },
       { zh: "二进制 Diff", en: "Binary Diffs" },
-      { zh: "安装包", en: "Packaging" },
     ],
     content: {
       zh: {
         features: [
-          "**生产 Atmos 桌面包** — 打包桌面应用内置 Atmos Server 运行时，统一磁盘约定（`~/.atmos/appshots`、`~/.atmos/desktop`、隧道网关与 entry token），应用身份为 `com.atmos.desktop`。",
+          "**生产桌面引擎切换（Tauri → Electron）** — 正式桌面发布改为 Electron 生产壳（`apps/desktop-electron`），产品身份仍为 `Atmos` / `com.atmos.desktop`；原先 Tauri 桌面路径退出产品发布，后续请安装 `desktop-electron-*` 渠道。",
+          "**生产 Atmos 桌面包** — 打包桌面应用内置 Atmos Server 运行时，统一磁盘约定（`~/.atmos/appshots`、`~/.atmos/desktop`、隧道网关与 entry token）。",
           "**原生 AppShot 双 Shift** — 支持双 Shift 触发截图、实时 TCC 权限处理、更准确的前台应用识别，以及更顺滑的捕获体验 / CLI 检测。",
           "**二进制安全文件 Diff** — 将内容分类为 text / binary / too-large，不再通过 Git Diff WebSocket 传输二进制字节，并以宿主 `BinaryDiffCard` 展示预览（含图片前后对比与点击放大）。",
           "**安全 Git Blob 预览** — 新增 `GET /api/system/git-blob`，支持本地与 index blob 预览，并做严格 rev/path 校验与大小上限。",
@@ -82,7 +83,8 @@ export const changelogData: ChangelogItem[] = [
       },
       en: {
         features: [
-          "**Production Atmos desktop package** — Packaged desktop app with bundled Atmos Server runtime, shared on-disk contracts (`~/.atmos/appshots`, `~/.atmos/desktop`, tunnel gateway + entry token), and app identity `com.atmos.desktop`.",
+          "**Production desktop engine cutover (Tauri → Electron)** — Production Desktop now ships from the Electron shell (`apps/desktop-electron`) with product identity `Atmos` / `com.atmos.desktop`. The previous Tauri desktop path is deprecated for product releases; install the `desktop-electron-*` channel going forward.",
+          "**Production Atmos desktop package** — Packaged desktop app with bundled Atmos Server runtime and shared on-disk contracts (`~/.atmos/appshots`, `~/.atmos/desktop`, tunnel gateway + entry token).",
           "**Native AppShot dual-shift** — Dual-shift capture with live TCC permission handling, improved frontmost-app detection, and polished capture UX / CLI detection.",
           "**Binary-safe file diffs** — Classify content as text, binary, or too-large; never ship binary bytes over the git-diff WebSocket path; and render host `BinaryDiffCard` previews (including image before/after with click-to-zoom).",
           "**Secure git-blob previews** — `GET /api/system/git-blob` for local and index blobs, with strict rev/path validation and size caps.",
