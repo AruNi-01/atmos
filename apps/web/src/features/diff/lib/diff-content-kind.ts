@@ -13,24 +13,49 @@ export function isNonTextDiff(diff: Pick<GitFileDiffResponse, "kind">): boolean 
   return diff.kind !== "text";
 }
 
+/** Which binary panel an annotation renders (maps to pierre deletion/addition columns). */
+export type BinaryDiffPanel = "previous" | "current";
+
 /**
  * Placeholder sides for @pierre/diffs so binary files stay in CodeView.
  * Sides must differ (non-empty change) or pierre treats the file as empty and
  * disables expand + drops line annotations.
+ *
+ * For modified files we emit **two** annotations so split layout places
+ * Previous on the left (deletions) and Current on the right (additions).
  */
 export function binaryDiffPlaceholders(status: string): {
   oldText: string;
   newText: string;
-  annotationSide: "additions" | "deletions";
+  annotations: Array<{
+    side: "additions" | "deletions";
+    lineNumber: number;
+    panel: BinaryDiffPanel;
+  }>;
 } {
   // NBSP keeps a visible-but-minimal change line for the annotation to attach to.
   if (status === "A" || status === "?") {
-    return { oldText: "", newText: "\u00a0\n", annotationSide: "additions" };
+    return {
+      oldText: "",
+      newText: "\u00a0\n",
+      annotations: [{ side: "additions", lineNumber: 1, panel: "current" }],
+    };
   }
   if (status === "D") {
-    return { oldText: "\u00a0\n", newText: "", annotationSide: "deletions" };
+    return {
+      oldText: "\u00a0\n",
+      newText: "",
+      annotations: [{ side: "deletions", lineNumber: 1, panel: "previous" }],
+    };
   }
-  return { oldText: ".\n", newText: "\u00a0\n", annotationSide: "additions" };
+  return {
+    oldText: ".\n",
+    newText: "\u00a0\n",
+    annotations: [
+      { side: "deletions", lineNumber: 1, panel: "previous" },
+      { side: "additions", lineNumber: 1, panel: "current" },
+    ],
+  };
 }
 
 const IMAGE_EXTS = new Set([

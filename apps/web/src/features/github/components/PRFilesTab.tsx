@@ -210,6 +210,7 @@ type PrAnnotationMeta =
       kind: 'binary';
       path: string;
       diff: GitFileDiffResponse;
+      panel: 'previous' | 'current';
     };
 
 function prStatusToGitStatus(status: string): string {
@@ -347,7 +348,7 @@ export function PRFilesTab({
 
       if (!file.patch || file.kind === 'binary' || file.kind === 'too_large') {
         const gitStatus = prStatusToGitStatus(file.status);
-        const { oldText, newText, annotationSide } =
+        const { oldText, newText, annotations: binaryAnns } =
           binaryDiffPlaceholders(gitStatus);
         const fileDiff = parseDiffFromFile(
           {
@@ -381,17 +382,16 @@ export function PRFilesTab({
           id: file.filename,
           type: 'diff',
           fileDiff,
-          annotations: [
-            {
-              side: annotationSide,
-              lineNumber: 1,
-              metadata: {
-                kind: 'binary' as const,
-                path: file.filename,
-                diff: synthetic,
-              },
+          annotations: binaryAnns.map((ann) => ({
+            side: ann.side,
+            lineNumber: ann.lineNumber,
+            metadata: {
+              kind: 'binary' as const,
+              path: file.filename,
+              diff: synthetic,
+              panel: ann.panel,
             },
-          ],
+          })),
           cacheKey: file.filename,
         } as CodeViewItem<PrAnnotationMeta> & { cacheKey: string });
         continue;
@@ -475,6 +475,7 @@ export function PRFilesTab({
           <BinaryDiffCard
             embedded
             compact
+            panel={annotation.metadata.panel}
             diff={annotation.metadata.diff}
             repoPath=""
           />

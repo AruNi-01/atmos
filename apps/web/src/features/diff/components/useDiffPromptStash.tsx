@@ -382,6 +382,7 @@ export function useDiffPromptStash({
           <BinaryDiffCard
             embedded
             compact
+            panel={annotation.metadata.panel}
             diff={annotation.metadata.diff}
             repoPath={repoPath}
           />

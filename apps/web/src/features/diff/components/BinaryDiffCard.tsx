@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ImageIcon } from "lucide-react";
 import type { GitBlobLocator, GitFileDiffResponse } from "@/api/ws-api-types";
-import { formatByteSize } from "@/features/diff/lib/diff-content-kind";
+import {
+  formatByteSize,
+  type BinaryDiffPanel,
+} from "@/features/diff/lib/diff-content-kind";
 import { resolveBlobUrl } from "@/features/diff/lib/resolve-blob-url";
+import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { cn } from "@/shared/lib/utils";
 import { getFileIconProps } from "@workspace/ui";
 
@@ -20,6 +24,12 @@ interface BinaryDiffCardProps {
    * and use a body suited for line annotations inside a diff item.
    */
   embedded?: boolean;
+  /**
+   * Which panel to render. Split layout uses separate annotations so Previous
+   * sits on the left (deletions) and Current on the right (additions).
+   * Default `both` for standalone DiffViewer.
+   */
+  panel?: BinaryDiffPanel | "both";
   className?: string;
 }
 
@@ -47,11 +57,13 @@ function SideImage({
   sizeLabel,
   url,
   emptyLabel,
+  onPreview,
 }: {
   label: string;
   sizeLabel: string | null;
   url: string | null;
   emptyLabel: string;
+  onPreview?: (src: string, alt: string) => void;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -64,14 +76,19 @@ function SideImage({
         ) : null}
       </div>
       {url ? (
-        <div className="flex min-h-[120px] items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2">
+        <button
+          type="button"
+          onClick={() => onPreview?.(url, label)}
+          className="flex min-h-[120px] w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-md border border-border/50 bg-[image:repeating-conic-gradient(#80808018_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] p-2 transition-colors hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={label}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={url}
             alt={label}
             className="max-h-[320px] max-w-full object-contain"
           />
-        </div>
+        </button>
       ) : (
         <div className="flex min-h-[120px] flex-1 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-6 text-center">
           <ImageIcon className="size-5 text-muted-foreground/50" />
@@ -87,12 +104,16 @@ export function BinaryDiffCard({
   repoPath,
   compact = false,
   embedded = false,
+  panel = "both",
   className,
 }: BinaryDiffCardProps) {
   const t = useTranslations("diff.binary");
   const [oldUrl, setOldUrl] = useState<string | null>(null);
   const [newUrl, setNewUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(
+    null,
+  );
 
   const baseName = diff.file_path.split("/").pop() || diff.file_path;
   const iconProps = getFileIconProps({
@@ -110,8 +131,13 @@ export function BinaryDiffCard({
     diff.old_sha256 === diff.new_sha256;
   const showImagePreview =
     diff.preview_kind === "image" && !loadError && !identical;
-  const showPrevious = diff.status !== "A" && diff.status !== "?";
-  const showCurrent = diff.status !== "D";
+
+  const showPrevious =
+    (panel === "both" || panel === "previous") &&
+    diff.status !== "A" &&
+    diff.status !== "?";
+  const showCurrent =
+    (panel === "both" || panel === "current") && diff.status !== "D";
 
   useEffect(() => {
     let cancelled = false;
@@ -133,20 +159,27 @@ export function BinaryDiffCard({
       }
     };
 
-    void load(diff.old_blob, setOldUrl);
-    void load(diff.new_blob, setNewUrl);
+    if (showPrevious) void load(diff.old_blob, setOldUrl);
+    if (showCurrent) void load(diff.new_blob, setNewUrl);
 
     return () => {
       cancelled = true;
     };
-  }, [diff.old_blob, diff.new_blob, diff.preview_kind, repoPath]);
+  }, [
+    diff.old_blob,
+    diff.new_blob,
+    diff.preview_kind,
+    repoPath,
+    showPrevious,
+    showCurrent,
+  ]);
 
   return (
     <div
       className={cn(
         "overflow-hidden bg-background",
         embedded
-          ? "my-0 w-full rounded-md border border-border/40"
+          ? "my-0 w-full min-w-0 rounded-md border border-border/40"
           : "my-1 rounded-lg border border-border/50",
         !embedded && compact && "mx-2",
         !embedded && !compact && "mx-0",
@@ -154,6 +187,7 @@ export function BinaryDiffCard({
       )}
       data-binary-diff-card=""
       data-binary-embedded={embedded ? "true" : undefined}
+      data-binary-panel={panel}
     >
       {!embedded ? (
         <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
@@ -168,15 +202,26 @@ export function BinaryDiffCard({
         </div>
       ) : null}
 
-      <div className={cn("flex flex-col gap-3 p-3", (compact || embedded) && "p-2.5")}>
+      <div
+        className={cn(
+          "flex flex-col gap-3 p-3",
+          (compact || embedded) && "p-2.5",
+        )}
+      >
         {showImagePreview ? (
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div
+            className={cn(
+              "flex gap-3",
+              panel === "both" ? "flex-col sm:flex-row" : "flex-col",
+            )}
+          >
             {showPrevious ? (
               <SideImage
                 label={t("previous")}
                 sizeLabel={oldSizeLabel}
                 url={oldUrl}
                 emptyLabel={t("previewUnavailable")}
+                onPreview={(src, alt) => setPreview({ src, alt })}
               />
             ) : null}
             {showCurrent ? (
@@ -185,6 +230,7 @@ export function BinaryDiffCard({
                 sizeLabel={newSizeLabel}
                 url={newUrl}
                 emptyLabel={t("previewUnavailable")}
+                onPreview={(src, alt) => setPreview({ src, alt })}
               />
             ) : null}
           </div>
@@ -192,17 +238,25 @@ export function BinaryDiffCard({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
             {showPrevious ? (
               <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-medium text-foreground/80">{t("previous")}</span>
+                <span className="font-medium text-foreground/80">
+                  {t("previous")}
+                </span>
                 {oldSizeLabel ? (
-                  <span className="font-mono tabular-nums text-[11px]">{oldSizeLabel}</span>
+                  <span className="font-mono tabular-nums text-[11px]">
+                    {oldSizeLabel}
+                  </span>
                 ) : null}
               </span>
             ) : null}
             {showCurrent ? (
               <span className="inline-flex items-baseline gap-1.5">
-                <span className="font-medium text-foreground/80">{t("current")}</span>
+                <span className="font-medium text-foreground/80">
+                  {t("current")}
+                </span>
                 {newSizeLabel ? (
-                  <span className="font-mono tabular-nums text-[11px]">{newSizeLabel}</span>
+                  <span className="font-mono tabular-nums text-[11px]">
+                    {newSizeLabel}
+                  </span>
                 ) : null}
               </span>
             ) : null}
@@ -215,6 +269,14 @@ export function BinaryDiffCard({
           </div>
         )}
       </div>
+
+      {preview ? (
+        <ImagePreviewOverlay
+          src={preview.src}
+          alt={preview.alt}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
     </div>
   );
 }

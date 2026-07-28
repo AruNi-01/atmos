@@ -343,8 +343,9 @@ export function ChangesCodeView({
 
               if (isNonTextDiff(diff)) {
                 // Keep binary files inside pierre CodeView: non-empty placeholder
-                // hunk + BinaryDiffCard via line annotation (not a host-side list).
-                const { oldText, newText, annotationSide } =
+                // hunks + BinaryDiffCard annotations. Modified files get two
+                // annotations so split layout places Previous left / Current right.
+                const { oldText, newText, annotations: binaryAnns } =
                   binaryDiffPlaceholders(diff.status);
                 const fileDiff = parseDiffFromFile(
                   {
@@ -374,17 +375,16 @@ export function ChangesCodeView({
                   type: 'diff',
                   fileDiff,
                   collapsed: collapseModeRef.current === 'collapsed',
-                  annotations: [
-                    {
-                      side: annotationSide,
-                      lineNumber: 1,
-                      metadata: {
-                        kind: 'binary' as const,
-                        filePath: file.path,
-                        diff,
-                      },
+                  annotations: binaryAnns.map((ann) => ({
+                    side: ann.side,
+                    lineNumber: ann.lineNumber,
+                    metadata: {
+                      kind: 'binary' as const,
+                      filePath: file.path,
+                      diff,
+                      panel: ann.panel,
                     },
-                  ],
+                  })),
                 } as CodeViewItem<DiffListAnnotationMeta>);
                 continue;
               }

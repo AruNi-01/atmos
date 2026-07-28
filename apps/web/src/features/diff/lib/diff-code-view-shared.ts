@@ -25,6 +25,8 @@ export type BinaryAnnotationMeta = {
   filePath: string;
   /** Serialized subset of GitFileDiffResponse used by BinaryDiffCard. */
   diff: import('@/api/ws-api-types').GitFileDiffResponse;
+  /** Split layout: previous → left/deletions, current → right/additions. */
+  panel: import('@/features/diff/lib/diff-content-kind').BinaryDiffPanel;
 };
 
 export type DiffListAnnotationMeta = CopyAnnotationMeta | BinaryAnnotationMeta;
