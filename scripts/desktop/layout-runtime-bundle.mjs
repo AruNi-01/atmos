@@ -3,8 +3,75 @@
  * Cross-platform (Windows-safe); replaces sourcing layout-runtime-bundle.sh from Node.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
+
+/**
+ * Recursively copy a tree, materializing symlinks as real files/directories.
+ *
+ * Node's `cpSync({ dereference: true })` still preserves symlink inodes on some
+ * platforms. electron-builder/7zip on Windows then fails NSIS packaging with
+ * "WARNING: The directory name is invalid" on paths like
+ * `system-skills/.../atmos-review-cli.md\` (git symlinks under skills/).
+ */
+function copyTreeDereferenced(src, dest) {
+  let st;
+  try {
+    st = lstatSync(src);
+  } catch {
+    return;
+  }
+
+  if (st.isSymbolicLink()) {
+    let target;
+    try {
+      target = realpathSync(src);
+    } catch {
+      // Broken link (common on Windows without symlink privilege) — skip.
+      console.warn(`Warning: skipping broken symlink: ${src}`);
+      return;
+    }
+    let targetSt;
+    try {
+      targetSt = statSync(target);
+    } catch {
+      console.warn(`Warning: skipping unreadable symlink target: ${src} -> ${target}`);
+      return;
+    }
+    if (targetSt.isDirectory()) {
+      mkdirSync(dest, { recursive: true });
+      for (const name of readdirSync(target)) {
+        copyTreeDereferenced(join(target, name), join(dest, name));
+      }
+    } else {
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(target, dest);
+    }
+    return;
+  }
+
+  if (st.isDirectory()) {
+    mkdirSync(dest, { recursive: true });
+    for (const name of readdirSync(src)) {
+      copyTreeDereferenced(join(src, name), join(dest, name));
+    }
+    return;
+  }
+
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFileSync(src, dest);
+}
 
 function prepareSystemSkillsBundle(rootDir, binariesDir) {
   const skillsSrc = join(rootDir, "skills");
@@ -12,7 +79,7 @@ function prepareSystemSkillsBundle(rootDir, binariesDir) {
 
   rmSync(bundledSkills, { recursive: true, force: true });
   if (existsSync(skillsSrc)) {
-    cpSync(skillsSrc, bundledSkills, { recursive: true });
+    copyTreeDereferenced(skillsSrc, bundledSkills);
     console.log(`✅ Bundled system skills: ${bundledSkills}`);
   } else {
     mkdirSync(bundledSkills, { recursive: true });
@@ -48,7 +115,7 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
 
   if (existsSync(webSrc)) {
     rmSync(join(runtimeRoot, "web"), { recursive: true, force: true });
-    cpSync(webSrc, join(runtimeRoot, "web"), { recursive: true });
+    copyTreeDereferenced(webSrc, join(runtimeRoot, "web"));
   } else {
     mkdirSync(join(runtimeRoot, "web"), { recursive: true });
   }
@@ -56,7 +123,7 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
   prepareSystemSkillsBundle(rootDir, binariesDir);
   if (existsSync(skillsSrc)) {
     rmSync(join(runtimeRoot, "system-skills"), { recursive: true, force: true });
-    cpSync(skillsSrc, join(runtimeRoot, "system-skills"), { recursive: true });
+    copyTreeDereferenced(skillsSrc, join(runtimeRoot, "system-skills"));
   }
 
   const cargoToml = join(rootDir, "apps/desktop/src-tauri/Cargo.toml");
