@@ -56,53 +56,78 @@ def parse_frontmatter(content: str) -> tuple[dict | None, str | None, str]:
     yaml_block = match.group(1).strip()
     body = rest[match.end() :].lstrip("\n")
 
-    # Simple YAML parsing (no PyYAML dependency)
+    # Simple YAML parsing (no PyYAML dependency). Supports:
+    # - plain / quoted single-line scalars
+    # - folded block scalars: >, >-, >+
+    # - literal block scalars: |, |-, |+
+    # - sources lists (inline or multi-line)
     frontmatter: dict = {}
-    in_sources = False
-    sources: list[str] = []
+    lines = yaml_block.split("\n")
+    i = 0
+    block_indicators = {">", ">-", ">+", "|", "|-", "|+"}
 
-    for line in yaml_block.split("\n"):
-        if in_sources:
-            if line.strip().startswith("-"):
-                item = line.strip()[1:].strip().strip("'\"")
-                sources.append(item)
-            else:
-                frontmatter["sources"] = sources
-                in_sources = False
-                # Parse current line as key: value (e.g. updated_at: ...)
-                colon_idx = line.find(":")
-                if colon_idx > 0 and not line[:colon_idx].strip().startswith("-"):
-                    key = line[:colon_idx].strip()
-                    val = line[colon_idx + 1 :].strip()
-                    if key and key != "sources":
-                        if val.startswith("'") and val.endswith("'"):
-                            val = val[1:-1]
-                        elif val.startswith('"') and val.endswith('"'):
-                            val = val[1:-1]
-                        frontmatter[key] = val
+    while i < len(lines):
+        line = lines[i]
+        colon_idx = line.find(":")
+        if colon_idx <= 0 or line[:colon_idx].strip().startswith("-"):
+            i += 1
             continue
 
-        colon_idx = line.find(":")
-        if colon_idx > 0 and not line[:colon_idx].strip().startswith("-"):
-            key = line[:colon_idx].strip()
-            val = line[colon_idx + 1 :].strip()
-            if key == "sources":
-                in_sources = True
-                sources = []
-                if val and val != "[]":
-                    for m in re.finditer(r"['\"]?([^,\]\s]+)['\"]?", val):
-                        s = m.group(1).strip("'\"")
-                        if s and s not in ("[", "]"):
-                            sources.append(s)
-            else:
-                if val.startswith("'") and val.endswith("'"):
-                    val = val[1:-1]
-                elif val.startswith('"') and val.endswith('"'):
-                    val = val[1:-1]
-                frontmatter[key] = val
+        key = line[:colon_idx].strip()
+        val = line[colon_idx + 1 :].strip()
 
-    if in_sources:
-        frontmatter["sources"] = sources
+        if key == "sources":
+            sources: list[str] = []
+            if val and val != "[]":
+                for m in re.finditer(r"['\"]?([^,\]\s]+)['\"]?", val):
+                    s = m.group(1).strip("'\"")
+                    if s and s not in ("[", "]"):
+                        sources.append(s)
+                frontmatter["sources"] = sources
+                i += 1
+                continue
+
+            # Multi-line list under sources:
+            j = i + 1
+            while j < len(lines):
+                item_line = lines[j]
+                stripped = item_line.strip()
+                if stripped.startswith("-"):
+                    sources.append(stripped[1:].strip().strip("'\""))
+                    j += 1
+                else:
+                    break
+            frontmatter["sources"] = sources
+            i = j
+            continue
+
+        if val in block_indicators:
+            folded = val.startswith(">")
+            collected: list[str] = []
+            j = i + 1
+            while j < len(lines):
+                cont = lines[j]
+                # Block content is indented or blank; next top-level key ends it.
+                if cont == "" or cont.startswith(" ") or cont.startswith("\t"):
+                    collected.append(cont.strip())
+                    j += 1
+                else:
+                    break
+            if folded:
+                joined = " ".join(s for s in collected if s)
+            else:
+                joined = "\n".join(collected).strip()
+            if joined:
+                frontmatter[key] = joined
+            i = j
+            continue
+
+        if val.startswith("'") and val.endswith("'"):
+            val = val[1:-1]
+        elif val.startswith('"') and val.endswith('"'):
+            val = val[1:-1]
+        frontmatter[key] = val
+        i += 1
 
     return frontmatter, None, body
 
