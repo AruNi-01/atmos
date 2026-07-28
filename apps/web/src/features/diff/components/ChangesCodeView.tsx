@@ -34,7 +34,10 @@ import {
   diffSideCacheKey,
   type DiffListAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
-import { isNonTextDiff } from '@/features/diff/lib/diff-content-kind';
+import {
+  isLikelyBinaryPath,
+  isNonTextDiff,
+} from '@/features/diff/lib/diff-content-kind';
 import type { GitFileDiffResponse } from '@/api/ws-api-types';
 import {
   ATMOS_DIFF_THEME,
@@ -47,9 +50,19 @@ import {
   renderDiffHeaderPrefix,
   scrollCodeViewToItem,
 } from '@/features/diff/lib/code-view-ui';
+import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 
 const CODE_VIEW_BATCH_SIZE = 25;
 const FULL_COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
+
+type BinaryDiffEntry = {
+  path: string;
+  diff: GitFileDiffResponse;
+};
+
+function binaryDiffAnchorId(path: string): string {
+  return `binary-diff:${path}`;
+}
 
 function yieldToBrowser(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -126,10 +139,14 @@ export function ChangesCodeView({
   const [initialItems, setInitialItems] = useState<CodeViewItem<DiffListAnnotationMeta>[]>(
     [],
   );
+  /** Non-text files are host-rendered; pierre empty diffs cannot expand or attach cards. */
+  const [binaryEntries, setBinaryEntries] = useState<BinaryDiffEntry[]>([]);
   const stashedPromptScope = `${repoPath}:${groupPath}`;
   const [pathByFileName, setPathByFileName] = useState<Map<string, string>>(
     () => new Map(),
   );
+  const binaryPathsRef = useRef<string[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewerKey, setViewerKey] = useState(0);
   const [viewerMounted, setViewerMounted] = useState(false);
   const {
@@ -204,7 +221,7 @@ export function ChangesCodeView({
         gitStatus: file.status,
         additions: file.additions,
         deletions: file.deletions,
-        isBinary: Boolean(file.is_binary),
+        isBinary: Boolean(file.is_binary) || isLikelyBinaryPath(file.path),
       })),
     [groupFiles],
   );
@@ -288,6 +305,8 @@ export function ChangesCodeView({
       setViewerKey((key) => key + 1);
       setViewerMounted(false);
       setInitialItems([]);
+      setBinaryEntries([]);
+      binaryPathsRef.current = [];
       setHasLoadedAllItems(false);
       setLoadedItemVersion(0);
       setPathByFileName(new Map());
@@ -299,6 +318,7 @@ export function ChangesCodeView({
 
       try {
         let hasPublishedInitial = false;
+        const collectedBinary: BinaryDiffEntry[] = [];
 
         for (let offset = 0; offset < groupFiles.length; offset += CODE_VIEW_BATCH_SIZE) {
           if (cancelled) return;
@@ -326,7 +346,8 @@ export function ChangesCodeView({
           const resultByPath = new Map(
             batchResponse.results.map((result) => [result.file_path, result]),
           );
-          const results = batch.map((file) => {
+          const codeItems: CodeViewItem<DiffListAnnotationMeta>[] = [];
+          for (const file of batch) {
             try {
               const result = resultByPath.get(file.path);
               if (!result?.diff) {
@@ -336,35 +357,9 @@ export function ChangesCodeView({
               }
               const diff = result.diff as GitFileDiffResponse;
               if (isNonTextDiff(diff)) {
-                // Placeholder identical sides so pierre has a file entry without
-                // mojibake; BinaryDiffCard is rendered via annotation.
-                const marker = " \n";
-                const fileDiff = parseDiffFromFile(
-                  {
-                    name: file.path,
-                    contents: marker,
-                    cacheKey: diffSideCacheKey(
-                      file.path,
-                      `binary-old:${diff.old_size ?? 0}:${diff.old_sha256 ?? ""}`,
-                    ),
-                  },
-                  {
-                    name: file.path,
-                    contents: marker,
-                    cacheKey: diffSideCacheKey(
-                      file.path,
-                      `binary-new:${diff.new_size ?? 0}:${diff.new_sha256 ?? ""}`,
-                    ),
-                  },
-                );
-                nextPathByFileName.set(fileDiff.name, file.path);
-                return {
-                  id: file.path,
-                  fileDiff,
-                  oldContent: "",
-                  newContent: "",
-                  binaryDiff: diff,
-                };
+                nextPathByFileName.set(file.path, file.path);
+                collectedBinary.push({ path: file.path, diff });
+                continue;
               }
 
               const oldText = diff.old_text ?? "";
@@ -382,66 +377,54 @@ export function ChangesCodeView({
                 },
               );
               nextPathByFileName.set(fileDiff.name, file.path);
-              return {
-                id: file.path,
-                fileDiff,
+              loadedContentsRef.current.set(file.path, {
                 oldContent: oldText,
                 newContent: newText,
-                binaryDiff: null as GitFileDiffResponse | null,
-              };
+              });
+              codeItems.push({
+                id: file.path,
+                type: 'diff',
+                fileDiff,
+                collapsed: collapseModeRef.current === 'collapsed',
+              } as CodeViewItem<DiffListAnnotationMeta>);
             } catch (err) {
               console.error(`Failed to load diff for ${file.path}:`, err);
-              return null;
             }
-          });
+          }
 
           if (cancelled) return;
 
-          const codeItems: CodeViewItem<DiffListAnnotationMeta>[] = [];
-          for (const result of results) {
-            if (!result) continue;
-            loadedContentsRef.current.set(result.id, {
-              oldContent: result.oldContent,
-              newContent: result.newContent,
-            });
-            const binaryAnnotations = result.binaryDiff
-              ? [
-                  {
-                    side: "additions" as const,
-                    lineNumber: 1,
-                    metadata: {
-                      kind: "binary" as const,
-                      filePath: result.id,
-                      diff: result.binaryDiff,
-                    },
-                  },
-                ]
-              : undefined;
-            codeItems.push({
-              id: result.id,
-              type: 'diff',
-              fileDiff: result.fileDiff,
-              collapsed: collapseModeRef.current === 'collapsed',
-              annotations: binaryAnnotations,
-            } as CodeViewItem<DiffListAnnotationMeta>);
-          }
+          binaryPathsRef.current = collectedBinary.map((entry) => entry.path);
+          setBinaryEntries([...collectedBinary]);
+          setPathByFileName(new Map(nextPathByFileName));
 
-          if (codeItems.length === 0) continue;
+          const rebuildOrderedIds = () => {
+            const known = new Set([
+              ...loadedContentsRef.current.keys(),
+              ...collectedBinary.map((b) => b.path),
+            ]);
+            itemIdsRef.current = groupFiles
+              .map((f) => f.path)
+              .filter((path) => known.has(path));
+          };
+          rebuildOrderedIds();
+
+          if (codeItems.length === 0) {
+            if (!hasPublishedInitial && collectedBinary.length > 0) {
+              hasPublishedInitial = true;
+              setIsLoading(false);
+              setLoadedItemVersion((value) => value + 1);
+            }
+            continue;
+          }
 
           if (!hasPublishedInitial) {
             hasPublishedInitial = true;
-            itemIdsRef.current = codeItems.map((item) => item.id);
-            setPathByFileName(new Map(nextPathByFileName));
             setInitialItems(codeItems);
             setLoadedItemVersion((value) => value + 1);
             setIsLoading(false);
             await yieldToBrowser();
           } else {
-            itemIdsRef.current = [
-              ...itemIdsRef.current,
-              ...codeItems.map((item) => item.id),
-            ];
-            setPathByFileName(new Map(nextPathByFileName));
             const viewer = codeViewRef.current;
             if (viewer != null) {
               viewer.addItems(codeItems);
@@ -454,16 +437,18 @@ export function ChangesCodeView({
         }
 
         if (!cancelled && !hasPublishedInitial) {
-          itemIdsRef.current = [];
+          itemIdsRef.current = binaryPathsRef.current.slice();
           setIsLoading(false);
         }
         if (!cancelled) {
           setHasLoadedAllItems(true);
+          setLoadedItemVersion((value) => value + 1);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : loadChangesFallbackRef.current);
           setInitialItems([]);
+          setBinaryEntries([]);
           setIsLoading(false);
         }
       }
@@ -679,7 +664,7 @@ export function ChangesCodeView({
     );
   }
 
-  if (initialItems.length === 0) {
+  if (initialItems.length === 0 && binaryEntries.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-muted-foreground text-sm">
         {t('noFilesInGroup')}
@@ -690,6 +675,17 @@ export function ChangesCodeView({
   const handleSelectFile = (path: string) => {
     if (activeContextId) {
       setDiffGroupActiveFile(groupPath, path, activeContextId);
+    }
+    const binaryEl = scrollContainerRef.current
+      ? Array.from(
+          scrollContainerRef.current.querySelectorAll<HTMLElement>(
+            "[data-binary-diff-path]",
+          ),
+        ).find((el) => el.dataset.binaryDiffPath === path)
+      : undefined;
+    if (binaryEl) {
+      binaryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
     }
     scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
   };
@@ -740,15 +736,39 @@ export function ChangesCodeView({
         defaultTreeVisible={false}
         onSelectFile={handleSelectFile}
       >
-        <CodeView
-          key={`${groupPath}:${viewerKey}`}
-          ref={handleViewerRef}
-          initialItems={initialItems}
-          options={codeViewOptions}
-          renderHeaderPrefix={renderHeaderPrefix}
-          renderAnnotation={renderAnnotation}
-          className={CODE_VIEW_HOST_CLASS}
-        />
+        <div
+          ref={scrollContainerRef}
+          className="flex min-h-0 flex-1 flex-col overflow-auto"
+        >
+          {initialItems.length > 0 ? (
+            <CodeView
+              key={`${groupPath}:${viewerKey}`}
+              ref={handleViewerRef}
+              initialItems={initialItems}
+              options={codeViewOptions}
+              renderHeaderPrefix={renderHeaderPrefix}
+              renderAnnotation={renderAnnotation}
+              className={CODE_VIEW_HOST_CLASS}
+            />
+          ) : null}
+          {binaryEntries.length > 0 ? (
+            <div className="flex flex-col gap-2 px-1 py-2">
+              {binaryEntries.map((entry) => (
+                <div
+                  key={entry.path}
+                  id={binaryDiffAnchorId(entry.path)}
+                  data-binary-diff-path={entry.path}
+                >
+                  <BinaryDiffCard
+                    compact
+                    diff={entry.diff}
+                    repoPath={repoPath}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </DiffCodeViewScaffold>
     </div>
   );

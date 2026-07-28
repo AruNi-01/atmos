@@ -22,6 +22,7 @@ import { buildDiffGroupPath, type DiffChangeGroupKind } from "@/features/diff/li
 import { DiffFileTree } from "@/features/diff/components/DiffFileTree";
 import { DiffFilePathLabel } from "@/features/diff/components/DiffFilePathLabel";
 import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
+import { isLikelyBinaryPath } from "@/features/diff/lib/diff-content-kind";
 import { useOverflowAwareDecorationVisibility } from "@/shared/hooks/use-overflow-aware-decoration-visibility";
 import { setAgentContextDragData } from "@/shared/lib/agent-context-drag";
 
@@ -174,7 +175,7 @@ function ChangeFileRow({
                 shouldHideCounts && "hidden",
               )}
             >
-              {file.is_binary ? (
+              {file.is_binary || isLikelyBinaryPath(file.path) ? (
                 <span className="text-muted-foreground font-sans text-[10px] font-medium uppercase tracking-wide">
                   {t("changeSection.binaryBadge")}
                 </span>
@@ -452,7 +453,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 gitStatus: file.status,
                 additions: file.additions,
                 deletions: file.deletions,
-                isBinary: Boolean(file.is_binary),
+                isBinary:
+                  Boolean(file.is_binary) || isLikelyBinaryPath(file.path),
               }))}
               selectedPath={selectedDiffFilePath}
               ariaLabel={t("changeSection.treeAriaLabel", { title })}
