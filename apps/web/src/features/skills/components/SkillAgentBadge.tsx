@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { cn, Bot, EyeOff, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
+import { cn, Bot, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { getAgentConfig, getAgentRegistryId } from '../lib/constants';
 
@@ -21,17 +21,22 @@ export const SkillAgentBadge: React.FC<SkillAgentBadgeProps> = ({ agent, status,
   const badge = (
     <span
       className={cn(
-        "shrink-0 inline-flex items-center",
-        isDisabled ? 'opacity-40' : 'opacity-80',
+        "shrink-0 inline-flex items-center transition-opacity",
+        // Disabled: grayed-out agent icon only (no EyeOff). Enabled: full brightness.
+        isDisabled ? 'opacity-35 grayscale' : 'opacity-100',
       )}
     >
-      {isDisabled && <EyeOff className="size-3 text-muted-foreground mr-0.5" />}
       {isUnified || isAtmos ? (
-        <Bot className="size-4 text-muted-foreground" />
+        <Bot className={cn("size-4", isDisabled ? "text-muted-foreground" : "text-foreground")} />
       ) : registryId ? (
         <AgentIcon registryId={registryId} name={config.name} size={16} />
       ) : (
-        <span className="text-[10px] font-medium text-muted-foreground px-1 py-0.5 rounded bg-muted">
+        <span
+          className={cn(
+            "text-[10px] font-medium px-1 py-0.5 rounded",
+            isDisabled ? "text-muted-foreground bg-muted" : "text-foreground bg-muted",
+          )}
+        >
           {config.name}
         </span>
       )}
