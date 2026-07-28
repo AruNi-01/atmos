@@ -17,6 +17,11 @@ interface BinaryDiffCardProps {
   repoPath: string;
   /** Compact layout for multi-file CodeView annotations. */
   compact?: boolean;
+  /**
+   * When true, omit the file-path header (pierre CodeView already shows it)
+   * and use a borderless body suited for line annotations inside a diff item.
+   */
+  embedded?: boolean;
   className?: string;
 }
 
@@ -78,6 +83,7 @@ export function BinaryDiffCard({
   diff,
   repoPath,
   compact = false,
+  embedded = false,
   className,
 }: BinaryDiffCardProps) {
   const t = useTranslations("diff.binary");
@@ -136,23 +142,31 @@ export function BinaryDiffCard({
   return (
     <div
       className={cn(
-        "my-1 overflow-hidden rounded-lg border border-border/50 bg-background",
-        compact ? "mx-2" : "mx-0",
+        "overflow-hidden bg-background",
+        embedded
+          ? "my-0 w-full rounded-md border border-border/40"
+          : "my-1 rounded-lg border border-border/50",
+        !embedded && compact && "mx-2",
+        !embedded && !compact && "mx-0",
         className,
       )}
+      data-binary-diff-card=""
+      data-binary-embedded={embedded ? "true" : undefined}
     >
-      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={iconProps.src} alt="" className={iconProps.className} />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-          {diff.file_path}
-        </span>
-        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          {statusLabel(diff.status, t)}
-        </span>
-      </div>
+      {!embedded ? (
+        <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={iconProps.src} alt="" className={iconProps.className} />
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+            {diff.file_path}
+          </span>
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {statusLabel(diff.status, t)}
+          </span>
+        </div>
+      ) : null}
 
-      <div className={cn("flex flex-col gap-3 p-3", compact && "p-2.5")}>
+      <div className={cn("flex flex-col gap-3 p-3", (compact || embedded) && "p-2.5")}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground/80">
             <FileWarning className="size-3.5 text-muted-foreground" />
@@ -163,6 +177,11 @@ export function BinaryDiffCard({
           ) : null}
           {identical ? (
             <span className="text-[11px] text-muted-foreground">{t("identicalContent")}</span>
+          ) : null}
+          {embedded ? (
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {statusLabel(diff.status, t)}
+            </span>
           ) : null}
         </div>
 

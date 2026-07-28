@@ -380,6 +380,7 @@ export function useDiffPromptStash({
       if (isBinaryAnnotation(annotation)) {
         return (
           <BinaryDiffCard
+            embedded
             compact
             diff={annotation.metadata.diff}
             repoPath={repoPath}

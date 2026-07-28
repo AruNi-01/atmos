@@ -13,6 +13,26 @@ export function isNonTextDiff(diff: Pick<GitFileDiffResponse, "kind">): boolean 
   return diff.kind !== "text";
 }
 
+/**
+ * Placeholder sides for @pierre/diffs so binary files stay in CodeView.
+ * Sides must differ (non-empty change) or pierre treats the file as empty and
+ * disables expand + drops line annotations.
+ */
+export function binaryDiffPlaceholders(status: string): {
+  oldText: string;
+  newText: string;
+  annotationSide: "additions" | "deletions";
+} {
+  // NBSP keeps a visible-but-minimal change line for the annotation to attach to.
+  if (status === "A" || status === "?") {
+    return { oldText: "", newText: "\u00a0\n", annotationSide: "additions" };
+  }
+  if (status === "D") {
+    return { oldText: "\u00a0\n", newText: "", annotationSide: "deletions" };
+  }
+  return { oldText: ".\n", newText: "\u00a0\n", annotationSide: "additions" };
+}
+
 const IMAGE_EXTS = new Set([
   "png",
   "jpg",

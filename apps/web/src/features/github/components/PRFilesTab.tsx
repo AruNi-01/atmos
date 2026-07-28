@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
-import { processFile } from '@pierre/diffs';
+import { parseDiffFromFile, processFile } from '@pierre/diffs';
 import { useLocale, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
@@ -14,11 +14,15 @@ import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer'
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
 import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
+import { binaryDiffPlaceholders } from '@/features/diff/lib/diff-content-kind';
 import type { PrFile } from '@/features/github/hooks/use-github';
 import type { GitFileDiffResponse } from '@/api/ws-api-types';
+import {
+  applyCollapseModeToItems,
+  diffSideCacheKey,
+} from '@/features/diff/lib/diff-code-view-shared';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
-import { applyCollapseModeToItems } from '@/features/diff/lib/diff-code-view-shared';
 import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import {
@@ -196,11 +200,24 @@ function FileCommentThread({
   );
 }
 
-type PrAnnotationMeta = {
-  kind: 'line-thread';
-  threadIndex: number;
-  path: string;
-};
+type PrAnnotationMeta =
+  | {
+      kind: 'line-thread';
+      threadIndex: number;
+      path: string;
+    }
+  | {
+      kind: 'binary';
+      path: string;
+      diff: GitFileDiffResponse;
+    };
+
+function prStatusToGitStatus(status: string): string {
+  if (status === 'added') return 'A';
+  if (status === 'removed') return 'D';
+  if (status === 'renamed') return 'R';
+  return 'M';
+}
 
 export function PRFilesTab({
   agentFixContext = null,
@@ -310,10 +327,9 @@ export function PRFilesTab({
     [orderedFiles],
   );
 
-  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds, binaryFiles } =
+  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } =
     useMemo(() => {
     const items: CodeViewItem<PrAnnotationMeta>[] = [];
-    const binary: PrFile[] = [];
     const fileThreads = new Map<string, ReviewComment[][]>();
     const nextPathByFileName = new Map<string, string>();
 
@@ -330,16 +346,60 @@ export function PRFilesTab({
       }
 
       if (!file.patch || file.kind === 'binary' || file.kind === 'too_large') {
-        binary.push(file);
+        const gitStatus = prStatusToGitStatus(file.status);
+        const { oldText, newText, annotationSide } =
+          binaryDiffPlaceholders(gitStatus);
+        const fileDiff = parseDiffFromFile(
+          {
+            name: file.filename,
+            contents: oldText,
+            cacheKey: diffSideCacheKey(file.filename, `pr-bin-old:${file.sha}`),
+          },
+          {
+            name: file.filename,
+            contents: newText,
+            cacheKey: diffSideCacheKey(file.filename, `pr-bin-new:${file.sha}`),
+          },
+        );
+        const synthetic: GitFileDiffResponse = {
+          file_path: file.filename,
+          status: gitStatus,
+          compare_ref: null,
+          kind: file.kind === 'too_large' ? 'too_large' : 'binary',
+          preview_kind: file.preview_kind ?? 'none',
+          old_text: null,
+          new_text: null,
+          old_size: null,
+          new_size: null,
+          old_sha256: null,
+          new_sha256: null,
+          old_blob: null,
+          new_blob: null,
+        };
+        nextPathByFileName.set(fileDiff.name, file.filename);
+        items.push({
+          id: file.filename,
+          type: 'diff',
+          fileDiff,
+          annotations: [
+            {
+              side: annotationSide,
+              lineNumber: 1,
+              metadata: {
+                kind: 'binary' as const,
+                path: file.filename,
+                diff: synthetic,
+              },
+            },
+          ],
+          cacheKey: file.filename,
+        } as CodeViewItem<PrAnnotationMeta> & { cacheKey: string });
         continue;
       }
 
       const patch = `--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`;
       const fileDiff = processFile(patch, { cacheKey: file.filename });
-      if (!fileDiff) {
-        binary.push(file);
-        continue;
-      }
+      if (!fileDiff) continue;
 
       const annotations: DiffLineAnnotation<PrAnnotationMeta>[] = lineThreads.map(
         (thread, threadIndex) => {
@@ -370,7 +430,6 @@ export function PRFilesTab({
 
     return {
       codeViewItems: items,
-      binaryFiles: binary,
       fileLevelThreads: fileThreads,
       pathByFileName: nextPathByFileName,
       itemIds: items.map((item) => item.id),
@@ -411,6 +470,16 @@ export function PRFilesTab({
 
   const renderAnnotation = useCallback(
     (annotation: DiffLineAnnotation<PrAnnotationMeta>) => {
+      if (annotation.metadata?.kind === 'binary') {
+        return (
+          <BinaryDiffCard
+            embedded
+            compact
+            diff={annotation.metadata.diff}
+            repoPath=""
+          />
+        );
+      }
       if (annotation.metadata?.kind !== 'line-thread') return null;
       const threads = commentsByPath.get(annotation.metadata.path) ?? [];
       const lineThreads = threads.filter(
@@ -557,59 +626,20 @@ export function PRFilesTab({
         }}
         onSelectFile={handleSelect}
       >
-          {workerPoolReady && (codeViewItems.length > 0 || binaryFiles.length > 0) ? (
+          {workerPoolReady && codeViewItems.length > 0 ? (
           <div
-            className="min-h-0 flex-1 overflow-auto"
+            className="min-h-0 flex-1 overflow-hidden"
             onWheelCapture={handleCodeViewWheelCapture}
           >
-            {codeViewItems.length > 0 ? (
-              <CodeView
-                key={codeViewMountKey}
-                ref={handleViewerRef}
-                initialItems={codeViewItems}
-                options={codeViewOptions}
-                renderAnnotation={renderAnnotation}
-                renderHeaderPrefix={renderHeaderPrefix}
-                className={CODE_VIEW_HOST_CLASS}
-              />
-            ) : null}
-            {binaryFiles.length > 0 ? (
-              <div className="flex flex-col gap-2 px-1 py-2">
-                {binaryFiles.map((file) => {
-                  const status =
-                    file.status === 'added'
-                      ? 'A'
-                      : file.status === 'removed'
-                        ? 'D'
-                        : file.status === 'renamed'
-                          ? 'R'
-                          : 'M';
-                  const synthetic: GitFileDiffResponse = {
-                    file_path: file.filename,
-                    status,
-                    compare_ref: null,
-                    kind: file.kind === 'too_large' ? 'too_large' : 'binary',
-                    preview_kind: file.preview_kind ?? 'none',
-                    old_text: null,
-                    new_text: null,
-                    old_size: null,
-                    new_size: null,
-                    old_sha256: null,
-                    new_sha256: null,
-                    old_blob: null,
-                    new_blob: null,
-                  };
-                  return (
-                    <BinaryDiffCard
-                      key={file.filename}
-                      compact
-                      diff={synthetic}
-                      repoPath=""
-                    />
-                  );
-                })}
-              </div>
-            ) : null}
+            <CodeView
+              key={codeViewMountKey}
+              ref={handleViewerRef}
+              initialItems={codeViewItems}
+              options={codeViewOptions}
+              renderAnnotation={renderAnnotation}
+              renderHeaderPrefix={renderHeaderPrefix}
+              className={CODE_VIEW_HOST_CLASS}
+            />
           </div>
           ) : !loading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

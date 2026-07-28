@@ -35,6 +35,7 @@ import {
   type DiffListAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
 import {
+  binaryDiffPlaceholders,
   isLikelyBinaryPath,
   isNonTextDiff,
 } from '@/features/diff/lib/diff-content-kind';
@@ -50,19 +51,9 @@ import {
   renderDiffHeaderPrefix,
   scrollCodeViewToItem,
 } from '@/features/diff/lib/code-view-ui';
-import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
 
 const CODE_VIEW_BATCH_SIZE = 25;
 const FULL_COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
-
-type BinaryDiffEntry = {
-  path: string;
-  diff: GitFileDiffResponse;
-};
-
-function binaryDiffAnchorId(path: string): string {
-  return `binary-diff:${path}`;
-}
 
 function yieldToBrowser(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -139,14 +130,10 @@ export function ChangesCodeView({
   const [initialItems, setInitialItems] = useState<CodeViewItem<DiffListAnnotationMeta>[]>(
     [],
   );
-  /** Non-text files are host-rendered; pierre empty diffs cannot expand or attach cards. */
-  const [binaryEntries, setBinaryEntries] = useState<BinaryDiffEntry[]>([]);
   const stashedPromptScope = `${repoPath}:${groupPath}`;
   const [pathByFileName, setPathByFileName] = useState<Map<string, string>>(
     () => new Map(),
   );
-  const binaryPathsRef = useRef<string[]>([]);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewerKey, setViewerKey] = useState(0);
   const [viewerMounted, setViewerMounted] = useState(false);
   const {
@@ -305,8 +292,6 @@ export function ChangesCodeView({
       setViewerKey((key) => key + 1);
       setViewerMounted(false);
       setInitialItems([]);
-      setBinaryEntries([]);
-      binaryPathsRef.current = [];
       setHasLoadedAllItems(false);
       setLoadedItemVersion(0);
       setPathByFileName(new Map());
@@ -318,7 +303,6 @@ export function ChangesCodeView({
 
       try {
         let hasPublishedInitial = false;
-        const collectedBinary: BinaryDiffEntry[] = [];
 
         for (let offset = 0; offset < groupFiles.length; offset += CODE_VIEW_BATCH_SIZE) {
           if (cancelled) return;
@@ -356,9 +340,52 @@ export function ChangesCodeView({
                 );
               }
               const diff = result.diff as GitFileDiffResponse;
+
               if (isNonTextDiff(diff)) {
-                nextPathByFileName.set(file.path, file.path);
-                collectedBinary.push({ path: file.path, diff });
+                // Keep binary files inside pierre CodeView: non-empty placeholder
+                // hunk + BinaryDiffCard via line annotation (not a host-side list).
+                const { oldText, newText, annotationSide } =
+                  binaryDiffPlaceholders(diff.status);
+                const fileDiff = parseDiffFromFile(
+                  {
+                    name: file.path,
+                    contents: oldText,
+                    cacheKey: diffSideCacheKey(
+                      file.path,
+                      `binary-old:${diff.old_size ?? 0}:${diff.old_sha256 ?? ""}`,
+                    ),
+                  },
+                  {
+                    name: file.path,
+                    contents: newText,
+                    cacheKey: diffSideCacheKey(
+                      file.path,
+                      `binary-new:${diff.new_size ?? 0}:${diff.new_sha256 ?? ""}`,
+                    ),
+                  },
+                );
+                nextPathByFileName.set(fileDiff.name, file.path);
+                loadedContentsRef.current.set(file.path, {
+                  oldContent: oldText,
+                  newContent: newText,
+                });
+                codeItems.push({
+                  id: file.path,
+                  type: 'diff',
+                  fileDiff,
+                  collapsed: collapseModeRef.current === 'collapsed',
+                  annotations: [
+                    {
+                      side: annotationSide,
+                      lineNumber: 1,
+                      metadata: {
+                        kind: 'binary' as const,
+                        filePath: file.path,
+                        diff,
+                      },
+                    },
+                  ],
+                } as CodeViewItem<DiffListAnnotationMeta>);
                 continue;
               }
 
@@ -393,38 +420,22 @@ export function ChangesCodeView({
           }
 
           if (cancelled) return;
+          if (codeItems.length === 0) continue;
 
-          binaryPathsRef.current = collectedBinary.map((entry) => entry.path);
-          setBinaryEntries([...collectedBinary]);
           setPathByFileName(new Map(nextPathByFileName));
-
-          const rebuildOrderedIds = () => {
-            const known = new Set([
-              ...loadedContentsRef.current.keys(),
-              ...collectedBinary.map((b) => b.path),
-            ]);
-            itemIdsRef.current = groupFiles
-              .map((f) => f.path)
-              .filter((path) => known.has(path));
-          };
-          rebuildOrderedIds();
-
-          if (codeItems.length === 0) {
-            if (!hasPublishedInitial && collectedBinary.length > 0) {
-              hasPublishedInitial = true;
-              setIsLoading(false);
-              setLoadedItemVersion((value) => value + 1);
-            }
-            continue;
-          }
 
           if (!hasPublishedInitial) {
             hasPublishedInitial = true;
+            itemIdsRef.current = codeItems.map((item) => item.id);
             setInitialItems(codeItems);
             setLoadedItemVersion((value) => value + 1);
             setIsLoading(false);
             await yieldToBrowser();
           } else {
+            itemIdsRef.current = [
+              ...itemIdsRef.current,
+              ...codeItems.map((item) => item.id),
+            ];
             const viewer = codeViewRef.current;
             if (viewer != null) {
               viewer.addItems(codeItems);
@@ -437,18 +448,16 @@ export function ChangesCodeView({
         }
 
         if (!cancelled && !hasPublishedInitial) {
-          itemIdsRef.current = binaryPathsRef.current.slice();
+          itemIdsRef.current = [];
           setIsLoading(false);
         }
         if (!cancelled) {
           setHasLoadedAllItems(true);
-          setLoadedItemVersion((value) => value + 1);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : loadChangesFallbackRef.current);
           setInitialItems([]);
-          setBinaryEntries([]);
           setIsLoading(false);
         }
       }
@@ -511,6 +520,14 @@ export function ChangesCodeView({
         context: { item: CodeViewItem<DiffListAnnotationMeta> },
       ) {
         if (!range || context.item.type !== 'diff') return;
+        // Binary placeholder lines are anchors for BinaryDiffCard only.
+        if (
+          context.item.annotations?.some(
+            (a) => a.metadata?.kind === 'binary',
+          )
+        ) {
+          return;
+        }
         openCopyAnnotation(context.item.id, range);
       },
       onGutterUtilityClick(
@@ -518,6 +535,13 @@ export function ChangesCodeView({
         context: { item: CodeViewItem<DiffListAnnotationMeta> },
       ) {
         if (context.item.type !== 'diff') return;
+        if (
+          context.item.annotations?.some(
+            (a) => a.metadata?.kind === 'binary',
+          )
+        ) {
+          return;
+        }
         openCopyAnnotation(context.item.id, range);
       },
     }),
@@ -664,7 +688,7 @@ export function ChangesCodeView({
     );
   }
 
-  if (initialItems.length === 0 && binaryEntries.length === 0) {
+  if (initialItems.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-muted-foreground text-sm">
         {t('noFilesInGroup')}
@@ -675,17 +699,6 @@ export function ChangesCodeView({
   const handleSelectFile = (path: string) => {
     if (activeContextId) {
       setDiffGroupActiveFile(groupPath, path, activeContextId);
-    }
-    const binaryEl = scrollContainerRef.current
-      ? Array.from(
-          scrollContainerRef.current.querySelectorAll<HTMLElement>(
-            "[data-binary-diff-path]",
-          ),
-        ).find((el) => el.dataset.binaryDiffPath === path)
-      : undefined;
-    if (binaryEl) {
-      binaryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
     }
     scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
   };
@@ -736,39 +749,15 @@ export function ChangesCodeView({
         defaultTreeVisible={false}
         onSelectFile={handleSelectFile}
       >
-        <div
-          ref={scrollContainerRef}
-          className="flex min-h-0 flex-1 flex-col overflow-auto"
-        >
-          {initialItems.length > 0 ? (
-            <CodeView
-              key={`${groupPath}:${viewerKey}`}
-              ref={handleViewerRef}
-              initialItems={initialItems}
-              options={codeViewOptions}
-              renderHeaderPrefix={renderHeaderPrefix}
-              renderAnnotation={renderAnnotation}
-              className={CODE_VIEW_HOST_CLASS}
-            />
-          ) : null}
-          {binaryEntries.length > 0 ? (
-            <div className="flex flex-col gap-2 px-1 py-2">
-              {binaryEntries.map((entry) => (
-                <div
-                  key={entry.path}
-                  id={binaryDiffAnchorId(entry.path)}
-                  data-binary-diff-path={entry.path}
-                >
-                  <BinaryDiffCard
-                    compact
-                    diff={entry.diff}
-                    repoPath={repoPath}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        <CodeView
+          key={`${groupPath}:${viewerKey}`}
+          ref={handleViewerRef}
+          initialItems={initialItems}
+          options={codeViewOptions}
+          renderHeaderPrefix={renderHeaderPrefix}
+          renderAnnotation={renderAnnotation}
+          className={CODE_VIEW_HOST_CLASS}
+        />
       </DiffCodeViewScaffold>
     </div>
   );

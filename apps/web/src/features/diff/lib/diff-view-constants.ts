@@ -25,6 +25,11 @@ const DIFF_VIEW_CUSTOM_FILE_ICON_CSS = `
   [data-change-icon] {
     display: none !important;
   }
+  /* Binary placeholder rows are only anchors for annotations — keep them tiny. */
+  [data-binary-diff-card][data-binary-embedded="true"] {
+    width: 100%;
+    max-width: 100%;
+  }
 `;
 
 export function getAtmosDiffThemeType(resolvedTheme?: string): ThemeTypes {
