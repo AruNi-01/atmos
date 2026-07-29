@@ -59,6 +59,9 @@ mac:
   artifactName: Atmos.${ext}
 
 dmg:
+  # Mount volume name in Finder (not the download filename). Keep product-only —
+  # avoid electron-builder's default "${productName} ${version}".
+  title: Atmos
   artifactName: Atmos.${ext}
   # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
   # Regenerate: python3 scripts/generate-dmg-background.py
