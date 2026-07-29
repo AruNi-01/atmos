@@ -15,7 +15,29 @@ export * from "./components/theme-toggle";
 export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
 export * from "./components/ui/popover";
+export {
+  ColorPicker,
+  ColorPickerPopover,
+  ColorPickerPortalContainer,
+  ColorSwatch,
+  ColorTile,
+  parseColor,
+  buildParsed,
+  isColorEyedropperActive,
+} from "./components/ui/color-picker";
+export type {
+  ColorPickerProps,
+  ColorPickerPopoverProps,
+  ColorSwatchProps,
+  ColorFormat,
+  ParsedColor,
+} from "./components/ui/color-picker";
 export * from "./components/ui/tabs";
+export {
+  TabsSubtle,
+  TabsSubtleItem,
+  TabsSubtlePanel,
+} from "./components/ui/tabs-subtle";
 export {
   Command,
   CommandDialog,
