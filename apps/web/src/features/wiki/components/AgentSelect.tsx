@@ -3,6 +3,12 @@
 import React from "react";
 import { shellQuote } from "@/shared/lib/shell-quote";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
+import {
+  DEFAULT_AGENT_YOLO_MODE,
+  readYoloModeFromSettings,
+  resolveAgentLaunchFlags,
+} from "@/features/agent/lib/terminal-agent-yolo";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
 import {
   buildInteractiveAgentRunPlan,
@@ -16,20 +22,42 @@ export const AGENT_OPTIONS = TERMINAL_AGENT_DEFINITIONS;
 
 export type AgentId = string;
 
+/** Current YOLO mode from loaded function settings (defaults to on). */
+export function getAgentYoloModeSync(): boolean {
+  const settings = useFunctionSettingsStore.getState().settings as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  return readYoloModeFromSettings(settings);
+}
+
 export function getInteractiveAgentParams(
   agent: (typeof AGENT_OPTIONS)[number],
   overrideFlags?: string,
+  yoloEnabled: boolean = getAgentYoloModeSync(),
 ): string {
-  const hasInteractiveParams = Object.prototype.hasOwnProperty.call(agent, "interactiveParams");
-  const interactiveParams = agent.interactiveParams ?? "";
+  const resolved = resolveAgentLaunchFlags(agent, yoloEnabled);
+  const yoloOn = resolveAgentLaunchFlags(agent, true);
+  const yoloOff = resolveAgentLaunchFlags(agent, false);
+  const hasInteractiveParams =
+    Object.prototype.hasOwnProperty.call(agent, "interactiveParams") ||
+    Object.prototype.hasOwnProperty.call(agent, "yoloInteractiveParams");
+  const interactiveParams = resolved.interactiveParams;
   if (overrideFlags !== undefined) {
     const flags = overrideFlags.trim();
     if (isNonInteractivePromptFlagsWithoutPrompt(agent.id, flags)) {
+      // Map headless prompt-only flags → interactive defaults for current YOLO mode.
+      if (flags === yoloOn.params) return yoloOn.interactiveParams;
+      if (flags === yoloOff.params) return yoloOff.interactiveParams;
       return interactiveParams;
     }
-    if (flags !== agent.params) return flags;
+    // Saved headless automation flags → matching interactive defaults.
+    if (flags === yoloOn.params) return yoloOn.interactiveParams;
+    if (flags === yoloOff.params) return yoloOff.interactiveParams;
+    // True custom override.
+    if (flags !== resolved.params) return flags;
   }
-  return hasInteractiveParams ? interactiveParams : overrideFlags?.trim() || agent.params || "";
+  return hasInteractiveParams ? interactiveParams : overrideFlags?.trim() || resolved.params || "";
 }
 
 function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string): boolean {
@@ -53,12 +81,14 @@ export function buildCommandPlan(
   prompt: string,
   runConfig?: TerminalAgentRunConfigInput | null,
   mode: TerminalAgentRunMode = "interactive",
+  yoloEnabled: boolean = getAgentYoloModeSync(),
 ): TerminalAgentRunPlan {
   const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
   if (!agent) return { launchCommand: "" };
+  const resolved = resolveAgentLaunchFlags(agent, yoloEnabled);
 
   if (prompt.trim() === "") {
-    const interactiveParams = getInteractiveAgentParams(agent);
+    const interactiveParams = getInteractiveAgentParams(agent, undefined, yoloEnabled);
     const structuredArgs = buildStructuredRunConfigArgs(agentId, runConfig).map((item) =>
       shellQuote(item),
     );
@@ -68,7 +98,7 @@ export function buildCommandPlan(
   }
 
   if (mode === "interactive") {
-    const interactiveParams = getInteractiveAgentParams(agent);
+    const interactiveParams = getInteractiveAgentParams(agent, undefined, yoloEnabled);
     const launchCommand = [agent.cmd, interactiveParams].filter(Boolean).join(" ");
     return buildInteractiveAgentRunPlan({
       agentId,
@@ -80,8 +110,8 @@ export function buildCommandPlan(
   }
 
   const launchParts: string[] = [agent.cmd];
-  if (agent.params) {
-    launchParts.push(agent.params);
+  if (resolved.params) {
+    launchParts.push(resolved.params);
   }
   return buildInteractiveAgentRunPlan({
     agentId,

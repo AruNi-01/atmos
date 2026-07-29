@@ -207,6 +207,12 @@ struct TerminalAgentDefinition {
     params: String,
     #[serde(default, rename = "interactiveParams")]
     interactive_params: Option<String>,
+    /// Full headless flags when YOLO mode is on.
+    #[serde(default, rename = "yoloParams")]
+    yolo_params: Option<String>,
+    /// Full interactive flags when YOLO mode is on.
+    #[serde(default, rename = "yoloInteractiveParams")]
+    yolo_interactive_params: Option<String>,
     #[serde(default, rename = "promptStrategy")]
     prompt_strategy: Option<PromptStrategy>,
     #[serde(default, rename = "stdoutParser")]
@@ -305,6 +311,32 @@ pub fn automation_agent_capabilities() -> Result<Vec<AutomationAgentCapability>>
                 reasoning_mode: agent.reasoning_support.mode,
                 supports_extra_args: true,
                 unavailable_reason: support.unavailable_reason,
+            }
+        })
+        .collect())
+}
+
+/// CLI presence for each built-in terminal agent, independent of enabled/disabled settings.
+///
+/// Used by first-run onboarding so detection is not affected by prior visibility prefs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalAgentCliStatus {
+    pub agent_id: String,
+    pub label: String,
+    pub cmd: String,
+    pub installed: bool,
+}
+
+pub fn terminal_agent_cli_status() -> Result<Vec<TerminalAgentCliStatus>> {
+    Ok(load_builtin_terminal_agents()?
+        .into_iter()
+        .map(|definition| {
+            let installed = resolve_executable_path(&definition.cmd).is_some();
+            TerminalAgentCliStatus {
+                agent_id: definition.id,
+                label: definition.label,
+                cmd: definition.cmd,
+                installed,
             }
         })
         .collect())
@@ -430,6 +462,102 @@ pub fn terminal_agent_model_catalog(
     Ok(catalog)
 }
 
+fn agent_yolo_mode_enabled() -> bool {
+    let path = dirs::home_dir()
+        .map(|home| home.join(".atmos").join("function_settings.json"))
+        .unwrap_or_else(|| PathBuf::from("function_settings.json"));
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return true;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
+        return true;
+    };
+    value
+        .get("agent_cli")
+        .and_then(|agent_cli| agent_cli.get("yolo_mode"))
+        .and_then(|mode| mode.as_bool())
+        .unwrap_or(true)
+}
+
+fn definition_launch_flags(definition: &TerminalAgentDefinition, yolo: bool) -> (String, String) {
+    if yolo
+        && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some())
+    {
+        let params = definition
+            .yolo_params
+            .clone()
+            .unwrap_or_else(|| definition.params.clone());
+        let interactive = definition
+            .yolo_interactive_params
+            .clone()
+            .or_else(|| definition.interactive_params.clone())
+            .unwrap_or_default();
+        (params, interactive)
+    } else {
+        (
+            definition.params.clone(),
+            definition.interactive_params.clone().unwrap_or_default(),
+        )
+    }
+}
+
+/// Public view of built-in agent defaults for smart upgrade (see `builtin_agent_upgrade`).
+#[derive(Debug, Clone)]
+pub struct TerminalAgentDefinitionPublic {
+    pub id: String,
+    pub label: String,
+    pub cmd: String,
+    pub params: String,
+    pub interactive_params: Option<String>,
+    pub yolo_params: Option<String>,
+    pub yolo_interactive_params: Option<String>,
+}
+
+impl From<TerminalAgentDefinition> for TerminalAgentDefinitionPublic {
+    fn from(value: TerminalAgentDefinition) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            cmd: value.cmd,
+            params: value.params,
+            interactive_params: value.interactive_params,
+            yolo_params: value.yolo_params,
+            yolo_interactive_params: value.yolo_interactive_params,
+        }
+    }
+}
+
+pub fn load_builtin_terminal_agents_for_upgrade() -> Result<Vec<TerminalAgentDefinitionPublic>> {
+    Ok(load_builtin_terminal_agents()?
+        .into_iter()
+        .map(TerminalAgentDefinitionPublic::from)
+        .collect())
+}
+
+pub fn definition_launch_flags_for_upgrade(
+    definition: &TerminalAgentDefinitionPublic,
+    yolo: bool,
+) -> (String, String) {
+    // Mirror private `definition_launch_flags` for the public upgrade DTO.
+    if yolo && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some()) {
+        let params = definition
+            .yolo_params
+            .clone()
+            .unwrap_or_else(|| definition.params.clone());
+        let interactive = definition
+            .yolo_interactive_params
+            .clone()
+            .or_else(|| definition.interactive_params.clone())
+            .unwrap_or_default();
+        (params, interactive)
+    } else {
+        (
+            definition.params.clone(),
+            definition.interactive_params.clone().unwrap_or_default(),
+        )
+    }
+}
+
 fn resolved_terminal_agents() -> Result<Vec<ResolvedTerminalAgent>> {
     let built_ins = load_builtin_terminal_agents()?;
     let settings = load_terminal_code_agent_file()?;
@@ -441,8 +569,10 @@ fn resolve_terminal_agents_with_settings(
     settings: TerminalCodeAgentFile,
 ) -> Vec<ResolvedTerminalAgent> {
     let mut resolved = Vec::with_capacity(built_ins.len() + settings.agents.len());
+    let yolo = agent_yolo_mode_enabled();
 
     for definition in built_ins {
+        let (default_params, default_interactive) = definition_launch_flags(&definition, yolo);
         let override_entry = settings
             .agents
             .iter()
@@ -457,17 +587,20 @@ fn resolve_terminal_agents_with_settings(
         let override_flags = override_entry.and_then(|entry| non_empty(&entry.flags));
         let flags = override_flags
             .clone()
-            .unwrap_or_else(|| definition.params.clone());
+            .unwrap_or_else(|| default_params.clone());
         let override_interactive_flags = override_entry
             .and_then(|entry| entry.interactive_flags.as_ref())
             .and_then(|flags| non_empty(flags));
         let interactive_flags =
             override_interactive_flags.unwrap_or_else(|| match override_flags {
-                Some(value) if value.trim() != definition.params.trim() => value,
-                _ => definition
-                    .interactive_params
-                    .clone()
-                    .unwrap_or_else(|| definition.params.clone()),
+                Some(value) if value.trim() != default_params.trim() => value,
+                _ => {
+                    if default_interactive.is_empty() {
+                        default_params.clone()
+                    } else {
+                        default_interactive.clone()
+                    }
+                }
             });
         resolved.push(ResolvedTerminalAgent {
             id: definition.id,
@@ -1339,23 +1472,44 @@ mod tests {
     }
 
     #[test]
+    fn terminal_agent_cli_status_lists_every_built_in_agent() {
+        let built_ins = load_builtin_terminal_agents().unwrap();
+        let status = terminal_agent_cli_status().unwrap();
+
+        assert_eq!(status.len(), built_ins.len());
+        for definition in built_ins {
+            let entry = status
+                .iter()
+                .find(|item| item.agent_id == definition.id)
+                .expect("status entry for built-in agent");
+            assert_eq!(entry.label, definition.label);
+            assert_eq!(entry.cmd, definition.cmd);
+        }
+    }
+
+    #[test]
     fn s5_built_in_agents_load_from_shared_definition_file() {
         let agents = load_builtin_terminal_agents().unwrap();
 
         assert!(agents.iter().any(|agent| agent.id == "codex"
             && agent.cmd == "codex"
-            && agent.params == "exec --json --dangerously-bypass-approvals-and-sandbox"
+            && agent.params == "exec --json"
+            && agent.yolo_params.as_deref()
+                == Some("exec --json --dangerously-bypass-approvals-and-sandbox")
             && agent.prompt_strategy == Some(PromptStrategy::Arg)
             && agent.stdout_parser == StdoutParser::CodexJsonl));
         assert!(agents.iter().any(|agent| agent.id == "cursor"
             && agent.cmd == "cursor-agent"
-            && agent.params.starts_with("--force --print")
-            && agent.interactive_params.as_deref() == Some("--yolo")));
+            && agent.yolo_params.as_deref().is_some_and(|p| p.contains("--force --print"))
+            && agent.yolo_interactive_params.as_deref() == Some("--yolo")));
         assert!(agents.iter().any(|agent| {
             agent.id == "antigravity"
                 && agent.cmd == "agy"
-                && agent.params == "--dangerously-skip-permissions --output-format stream-json -p"
-                && agent.interactive_params.as_deref() == Some("--dangerously-skip-permissions")
+                && agent.params == "--output-format stream-json -p"
+                && agent.yolo_params.as_deref()
+                    == Some("--dangerously-skip-permissions --output-format stream-json -p")
+                && agent.yolo_interactive_params.as_deref()
+                    == Some("--dangerously-skip-permissions")
                 && agent.prompt_strategy == Some(PromptStrategy::PromptFlag)
                 && agent.stdout_parser == StdoutParser::CursorStreamJson
                 && agent.model_support == AutomationAgentModelInputMode::Catalog
@@ -1367,8 +1521,10 @@ mod tests {
         assert!(agents.iter().any(|agent| {
             agent.id == "grok-build"
                 && agent.cmd == "grok"
-                && agent.params == "--always-approve --output-format streaming-json -p"
-                && agent.interactive_params.as_deref() == Some("--always-approve")
+                && agent.params == "--output-format streaming-json -p"
+                && agent.yolo_params.as_deref()
+                    == Some("--always-approve --output-format streaming-json -p")
+                && agent.yolo_interactive_params.as_deref() == Some("--always-approve")
                 && agent.prompt_strategy == Some(PromptStrategy::PromptFlag)
                 && agent.stdout_parser == StdoutParser::GrokStreamingJson
                 && agent.model_support == AutomationAgentModelInputMode::Catalog
@@ -1388,6 +1544,8 @@ mod tests {
                 cmd: "codex".to_string(),
                 params: "--dangerously-bypass-approvals-and-sandbox".to_string(),
                 interactive_params: Some("--dangerously-bypass-approvals-and-sandbox".to_string()),
+                yolo_params: None,
+                yolo_interactive_params: None,
                 prompt_strategy: Some(PromptStrategy::Arg),
                 stdout_parser: StdoutParser::CodexJsonl,
                 use_echo: false,

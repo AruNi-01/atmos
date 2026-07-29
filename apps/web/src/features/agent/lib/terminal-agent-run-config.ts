@@ -6,7 +6,12 @@ import {
   type TerminalAgentReasoningMode as TerminalAgentReasoningCapabilityMode,
   type TerminalAgentReasoningSupport,
 } from "@/features/agent/lib/terminal-agent-definitions";
+import {
+  readYoloModeFromSettings,
+  resolveAgentLaunchFlags,
+} from "@/features/agent/lib/terminal-agent-yolo";
 import { agentNeedsTuiFollowUp } from "@/features/agent/lib/terminal-agent-tui-follow-up";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 export type TerminalAgentReasoningMode = Exclude<
   TerminalAgentReasoningCapabilityMode,
@@ -240,7 +245,15 @@ export function buildPipedAgentTerminalInput(
   if (!trimmed) {
     return null;
   }
-  const interactiveParams = definition.interactiveParams ?? "";
+  // Prefer the caller's full command when it already includes flags; otherwise
+  // fall back to YOLO-aware interactive defaults from the shared manifest.
+  const yoloEnabled = readYoloModeFromSettings(
+    useFunctionSettingsStore.getState().settings as Record<string, unknown> | null,
+  );
+  const interactiveParams =
+    command.trim() === definition.cmd.trim()
+      ? resolveAgentLaunchFlags(definition, yoloEnabled).interactiveParams
+      : "";
   const baseCommand = [command.trim(), interactiveParams].filter(Boolean).join(" ");
   return `echo ${shellQuote(trimmed)} | ${baseCommand}`;
 }

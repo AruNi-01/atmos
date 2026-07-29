@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "description": "Bump when builtin_agents.json launch flags/commands change. Drives smart upgrade of non-customized user agent entries."
+}

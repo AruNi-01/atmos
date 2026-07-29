@@ -8,8 +8,9 @@ pub use service::agent::AgentService;
 pub use service::agent_hooks::{AgentHookEvent, AgentHooksService};
 pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNativeSessionSpec};
 pub use service::automation::{
-    AutomationAgentCapability, TerminalAgentModelCatalog, TerminalAgentModelCatalogSource,
-    TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
+    ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,
+    TerminalAgentModelCatalog, TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus,
+    TerminalAgentModelOption,
 };
 pub use service::automation::{
     AutomationArtifact, AutomationArtifactGetReq, AutomationArtifactKind, AutomationCancelRunReq,

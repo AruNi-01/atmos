@@ -17,8 +17,20 @@ export interface TerminalAgentDefinition {
   id: string;
   label: string;
   cmd: string;
+  /** Headless / automation flags when YOLO mode is off. */
   params: string;
+  /** Interactive flags when YOLO mode is off. */
   interactiveParams?: string;
+  /**
+   * Full headless flags when YOLO mode is on (permission-skip / --yolo / etc.).
+   * When omitted, the agent has no YOLO variant and always uses `params`.
+   */
+  yoloParams?: string;
+  /**
+   * Full interactive flags when YOLO mode is on.
+   * When omitted while `yoloParams` is set, falls back to `interactiveParams`.
+   */
+  yoloInteractiveParams?: string;
   promptStrategy?: TerminalAgentPromptStrategy;
   stdoutParser?: string;
   useEcho?: boolean;

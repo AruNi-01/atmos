@@ -68,6 +68,9 @@ impl WsMessageService {
     }
 
     fn read_code_agent_custom() -> Result<Value> {
+        // Smart-upgrade non-customized built-in flags when manifest version bumps.
+        // YOLO mode is global and does not count as a per-agent command edit.
+        let _ = core_service::ensure_builtin_terminal_agents_upgraded();
         let path = terminal_code_agent_path();
         if path.exists() {
             let content = std::fs::read_to_string(&path).map_err(|e| {
@@ -108,6 +111,8 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_settings_bootstrap_get(&self) -> Result<Value> {
+        // Run before reading function_settings so builtin_manifest_version is current.
+        let _ = core_service::ensure_builtin_terminal_agents_upgraded();
         Ok(json!({
             "function_settings": Self::read_function_settings()?,
             "llm_providers": Self::read_llm_providers()?,

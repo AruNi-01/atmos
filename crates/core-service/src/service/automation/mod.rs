@@ -36,14 +36,16 @@ use super::workspace::WorkspaceService;
 
 use agents::automation_agent_capabilities;
 pub use agents::AutomationAgentCapability;
+pub mod builtin_agent_upgrade;
+pub use builtin_agent_upgrade::ensure_builtin_terminal_agents_upgraded;
 pub(crate) use agents::{
     resolve_automation_agent, AutomationAgentInvocation, AutomationCommandInput, PromptDelivery,
     StdoutParser,
 };
 pub use agents::{
     AutomationAgentModelInputMode, AutomationAgentReasoningMode, AutomationAgentReasoningSelection,
-    AutomationAgentRunConfig, TerminalAgentModelCatalog, TerminalAgentModelCatalogSource,
-    TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
+    AutomationAgentRunConfig, TerminalAgentCliStatus, TerminalAgentModelCatalog,
+    TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
 };
 pub use events::{AutomationDefinitionChange, AutomationEvent};
 pub use external_trigger::{
@@ -771,6 +773,10 @@ impl AutomationService {
 
     pub fn agent_capabilities(&self) -> Result<Vec<AutomationAgentCapability>> {
         automation_agent_capabilities()
+    }
+
+    pub fn terminal_agent_cli_status(&self) -> Result<Vec<agents::TerminalAgentCliStatus>> {
+        agents::terminal_agent_cli_status()
     }
 
     pub async fn terminal_agent_model_catalog(

@@ -25,6 +25,7 @@ import {
   type LlmProvidersFile,
 } from '@/api/ws-api';
 import { readSavedRunConfigs, type TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
+import { setAgentYoloMode } from '@/features/agent/lib/terminal-agent-yolo';
 import { LlmProviderEditorDialog } from '@/app-shell/LlmProvidersModal';
 import { buildLocalAgentOptions } from '@/app-shell/llm-providers-modal-utils';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
@@ -259,6 +260,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [savedRunConfigs, setSavedRunConfigs] = useState<TerminalAgentSavedRunConfig[]>([]);
   const [runConfigsLoading, setRunConfigsLoading] = useState(false);
   const [savingRunConfigs, setSavingRunConfigs] = useState(false);
+  const [yoloMode, setYoloMode] = useState(true);
+  const [yoloModeSyncing, setYoloModeSyncing] = useState(false);
+  const [yoloModeRestoring, setYoloModeRestoring] = useState(false);
   const getErrorDescription = React.useCallback(
     (error: unknown) => (error instanceof Error ? error.message : t('unknownError')),
     [t],
@@ -333,6 +337,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         | Record<string, unknown>
         | undefined;
       setSavedRunConfigs(readSavedRunConfigs(agentCli?.saved_run_configs));
+      setYoloMode(
+        typeof agentCli?.yolo_mode === "boolean" ? agentCli.yolo_mode : true,
+      );
     } catch {
       // ignore
     } finally {
@@ -410,7 +417,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     setSavingBuiltInAgentIds((prev) => ({ ...prev, [agentId]: true }));
     try {
-      const nextBuiltInEntries = buildBuiltInEntries(nextBuiltInSettings);
+      const nextBuiltInEntries = buildBuiltInEntries(nextBuiltInSettings, yoloMode);
       await persistCodeAgents([
         ...savedCustomAgents,
         ...nextBuiltInEntries,
@@ -429,7 +436,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         return next;
       });
     }
-  }, [agentCustomSettings, persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
+  }, [agentCustomSettings, persistCodeAgents, savedAgentCustomSettings, savedCustomAgents, yoloMode]);
+
+  const handleYoloModeChange = React.useCallback(async (enabled: boolean) => {
+    const previous = yoloMode;
+    setYoloMode(enabled);
+    setYoloModeSyncing(true);
+    try {
+      await setAgentYoloMode(enabled);
+    } catch (error) {
+      setYoloMode(previous);
+      toastManager.add({
+        title: t('errors.updateYoloModeTitle'),
+        description: getErrorDescription(error),
+        type: 'error',
+      });
+    } finally {
+      setYoloModeSyncing(false);
+    }
+  }, [getErrorDescription, t, yoloMode]);
+
+  /** Enable YOLO and clear built-in flag overrides so manifests reapply. */
+  const handleRestoreAllYoloMode = React.useCallback(async () => {
+    setYoloModeRestoring(true);
+    try {
+      await setAgentYoloMode(true);
+      setYoloMode(true);
+      // Keep enabled/cmd overrides only; drop flags so YOLO defaults apply.
+      const nextBuiltIn: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }> = {};
+      for (const [id, draft] of Object.entries(savedAgentCustomSettings)) {
+        const base = AGENT_OPTIONS.find((agent) => agent.id === id);
+        if (!base) continue;
+        const keepCmd = draft.cmd && draft.cmd !== base.cmd ? draft.cmd : undefined;
+        const keepEnabled = draft.enabled === false ? false : undefined;
+        if (keepCmd !== undefined || keepEnabled !== undefined) {
+          nextBuiltIn[id] = {};
+          if (keepCmd !== undefined) nextBuiltIn[id].cmd = keepCmd;
+          if (keepEnabled !== undefined) nextBuiltIn[id].enabled = keepEnabled;
+        }
+      }
+      await persistCodeAgents([
+        ...savedCustomAgents,
+        ...buildBuiltInEntries(nextBuiltIn, true),
+      ]);
+      setAgentCustomSettings(nextBuiltIn);
+      setSavedAgentCustomSettings(nextBuiltIn);
+    } catch (error) {
+      toastManager.add({
+        title: t('errors.restoreYoloModeTitle'),
+        description: getErrorDescription(error),
+        type: 'error',
+      });
+    } finally {
+      setYoloModeRestoring(false);
+    }
+  }, [getErrorDescription, persistCodeAgents, savedAgentCustomSettings, savedCustomAgents, t]);
 
   const handleBuiltInEnabledChange = React.useCallback(async (agentId: string, enabled: boolean) => {
     const previousEnabled = savedAgentCustomSettings[agentId]?.enabled ?? true;
@@ -459,7 +520,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       await persistCodeAgents([
         ...savedCustomAgents,
-        ...buildBuiltInEntries(nextSavedBuiltInSettings),
+        ...buildBuiltInEntries(nextSavedBuiltInSettings, yoloMode),
       ]);
       setSavedAgentCustomSettings(nextSavedBuiltInSettings);
     } catch (error) {
@@ -479,7 +540,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         return next;
       });
     }
-  }, [persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
+  }, [persistCodeAgents, savedAgentCustomSettings, savedCustomAgents, yoloMode]);
 
   const handleAddCustomAgent = React.useCallback(() => {
     const id = `custom_${Date.now()}`;
@@ -935,6 +996,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     savingRunConfigs={savingRunConfigs}
                     syncingBuiltInEnabledIds={syncingBuiltInEnabledIds}
                     syncingCustomEnabledIds={syncingCustomEnabledIds}
+                    yoloMode={yoloMode}
+                    yoloModeSyncing={yoloModeSyncing}
+                    yoloModeRestoring={yoloModeRestoring}
+                    onYoloModeChange={(enabled) => {
+                      void handleYoloModeChange(enabled);
+                    }}
+                    onRestoreAllYoloMode={() => {
+                      void handleRestoreAllYoloMode();
+                    }}
                     onAddCustomAgent={handleAddCustomAgent}
                     onAgentSettingChange={handleAgentSettingChange}
                     onBuiltInEnabledChange={(agentId, enabled) => {

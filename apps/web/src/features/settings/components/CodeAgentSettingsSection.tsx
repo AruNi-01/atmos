@@ -11,8 +11,9 @@ import {
   Skeleton,
   Switch,
 } from "@workspace/ui";
-import { Bot, ChevronDown, LoaderCircle, Package, Plus, Trash2, UserCog } from "lucide-react";
+import { Bot, ChevronDown, LoaderCircle, Package, Plus, Trash2, UserCog, Zap } from "lucide-react";
 import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
+import { resolveAgentLaunchFlags } from "@/features/agent/lib/terminal-agent-yolo";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
 import { AgentHookStatusCard } from "@/features/settings/components/AgentHookStatusCard";
@@ -45,6 +46,11 @@ interface CodeAgentSettingsSectionProps {
   savingRunConfigs: boolean;
   syncingBuiltInEnabledIds: Record<string, boolean>;
   syncingCustomEnabledIds: Record<string, boolean>;
+  yoloMode: boolean;
+  yoloModeSyncing: boolean;
+  yoloModeRestoring: boolean;
+  onYoloModeChange: (enabled: boolean) => void;
+  onRestoreAllYoloMode: () => void;
   onAddCustomAgent: () => void;
   onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "interactiveFlags" | "enabled", value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
@@ -84,6 +90,11 @@ export function CodeAgentSettingsSection({
   savingRunConfigs,
   syncingBuiltInEnabledIds,
   syncingCustomEnabledIds,
+  yoloMode,
+  yoloModeSyncing,
+  yoloModeRestoring,
+  onYoloModeChange,
+  onRestoreAllYoloMode,
   onAddCustomAgent,
   onAgentSettingChange,
   onBuiltInEnabledChange,
@@ -104,6 +115,41 @@ export function CodeAgentSettingsSection({
 
   return (
     <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <Zap className="mt-0.5 size-5 shrink-0 text-foreground" />
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">{t("yolo.title")}</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {t("yolo.description")}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={yoloMode}
+            disabled={yoloModeSyncing || yoloModeRestoring}
+            onCheckedChange={(checked) => onYoloModeChange(!!checked)}
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
+          <p className="text-xs leading-5 text-muted-foreground">{t("yolo.restoreHint")}</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={yoloModeSyncing || yoloModeRestoring}
+            className="shrink-0 cursor-pointer"
+            onClick={onRestoreAllYoloMode}
+          >
+            {yoloModeRestoring ? (
+              <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+            ) : null}
+            {t("yolo.restoreAll")}
+          </Button>
+        </div>
+      </div>
+
       <Collapsible
         open={builtInAgentsExpanded}
         onOpenChange={setBuiltInAgentsExpanded}
@@ -138,17 +184,20 @@ export function CodeAgentSettingsSection({
               {AGENT_OPTIONS.map((agent) => {
                 const custom = agentCustomSettings[agent.id];
                 const isOpen = builtInAgentOpen[agent.id] ?? false;
+                const defaults = resolveAgentLaunchFlags(agent, yoloMode);
                 const savedAgent = savedAgentCustomSettings[agent.id];
                 const isDirty =
                   (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
-                  (savedAgent?.flags ?? (agent.params || "")) !== (custom?.flags ?? (agent.params || "")) ||
-                  (savedAgent?.interactiveFlags ?? (agent.interactiveParams || "")) !== (custom?.interactiveFlags ?? (agent.interactiveParams || ""));
+                  (savedAgent?.flags ?? defaults.params) !== (custom?.flags ?? defaults.params) ||
+                  (savedAgent?.interactiveFlags ?? defaults.interactiveParams) !==
+                    (custom?.interactiveFlags ?? defaults.interactiveParams);
                 const isSaving = !!savingBuiltInAgentIds[agent.id];
                 const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                 const enabled = custom?.enabled ?? true;
                 const summary = [
                   custom?.cmd ?? agent.cmd,
-                  custom?.interactiveFlags ?? getInteractiveAgentParams(agent, custom?.flags),
+                  custom?.interactiveFlags ??
+                    getInteractiveAgentParams(agent, custom?.flags, yoloMode),
                 ]
                   .filter(Boolean)
                   .join(" ");
@@ -202,29 +251,27 @@ export function CodeAgentSettingsSection({
                           </div>
                           <div>
                             <label className="mb-1 block text-xs text-muted-foreground">
-                              {agent.interactiveParams !== undefined ? t("fields.interactiveParameters") : t("fields.parameters")}
+                              {t("fields.interactiveParameters")}
                             </label>
                             <Input
-                              value={custom?.interactiveFlags ?? (agent.interactiveParams || "")}
-                              placeholder={agent.interactiveParams || t("common.noParameters")}
+                              value={custom?.interactiveFlags ?? defaults.interactiveParams}
+                              placeholder={defaults.interactiveParams || t("common.noParameters")}
                               onChange={(event) => onAgentSettingChange(agent.id, "interactiveFlags", event.target.value)}
                               className="h-9 text-sm font-mono"
                             />
                           </div>
                         </div>
-                        {agent.interactiveParams !== undefined && (
-                          <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">
-                              {t("fields.automationParameters")}
-                            </label>
-                            <Input
-                              value={custom?.flags ?? (agent.params || "")}
-                              placeholder={agent.params || t("common.noDefaultParameters")}
-                              onChange={(event) => onAgentSettingChange(agent.id, "flags", event.target.value)}
-                              className="h-9 text-sm font-mono"
-                            />
-                          </div>
-                        )}
+                        <div>
+                          <label className="mb-1 block text-xs text-muted-foreground">
+                            {t("fields.automationParameters")}
+                          </label>
+                          <Input
+                            value={custom?.flags ?? defaults.params}
+                            placeholder={defaults.params || t("common.noDefaultParameters")}
+                            onChange={(event) => onAgentSettingChange(agent.id, "flags", event.target.value)}
+                            className="h-9 text-sm font-mono"
+                          />
+                        </div>
                       </div>
                     </CollapsibleContent>
                   </Collapsible>

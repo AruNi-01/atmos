@@ -3,11 +3,12 @@
     "steps": {
       "intro": "Welcome",
       "check": "Environment",
+      "agents": "Agents",
       "project": "First Project"
     },
     "intro": {
       "title": "Welcome to Atmos",
-      "subtitle": "Your local-first agentic coding cockpit. Three quick steps and you are on the home screen.",
+      "subtitle": "Your local-first agentic coding cockpit. A few quick steps and you are on the home screen.",
       "features": {
         "agent": "Agentic Software Engineering",
         "agentDesc": "Equip autonomous AI agents to code, debug, refactor, and run terminal tools directly in your workspace.",
@@ -89,6 +90,25 @@
           }
         }
       }
+    },
+    "agents": {
+      "title": "Choose Your Agents",
+      "subtitle": "We detected which built-in agent CLIs are on this machine. Keep the ones you use and pick a default for new terminals.",
+      "summary": "{installed} installed · {selected} selected · {total} built-in",
+      "yoloLabel": "Default YOLO mode",
+      "yoloAria": "Enable YOLO / skip-permissions mode for agents by default",
+      "detecting": "Detecting installed agent CLIs…",
+      "statusInstalled": "Installed",
+      "statusMissing": "Not found",
+      "defaultBadge": "Default",
+      "setDefault": "Set Default",
+      "selectAria": "Enable {name}",
+      "noneInstalledHint": "No built-in agent CLIs were found on PATH. You can still enable ones you plan to install later, or continue and configure them in Settings.",
+      "recheck": "Re-check agents",
+      "next": "Save and continue",
+      "skip": "Skip for now",
+      "checkFailed": "Could not reach the local Atmos Server to detect agents. Make sure it is running, then re-check.",
+      "saveFailed": "Could not save agent preferences. Check your connection and try again."
     },
     "project": {
       "title": "Your First Project",
@@ -3994,6 +4014,8 @@
       "unknownError": "Unknown error",
       "errors": {
         "saveBuiltInAgentTitle": "Failed to save built-in agent",
+        "updateYoloModeTitle": "Failed to update YOLO mode",
+        "restoreYoloModeTitle": "Failed to restore YOLO mode",
         "updateAgentVisibilityTitle": "Failed to update agent visibility",
         "removeCustomAgentTitle": "Failed to remove custom agent",
         "customAgentIncompleteTitle": "Custom agent is incomplete",
@@ -4856,6 +4878,12 @@
       "builtIn": {
         "title": "Built-in Agents",
         "description": "Customize the startup command and parameters for each built-in code agent."
+      },
+      "yolo": {
+        "title": "YOLO mode",
+        "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
+        "restoreHint": "Re-enable YOLO and clear custom flag overrides on all built-in agents so they use the built-in YOLO defaults again.",
+        "restoreAll": "Restore YOLO for all agents"
       },
       "custom": {
         "title": "Custom Agents",

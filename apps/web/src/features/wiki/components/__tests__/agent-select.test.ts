@@ -18,13 +18,15 @@ describe("getInteractiveAgentParams", () => {
   it("S1/S5 — loads Grok and Cursor built-in identities from the shared manifest", () => {
     expect(agent("grok-build")).toMatchObject({
       cmd: "grok",
-      interactiveParams: "--always-approve",
+      interactiveParams: "",
+      yoloInteractiveParams: "--always-approve",
       label: "Grok Build",
       promptStrategy: "prompt_flag",
       stdoutParser: "grok_streaming_json",
     });
     expect(agent("cursor")).toMatchObject({
       cmd: "cursor-agent",
+      yoloInteractiveParams: "--yolo",
       modelList: {
         command: ["cursor-agent", "--list-models"],
       },

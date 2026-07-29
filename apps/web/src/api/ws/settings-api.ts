@@ -11,6 +11,8 @@ import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-
 export interface FunctionSettings {
   agent_cli?: {
     center_fix_terminal_default_agent?: string;
+    /** When true (default), agents launch with YOLO / skip-permissions flags. */
+    yolo_mode?: boolean;
     saved_run_configs?: TerminalAgentSavedRunConfig[];
   };
   editor?: {

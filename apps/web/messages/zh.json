@@ -3,11 +3,12 @@
     "steps": {
       "intro": "欢迎",
       "check": "环境检测",
+      "agents": "智能体",
       "project": "首个项目"
     },
     "intro": {
       "title": "欢迎使用 Atmos",
-      "subtitle": "您的本地优先 AI 智能编程工作台。三步完成后即可进入首页。",
+      "subtitle": "您的本地优先 AI 智能编程工作台。完成几步设置后即可进入首页。",
       "features": {
         "agent": "AI 智能体自主编程",
         "agentDesc": "配备功能强大的 AI 智能体，直接在您的工作区中编写代码、调试、重构和运行终端命令。",
@@ -89,6 +90,25 @@
           }
         }
       }
+    },
+    "agents": {
+      "title": "选择你的 Agent",
+      "subtitle": "我们已检测本机安装了哪些内置 Agent CLI。保留你常用的，并为新终端选择默认 Agent。",
+      "summary": "已安装 {installed} · 已选中 {selected} · 共 {total} 个内置",
+      "yoloLabel": "默认启用 YOLO 模式",
+      "yoloAria": "默认启用 Agent 的 YOLO / 跳过权限确认参数",
+      "detecting": "正在检测已安装的 Agent CLI…",
+      "statusInstalled": "已安装",
+      "statusMissing": "未检测到",
+      "defaultBadge": "默认",
+      "setDefault": "设为默认",
+      "selectAria": "启用 {name}",
+      "noneInstalledHint": "PATH 上未发现内置 Agent CLI。你仍可勾选计划稍后安装的 Agent，或先继续，之后在设置中配置。",
+      "recheck": "重新检测",
+      "next": "保存并继续",
+      "skip": "暂且跳过",
+      "checkFailed": "无法连接本地 Atmos Server 检测 Agent。请确认服务已启动后重新检测。",
+      "saveFailed": "无法保存 Agent 偏好。请检查连接后重试。"
     },
     "project": {
       "title": "导入首个项目",
@@ -3994,6 +4014,8 @@
       "unknownError": "未知错误",
       "errors": {
         "saveBuiltInAgentTitle": "保存内置 Agent 失败",
+        "updateYoloModeTitle": "更新 YOLO 模式失败",
+        "restoreYoloModeTitle": "恢复 YOLO 模式失败",
         "updateAgentVisibilityTitle": "更新 Agent 可见性失败",
         "removeCustomAgentTitle": "移除自定义 Agent 失败",
         "customAgentIncompleteTitle": "自定义 Agent 信息不完整",
@@ -4856,6 +4878,12 @@
       "builtIn": {
         "title": "内置 Agents",
         "description": "为每个内置代码 Agent 自定义启动命令和参数。"
+      },
+      "yolo": {
+        "title": "YOLO 模式",
+        "description": "开启后，Agent 启动会带上跳过权限确认 / 自动批准参数（如 --yolo、--dangerously-skip-permissions）。关闭则使用更安全的需确认模式。",
+        "restoreHint": "重新开启 YOLO，并清除所有内置 Agent 的自定义参数覆盖，使其恢复内置 YOLO 默认参数。",
+        "restoreAll": "一键恢复全部 Agent 的 YOLO"
       },
       "custom": {
         "title": "自定义 Agents",

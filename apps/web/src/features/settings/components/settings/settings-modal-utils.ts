@@ -1,4 +1,8 @@
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import {
+  DEFAULT_AGENT_YOLO_MODE,
+  resolveAgentLaunchFlags,
+} from "@/features/agent/lib/terminal-agent-yolo";
 import { getWikiLanguageOptions } from "@/features/wiki/lib/wiki-languages";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
 import { createTranslator } from "next-intl";
@@ -53,16 +57,28 @@ export function dedupeCodeAgentEntries(
   return Array.from(deduped.values());
 }
 
+function agentDefaultFlags(agent: (typeof AGENT_OPTIONS)[number], yoloEnabled = DEFAULT_AGENT_YOLO_MODE) {
+  return resolveAgentLaunchFlags(agent, yoloEnabled);
+}
+
 export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
   const next: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }> = {};
+  const defaults = agentDefaultFlags;
 
   for (const agent of AGENT_OPTIONS) {
     const entry = entries.find((item) => item.id === agent.id);
     if (!entry) continue;
+    const resolved = defaults(agent);
 
     const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
-    const flags = entry.flags !== (agent.params || "") ? entry.flags : undefined;
-    const interactiveFlags = entry.interactiveFlags !== (agent.interactiveParams || "") ? entry.interactiveFlags : undefined;
+    const flags = entry.flags !== (resolved.params || "") && entry.flags !== (agent.params || "")
+      ? entry.flags
+      : undefined;
+    const interactiveFlags =
+      entry.interactiveFlags !== (resolved.interactiveParams || "") &&
+      entry.interactiveFlags !== (agent.interactiveParams || "")
+        ? entry.interactiveFlags
+        : undefined;
     const enabled = entry.enabled === false ? false : undefined;
     if (!cmd && !flags && !interactiveFlags && enabled === undefined) continue;
 
@@ -78,14 +94,20 @@ export function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
 
 export function buildBuiltInEntries(
   overrides: Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>,
+  yoloEnabled: boolean = DEFAULT_AGENT_YOLO_MODE,
 ): CodeAgentCustomEntry[] {
   return AGENT_OPTIONS.flatMap((agent) => {
     const draft = overrides[agent.id];
+    const resolved = agentDefaultFlags(agent, yoloEnabled);
     const cmd = draft?.cmd ?? agent.cmd;
-    const flags = draft?.flags ?? (agent.params || "");
-    const interactiveFlags = draft?.interactiveFlags ?? (agent.interactiveParams || "");
+    const flags = draft?.flags ?? resolved.params;
+    const interactiveFlags = draft?.interactiveFlags ?? resolved.interactiveParams;
     const enabled = draft?.enabled ?? true;
-    const changed = cmd !== agent.cmd || flags !== (agent.params || "") || interactiveFlags !== (agent.interactiveParams || "") || enabled !== true;
+    const changed =
+      cmd !== agent.cmd ||
+      flags !== resolved.params ||
+      interactiveFlags !== resolved.interactiveParams ||
+      enabled !== true;
 
     if (!changed) return [];
 
