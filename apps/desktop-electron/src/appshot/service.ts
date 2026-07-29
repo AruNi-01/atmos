@@ -501,11 +501,12 @@ export async function triggerCapture(state: AppState): Promise<void> {
   const { expiresInMs } = globalPendingStore.insert(capture);
 
   // Bring Atmos to front for the preview sheet (steal focus from the captured app).
-  const { app } = await import("electron");
   try {
     if (process.platform === "darwin") {
+      const { app } = await import("electron");
       app.focus({ steal: true });
-      app.dock?.show();
+      const { ensureMacDockVisible } = await import("../windows/mac-dock.js");
+      await ensureMacDockVisible();
     }
   } catch {
     /* ignore */

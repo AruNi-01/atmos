@@ -5,6 +5,7 @@ import { APP_PRODUCT_NAME, appWindowBranding } from "../branding.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { wireMainWindowCloseBehavior } from "./close-behavior.js";
+import { ensureMacDockVisible } from "./mac-dock.js";
 import { resolveAppPreloadPath } from "./preload-path.js";
 
 export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow {
@@ -54,6 +55,8 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
   win.once("ready-to-show", () => {
     win.show();
     win.focus();
+    // AppShot overlay warm can race first paint and dismiss Dock (electron#26350).
+    void ensureMacDockVisible();
   });
 
   if (process.env.ATMOS_ELECTRON_OPEN_DEVTOOLS === "1") {

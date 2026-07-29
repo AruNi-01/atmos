@@ -303,15 +303,25 @@ fn load_chromium_cookie_source(
         return Ok(None);
     }
 
-    let passphrase =
-        safe_storage_passphrase(&candidate.safe_storage_service).map_err(map_extract_error)?;
-
+    // Lazy Keychain access: only fetch the Safe Storage passphrase when a row
+    // actually needs decryption. The passphrase is memoized in browser-cookies
+    // for the process lifetime so multi-provider ai-usage scans do not re-prompt.
+    let mut passphrase: Option<String> = None;
     let mut cookie_pairs: Vec<(String, String)> = Vec::new();
     for row in rows {
         let value = if !row.value.is_empty() {
             row.value
         } else if !row.encrypted_value.is_empty() {
-            match decrypt_chromium_value(&row.encrypted_value, &row.host_key, &passphrase) {
+            let pass = match &passphrase {
+                Some(p) => p.clone(),
+                None => {
+                    let fetched = safe_storage_passphrase(&candidate.safe_storage_service)
+                        .map_err(map_extract_error)?;
+                    passphrase = Some(fetched.clone());
+                    fetched
+                }
+            };
+            match decrypt_chromium_value(&row.encrypted_value, &row.host_key, &pass) {
                 Ok(value) => value,
                 Err(_) => continue,
             }

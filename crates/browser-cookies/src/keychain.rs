@@ -4,19 +4,50 @@
 //! the `security` CLI, which finds the item by service name alone (matching the
 //! previously-shipped `ai-usage` behavior). A non-owning app reading the item
 //! triggers the standard Keychain ACL prompt.
+//!
+//! Successful reads are memoized **in-process only** (never written to disk) so
+//! multi-provider `ai-usage` scans do not re-prompt within one Server lifetime.
+//! Failures are never cached so the user can grant access and retry.
+//!
+//! Note: ad-hoc signed `Atmos Server` (`com.atmos.desktop.sidecar`) has no Team
+//! ID, so macOS "Always Allow" is bound to a changing cdhash and often does not
+//! stick across rebuilds/restarts. Fixing that requires a stable Developer ID
+//! signature — not a local secret file.
+
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 
 use crate::types::ExtractError;
 
+static PASSPHRASE_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn passphrase_cache() -> &'static Mutex<HashMap<String, String>> {
+    PASSPHRASE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 /// Fetch the Safe Storage passphrase for `service` (e.g. "Chrome Safe Storage").
+///
+/// On success, the value is cached for the life of this process only.
 #[cfg(target_os = "macos")]
 pub fn safe_storage_passphrase(service: &str) -> Result<String, ExtractError> {
-    match passphrase_via_framework(service) {
-        Ok(value) => Ok(value),
+    if let Ok(guard) = passphrase_cache().lock() {
+        if let Some(cached) = guard.get(service) {
+            return Ok(cached.clone());
+        }
+    }
+
+    let value = match passphrase_via_framework(service) {
+        Ok(value) => value,
         // If the framework lookup is denied, do not silently retry via the CLI
         // (that would risk a second prompt / mask the denial).
-        Err(ExtractError::KeychainDenied) => Err(ExtractError::KeychainDenied),
-        Err(_) => passphrase_via_cli(service),
+        Err(ExtractError::KeychainDenied) => return Err(ExtractError::KeychainDenied),
+        Err(_) => passphrase_via_cli(service)?,
+    };
+
+    if let Ok(mut guard) = passphrase_cache().lock() {
+        guard.insert(service.to_string(), value.clone());
     }
+    Ok(value)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -87,4 +118,33 @@ fn passphrase_via_cli(service: &str) -> Result<String, ExtractError> {
         return Err(ExtractError::KeychainUnavailable);
     }
     Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn account_for_strips_safe_storage_suffix() {
+        assert_eq!(account_for("Chrome Safe Storage"), "Chrome");
+        assert_eq!(account_for("Microsoft Edge Safe Storage"), "Microsoft Edge");
+        assert_eq!(account_for("Brave"), "Brave");
+    }
+
+    #[test]
+    fn process_cache_returns_stored_value_without_reentry() {
+        let service = "__atmos_test_keychain_cache__";
+        {
+            let mut guard = passphrase_cache().lock().expect("cache lock");
+            guard.insert(service.to_string(), "cached-pass".to_string());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let got = safe_storage_passphrase(service).expect("cached hit");
+            assert_eq!(got, "cached-pass");
+        }
+        if let Ok(mut guard) = passphrase_cache().lock() {
+            guard.remove(service);
+        }
+    }
 }

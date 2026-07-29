@@ -16,6 +16,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { mainLog } from "../main-log.js";
 import { REPO_ROOT } from "../runtime/ensure.js";
+import {
+  ensureMacDockVisible,
+  setOverlayVisibleOnAllWorkspaces,
+} from "../windows/mac-dock.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyBrowserWindow = any;
@@ -218,11 +222,8 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
 
     win.setIgnoreMouseEvents(true, { forward: true });
     win.setAlwaysOnTop(true, "screen-saver");
-    try {
-      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    } catch {
-      /* older Electron */
-    }
+    // Can dismiss Dock icon on macOS — helper restores immediately (electron#26350).
+    await setOverlayVisibleOnAllWorkspaces(win, true);
 
     win.on("closed", () => {
       if (sharedOverlay === win) {
@@ -241,6 +242,8 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
     }
 
     sharedOverlay = win;
+    // Boot warm-path can still race Dock visibility; pin it again after load.
+    await ensureMacDockVisible();
     return win;
   })().catch((error) => {
     sharedOverlayReady = null;
@@ -256,10 +259,12 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
  */
 export function warmCaptureAnimationOverlay(): void {
   if (process.platform !== "darwin") return;
-  void ensureSharedOverlay().catch((error) => {
-    const msg = error instanceof Error ? error.message : String(error);
-    mainLog(`[appshot-capture] overlay warm failed: ${msg}`, "error");
-  });
+  void ensureSharedOverlay()
+    .then(() => ensureMacDockVisible())
+    .catch((error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      mainLog(`[appshot-capture] overlay warm failed: ${msg}`, "error");
+    });
 }
 
 /**
@@ -310,9 +315,12 @@ export async function playCaptureAnimation(
 
     if (gen !== playGeneration || win.isDestroyed()) return;
     win.hide();
+    // Overlay show/hide can re-trigger Dock dismiss on some Electron/macOS builds.
+    await ensureMacDockVisible();
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     mainLog(`[appshot-capture] animation overlay failed: ${msg}`, "error");
     destroySharedOverlay();
+    await ensureMacDockVisible();
   }
 }

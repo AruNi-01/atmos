@@ -15,6 +15,7 @@ import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
 import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
+import { ensureMacDockVisible } from "./windows/mac-dock.js";
 import { PreviewSurfaceManager } from "./preview/surface-manager.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
@@ -155,6 +156,7 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on("second-instance", () => {
+    void ensureMacDockVisible();
     state.mainWindow?.show();
     state.mainWindow?.focus();
   });
@@ -172,6 +174,7 @@ if (!gotLock) {
 
   app.on("activate", () => {
     // Dock / taskbar click: restore existing window without reloading when possible.
+    void ensureMacDockVisible();
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
       if (state.mainWindow.isMinimized()) {
         state.mainWindow.restore();

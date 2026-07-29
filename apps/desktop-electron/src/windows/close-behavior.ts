@@ -7,6 +7,7 @@
  */
 
 import type { BrowserWindow } from "electron";
+import { ensureMacDockVisible } from "./mac-dock.js";
 
 /** Set true before intentional quit so close handlers allow destroy. */
 let allowCloseToDestroy = false;
@@ -28,6 +29,9 @@ function keepAppRunning(win: BrowserWindow): void {
   // Other platforms: minimize keeps a taskbar affordance (no tray yet).
   if (process.platform === "darwin") {
     win.hide();
+    // If AppShot overlay dismissed the Dock icon earlier, re-show so the
+    // user can restore from Dock after red-button hide.
+    void ensureMacDockVisible();
   } else {
     win.minimize();
   }
