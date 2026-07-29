@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { ITheme } from "@xterm/xterm";
 import { isFindShortcut } from "../lib/terminal-runtime-utils";
 
-type TerminalUiStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
+type TerminalUiStatus = "connecting" | "connected" | "reconnecting" | "disconnected" | "error";
 
 interface TerminalChromeProps {
   className?: string;
@@ -30,6 +30,8 @@ interface TerminalChromeProps {
   terminalScale?: number;
   uiStatus: TerminalUiStatus;
   workspaceId: string;
+  errorMessage?: string | null;
+  onRetry?: () => void;
 }
 
 export function TerminalChrome({
@@ -56,6 +58,8 @@ export function TerminalChrome({
   terminalScale = 1,
   uiStatus,
   workspaceId,
+  errorMessage,
+  onRetry,
 }: TerminalChromeProps) {
   const normalizedTerminalScale =
     Number.isFinite(terminalScale) && terminalScale > 0 ? terminalScale : 1;
@@ -142,6 +146,43 @@ export function TerminalChrome({
           color="#ef4444"
         />
       )}
+      {uiStatus === "error" && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 20,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "var(--background)",
+            gap: "12px",
+            padding: "16px",
+            textAlign: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "13px",
+              color: isDark ? "#fca5a5" : "#dc2626",
+              maxWidth: "360px",
+            }}
+          >
+            {errorMessage || "Failed to restore terminal session"}
+          </span>
+          {onRetry && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onRetry}
+            >
+              Retry
+            </Button>
+          )}
+        </div>
+      )}
       {isSearchVisible && (
         <TerminalSearchOverlay
           closeSearch={closeSearch}
@@ -164,7 +205,7 @@ export function TerminalChrome({
           height: "100%",
           // Only hide xterm during true first-connect. Soft reconnect (warm remount)
           // uses "reconnecting" badge and keeps buffer visible.
-          opacity: uiStatus === "connecting" ? 0 : 1,
+          opacity: uiStatus === "connecting" || uiStatus === "error" ? 0 : 1,
           backgroundColor: currentTheme.background,
         }}
         data-session-id={sessionId}

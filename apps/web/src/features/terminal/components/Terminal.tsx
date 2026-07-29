@@ -199,9 +199,10 @@ const Terminal = ({
   const lastSelectionAnchorRef = useRef<{ x: number; y: number } | null>(null);
   // Prefer "connected" when this session was already live (warm remount / tab re-show)
   // so the full-screen Connecting overlay does not flash.
-  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">(
+  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected" | "error">(
     () => (wasTerminalSessionLive(sessionId) ? "connected" : "connecting"),
   );
+  const [attachError, setAttachError] = useState<string | null>(null);
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
@@ -307,6 +308,7 @@ const Terminal = ({
 
   const handleConnected = useCallback(() => {
     markTerminalSessionLive(sessionId);
+    setAttachError(null);
     setStatus("connected");
     outputTextDecoderRef.current = new TextDecoder();
     resetInputReady();
@@ -337,14 +339,18 @@ const Terminal = ({
   const handleError = useCallback(
     (error: string) => {
       onSessionError?.(sessionId, error);
-      // Only show errors in terminal after initial connection (not during connecting phase)
-      // The loading overlay handles the connecting state
+      // Surface attach/create failures so the user can manually retry instead of
+      // being left on a blank "connecting" or silent disconnected state.
+      setAttachError(error);
+      setStatus("error");
+      resetInputReady();
     },
-    [sessionId, onSessionError]
+    [sessionId, onSessionError, resetInputReady]
   );
 
   const handleAttached = useCallback((snapshot?: TerminalSnapshot | null) => {
     markTerminalSessionLive(sessionId);
+    setAttachError(null);
     setStatus("connected");
     const term = terminalRef.current;
     if (!term || !snapshot) {
@@ -395,6 +401,14 @@ const Terminal = ({
       onAttached: handleAttached,
     });
 
+  const handleRetryAttach = useCallback(() => {
+    setAttachError(null);
+    setStatus("connecting");
+    disconnect();
+    // Fresh connect after a failed attach; backend already retried a few times.
+    connect();
+  }, [connect, disconnect]);
+
   // Keep refs in sync (breaks circular dependencies with handleConnected)
   useEffect(() => {
     sendResizeRef.current = sendResize;
@@ -403,13 +417,15 @@ const Terminal = ({
   // Prefer live WS / recent-live session marker over "connecting" so warm re-show
   // does not flash the full-screen Connecting overlay (use light reconnecting if mid-handshake).
   const uiStatus =
-    isReconnecting
-      ? "reconnecting"
-      : isConnected
-        ? "connected"
-        : status === "connecting" && wasTerminalSessionLive(sessionId)
-          ? "reconnecting"
-          : status;
+    status === "error"
+      ? "error"
+      : isReconnecting
+        ? "reconnecting"
+        : isConnected
+          ? "connected"
+          : status === "connecting" && wasTerminalSessionLive(sessionId)
+            ? "reconnecting"
+            : status;
 
   const setCurrentSelectionSnapshot = useCallback((snapshot: TerminalSelectionSnapshot | null) => {
     setSelectionSnapshot(snapshot);
@@ -487,13 +503,6 @@ const Terminal = ({
       y: rect.top + (cursorY + 0.5) * cellHeight,
     };
   }, []);
-
-  // Update terminal when reconnecting
-  useEffect(() => {
-    if (isReconnecting) {
-      terminalRef.current?.write("\r\n\x1b[33m[Reconnecting...]\x1b[0m\r\n");
-    }
-  }, [isReconnecting]);
 
   // Expose terminal methods via ref (React 19 style)
   useImperativeHandle(
@@ -1158,6 +1167,8 @@ const Terminal = ({
       terminalScale={normalizedTerminalScale}
       uiStatus={uiStatus}
       workspaceId={workspaceId}
+      errorMessage={attachError}
+      onRetry={status === "error" ? handleRetryAttach : undefined}
       selectionToolbar={
         onAddSelectionAsContext ? (
           <TerminalSelectionToolbar

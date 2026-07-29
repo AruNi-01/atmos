@@ -10,6 +10,7 @@
 
 use crate::error::{Result, ServiceError};
 use core_engine::{TmuxEngine, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
+use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -217,6 +218,74 @@ impl TerminalService {
         TmuxEngine::get_version().map_err(|e| ServiceError::Processing(e.to_string()))
     }
 
+    /// Resolve the stable master tmux session for a workspace.
+    ///
+    /// Prefer the canonical `{project.name}_{workspace.name}` form from the DB
+    /// so transient frontend display names (or missing query params during early
+    /// hydration) cannot create a second empty session and lose the live TUI
+    /// agent that is still running in the real session.
+    async fn resolve_tmux_session_name(
+        &self,
+        workspace_id: &str,
+        project_name: Option<&str>,
+        workspace_name: Option<&str>,
+    ) -> String {
+        let mut candidates = Vec::new();
+
+        if let Some(db) = self.db.as_ref() {
+            let workspace_repo = WorkspaceRepo::new(db);
+            if let Ok(Some(workspace)) = workspace_repo.find_by_guid(workspace_id).await {
+                let project_repo = ProjectRepo::new(db);
+                if let Ok(Some(project)) = project_repo.find_by_guid(&workspace.project_guid).await {
+                    candidates.push(
+                        self.tmux_engine
+                            .get_session_name_from_names(&project.name, &workspace.name),
+                    );
+                }
+            }
+        }
+
+        if let (Some(project), Some(workspace)) = (project_name, workspace_name) {
+            candidates.push(
+                self.tmux_engine
+                    .get_session_name_from_names(project, workspace),
+            );
+        }
+
+        candidates.push(self.tmux_engine.get_session_name(workspace_id));
+        // Preserve priority order: DB canonical name, then frontend names, then
+        // workspace-id fallback. Only drop exact duplicates.
+        let mut deduped = Vec::new();
+        for candidate in candidates {
+            if !deduped.iter().any(|existing| existing == &candidate) {
+                deduped.push(candidate);
+            }
+        }
+        let candidates = deduped;
+
+        if let Ok(sessions) = self.tmux_engine.list_sessions() {
+            for candidate in &candidates {
+                if sessions.iter().any(|session| session.name == *candidate) {
+                    if Some(candidate) != candidates.first() {
+                        info!(
+                            "Resolved workspace {} to existing tmux session {} (preferred candidate was {:?})",
+                            workspace_id,
+                            candidate,
+                            candidates.first()
+                        );
+                    }
+                    return candidate.clone();
+                }
+            }
+        }
+
+        candidates
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| self.tmux_engine.get_session_name(workspace_id))
+    }
+
+
     /// Detect the best available tmux installation plan for the current API host.
     pub fn get_tmux_install_plan(&self) -> core_engine::TmuxInstallPlan {
         TmuxEngine::detect_install_plan()
@@ -262,12 +331,13 @@ impl TerminalService {
         }
 
         // Compute tmux session name (without creating it yet) so we can acquire lock first
-        let tmux_session_name =
-            if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
-                self.tmux_engine.get_session_name_from_names(proj, ws)
-            } else {
-                self.tmux_engine.get_session_name(&workspace_id)
-            };
+        let tmux_session_name = self
+            .resolve_tmux_session_name(
+                &workspace_id,
+                project_name.as_deref(),
+                workspace_name.as_deref(),
+            )
+            .await;
 
         // Acquire per-workspace creation lock BEFORE creating session to prevent race conditions
         // This ensures only one session/window creation happens at a time per workspace
@@ -352,31 +422,19 @@ impl TerminalService {
             // Codex hooks cell is reserved/inert today; set for forward-compat.
             ("GROK_CODEX_HOOKS_ENABLED", "0"),
         ];
-        let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name)
-        {
-            self.tmux_engine
-                .create_session_with_names(
-                    proj,
-                    ws,
-                    cwd.as_deref(),
-                    shell_command.as_deref(),
-                    Some(&session_env_vars),
-                )
-                .map_err(|e| {
-                    ServiceError::Processing(format!("Failed to create tmux session: {}", e))
-                })?
-        } else {
-            self.tmux_engine
-                .create_session(
-                    &workspace_id,
-                    cwd.as_deref(),
-                    shell_command.as_deref(),
-                    Some(&session_env_vars),
-                )
-                .map_err(|e| {
-                    ServiceError::Processing(format!("Failed to create tmux session: {}", e))
-                })?
-        };
+        // Always open the already-resolved stable session name. Do not re-derive
+        // from potentially display-name based frontend params.
+        let tmux_session = self
+            .tmux_engine
+            .create_named_session(
+                &tmux_session_name,
+                cwd.as_deref(),
+                shell_command.as_deref(),
+                Some(&session_env_vars),
+            )
+            .map_err(|e| {
+                ServiceError::Processing(format!("Failed to create tmux session: {}", e))
+            })?;
 
         // Create a new tmux window for this terminal pane
         // If a window_name is provided and already exists in tmux, ATTACH to it instead of creating a new one
@@ -676,12 +734,13 @@ impl TerminalService {
             workspace_name,
         } = params;
         // Compute tmux session name so we can acquire lock
-        let tmux_session_name =
-            if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
-                self.tmux_engine.get_session_name_from_names(proj, ws)
-            } else {
-                self.tmux_engine.get_session_name(&workspace_id)
-            };
+        let tmux_session_name = self
+            .resolve_tmux_session_name(
+                &workspace_id,
+                project_name.as_deref(),
+                workspace_name.as_deref(),
+            )
+            .await;
 
         // Acquire workspace lock to prevent race conditions during attachment
         let creation_lock = self.get_creation_lock(&tmux_session_name).await;
@@ -722,13 +781,14 @@ impl TerminalService {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
-        // Use human-readable session name if provided, otherwise fall back to workspace_id
-        let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name)
-        {
-            self.tmux_engine.get_session_name_from_names(proj, ws)
-        } else {
-            self.tmux_engine.get_session_name(&workspace_id)
-        };
+        // Resolve the stable master session (DB canonical name first) before attaching.
+        let tmux_session = self
+            .resolve_tmux_session_name(
+                &workspace_id,
+                project_name.as_deref(),
+                workspace_name.as_deref(),
+            )
+            .await;
         self.tmux_engine.ensure_standard_config();
 
         // Save window name for metadata before it gets consumed
@@ -1078,5 +1138,29 @@ mod tests {
         let service = TerminalService::new();
         let available = service.is_tmux_available();
         println!("tmux available: {}", available);
+    }
+
+    #[tokio::test]
+    async fn resolve_tmux_session_name_prefers_existing_named_session() {
+        let service = TerminalService::new();
+        // Without DB/live sessions this falls back to the provided names.
+        let resolved = service
+            .resolve_tmux_session_name("ws-guid", Some("Atmos"), Some("Main"))
+            .await;
+        assert_eq!(resolved, service.tmux_engine.get_session_name_from_names("Atmos", "Main"));
+    }
+
+    #[tokio::test]
+    async fn resolve_tmux_session_name_falls_back_to_workspace_id() {
+        let service = TerminalService::new();
+        let resolved = service
+            .resolve_tmux_session_name("13c75c87-516a-40ab-b7b8-bda46c0e3e3e", None, None)
+            .await;
+        assert_eq!(
+            resolved,
+            service
+                .tmux_engine
+                .get_session_name("13c75c87-516a-40ab-b7b8-bda46c0e3e3e")
+        );
     }
 }
