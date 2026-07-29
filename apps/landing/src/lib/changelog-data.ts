@@ -40,8 +40,8 @@ export const changelogData: ChangelogItem[] = [
       en: "Production Desktop Moves to Electron, AppShot Dual-Shift & Binary-Safe Diffs",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.29 将 2026.7.27-beta.1 dogfood 线升级为正式版。本期最大架构变化是生产桌面从 Tauri 切换到 Electron 壳（产品名仍为 Atmos / `com.atmos.desktop`，Tauri 桌面路径退出产品发布）；同时带来内置 Server 运行时、原生 AppShot 双 Shift 截图、二进制安全的 Git Diff 与图片预览、安装包打磨，以及 Skills、终端与刷新链路的可靠性修复。",
-      en: "Atmos Desktop 2026.7.29 graduates the 2026.7.27-beta.1 dogfood line into a stable production release. The headline architecture change is the production desktop cutover from Tauri to the Electron shell (product identity remains Atmos / `com.atmos.desktop`; the Tauri desktop path is no longer the product ship path). It also ships bundled Server runtime, native AppShot dual-shift capture, binary-safe git diffs with image previews, packaging polish, and reliability fixes across skills, terminal, and refresh flows.",
+      zh: "Atmos Desktop 2026.7.29 将生产桌面切换到 Electron 壳（产品名仍为 Atmos / `com.atmos.desktop`），并带来内置 Server 运行时、原生 AppShot 双 Shift 截图、二进制安全的 Git Diff 与图片预览、安装包打磨，以及 Skills、终端与刷新链路的可靠性修复。",
+      en: "Atmos Desktop 2026.7.29 moves production Desktop to the Electron shell (product identity remains Atmos / `com.atmos.desktop`) and ships bundled Server runtime, native AppShot dual-shift capture, binary-safe git diffs with image previews, packaging polish, and reliability fixes across skills, terminal, and refresh flows.",
     },
     date: "2026-07-28",
     version: "2026.7.29",
@@ -68,7 +68,7 @@ export const changelogData: ChangelogItem[] = [
           "**手动 Refresh** — 用户点击 Refresh 时强制重新拉取 files / git / PRs，避免陈旧快照。",
           "**禁用 Skill 图标** — 禁用的 skill agent 图标正确置灰，不再看起来像可点状态。",
           "**Windows 技能打包** — 修复 skill 符号链接打包，并在 symlink-safe 复制后恢复二进制拷贝。",
-          "**macOS Gatekeeper dogfood** — 对封包资源做 ad-hoc codesign，缓解“已损坏”提示。",
+          "**macOS Gatekeeper 安装提示** — 对封包资源做 ad-hoc codesign，缓解“已损坏”提示。",
           "**二进制 Diff UI** — 左右 Previous/Current 面板、文件列表紧凑二进制图标，以及嵌入 Pierre CodeView 的预览。",
         ],
         improvements: [
@@ -96,7 +96,7 @@ export const changelogData: ChangelogItem[] = [
           "**Manual Refresh** — User Refresh re-fetches files, git status, and PRs instead of serving stale snapshots.",
           "**Disabled skill icons** — Disabled skill agent icons render grayed out instead of looking active.",
           "**Windows skills packaging** — Fixed skill symlink packaging and restored binary copy after symlink-safe skill packaging.",
-          "**macOS Gatekeeper dogfood** — Ad-hoc codesign of sealed resources to reduce “damaged” package prompts.",
+          "**macOS Gatekeeper install prompts** — Ad-hoc codesign of sealed resources to reduce “damaged” package prompts.",
           "**Binary diff UI** — Left/right Previous/Current panels, compact binary icons in file lists, and previews embedded inside Pierre CodeView items.",
         ],
         improvements: [
@@ -118,8 +118,8 @@ export const changelogData: ChangelogItem[] = [
       en: "Project Groups, Warm Workspace Cache, Disk Analyzer & Protocol Chips",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.27 将 2026.7.19 / 2026.7.26 beta 线打磨为稳定版，带来项目/工作区分组与多模式看板、热工作区表面缓存、磁盘分析器、浏览器 Cookie 同步、Dynamic Skills 关闭、新手引导向导，以及更强的 Canvas 与 Composer 上下文工作流（含 AI 协议芯片与浏览器元素选区）。",
-      en: "Atmos Desktop 2026.7.27 graduates the 2026.7.19 and 2026.7.26 beta lines. It ships Project/Workspace Groups with Kanban boards, warm workspace surface caching, Disk Analyzer, browser cookie sync, Dynamic Skills disable, a first-run onboarding wizard, and a stronger Canvas + composer context workflow — including protocol chips for AI context paste and browser element selections.",
+      zh: "Atmos Desktop 2026.7.27 带来项目/工作区分组与多模式看板、热工作区表面缓存、磁盘分析器、浏览器 Cookie 同步、Dynamic Skills 关闭、新手引导向导，以及更强的 Canvas 与 Composer 上下文工作流（含 AI 协议芯片与浏览器元素选区）。",
+      en: "Atmos Desktop 2026.7.27 ships Project/Workspace Groups with Kanban boards, warm workspace surface caching, Disk Analyzer, browser cookie sync, Dynamic Skills disable, a first-run onboarding wizard, and a stronger Canvas + composer context workflow — including protocol chips for AI context paste and browser element selections.",
     },
     date: "2026-07-27",
     version: "2026.7.27",
@@ -237,8 +237,8 @@ export const changelogData: ChangelogItem[] = [
       en: "Grok Build Terminal Agent, TanStack Query & GitHub Center Tabs",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.16 将 2026.7.15 beta 线打磨为稳定版，并新增一等公民的 Grok Build 终端支持；同时引入 TanStack Query 数据层、GitHub 中心标签页、工作区分组，以及 TypeScript 7 工具链与大量终端/编辑器可靠性修复。",
-      en: "Atmos Desktop 2026.7.16 graduates the 2026.7.15 beta line into a stable release and adds first-class Grok Build terminal support. It ships the TanStack Query data layer, GitHub center tabs, workspace grouping, TypeScript 7 tooling, and a wave of terminal and editor reliability fixes.",
+      zh: "Atmos Desktop 2026.7.16 新增一等公民的 Grok Build 终端支持，并引入 TanStack Query 数据层、GitHub 中心标签页、工作区分组，以及 TypeScript 7 工具链与大量终端/编辑器可靠性修复。",
+      en: "Atmos Desktop 2026.7.16 adds first-class Grok Build terminal support and ships the TanStack Query data layer, GitHub center tabs, workspace grouping, TypeScript 7 tooling, and a wave of terminal and editor reliability fixes.",
     },
     date: "2026-07-16",
     version: "2026.7.16",
@@ -326,8 +326,8 @@ export const changelogData: ChangelogItem[] = [
     },
 
     description: {
-      zh: "Atmos Desktop 2026.7.9 将 2026.7.6 阶段的终端体验与稳定性更新打磨为了稳定版，新增了强大的终端缓存策略、自定义终端标签名称、便捷的 AI 选区上下文交互，并全面提升了性能和应用内打磨。",
-      en: "Atmos Desktop 2026.7.9 graduates the 2026.7.6 terminal UX and stability updates into a stable release, bringing robust terminal caching strategies, custom terminal tab names, instant AI selection context, and broad performance polish.",
+      zh: "Atmos Desktop 2026.7.9 强化终端体验与稳定性：新增终端缓存策略、自定义终端标签名称、AI 选区上下文交互，并全面提升性能与应用内打磨。",
+      en: "Atmos Desktop 2026.7.9 strengthens terminal UX and stability with robust terminal caching strategies, custom terminal tab names, instant AI selection context, and broad performance polish.",
     },
     date: "2026-07-09",
     version: "2026.7.9",
@@ -401,8 +401,8 @@ export const changelogData: ChangelogItem[] = [
       en: "Terminal Side Chats, Appshots Workflow & Preview Inspection",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.3 将 beta 阶段的终端侧聊、更丰富的预览检查、更清晰的 Agent hook 上下文、Appshots 工作流打磨和桌面运行时可靠性更新整理为稳定版。",
-      en: "Atmos Desktop 2026.7.3 graduates the beta line with terminal side chats, richer preview inspection, cleaner agent hook context, Appshots workflow polish, and desktop runtime reliability updates.",
+      zh: "Atmos Desktop 2026.7.3 带来终端侧聊、更丰富的预览检查、更清晰的 Agent hook 上下文、Appshots 工作流打磨，以及桌面运行时可靠性更新。",
+      en: "Atmos Desktop 2026.7.3 adds terminal side chats, richer preview inspection, cleaner agent hook context, Appshots workflow polish, and desktop runtime reliability updates.",
     },
     date: "2026-07-03",
     version: "2026.7.3",
@@ -485,8 +485,8 @@ export const changelogData: ChangelogItem[] = [
       en: "Canvas Workspaces, Preview Windows & Agent Chat Stability",
     },
     description: {
-      zh: "Atmos Desktop 2026.7.2 汇总了上一条稳定版之后的桌面主线能力：Canvas 工作台、桌面预览与独立窗口、Agent Chat 历史、Git/GitHub 流程、本地运行时和发布基础设施都得到更新。",
-      en: "Atmos Desktop 2026.7.2 rolls up the desktop-facing work since the previous stable release: Canvas workspaces, desktop preview and standalone windows, Agent Chat history, Git/GitHub workflows, local runtime distribution, and release infrastructure.",
+      zh: "Atmos Desktop 2026.7.2 更新了 Canvas 工作台、桌面预览与独立窗口、Agent Chat 历史、Git/GitHub 流程，以及本地运行时与发布基础设施。",
+      en: "Atmos Desktop 2026.7.2 updates Canvas workspaces, desktop preview and standalone windows, Agent Chat history, Git/GitHub workflows, local runtime distribution, and release infrastructure.",
     },
     date: "2026-07-02",
     version: "2026.7.2",
@@ -575,8 +575,8 @@ export const changelogData: ChangelogItem[] = [
       en: "Kanban Workspaces, Code Review, Remote Access, Automations & Standalone CLI",
     },
     description: {
-      zh: "Atmos Desktop 2026.6.23 把 2026.4.6 之后的大版本能力集中成一个稳定版：项目管理升级为可拖拽 Kanban 和 GitHub Issue 导入，Code Review 支持内联评论与 revision 线程，Atmos Computer 与 Hosted Web 带来远程连接，本地模型运行时、Canvas/Appshots、自动化和移动端 MVP 进入主线，同时 CLI 与 Local Web Runtime 解耦为独立安装和更新路径。",
-      en: "Atmos Desktop 2026.6.23 stabilizes the major work since 2026.4.6: project management now includes drag-and-drop Kanban and GitHub Issue import, Code Review adds inline comments and revision threads, Atmos Computer and Hosted Web bring remote access, local model runtime, Canvas/Appshots, automations, and the mobile MVP move into the main product line, and the CLI plus Local Web Runtime are decoupled into standalone install and update paths.",
+      zh: "Atmos Desktop 2026.6.23 带来可拖拽 Kanban 与 GitHub Issue 导入、支持内联评论与 revision 线程的 Code Review、Atmos Computer / Hosted Web 远程连接，以及本地模型运行时、Canvas/Appshots、自动化和移动端 MVP；同时 CLI 与 Local Web Runtime 解耦为独立安装和更新路径。",
+      en: "Atmos Desktop 2026.6.23 ships drag-and-drop Kanban and GitHub Issue import, Code Review with inline comments and revision threads, Atmos Computer and Hosted Web remote access, plus local model runtime, Canvas/Appshots, automations, and the mobile MVP. CLI and Local Web Runtime are also decoupled into standalone install and update paths.",
     },
     date: "2026-06-23",
     version: "2026.6.23",
@@ -610,7 +610,7 @@ export const changelogData: ChangelogItem[] = [
           "**更新与本地服务探测** — CLI 更新改用 R2 manifest 并选择兼容平台资产；IPv6 本地服务探测 URL 正确加括号；Hosted/local 检测和 retry 布局也更可靠。",
         ],
         others: [
-          "本条目合并了前序 RC 与 beta 阶段的主要稳定化成果，预发布版本不单独展示。",
+          "本条目覆盖 2026.4.6 之后进入主线的主要桌面能力更新。",
           "[完整变更对比](https://github.com/AruNi-01/atmos/compare/desktop-v1.0.0...desktop-v2.0.0)",
         ],
       },
@@ -636,7 +636,7 @@ export const changelogData: ChangelogItem[] = [
           "**Updates and local service probing** — CLI updates now use the R2 manifest and choose compatible platform assets; IPv6 local-service probe URLs are bracketed correctly; hosted/local detection and retry layout are more reliable.",
         ],
         others: [
-          "This entry rolls up the major stabilization work from the preceding RC and beta phases; prereleases are intentionally not shown as separate landing changelog entries.",
+          "This entry covers the major desktop capabilities that landed after 2026.4.6.",
           "[Full changelog comparison](https://github.com/AruNi-01/atmos/compare/desktop-v1.0.0...desktop-v2.0.0)",
         ],
       },

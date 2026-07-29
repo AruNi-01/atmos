@@ -57,6 +57,41 @@ just release-desktop-dry-run <version>
 | Workflow | `.github/workflows/release-desktop-electron.yml` |
 | Notes | `releasenotes/Atmos Desktop <version>.md` (preferred) |
 
+## Release notes writing
+
+Generate `releasenotes/Atmos Desktop <version>.md` from the collected commit/PR context and the template in `references/release-notes-template.md`.
+
+### Product voice (stable and prerelease bodies)
+
+Release bodies are product-facing. Users care about capabilities, not version genealogy.
+
+Hard rules:
+
+- Lead the opening summary with what the release ships.
+- Do **not** open with, or otherwise emphasize, process language such as:
+  - “graduates the … beta / dogfood line”
+  - “promotes the … line to stable”
+  - “includes / carries / rolls up beta X and RC Y”
+  - “将 … beta / dogfood 线升级为正式版”
+  - “包含 … beta / RC 版本”
+- When a stable follows one or more pre-releases, still carry forward the pre-release feature narrative (see continuity below), but present it as the product content of this release. Do not narrate the staging history in the summary.
+- Pre-release files may use a short beta/RC callout for testers. Stable files must not keep that framing.
+- Prefer concrete user outcomes over release-channel labels.
+
+### Same-base-version continuity
+
+When the current release shares its base version (`YYYY.M.D`) with earlier pre-releases:
+
+1. Read the latest sibling pre-release notes under `releasenotes/`.
+2. Carry the product narrative forward (features / fixes / improvements).
+3. Use the commit range only for the delta since that previous tag.
+4. For a later pre-release, prepend a short `Changes Since` block and keep the inherited body.
+5. For the final stable, strip pre-release framing, merge late fixes into the normal sections, and rewrite the opening summary as pure product copy.
+
+Details and templates live in `references/release-notes-template.md`.
+
+After generating notes, keep them under `releasenotes/` so the publish workflow can use the file as the GitHub Release body.
+
 ## Never
 
 - never cut a new **Tauri** desktop release for production ship  

@@ -1,4 +1,4 @@
-Atmos Desktop 2026.7.27 is the stable release that graduates the 2026.7.19 and 2026.7.26 beta lines. It ships Project/Workspace Groups with Kanban boards, warm workspace surface caching, Disk Analyzer, browser cookie sync, Dynamic Skills disable, a first-run onboarding wizard, and a stronger Canvas + composer context workflow — including protocol chips for AI context paste and browser element selections.
+Atmos Desktop 2026.7.27 ships Project/Workspace Groups with Kanban boards, warm workspace surface caching, Disk Analyzer, browser cookie sync, Dynamic Skills disable, a first-run onboarding wizard, and a stronger Canvas + composer context workflow — including protocol chips for AI context paste and browser element selections.
 
 ## New Features
 

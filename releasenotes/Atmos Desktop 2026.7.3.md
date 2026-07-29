@@ -1,4 +1,4 @@
-Atmos Desktop 2026.7.3 graduates the beta line with terminal side chats, richer preview inspection, cleaner agent hook context, Appshots workflow polish, and desktop runtime reliability updates.
+Atmos Desktop 2026.7.3 adds terminal side chats, richer preview inspection, cleaner agent hook context, Appshots workflow polish, and desktop runtime reliability updates.
 
 ## New Features
 

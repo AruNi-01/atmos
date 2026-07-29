@@ -1,4 +1,4 @@
-Atmos Desktop 2026.7.16 is the stable release that graduates the 2026.7.15 beta line and adds first-class Grok Build terminal support. It ships the TanStack Query data layer, GitHub center tabs, workspace grouping, TypeScript 7 tooling, and a wave of terminal and editor reliability fixes.
+Atmos Desktop 2026.7.16 adds first-class Grok Build terminal support. It ships the TanStack Query data layer, GitHub center tabs, workspace grouping, TypeScript 7 tooling, and a wave of terminal and editor reliability fixes.
 
 ## New Features
 

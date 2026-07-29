@@ -1,4 +1,4 @@
-Atmos Desktop 2.0.0 promotes the latest desktop line to a stable release with cleaner CLI distribution, more reliable local runtime startup, and stronger connection handling across Desktop, hosted web, and local API modes.
+Atmos Desktop 2.0.0 ships cleaner CLI distribution, more reliable local runtime startup, and stronger connection handling across Desktop, hosted web, and local API modes.
 
 ## New Features
 

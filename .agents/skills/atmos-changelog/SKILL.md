@@ -94,6 +94,28 @@ Apply the filter as follows:
 - Put compare links, migration notes, CI notes, and release-process notes into `others`.
 - Omit empty groups.
 
+## Product Voice (C-end)
+
+Landing changelog copy is for end users, not release operators. Write what the release does, not how it was staged.
+
+Hard rules for all displayed fields (`title`, `description`, section bullets, tags):
+
+- Lead with user-visible capabilities, fixes, and outcomes.
+- Do **not** mention beta / RC / dogfood / preview lines, version-line graduation, or “includes earlier pre-release X”.
+- Do **not** write process framing such as:
+  - “graduates the … beta line”
+  - “promotes … to stable”
+  - “将 … beta / dogfood 线升级为正式版”
+  - “将 … 打磨为稳定版”
+  - “包含 … beta / RC 版本”
+  - “本条目合并了前序 RC 与 beta …”
+- When a stable release rolls up prior pre-release work, fold that work into the feature/fix/improvement bullets only. The user-facing text should read as one product release, not a version genealogy.
+- Prefer “This release adds …” / “本期带来 …” over “This stable release graduates …”.
+- Keep technical identifiers that users actually see (product names, commands, paths, UI labels). Drop internal release-channel jargon (`dogfood`, `desktop-electron-*` packaging talk) unless the user must take an install action.
+- Compare links and tag names may remain under `others` as optional deep links, but never as the lead story, and never with “includes beta …” framing.
+
+Internal agent notes about rolling pre-releases into a stable entry stay in this skill; they must not leak into the landing data file as user-visible prose.
+
 ## Language Rules
 
 - Keep `en` faithful to the release note wording.

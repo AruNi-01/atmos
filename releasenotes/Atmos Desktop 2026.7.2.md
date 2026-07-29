@@ -1,4 +1,4 @@
-Atmos Desktop 2026.7.2 is the first calendar-versioned desktop release. It rolls up the full desktop-facing work since `desktop-v2.0.0`: richer canvas workspaces, stronger preview and standalone-window flows, more reliable Agent Chat history, tighter Git/GitHub workflows, local runtime and CLI distribution hardening, and a broad set of CI, release, and landing-site follow-through.
+Atmos Desktop 2026.7.2 is the first calendar-versioned desktop release. It brings richer canvas workspaces, stronger preview and standalone-window flows, more reliable Agent Chat history, tighter Git/GitHub workflows, local runtime and CLI distribution hardening, and a broad set of CI, release, and landing-site follow-through.
 
 ## New Features
 

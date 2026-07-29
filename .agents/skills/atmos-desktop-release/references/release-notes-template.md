@@ -40,6 +40,18 @@ Additional inputs in that case:
   - `debug`
   - purely internal refactors with no user impact
 - Keep the tone factual and product-facing.
+- For stable releases especially, write for C-end users:
+  - summarize capabilities, fixes, and outcomes
+  - do **not** say the release “graduates”, “promotes”, or “includes” a beta/RC/dogfood line
+  - do **not** open with version genealogy (“this stable follows 2026.7.x-beta.N”)
+  - if continuity work required reading prior beta/RC notes, fold that content into normal sections without naming the staging history in the summary
+- Bad stable openers:
+  - `Atmos Desktop 2026.7.29 graduates the 2026.7.27-beta.1 dogfood line...`
+  - `This release includes 2026.7.19 and 2026.7.26 beta content...`
+  - `...将 2026.7.27-beta.1 dogfood 线升级为正式版...`
+- Good stable openers:
+  - `Atmos Desktop 2026.7.29 moves production Desktop to the Electron shell and ships native AppShot dual-shift capture, binary-safe git diffs, and packaging polish.`
+  - `Atmos Desktop 2026.7.27 adds Project/Workspace Groups, warm workspace caching, Disk Analyzer, and richer Canvas + composer context workflows.`
 - Mention PRs or issues inline only when they add useful traceability.
 - If a section has nothing meaningful, omit the section instead of writing filler.
 
@@ -85,22 +97,23 @@ Inherit the prior RC body verbatim and prepend a short `Changes Since` block. On
 
 ### Stable following one or more pre-releases (e.g. `2026.7.2` after `2026.7.2-rc.1` and `2026.7.2-rc.2`)
 
-Start from the latest RC file, strip RC framing, merge in any `rc.N..YYYY.M.D` delta, and polish into stable prose.
+Start from the latest RC/beta file, strip pre-release framing, merge in any late delta, and polish into stable product prose.
 
-- Remove the `Release candidate` callout.
-- Remove `Changes Since RC*` preambles.
+- Remove the `Release candidate` / `Beta release` callout.
+- Remove `Changes Since RC*` / `Changes Since Beta*` preambles.
 - Remove language that implies the release is still in progress.
-- Keep the full feature / fix / improvement content from the RC line.
+- Remove genealogy phrasing such as “graduates the beta line”, “promotes … to stable”, or “includes RC/beta X”.
+- Keep the full feature / fix / improvement content from the pre-release line.
 - Merge late fixes from the final `rc.N..YYYY.M.D` commit range into the appropriate sections.
 
 ```md
-Short one-paragraph stable-release summary of the release.
+Short one-paragraph product summary of what this release ships for users. No beta/RC genealogy.
 
 ## New Features
-- ...inherited from the RC line, polished...
+- ...inherited from the pre-release line, polished...
 
 ## Bug Fixes
-- ...inherited from the RC line + any late fixes merged in...
+- ...inherited from the pre-release line + any late fixes merged in...
 
 ## Improvements
 - ...

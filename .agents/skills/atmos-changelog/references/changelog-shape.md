@@ -29,6 +29,15 @@ The page currently renders:
 
 - Only stable releases belong in this file. Skip any tag whose version contains a SemVer pre-release suffix (`-rc.N`, `-beta.N`, `-alpha.N`, etc.). See the `Prerelease Filter` section in `SKILL.md` for the full rule.
 - Keep entries sorted newest first.
+- Write C-end product language only. Descriptions and bullets should explain features, fixes, and outcomes.
+- Never surface release-process genealogy in user-visible fields:
+  - no “graduates the beta line”
+  - no “promotes to stable”
+  - no “将 beta / dogfood 线升级为正式版”
+  - no “包含 xxx beta / RC”
+  - no “合并了前序 RC 与 beta 阶段”
+- If source release notes open with process framing, rewrite the landing `description` into a capability summary and keep the process framing out of the data file.
+- Prefer short capability-led overviews: what users can do now, what got better, what was fixed.
 - Keep `id` stable and tag-like when possible, for example `desktop-2026.7.2`.
 - Keep `version` short and user-facing, for example `2026.7.2`.
 - If multiple releases share the same date-based version, append a sequential suffix: `2026.3.18-1` (oldest), `2026.3.18-2` (newest), etc. Higher suffix = newer release. This prevents duplicate React keys.
