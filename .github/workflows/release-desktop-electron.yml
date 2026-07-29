@@ -375,11 +375,49 @@ jobs:
             *) ARCH_LABEL="$(echo '${{ matrix.target }}' | cut -d- -f1)" ;;
           esac
 
-          find "$RELEASE_DIR" -type f \
-            \( -name 'Atmos*' -o -name 'Atmos-Electron_*' -o -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
-            ! -name 'builder-*.yml' \
-            -print0 | while IFS= read -r -d '' f; do
+          # Only publish top-level electron-builder installers/updaters.
+          # Do NOT recurse into mac-*/Atmos.app, win-unpacked/, linux-unpacked/,
+          # or other intermediate trees (those contain Atmos.Server, elevate.exe,
+          # helper binaries, unpacked Atmos.exe, etc.).
+          shopt -s nullglob
+          candidates=()
+          for f in \
+            "$RELEASE_DIR"/Atmos.dmg \
+            "$RELEASE_DIR"/Atmos.dmg.blockmap \
+            "$RELEASE_DIR"/Atmos.zip \
+            "$RELEASE_DIR"/Atmos.zip.blockmap \
+            "$RELEASE_DIR"/Atmos-setup.exe \
+            "$RELEASE_DIR"/Atmos-setup.exe.blockmap \
+            "$RELEASE_DIR"/Atmos.exe \
+            "$RELEASE_DIR"/Atmos.exe.blockmap \
+            "$RELEASE_DIR"/Atmos.AppImage \
+            "$RELEASE_DIR"/Atmos.AppImage.blockmap \
+            "$RELEASE_DIR"/Atmos-Electron_* \
+            "$RELEASE_DIR"/latest*.yml \
+            "$RELEASE_DIR"/*.blockmap
+          do
+            [ -f "$f" ] || continue
             base="$(basename "$f")"
+            case "$base" in
+              builder-*.yml|builder-*.yaml) continue ;;
+            esac
+            # Ignore already-versioned leftovers from prior local builds.
+            if [[ "$base" == Atmos_* || "$base" == Atmos-Electron_* ]]; then
+              # Keep only same-version leftovers if present; still top-level only.
+              if [[ "$base" != *"${VERSION}"* ]]; then
+                continue
+              fi
+            fi
+            candidates+=("$f")
+          done
+
+          # De-dupe while preserving order
+          declare -A seen=()
+          for f in "${candidates[@]}"; do
+            base="$(basename "$f")"
+            [ -n "${seen[$base]:-}" ] && continue
+            seen[$base]=1
+
             # Atmos.dmg → Atmos_<version>_<arch>.dmg
             # Atmos-setup.exe → Atmos_<version>_<arch>-setup.exe
             # Atmos.AppImage → Atmos_<version>_<arch>.AppImage
@@ -397,6 +435,12 @@ jobs:
               else
                 renamed="Atmos_${VERSION}_${ARCH_LABEL}.${ext}"
               fi
+            fi
+            # Skip bare unpacked executables that are not installers
+            # (top-level Atmos.exe can appear with some targets; prefer setup).
+            if [[ "$renamed" == "Atmos_${VERSION}_${ARCH_LABEL}.exe" && -f "$RELEASE_DIR/Atmos-setup.exe" ]]; then
+              echo "  skip unpacked $base (setup installer present)"
+              continue
             fi
             cp "$f" "$OUT_DIR/$renamed"
             echo "  $base → $renamed"
