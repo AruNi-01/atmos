@@ -19,18 +19,17 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ColorPicker,
+  isColorEyedropperActive,
   cn,
 } from "@workspace/ui";
 import { Tags, Pencil, UserPen, CircleDot, GitPullRequest, Folders, Plus } from "lucide-react";
-import { useTheme } from "next-themes";
-import { SketchPicker } from "react-color";
 import type {
   Group,
   WorkspaceLabel,
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
-import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import {
   getWorkspaceWorkflowStatusMeta,
@@ -62,12 +61,15 @@ export const WORKSPACE_PRIORITY_SORT_WEIGHT: Record<WorkspacePriority, number> =
   urgent: 4,
 };
 
-const LABEL_COLOR_PRESETS = [
-  ...PROJECT_COLOR_PRESETS.map((preset) => ({
-    ...preset,
-    labelKey: `labelEditor.colorPreset.${preset.name.toLowerCase().replace(/\s+/g, "")}`,
-  })),
-  { name: "Cyan", color: "#06b6d4", labelKey: "labelEditor.colorPreset.cyan" },
+/** One row of common presets (fits the 280px color panel without wrapping). */
+const LABEL_COLOR_SWATCHES = [
+  "#6b7280", // Gray
+  "#ef4444", // Red
+  "#f97316", // Orange
+  "#eab308", // Yellow
+  "#22c55e", // Green
+  "#3b82f6", // Blue
+  "#a855f7", // Purple
 ];
 
 function PriorityNoneIcon({ className }: { className?: string }) {
@@ -121,29 +123,6 @@ function PriorityBarsLowIcon({ className }: { className?: string }) {
 
 export function getWorkspacePriorityMeta(priority: WorkspacePriority) {
   return WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === priority) ?? WORKSPACE_PRIORITY_OPTIONS[0];
-}
-
-function parseHexColor(color: string) {
-  const hex = color.replace("#", "");
-  return {
-    r: parseInt(hex.slice(0, 2), 16),
-    g: parseInt(hex.slice(2, 4), 16),
-    b: parseInt(hex.slice(4, 6), 16),
-  };
-}
-
-function parseColorToRgb(color: string): { r: number; g: number; b: number; a: number } {
-  const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-  if (rgbaMatch) {
-    return {
-      r: parseInt(rgbaMatch[1], 10),
-      g: parseInt(rgbaMatch[2], 10),
-      b: parseInt(rgbaMatch[3], 10),
-      a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
-    };
-  }
-
-  return { ...parseHexColor(color), a: 1 };
 }
 
 type MetadataSelectTriggerVariant = "chip" | "icon";
@@ -510,14 +489,12 @@ export function WorkspaceLabelPicker({
   onOpenChange,
 }: WorkspaceLabelPickerProps) {
   const t = useTranslations("appShell.kanban");
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   const [isOpen, setIsOpen] = React.useState(false);
   const [labelEditorKey, setLabelEditorKey] = React.useState<string | null>(null);
   const [editingLabel, setEditingLabel] = React.useState<WorkspaceLabel | null>(null);
   const [labelSearchQuery, setLabelSearchQuery] = React.useState("");
   const [newLabelName, setNewLabelName] = React.useState("");
-  const [newLabelColor, setNewLabelColor] = React.useState({ r: 59, g: 130, b: 246, a: 1 });
+  const [newLabelColor, setNewLabelColor] = React.useState("#3b82f6");
 
   const selectedLabelIds = React.useMemo(() => new Set(labels.map((label) => label.id)), [labels]);
   const filteredAvailableLabels = React.useMemo(() => {
@@ -534,6 +511,8 @@ export function WorkspaceLabelPicker({
   }, []);
 
   const setOpen = React.useCallback((open: boolean) => {
+    // Stay open while EyeDropper is sampling colors outside the popover.
+    if (!open && isColorEyedropperActive()) return;
     setIsOpen(open);
     onOpenChange?.(open);
     if (!open) resetEditor();
@@ -542,7 +521,7 @@ export function WorkspaceLabelPicker({
   const openLabelEditor = React.useCallback((label: WorkspaceLabel | null) => {
     setEditingLabel(label);
     setNewLabelName(label?.name ?? "");
-    setNewLabelColor(label?.color ? parseColorToRgb(label.color) : { r: 59, g: 130, b: 246, a: 1 });
+    setNewLabelColor(label?.color ?? "#3b82f6");
     setLabelEditorKey(label?.id ?? "new");
   }, []);
 
@@ -557,7 +536,7 @@ export function WorkspaceLabelPicker({
   const handleCreateLabel = React.useCallback(async () => {
     const name = newLabelName.trim();
     if (!name || !onCreateLabel || !onChange) return;
-    const color = `rgba(${newLabelColor.r}, ${newLabelColor.g}, ${newLabelColor.b}, ${newLabelColor.a})`;
+    const color = newLabelColor;
     if (editingLabel && onUpdateLabel) {
       const label = await onUpdateLabel(editingLabel.id, { name, color });
       if (selectedLabelIds.has(label.id)) {
@@ -622,6 +601,7 @@ export function WorkspaceLabelPicker({
           <Popover
             open={labelEditorKey === "new"}
             onOpenChange={(open) => {
+              if (!open && isColorEyedropperActive()) return;
               if (open) {
                 openLabelEditor(null);
               } else if (labelEditorKey === "new") {
@@ -640,7 +620,6 @@ export function WorkspaceLabelPicker({
               </button>
             </PopoverTrigger>
             <LabelEditorContent
-              isDark={isDark}
               side={editorSide}
               surface={surface}
               newLabelName={newLabelName}
@@ -693,6 +672,7 @@ export function WorkspaceLabelPicker({
                     <Popover
                       open={labelEditorKey === label.id}
                       onOpenChange={(open) => {
+                        if (!open && isColorEyedropperActive()) return;
                         if (open) {
                           openLabelEditor(label);
                         } else if (labelEditorKey === label.id) {
@@ -715,7 +695,6 @@ export function WorkspaceLabelPicker({
                         </button>
                       </PopoverTrigger>
                       <LabelEditorContent
-                        isDark={isDark}
                         side={editorSide}
                         surface={surface}
                         newLabelName={newLabelName}
@@ -740,7 +719,6 @@ export function WorkspaceLabelPicker({
 }
 
 export function LabelEditorContent({
-  isDark,
   side,
   surface,
   newLabelName,
@@ -751,18 +729,40 @@ export function LabelEditorContent({
   onSubmit,
   popoverContentProps,
 }: {
-  isDark: boolean;
   side: PopoverSide;
   surface?: boolean;
   newLabelName: string;
-  newLabelColor: { r: number; g: number; b: number; a: number };
+  newLabelColor: string;
   editingLabel: WorkspaceLabel | null;
   setNewLabelName: (value: string) => void;
-  setNewLabelColor: (value: { r: number; g: number; b: number; a: number }) => void;
+  setNewLabelColor: (value: string) => void;
   onSubmit: () => void;
   popoverContentProps?: React.ComponentPropsWithoutRef<typeof PopoverContent>;
 }) {
   const t = useTranslations("appShell.kanban");
+  // Keep the editor popover open while the native EyeDropper is sampling.
+  const isColorEyedroppingRef = React.useRef(false);
+  const {
+    onInteractOutside: consumerInteractOutside,
+    onPointerDownOutside: consumerPointerDownOutside,
+    onFocusOutside: consumerFocusOutside,
+    ...restPopoverContentProps
+  } = popoverContentProps ?? {};
+
+  const guardDismiss = React.useCallback(
+    (
+      event: Event,
+      consumer?: (event: Event) => void,
+    ) => {
+      if (isColorEyedroppingRef.current || isColorEyedropperActive()) {
+        event.preventDefault();
+        return;
+      }
+      consumer?.(event);
+    },
+    [],
+  );
+
   return (
     <PopoverContent
       data-workspace-popover-surface={surface ? "true" : undefined}
@@ -771,66 +771,41 @@ export function LabelEditorContent({
       sideOffset={8}
       alignOffset={28}
       avoidCollisions
-      className="w-72 space-y-2 p-3"
-      {...popoverContentProps}
+      className="w-auto space-y-2 border-0 bg-transparent p-0 shadow-none"
+      onInteractOutside={(event) => guardDismiss(event, consumerInteractOutside as ((e: Event) => void) | undefined)}
+      onPointerDownOutside={(event) => guardDismiss(event, consumerPointerDownOutside as ((e: Event) => void) | undefined)}
+      onFocusOutside={(event) => guardDismiss(event, consumerFocusOutside as ((e: Event) => void) | undefined)}
+      {...restPopoverContentProps}
     >
-      <div className="flex items-center gap-2">
-        <Input
-          value={newLabelName}
-          onChange={(event) => setNewLabelName(event.target.value)}
-          placeholder={editingLabel ? t("labelEditor.editPlaceholder") : t("labelEditor.createPlaceholder")}
-          className="h-7 flex-1 text-xs"
-          autoFocus
-        />
-        <Button
-          size="sm"
-          className="h-7 px-2 text-xs"
-          disabled={!newLabelName.trim()}
-          onClick={() => onSubmit()}
-        >
-          {editingLabel ? t("labelEditor.save") : t("labelEditor.add")}
-        </Button>
-      </div>
-      <div className="grid grid-cols-6 gap-1">
-        {LABEL_COLOR_PRESETS.map((preset) => (
-          <button
-            key={preset.name}
-            type="button"
-            onClick={() => setNewLabelColor({ ...parseHexColor(preset.color), a: 1 })}
-            className="h-6 w-full rounded border border-border/50 transition-transform hover:scale-105"
-            style={{ backgroundColor: preset.color }}
-            title={t(preset.labelKey)}
+      <div className="space-y-2 rounded-xl border border-border/60 bg-popover p-3 shadow-md">
+        <div className="flex items-center gap-2">
+          <Input
+            value={newLabelName}
+            onChange={(event) => setNewLabelName(event.target.value)}
+            placeholder={editingLabel ? t("labelEditor.editPlaceholder") : t("labelEditor.createPlaceholder")}
+            className="h-7 flex-1 text-xs"
+            autoFocus
           />
-        ))}
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={!newLabelName.trim()}
+            onClick={() => onSubmit()}
+          >
+            {editingLabel ? t("labelEditor.save") : t("labelEditor.add")}
+          </Button>
+        </div>
+        <ColorPicker
+          value={newLabelColor}
+          onValueChange={(value) => {
+            setNewLabelColor(value);
+          }}
+          onEyedropperOpenChange={(active) => {
+            isColorEyedroppingRef.current = active;
+          }}
+          swatches={LABEL_COLOR_SWATCHES}
+        />
       </div>
-      <SketchPicker
-        color={newLabelColor}
-        onChange={(color) => {
-          setNewLabelColor({
-            r: color.rgb.r,
-            g: color.rgb.g,
-            b: color.rgb.b,
-            a: color.rgb.a ?? 1,
-          });
-        }}
-        styles={{
-          default: {
-            picker: {
-              background: isDark ? "#1c1c1f" : "#fff",
-              boxSizing: "border-box",
-              borderRadius: "8px",
-              boxShadow: "none",
-              border: isDark ? "1px solid #27272a" : "1px solid #e4e4e7",
-              padding: "10px",
-              width: "100%",
-            },
-            saturation: { borderRadius: "8px" },
-            activeColor: { borderRadius: "4px" },
-            hue: { height: "10px", borderRadius: "4px" },
-            alpha: { height: "10px", borderRadius: "4px" },
-          },
-        }}
-      />
     </PopoverContent>
   );
 }

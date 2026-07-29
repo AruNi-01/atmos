@@ -10,9 +10,6 @@ import {
   Trash2,
   Palette,
   Zap,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -21,6 +18,8 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  ColorPicker,
+  isColorEyedropperActive,
   cn,
   MapPinned,
   FileCode,
@@ -42,10 +41,7 @@ import {
   Label,
 } from "@workspace/ui";
 import type { Group, Project, WorkspaceLabel, WorkspacePriority } from "@/shared/types/domain";
-import { PROJECT_COLOR_PRESETS } from "@/shared/types/domain";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
-import { useTheme } from "next-themes";
-import { SketchPicker } from "react-color";
 import { FolderMinus, FolderPlus, ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
@@ -152,6 +148,17 @@ const getVerticalLineStyle = (colorStr: string): React.CSSProperties => {
   };
 };
 
+/** One row of common presets (fits the 280px color panel without wrapping). */
+const PROJECT_COLOR_SWATCHES: string[] = [
+  "#6b7280", // Gray
+  "#ef4444", // Red
+  "#f97316", // Orange
+  "#eab308", // Yellow
+  "#22c55e", // Green
+  "#3b82f6", // Blue
+  "#a855f7", // Purple
+];
+
 const PROJECT_MENU_CLOSE_DELAY_MS = 120;
 const PROJECT_LOGO_EXTENSIONS = new Set([
   "png",
@@ -220,15 +227,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
 }) {
   const t = useTranslations("AppShell.chrome");
   const groupsT = useTranslations("appShell.groups");
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const projectGroupId = findGroupIdForMember(groups, "project", project.id);
   const initialLetter = project.name.charAt(0).toUpperCase();
 
   const projectAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(project.id)
   );
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const [showLogoDialog, setShowLogoDialog] = useState(false);
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
   const [logoInput, setLogoInput] = useState("");
@@ -246,11 +250,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  /** True while the native EyeDropper is open — keep the project menu mounted. */
+  const isColorEyedroppingRef = useRef(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hasLogoLoadError, setHasLogoLoadError] = useState(false);
-  const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
-    r: 239, g: 68, b: 68, a: 1,
-  });
+  const [customColor, setCustomColor] = useState(
+    () => project.borderColor ?? PROJECT_COLOR_SWATCHES[1] ?? "#ef4444",
+  );
 
   const cancelProjectMenuClose = useCallback(() => {
     if (projectMenuTimerRef.current) {
@@ -265,8 +271,14 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   }, [cancelProjectMenuClose]);
 
   const scheduleProjectMenuClose = useCallback(() => {
+    // Don't dismiss while the user is sampling colors outside the menu.
+    if (isColorEyedroppingRef.current || isColorEyedropperActive()) return;
     cancelProjectMenuClose();
     projectMenuTimerRef.current = setTimeout(() => {
+      if (isColorEyedroppingRef.current || isColorEyedropperActive()) {
+        projectMenuTimerRef.current = null;
+        return;
+      }
       const hoveringTrigger = !!triggerRef.current?.matches(":hover");
       const hoveringMenu = !!menuRef.current?.matches(":hover");
       if (!hoveringTrigger && !hoveringMenu) {
@@ -279,7 +291,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   useEffect(() => {
     if (project.borderColor) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCustomColor(parseColorToRgb(project.borderColor));
+      setCustomColor(project.borderColor);
     }
   }, [project.borderColor]);
 
@@ -490,6 +502,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   if (open) {
                     cancelProjectMenuClose();
                   }
+                  // Keep the menu open while EyeDropper is active so the
+                  // color panel is still there after sampling.
+                  if (!open && (isColorEyedroppingRef.current || isColorEyedropperActive())) {
+                    return;
+                  }
                   setIsProjectMenuOpen(open);
                 }}
               >
@@ -514,6 +531,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   onMouseEnter={cancelProjectMenuClose}
                   onMouseLeave={scheduleProjectMenuClose}
                   onCloseAutoFocus={(e) => e.preventDefault()}
+                  onPointerDownOutside={(e) => {
+                    if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                  }}
+                  onFocusOutside={(e) => {
+                    if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                  }}
+                  onInteractOutside={(e) => {
+                    if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                  }}
                 >
                   <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
                     <Plus className="size-4" />
@@ -525,84 +551,43 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                       <Palette className="size-4" />
                       <span>{t("projectItem.setColor")}</span>
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-[195px] p-3">
-                      <div className="grid grid-cols-6 gap-1 mb-1">
-                        {PROJECT_COLOR_PRESETS.filter(p => p.color).map((preset) => (
-                          <button
-                            key={preset.name}
-                            onClick={() => onSetColor(project.id, preset.color)}
-                            className="size-6 rounded hover:scale-110 transition-transform border border-sidebar-border/50 cursor-pointer"
-                            style={{ backgroundColor: preset.color }}
-                            title={preset.name}
-                          />
-                        ))}
+                    <DropdownMenuSubContent
+                      className="w-auto overflow-visible border-0 bg-transparent p-0 shadow-none"
+                      onPointerDownOutside={(e) => {
+                        if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                      }}
+                      onFocusOutside={(e) => {
+                        if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                      }}
+                      onInteractOutside={(e) => {
+                        if (isColorEyedroppingRef.current || isColorEyedropperActive()) e.preventDefault();
+                      }}
+                    >
+                      <div className="space-y-2">
+                        <ColorPicker
+                          value={customColor}
+                          onValueChange={(value) => {
+                            // Commit only — ColorPicker already defers parent
+                            // updates until drag ends; store the picker string
+                            // as-is to avoid hex↔rgba thrash.
+                            setCustomColor(value);
+                            onSetColor(project.id, value);
+                          }}
+                          onEyedropperOpenChange={(active) => {
+                            isColorEyedroppingRef.current = active;
+                            if (active) cancelProjectMenuClose();
+                          }}
+                          swatches={PROJECT_COLOR_SWATCHES}
+                        />
                         <button
+                          type="button"
                           onClick={() => onSetColor(project.id, undefined)}
-                          className="size-6 rounded hover:cursor-pointer hover:bg-sidebar-accent transition-colors border border-sidebar-border/50 flex items-center justify-center"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                           title={t("projectItem.none")}
                         >
-                          <X className="size-4 text-muted-foreground" />
+                          <X className="size-3.5" />
+                          <span>{t("projectItem.none")}</span>
                         </button>
-                      </div>
-
-                      <div className="flex items-center gap-1 pt-2">
-                        <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
-                          <PopoverTrigger asChild>
-                            <button
-                              className="flex items-center gap-2 px-1 text-xs hover:bg-sidebar-accent rounded transition-colors border border-sidebar-border hover:cursor-pointer w-full"
-                              title={t("projectItem.customColor")}
-                            >
-                              <Palette className="size-4 shrink-0" />
-                              <span className="font-medium whitespace-nowrap">{t("projectItem.customColor")}</span>
-                              <div
-                                className="size-6 m-[2px] rounded-sm shrink-0 ml-auto"
-                                style={{
-                                  backgroundColor: `rgba(${customColor.r}, ${customColor.g}, ${customColor.b}, ${customColor.a})`,
-                                  boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
-                                }}
-                              />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            side="right"
-                            align="start"
-                            sideOffset={8}
-                            className="z-50 p-0 border-0 bg-transparent shadow-none"
-                          >
-                            <SketchPicker
-                              color={customColor}
-                              onChange={(color) => {
-                                setCustomColor({
-                                  r: color.rgb.r,
-                                  g: color.rgb.g,
-                                  b: color.rgb.b,
-                                  a: color.rgb.a ?? 1,
-                                });
-                              }}
-                              onChangeComplete={(color) => {
-                                const rgb = color.rgb;
-                                const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a ?? 1})`;
-                                onSetColor(project.id, rgbaColor);
-                              }}
-                              styles={{
-                                default: {
-                                  picker: {
-                                    background: isDark ? '#1c1c1f' : '#fff',
-                                    borderRadius: '12px',
-                                    boxShadow: 'none',
-                                    border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
-                                    padding: '12px',
-                                    width: '220px',
-                                  },
-                                  saturation: { borderRadius: '8px' },
-                                  activeColor: { borderRadius: '4px' },
-                                  hue: { height: '10px', borderRadius: '4px' },
-                                  alpha: { height: '10px', borderRadius: '4px' },
-                                }
-                              }}
-                            />
-                          </PopoverContent>
-                        </Popover>
                       </div>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>

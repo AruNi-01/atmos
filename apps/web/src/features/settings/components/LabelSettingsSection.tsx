@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
 import { useShallow } from 'zustand/shallow';
 import {
   Button,
@@ -33,6 +32,7 @@ import {
   TableHeader,
   TableRow,
   toastManager,
+  isColorEyedropperActive,
 } from '@workspace/ui';
 import {
   ArrowDown,
@@ -54,14 +54,6 @@ import { LabelEditorContent } from '@/app-shell/sidebar/workspace-metadata-contr
 import type { WorkspaceLabel } from '@/shared/types/domain';
 
 type ProjectStoreWorkspaceLabel = WorkspaceLabel;
-
-function parseColorToRgb(colorStr: string): { r: number; g: number; b: number; a: number } {
-  const hex = colorStr.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  return { r, g, b, a: 1 };
-}
 
 function formatDate(dateStr: string | undefined, locale: string) {
   if (!dateStr) return '-';
@@ -87,17 +79,10 @@ export function LabelSettingsSection() {
       restoreWorkspaceLabel: state.restoreWorkspaceLabel,
     })),
   );
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const [selectedLabels, setSelectedLabels] = React.useState<Set<string>>(new Set());
   const [editingLabel, setEditingLabel] = React.useState<string | null>(null);
   const [editName, setEditName] = React.useState('');
-  const [editColor, setEditColor] = React.useState<{ r: number; g: number; b: number; a: number }>({
-    r: 148,
-    g: 163,
-    b: 184,
-    a: 1,
-  });
+  const [editColor, setEditColor] = React.useState('#94a3b8');
   const [sortField, setSortField] = React.useState<'name' | 'createdAt' | null>(null);
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
   const [filterQuery, setFilterQuery] = React.useState('');
@@ -185,7 +170,7 @@ export function LabelSettingsSection() {
     setTimeout(() => {
       setEditingLabel(labelId);
       setEditName(name);
-      setEditColor(parseColorToRgb(color));
+      setEditColor(color || '#94a3b8');
     }, 250);
   };
 
@@ -226,14 +211,13 @@ export function LabelSettingsSection() {
     }
 
     try {
-      const rgb = editColor;
-      const hexColor = `#${((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1)}`;
+      const color = editColor;
       if (isCreatingNew) {
-        await createWorkspaceLabel({ name: trimmedName, color: hexColor });
+        await createWorkspaceLabel({ name: trimmedName, color });
         setIsCreatingNew(false);
         toastManager.add({ title: t('toasts.created'), type: 'success' });
       } else if (editingLabel) {
-        await updateWorkspaceLabel(editingLabel, { name: trimmedName, color: hexColor });
+        await updateWorkspaceLabel(editingLabel, { name: trimmedName, color });
         setEditingLabel(null);
         toastManager.add({ title: t('toasts.updated'), type: 'success' });
       }
@@ -282,7 +266,10 @@ export function LabelSettingsSection() {
           {labelFilter === 'active' && (
             <Popover
               open={isCreatingNew}
-              onOpenChange={(open) => { if (!open) handleCancel(); }}
+              onOpenChange={(open) => {
+                if (!open && isColorEyedropperActive()) return;
+                if (!open) handleCancel();
+              }}
             >
               <PopoverTrigger asChild>
                 <Button
@@ -291,7 +278,7 @@ export function LabelSettingsSection() {
                   onClick={() => {
                     setIsCreatingNew(true);
                     setEditName('');
-                    setEditColor({ r: 148, g: 163, b: 184, a: 1 });
+                    setEditColor('#94a3b8');
                   }}
                 >
                   <Plus className="size-3.5" />
@@ -300,7 +287,6 @@ export function LabelSettingsSection() {
               </PopoverTrigger>
               {isCreatingNew && (
                 <LabelEditorContent
-                  isDark={isDark}
                   side="bottom"
                   surface={false}
                   newLabelName={editName}
@@ -474,7 +460,10 @@ export function LabelSettingsSection() {
                     <TableCell>
                       <Popover
                         open={editingLabel === label.id}
-                        onOpenChange={(open) => { if (!open) handleCancel(); }}
+                        onOpenChange={(open) => {
+                          if (!open && isColorEyedropperActive()) return;
+                          if (!open) handleCancel();
+                        }}
                       >
                         <PopoverTrigger asChild>
                           <div className="inline-block">
@@ -534,7 +523,6 @@ export function LabelSettingsSection() {
                         </PopoverTrigger>
                         {editingLabel === label.id && (
                           <LabelEditorContent
-                            isDark={isDark}
                             side="left"
                             surface={false}
                             newLabelName={editName}
