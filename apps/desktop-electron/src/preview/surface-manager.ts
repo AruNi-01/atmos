@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
+import { areDevToolsAllowed } from "../devtools-policy.js";
 import type { PreviewBounds } from "../types.js";
 import {
   buildOpenTabEventPayload,
@@ -711,6 +712,9 @@ export class PreviewSurfaceManager {
   }
 
   openDevtools(sessionId: string): void {
+    // Packaged release: DevTools disabled (see devtools-policy). Keep IPC no-op.
+    if (!areDevToolsAllowed()) return;
+
     const s = this.surfaces.get(sessionId);
     if (!s) throw new Error("preview inspector window not open");
     const wc = this.webContentsFor(s);

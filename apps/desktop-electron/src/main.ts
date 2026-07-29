@@ -9,6 +9,7 @@ import {
   applyEarlyAppBranding,
   applyReadyAppBranding,
 } from "./branding.js";
+import { installDevToolsPolicy } from "./devtools-policy.js";
 import { ensureAtmosServer } from "./runtime/ensure.js";
 import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
@@ -22,6 +23,8 @@ import { join } from "node:path";
 
 // Before ready: menu / process name → "Atmos" instead of "Electron".
 applyEarlyAppBranding();
+// Release builds: block Option+Cmd+I / Ctrl+Shift+I / F12 before any webContents exists.
+installDevToolsPolicy();
 mainLog(`[boot] main process start log=${mainLogPath()}`);
 
 const state = createAppState();
