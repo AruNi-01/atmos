@@ -45,15 +45,13 @@ impl TerminalService {
             .unwrap_or(DEFAULT_SIDE_PROMPT_BYTES)
             .clamp(MIN_SIDE_PROMPT_BYTES, MAX_SIDE_PROMPT_BYTES);
 
-        let primary_tmux_session = if let (Some(project), Some(workspace)) = (
-            params.project_name.as_deref(),
-            params.workspace_name.as_deref(),
-        ) {
-            self.tmux_engine
-                .get_session_name_from_names(project, workspace)
-        } else {
-            self.tmux_engine.get_session_name(&workspace_id)
-        };
+        let primary_tmux_session = self
+            .resolve_tmux_session_name(
+                &workspace_id,
+                params.project_name.as_deref(),
+                params.workspace_name.as_deref(),
+            )
+            .await;
 
         let capture_target = if let Some(source_session_id) = params
             .source_session_id
@@ -373,10 +371,34 @@ impl TerminalService {
         skip_from_bottom: i32,
         take_lines: i32,
     ) -> Result<TmuxPaneCapturePage> {
-        let tmux_session = if let (Some(proj), Some(ws)) = (project_name, workspace_name) {
-            self.tmux_engine.get_session_name_from_names(proj, ws)
+        // Sync helper: resolve with the same candidate priority as async path,
+        // but without awaiting. Prefer names first, then workspace id, then any
+        // existing session that contains the requested window.
+        let mut candidates = Vec::new();
+        if let (Some(proj), Some(ws)) = (project_name, workspace_name) {
+            candidates.push(self.tmux_engine.get_session_name_from_names(proj, ws));
+        }
+        candidates.push(self.tmux_engine.get_session_name(workspace_id));
+        let mut deduped = Vec::new();
+        for candidate in candidates {
+            if !deduped.iter().any(|existing| existing == &candidate) {
+                deduped.push(candidate);
+            }
+        }
+        let candidates = deduped;
+
+        let tmux_session = if let Ok(sessions) = self.tmux_engine.list_sessions() {
+            candidates
+                .iter()
+                .find(|candidate| sessions.iter().any(|session| session.name == **candidate))
+                .cloned()
+                .or_else(|| candidates.first().cloned())
+                .unwrap_or_else(|| self.tmux_engine.get_session_name(workspace_id))
         } else {
-            self.tmux_engine.get_session_name(workspace_id)
+            candidates
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| self.tmux_engine.get_session_name(workspace_id))
         };
 
         let window_index = self

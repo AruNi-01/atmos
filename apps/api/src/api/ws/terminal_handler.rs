@@ -253,69 +253,87 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
             }
         }
     } else if attach_requested && (tmux_window.is_some() || tmux_window_name.is_some()) {
-        match terminal_service
-            .attach_session(AttachSessionParams {
-                session_id: session_id.clone(),
-                workspace_id: workspace_id.clone(),
-                tmux_window_index: tmux_window,
-                tmux_window_name,
-                cols: initial_cols,
-                rows: initial_rows,
-                project_name: project_name.clone(),
-                workspace_name: workspace_name.clone(),
-            })
-            .await
-        {
-            Ok((rx, snapshot)) => {
+        // Retry attach a couple times before failing. After app restart, tmux /
+        // session resolution can briefly lag; silent create would orphan a live
+        // TUI agent, but hard-failing on the first attempt is also too brittle.
+        const ATTACH_MAX_ATTEMPTS: u8 = 3;
+        let mut last_error = None;
+        let mut attached_result = None;
+        for attempt in 1..=ATTACH_MAX_ATTEMPTS {
+            match terminal_service
+                .attach_session(AttachSessionParams {
+                    session_id: session_id.clone(),
+                    workspace_id: workspace_id.clone(),
+                    tmux_window_index: tmux_window,
+                    tmux_window_name: tmux_window_name.clone(),
+                    cols: initial_cols,
+                    rows: initial_rows,
+                    project_name: project_name.clone(),
+                    workspace_name: workspace_name.clone(),
+                })
+                .await
+            {
+                Ok((rx, snapshot)) => {
+                    if attempt > 1 {
+                        info!(
+                            "Attached terminal session {} on attempt {}/{}",
+                            session_id, attempt, ATTACH_MAX_ATTEMPTS
+                        );
+                    }
+                    attached_result = Some((rx, snapshot));
+                    break;
+                }
+                Err(e) => {
+                    warn!(
+                        "Attach attempt {}/{} failed for session {} window {:?}/{:?}: {}",
+                        attempt,
+                        ATTACH_MAX_ATTEMPTS,
+                        session_id,
+                        tmux_window,
+                        requested_tmux_window_name,
+                        e
+                    );
+                    last_error = Some(e);
+                    if attempt < ATTACH_MAX_ATTEMPTS {
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            150 * attempt as u64,
+                        ))
+                        .await;
+                    }
+                }
+            }
+        }
+
+        match attached_result {
+            Some((rx, snapshot)) => {
                 actually_attached = true;
                 (rx, snapshot)
             }
-            Err(e) => {
-                warn!(
-                    "Failed to attach terminal session ({}). Falling back to creating a new one.",
+            None => {
+                let e = last_error
+                    .map(|err| err.to_string())
+                    .unwrap_or_else(|| "unknown attach failure".to_string());
+                error!(
+                    "Failed to attach terminal session {} to window {:?}/{:?} after {} attempts: {}",
+                    session_id,
+                    tmux_window,
+                    requested_tmux_window_name,
+                    ATTACH_MAX_ATTEMPTS,
                     e
                 );
-                match terminal_service
-                    .create_session(CreateSessionParams {
-                        session_id: session_id.clone(),
-                        workspace_id: workspace_id.clone(),
-                        shell: shell.clone(),
-                        cols: initial_cols,
-                        rows: initial_rows,
-                        project_name: project_name.clone(),
-                        workspace_name: workspace_name.clone(),
-                        window_name: terminal_name
-                            .clone()
-                            .or_else(|| requested_tmux_window_name.clone()),
-                        cwd: cwd.clone(),
-                        terminal_kind: terminal_kind.clone(),
-                        side_chat_id: side_chat_id.clone(),
-                        source_pane_id: source_pane_id.clone(),
-                        source_tmux_window_name: source_tmux_window_name.clone(),
-                    })
-                    .await
-                {
-                    Ok((rx, snapshot)) => {
-                        actually_attached = false;
-                        (rx, snapshot)
-                    }
-                    Err(e) => {
-                        error!(
-                            "Failed to create terminal session after attach failure: {}",
-                            e
-                        );
-                        let error_response = TerminalResponse::TerminalError {
-                            session_id: Some(session_id),
-                            error: e.to_string(),
-                        };
-                        let _ = ws_sender
-                            .send(Message::Text(
-                                serde_json::to_string(&error_response).unwrap().into(),
-                            ))
-                            .await;
-                        return;
-                    }
-                }
+                let error_response = TerminalResponse::TerminalError {
+                    session_id: Some(session_id),
+                    error: format!(
+                        "Failed to attach existing terminal session after {} attempts: {}",
+                        ATTACH_MAX_ATTEMPTS, e
+                    ),
+                };
+                let _ = ws_sender
+                    .send(Message::Text(
+                        serde_json::to_string(&error_response).unwrap().into(),
+                    ))
+                    .await;
+                return;
             }
         }
     } else {

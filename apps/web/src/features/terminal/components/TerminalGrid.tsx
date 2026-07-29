@@ -218,7 +218,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       if (workspace) {
         return {
           projectName: project.name,
-          workspaceName: workspace.displayName || workspace.name,
+          // tmux session names must use the stable workspace handle (`name`),
+          // not the mutable display label. Display names can diverge after rename
+          // and cause reattach to open a brand-new empty shell.
+          workspaceName: workspace.name,
           localPath: workspace.localPath,
         };
       }

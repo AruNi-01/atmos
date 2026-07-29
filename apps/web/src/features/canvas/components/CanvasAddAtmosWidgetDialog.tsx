@@ -138,7 +138,8 @@ function buildWorkspaceContext(project: Project, workspace: Workspace): CanvasCo
     projectId: project.id,
     workspaceId: workspace.id,
     projectName: project.name,
-    workspaceName: workspace.displayName || workspace.name,
+    // Stable workspace handle for tmux session naming (not display label).
+    workspaceName: workspace.name,
     localPath: workspace.localPath,
     repoPath: workspace.localPath,
   };

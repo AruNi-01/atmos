@@ -407,7 +407,10 @@ export function hydratePersistedTab(
       tmuxWindowName: windowName,
       // Always mint a new frontend session id (WS attach identity).
       sessionId: uuidv4(),
-      isNewPane: liveByWindow ? false : !windowExists,
+      // Prefer attach when we have a stable window name. Listing can race with
+      // API/tmux startup after app restart; treating unknown windows as "new"
+      // forces create and can orphan a still-running TUI agent.
+      isNewPane: liveByWindow ? false : windowName ? false : !windowExists,
       // dynamicTitle is display-only and not written to layout persistence —
       // keep the warm in-memory value across a hydrate rewrite.
       dynamicTitle: liveByWindow?.dynamicTitle,

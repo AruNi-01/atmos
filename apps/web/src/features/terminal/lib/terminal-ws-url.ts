@@ -93,8 +93,9 @@ export function buildTerminalWsUrl({
     if (nameForNewWindow) {
       wsParams.set("terminal_name", nameForNewWindow);
     }
-  } else if (tmuxWindowName) {
-    wsParams.set("tmux_window_name", tmuxWindowName);
+  } else if (tmuxWindowName || terminalName) {
+    // Reattach path: always prefer attach by window name over create.
+    wsParams.set("tmux_window_name", tmuxWindowName || terminalName || "");
   }
 
   return `${baseWsUrl}?${wsParams.toString()}`;

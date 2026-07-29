@@ -74,6 +74,21 @@ impl TmuxEngine {
         self.create_session_internal(&session_name, cwd, shell_command, env_vars)
     }
 
+    /// Create/open a tmux session by an already-resolved stable name.
+    ///
+    /// Used when the service layer has already canonicalized the session name
+    /// (e.g. from DB project/workspace names) and must not re-derive it from
+    /// potentially display-name based frontend params.
+    pub fn create_named_session(
+        &self,
+        session_name: &str,
+        cwd: Option<&str>,
+        shell_command: Option<&[String]>,
+        env_vars: Option<&[(&str, &str)]>,
+    ) -> Result<String> {
+        self.create_session_internal(session_name, cwd, shell_command, env_vars)
+    }
+
     /// Internal function to create tmux session
     fn create_session_internal(
         &self,
