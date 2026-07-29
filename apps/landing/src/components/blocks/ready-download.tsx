@@ -14,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@workspace/ui/components/ui/dropdown-menu'
 
-import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/ui/tabs'
+import { TabsSubtle, TabsSubtleItem } from '@workspace/ui/components/ui/tabs-subtle'
+import type { ComponentType } from 'react'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { TextShimmer } from '@workspace/ui/components/ui/text-shimmer'
 import { GithubIcon } from '@workspace/ui/components/icons/github-icon'
@@ -25,6 +26,24 @@ import { OsIcon } from '@/components/os-icon'
 
 const RELEASES_URL = 'https://github.com/AruNi-01/atmos/releases'
 const APP_URL = 'https://app.atmos.land'
+
+type TabIcon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
+
+const HomebrewIcon: TabIcon = ({ size = 16, className }) => (
+  <img
+    src='/icons/homebrew.svg'
+    alt=''
+    width={size}
+    height={size}
+    className={className}
+    style={{ width: size, height: size }}
+  />
+)
+
+const DESKTOP_TABS = [
+  { id: 'bash', labelKey: 'tabs.bash', icon: TerminalIcon },
+  { id: 'homebrew', labelKey: 'tabs.homebrew', icon: HomebrewIcon },
+] as const
 
 type DownloadLinks = {
   macAppleSilicon: string
@@ -43,7 +62,8 @@ const createDefaultDownloadLinks = (): DownloadLinks => ({
 const ReadyDownload = () => {
   const t = useTranslations('readyDownload')
   const [copied, setCopied] = useState('')
-  const [desktopTab, setDesktopTab] = useState('bash')
+  const [desktopTabIndex, setDesktopTabIndex] = useState(0)
+  const desktopTab = DESKTOP_TABS[desktopTabIndex]?.id ?? 'bash'
   const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
 
   useEffect(() => {
@@ -95,7 +115,7 @@ const ReadyDownload = () => {
 
           <div className='flex flex-col items-center gap-4 pt-4 sm:flex-row'>
             <div className='flex items-center isolate overflow-hidden rounded-lg relative ring-2 ring-primary/60 w-full sm:w-72'>
-              <Button size='lg' className='flex-1 h-14 rounded-r-none px-6 text-base font-medium hover:bg-primary transition-colors border-r border-primary-foreground/20' asChild>
+              <Button size='lg' className='flex-1 h-14 sm:h-14 rounded-r-none px-6 text-base font-medium hover:bg-primary transition-colors border-r border-primary-foreground/20' asChild>
                 <Link href={downloadLinks.macAppleSilicon} target='_blank' rel='noopener noreferrer'>
                   <OsIcon os='apple' className='size-5' />
                   {t('primaryCta')}
@@ -104,7 +124,7 @@ const ReadyDownload = () => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size='lg' className='h-14 rounded-l-none px-3 border-none ring-0 hover:bg-primary transition-colors hover:text-primary-foreground'>
+                  <Button size='lg' className='h-14 sm:h-14 rounded-l-none px-3 border-none ring-0 hover:bg-primary transition-colors hover:text-primary-foreground'>
                     <ChevronDownIcon className='size-5' />
                     <span className='sr-only'>{t('moreOptions')}</span>
                   </Button>
@@ -147,7 +167,7 @@ const ReadyDownload = () => {
               </DropdownMenu>
             </div>
 
-            <Button size='lg' variant='ghost' className='h-14 px-8 text-base' asChild>
+            <Button size='lg' variant='ghost' className='h-14 sm:h-14 px-8 text-base' asChild>
               <Link href={APP_URL} target='_blank' rel='noopener noreferrer' className='group'>
                 {t('openInBrowser')}
                 <ArrowRightIcon className='ml-2 size-4 transition-transform group-hover:translate-x-1' />
@@ -161,12 +181,21 @@ const ReadyDownload = () => {
               <div className='flex items-center gap-2'>
                 <OsIcon os='apple' className='size-4 text-muted-foreground' />
                 <h3 className='text-sm font-medium text-muted-foreground'>{t('desktopApp')}</h3>
-                <Tabs value={desktopTab} onValueChange={setDesktopTab} className='w-fit'>
-                  <TabsList className='grid w-fit grid-cols-2'>
-                    <TabsTrigger value='bash'>{t('tabs.bash')}</TabsTrigger>
-                    <TabsTrigger value='homebrew'>{t('tabs.homebrew')}</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <TabsSubtle
+                  idPrefix='desktop-install'
+                  activeLabel
+                  selectedIndex={desktopTabIndex}
+                  onSelect={setDesktopTabIndex}
+                >
+                  {DESKTOP_TABS.map((tab, index) => (
+                    <TabsSubtleItem
+                      key={tab.id}
+                      index={index}
+                      label={t(tab.labelKey)}
+                      icon={tab.icon}
+                    />
+                  ))}
+                </TabsSubtle>
               </div>
 
               {desktopTab === 'homebrew' && (
