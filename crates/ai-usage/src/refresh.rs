@@ -186,6 +186,22 @@ pub(crate) fn persist_all_provider_switch(provider_ids: &[String], switch_enable
     save_provider_state(&state);
 }
 
+/// Batch-write switch + footer carousel flags without refreshing provider data.
+pub(crate) fn persist_provider_visibility_batch(
+    prefs: &[(String, bool, bool)],
+) {
+    if prefs.is_empty() {
+        return;
+    }
+    let mut state = load_provider_state();
+    for (provider_id, switch_enabled, footer_carousel_show) in prefs {
+        let entry = state.providers.entry(provider_id.clone()).or_default();
+        entry.switch = *switch_enabled;
+        entry.footer_carousel_show = *footer_carousel_show;
+    }
+    save_provider_state(&state);
+}
+
 pub(crate) fn apply_provider_state(mut overview: UsageOverview) -> UsageOverview {
     let state = load_provider_state();
 

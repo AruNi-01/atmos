@@ -57,6 +57,17 @@ export interface GitStatusResponse {
   email: string | null;
 }
 
+export interface TerminalAgentCliStatusItem {
+  agent_id: string;
+  label: string;
+  cmd: string;
+  installed: boolean;
+}
+
+export interface TerminalAgentsStatusResponse {
+  agents: TerminalAgentCliStatusItem[];
+}
+
 export interface TmuxInstallPlanResponse {
   installed: boolean;
   supported: boolean;
@@ -386,6 +397,13 @@ export const systemApi = {
    */
   getGitStatus: async (): Promise<GitStatusResponse> => {
     return fetchApi<GitStatusResponse>('/api/system/git-status');
+  },
+
+  /**
+   * Detect which built-in terminal agent CLIs are installed on the API host.
+   */
+  getTerminalAgentsStatus: async (): Promise<TerminalAgentsStatusResponse> => {
+    return fetchApi<TerminalAgentsStatusResponse>('/api/system/terminal-agents-status');
   },
 
   /**

@@ -68,6 +68,7 @@ export type WsAction =
   | "usage_set_provider_switch"
   | "usage_set_provider_footer_carousel"
   | "usage_set_all_providers_switch"
+  | "usage_apply_provider_visibility"
   | "usage_set_provider_manual_setup"
   | "usage_add_provider_api_key"
   | "usage_delete_provider_api_key"

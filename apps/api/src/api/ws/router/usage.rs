@@ -4,9 +4,9 @@ use core_service::{Result, ServiceError};
 
 use super::{
     TokenUsageOverviewRequest, UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest,
-    UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest, UsageOverviewRequest,
-    UsageProviderFooterCarouselRequest, UsageProviderManualSetupRequest,
-    UsageProviderSwitchRequest, WsMessageService,
+    UsageApplyProviderVisibilityRequest, UsageAutoRefreshRequest,
+    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
+    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WsMessageService,
 };
 
 impl WsMessageService {
@@ -50,6 +50,28 @@ impl WsMessageService {
         let overview = self
             .usage_service
             .set_all_provider_switch(req.enabled)
+            .await;
+        Ok(json!(overview))
+    }
+
+    pub(super) async fn handle_usage_apply_provider_visibility(
+        &self,
+        req: UsageApplyProviderVisibilityRequest,
+    ) -> Result<Value> {
+        let prefs = req
+            .providers
+            .into_iter()
+            .map(|pref| {
+                (
+                    pref.provider_id,
+                    pref.switch_enabled,
+                    pref.footer_carousel_show,
+                )
+            })
+            .collect();
+        let overview = self
+            .usage_service
+            .apply_provider_visibility(prefs)
             .await;
         Ok(json!(overview))
     }

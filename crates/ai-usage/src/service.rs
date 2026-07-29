@@ -16,7 +16,7 @@ use crate::refresh::{
     apply_provider_state, load_auto_refresh_interval_minutes, persist_all_provider_switch,
     persist_auto_refresh_interval_minutes, persist_provider_footer_carousel_show,
     persist_provider_state_for_overview, persist_provider_state_for_provider,
-    persist_provider_switch, provider_switch_enabled,
+    persist_provider_switch, persist_provider_visibility_batch, provider_switch_enabled,
 };
 use crate::runtime::{default_providers, error_status, UsageProvider};
 use crate::support::{round_metric, unix_now};
@@ -182,6 +182,64 @@ impl UsageService {
             .find(|provider| provider.id == provider_id)
         {
             provider.footer_carousel_show = enabled;
+        }
+
+        let overview = self
+            .with_auto_refresh_config(apply_provider_state_and_rebuild(overview))
+            .await;
+        let mut cache = self.cache.write().await;
+        *cache = Some(CachedOverview {
+            fetched_at: unix_now(),
+            overview: overview.clone(),
+        });
+        self.publish_overview_update(&overview);
+        overview
+    }
+
+    /// Apply switch + footer carousel visibility for many providers in one write.
+    ///
+    /// `prefs` items are `(provider_id, switch_enabled, footer_carousel_show)`.
+    /// Used by onboarding to align AI Quota Usage with selected terminal agents
+    /// without N sequential WS round-trips.
+    pub async fn apply_provider_visibility(
+        &self,
+        prefs: Vec<(String, bool, bool)>,
+    ) -> UsageOverview {
+        // Seed provider rows from descriptors when the cache is cold so unknown
+        // ids still land in provider_state.json and appear in the overview shell.
+        let known_ids: Vec<String> = self
+            .providers
+            .iter()
+            .map(|provider| provider.descriptor().id)
+            .collect();
+
+        let mut full_prefs = prefs;
+        let specified: std::collections::HashSet<String> =
+            full_prefs.iter().map(|(id, _, _)| id.clone()).collect();
+        for provider_id in known_ids {
+            if !specified.contains(&provider_id) {
+                // Unspecified providers default off for both switch and carousel.
+                full_prefs.push((provider_id, false, false));
+            }
+        }
+
+        persist_provider_visibility_batch(&full_prefs);
+
+        let mut overview = if let Some(cached) = self.cache.read().await.clone() {
+            cached.overview
+        } else {
+            // honor_switches=true so disabled providers skip live refresh
+            self.refresh_overview(None, true).await
+        };
+
+        for provider in &mut overview.providers {
+            if let Some((_, switch_enabled, footer_carousel_show)) = full_prefs
+                .iter()
+                .find(|(id, _, _)| id == &provider.id)
+            {
+                provider.switch_enabled = *switch_enabled;
+                provider.footer_carousel_show = *footer_carousel_show;
+            }
         }
 
         let overview = self

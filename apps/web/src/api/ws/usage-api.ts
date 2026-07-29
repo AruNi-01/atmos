@@ -198,6 +198,26 @@ export const usageWsApi = {
     return overview;
   },
 
+  /**
+   * Batch-apply switch + footer carousel flags.
+   * Unspecified known providers are turned off by the backend.
+   */
+  applyProviderVisibility: async (
+    providers: Array<{
+      provider_id: string;
+      switch_enabled: boolean;
+      footer_carousel_show: boolean;
+    }>,
+  ): Promise<UsageOverviewResponse> => {
+    const overview = await wsRequest<UsageOverviewResponse>(
+      "usage_apply_provider_visibility",
+      { providers },
+      45_000,
+    );
+    emitUsageOverviewUpdated(overview);
+    return overview;
+  },
+
   setProviderManualSetup: async (
     providerId: string,
     region: string | null,

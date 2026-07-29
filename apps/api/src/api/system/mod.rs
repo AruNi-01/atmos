@@ -19,6 +19,10 @@ pub fn routes() -> Router<AppState> {
         .route("/tmux-status", get(handlers::get_tmux_status))
         .route("/gh-cli-status", get(handlers::get_gh_cli_status))
         .route("/git-status", get(handlers::get_git_status))
+        .route(
+            "/terminal-agents-status",
+            get(handlers::get_terminal_agents_status),
+        )
         .route("/tmux-install-plan", get(handlers::get_tmux_install_plan))
         .route("/tmux-sessions", get(handlers::list_tmux_sessions))
         .route(

@@ -49,6 +49,43 @@ pub async fn get_tmux_status(State(state): State<AppState>) -> ApiResult<Json<Ap
 }
 
 #[derive(Debug, Serialize)]
+pub struct TerminalAgentCliStatusItem {
+    agent_id: String,
+    label: String,
+    cmd: String,
+    installed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TerminalAgentsStatusResponse {
+    agents: Vec<TerminalAgentCliStatusItem>,
+}
+
+/// GET /api/system/terminal-agents-status
+///
+/// Detect which built-in terminal agent CLIs are present on the API host PATH.
+/// Independent of terminal_code_agent enabled prefs (onboarding defaults).
+pub async fn get_terminal_agents_status(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<TerminalAgentsStatusResponse>>> {
+    let agents = state
+        .automation_service
+        .terminal_agent_cli_status()?
+        .into_iter()
+        .map(|agent| TerminalAgentCliStatusItem {
+            agent_id: agent.agent_id,
+            label: agent.label,
+            cmd: agent.cmd,
+            installed: agent.installed,
+        })
+        .collect();
+
+    Ok(Json(ApiResponse::success(TerminalAgentsStatusResponse {
+        agents,
+    })))
+}
+
+#[derive(Debug, Serialize)]
 pub struct GhCliStatusResponse {
     installed: bool,
     authenticated: bool,

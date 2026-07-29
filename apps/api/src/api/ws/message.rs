@@ -132,6 +132,19 @@ pub struct UsageAllProvidersSwitchRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageProviderVisibilityPref {
+    pub provider_id: String,
+    pub switch_enabled: bool,
+    pub footer_carousel_show: bool,
+}
+
+/// Batch-apply provider switch + footer carousel visibility (onboarding).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageApplyProviderVisibilityRequest {
+    pub providers: Vec<UsageProviderVisibilityPref>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageProviderManualSetupRequest {
     pub provider_id: String,
     #[serde(default)]
@@ -277,6 +290,8 @@ pub enum WsAction {
     UsageSetProviderFooterCarousel,
     /// 更新全部 provider 的刷新开关
     UsageSetAllProvidersSwitch,
+    /// 批量更新 provider switch + footer carousel（onboarding 对齐 Agent）
+    UsageApplyProviderVisibility,
     /// 更新 provider 的手动配置
     UsageSetProviderManualSetup,
     /// 添加 provider API key

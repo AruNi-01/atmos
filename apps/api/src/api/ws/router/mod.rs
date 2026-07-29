@@ -262,6 +262,10 @@ impl WsMessageService {
                 self.handle_usage_set_all_providers_switch(parse_request(request.data)?)
                     .await
             }
+            WsAction::UsageApplyProviderVisibility => {
+                self.handle_usage_apply_provider_visibility(parse_request(request.data)?)
+                    .await
+            }
             WsAction::UsageSetProviderManualSetup => {
                 self.handle_usage_set_provider_manual_setup(parse_request(request.data)?)
                     .await
