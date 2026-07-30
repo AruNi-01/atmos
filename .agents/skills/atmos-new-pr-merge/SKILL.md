@@ -31,8 +31,8 @@ args:
 
 # Atmos new-PR-merge
 
-Ship **finished** feature work or bugfixes via a **PR-first** path so `main` stays clean and
-every change leaves a PR archive. **Never commit or push directly to `main`.**
+Ship **finished** product feature work or bugfixes via a **PR-first** path so `main` stays
+clean and every product change leaves a PR archive.
 
 ## When to use
 
@@ -46,6 +46,7 @@ every change leaves a PR archive. **Never commit or push directly to `main`.**
 - Release / deploy / version-tag flows → use the dedicated release/deploy skills
 - Spec-only planning work with no code yet
 - User only wants a local commit (no remote)
+- **Agent skill-only edits** under `.agents/skills/**` (especially `atmos-*` skills) that only need to be published to remote — use the **direct main path** below instead of opening a PR
 
 ## Defaults
 
@@ -59,12 +60,31 @@ every change leaves a PR archive. **Never commit or push directly to `main`.**
 
 ## Hard rules
 
-1. **Never** `git commit` / `git push` on `main` (or the configured base) for product work.
-2. If currently on `main` with uncommitted changes → create/switch to a feature branch **before** staging/committing.
-3. If already on a feature branch with the right commits → reuse it; do not invent a second branch unless asked.
-4. Always open the PR with a body that **follows** `.github/PULL_REQUEST_TEMPLATE.md` sections (fill them in; do not leave the template comments empty of content).
-5. After a successful merge: `git checkout <base> && git pull origin <base>` and confirm clean, up-to-date status.
-6. Report the PR URL and final merge commit SHA to the user.
+1. **Never** `git commit` / `git push` on `main` for **product** work (apps/packages/crates/e2e/product docs). Product changes always go through a feature branch + PR.
+2. **Exception — agent skills only:** If the diff is **only** under `.agents/skills/**` (and related skill ignore/index tweaks such as `.gitignore` skill rules), **do not** open a PR. Commit and `git push origin main` on `main` after a pull. User may also say “直接 main / 不用 PR”.
+3. If currently on `main` with **product** uncommitted changes → create/switch to a feature branch **before** staging/committing.
+4. If already on a feature branch with the right product commits → reuse it; do not invent a second branch unless asked.
+5. For product PRs, always open with a body that **follows** `.github/PULL_REQUEST_TEMPLATE.md` sections (fill them in; do not leave the template comments empty of content).
+6. After a successful product merge: `git checkout <base> && git pull origin <base>` and confirm clean, up-to-date status.
+7. Report the PR URL (product path) or commit SHA (skill-direct path) and final tip of `$BASE` to the user.
+
+## Direct main path (skills only)
+
+Use this when shipping **only** agent skill files (no product code):
+
+```bash
+git fetch origin main
+git checkout main
+git pull origin main
+# stage only .agents/skills/** (and skill-related .gitignore if needed)
+git add .agents/skills/<skill>/ ...
+git commit -m "chore(skills): …"
+git push origin main
+git status
+git log -1 --oneline
+```
+
+Do **not** create a feature branch or PR for skill-only publishes.
 
 ## Branch naming
 
@@ -250,17 +270,20 @@ Always tell the user:
 
 | Situation | Action |
 |-----------|--------|
-| On `main`, dirty with the intended fix | `checkout -b` feature branch → commit → push → PR → merge → back to `main` |
-| On feature branch, uncommitted | commit on that branch → push → PR → merge → back to base |
+| Diff is **only** `.agents/skills/**` (skill publish) | commit + `git push origin main` — **no PR** |
+| On `main`, dirty with a **product** fix | `checkout -b` feature branch → commit → push → PR → merge → back to `main` |
+| On feature branch, uncommitted product work | commit on that branch → push → PR → merge → back to base |
 | On feature branch, already committed, not pushed | push → PR → merge → back to base |
 | PR already open for this branch | skip create; merge if requested; then pull base |
 | User says “only open PR” | `merge=false` |
 | User says “don’t touch remote yet” | stop after local branch + commit (or dry-run) |
 | User says “delete the branch after merge” | `delete_branch=true` → add `--delete-branch` |
+| User says “直接 main / 不用 PR” for a skill-only change | direct main path |
 
 ## Anti-patterns (never)
 
-- `git push origin main` with product commits
+- `git push origin main` with **product** commits (apps/packages/crates/…)
+- Opening a PR for a pure `.agents/skills/**` skill publish (wasteful; push main instead)
 - amending / force-pushing shared history without explicit request
 - empty PR bodies or “see commits” with no Summary
 - opening a PR from `main` into `main`
@@ -301,4 +324,7 @@ git checkout main && git pull origin main
 
 ## Summary
 
-This skill is the Atmos **PR-archive ship path** for day-to-day features and bugfixes: branch off base, never land commits straight on `main`, open a template-compliant PR, auto-merge by default (**keep the feature branch**), then return the workspace to the latest base branch.
+This skill is the Atmos **PR-archive ship path** for day-to-day **product** features and
+bugfixes: branch off base, open a template-compliant PR, auto-merge by default (**keep the
+feature branch**), then return to latest base. **Agent skill-only publishes** skip the PR and
+go straight to `main`.
