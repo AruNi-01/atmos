@@ -56,7 +56,7 @@ export function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId:
     <AgentHookStatusIndicator
       state={paneState}
       variant="full"
-      className="ml-2"
+      className="ml-2 shrink-0"
     />
   );
 }
@@ -150,14 +150,15 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     [workspaceId, id, terminalTabId],
   );
 
-  const { displayTitle, toolbarAgent, onTitleChange, onOscTitleChange } = useTerminalToolbarTitle({
-    baseTitle: pane.label,
-    configuredAgents,
-    storeWrite,
-    customLabel: pane.customLabel,
-    keepAgentName: pane.keepAgentName,
-    keepCwd: pane.keepCwd,
-  });
+  const { displayTitle, primaryTitle, oscSuffix, toolbarAgent, onTitleChange, onOscTitleChange } =
+    useTerminalToolbarTitle({
+      baseTitle: pane.label,
+      configuredAgents,
+      storeWrite,
+      customLabel: pane.customLabel,
+      keepAgentName: pane.keepAgentName,
+      keepCwd: pane.keepCwd,
+    });
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
 
   React.useEffect(() => {
@@ -270,11 +271,18 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
       onDragEnd={() => setIsPaneDragging(false)}
       renderToolbar={() => {
         return (
-          <div className="terminal-mosaic-toolbar group/toolbar">
+          <div
+            className={cn(
+              "terminal-mosaic-toolbar group/toolbar",
+              maximizedId === id && "is-toolbar-expanded",
+            )}
+          >
             <div className="terminal-mosaic-toolbar-left">
               {displayTitle ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
+                  primaryTitle={primaryTitle}
+                  oscSuffix={oscSuffix}
                   toolbarAgent={toolbarAgent}
                   className="terminal-mosaic-title gap-1.5"
                 />
@@ -287,7 +295,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
                 <button
                   type="button"
                   className={cn(
-                    "terminal-mosaic-btn transition-opacity opacity-0 group-hover/toolbar:opacity-100",
+                    "terminal-mosaic-btn",
                     isPanePinned && "cursor-default text-primary hover:text-primary",
                   )}
                   onClick={() => {
@@ -303,7 +311,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
                 </button>
                 <div className="flex items-center gap-0.5">
                   {actions.split && (
-                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
+                    <div className="flex items-center gap-0.5">
                       <DropdownMenu
                         open={splitMenuKey === `${id}:row`}
                         onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
@@ -383,12 +391,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
                     </div>
                   )}
                   {(actions.maximize || actions.close) && (
-                    <div
-                      className={cn(
-                        "flex items-center gap-0.5 transition-opacity",
-                        maximizedId === id ? "opacity-100" : "opacity-0 group-hover/toolbar:opacity-100",
-                      )}
-                    >
+                    <div className="flex items-center gap-0.5">
                       {actions.maximize && (
                         <button
                           type="button"

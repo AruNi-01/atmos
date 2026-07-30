@@ -193,11 +193,27 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
           configuredAgents: agents,
           contestedOwners: { agent: "unknown" },
         }),
-      ).toEqual({
+      ).toMatchObject({
         displayTitle: "agent",
+        primaryTitle: "agent",
+        oscSuffix: "",
         toolbarAgent: undefined,
       });
     }
+  });
+
+  it("splits primary title and OSC suffix for toolbar marquee", () => {
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "Claude Code",
+      dynamicTitle: "claude",
+      agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+      oscTitle: "debugging a very long session topic for marquee",
+    });
+    expect(meta.primaryTitle).toBe("Claude Code");
+    expect(meta.oscSuffix).toBe("debugging a very long session topic for marquee");
+    expect(meta.displayTitle).toBe(
+      "Claude Code | debugging a very long session topic for marquee",
+    );
   });
 
   it("matches command lines with executable paths or path-valued arguments", () => {

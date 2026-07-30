@@ -200,6 +200,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -210,13 +212,75 @@
   opacity: 0.9;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
+/* OSC session topic: marquee only when wider than the slot */
+.terminal-title-marquee {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, #000 0%, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 88%, transparent 100%);
+}
+
+.terminal-title-marquee-text {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.terminal-title-marquee-text.is-overflowing {
+  animation: terminal-title-marquee-scroll var(--marquee-duration, 10s) linear infinite;
+  animation-delay: 0.6s;
+}
+
+.terminal-title-marquee:hover .terminal-title-marquee-text.is-overflowing {
+  animation-play-state: paused;
+}
+
+@keyframes terminal-title-marquee-scroll {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  88%,
+  100% {
+    transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
+  }
+}
+
+/*
+ * Right toolbar: collapsed (no layout space) until hover/focus-within.
+ * Slide in from the right; reverse on hide. Maximized panes keep it expanded.
+ */
 .terminal-mosaic-toolbar-right {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(10px);
+  pointer-events: none;
+  transition:
+    max-width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    margin-left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.terminal-mosaic-toolbar:hover .terminal-mosaic-toolbar-right,
+.terminal-mosaic-toolbar:focus-within .terminal-mosaic-toolbar-right,
+.terminal-mosaic-toolbar.is-toolbar-expanded .terminal-mosaic-toolbar-right {
+  max-width: 168px;
+  margin-left: 6px;
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .terminal-mosaic-btn {

@@ -124,7 +124,7 @@ export function TerminalMosaicScopedPaneWindow({
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
-  const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
+  const { displayTitle, primaryTitle, oscSuffix, toolbarAgent } = getTerminalDisplayMeta({
     baseTitle: pane.label,
     dynamicTitle: pane.dynamicTitle,
     configuredAgents,
@@ -215,11 +215,18 @@ export function TerminalMosaicScopedPaneWindow({
       onDragEnd={() => setIsPaneDragging(false)}
       renderToolbar={() => {
         return (
-          <div className="terminal-mosaic-toolbar group/toolbar">
+          <div
+            className={cn(
+              "terminal-mosaic-toolbar group/toolbar",
+              maximizedId === id && "is-toolbar-expanded",
+            )}
+          >
             <div className="terminal-mosaic-toolbar-left">
               {displayTitle ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
+                  primaryTitle={primaryTitle}
+                  oscSuffix={oscSuffix}
                   toolbarAgent={toolbarAgent}
                   className="terminal-mosaic-title gap-1.5"
                 />
@@ -232,7 +239,7 @@ export function TerminalMosaicScopedPaneWindow({
                 <button
                   type="button"
                   className={cn(
-                    "terminal-mosaic-btn transition-opacity opacity-0 group-hover/toolbar:opacity-100",
+                    "terminal-mosaic-btn",
                     isPanePinned && "cursor-default text-primary hover:text-primary",
                   )}
                   onClick={() => {
@@ -247,7 +254,7 @@ export function TerminalMosaicScopedPaneWindow({
                 </button>
                 <div className="flex items-center gap-0.5">
                   {actions.split && (
-                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
+                    <div className="flex items-center gap-0.5">
                       <DropdownMenu
                         open={splitMenuKey === `${id}:row`}
                         onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
@@ -323,7 +330,7 @@ export function TerminalMosaicScopedPaneWindow({
                     </div>
                   )}
                   {(actions.maximize || actions.close) && (
-                    <div className={cn("flex items-center gap-0.5 transition-opacity", maximizedId === id ? "opacity-100" : "opacity-0 group-hover/toolbar:opacity-100")}>
+                    <div className="flex items-center gap-0.5">
                       {actions.maximize && (
                         <button
                           className={cn(

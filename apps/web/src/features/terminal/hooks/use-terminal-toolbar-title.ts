@@ -135,7 +135,7 @@ export function useTerminalToolbarTitle(options: {
     [storeWrite],
   );
 
-  const { displayTitle, toolbarAgent } = useMemo(() => {
+  const { displayTitle, primaryTitle, oscSuffix, toolbarAgent } = useMemo(() => {
     const mergedDynamic = storeLive.dynamicTitle ?? localOscTitle;
     const mergedNativeOsc = storeLive.oscTitle ?? localNativeOscTitle;
     const shapeAgent =
@@ -181,7 +181,12 @@ export function useTerminalToolbarTitle(options: {
       .filter(Boolean)
       .join(" · ");
 
-    return { displayTitle, toolbarAgent: showAgent ? auto.toolbarAgent : undefined };
+    return {
+      displayTitle,
+      primaryTitle: displayTitle,
+      oscSuffix: "",
+      toolbarAgent: showAgent ? auto.toolbarAgent : undefined,
+    };
   }, [
     baseTitle,
     configuredAgents,
@@ -197,5 +202,5 @@ export function useTerminalToolbarTitle(options: {
     contestedOwners,
   ]);
 
-  return { displayTitle, toolbarAgent, onTitleChange, onOscTitleChange };
+  return { displayTitle, primaryTitle, oscSuffix, toolbarAgent, onTitleChange, onOscTitleChange };
 }

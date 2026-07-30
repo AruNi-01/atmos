@@ -596,7 +596,12 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   /** User set a custom pane label — hide OSC suffix. */
   suppressOscTitle?: boolean;
 }): {
+  /** Combined title for plain string consumers (tabs, tooltips, a11y). */
   displayTitle: string;
+  /** Atmos-owned left title (agent brand / command / path / custom). */
+  primaryTitle: string;
+  /** Filtered OSC session topic; empty when suppressed or noise. */
+  oscSuffix: string;
   toolbarAgent: TAgent | undefined;
 } {
   const {
@@ -631,7 +636,7 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
-  const autoDisplayTitle =
+  const primaryTitle =
     toolbarAgent?.label ??
     (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
       ? baseTitle
@@ -639,10 +644,21 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     baseTitle ??
     "";
 
+  const oscSuffix =
+    suppressOscTitle === true
+      ? ""
+      : resolveDisplayOscTitle(oscTitle, {
+          autoDisplayTitle: primaryTitle,
+          dynamicTitle,
+          toolbarAgent,
+        });
+
   return {
     toolbarAgent,
-    displayTitle: appendNativeOscTitle(autoDisplayTitle, oscTitle, suppressOscTitle === true, {
-      autoDisplayTitle,
+    primaryTitle,
+    oscSuffix,
+    displayTitle: appendNativeOscTitle(primaryTitle, oscTitle, suppressOscTitle === true, {
+      autoDisplayTitle: primaryTitle,
       dynamicTitle,
       toolbarAgent,
     }),
