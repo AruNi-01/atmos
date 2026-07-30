@@ -35,6 +35,7 @@ type AuxiliaryTerminalActions = Pick<
   | "loadProjectWikiFromTmux"
   | "getProjectWikiPaneIdByTmuxWindowName"
   | "setProjectWikiDynamicTitle"
+  | "setProjectWikiOscTitle"
   | "setProjectWikiPaneAgent"
   | "markProjectWikiPaneAttached"
   | "toggleProjectWikiMaximize"
@@ -48,6 +49,7 @@ type AuxiliaryTerminalActions = Pick<
   | "loadCodeReviewFromTmux"
   | "getCodeReviewPaneIdByTmuxWindowName"
   | "setCodeReviewDynamicTitle"
+  | "setCodeReviewOscTitle"
   | "setCodeReviewPaneAgent"
   | "markCodeReviewPaneAttached"
   | "toggleCodeReviewMaximize"
@@ -216,6 +218,21 @@ export function createTerminalAuxiliaryActions(
         },
       }));
     },
+    setProjectWikiOscTitle: (workspaceId, paneId, oscTitle) => {
+      const panes = get().projectWikiPanes[workspaceId];
+      if (!panes?.[paneId]) return;
+      const next = oscTitle?.trim() ? oscTitle : undefined;
+      if (panes[paneId].oscTitle === next) return;
+      set((state) => ({
+        projectWikiPanes: {
+          ...state.projectWikiPanes,
+          [workspaceId]: {
+            ...panes,
+            [paneId]: { ...panes[paneId], oscTitle: next },
+          },
+        },
+      }));
+    },
     markProjectWikiPaneAttached: (workspaceId, paneId) => {
       const panes = get().projectWikiPanes[workspaceId];
       const pane = panes?.[paneId];
@@ -368,6 +385,21 @@ export function createTerminalAuxiliaryActions(
           [workspaceId]: {
             ...panes,
             [paneId]: { ...panes[paneId], dynamicTitle },
+          },
+        },
+      }));
+    },
+    setCodeReviewOscTitle: (workspaceId, paneId, oscTitle) => {
+      const panes = get().codeReviewPanes[workspaceId];
+      if (!panes?.[paneId]) return;
+      const next = oscTitle?.trim() ? oscTitle : undefined;
+      if (panes[paneId].oscTitle === next) return;
+      set((state) => ({
+        codeReviewPanes: {
+          ...state.codeReviewPanes,
+          [workspaceId]: {
+            ...panes,
+            [paneId]: { ...panes[paneId], oscTitle: next },
           },
         },
       }));

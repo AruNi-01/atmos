@@ -1,9 +1,12 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 import {
+  appendNativeOscTitle,
   getTerminalDisplayMeta,
   isDynamicTitleDowngrade,
+  MAX_NATIVE_OSC_TITLE_CHARS,
   resolveAgentForTitle,
+  sanitizeNativeOscTitle,
 } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "../../types";
 
@@ -267,5 +270,83 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
         contestedOwners: { agent: "unknown" },
       }).toolbarAgent?.id,
     ).toBe("cursor");
+  });
+});
+
+describe("native OSC 0/2 title suffix (APP-047)", () => {
+  it("sanitizes control characters and collapses whitespace", () => {
+    expect(sanitizeNativeOscTitle("  Project\t|\nWorking\x1b\x07 ")).toBe("Project | Working");
+    expect(sanitizeNativeOscTitle("   ")).toBe("");
+    expect(sanitizeNativeOscTitle(undefined)).toBe("");
+  });
+
+  it("caps long native titles", () => {
+    const long = "a".repeat(MAX_NATIVE_OSC_TITLE_CHARS + 20);
+    expect(sanitizeNativeOscTitle(long).length).toBe(MAX_NATIVE_OSC_TITLE_CHARS);
+  });
+
+  it("appends OSC title with | after the auto display title", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        configuredAgents: agents,
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "debugging auth",
+      }),
+    ).toMatchObject({
+      displayTitle: "Claude Code | debugging auth",
+      toolbarAgent: expect.objectContaining({ id: "claude" }),
+    });
+  });
+
+  it("shows OSC alone when auto title is empty", () => {
+    expect(appendNativeOscTitle("", "session topic")).toBe("session topic");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: undefined,
+        dynamicTitle: undefined,
+        oscTitle: "session topic",
+      }).displayTitle,
+    ).toBe("session topic");
+  });
+
+  it("never uses OSC text for agent detection", () => {
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "1",
+      dynamicTitle: "codex",
+      configuredAgents: agents,
+      agent: { id: "codex", label: "Codex", command: "codex", iconType: "built-in" },
+      // Looks like another agent brand — must not rebrand the pane.
+      oscTitle: "Hermes Agent",
+    });
+    expect(meta.displayTitle).toBe("Codex | Hermes Agent");
+    expect(meta.toolbarAgent?.id).toBe("codex");
+    expect(meta.toolbarAgent?.id).not.toBe("hermes");
+  });
+
+  it("suppresses OSC when custom label is set", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        configuredAgents: agents,
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "debugging auth",
+        suppressOscTitle: true,
+      }).displayTitle,
+    ).toBe("Claude Code");
+    expect(appendNativeOscTitle("My Pane", "debugging auth", true)).toBe("My Pane");
+  });
+
+  it("drops the suffix when OSC is cleared", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "",
+      }).displayTitle,
+    ).toBe("Claude Code");
   });
 });

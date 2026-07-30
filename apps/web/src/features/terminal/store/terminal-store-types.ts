@@ -75,6 +75,8 @@ export interface TerminalStore {
   setTmuxWindowName: (workspaceId: string, paneId: string, tmuxWindowName: string, terminalTabId?: string) => void;
   markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
   setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string, terminalTabId?: string) => void;
+  /** Set/clear native OSC 0/2 title (display-only; `undefined` or empty clears). */
+  setOscTitle: (workspaceId: string, paneId: string, oscTitle: string | undefined, terminalTabId?: string) => void;
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent, terminalTabId?: string) => void;
 
   /** Set/clear a tab's custom display title. Empty (after normalize) clears the override. */
@@ -100,6 +102,7 @@ export interface TerminalStore {
   loadProjectWikiFromTmux: (workspaceId: string) => Promise<void>;
   getProjectWikiPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setProjectWikiDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+  setProjectWikiOscTitle: (workspaceId: string, paneId: string, oscTitle: string | undefined) => void;
   setProjectWikiPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markProjectWikiPaneAttached: (workspaceId: string, paneId: string) => void;
   toggleProjectWikiMaximize: (workspaceId: string, id: string) => void;
@@ -119,6 +122,7 @@ export interface TerminalStore {
   loadCodeReviewFromTmux: (workspaceId: string) => Promise<void>;
   getCodeReviewPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setCodeReviewDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+  setCodeReviewOscTitle: (workspaceId: string, paneId: string, oscTitle: string | undefined) => void;
   setCodeReviewPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markCodeReviewPaneAttached: (workspaceId: string, paneId: string) => void;
   toggleCodeReviewMaximize: (workspaceId: string, id: string) => void;

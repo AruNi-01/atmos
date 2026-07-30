@@ -150,7 +150,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     [workspaceId, id, terminalTabId],
   );
 
-  const { displayTitle, toolbarAgent, onTitleChange } = useTerminalToolbarTitle({
+  const { displayTitle, toolbarAgent, onTitleChange, onOscTitleChange } = useTerminalToolbarTitle({
     baseTitle: pane.label,
     configuredAgents,
     storeWrite,
@@ -466,6 +466,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
           onTitleChange={onTitleChange}
+          onOscTitleChange={onOscTitleChange}
           onAddSelectionAsContext={(snapshot) => {
             setActivePaneId(id);
             agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);

@@ -966,6 +966,30 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     // NOTE: Do NOT call saveToBackend — dynamicTitle is transient display-only
   },
 
+  setOscTitle: (workspaceId, paneId, oscTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const panes = get().workspacePanes[scopeKey];
+    if (!panes || !panes[paneId]) return;
+
+    // Callers should sanitize; keep empty/whitespace as cleared.
+    const next = oscTitle?.trim() ? oscTitle.trim() : undefined;
+    if (panes[paneId].oscTitle === next) return;
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [scopeKey]: {
+          ...panes,
+          [paneId]: {
+            ...panes[paneId],
+            oscTitle: next,
+          },
+        },
+      },
+    }));
+    // NOTE: Do NOT call saveToBackend — oscTitle is transient display-only (APP-047)
+  },
+
   setPaneAgent: (workspaceId, paneId, agent, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const panes = get().workspacePanes[scopeKey];

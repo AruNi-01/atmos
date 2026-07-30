@@ -6,7 +6,7 @@ import type { TerminalPaneProps } from "@/features/terminal/types/index";
 export const TERMINAL_LAYOUT_SCHEMA = "terminal-layout.v1";
 export const FIXED_TERMINAL_TAB_VALUE = "terminal";
 
-export type PersistedTerminalPane = Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">;
+export type PersistedTerminalPane = Omit<TerminalPaneProps, "sessionId" | "dynamicTitle" | "oscTitle">;
 
 export interface PersistedTerminalTabDocument {
   id: string;

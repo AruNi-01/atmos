@@ -79,6 +79,7 @@ type ScopedPaneWindowProps = {
   pendingRunsRef: React.MutableRefObject<Map<string, PendingTerminalRun>>;
   deliverPendingRunForPane: (paneId: string) => void;
   setDynamicTitle: (workspaceId: string, paneId: string, title: string) => void;
+  setOscTitle: (workspaceId: string, paneId: string, title: string | undefined) => void;
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markPaneAttached: (workspaceId: string, paneId: string) => void;
   surfaceActive?: boolean;
@@ -116,6 +117,7 @@ export function TerminalMosaicScopedPaneWindow({
   pendingRunsRef,
   deliverPendingRunForPane,
   setDynamicTitle,
+  setOscTitle,
   setPaneAgent,
   markPaneAttached,
   surfaceActive = true,
@@ -128,6 +130,8 @@ export function TerminalMosaicScopedPaneWindow({
     configuredAgents,
     agent: pane.agent,
     contestedOwners,
+    oscTitle: pane.oscTitle,
+    suppressOscTitle: !!pane.customLabel?.trim(),
   });
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
 
@@ -411,6 +415,9 @@ export function TerminalMosaicScopedPaneWindow({
             if (detectedAgent) {
               setPaneAgent(workspaceId, id, detectedAgent);
             }
+          }}
+          onOscTitleChange={(title) => {
+            setOscTitle(workspaceId, id, title);
           }}
           onSessionReady={() => {
             readyPanesRef.current.add(id);

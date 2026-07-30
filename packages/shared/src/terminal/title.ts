@@ -427,12 +427,63 @@ function resolveAgentForLabel<TAgent extends TerminalTitleAgent>(
   });
 }
 
+/** Practical cap for native OSC 0/2 titles in Atmos toolbars (APP-047). */
+export const MAX_NATIVE_OSC_TITLE_CHARS = 64;
+
+/**
+ * Normalize untrusted native OSC 0/2 title text into a single display line.
+ * Strips control characters, collapses whitespace, and caps length.
+ */
+export function sanitizeNativeOscTitle(title: string | undefined): string {
+  if (!title) return "";
+  let pendingSpace = false;
+  let out = "";
+  for (const ch of title) {
+    // Whitespace (including \t/\n) collapses to a single space.
+    if (/\s/u.test(ch)) {
+      if (out.length > 0) pendingSpace = true;
+      continue;
+    }
+    // Drop remaining C0/C1 controls and DEL so titles cannot break OSC framing.
+    if (ch <= "\u001f" || ch === "\u007f" || (ch >= "\u0080" && ch <= "\u009f")) {
+      continue;
+    }
+    if (pendingSpace) {
+      if (out.length + 1 >= MAX_NATIVE_OSC_TITLE_CHARS) break;
+      out += " ";
+      pendingSpace = false;
+    }
+    if (out.length >= MAX_NATIVE_OSC_TITLE_CHARS) break;
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Append a native OSC title after an Atmos auto/custom display title.
+ * Returns auto-only when `oscTitle` is empty or `suppress` is true.
+ */
+export function appendNativeOscTitle(
+  autoDisplayTitle: string | undefined,
+  oscTitle: string | undefined,
+  suppress = false,
+): string {
+  const base = autoDisplayTitle?.trim() ?? "";
+  if (suppress) return base;
+  const osc = sanitizeNativeOscTitle(oscTitle);
+  if (!osc) return base;
+  if (!base) return osc;
+  return `${base} | ${osc}`;
+}
+
 export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(options: {
   baseTitle: string | undefined;
   dynamicTitle: string | undefined;
   configuredAgents?: TAgent[];
   agent?: TAgent;
   contestedOwners?: ContestedOwnersMap;
+  oscTitle?: string;
+  suppressOscTitle?: boolean;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -443,11 +494,26 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   configuredAgents?: TAgent[];
   agent?: TAgent;
   contestedOwners?: ContestedOwnersMap;
+  /**
+   * Native OSC 0/2 title from the foreground process (Codex/Claude/…).
+   * Never used for agent detection — display suffix only (APP-047).
+   */
+  oscTitle?: string;
+  /** User set a custom pane label — hide OSC suffix. */
+  suppressOscTitle?: boolean;
 }): {
   displayTitle: string;
   toolbarAgent: TAgent | undefined;
 } {
-  const { baseTitle, dynamicTitle, configuredAgents = [], agent, contestedOwners } = options;
+  const {
+    baseTitle,
+    dynamicTitle,
+    configuredAgents = [],
+    agent,
+    contestedOwners,
+    oscTitle,
+    suppressOscTitle,
+  } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
   const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
     contestedOwners,
@@ -471,14 +537,16 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
+  const autoDisplayTitle =
+    toolbarAgent?.label ??
+    (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
+      ? baseTitle
+      : dynamicTitle) ??
+    baseTitle ??
+    "";
+
   return {
     toolbarAgent,
-    displayTitle:
-      toolbarAgent?.label ??
-      (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
-        ? baseTitle
-        : dynamicTitle) ??
-      baseTitle ??
-      "",
+    displayTitle: appendNativeOscTitle(autoDisplayTitle, oscTitle, suppressOscTitle === true),
   };
 }

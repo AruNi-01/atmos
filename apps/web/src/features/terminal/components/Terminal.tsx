@@ -62,6 +62,7 @@ import {
 import type { TerminalSelectionSnapshot } from "../types";
 import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { sanitizeNativeOscTitle } from "@atmos/shared/terminal";
 
 export interface TerminalRef {
   focus: () => void;
@@ -129,6 +130,7 @@ const Terminal = ({
   terminalScale,
   onInputWhileReadOnly,
   onTitleChange,
+  onOscTitleChange,
   onSelectionSnapshotChange,
   onAddSelectionAsContext,
   onStartSideChatForSelection,
@@ -149,9 +151,12 @@ const Terminal = ({
   // this over reading layout so hop does not force reflow for hidden xterms.
   const surfaceActiveRef = useRef(surfaceActive);
   surfaceActiveRef.current = surfaceActive;
-  // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
+  // Keep title callbacks in sync to avoid stale closures in OSC handlers
   const onTitleChangeRef = useRef(onTitleChange);
   useEffect(() => { onTitleChangeRef.current = onTitleChange; });
+  const onOscTitleChangeRef = useRef(onOscTitleChange);
+  useEffect(() => { onOscTitleChangeRef.current = onOscTitleChange; });
+  const lastOscTitleRef = useRef<string | undefined>(undefined);
   const onSelectionSnapshotChangeRef = useRef(onSelectionSnapshotChange);
   useEffect(() => { onSelectionSnapshotChangeRef.current = onSelectionSnapshotChange; });
   const sourceSessionIdRef = useRef(sessionId);
@@ -627,6 +632,7 @@ const Terminal = ({
     let cancelled = false;
     let linkProvider: { dispose: () => void } | null = null;
     let selectionChangeDisposable: { dispose: () => void } | null = null;
+    let titleChangeDisposable: { dispose: () => void } | null = null;
     let selectionAnchorCleanup: (() => void) | null = null;
     let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
     let connectRafId = 0;
@@ -786,6 +792,18 @@ const Terminal = ({
       };
     }
 
+    // Native OSC 0/2 titles from agent CLIs (Codex/Claude/…). xterm maps these
+    // to onTitleChange. Never feed this path into agent detection (APP-047).
+    const emitOscTitle = (raw: string | undefined) => {
+      const next = sanitizeNativeOscTitle(raw) || undefined;
+      if (next === lastOscTitleRef.current) return;
+      lastOscTitleRef.current = next;
+      onOscTitleChangeRef.current?.(next);
+    };
+    titleChangeDisposable = terminal.onTitleChange((raw) => {
+      emitOscTitle(raw);
+    });
+
     // Register OSC 9999 handler for dynamic tab title updates.
     // The shell shim emits: \033]9999;CMD_START:<command>\007
     //                    or: \033]9999;CMD_END:<cwd>\007
@@ -833,6 +851,8 @@ const Terminal = ({
           clearTimeout(cmdStartTimerRef.current);
           cmdStartTimerRef.current = null;
         }
+        // Shell idle: drop agent-native OSC suffix so panes don't keep stale topics.
+        emitOscTitle(undefined);
         const title = shortenPath(payload);
         if (title !== lastTitleRef.current) {
           lastTitleRef.current = title;
@@ -1076,6 +1096,7 @@ const Terminal = ({
       if (connectRafId) cancelAnimationFrame(connectRafId);
       selectionAnchorCleanup?.();
       selectionChangeDisposable?.dispose();
+      titleChangeDisposable?.dispose();
       setCurrentSelectionSnapshot(null);
       if (resizeRafIdRef.current) {
         cancelAnimationFrame(resizeRafIdRef.current);

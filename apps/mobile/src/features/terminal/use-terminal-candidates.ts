@@ -70,6 +70,7 @@ function sameTerminalEntries(left: MobileTerminalEntry[], right: MobileTerminalE
       entry.tmuxWindowName === next.tmuxWindowName &&
       entry.tmuxWindowIndex === next.tmuxWindowIndex &&
       entry.dynamicTitle === next.dynamicTitle &&
+      entry.oscTitle === next.oscTitle &&
       entry.isNew === next.isNew
     );
   });

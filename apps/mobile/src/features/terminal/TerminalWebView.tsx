@@ -30,9 +30,10 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   onRendererError?: (message: string) => void;
   onResize?: (size: { cols: number; rows: number }) => void;
   onTitleChange?: (title: string) => void;
+  onOscTitleChange?: (title: string | undefined) => void;
   sessionId: string;
 }>(function TerminalWebView(
-  { connected, onInput, onReady, onRendererError, onResize, onTitleChange, sessionId },
+  { connected, onInput, onReady, onRendererError, onResize, onTitleChange, onOscTitleChange, sessionId },
   ref,
 ) {
   const isIos = process.env.EXPO_OS === "ios";
@@ -154,6 +155,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
         onResize={async (cols, rows) => onResize?.({ cols, rows })}
         theme={terminalTheme}
         onTitleChange={async (nextTitle) => onTitleChange?.(nextTitle)}
+        onOscTitleChange={async (nextTitle) => onOscTitleChange?.(nextTitle)}
         dom={{
           contentInsetAdjustmentBehavior: "never",
           keyboardDisplayRequiresUserAction: true,

@@ -267,11 +267,11 @@ export function getWorkspacePaneFieldsByPaneId(
   workspaceId: string,
   paneId: string,
   terminalTabId: string = FIXED_TERMINAL_TAB_VALUE,
-): { dynamicTitle?: string; agent?: TerminalPaneAgent } {
+): { dynamicTitle?: string; oscTitle?: string; agent?: TerminalPaneAgent } {
   const scopeKey = getScopeKey(workspaceId, terminalTabId);
   const pane = state.workspacePanes[scopeKey]?.[paneId];
   if (!pane) return {};
-  return { dynamicTitle: pane.dynamicTitle, agent: pane.agent };
+  return { dynamicTitle: pane.dynamicTitle, oscTitle: pane.oscTitle, agent: pane.agent };
 }
 
 /** Read transient title + agent for a tmux-attached pane (same fields the mosaic uses). */
@@ -279,13 +279,13 @@ export function getWorkspacePaneLiveFieldsByTmuxWindow(
   state: TerminalLookupState,
   workspaceId: string,
   tmuxWindowName: string,
-): { dynamicTitle?: string; agent?: TerminalPaneAgent } {
+): { dynamicTitle?: string; oscTitle?: string; agent?: TerminalPaneAgent } {
   const hit = findWorkspacePaneIdsByTmuxWindowName(state, workspaceId, tmuxWindowName);
   if (!hit) return {};
   const scopeKey = getScopeKey(workspaceId, hit.terminalTabId);
   const pane = state.workspacePanes[scopeKey]?.[hit.paneId];
   if (!pane) return {};
-  return { dynamicTitle: pane.dynamicTitle, agent: pane.agent };
+  return { dynamicTitle: pane.dynamicTitle, oscTitle: pane.oscTitle, agent: pane.agent };
 }
 
 export function getAllDefaultPanesForWorkspace(
@@ -411,9 +411,10 @@ export function hydratePersistedTab(
       // API/tmux startup after app restart; treating unknown windows as "new"
       // forces create and can orphan a still-running TUI agent.
       isNewPane: liveByWindow ? false : windowName ? false : !windowExists,
-      // dynamicTitle is display-only and not written to layout persistence —
-      // keep the warm in-memory value across a hydrate rewrite.
+      // dynamicTitle / oscTitle are display-only and not written to layout
+      // persistence — keep warm in-memory values across a hydrate rewrite.
       dynamicTitle: liveByWindow?.dynamicTitle,
+      oscTitle: liveByWindow?.oscTitle,
       // Prefer live agent, then persisted agent.
       agent: liveByWindow?.agent ?? pane.agent,
       customLabel: liveByWindow?.customLabel ?? pane.customLabel,

@@ -61,8 +61,13 @@ export interface TerminalProps {
   readOnly?: boolean;
   /** Visual scale used when the terminal is rendered in a canvas overlay. */
   terminalScale?: number;
-  /** Called when the terminal's dynamic title changes (from shell shim OSC sequences) */
+  /** Called when the terminal's dynamic title changes (from shell shim OSC 9999 sequences) */
   onTitleChange?: (title: string) => void;
+  /**
+   * Native OSC 0/2 window title from the foreground process (Codex/Claude/…).
+   * Pass `undefined` to clear. Never used for agent detection (APP-047).
+   */
+  onOscTitleChange?: (title: string | undefined) => void;
   /**
    * When false, this terminal is off-screen (warm workspace / inactive tab).
    * Skip ResizeObserver + fit so hop does not thrash layout for hidden xterms.
@@ -129,6 +134,11 @@ export interface TerminalPaneProps {
    * This is transient and NOT persisted to backend — only used for tab display.
    */
   dynamicTitle?: string;
+  /**
+   * Native OSC 0/2 title from the foreground process (agent session topic).
+   * Transient display-only; never persisted; never used for agent detection (APP-047).
+   */
+  oscTitle?: string;
   /**
    * User custom display name. Highest-priority display source for the pane toolbar.
    * Empty/undefined means no override (fall back to auto title logic). Persisted.
