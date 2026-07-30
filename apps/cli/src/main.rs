@@ -6,6 +6,9 @@ use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
+use commands::orchestrator::{
+    execute as execute_orchestrator, OrchestratorCommand, OrchestratorOpts,
+};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::runtime::{execute as execute_runtime, RuntimeCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
@@ -46,6 +49,13 @@ enum Commands {
         #[command(subcommand)]
         command: CanvasCommand,
     },
+    /// Multi-step Loop/Graph Orchestrator runs (APP-048).
+    Orchestrator {
+        #[command(flatten)]
+        opts: OrchestratorOpts,
+        #[command(subcommand)]
+        command: OrchestratorCommand,
+    },
     /// Register this machine on the relay and run it as a remote Computer (APP-016).
     Computer {
         #[command(subcommand)]
@@ -73,6 +83,9 @@ async fn run() -> Result<(), String> {
         Commands::Runtime { command } => execute_runtime(command).await,
         Commands::Computer { command } => execute_computer(command).await,
         Commands::Canvas { canvas, command } => execute_canvas(cli.api, canvas, command).await,
+        Commands::Orchestrator { opts, command } => {
+            execute_orchestrator(cli.api, opts, command).await
+        }
         Commands::Update(args) => execute_update(args).await,
     }
     .map_err(|err| err.to_string())?;

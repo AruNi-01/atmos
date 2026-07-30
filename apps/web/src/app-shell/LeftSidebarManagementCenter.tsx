@@ -21,6 +21,7 @@ import {
   SquareKanban,
   SquareTerminal,
   Timer,
+  Workflow,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -108,6 +109,7 @@ export function LeftSidebarManagementCenter({
       { id: "terminals", labelKey: "managementCenter.items.terminals", icon: SquareTerminal, path: "/terminals" },
       { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
       { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
+      { id: "orchestrator", labelKey: "managementCenter.items.orchestrator", icon: Workflow, path: "/orchestrator" },
       { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
       { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
       { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, kind: "kanban" },

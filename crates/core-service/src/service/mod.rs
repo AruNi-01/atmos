@@ -12,6 +12,7 @@ pub mod llm_text_generation;
 pub mod local_services;
 pub mod message_push;
 pub mod notification;
+pub mod orchestrator;
 pub mod project;
 pub mod review;
 pub mod skill;

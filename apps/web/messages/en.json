@@ -1190,6 +1190,7 @@
           "terminals": "Terminals",
           "agents": "Agents",
           "automations": "Automations",
+          "orchestrator": "Orchestrator",
           "canvas": "Canvas",
           "kanban": "Kanban",
           "newWorkspace": "New Workspace",
@@ -1416,6 +1417,27 @@
     },
     "globalSearchItems": {
       "management": {}
+    }
+  },
+  "Orchestrator": {
+    "title": "Orchestrator",
+    "subtitle": "Loop & Graph runs with Judgment Specs",
+    "newRun": "New run",
+    "goalPlaceholder": "Describe the goal for this multi-step agent run…",
+    "create": "Create run",
+    "history": "Run history",
+    "loading": "Loading runs…",
+    "emptyTitle": "No orchestrator runs yet",
+    "emptyBody": "This is Orchestrator — multi-step Loop/Graph runs with evidence, not the free-form Canvas board. Open Canvas from Management Center if you need diagrams.",
+    "copyAgentInstructions": "Copy agent instructions",
+    "copiedSkill": "Copied skill path",
+    "cancel": "Cancel run",
+    "roleChromePreview": "Role chrome",
+    "selectedRun": "Selected run",
+    "mode": {
+      "loop": "Loop",
+      "graph": "Graph",
+      "auto": "Auto"
     }
   },
   "automation": {

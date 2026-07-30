@@ -1,0 +1,318 @@
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(OrchestratorRun::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(OrchestratorRun::Id)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(OrchestratorRun::CreatedAt).date_time().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::UpdatedAt).date_time().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::Goal).text().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::RequestedMode).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::Mode).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::ModeReason).text().null())
+                    .col(ColumnDef::new(OrchestratorRun::Status).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::StopReason).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::TargetKind).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::ProjectGuid).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::WorkspaceGuid).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::HomeCwd).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::BoardId).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::LockedSpecVersion).integer().null())
+                    .col(ColumnDef::new(OrchestratorRun::BudgetJson).text().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::GraphJson).text().null())
+                    .col(ColumnDef::new(OrchestratorRun::CarryFromRunId).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::ArtifactDir).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRun::MakerAgentId).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::PlannerAgentId).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::CriteriaAgentId).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::VerifyAgentId).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::StartedAt).date_time().null())
+                    .col(ColumnDef::new(OrchestratorRun::FinishedAt).date_time().null())
+                    .col(ColumnDef::new(OrchestratorRun::IterationsUsed).integer().not_null().default(0))
+                    .col(ColumnDef::new(OrchestratorRun::MakerInvocations).integer().not_null().default(0))
+                    .col(ColumnDef::new(OrchestratorRun::ProgressKey).string().null())
+                    .col(ColumnDef::new(OrchestratorRun::ProgressStreak).integer().not_null().default(0))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_orchestrator_run_status")
+                    .table(OrchestratorRun::Table)
+                    .col(OrchestratorRun::Status)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(OrchestratorJudgmentSpec::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(OrchestratorJudgmentSpec::Id)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::RunId).string().not_null())
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::Version).integer().not_null())
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::RiskTier).string().not_null())
+                    .col(
+                        ColumnDef::new(OrchestratorJudgmentSpec::RequiresUserConfirm)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::ConfirmedAt).date_time().null())
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::ConfirmedBy).string().null())
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::BodyPath).string().not_null())
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::BodyJson).text().not_null())
+                    .col(ColumnDef::new(OrchestratorJudgmentSpec::CreatedAt).date_time().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_orchestrator_spec_run_version")
+                    .table(OrchestratorJudgmentSpec::Table)
+                    .col(OrchestratorJudgmentSpec::RunId)
+                    .col(OrchestratorJudgmentSpec::Version)
+                    .unique()
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(OrchestratorVerdict::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(OrchestratorVerdict::Id)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(OrchestratorVerdict::RunId).string().not_null())
+                    .col(ColumnDef::new(OrchestratorVerdict::SpecVersion).integer().not_null())
+                    .col(ColumnDef::new(OrchestratorVerdict::Iteration).integer().null())
+                    .col(ColumnDef::new(OrchestratorVerdict::NodeId).string().null())
+                    .col(ColumnDef::new(OrchestratorVerdict::Result).string().not_null())
+                    .col(ColumnDef::new(OrchestratorVerdict::Summary).text().not_null())
+                    .col(ColumnDef::new(OrchestratorVerdict::CriterionResultsJson).text().not_null())
+                    .col(ColumnDef::new(OrchestratorVerdict::CreatedAt).date_time().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(OrchestratorEvidence::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(OrchestratorEvidence::Id)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(OrchestratorEvidence::RunId).string().not_null())
+                    .col(ColumnDef::new(OrchestratorEvidence::VerdictId).string().null())
+                    .col(ColumnDef::new(OrchestratorEvidence::Kind).string().not_null())
+                    .col(ColumnDef::new(OrchestratorEvidence::Path).string().not_null())
+                    .col(ColumnDef::new(OrchestratorEvidence::MetaJson).text().null())
+                    .col(ColumnDef::new(OrchestratorEvidence::CreatedAt).date_time().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(OrchestratorRunWorkspace::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(OrchestratorRunWorkspace::Id)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::RunId).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::WorkspaceGuid).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::Kind).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::Purpose).string().null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::Status).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::Path).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::BaseRef).string().null())
+                    .col(ColumnDef::new(OrchestratorRunWorkspace::CreatedAt).date_time().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(OrchestratorRoleBinding::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(OrchestratorRoleBinding::Id)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(OrchestratorRoleBinding::RunId).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRoleBinding::Role).string().null())
+                    .col(ColumnDef::new(OrchestratorRoleBinding::NodeId).string().null())
+                    .col(ColumnDef::new(OrchestratorRoleBinding::WorkspaceGuid).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRoleBinding::Cwd).string().not_null())
+                    .col(ColumnDef::new(OrchestratorRoleBinding::UpdatedAt).date_time().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(OrchestratorRoleBinding::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(OrchestratorRunWorkspace::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(OrchestratorEvidence::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(OrchestratorVerdict::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(OrchestratorJudgmentSpec::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(OrchestratorRun::Table).to_owned())
+            .await?;
+        Ok(())
+    }
+}
+
+#[derive(Iden)]
+enum OrchestratorRun {
+    Table,
+    Id,
+    CreatedAt,
+    UpdatedAt,
+    Goal,
+    RequestedMode,
+    Mode,
+    ModeReason,
+    Status,
+    StopReason,
+    TargetKind,
+    ProjectGuid,
+    WorkspaceGuid,
+    HomeCwd,
+    BoardId,
+    LockedSpecVersion,
+    BudgetJson,
+    GraphJson,
+    CarryFromRunId,
+    ArtifactDir,
+    MakerAgentId,
+    PlannerAgentId,
+    CriteriaAgentId,
+    VerifyAgentId,
+    StartedAt,
+    FinishedAt,
+    IterationsUsed,
+    MakerInvocations,
+    ProgressKey,
+    ProgressStreak,
+}
+
+#[derive(Iden)]
+enum OrchestratorJudgmentSpec {
+    Table,
+    Id,
+    RunId,
+    Version,
+    RiskTier,
+    RequiresUserConfirm,
+    ConfirmedAt,
+    ConfirmedBy,
+    BodyPath,
+    BodyJson,
+    CreatedAt,
+}
+
+#[derive(Iden)]
+enum OrchestratorVerdict {
+    Table,
+    Id,
+    RunId,
+    SpecVersion,
+    Iteration,
+    NodeId,
+    Result,
+    Summary,
+    CriterionResultsJson,
+    CreatedAt,
+}
+
+#[derive(Iden)]
+enum OrchestratorEvidence {
+    Table,
+    Id,
+    RunId,
+    VerdictId,
+    Kind,
+    Path,
+    MetaJson,
+    CreatedAt,
+}
+
+#[derive(Iden)]
+enum OrchestratorRunWorkspace {
+    Table,
+    Id,
+    RunId,
+    WorkspaceGuid,
+    Kind,
+    Purpose,
+    Status,
+    Path,
+    BaseRef,
+    CreatedAt,
+}
+
+#[derive(Iden)]
+enum OrchestratorRoleBinding {
+    Table,
+    Id,
+    RunId,
+    Role,
+    NodeId,
+    WorkspaceGuid,
+    Cwd,
+    UpdatedAt,
+}

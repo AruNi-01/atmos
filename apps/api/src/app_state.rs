@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::api::ws::{WsMessageService, WsService};
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, AutomationService, CanvasAgentRelay,
-    CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
-    TerminalService, TestService, WorkspaceService,
+    CanvasDocumentService, MessagePushService, NotificationService, OrchestratorService,
+    ProjectService, ReviewService, TerminalService, TestService, WorkspaceService,
 };
 use token_usage::TokenUsageService;
 
@@ -18,6 +18,7 @@ pub struct AppServices {
     pub agent_service: Arc<AgentService>,
     pub agent_session_service: Arc<AgentSessionService>,
     pub automation_service: Arc<AutomationService>,
+    pub orchestrator_service: Arc<OrchestratorService>,
     pub ws_message_service: Arc<WsMessageService>,
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
@@ -36,6 +37,7 @@ pub struct AppState {
     pub agent_service: Arc<AgentService>,
     pub agent_session_service: Arc<AgentSessionService>,
     pub automation_service: Arc<AutomationService>,
+    pub orchestrator_service: Arc<OrchestratorService>,
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
     pub token_usage_service: Arc<TokenUsageService>,
@@ -58,6 +60,7 @@ impl Clone for AppState {
             agent_service: Arc::clone(&self.agent_service),
             agent_session_service: Arc::clone(&self.agent_session_service),
             automation_service: Arc::clone(&self.automation_service),
+            orchestrator_service: Arc::clone(&self.orchestrator_service),
             message_push_service: Arc::clone(&self.message_push_service),
             terminal_service: Arc::clone(&self.terminal_service),
             token_usage_service: Arc::clone(&self.token_usage_service),
@@ -84,6 +87,7 @@ impl AppState {
             agent_service: services.agent_service,
             agent_session_service: services.agent_session_service,
             automation_service: services.automation_service,
+            orchestrator_service: services.orchestrator_service,
             message_push_service: services.message_push_service,
             terminal_service: services.terminal_service,
             token_usage_service: services.token_usage_service,

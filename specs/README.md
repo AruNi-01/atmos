@@ -125,6 +125,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-045** | Desktop Electron Dual Shell (Tauri + Electron parallel) | `specs/APP/APP-045_desktop-electron-dual-shell/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-046** | Terminal TUI Mouse Tracking (hover + reattach restore) | `specs/APP/APP-046_terminal-tui-mouse-tracking/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-047** | Terminal Native OSC Title (agent OSC 0/2 suffix) | `specs/APP/APP-047_terminal-native-osc-title/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-048** | Orchestrator (Loop/Graph; Spec+Runtime; Terminal roles; post-review hardened) | `specs/APP/APP-048_loop-graph-agent-orchestration/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

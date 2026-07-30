@@ -1190,6 +1190,7 @@
           "terminals": "终端",
           "agents": "Agent",
           "automations": "自动化",
+          "orchestrator": "编排器",
           "canvas": "画布",
           "kanban": "看板",
           "newWorkspace": "新建工作区",
@@ -1416,6 +1417,27 @@
     },
     "globalSearchItems": {
       "management": {}
+    }
+  },
+  "Orchestrator": {
+    "title": "编排器",
+    "subtitle": "带判定标准的 Loop / Graph 多步运行",
+    "newRun": "新建运行",
+    "goalPlaceholder": "描述这次多步 Agent 运行的目标…",
+    "create": "创建运行",
+    "history": "运行历史",
+    "loading": "正在加载…",
+    "emptyTitle": "还没有编排运行",
+    "emptyBody": "这里是 Orchestrator（多步 Loop/Graph + 证据），不是自由画布。需要画图请从管理中心打开 Canvas。",
+    "copyAgentInstructions": "复制 Agent 说明",
+    "copiedSkill": "已复制技能路径",
+    "cancel": "取消运行",
+    "roleChromePreview": "角色标识预览",
+    "selectedRun": "当前选中",
+    "mode": {
+      "loop": "循环",
+      "graph": "图",
+      "auto": "自动"
     }
   },
   "automation": {

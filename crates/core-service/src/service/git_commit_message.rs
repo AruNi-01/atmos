@@ -506,6 +506,7 @@ mod tests {
                 additions: 1,
                 deletions: 0,
                 staged: false,
+                is_binary: false,
             })
             .collect::<Vec<_>>();
 
@@ -524,6 +525,7 @@ mod tests {
                 additions: 5,
                 deletions: 2,
                 staged: false,
+                is_binary: false,
             })
             .collect::<Vec<_>>();
 

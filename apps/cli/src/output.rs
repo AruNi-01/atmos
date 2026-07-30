@@ -53,7 +53,9 @@ impl CommandKind {
             } else {
                 UpdateVerb::Install
             }),
-            Commands::Canvas { .. } | Commands::Review { .. } => Self::Json,
+            Commands::Canvas { .. }
+            | Commands::Review { .. }
+            | Commands::Orchestrator { .. } => Self::Json,
         }
     }
 

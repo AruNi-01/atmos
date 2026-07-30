@@ -401,6 +401,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&terminal_service),
         Arc::clone(&notification_service),
     ));
+    let orchestrator_service = Arc::new(core_service::OrchestratorService::new());
 
     let agent_session_service = Arc::new(AgentSessionService::new(Arc::clone(&agent_service)));
 
@@ -457,6 +458,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_service,
             agent_session_service,
             automation_service: Arc::clone(&automation_service),
+            orchestrator_service: Arc::clone(&orchestrator_service),
             ws_message_service: ws_message_service.clone(),
             message_push_service,
             terminal_service,
