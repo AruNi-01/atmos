@@ -75,14 +75,6 @@ pub fn orchestrator_root() -> PathBuf {
     home.join(".atmos").join("orchestrator")
 }
 
-pub fn board_dir() -> PathBuf {
-    orchestrator_root().join("boards")
-}
-
-pub fn runs_dir() -> PathBuf {
-    orchestrator_root().join("runs")
-}
-
 pub fn assert_not_canvas_path(path: &Path) -> Result<()> {
     let s = path.to_string_lossy();
     if s.contains("/.atmos/canvas/") || s.contains("\\.atmos\\canvas\\") {

@@ -11,7 +11,7 @@ use core_engine::tmux::control::{
     encode_refresh_client_report_command, encode_send_keys_hex_commands, parse_control_line_bytes,
     ControlModeEvent, TmuxPassthroughUnwrapper,
 };
-use core_engine::{MouseModeState, TmuxEngine};
+use core_engine::TmuxEngine;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
@@ -223,7 +223,7 @@ pub(super) fn run_control_mode_tmux_session(
             .get_pane_mouse_tracking_by_id(&reader_pane_id)
             .ok()
             .flatten()
-            .unwrap_or_else(MouseModeState::default);
+            .unwrap_or_default();
 
         // Suppress %output bytes that flow during the tmux control client's
         // initial attach/resize/refresh cycle. Those bytes are tmux replaying

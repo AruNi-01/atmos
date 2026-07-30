@@ -135,6 +135,7 @@ mod tests {
         assert_eq!(account_for("Brave"), "Brave");
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn process_cache_returns_stored_value_without_reentry() {
         let service = "__atmos_test_keychain_cache__";
@@ -142,11 +143,8 @@ mod tests {
             let mut guard = passphrase_cache().lock().expect("cache lock");
             guard.insert(service.to_string(), "cached-pass".to_string());
         }
-        #[cfg(target_os = "macos")]
-        {
-            let got = safe_storage_passphrase(service).expect("cached hit");
-            assert_eq!(got, "cached-pass");
-        }
+        let got = safe_storage_passphrase(service).expect("cached hit");
+        assert_eq!(got, "cached-pass");
         if let Ok(mut guard) = passphrase_cache().lock() {
             guard.remove(service);
         }

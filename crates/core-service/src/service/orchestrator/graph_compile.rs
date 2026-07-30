@@ -162,11 +162,7 @@ fn has_cycle_without_max(nodes: &[GraphNode], edges: &[GraphEdge]) -> bool {
             for (v, allows_cycle) in nexts {
                 match color.get(v).copied().unwrap_or(Color::White) {
                     Color::Gray if !*allows_cycle => return true,
-                    Color::White => {
-                        if dfs(v, color, adj) {
-                            return true;
-                        }
-                    }
+                    Color::White if dfs(v, color, adj) => return true,
                     _ => {}
                 }
             }
@@ -177,10 +173,8 @@ fn has_cycle_without_max(nodes: &[GraphNode], edges: &[GraphEdge]) -> bool {
 
     let id_list: Vec<&str> = ids.iter().copied().collect();
     for id in id_list {
-        if matches!(color.get(id), Some(Color::White)) {
-            if dfs(id, &mut color, &adj) {
-                return true;
-            }
+        if matches!(color.get(id), Some(Color::White)) && dfs(id, &mut color, &adj) {
+            return true;
         }
     }
     false

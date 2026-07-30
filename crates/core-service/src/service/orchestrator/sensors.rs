@@ -155,6 +155,9 @@ pub fn immutable_paths_from_spec(criteria: &[Criterion]) -> Vec<String> {
     paths
 }
 
+/// Compare protected path mtimes against a pre-maker snapshot.
+/// Kept for sensor-integrity wiring on the maker/verify path (call sites TBD).
+#[allow(dead_code)]
 pub fn check_immutable_not_modified(
     protected: &[String],
     home: &Path,
@@ -215,5 +218,25 @@ mod tests {
         };
         let (pass, _, _) = run_sensor(&spec, dir.path()).unwrap();
         assert!(!pass);
+    }
+
+    #[test]
+    fn immutable_check_detects_mtime_increase() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("protected.txt");
+        std::fs::write(&file, b"v1").unwrap();
+        let mtime = std::fs::metadata(&file)
+            .unwrap()
+            .modified()
+            .unwrap()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        // Seed with a strictly older baseline so the current mtime fails.
+        let before =
+            std::collections::HashMap::from([("protected.txt".into(), mtime.saturating_sub(2))]);
+        let err = check_immutable_not_modified(&["protected.txt".into()], dir.path(), &before)
+            .expect_err("current mtime should exceed baseline");
+        assert!(err.contains("protected path modified"));
     }
 }
