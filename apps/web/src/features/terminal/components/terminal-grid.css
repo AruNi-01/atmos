@@ -272,8 +272,10 @@
 
 .terminal-title-marquee-text.is-overflowing {
   padding-right: 1.5rem;
+  /* animation starts at 0% = translateX(0); remount on text change restarts it */
   animation: terminal-title-marquee-scroll var(--marquee-duration, 10s) linear infinite;
   animation-delay: 0.8s;
+  animation-fill-mode: both;
   will-change: transform;
 }
 

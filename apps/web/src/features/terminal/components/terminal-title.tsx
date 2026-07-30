@@ -33,6 +33,14 @@ export function TerminalTitleMarquee({
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLSpanElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
+  // Bump on every text change so the animating node remounts at translateX(0)
+  // instead of continuing mid-scroll from the previous title.
+  const [animKey, setAnimKey] = useState(0);
+
+  useEffect(() => {
+    setOverflowPx(0);
+    setAnimKey((k) => k + 1);
+  }, [text]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -40,11 +48,15 @@ export function TerminalTitleMarquee({
     if (!container || !content) return;
 
     const measure = () => {
+      // Force start position before measuring (in case animation already advanced).
+      content.style.transform = "translateX(0)";
       const overflow = Math.max(0, content.scrollWidth - container.clientWidth);
       setOverflowPx(overflow);
       container.style.setProperty("--marquee-distance", `${overflow}px`);
       const durationSec = overflow > 0 ? Math.min(28, Math.max(6, overflow / 40)) : 0;
       container.style.setProperty("--marquee-duration", `${durationSec}s`);
+      // Clear inline transform so CSS animation owns it again.
+      content.style.transform = "";
     };
 
     measure();
@@ -56,7 +68,7 @@ export function TerminalTitleMarquee({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [text]);
+  }, [text, animKey]);
 
   return (
     <div
@@ -65,6 +77,7 @@ export function TerminalTitleMarquee({
       title={text}
     >
       <span
+        key={`${animKey}:${text}`}
         ref={contentRef}
         className={cn(
           "terminal-title-marquee-text",
