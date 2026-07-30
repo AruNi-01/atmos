@@ -245,6 +245,12 @@ export function useTerminalWebSocket({
               }
               break;
             case "terminal_error":
+              // Fatal for this connection: attach/create already exhausted
+              // server-side retries. Do not auto-reconnect — onopen resets the
+              // reconnect counter, so reconnecting would loop forever and wipe
+              // the error UI. User can Retry manually.
+              reconnectCountRef.current = reconnectAttempts;
+              clearReconnectTimeout();
               onError?.(message.error);
               break;
           }
@@ -299,6 +305,7 @@ export function useTerminalWebSocket({
     workspaceId,
     reconnectAttempts,
     reconnectDelay,
+    clearReconnectTimeout,
     disconnect,
   ]);
 

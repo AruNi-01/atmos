@@ -32,6 +32,8 @@ interface TerminalChromeProps {
   workspaceId: string;
   errorMessage?: string | null;
   onRetry?: () => void;
+  /** Create a fresh terminal instead of re-attaching the missing window. */
+  onCreateNew?: () => void;
 }
 
 export function TerminalChrome({
@@ -60,6 +62,7 @@ export function TerminalChrome({
   workspaceId,
   errorMessage,
   onRetry,
+  onCreateNew,
 }: TerminalChromeProps) {
   const normalizedTerminalScale =
     Number.isFinite(terminalScale) && terminalScale > 0 ? terminalScale : 1;
@@ -171,15 +174,36 @@ export function TerminalChrome({
           >
             {errorMessage || "Failed to restore terminal session"}
           </span>
-          {onRetry && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onRetry}
+          {(onCreateNew || onRetry) && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
             >
-              Retry
-            </Button>
+              {onCreateNew && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  onClick={onCreateNew}
+                >
+                  New
+                </Button>
+              )}
+              {onRetry && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onRetry}
+                >
+                  Retry
+                </Button>
+              )}
+            </div>
           )}
         </div>
       )}

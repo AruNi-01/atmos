@@ -101,6 +101,45 @@ describe("TerminalWsClient", () => {
     expect(client.isOpen()).toBe(false);
   });
 
+  test("does not reconnect after terminal_error (attach exhausted)", () => {
+    const timers: TimerCall[] = [];
+    FakeTerminalWebSocket.instances = [];
+    const errors: string[] = [];
+    const states: TerminalWsState[] = [];
+
+    const client = new TerminalWsClient("wss://relay.example/ws/terminal", {
+      WebSocketCtor: FakeTerminalWebSocket,
+      clearTimeout: () => {},
+      reconnectInitialDelayMs: 100,
+      reconnectMaxDelayMs: 1_000,
+      setTimeout: (callback, delayMs) => {
+        timers.push({ callback, delayMs });
+        return timers.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    client.onState((state) => states.push(state));
+    client.onError((error) => errors.push(error));
+
+    client.connect();
+    FakeTerminalWebSocket.instances[0]!.open();
+    FakeTerminalWebSocket.instances[0]!.onmessage?.({
+      data: JSON.stringify({
+        type: "terminal_error",
+        session_id: "session",
+        error: "Failed to attach existing terminal session after 3 attempts: not found",
+      }),
+    });
+    FakeTerminalWebSocket.instances[0]!.closeFromServer();
+
+    expect(errors).toContain(
+      "Failed to attach existing terminal session after 3 attempts: not found",
+    );
+    expect(states).toContain("error");
+    expect(timers).toHaveLength(0);
+    expect(FakeTerminalWebSocket.instances).toHaveLength(1);
+  });
+
   test("does not queue input while reconnecting", () => {
     const timers: TimerCall[] = [];
     FakeTerminalWebSocket.instances = [];

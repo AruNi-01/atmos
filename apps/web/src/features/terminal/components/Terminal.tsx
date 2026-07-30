@@ -336,7 +336,9 @@ const Terminal = ({
   const handleDisconnected = useCallback(() => {
     // Grace clear so warm remount within ~2s does not flash Connecting overlay.
     scheduleTerminalSessionDead(sessionId);
-    setStatus("disconnected");
+    // Keep attach/create error UI after the socket closes — otherwise a brief
+    // "error" flash is replaced by a generic Disconnected badge and Retry is lost.
+    setStatus((prev) => (prev === "error" ? prev : "disconnected"));
     resetInputReady();
     onSessionClose?.(sessionId);
   }, [resetInputReady, sessionId, onSessionClose]);
@@ -413,6 +415,45 @@ const Terminal = ({
     // Fresh connect after a failed attach; backend already retried a few times.
     connect();
   }, [connect, disconnect]);
+
+  const handleCreateNew = useCallback(() => {
+    setAttachError(null);
+    setStatus("connecting");
+    disconnect();
+    // Create a new tmux window instead of re-attaching the missing one so the
+    // user is not stuck when the stored window no longer exists.
+    const createUrl = buildTerminalWsUrl({
+      cwd,
+      isNewPane: true,
+      noTmux,
+      projectName,
+      sessionId,
+      sideChatId,
+      sourcePaneId,
+      sourceTmuxWindowName,
+      terminalKind,
+      terminalName: terminalName || tmuxWindowName,
+      tmuxWindowName,
+      workspaceId,
+      workspaceName,
+    });
+    connect(createUrl);
+  }, [
+    connect,
+    cwd,
+    disconnect,
+    noTmux,
+    projectName,
+    sessionId,
+    sideChatId,
+    sourcePaneId,
+    sourceTmuxWindowName,
+    terminalKind,
+    terminalName,
+    tmuxWindowName,
+    workspaceId,
+    workspaceName,
+  ]);
 
   // Keep refs in sync (breaks circular dependencies with handleConnected)
   useEffect(() => {
@@ -1193,6 +1234,7 @@ const Terminal = ({
       uiStatus={uiStatus}
       workspaceId={workspaceId}
       errorMessage={attachError}
+      onCreateNew={status === "error" ? handleCreateNew : undefined}
       onRetry={status === "error" ? handleRetryAttach : undefined}
       selectionToolbar={
         onAddSelectionAsContext ? (

@@ -91,6 +91,15 @@ export class TerminalWsClient {
     this.socket.onmessage = (event) => {
       try {
         const message = JSON.parse(String(event.data)) as TerminalServerMessage;
+        // Attach/create failures are terminal for this connection: server already
+        // exhausted retries and will close the socket. Auto-reconnect would loop
+        // forever because onopen resets reconnectAttempt.
+        if (message.type === "terminal_error") {
+          this.shouldReconnect = false;
+          this.clearReconnectTimer();
+          this.setState("error");
+          this.errorListeners.forEach((listener) => listener(message.error));
+        }
         this.listeners.forEach((listener) => listener(message));
       } catch {
         this.errorListeners.forEach((listener) => listener("Invalid terminal message"));
