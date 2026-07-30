@@ -153,9 +153,8 @@ pub async fn serve_git_blob(Query(query): Query<ServeGitBlobQuery>) -> Result<Re
     let rev = query.rev.trim();
     let (show_spec, display_path) = if rev.starts_with(':') {
         // Index / stage form: `:path` or `:N:path` — validate the path portion.
-        parse_index_show_spec(rev).ok_or_else(|| {
-            (StatusCode::BAD_REQUEST, "Invalid index blob rev").into_response()
-        })?
+        parse_index_show_spec(rev)
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, "Invalid index blob rev").into_response())?
     } else {
         if !is_safe_git_rev(rev) {
             return Err((StatusCode::BAD_REQUEST, "Invalid rev").into_response());

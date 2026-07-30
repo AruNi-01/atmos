@@ -44,7 +44,11 @@ pub fn run_sensor(spec: &SensorSpec, default_cwd: &Path) -> Result<(bool, String
                 if start.elapsed() >= timeout {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Ok((false, format!("sensor timeout after {}ms", spec.timeout_ms), -1));
+                    return Ok((
+                        false,
+                        format!("sensor timeout after {}ms", spec.timeout_ms),
+                        -1,
+                    ));
                 }
                 std::thread::sleep(Duration::from_millis(20));
             }
@@ -174,9 +178,7 @@ pub fn check_immutable_not_modified(
             .unwrap_or(0);
         if let Some(prev) = before.get(rel) {
             if mtime > *prev {
-                return Err(format!(
-                    "sensor integrity: protected path modified: {rel}"
-                ));
+                return Err(format!("sensor integrity: protected path modified: {rel}"));
             }
         }
     }

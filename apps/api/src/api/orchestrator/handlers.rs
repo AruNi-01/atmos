@@ -202,9 +202,7 @@ pub async fn spec_get(
     Path(id): Path<String>,
     Query(q): Query<SpecQuery>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let spec = orch(&state)
-        .get_spec(&id, q.version)
-        .map_err(map_err)?;
+    let spec = orch(&state).get_spec(&id, q.version).map_err(map_err)?;
     Ok(Json(ApiResponse::success(
         serde_json::to_value(spec).unwrap_or_default(),
     )))
@@ -219,7 +217,9 @@ pub async fn spec_update(
     let (run, version) = orch(&state)
         .draft_spec_from_body(&id, body)
         .map_err(map_err)?;
-    Ok(Json(ApiResponse::success(json!({ "run": run, "version": version }))))
+    Ok(Json(ApiResponse::success(
+        json!({ "run": run, "version": version }),
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -321,11 +321,7 @@ pub async fn workspace_get(
     Path(id): Path<String>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let run = orch(&state).load_run(&id).map_err(map_err)?;
-    let home = run
-        .workspaces
-        .iter()
-        .find(|w| w.kind == "home")
-        .cloned();
+    let home = run.workspaces.iter().find(|w| w.kind == "home").cloned();
     Ok(Json(ApiResponse::success(json!({
         "home": home,
         "active_bindings": run.role_bindings,
@@ -391,9 +387,7 @@ pub async fn workspace_merge(
     State(state): State<AppState>,
     Path((id, ws)): Path<(String, String)>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let run = orch(&state)
-        .workspace_merge(&id, &ws)
-        .map_err(map_err)?;
+    let run = orch(&state).workspace_merge(&id, &ws).map_err(map_err)?;
     Ok(Json(ApiResponse::success(
         serde_json::to_value(run).unwrap_or_default(),
     )))
@@ -403,9 +397,7 @@ pub async fn workspace_abandon(
     State(state): State<AppState>,
     Path((id, ws)): Path<(String, String)>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let run = orch(&state)
-        .workspace_abandon(&id, &ws)
-        .map_err(map_err)?;
+    let run = orch(&state).workspace_abandon(&id, &ws).map_err(map_err)?;
     Ok(Json(ApiResponse::success(
         serde_json::to_value(run).unwrap_or_default(),
     )))

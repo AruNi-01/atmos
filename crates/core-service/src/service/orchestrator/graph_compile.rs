@@ -21,9 +21,7 @@ pub fn compile_graph(graph: &CompiledGraph) -> Result<CompiledGraph, CompileErro
         return Err(CompileError("graph has no nodes".into()));
     }
     if graph.nodes.len() > MAX_NODES {
-        return Err(CompileError(format!(
-            "too many nodes (max {MAX_NODES})"
-        )));
+        return Err(CompileError(format!("too many nodes (max {MAX_NODES})")));
     }
 
     let ids: HashSet<_> = graph.nodes.iter().map(|n| n.id.as_str()).collect();
@@ -36,10 +34,7 @@ pub fn compile_graph(graph: &CompiledGraph) -> Result<CompiledGraph, CompileErro
             return Err(CompileError(format!("edge {} invalid kind", e.id)));
         }
         if !ids.contains(e.from.as_str()) || !ids.contains(e.to.as_str()) {
-            return Err(CompileError(format!(
-                "edge {} unbound endpoints",
-                e.id
-            )));
+            return Err(CompileError(format!("edge {} unbound endpoints", e.id)));
         }
     }
 
@@ -122,10 +117,7 @@ pub fn compile_graph(graph: &CompiledGraph) -> Result<CompiledGraph, CompileErro
     }
     for n in &graph.nodes {
         if !seen.contains(n.id.as_str()) {
-            return Err(CompileError(format!(
-                "unreachable node {}",
-                n.id
-            )));
+            return Err(CompileError(format!("unreachable node {}", n.id)));
         }
     }
 
@@ -229,10 +221,7 @@ pub fn join_ready(
                 return Err(format!("join incomplete: predecessor {p} still running"));
             }
             NodeTerminal::Failed | NodeTerminal::Cancelled | NodeTerminal::TimedOut => {
-                return Err(format!(
-                    "join fail-closed: predecessor {p} ended {:?}",
-                    st
-                ));
+                return Err(format!("join fail-closed: predecessor {p} ended {:?}", st));
             }
             NodeTerminal::Succeeded | NodeTerminal::Skipped => {
                 observed += 1;

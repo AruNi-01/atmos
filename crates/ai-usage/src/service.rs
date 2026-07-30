@@ -233,9 +233,8 @@ impl UsageService {
         };
 
         for provider in &mut overview.providers {
-            if let Some((_, switch_enabled, footer_carousel_show)) = full_prefs
-                .iter()
-                .find(|(id, _, _)| id == &provider.id)
+            if let Some((_, switch_enabled, footer_carousel_show)) =
+                full_prefs.iter().find(|(id, _, _)| id == &provider.id)
             {
                 provider.switch_enabled = *switch_enabled;
                 provider.footer_carousel_show = *footer_carousel_show;

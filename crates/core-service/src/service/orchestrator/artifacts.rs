@@ -17,9 +17,8 @@ pub fn ensure_run_layout(artifact_dir: &Path) -> Result<()> {
         "nodes",
         "workspaces",
     ] {
-        fs::create_dir_all(artifact_dir.join(sub)).map_err(|e| {
-            ServiceError::Processing(format!("create artifact dir {sub}: {e}"))
-        })?;
+        fs::create_dir_all(artifact_dir.join(sub))
+            .map_err(|e| ServiceError::Processing(format!("create artifact dir {sub}: {e}")))?;
     }
     Ok(())
 }
@@ -41,8 +40,8 @@ pub fn write_json_atomic(path: &Path, value: &impl Serialize) -> Result<()> {
 }
 
 pub fn read_json_file<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    let data =
-        fs::read(path).map_err(|e| ServiceError::Processing(format!("read {}: {e}", path.display())))?;
+    let data = fs::read(path)
+        .map_err(|e| ServiceError::Processing(format!("read {}: {e}", path.display())))?;
     serde_json::from_slice(&data)
         .map_err(|e| ServiceError::Processing(format!("parse {}: {e}", path.display())))
 }

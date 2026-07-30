@@ -280,11 +280,7 @@ pub struct JudgmentSpecBody {
 }
 
 fn default_judgment_order() -> Vec<String> {
-    vec![
-        "sensor".into(),
-        "llm_judge".into(),
-        "human".into(),
-    ]
+    vec!["sensor".into(), "llm_judge".into(), "human".into()]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

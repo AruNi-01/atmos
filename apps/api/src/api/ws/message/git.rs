@@ -225,10 +225,15 @@ pub enum DiffPreviewKind {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum GitBlobLocator {
-    Worktree { path: String },
+    Worktree {
+        path: String,
+    },
     /// `rev` is a git revision (`HEAD`, `abc123`, `origin/main`) or an index
     /// show-spec (`:path`) when the side is the index.
-    Git { rev: String, path: String },
+    Git {
+        rev: String,
+        path: String,
+    },
 }
 
 /// 获取单个文件 diff 响应

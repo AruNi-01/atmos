@@ -380,7 +380,10 @@ mod tests {
         let encoded = state.encode_persist();
         assert_eq!(encoded, "any+sgr+focus");
         assert_eq!(MouseModeState::decode_persist(&encoded), Some(state));
-        assert_eq!(MouseModeState::decode_persist("none"), Some(MouseModeState::default()));
+        assert_eq!(
+            MouseModeState::decode_persist("none"),
+            Some(MouseModeState::default())
+        );
         assert_eq!(MouseModeState::decode_persist(""), None);
         assert_eq!(MouseModeState::decode_persist("bogus"), None);
     }

@@ -294,8 +294,8 @@ impl OrchestratorService {
             return Ok(vec![]);
         }
         let mut runs = Vec::new();
-        for entry in fs::read_dir(&dir)
-            .map_err(|e| ServiceError::Processing(format!("read runs: {e}")))?
+        for entry in
+            fs::read_dir(&dir).map_err(|e| ServiceError::Processing(format!("read runs: {e}")))?
         {
             let entry = entry.map_err(|e| ServiceError::Processing(e.to_string()))?;
             let run_json = entry.path().join("run.json");
@@ -310,7 +310,12 @@ impl OrchestratorService {
         Ok(runs)
     }
 
-    pub fn resolve_cwd(&self, run: &RunRecord, role: Option<&str>, node_id: Option<&str>) -> String {
+    pub fn resolve_cwd(
+        &self,
+        run: &RunRecord,
+        role: Option<&str>,
+        node_id: Option<&str>,
+    ) -> String {
         for b in &run.role_bindings {
             if role.is_some() && b.role.as_deref() == role {
                 return b.cwd.clone();
@@ -398,14 +403,16 @@ impl OrchestratorService {
             "confirmed_by": if need_confirm { serde_json::Value::Null } else { serde_json::json!("auto") },
         });
         write_json_atomic(
-            &PathBuf::from(&run.artifact_dir).join("specs").join(format!("v{version}.meta.json")),
+            &PathBuf::from(&run.artifact_dir)
+                .join("specs")
+                .join(format!("v{version}.meta.json")),
             &meta,
         )?;
 
         if !need_confirm {
             // auto-confirm path: leave status as awaiting then auto flip
             run.status = RunStatus::DraftingSpec.as_str().into(); // ready to start after confirm helper
-            // mark ready
+                                                                  // mark ready
             run.status = "spec_ready".into(); // intermediate — start will accept
         }
 
@@ -438,9 +445,9 @@ impl OrchestratorService {
 
     pub fn get_spec(&self, run_id: &str, version: Option<i32>) -> Result<JudgmentSpecBody> {
         let run = self.load_run(run_id)?;
-        let v = version.or(run.locked_spec_version).ok_or_else(|| {
-            ServiceError::NotFound("no spec".into())
-        })?;
+        let v = version
+            .or(run.locked_spec_version)
+            .ok_or_else(|| ServiceError::NotFound("no spec".into()))?;
         let path = PathBuf::from(&run.artifact_dir)
             .join("specs")
             .join(format!("v{v}.json"));
@@ -519,7 +526,8 @@ impl OrchestratorService {
                         ServiceError::Validation(format!("ORCH_GRAPH_COMPILE_FAILED: {}", e.0))
                     })?;
                     run.graph = Some(compiled);
-                } else if p.topology_hint.as_deref() == Some("diamond") && p.named_units.len() >= 2 {
+                } else if p.topology_hint.as_deref() == Some("diamond") && p.named_units.len() >= 2
+                {
                     run.graph = Some(diamond_from_units(&p.named_units));
                     compile_graph(run.graph.as_ref().unwrap()).map_err(|e| {
                         ServiceError::Validation(format!("ORCH_GRAPH_COMPILE_FAILED: {}", e.0))
@@ -804,8 +812,7 @@ impl OrchestratorService {
                     .display()
                     .to_string()
             });
-            fs::create_dir_all(&child_path)
-                .map_err(|e| ServiceError::Processing(e.to_string()))?;
+            fs::create_dir_all(&child_path).map_err(|e| ServiceError::Processing(e.to_string()))?;
             let rec = RunWorkspaceRecord {
                 id: Uuid::new_v4().to_string(),
                 workspace_guid: format!("child-{}", Uuid::new_v4()),
@@ -960,9 +967,8 @@ impl OrchestratorService {
     }
 
     pub fn compile_run_graph(&self, run_id: &str, graph: &CompiledGraph) -> Result<CompiledGraph> {
-        let compiled = compile_graph(graph).map_err(|e| {
-            ServiceError::Validation(format!("ORCH_GRAPH_COMPILE_FAILED: {}", e.0))
-        })?;
+        let compiled = compile_graph(graph)
+            .map_err(|e| ServiceError::Validation(format!("ORCH_GRAPH_COMPILE_FAILED: {}", e.0)))?;
         let mut run = self.load_run(run_id)?;
         run.graph = Some(compiled.clone());
         write_json_atomic(
@@ -1269,8 +1275,13 @@ mod integration_tests {
     #[test]
     fn never_writes_canvas_dir() {
         let (svc, _) = svc();
-        assert!(svc.root().join("boards").to_string_lossy().contains("orchestrator")
-            || !svc.root().to_string_lossy().contains("canvas"));
+        assert!(
+            svc.root()
+                .join("boards")
+                .to_string_lossy()
+                .contains("orchestrator")
+                || !svc.root().to_string_lossy().contains("canvas")
+        );
         // boards created under orchestrator root
         let _ = fs::create_dir_all(svc.boards_path());
         assert!(!svc.boards_path().to_string_lossy().contains("/canvas/"));

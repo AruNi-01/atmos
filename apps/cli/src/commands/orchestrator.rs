@@ -187,8 +187,12 @@ pub async fn execute(
 ) -> Result<Value, String> {
     match command {
         OrchestratorCommand::SkillDir | OrchestratorCommand::SkillPath => Ok(local_skill_dir()),
-        OrchestratorCommand::Status => get(&api, opts.timeout_ms, "/api/orchestrator/v1/status").await,
-        OrchestratorCommand::Agents => get(&api, opts.timeout_ms, "/api/orchestrator/v1/agents").await,
+        OrchestratorCommand::Status => {
+            get(&api, opts.timeout_ms, "/api/orchestrator/v1/status").await
+        }
+        OrchestratorCommand::Agents => {
+            get(&api, opts.timeout_ms, "/api/orchestrator/v1/agents").await
+        }
         OrchestratorCommand::Context { run } => {
             get(
                 &api,
@@ -268,8 +272,7 @@ pub async fn execute(
         OrchestratorCommand::Spec(cmd) => match cmd {
             SpecCmd::Draft { run, file } => {
                 let body: Value = serde_json::from_str(
-                    &std::fs::read_to_string(&file)
-                        .map_err(|e| format!("read spec file: {e}"))?,
+                    &std::fs::read_to_string(&file).map_err(|e| format!("read spec file: {e}"))?,
                 )
                 .map_err(|e| format!("parse spec json: {e}"))?;
                 post(
@@ -281,9 +284,7 @@ pub async fn execute(
                 .await
             }
             SpecCmd::Get { run, version } => {
-                let q = version
-                    .map(|v| format!("?version={v}"))
-                    .unwrap_or_default();
+                let q = version.map(|v| format!("?version={v}")).unwrap_or_default();
                 get(
                     &api,
                     opts.timeout_ms,
@@ -302,8 +303,7 @@ pub async fn execute(
             }
             SpecCmd::Update { run, file } => {
                 let body: Value = serde_json::from_str(
-                    &std::fs::read_to_string(&file)
-                        .map_err(|e| format!("read spec file: {e}"))?,
+                    &std::fs::read_to_string(&file).map_err(|e| format!("read spec file: {e}"))?,
                 )
                 .map_err(|e| format!("parse spec json: {e}"))?;
                 patch(
@@ -340,8 +340,7 @@ pub async fn execute(
         OrchestratorCommand::Graph(cmd) => match cmd {
             GraphCmd::Compile { run, file } => {
                 let body: Value = serde_json::from_str(
-                    &std::fs::read_to_string(&file)
-                        .map_err(|e| format!("read graph file: {e}"))?,
+                    &std::fs::read_to_string(&file).map_err(|e| format!("read graph file: {e}"))?,
                 )
                 .map_err(|e| format!("parse graph: {e}"))?;
                 post(
@@ -387,11 +386,7 @@ pub async fn execute(
                 )
                 .await
             }
-            WorkspaceCmd::Create {
-                run,
-                purpose,
-                path,
-            } => {
+            WorkspaceCmd::Create { run, purpose, path } => {
                 post(
                     &api,
                     opts.timeout_ms,

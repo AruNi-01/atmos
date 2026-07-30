@@ -22,11 +22,11 @@ pub fn routes() -> Router<AppState> {
             .route("/runs/{id}/context", get(handlers::context_get))
             .route("/runs/{id}/tick", post(handlers::tick_loop))
             .route("/runs/{id}/graph/step", post(handlers::step_graph))
+            .route("/runs/{id}/spec/draft", post(handlers::spec_draft))
             .route(
-                "/runs/{id}/spec/draft",
-                post(handlers::spec_draft),
+                "/runs/{id}/spec",
+                get(handlers::spec_get).patch(handlers::spec_update),
             )
-            .route("/runs/{id}/spec", get(handlers::spec_get).patch(handlers::spec_update))
             .route("/runs/{id}/spec/confirm", post(handlers::spec_confirm))
             .route(
                 "/runs/{id}/mode-proposal",
@@ -36,10 +36,7 @@ pub fn routes() -> Router<AppState> {
                 "/runs/{id}/evidence",
                 get(handlers::evidence_list).post(handlers::evidence_attach),
             )
-            .route(
-                "/runs/{id}/graph/compile",
-                post(handlers::graph_compile),
-            )
+            .route("/runs/{id}/graph/compile", post(handlers::graph_compile))
             .route("/runs/{id}/graph", get(handlers::graph_get))
             .route("/runs/{id}/workspace", get(handlers::workspace_get))
             .route(

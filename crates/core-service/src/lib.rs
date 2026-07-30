@@ -46,8 +46,8 @@ pub use service::message_push::MessagePushService;
 pub use service::notification::NotificationService;
 pub use service::orchestrator::{
     compose_role_header, skill_dir_output, Budget, CompiledGraph, CreateRunReq, Criterion,
-    JudgmentSpecBody, ModeProposal, OrchMode, OrchRole, OrchestratorService, RunRecord,
-    SensorSpec, SharedOrchestratorService,
+    JudgmentSpecBody, ModeProposal, OrchMode, OrchRole, OrchestratorService, RunRecord, SensorSpec,
+    SharedOrchestratorService,
 };
 pub use service::project::ProjectService;
 pub use service::review::ReviewService;

@@ -233,11 +233,8 @@ impl TmuxEngine {
             .get_pane_mouse_tracking(session_name, window_index)
             .ok()
             .flatten();
-        let (restore_mouse_tracking, mouse_tracking_sequence) = resolve_mouse_tracking_restore(
-            observed,
-            metadata.alternate,
-            &current_command,
-        );
+        let (restore_mouse_tracking, mouse_tracking_sequence) =
+            resolve_mouse_tracking_restore(observed, metadata.alternate, &current_command);
 
         Ok(TmuxPaneCapturePage {
             snapshot: TmuxPaneSnapshot {
@@ -291,11 +288,8 @@ impl TmuxEngine {
             .get_pane_mouse_tracking(session_name, window_index)
             .ok()
             .flatten();
-        let (restore_mouse_tracking, mouse_tracking_sequence) = resolve_mouse_tracking_restore(
-            observed,
-            metadata.alternate,
-            &current_command,
-        );
+        let (restore_mouse_tracking, mouse_tracking_sequence) =
+            resolve_mouse_tracking_restore(observed, metadata.alternate, &current_command);
 
         Ok(TmuxPaneSnapshot {
             data,

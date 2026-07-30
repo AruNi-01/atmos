@@ -186,10 +186,7 @@ pub fn resolve_effective_mode(
                 EffectiveMode::Graph => {
                     if let Some(g) = &p.graph {
                         if let Err(e) = super::graph_compile::compile_graph(g) {
-                            return Ok((
-                                EffectiveMode::Loop,
-                                format!("auto graph demoted: {e}"),
-                            ));
+                            return Ok((EffectiveMode::Loop, format!("auto graph demoted: {e}")));
                         }
                         Ok((EffectiveMode::Graph, p.reason.clone()))
                     } else if p.topology_hint.as_deref() == Some("diamond")
@@ -199,10 +196,7 @@ pub fn resolve_effective_mode(
                     } else {
                         Ok((
                             EffectiveMode::Loop,
-                            format!(
-                                "auto preferred loop (no valid graph): {}",
-                                p.reason
-                            ),
+                            format!("auto preferred loop (no valid graph): {}", p.reason),
                         ))
                     }
                 }
@@ -240,11 +234,7 @@ mod tests {
             risk_tier: "low".into(),
             acceptance: vec![sensor_crit("c1")],
             rejection: vec![],
-            judgment_order: vec![
-                "sensor".into(),
-                "llm_judge".into(),
-                "human".into(),
-            ],
+            judgment_order: vec!["sensor".into(), "llm_judge".into(), "human".into()],
         }
     }
 
