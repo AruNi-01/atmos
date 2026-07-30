@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { SkillInfo } from "@/api/ws-api";
+import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 
 export type WelcomeSlashPopoverState = {
@@ -113,9 +114,8 @@ export function useWelcomeSlashNavigation<Project>({
   React.useEffect(() => {
     if (!popover) return;
     const container = listRef.current;
-    const activeItem = itemRefs.current[activeIndex];
-    if (!container || !activeItem) return;
-    activeItem.scrollIntoView({ block: "nearest" });
+    if (!container) return;
+    scrollActiveListItemIntoView(container, itemRefs.current, activeIndex, 3);
   }, [activeIndex, popover]);
 
   React.useEffect(() => {

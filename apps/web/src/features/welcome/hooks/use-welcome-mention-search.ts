@@ -16,6 +16,7 @@ import {
   type MentionFileCandidate,
 } from "@/features/welcome/lib/welcome-page-helpers";
 import { filterMentionFileCandidates } from "@/features/welcome/lib/mention-file-search";
+import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
 
 export function useWelcomeMentionSearch({
   issuePreview,
@@ -89,9 +90,13 @@ export function useWelcomeMentionSearch({
   React.useEffect(() => {
     if (!popover) return;
     const container = mentionPopoverListRef.current;
-    const activeItem = mentionItemRefs.current[activeMentionFileIndex];
-    if (!container || !activeItem) return;
-    activeItem.scrollIntoView({ block: "nearest" });
+    if (!container) return;
+    scrollActiveListItemIntoView(
+      container,
+      mentionItemRefs.current,
+      activeMentionFileIndex,
+      3,
+    );
   }, [activeMentionFileIndex, popover]);
 
   React.useEffect(() => {

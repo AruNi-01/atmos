@@ -15,6 +15,7 @@ import {
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 
 type ExpandedSections = {
@@ -112,6 +113,7 @@ export function SlashCommandPopover({
   const disableT = useTranslations("skills.composerDisable");
   const [disableActiveIndex, setDisableActiveIndex] = React.useState(0);
   const disableItemRefs = React.useRef<Array<HTMLElement | null>>([]);
+  const disableListScrollRef = React.useRef<HTMLDivElement | null>(null);
 
   const disableFilter = disableSkills?.filter.trim().toLowerCase() ?? "";
   const disableList = React.useMemo(() => {
@@ -132,8 +134,9 @@ export function SlashCommandPopover({
 
   React.useEffect(() => {
     if (view !== "disable_skills") return;
-    const active = disableItemRefs.current[disableActiveIndex];
-    active?.scrollIntoView({ block: "nearest" });
+    const container = disableListScrollRef.current;
+    if (!container) return;
+    scrollActiveListItemIntoView(container, disableItemRefs.current, disableActiveIndex, 3);
   }, [disableActiveIndex, view]);
 
   React.useEffect(() => {
@@ -220,7 +223,7 @@ export function SlashCommandPopover({
   };
 
   const menuContent = (
-    <div className="max-h-80 overflow-y-auto p-1">
+    <div ref={listRef} className="max-h-80 overflow-y-auto p-1">
       {showCommands && visibleCommands.length > 0 ? (
         <>
           <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -509,7 +512,7 @@ export function SlashCommandPopover({
           {disableT("title")}
         </p>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+      <div ref={disableListScrollRef} className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {disableSkills?.loading ? (
           <div className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
@@ -586,7 +589,6 @@ export function SlashCommandPopover({
     <>
       <div className="fixed inset-0 z-[2147483646]" onMouseDown={handleBackdrop} />
       <div
-        ref={listRef}
         className={cn(
           "fixed z-[2147483647] overflow-hidden rounded-md border border-border/70 bg-popover text-sm text-popover-foreground shadow-md transition-[width] duration-250 ease-out",
           view === "disable_skills" ? "w-[min(92vw,380px)]" : "w-[min(90vw,460px)]",
