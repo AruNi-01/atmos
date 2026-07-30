@@ -36,6 +36,10 @@ Developers run multiple agent sessions (Codex, Claude Code, Grok Build, …) in 
   - the Atmos shim emits `CMD_END` (shell idle).
 - **M6 — Display-only.** `oscTitle` is transient (not persisted in the terminal layout document), same class as `dynamicTitle`.
 - **M7 — Dedup / sanitize.** Strip control characters and collapse whitespace before display; skip store updates when the sanitized value is unchanged.
+- **M8 — Filter noisy / redundant OSC.** Do **not** append OSC when it is:
+  - shell noise: `user@host:cwd`, host-prefixed paths, or path-only titles (Atmos already shows path via shim);
+  - agent-redundant: equals the detected agent's command / aliases / label / id (e.g. OSC `claude` while the toolbar already shows the Claude brand), or equals the current shim `dynamicTitle`.
+  Meaningful session topics (e.g. `debugging auth`) still append.
 
 ### Should have
 

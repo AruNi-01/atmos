@@ -359,4 +359,63 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     expect(appendNativeOscTitle("Claude Code", undefined)).toBe("Claude Code");
     expect(appendNativeOscTitle("Claude Code", "   ")).toBe("Claude Code");
   });
+
+  it("filters shell user@host:cwd and path-only OSC noise", () => {
+    const shellTitle =
+      "aarynlu@AarynLuDeMacBook-Air:~/.atmos/workspaces/atmos/abra";
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../atmos/abra",
+        oscTitle: shellTitle,
+      }).displayTitle,
+    ).toBe(".../atmos/abra");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: "/Users/me/proj",
+        oscTitle: "/Users/me/proj",
+      }).displayTitle,
+    ).toBe("/Users/me/proj");
+    expect(
+      appendNativeOscTitle("atmos/abra", shellTitle),
+    ).toBe("atmos/abra");
+  });
+
+  it("hides OSC that only repeats the agent command or brand", () => {
+    const claude = {
+      id: "claude",
+      label: "Claude Code",
+      command: "claude",
+      iconType: "built-in" as const,
+    };
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+        configuredAgents: [claude],
+        oscTitle: "claude",
+      }).displayTitle,
+    ).toBe("Claude Code");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+        configuredAgents: [claude],
+        oscTitle: "Claude Code",
+      }).displayTitle,
+    ).toBe("Claude Code");
+    // Meaningful session topic still appends.
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+        configuredAgents: [claude],
+        oscTitle: "debugging auth",
+      }).displayTitle,
+    ).toBe("Claude Code | debugging auth");
+  });
 });

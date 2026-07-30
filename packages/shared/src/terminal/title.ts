@@ -459,18 +459,112 @@ export function sanitizeNativeOscTitle(title: string | undefined): string {
   return out;
 }
 
+export type OscTitleDisplayContext = {
+  /** Atmos auto title already shown (agent label / command / path). */
+  autoDisplayTitle?: string;
+  /** Shim dynamic title (CMD_START command name, etc.). */
+  dynamicTitle?: string;
+  /** Resolved toolbar agent — when set, bare CLI names are redundant. */
+  toolbarAgent?: TerminalTitleAgent;
+};
+
+/**
+ * Shell / terminal-integration titles that only restate host + cwd.
+ * Examples: `user@Host:~/path`, pure paths, `Host:/tmp/foo`.
+ */
+export function isNoisyShellOscTitle(osc: string): boolean {
+  const t = osc.trim();
+  if (!t) return true;
+  // user@host:…  (classic bash/zsh PROMPT_COMMAND / oh-my-zsh auto-title)
+  if (/^[^@\s]+@[^:\s]+:/.test(t)) return true;
+  // host:absolute-or-home path without @
+  if (/^[\w.-]+:(?:~|\/)/.test(t)) return true;
+  if (isPathLikeTitle(t)) return true;
+  return false;
+}
+
+/**
+ * OSC text that only repeats what Atmos already shows as agent brand / command.
+ * E.g. agent label "Claude Code" + OSC "claude" → redundant.
+ */
+export function isRedundantAgentOscTitle(
+  osc: string,
+  context: OscTitleDisplayContext = {},
+): boolean {
+  const t = osc.trim();
+  if (!t) return true;
+
+  const oscNorm = normalizeAgentCommand(t);
+  const oscLower = t.toLowerCase();
+  const auto = context.autoDisplayTitle?.trim() ?? "";
+  if (auto && (auto === t || auto.toLowerCase() === oscLower)) return true;
+
+  const dynamic = context.dynamicTitle?.trim() ?? "";
+  if (dynamic) {
+    if (dynamic === t || dynamic.toLowerCase() === oscLower) return true;
+    if (normalizeAgentCommand(dynamic) === oscNorm && !/\s/.test(t)) return true;
+  }
+
+  const agent = context.toolbarAgent;
+  if (!agent) return false;
+
+  const label = agent.label?.trim() ?? "";
+  if (label && label.toLowerCase() === oscLower) return true;
+
+  // Single-token OSC that is just the agent CLI / brand / id (e.g. "claude").
+  if (!/\s/.test(t)) {
+    const tokens = new Set<string>();
+    for (const raw of [agent.command, agent.pipeCommand, ...(agent.aliases ?? [])]) {
+      if (!raw?.trim()) continue;
+      tokens.add(normalizeAgentCommand(raw));
+    }
+    if (agent.id) tokens.add(agent.id.toLowerCase());
+    if (label) {
+      tokens.add(label.toLowerCase());
+      tokens.add(label.replace(/\s+/g, "").toLowerCase());
+      tokens.add(normalizeAgentCommand(label));
+      const firstWord = label.split(/\s+/)[0]?.toLowerCase();
+      if (firstWord) tokens.add(firstWord);
+    }
+    if (tokens.has(oscNorm) || tokens.has(oscLower)) return true;
+    // Grok packaged binaries: osc "grok-macos-aarc" while agent cmd is "grok"
+    if (tokens.has("grok") && isGrokBuildCommandToken(oscNorm)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Sanitize + filter native OSC for toolbar display.
+ * Drops shell host/cwd noise and agent-command duplicates.
+ */
+export function resolveDisplayOscTitle(
+  oscTitle: string | undefined,
+  context: OscTitleDisplayContext = {},
+): string {
+  const osc = sanitizeNativeOscTitle(oscTitle);
+  if (!osc) return "";
+  if (isNoisyShellOscTitle(osc)) return "";
+  if (isRedundantAgentOscTitle(osc, context)) return "";
+  return osc;
+}
+
 /**
  * Append a native OSC title after an Atmos auto/custom display title.
- * Returns auto-only when `oscTitle` is empty or `suppress` is true.
+ * Returns auto-only when `oscTitle` is empty, suppressed, or filtered as noise.
  */
 export function appendNativeOscTitle(
   autoDisplayTitle: string | undefined,
   oscTitle: string | undefined,
   suppress = false,
+  context: OscTitleDisplayContext = {},
 ): string {
   const base = autoDisplayTitle?.trim() ?? "";
   if (suppress) return base;
-  const osc = sanitizeNativeOscTitle(oscTitle);
+  const osc = resolveDisplayOscTitle(oscTitle, {
+    ...context,
+    autoDisplayTitle: context.autoDisplayTitle ?? base,
+  });
   if (!osc) return base;
   if (!base) return osc;
   return `${base} | ${osc}`;
@@ -547,6 +641,10 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
 
   return {
     toolbarAgent,
-    displayTitle: appendNativeOscTitle(autoDisplayTitle, oscTitle, suppressOscTitle === true),
+    displayTitle: appendNativeOscTitle(autoDisplayTitle, oscTitle, suppressOscTitle === true, {
+      autoDisplayTitle,
+      dynamicTitle,
+      toolbarAgent,
+    }),
   };
 }

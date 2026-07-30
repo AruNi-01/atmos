@@ -39,7 +39,31 @@ export function sanitizeNativeOscTitle(title: string | undefined): string {
 }
 ```
 
-### 2.2 Compose
+### 2.2 Display filter
+
+Before appending, `resolveDisplayOscTitle(osc, { autoDisplayTitle, dynamicTitle, toolbarAgent })` drops:
+
+| Filter | Example | Reason |
+|--------|---------|--------|
+| Shell host/cwd | `user@Host:~/…`, pure paths | Redundant with shim path; causes prompt flicker |
+| Agent CLI / brand | `claude`, `Claude Code`, `codex` | Toolbar already shows agent icon + label |
+| Equals dynamic title | OSC == `CMD_START` command | Same signal twice |
+
+Helpers: `isNoisyShellOscTitle`, `isRedundantAgentOscTitle`.
+
+### 2.2b Display filter (post-ship refinement)
+
+Before appending, `resolveDisplayOscTitle(osc, { autoDisplayTitle, dynamicTitle, toolbarAgent })` drops:
+
+| Filter | Example | Reason |
+|--------|---------|--------|
+| Shell host/cwd | `user@Host:~/…`, pure paths | Redundant with shim path; causes prompt flicker |
+| Agent CLI / brand | `claude`, `Claude Code`, `codex` | Toolbar already shows agent icon + label |
+| Equals dynamic title | OSC == `CMD_START` command | Same signal twice |
+
+Helpers: `isNoisyShellOscTitle`, `isRedundantAgentOscTitle`.
+
+### 2.3 Compose
 
 Extend `getTerminalDisplayMeta`:
 
