@@ -584,13 +584,8 @@ impl OrchestratorService {
         node_id: Option<&str>,
     ) -> Result<PathBuf> {
         let run = self.load_run(run_id)?;
-        let cwd = PathBuf::from(self.resolve_cwd(
-            &run,
-            Some(role.as_str()),
-            node_id,
-        ));
-        fs::create_dir_all(&cwd)
-            .map_err(|e| ServiceError::Processing(format!("role cwd: {e}")))?;
+        let cwd = PathBuf::from(self.resolve_cwd(&run, Some(role.as_str()), node_id));
+        fs::create_dir_all(&cwd).map_err(|e| ServiceError::Processing(format!("role cwd: {e}")))?;
 
         let inv_id = Uuid::new_v4().to_string();
         let role_dir = PathBuf::from(&run.artifact_dir)
@@ -884,17 +879,20 @@ impl OrchestratorService {
                         ready = false;
                         break;
                     }
-                    Some(NodeTerminal::Failed | NodeTerminal::Cancelled | NodeTerminal::TimedOut) => {
+                    Some(
+                        NodeTerminal::Failed | NodeTerminal::Cancelled | NodeTerminal::TimedOut,
+                    ) if n.kind == "join" || n.kind == "verify" || n.kind == "reduce" => {
                         // fail-closed at join or when processing node with failed required pred
-                        if n.kind == "join" || n.kind == "verify" || n.kind == "reduce" {
-                            run.status = RunStatus::Failed.as_str().into();
-                            run.stop_reason = Some(StopReason::JoinIncomplete.as_str().into());
-                            run.finished_at = Some(Utc::now().to_rfc3339());
-                            run.updated_at = Utc::now().to_rfc3339();
-                            self.save_run(&run)?;
-                            return Ok(run);
-                        }
+                        run.status = RunStatus::Failed.as_str().into();
+                        run.stop_reason = Some(StopReason::JoinIncomplete.as_str().into());
+                        run.finished_at = Some(Utc::now().to_rfc3339());
+                        run.updated_at = Utc::now().to_rfc3339();
+                        self.save_run(&run)?;
+                        return Ok(run);
                     }
+                    Some(
+                        NodeTerminal::Failed | NodeTerminal::Cancelled | NodeTerminal::TimedOut,
+                    ) => {}
                     _ => {}
                 }
             }
@@ -933,9 +931,8 @@ impl OrchestratorService {
                 let _ = verify_cwd;
                 let _ = self.role_invoke(run_id, OrchRole::Verify, Some(&n.id));
                 Self::node_fixture_outcome(n)
-            } else if n.kind == "sensor" {
-                Self::node_fixture_outcome(n)
             } else {
+                // sensor and other node kinds use fixture outcomes in this runtime path
                 Self::node_fixture_outcome(n)
             };
 
@@ -1019,12 +1016,7 @@ impl OrchestratorService {
         Ok(run)
     }
 
-    fn fail_run_msg(
-        &self,
-        mut run: RunRecord,
-        reason: StopReason,
-        msg: &str,
-    ) -> Result<RunRecord> {
+    fn fail_run_msg(&self, mut run: RunRecord, reason: StopReason, msg: &str) -> Result<RunRecord> {
         let _ = fs::write(
             PathBuf::from(&run.artifact_dir).join("fail_detail.txt"),
             msg,
@@ -1440,11 +1432,9 @@ mod integration_tests {
         assert_eq!(done.status, "completed");
         assert_eq!(done.stop_reason.as_deref(), Some("spec_met"));
         // role_invoke wrote maker/verify artifacts
-        assert!(
-            PathBuf::from(&done.artifact_dir)
-                .join("work_state.json")
-                .exists()
-        );
+        assert!(PathBuf::from(&done.artifact_dir)
+            .join("work_state.json")
+            .exists());
     }
 
     #[test]
@@ -1518,12 +1508,9 @@ mod integration_tests {
         let before = snapshot_immutable_mtimes(&["tests/guard.rs".into()], &home_cwd);
         std::thread::sleep(std::time::Duration::from_millis(1100));
         fs::write(&protected, b"// tampered\n").unwrap();
-        assert!(check_immutable_not_modified(
-            &["tests/guard.rs".into()],
-            &home_cwd,
-            &before
-        )
-        .is_err());
+        assert!(
+            check_immutable_not_modified(&["tests/guard.rs".into()], &home_cwd, &before).is_err()
+        );
 
         // Also ensure start with integrity path can fail when file changes during maker:
         // Pre-mutate won't trigger because snapshot is after create; instead monkey by
@@ -1812,24 +1799,17 @@ mod integration_tests {
         let ctx = svc.context_pack(&run.id).unwrap();
         assert_eq!(ctx["home"]["cwd"], home_cwd.display().to_string());
 
-        let child = svc
-            .workspace_create(&run.id, "iso", None)
-            .unwrap();
+        let child = svc.workspace_create(&run.id, "iso", None).unwrap();
         svc.workspace_use(&run.id, &child.workspace_guid, Some("maker"), None)
             .unwrap();
         let run2 = svc.load_run(&run.id).unwrap();
-        assert_eq!(
-            svc.resolve_cwd(&run2, Some("maker"), None),
-            child.path
-        );
+        assert_eq!(svc.resolve_cwd(&run2, Some("maker"), None), child.path);
         fs::write(PathBuf::from(&child.path).join("ORCH_RESULT.txt"), "x").unwrap();
         let merged = svc.workspace_merge(&run.id, &child.workspace_guid).unwrap();
-        assert!(
-            merged
-                .workspaces
-                .iter()
-                .any(|w| w.workspace_guid == child.workspace_guid && w.status == "merged")
-        );
+        assert!(merged
+            .workspaces
+            .iter()
+            .any(|w| w.workspace_guid == child.workspace_guid && w.status == "merged"));
 
         let finished = svc.start_run(&run.id).unwrap();
         assert_eq!(finished.status, "completed");
