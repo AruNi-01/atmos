@@ -349,4 +349,14 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
       }).displayTitle,
     ).toBe("Claude Code");
   });
+
+  // Documents clear-on-empty / post-clear composition (S6 unit; S7/S8 are inspection).
+  it("appendNativeOscTitle returns auto-only after clear (empty/undefined osc)", () => {
+    expect(appendNativeOscTitle("Claude Code", "debugging auth")).toBe(
+      "Claude Code | debugging auth",
+    );
+    expect(appendNativeOscTitle("Claude Code", "")).toBe("Claude Code");
+    expect(appendNativeOscTitle("Claude Code", undefined)).toBe("Claude Code");
+    expect(appendNativeOscTitle("Claude Code", "   ")).toBe("Claude Code");
+  });
 });

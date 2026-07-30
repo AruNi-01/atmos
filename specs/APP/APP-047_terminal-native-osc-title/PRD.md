@@ -39,7 +39,7 @@ Developers run multiple agent sessions (Codex, Claude Code, Grok Build, …) in 
 
 ### Should have
 
-- **S1 — Cap suffix length** so toolbars stay scannable (truncate with ellipsis after a fixed char budget).
+- **S1 — Cap suffix length** so toolbars stay scannable (hard-capped at 64 chars, no ellipsis — matches `MAX_NATIVE_OSC_TITLE_CHARS`).
 - **S2 — Mobile parity** when the mobile xterm path can register the same handlers with low cost.
 - **S3 — Scoped panes** (wiki / code review) that already show dynamic titles get the same append behavior.
 

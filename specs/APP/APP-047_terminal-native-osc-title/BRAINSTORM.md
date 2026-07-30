@@ -55,7 +55,7 @@ Show OSC title in a tooltip or secondary chip, never in the main toolbar string.
 - [x] Separator character: `|` with spaces → ` | `
 - [x] Custom title suppresses OSC entirely (even Keep Agent / Keep CWD suffixes)
 - [x] OSC text never drives `resolveAgentForTitle` / `setPaneAgent`
-- [ ] Max length for OSC suffix (Codex uses 240; Atmos toolbar is narrow) — decide in TECH (suggest ~48–64)
+- [x] Max length for OSC suffix — **resolved: 64 char hard cap without ellipsis** (`MAX_NATIVE_OSC_TITLE_CHARS = 64`)
 
 ## References
 

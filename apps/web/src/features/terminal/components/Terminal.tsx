@@ -794,6 +794,10 @@ const Terminal = ({
 
     // Native OSC 0/2 titles from agent CLIs (Codex/Claude/…). xterm maps these
     // to onTitleChange. Never feed this path into agent detection (APP-047).
+    // Reset dedup state on every xterm recreate so a new session's first title
+    // is not suppressed when it equals the previous pane's title.
+    lastOscTitleRef.current = undefined;
+    lastTitleRef.current = "";
     const emitOscTitle = (raw: string | undefined) => {
       const next = sanitizeNativeOscTitle(raw) || undefined;
       if (next === lastOscTitleRef.current) return;

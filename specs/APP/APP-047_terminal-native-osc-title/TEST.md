@@ -31,7 +31,9 @@ No new E2E required for v1; composition is pure and capture is a thin xterm subs
 
 | Id | Level | Tool | Target | Status |
 |----|-------|------|--------|--------|
-| S1–S10 | unit | bun test | `apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts` | pass |
+| S1–S6, S9–S10 | unit | bun test | `apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts` | pass |
+| S7 | code_review / inspection | Terminal CMD_END → `onOscTitleChange(undefined)` | `apps/web/.../Terminal.tsx` | documented_not_unit |
+| S8 | code_review / inspection | layout types omit `oscTitle` | terminal layout / store persistence | documented_not_unit |
 | M-smoke | manual | run agent in pane | web terminal | pending |
 
 ## Scenarios
@@ -64,14 +66,17 @@ No new E2E required for v1; composition is pure and capture is a thin xterm subs
 ### S6 · Empty OSC clears suffix
 - **Given** prior osc title, then empty OSC
 - **Then** display returns to auto only
+- **Signals**: unit assert (`appendNativeOscTitle` / `getTerminalDisplayMeta` clear-on-empty)
 
 ### S7 · CMD_END clears (integration contract)
 - **Given** Terminal CMD_END handler
-- **Then** calls `onOscTitleChange(undefined)` (code review / unit of handler if extracted)
+- **Then** calls `onOscTitleChange(undefined)` (code review / inspection — not unit-covered)
+- **Signals**: code_review
 
 ### S8 · Not persisted
 - **Given** layout save helpers
 - **Then** `oscTitle` never written into persisted tab/pane document
+- **Signals**: code_review / inspection
 
 ### S9 · Control injection safe
 - **Given** osc containing `\x1b]0;evil`
@@ -79,11 +84,11 @@ No new E2E required for v1; composition is pure and capture is a thin xterm subs
 
 ### S10 · Length cap
 - **Given** very long osc string
-- **Then** sanitized length ≤ 64 chars
+- **Then** sanitized length ≤ 64 chars (hard cap, no ellipsis)
 
 ## Acceptance criteria
 
-- [x] Unit tests for S2–S5, S9–S10 green
+- [x] Unit tests for S1–S6, S9–S10 green
 - [x] Web Terminal wires `onTitleChange` (shim) and `onOscTitleChange` (native) separately
 - [x] Custom pane rename hides OSC suffix (composition `suppressOscTitle`)
 - [ ] Manual: agent OSC appears as `|` suffix; agent icon stable
@@ -93,9 +98,10 @@ No new E2E required for v1; composition is pure and capture is a thin xterm subs
 - Backend reattach replaying last OSC (agents re-assert)
 - Tab bar customTitle interaction beyond pane toolbar
 - Playwright multi-agent live sessions
+- S7 (CMD_END → clear) and S8 (not persisted): documented via code review / inspection, not unit-pass
 
 ## Coverage Status
 
-- **2026-07-30**: Unit suite green — `bun test apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts` (23 pass), covering sanitize/cap, append `|`, agent-invariance, suppress-on-custom, clear-on-empty.
+- **2026-07-30**: Unit suite green — `bun test apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts` (24 pass), covering sanitize/cap, append `|`, agent-invariance, suppress-on-custom, clear-on-empty / post-clear `appendNativeOscTitle`. Unit-covered: S1–S6, S9–S10. S7/S8: `documented_not_unit` (code_review / inspection).
 - **Remaining**: Manual smoke with Codex/Claude in a web pane (OSC suffix visible, icon stable, custom rename hides suffix, CMD_END clears).
 - **Layout**: `oscTitle` is not part of persisted layout document types (display-only, same class as `dynamicTitle`).

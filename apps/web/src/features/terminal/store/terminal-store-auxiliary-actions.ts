@@ -221,7 +221,7 @@ export function createTerminalAuxiliaryActions(
     setProjectWikiOscTitle: (workspaceId, paneId, oscTitle) => {
       const panes = get().projectWikiPanes[workspaceId];
       if (!panes?.[paneId]) return;
-      const next = oscTitle?.trim() ? oscTitle : undefined;
+      const next = oscTitle?.trim() || undefined;
       if (panes[paneId].oscTitle === next) return;
       set((state) => ({
         projectWikiPanes: {
@@ -392,7 +392,7 @@ export function createTerminalAuxiliaryActions(
     setCodeReviewOscTitle: (workspaceId, paneId, oscTitle) => {
       const panes = get().codeReviewPanes[workspaceId];
       if (!panes?.[paneId]) return;
-      const next = oscTitle?.trim() ? oscTitle : undefined;
+      const next = oscTitle?.trim() || undefined;
       if (panes[paneId].oscTitle === next) return;
       set((state) => ({
         codeReviewPanes: {
