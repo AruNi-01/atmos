@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws-api";
+import { splitHighlightParts } from "@/features/welcome/lib/mention-file-search";
 import type { MentionFileCandidate } from "@/features/welcome/lib/welcome-page-helpers";
 
 export type MentionPopoverState = {
@@ -32,6 +33,42 @@ export type MentionNavItem =
   | { type: "issue"; issue: GithubIssuePayload }
   | { type: "pr"; pr: GithubPrPayload }
   | { type: "file"; file: MentionFileCandidate };
+
+function MentionHighlightText({
+  text,
+  query,
+  className,
+}: {
+  text: string;
+  query: string;
+  className?: string;
+}) {
+  const parts = splitHighlightParts(text, query);
+  return (
+    <span className={className}>
+      {parts.map((part, index) =>
+        part.match ? (
+          <mark
+            key={`${part.text}-${index}`}
+            className="rounded-sm bg-primary/20 px-0.5 text-foreground"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <React.Fragment key={`${part.text}-${index}`}>{part.text}</React.Fragment>
+        ),
+      )}
+    </span>
+  );
+}
+
+/** Name segment after the last `/` — what name-only search actually matches. */
+function mentionNameHighlightQuery(rawQuery: string): string {
+  const query = rawQuery.trim().replace(/\\/g, "/");
+  const slashIndex = query.lastIndexOf("/");
+  if (slashIndex < 0) return query;
+  return query.slice(slashIndex + 1).trim();
+}
 
 export function WelcomeMentionPopover({
   activeIndex,
@@ -64,6 +101,7 @@ export function WelcomeMentionPopover({
   const issueIndex = issuePreview ? 0 : -1;
   const prIndex = prPreview ? (issuePreview ? 1 : 0) : -1;
   const githubCount = (issuePreview ? 1 : 0) + (prPreview ? 1 : 0);
+  const nameHighlightQuery = mentionNameHighlightQuery(popover.query);
 
   return createPortal(
     <>
@@ -191,9 +229,11 @@ export function WelcomeMentionPopover({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- file icons are tiny decorative SVG/data assets from the UI package. */}
                     <img {...iconProps} alt="" />
-                    <span className="min-w-0 flex-1 truncate">
-                      {item.name}
-                    </span>
+                    <MentionHighlightText
+                      text={item.name}
+                      query={nameHighlightQuery}
+                      className="min-w-0 flex-1 truncate"
+                    />
                     <span className="ml-2 max-w-[55%] shrink truncate text-right text-[11px] text-muted-foreground">
                       {item.relativePath}
                     </span>
