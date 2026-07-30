@@ -127,6 +127,9 @@ scripts/open-source/
 .agents/skills/*
 !.agents/skills/atmos-*/
 !.agents/skills/atmos-*/**
+# Local-only ship workflow skill (keep on disk, do not track)
+.agents/skills/atmos-new-pr-merge/
+.agents/skills/atmos-new-pr-merge/**
 !.agents/skills/text-to-lottie/
 !.agents/skills/text-to-lottie/**
 .augment/
