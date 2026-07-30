@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import type { EChartsOption } from "echarts";
 import { FolderInput, Trash2 } from "lucide-react";
@@ -560,53 +561,58 @@ export function DiskUsageChart({
           },
         }}
       />
-      <DropdownMenu
-        open={!!menu}
-        onOpenChange={(open) => {
-          if (!open) setMenu(null);
-        }}
-      >
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-hidden
-            className="pointer-events-none fixed size-0"
-            style={{
-              left: menu?.x ?? -9999,
-              top: menu?.y ?? -9999,
-            }}
-          />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" sideOffset={4} className="min-w-44">
-          {menu?.isDir ? (
-            <DropdownMenuItem
-              onClick={() => {
-                if (!menu) return;
-                onSelectPath(menu.path);
-                onDrillPath(menu.path);
-                setMenu(null);
+      {typeof document !== "undefined"
+        ? createPortal(
+            <DropdownMenu
+              open={!!menu}
+              onOpenChange={(open) => {
+                if (!open) setMenu(null);
               }}
             >
-              <FolderInput className="size-4" />
-              {enterDirectoryLabel}
-            </DropdownMenuItem>
-          ) : null}
-          {menu?.canDelete ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => {
-                if (!menu) return;
-                onSelectPath(menu.path);
-                onRequestDelete(menu.path);
-                setMenu(null);
-              }}
-            >
-              <Trash2 className="size-4" />
-              {deleteLabel}
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-hidden
+                  className="pointer-events-none fixed size-0"
+                  style={{
+                    left: menu?.x ?? -9999,
+                    top: menu?.y ?? -9999,
+                  }}
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={4} className="z-[90] min-w-44">
+                {menu?.isDir ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!menu) return;
+                      onSelectPath(menu.path);
+                      onDrillPath(menu.path);
+                      setMenu(null);
+                    }}
+                  >
+                    <FolderInput className="size-4" />
+                    {enterDirectoryLabel}
+                  </DropdownMenuItem>
+                ) : null}
+                {menu?.canDelete ? (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      if (!menu) return;
+                      onSelectPath(menu.path);
+                      onRequestDelete(menu.path);
+                      setMenu(null);
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    {deleteLabel}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

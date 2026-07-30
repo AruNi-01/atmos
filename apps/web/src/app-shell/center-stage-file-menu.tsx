@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
@@ -36,6 +38,10 @@ export function CenterStageFileTabContextMenu({
   closeFilesSafely: (files: OpenFile[]) => void;
 }) {
   const t = useTranslations("appShell.fileTabContextMenu");
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const copyToClipboard = async (value: string) => {
     try {
@@ -49,7 +55,11 @@ export function CenterStageFileTabContextMenu({
     }
   };
 
-  return (
+  // Always use viewport-fixed coords + body portal (ignore absolute anchors).
+  // Parent transforms in center stage make non-portaled fixed anchors drift.
+  void anchorPosition;
+
+  const menu = (
     <DropdownMenu
       open={!!tabContextMenu}
       onOpenChange={(open) => {
@@ -60,18 +70,14 @@ export function CenterStageFileTabContextMenu({
         <button
           type="button"
           aria-hidden
-          className={
-            anchorPosition === "fixed"
-              ? "fixed size-0 pointer-events-none"
-              : "absolute size-0 pointer-events-none"
-          }
+          className="fixed size-0 pointer-events-none"
           style={{
             left: tabContextMenu?.x ?? -9999,
             top: tabContextMenu?.y ?? -9999,
           }}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={4} className="w-52">
+      <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-52">
         {(() => {
           const target = openFiles.find((file) => file.path === tabContextMenu?.filePath);
           if (!target) return null;
@@ -151,4 +157,7 @@ export function CenterStageFileTabContextMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  if (!mounted) return null;
+  return createPortal(menu, document.body);
 }
