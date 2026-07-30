@@ -713,9 +713,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, []);
 
   const handleSplitMenuLeave = useCallback(() => {
+    // Grace period to reach the portaled dropdown from the split trigger.
+    // Keep in mind with toolbar hover leave delay (useToolbarHoverExpand).
     splitMenuTimeoutRef.current = setTimeout(() => {
       setSplitMenuKey(null);
-    }, 120);
+    }, 280);
   }, []);
 
   const handleContextSplitSubmenuEnter = useCallback((key: "row" | "column") => {

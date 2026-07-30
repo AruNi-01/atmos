@@ -22,6 +22,10 @@ export {
 /**
  * Show `text` normally; if it overflows the available width, scroll it as a marquee.
  * Parent must provide a bounded width (`min-w-0` + flex/grid child).
+ *
+ * OSC titles often update rapidly while an agent is running. We always paint the
+ * latest text immediately, but only remount/restart the scroll after the string
+ * has been stable briefly — otherwise the animation is stuck in its start delay.
  */
 export function TerminalTitleMarquee({
   text,
@@ -33,13 +37,34 @@ export function TerminalTitleMarquee({
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLSpanElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
-  // Bump on every text change so the animating node remounts at translateX(0)
-  // instead of continuing mid-scroll from the previous title.
+  // Bump to remount the animating node at translateX(0).
   const [animKey, setAnimKey] = useState(0);
+  const lastRestartAtRef = useRef(0);
+  const isFirstTextRef = useRef(true);
 
   useEffect(() => {
-    setOverflowPx(0);
-    setAnimKey((k) => k + 1);
+    // Skip the initial mount — nothing to "restart" yet.
+    if (isFirstTextRef.current) {
+      isFirstTextRef.current = false;
+      return;
+    }
+
+    // Immediate restart if we haven't just restarted; otherwise wait for a quiet
+    // window. Agent OSC can update many times per second and would otherwise
+    // keep the marquee stuck in its lead-in delay forever.
+    const RESTART_GAP_MS = 450;
+    const elapsed = Date.now() - lastRestartAtRef.current;
+    if (elapsed >= RESTART_GAP_MS) {
+      lastRestartAtRef.current = Date.now();
+      setAnimKey((k) => k + 1);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      lastRestartAtRef.current = Date.now();
+      setAnimKey((k) => k + 1);
+    }, RESTART_GAP_MS - elapsed);
+    return () => window.clearTimeout(timer);
   }, [text]);
 
   useEffect(() => {
@@ -48,15 +73,13 @@ export function TerminalTitleMarquee({
     if (!container || !content) return;
 
     const measure = () => {
-      // Force start position before measuring (in case animation already advanced).
-      content.style.transform = "translateX(0)";
+      // transform does not affect layout metrics; do not reset it on resize
+      // (toolbar expand / agent-status mount) or a running marquee is interrupted.
       const overflow = Math.max(0, content.scrollWidth - container.clientWidth);
-      setOverflowPx(overflow);
+      setOverflowPx((prev) => (prev === overflow ? prev : overflow));
       container.style.setProperty("--marquee-distance", `${overflow}px`);
       const durationSec = overflow > 0 ? Math.min(28, Math.max(6, overflow / 40)) : 0;
       container.style.setProperty("--marquee-duration", `${durationSec}s`);
-      // Clear inline transform so CSS animation owns it again.
-      content.style.transform = "";
     };
 
     measure();
@@ -77,7 +100,7 @@ export function TerminalTitleMarquee({
       title={text}
     >
       <span
-        key={`${animKey}:${text}`}
+        key={animKey}
         ref={contentRef}
         className={cn(
           "terminal-title-marquee-text",

@@ -468,12 +468,18 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               "absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
             )}
           >
+            {/*
+              Match terminal mosaic toolbar action-rail motion:
+              fixed open width (not max-width) + cubic-bezier expand + short opacity fade.
+              Stay open while the ··· menu is open so the rail doesn't collapse under a portaled menu.
+            */}
             <div
               className={cn(
-                "flex items-center overflow-hidden pl-2 transition-all duration-200 ease-out",
+                "flex items-center overflow-hidden",
+                "[transition:width_0.22s_cubic-bezier(0.22,1,0.36,1),opacity_0.16s_ease]",
                 isProjectMenuOpen
-                  ? "ml-1 max-w-24 opacity-100"
-                  : "max-w-0 opacity-0 group-hover/project:ml-1 group-hover/project:max-w-24 group-hover/project:opacity-100",
+                  ? "w-[44px] opacity-100"
+                  : "w-0 opacity-0 pointer-events-none group-hover/project:w-[44px] group-hover/project:opacity-100 group-hover/project:pointer-events-auto group-focus-within/project:w-[44px] group-focus-within/project:opacity-100 group-focus-within/project:pointer-events-auto",
               )}
             >
               <TooltipProvider>

@@ -178,18 +178,26 @@
   bottom: calc(100% - 56%);
 }
 
-/* Custom Toolbar */
+/* Custom Toolbar
+ *
+ *   [ title (flex, minmax 0) | end: agent status + collapsible actions ]
+ *
+ * Actions use a fixed open width (not max-width/transform overlay) so the
+ * title column is truly squeezed and the OSC marquee can remeasure.
+ */
 .terminal-mosaic-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   height: 100%;
   width: 100%;
+  min-width: 0;
   padding: 0 8px;
   background: transparent;
   cursor: grab;
   user-select: none;
   pointer-events: auto;
+  overflow: hidden;
 }
 
 .terminal-mosaic-toolbar:active {
@@ -200,9 +208,25 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-width: 0;
   overflow: hidden;
+}
+
+/*
+ * Agent status (always, when active) + action buttons (hover/focus/maximized).
+ * Opaque background + soft left fade so OSC text never reads as painted under
+ * this rail when the title column is squeezed.
+ */
+.terminal-mosaic-toolbar-end {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  z-index: 1;
+  padding-left: 8px;
+  background: var(--background);
+  box-shadow: -12px 0 12px 0 var(--background);
 }
 
 .terminal-mosaic-title {
@@ -210,8 +234,7 @@
   font-weight: 500;
   color: var(--foreground);
   opacity: 0.9;
-  /* Same role as pre-marquee: fill remaining toolbar width, clip overflow. */
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -252,14 +275,14 @@
 }
 
 /*
- * Marquee container: takes remaining width.
- * IMPORTANT: flex-basis 0 + min-width > 0 so short OSC still paints, and long
- * OSC gets a real measured width for overflow detection (was collapsing to 0).
+ * Marquee container: takes remaining width inside the title row.
+ * min-width:0 is required so nowrap text cannot force the flex item wider
+ * than the squeezed title column (otherwise it paints under the end rail).
  */
 .terminal-title-marquee {
   position: relative;
   flex: 1 1 0%;
-  min-width: 3rem;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -267,16 +290,20 @@
 .terminal-title-marquee-text {
   display: inline-block;
   white-space: nowrap;
-  /* When not overflowing, text simply sits at start and is fully visible. */
 }
 
 .terminal-title-marquee-text.is-overflowing {
   padding-right: 1.5rem;
-  /* animation starts at 0% = translateX(0); remount on text change restarts it */
   animation: terminal-title-marquee-scroll var(--marquee-duration, 10s) linear infinite;
-  animation-delay: 0.8s;
+  /* Short lead-in so agent OSC updates still get a chance to scroll. */
+  animation-delay: 0.35s;
   animation-fill-mode: both;
   will-change: transform;
+}
+
+.terminal-title-marquee:has(.is-overflowing) {
+  mask-image: linear-gradient(to right, #000 0%, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 88%, transparent 100%);
 }
 
 .terminal-title-marquee:hover .terminal-title-marquee-text.is-overflowing {
@@ -295,34 +322,33 @@
 }
 
 /*
- * Right toolbar: collapsed (no layout space) until hover/focus-within.
- * Slide in from the right; reverse on hide. Maximized panes keep it expanded.
+ * Action buttons: collapsed with width:0 (layout-participating).
+ * Fixed open width so flex can shrink the title column reliably.
+ *
+ * Expand via .is-toolbar-expanded (JS: hover with leave-delay, open split
+ * menu, maximized) or :focus-within — not pure :hover, so the rail stays up
+ * while the pointer travels to a portaled split-agent menu.
  */
 .terminal-mosaic-toolbar-right {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex-shrink: 0;
-  max-width: 0;
-  margin-left: 0;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 0;
   opacity: 0;
   overflow: hidden;
-  transform: translateX(10px);
   pointer-events: none;
   transition:
-    max-width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    margin-left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.18s ease,
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.16s ease;
 }
 
-.terminal-mosaic-toolbar:hover .terminal-mosaic-toolbar-right,
-.terminal-mosaic-toolbar:focus-within .terminal-mosaic-toolbar-right,
-.terminal-mosaic-toolbar.is-toolbar-expanded .terminal-mosaic-toolbar-right {
-  max-width: 168px;
-  margin-left: 6px;
+.terminal-mosaic-toolbar.is-toolbar-expanded .terminal-mosaic-toolbar-right,
+.terminal-mosaic-toolbar:focus-within .terminal-mosaic-toolbar-right {
+  /* pin + 2 splits + maximize + close (+ gaps / close margin) */
+  width: 124px;
   opacity: 1;
-  transform: translateX(0);
   pointer-events: auto;
 }
 

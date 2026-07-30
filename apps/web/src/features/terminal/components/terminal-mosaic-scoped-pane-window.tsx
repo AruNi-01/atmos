@@ -28,6 +28,7 @@ import {
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
+import { useToolbarHoverExpand } from "../hooks/use-toolbar-hover-expand";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import { TerminalPaneAgentStatus } from "./terminal-mosaic-workspace-pane-window";
@@ -124,6 +125,11 @@ export function TerminalMosaicScopedPaneWindow({
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
+  const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
+  const splitMenuOpenForPane =
+    splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
+  const toolbarExpanded =
+    maximizedId === id || toolbarHovered || splitMenuOpenForPane;
   const { displayTitle, primaryTitle, oscSuffix, toolbarAgent } = getTerminalDisplayMeta({
     baseTitle: pane.label,
     dynamicTitle: pane.dynamicTitle,
@@ -218,8 +224,10 @@ export function TerminalMosaicScopedPaneWindow({
           <div
             className={cn(
               "terminal-mosaic-toolbar group/toolbar",
-              maximizedId === id && "is-toolbar-expanded",
+              toolbarExpanded && "is-toolbar-expanded",
             )}
+            onMouseEnter={onToolbarMouseEnter}
+            onMouseLeave={onToolbarMouseLeave}
           >
             <div className="terminal-mosaic-toolbar-left">
               {displayTitle ? (
@@ -231,10 +239,11 @@ export function TerminalMosaicScopedPaneWindow({
                   className="terminal-mosaic-title gap-1.5"
                 />
               ) : null}
-              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
             </div>
 
-            {(actions.split || actions.maximize || actions.close) && (
+            <div className="terminal-mosaic-toolbar-end">
+              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
+              {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
                 <button
                   type="button"
@@ -363,7 +372,8 @@ export function TerminalMosaicScopedPaneWindow({
                   )}
                 </div>
               </div>
-            )}
+              )}
+            </div>
           </div>
         );
       }}
