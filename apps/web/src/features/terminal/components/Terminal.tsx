@@ -674,6 +674,8 @@ const Terminal = ({
     let linkProvider: { dispose: () => void } | null = null;
     let selectionChangeDisposable: { dispose: () => void } | null = null;
     let titleChangeDisposable: { dispose: () => void } | null = null;
+    let osc0HandlerDisposable: { dispose: () => void } | null = null;
+    let osc2HandlerDisposable: { dispose: () => void } | null = null;
     let selectionAnchorCleanup: (() => void) | null = null;
     let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
     let connectRafId = 0;
@@ -833,20 +835,34 @@ const Terminal = ({
       };
     }
 
-    // Native OSC 0/2 titles from agent CLIs (Codex/Claude/…). xterm maps these
-    // to onTitleChange. Never feed this path into agent detection (APP-047).
-    // Reset dedup state on every xterm recreate so a new session's first title
-    // is not suppressed when it equals the previous pane's title.
-    lastOscTitleRef.current = undefined;
+    // Native OSC 0/2 titles from agent CLIs (Codex/Claude/…). Capture via both
+    // onTitleChange and explicit OSC handlers — under tmux some builds only hit one path.
+    // Never feed this into agent detection (APP-047).
+    // Do NOT reset lastOscTitleRef here: a warm remount must not drop a title that
+    // was already restored from the pane store before this effect re-ran.
     lastTitleRef.current = "";
     const emitOscTitle = (raw: string | undefined) => {
-      const next = sanitizeNativeOscTitle(raw) || undefined;
+      // Empty / whitespace → clear. Meaningful text is sanitized; shell path noise
+      // is filtered later in setOscTitle so we still deliver it (to overwrite).
+      const cleaned = raw == null ? undefined : sanitizeNativeOscTitle(raw);
+      const next = cleaned && cleaned.length > 0 ? cleaned : undefined;
       if (next === lastOscTitleRef.current) return;
       lastOscTitleRef.current = next;
       onOscTitleChangeRef.current?.(next);
     };
     titleChangeDisposable = terminal.onTitleChange((raw) => {
       emitOscTitle(raw);
+    });
+    // Explicit handlers: return false so xterm default title handling still runs.
+    osc0HandlerDisposable = terminal.parser.registerOscHandler(0, (data) => {
+      // OSC 0 is "icon name ; window title" or just title
+      const title = data.includes(";") ? data.slice(data.indexOf(";") + 1) : data;
+      emitOscTitle(title);
+      return false;
+    });
+    osc2HandlerDisposable = terminal.parser.registerOscHandler(2, (data) => {
+      emitOscTitle(data);
+      return false;
     });
 
     // Register OSC 9999 handler for dynamic tab title updates.
@@ -896,8 +912,10 @@ const Terminal = ({
           clearTimeout(cmdStartTimerRef.current);
           cmdStartTimerRef.current = null;
         }
-        // Shell idle: drop agent-native OSC suffix so panes don't keep stale topics.
-        emitOscTitle(undefined);
+        // Do NOT clear OSC here. Reattach injects synthetic CMD_END on every
+        // refresh and was wiping persisted agent session topics before they
+        // could paint. Shell path OSC (user@host:cwd) overwrites via setOscTitle
+        // noise filter; empty OSC 0/2 clears explicitly.
         const title = shortenPath(payload);
         if (title !== lastTitleRef.current) {
           lastTitleRef.current = title;
@@ -1142,6 +1160,8 @@ const Terminal = ({
       selectionAnchorCleanup?.();
       selectionChangeDisposable?.dispose();
       titleChangeDisposable?.dispose();
+      osc0HandlerDisposable?.dispose();
+      osc2HandlerDisposable?.dispose();
       setCurrentSelectionSnapshot(null);
       if (resizeRafIdRef.current) {
         cancelAnimationFrame(resizeRafIdRef.current);

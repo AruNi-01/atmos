@@ -10,7 +10,12 @@ import {
   FIXED_TERMINAL_TAB_VALUE,
 } from "@/features/terminal/store/use-terminal-store";
 import { getTerminalDisplayMeta, resolveAgentForTitle } from "@/features/terminal/components/terminal-title";
-import { isPathLikeTitle, sanitizeNativeOscTitle, shortenPath } from "@atmos/shared/terminal";
+import {
+  isNoisyShellOscTitle,
+  isPathLikeTitle,
+  sanitizeNativeOscTitle,
+  shortenPath,
+} from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useContestedCliOwners } from "./use-contested-cli-owners";
 
@@ -107,7 +112,10 @@ export function useTerminalToolbarTitle(options: {
 
   const onOscTitleChange = useCallback(
     (title: string | undefined) => {
-      const next = sanitizeNativeOscTitle(title) || undefined;
+      // Keep local + store in lockstep. Shell path noise must clear both so a
+      // filtered store write cannot fall back to a stale local path string.
+      const cleaned = sanitizeNativeOscTitle(title);
+      const next = cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
       setLocalNativeOscTitle(next);
       if (storeWrite.kind === "none") return;
       const { setOscTitle } = useTerminalStore.getState();

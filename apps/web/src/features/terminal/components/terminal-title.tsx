@@ -20,9 +20,8 @@ export {
 };
 
 /**
- * Horizontal marquee for overflow text (OSC session topics in the pane toolbar).
- * Only animates when the content is wider than the available slot; short titles
- * always stay fully visible (no 0-width flex collapse).
+ * Show `text` normally; if it overflows the available width, scroll it as a marquee.
+ * Parent must provide a bounded width (`min-w-0` + flex/grid child).
  */
 export function TerminalTitleMarquee({
   text,
@@ -41,7 +40,6 @@ export function TerminalTitleMarquee({
     if (!container || !content) return;
 
     const measure = () => {
-      // Use offset/scroll widths so we measure real paint size, not flex guess.
       const overflow = Math.max(0, content.scrollWidth - container.clientWidth);
       setOverflowPx(overflow);
       container.style.setProperty("--marquee-distance", `${overflow}px`);
@@ -50,8 +48,7 @@ export function TerminalTitleMarquee({
     };
 
     measure();
-    // Re-measure after layout settles (flex parents often report 0 on first paint).
-    const raf = requestAnimationFrame(() => measure());
+    const raf = requestAnimationFrame(measure);
     const ro = new ResizeObserver(measure);
     ro.observe(container);
     ro.observe(content);
@@ -82,14 +79,24 @@ export function TerminalTitleMarquee({
 
 interface TerminalTitleWithAgentProps {
   displayTitle: string;
-  /** Atmos primary title (agent/command/path). Falls back to displayTitle. */
+  /** Atmos primary title (agent/command/path). Optional; used to keep left side fixed. */
   primaryTitle?: string;
-  /** Filtered OSC suffix; when set, shown after `|` with marquee on overflow. */
+  /** Filtered OSC suffix. Optional; marquee when long. */
   oscSuffix?: string;
   toolbarAgent: TerminalPaneAgent | undefined;
   className?: string;
 }
 
+/**
+ * Pane toolbar title.
+ *
+ * Pre-marquee behavior (always worked): icon + single `displayTitle` string
+ * including `primary | osc`. We keep that as the source of truth for content.
+ *
+ * Marquee behavior: when `primaryTitle` + `oscSuffix` are available, keep the
+ * primary fixed and only marquee the OSC segment. Fall back to marquee on the
+ * full displayTitle string if structured props are missing.
+ */
 export function TerminalTitleWithAgent({
   displayTitle,
   primaryTitle,
@@ -97,44 +104,38 @@ export function TerminalTitleWithAgent({
   toolbarAgent,
   className,
 }: TerminalTitleWithAgentProps) {
-  const primary = (primaryTitle ?? displayTitle).trim();
-  const osc = oscSuffix?.trim() ?? "";
+  const icon =
+    toolbarAgent?.iconType === "built-in" ? (
+      <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={14} />
+    ) : toolbarAgent?.iconType === "custom" ? (
+      <Bot className="size-3.5 text-muted-foreground" />
+    ) : (
+      <TerminalIcon className="size-3.5 text-muted-foreground" />
+    );
 
-  // Fallback: if callers only pass a combined displayTitle ("A | B"), still show B.
-  const parsed =
-    !osc && primary.includes(" | ")
-      ? (() => {
-          const idx = primary.indexOf(" | ");
-          return {
-            left: primary.slice(0, idx).trim(),
-            right: primary.slice(idx + 3).trim(),
-          };
-        })()
-      : { left: primary, right: osc };
+  const primary = (primaryTitle ?? "").trim();
+  const osc = (oscSuffix ?? "").trim();
 
-  const left = parsed.left || primary;
-  const right = parsed.right;
+  // Structured path: fixed primary + marquee OSC (requested UX).
+  if (primary && osc) {
+    return (
+      <div className={cn("terminal-title-row", className)} title={`${primary} | ${osc}`}>
+        <span className="terminal-title-icon">{icon}</span>
+        <span className="terminal-title-primary">{primary}</span>
+        <span className="terminal-title-sep" aria-hidden>
+          |
+        </span>
+        <TerminalTitleMarquee text={osc} />
+      </div>
+    );
+  }
 
+  // Fallback identical to pre-marquee: one string (may already contain " | ").
+  const text = displayTitle.trim() || primary || osc;
   return (
-    <div className={cn("terminal-title-row", className)}>
-      <span className="terminal-title-icon">
-        {toolbarAgent?.iconType === "built-in" ? (
-          <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={14} />
-        ) : toolbarAgent?.iconType === "custom" ? (
-          <Bot className="size-3.5 text-muted-foreground" />
-        ) : (
-          <TerminalIcon className="size-3.5 text-muted-foreground" />
-        )}
-      </span>
-      <span className={cn("terminal-title-primary", right && "has-osc")}>{left}</span>
-      {right ? (
-        <>
-          <span className="terminal-title-sep" aria-hidden>
-            |
-          </span>
-          <TerminalTitleMarquee text={right} className="terminal-title-osc" />
-        </>
-      ) : null}
+    <div className={cn("terminal-title-row", className)} title={text}>
+      <span className="terminal-title-icon">{icon}</span>
+      <TerminalTitleMarquee text={text} />
     </div>
   );
 }

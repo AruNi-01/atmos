@@ -210,65 +210,70 @@
   font-weight: 500;
   color: var(--foreground);
   opacity: 0.9;
-  min-width: 0;
+  /* Same role as pre-marquee: fill remaining toolbar width, clip overflow. */
   flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
+  overflow: hidden;
 }
 
-/* Title row: icon + primary + optional | OSC marquee */
+/*
+ * Title row layout (must not collapse OSC to 0 width):
+ *   [icon][primary fixed][|][osc grows + marquee if needed]
+ * Using flex with min-width:0 on the growing marquee child only.
+ */
 .terminal-title-row {
   display: flex;
   align-items: center;
-  min-width: 0;
-  max-width: 100%;
   width: 100%;
+  min-width: 0;
   gap: 0.25rem;
+  overflow: hidden;
 }
 
 .terminal-title-icon {
   display: inline-flex;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   align-items: center;
 }
 
+/* Fixed left segment — never grows into the OSC area. */
 .terminal-title-primary {
-  min-width: 0;
+  flex: 0 1 auto;
+  max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.terminal-title-primary.has-osc {
-  flex: 0 1 auto;
-  max-width: 42%;
-}
-
 .terminal-title-sep {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
 }
 
-/* OSC session topic: always visible; marquee only when wider than the slot */
-.terminal-title-osc,
+/*
+ * Marquee container: takes remaining width.
+ * IMPORTANT: flex-basis 0 + min-width > 0 so short OSC still paints, and long
+ * OSC gets a real measured width for overflow detection (was collapsing to 0).
+ */
 .terminal-title-marquee {
   position: relative;
-  flex: 1 1 0;
-  min-width: 2.5rem;
+  flex: 1 1 0%;
+  min-width: 3rem;
   overflow: hidden;
-  mask-image: linear-gradient(to right, #000 0%, #000 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 90%, transparent 100%);
+  white-space: nowrap;
 }
 
 .terminal-title-marquee-text {
   display: inline-block;
-  max-width: none;
   white-space: nowrap;
-  vertical-align: bottom;
+  /* When not overflowing, text simply sits at start and is fully visible. */
 }
 
 .terminal-title-marquee-text.is-overflowing {
+  padding-right: 1.5rem;
   animation: terminal-title-marquee-scroll var(--marquee-duration, 10s) linear infinite;
-  animation-delay: 0.6s;
+  animation-delay: 0.8s;
   will-change: transform;
 }
 
@@ -278,10 +283,10 @@
 
 @keyframes terminal-title-marquee-scroll {
   0%,
-  12% {
+  15% {
     transform: translateX(0);
   }
-  88%,
+  85%,
   100% {
     transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
   }
