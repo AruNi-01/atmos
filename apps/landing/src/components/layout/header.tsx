@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 
 import { Hammer } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -47,6 +47,14 @@ const Header = ({ className }: HeaderProps) => {
 
   const leftScaleY = useTransform(scaleX, [leftTrigger, leftTrigger + 0.05], [0, 1])
   const rightScaleY = useTransform(scaleX, [rightTrigger, rightTrigger + 0.05], [0, 1])
+
+  const scrollToDownload = (event: MouseEvent<HTMLAnchorElement>) => {
+    const el = document.getElementById('ready-download') || document.getElementById('download')
+    if (!el) return
+
+    event.preventDefault()
+    el.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -114,18 +122,24 @@ const Header = ({ className }: HeaderProps) => {
           <ModeToggle />
           {/* Actions */}
           <Button variant='outline' className='rounded-full px-4! max-sm:hidden' asChild>
-            <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
+            <IntlLink
+              href={{ pathname: '/', hash: 'ready-download' }}
+              onClick={scrollToDownload}
+            >
               {t('build')} <Hammer className='size-4' />
-            </Link>
+            </IntlLink>
           </Button>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant='outline' size='icon' className='rounded-full px-4! sm:hidden' asChild>
-                <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
+                <IntlLink
+                  href={{ pathname: '/', hash: 'ready-download' }}
+                  onClick={scrollToDownload}
+                >
                   <span className='sr-only'>{t('build')}</span>
                   <Hammer className='size-4' />
-                </Link>
+                </IntlLink>
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('build')}</TooltipContent>

@@ -100,7 +100,7 @@ const HeroSection = () => {
 
           <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={1.7} className="flex-shrink-0">
             <div className="flex">
-              <CraftButton className="rounded-full shadow-lg h-auto px-5 py-2.5 md:px-6 md:py-3 lg:px-8 lg:py-3.5" asChild>
+              <CraftButton className="rounded-full shadow-lg h-12 px-5 md:h-14 md:px-6 lg:h-14 lg:px-8" asChild>
                 <Link
                   href='#ready-download'
                   onClick={(e) => {
