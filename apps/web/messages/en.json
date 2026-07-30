@@ -2644,6 +2644,21 @@
         "description": "Open a live terminal widget on the canvas."
       }
     },
+    "emptyBrushAddWidget": {
+      "title": "Add widget",
+      "sizeHint": "{width} × {height}",
+      "contextPlaceholder": "Project / workspace",
+      "contextNone": "No context",
+      "contextOptional": "Optional for global widgets",
+      "contextSelected": "Selected",
+      "contextButtonPlaceholder": "Select project or workspace",
+      "contextButtonHint": "Click to search and choose a context",
+      "contextRequired": "Select a project or workspace for this widget.",
+      "componentSearchPlaceholder": "Search components",
+      "clearComponentSearchAria": "Clear component search",
+      "componentEmptyTitle": "No matching components",
+      "componentEmptyDescription": "Try a different search."
+    },
     "unsupportedInteraction": {
       "dialogAria": "Unsupported canvas interaction",
       "title": "Not available on the canvas",

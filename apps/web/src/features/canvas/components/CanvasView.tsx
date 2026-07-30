@@ -92,6 +92,7 @@ import { CanvasAgentOnCanvas } from "./CanvasAgentOnCanvas";
 import { CanvasAgentIsland } from "./CanvasAgentIsland";
 import { CanvasFocusPulse } from "./CanvasFocusPulse";
 import { CanvasShapeCopyOverlay } from "./CanvasShapeCopyOverlay";
+import { CanvasEmptyBrushAddWidget } from "./CanvasEmptyBrushAddWidget";
 import { CanvasUnsupportedInteractionDialog } from "./CanvasUnsupportedInteractionDialog";
 import {
   CanvasTerminalRefProvider,
@@ -334,7 +335,15 @@ export const CanvasView: React.FC = () => {
     () => <CanvasAgentOnCanvas bridge={canvasAgentBridgeRef.current} />,
     [],
   );
-  const ShapeCopySlot = React.useCallback(() => <CanvasShapeCopyOverlay />, []);
+  const ShapeCopySlot = React.useCallback(
+    () => (
+      <>
+        <CanvasShapeCopyOverlay />
+        <CanvasEmptyBrushAddWidget />
+      </>
+    ),
+    [],
+  );
   const tldrawComponents = React.useMemo<TLComponents>(
     () => ({
       MenuPanel: CanvasMenuPanel,
