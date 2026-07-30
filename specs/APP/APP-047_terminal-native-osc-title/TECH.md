@@ -24,7 +24,7 @@ getTerminalDisplayMeta({ dynamicTitle, agent, oscTitle, suppressOscTitle })
         └─ displayTitle  ← auto  [ | oscTitle ]  unless suppress / custom
 ```
 
-No backend changes. No new WebSocket messages.
+Layout document gains optional `panes[].oscTitle` (same save channel as `agent` / `customLabel`). No new REST endpoints or WebSocket messages.
 
 ## 2. Shared helpers (`packages/shared/src/terminal/title.ts`)
 
@@ -140,7 +140,7 @@ setOscTitle(workspaceId, paneId, oscTitle: string | undefined, terminalTabId?)
 
 - Compare sanitized equality before `set`.
 - Never call `saveToBackend`.
-- Layout document mapping already omits `dynamicTitle`; keep `oscTitle` out of persistence the same way (do not add to `Persisted*` types).
+- Layout document still omits `dynamicTitle` (reattach inject). **`oscTitle` is persisted** on the pane document and restored on hydrate (`live ?? persisted`). Shell noise is dropped before store.
 
 ### 4.3 Lookups
 

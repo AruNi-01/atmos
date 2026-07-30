@@ -34,7 +34,7 @@ Developers run multiple agent sessions (Codex, Claude Code, Grok Build, …) in 
 - **M5 — Clear rules.** `oscTitle` is cleared when:
   - an empty/whitespace-only native title is received, or
   - the Atmos shim emits `CMD_END` (shell idle).
-- **M6 — Display-only.** `oscTitle` is transient (not persisted in the terminal layout document), same class as `dynamicTitle`.
+- **M6 — Persist meaningful OSC.** Unlike shim `dynamicTitle` (restored via tmux inject on attach), agent session OSC titles are written into the terminal layout document so a full page refresh restores `{agent} | {topic}`. Shell host/path noise is never stored. Saves use the existing debounced layout save path.
 - **M7 — Dedup / sanitize.** Strip control characters and collapse whitespace before display; skip store updates when the sanitized value is unchanged.
 - **M8 — Filter noisy / redundant OSC.** Do **not** append OSC when it is:
   - shell noise: `user@host:cwd`, host-prefixed paths, or path-only titles (Atmos already shows path via shim);

@@ -136,7 +136,8 @@ export interface TerminalPaneProps {
   dynamicTitle?: string;
   /**
    * Native OSC 0/2 title from the foreground process (agent session topic).
-   * Transient display-only; never persisted; never used for agent detection (APP-047).
+   * Persisted in the terminal layout so refresh keeps session topics (APP-047).
+   * Never used for agent detection. Shell host/path noise is not stored.
    */
   oscTitle?: string;
   /**

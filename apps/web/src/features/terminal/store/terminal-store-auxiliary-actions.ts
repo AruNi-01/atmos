@@ -13,6 +13,12 @@ import {
   splitPaneInLayout,
 } from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalStore } from "@/features/terminal/store/terminal-store-types";
+import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
+
+function normalizeStoredOscTitle(oscTitle: string | undefined): string | undefined {
+  const cleaned = sanitizeNativeOscTitle(oscTitle);
+  return cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
+}
 
 type TerminalStoreSet = (
   partial:
@@ -221,7 +227,8 @@ export function createTerminalAuxiliaryActions(
     setProjectWikiOscTitle: (workspaceId, paneId, oscTitle) => {
       const panes = get().projectWikiPanes[workspaceId];
       if (!panes?.[paneId]) return;
-      const next = oscTitle?.trim() || undefined;
+      // Wiki scope is in-memory only; still drop shell path noise.
+      const next = normalizeStoredOscTitle(oscTitle);
       if (panes[paneId].oscTitle === next) return;
       set((state) => ({
         projectWikiPanes: {
@@ -392,7 +399,7 @@ export function createTerminalAuxiliaryActions(
     setCodeReviewOscTitle: (workspaceId, paneId, oscTitle) => {
       const panes = get().codeReviewPanes[workspaceId];
       if (!panes?.[paneId]) return;
-      const next = oscTitle?.trim() || undefined;
+      const next = normalizeStoredOscTitle(oscTitle);
       if (panes[paneId].oscTitle === next) return;
       set((state) => ({
         codeReviewPanes: {

@@ -411,10 +411,10 @@ export function hydratePersistedTab(
       // API/tmux startup after app restart; treating unknown windows as "new"
       // forces create and can orphan a still-running TUI agent.
       isNewPane: liveByWindow ? false : windowName ? false : !windowExists,
-      // dynamicTitle / oscTitle are display-only and not written to layout
-      // persistence — keep warm in-memory values across a hydrate rewrite.
+      // dynamicTitle is display-only (reattach inject); keep warm in-memory.
+      // oscTitle is persisted so agent session topics survive refresh (APP-047).
       dynamicTitle: liveByWindow?.dynamicTitle,
-      oscTitle: liveByWindow?.oscTitle,
+      oscTitle: liveByWindow?.oscTitle ?? pane.oscTitle,
       // Prefer live agent, then persisted agent.
       agent: liveByWindow?.agent ?? pane.agent,
       customLabel: liveByWindow?.customLabel ?? pane.customLabel,
@@ -728,6 +728,8 @@ export function buildPersistedTerminalWorkspaceLayout(
         projectName: pane.projectName,
         workspaceName: pane.workspaceName,
         isNewPane: pane.isNewPane,
+        // Persist agent OSC session topics; omit empty so layout stays lean.
+        ...(pane.oscTitle?.trim() ? { oscTitle: pane.oscTitle.trim() } : {}),
         customLabel: pane.customLabel,
         keepAgentName: pane.keepAgentName,
         keepCwd: pane.keepCwd,
