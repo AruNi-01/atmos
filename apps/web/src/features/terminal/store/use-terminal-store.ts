@@ -36,6 +36,7 @@ import {
   type TerminalCenterTab,
 } from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalStore } from "@/features/terminal/store/terminal-store-types";
+import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
 
 export { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 export {
@@ -964,6 +965,35 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
       },
     }));
     // NOTE: Do NOT call saveToBackend — dynamicTitle is transient display-only
+  },
+
+  setOscTitle: (workspaceId, paneId, oscTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const panes = get().workspacePanes[scopeKey];
+    if (!panes || !panes[paneId]) return;
+
+    // Sanitize; drop shell user@host:cwd noise so we never persist it.
+    const cleaned = sanitizeNativeOscTitle(oscTitle);
+    const next =
+      cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
+    if (panes[paneId].oscTitle === next) return;
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [scopeKey]: {
+          ...panes,
+          [paneId]: {
+            ...panes[paneId],
+            oscTitle: next,
+          },
+        },
+      },
+    }));
+    // Persisted in terminal layout (debounced by saveToBackend) so agent
+    // session topics survive full page refresh — unlike dynamicTitle, which
+    // is re-injected from tmux on attach (APP-047).
+    get().saveToBackend(workspaceId);
   },
 
   setPaneAgent: (workspaceId, paneId, agent, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {

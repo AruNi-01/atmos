@@ -1,9 +1,12 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 import {
+  appendNativeOscTitle,
   getTerminalDisplayMeta,
   isDynamicTitleDowngrade,
+  MAX_NATIVE_OSC_TITLE_CHARS,
   resolveAgentForTitle,
+  sanitizeNativeOscTitle,
 } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "../../types";
 
@@ -190,11 +193,27 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
           configuredAgents: agents,
           contestedOwners: { agent: "unknown" },
         }),
-      ).toEqual({
+      ).toMatchObject({
         displayTitle: "agent",
+        primaryTitle: "agent",
+        oscSuffix: "",
         toolbarAgent: undefined,
       });
     }
+  });
+
+  it("splits primary title and OSC suffix for toolbar marquee", () => {
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "Claude Code",
+      dynamicTitle: "claude",
+      agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+      oscTitle: "debugging a very long session topic for marquee",
+    });
+    expect(meta.primaryTitle).toBe("Claude Code");
+    expect(meta.oscSuffix).toBe("debugging a very long session topic for marquee");
+    expect(meta.displayTitle).toBe(
+      "Claude Code | debugging a very long session topic for marquee",
+    );
   });
 
   it("matches command lines with executable paths or path-valued arguments", () => {
@@ -267,5 +286,163 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
         contestedOwners: { agent: "unknown" },
       }).toolbarAgent?.id,
     ).toBe("cursor");
+  });
+});
+
+describe("native OSC 0/2 title suffix (APP-047)", () => {
+  it("sanitizes control characters and collapses whitespace", () => {
+    expect(sanitizeNativeOscTitle("  Project\t|\nWorking\x1b\x07 ")).toBe("Project | Working");
+    expect(sanitizeNativeOscTitle("   ")).toBe("");
+    expect(sanitizeNativeOscTitle(undefined)).toBe("");
+  });
+
+  it("caps long native titles", () => {
+    const long = "a".repeat(MAX_NATIVE_OSC_TITLE_CHARS + 20);
+    expect(sanitizeNativeOscTitle(long).length).toBe(MAX_NATIVE_OSC_TITLE_CHARS);
+  });
+
+  it("appends OSC title with | after the auto display title", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        configuredAgents: agents,
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "debugging auth",
+      }),
+    ).toMatchObject({
+      displayTitle: "Claude Code | debugging auth",
+      toolbarAgent: expect.objectContaining({ id: "claude" }),
+    });
+  });
+
+  it("shows OSC alone when auto title is empty", () => {
+    expect(appendNativeOscTitle("", "session topic")).toBe("session topic");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: undefined,
+        dynamicTitle: undefined,
+        oscTitle: "session topic",
+      }).displayTitle,
+    ).toBe("session topic");
+  });
+
+  it("never uses OSC text for agent detection", () => {
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "1",
+      dynamicTitle: "codex",
+      configuredAgents: agents,
+      agent: { id: "codex", label: "Codex", command: "codex", iconType: "built-in" },
+      // Looks like another agent brand — must not rebrand the pane.
+      oscTitle: "Hermes Agent",
+    });
+    expect(meta.displayTitle).toBe("Codex | Hermes Agent");
+    expect(meta.toolbarAgent?.id).toBe("codex");
+    expect(meta.toolbarAgent?.id).not.toBe("hermes");
+  });
+
+  it("suppresses OSC when custom label is set", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        configuredAgents: agents,
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "debugging auth",
+        suppressOscTitle: true,
+      }).displayTitle,
+    ).toBe("Claude Code");
+    expect(appendNativeOscTitle("My Pane", "debugging auth", true)).toBe("My Pane");
+  });
+
+  it("drops the suffix when OSC is cleared", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "",
+      }).displayTitle,
+    ).toBe("Claude Code");
+  });
+
+  // Documents clear-on-empty / post-clear composition (S6 unit; S7/S8 are inspection).
+  it("appendNativeOscTitle returns auto-only after clear (empty/undefined osc)", () => {
+    expect(appendNativeOscTitle("Claude Code", "debugging auth")).toBe(
+      "Claude Code | debugging auth",
+    );
+    expect(appendNativeOscTitle("Claude Code", "")).toBe("Claude Code");
+    expect(appendNativeOscTitle("Claude Code", undefined)).toBe("Claude Code");
+    expect(appendNativeOscTitle("Claude Code", "   ")).toBe("Claude Code");
+  });
+
+  it("filters shell user@host:cwd and path-only OSC noise", () => {
+    const shellTitle =
+      "aarynlu@AarynLuDeMacBook-Air:~/.atmos/workspaces/atmos/abra";
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../atmos/abra",
+        oscTitle: shellTitle,
+      }).displayTitle,
+    ).toBe(".../atmos/abra");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: "/Users/me/proj",
+        oscTitle: "/Users/me/proj",
+      }).displayTitle,
+    ).toBe("/Users/me/proj");
+    expect(
+      appendNativeOscTitle("atmos/abra", shellTitle),
+    ).toBe("atmos/abra");
+  });
+
+  it("keeps multi-word OSC topics that contain slashes (not bare paths)", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "fix src/api auth",
+      }).oscSuffix,
+    ).toBe("fix src/api auth");
+  });
+
+  it("hides OSC that only repeats the agent command or brand", () => {
+    const claude = {
+      id: "claude",
+      label: "Claude Code",
+      command: "claude",
+      iconType: "built-in" as const,
+    };
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+        configuredAgents: [claude],
+        oscTitle: "claude",
+      }).displayTitle,
+    ).toBe("Claude Code");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+        configuredAgents: [claude],
+        oscTitle: "Claude Code",
+      }).displayTitle,
+    ).toBe("Claude Code");
+    // Meaningful session topic still appends.
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: claude,
+        configuredAgents: [claude],
+        oscTitle: "debugging auth",
+      }).displayTitle,
+    ).toBe("Claude Code | debugging auth");
   });
 });

@@ -163,6 +163,8 @@ export function useTerminalGridCanvasPins({
               configuredAgents,
               agent: pane.agent,
               contestedOwners,
+              oscTitle: pane.oscTitle,
+              suppressOscTitle: !!pane.customLabel?.trim(),
             });
             // Contested freehand `agent` can pin before identity resolves. Prefer
             // the pane's known launch agent over baking a raw `agent` label.

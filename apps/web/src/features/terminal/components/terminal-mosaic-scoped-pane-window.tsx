@@ -28,6 +28,7 @@ import {
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
+import { useToolbarHoverExpand } from "../hooks/use-toolbar-hover-expand";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
 import { TerminalPaneAgentStatus } from "./terminal-mosaic-workspace-pane-window";
@@ -79,6 +80,7 @@ type ScopedPaneWindowProps = {
   pendingRunsRef: React.MutableRefObject<Map<string, PendingTerminalRun>>;
   deliverPendingRunForPane: (paneId: string) => void;
   setDynamicTitle: (workspaceId: string, paneId: string, title: string) => void;
+  setOscTitle: (workspaceId: string, paneId: string, title: string | undefined) => void;
   setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   markPaneAttached: (workspaceId: string, paneId: string) => void;
   surfaceActive?: boolean;
@@ -116,18 +118,26 @@ export function TerminalMosaicScopedPaneWindow({
   pendingRunsRef,
   deliverPendingRunForPane,
   setDynamicTitle,
+  setOscTitle,
   setPaneAgent,
   markPaneAttached,
   surfaceActive = true,
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
-  const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
+  const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
+  const splitMenuOpenForPane =
+    splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
+  const toolbarExpanded =
+    maximizedId === id || toolbarHovered || splitMenuOpenForPane;
+  const { displayTitle, primaryTitle, oscSuffix, toolbarAgent } = getTerminalDisplayMeta({
     baseTitle: pane.label,
     dynamicTitle: pane.dynamicTitle,
     configuredAgents,
     agent: pane.agent,
     contestedOwners,
+    oscTitle: pane.oscTitle,
+    suppressOscTitle: !!pane.customLabel?.trim(),
   });
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
 
@@ -211,24 +221,34 @@ export function TerminalMosaicScopedPaneWindow({
       onDragEnd={() => setIsPaneDragging(false)}
       renderToolbar={() => {
         return (
-          <div className="terminal-mosaic-toolbar group/toolbar">
+          <div
+            className={cn(
+              "terminal-mosaic-toolbar group/toolbar",
+              toolbarExpanded && "is-toolbar-expanded",
+            )}
+            onMouseEnter={onToolbarMouseEnter}
+            onMouseLeave={onToolbarMouseLeave}
+          >
             <div className="terminal-mosaic-toolbar-left">
               {displayTitle ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
+                  primaryTitle={primaryTitle}
+                  oscSuffix={oscSuffix}
                   toolbarAgent={toolbarAgent}
                   className="terminal-mosaic-title gap-1.5"
                 />
               ) : null}
-              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
             </div>
 
-            {(actions.split || actions.maximize || actions.close) && (
+            <div className="terminal-mosaic-toolbar-end">
+              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
+              {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
                 <button
                   type="button"
                   className={cn(
-                    "terminal-mosaic-btn transition-opacity opacity-0 group-hover/toolbar:opacity-100",
+                    "terminal-mosaic-btn",
                     isPanePinned && "cursor-default text-primary hover:text-primary",
                   )}
                   onClick={() => {
@@ -243,7 +263,7 @@ export function TerminalMosaicScopedPaneWindow({
                 </button>
                 <div className="flex items-center gap-0.5">
                   {actions.split && (
-                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
+                    <div className="flex items-center gap-0.5">
                       <DropdownMenu
                         open={splitMenuKey === `${id}:row`}
                         onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
@@ -319,7 +339,7 @@ export function TerminalMosaicScopedPaneWindow({
                     </div>
                   )}
                   {(actions.maximize || actions.close) && (
-                    <div className={cn("flex items-center gap-0.5 transition-opacity", maximizedId === id ? "opacity-100" : "opacity-0 group-hover/toolbar:opacity-100")}>
+                    <div className="flex items-center gap-0.5">
                       {actions.maximize && (
                         <button
                           className={cn(
@@ -352,7 +372,8 @@ export function TerminalMosaicScopedPaneWindow({
                   )}
                 </div>
               </div>
-            )}
+              )}
+            </div>
           </div>
         );
       }}
@@ -411,6 +432,9 @@ export function TerminalMosaicScopedPaneWindow({
             if (detectedAgent) {
               setPaneAgent(workspaceId, id, detectedAgent);
             }
+          }}
+          onOscTitleChange={(title) => {
+            setOscTitle(workspaceId, id, title);
           }}
           onSessionReady={() => {
             readyPanesRef.current.add(id);

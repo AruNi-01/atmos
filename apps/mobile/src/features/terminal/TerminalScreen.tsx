@@ -167,6 +167,14 @@ export function TerminalScreen({
     [activeEntry?.id, updateEntry, workspaceId],
   );
 
+  const handleOscTitleChange = useCallback(
+    (nextTitle: string | undefined) => {
+      if (!activeEntry) return;
+      updateEntry(workspaceId, activeEntry.id, { oscTitle: nextTitle });
+    },
+    [activeEntry?.id, updateEntry, workspaceId],
+  );
+
   const handleShortcut = useCallback(
     (shortcut: TerminalShortcut) => {
       const input = getTerminalShortcutInput(shortcut);
@@ -247,6 +255,7 @@ export function TerminalScreen({
             onRendererError={setTerminalError}
             onResize={(size) => sendTerminalResize(size.cols, size.rows)}
             onTitleChange={handleTitleChange}
+            onOscTitleChange={handleOscTitleChange}
             sessionId={activeSessionId}
           />
         </View>
@@ -272,6 +281,7 @@ function getMobileTerminalDisplayMeta(
     baseTitle: entry.label,
     configuredAgents: MOBILE_TERMINAL_AGENTS,
     dynamicTitle: entry.dynamicTitle,
+    oscTitle: entry.oscTitle,
     contestedOwners,
   });
 }

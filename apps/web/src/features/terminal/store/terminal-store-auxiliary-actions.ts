@@ -13,6 +13,12 @@ import {
   splitPaneInLayout,
 } from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalStore } from "@/features/terminal/store/terminal-store-types";
+import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
+
+function normalizeStoredOscTitle(oscTitle: string | undefined): string | undefined {
+  const cleaned = sanitizeNativeOscTitle(oscTitle);
+  return cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
+}
 
 type TerminalStoreSet = (
   partial:
@@ -35,6 +41,7 @@ type AuxiliaryTerminalActions = Pick<
   | "loadProjectWikiFromTmux"
   | "getProjectWikiPaneIdByTmuxWindowName"
   | "setProjectWikiDynamicTitle"
+  | "setProjectWikiOscTitle"
   | "setProjectWikiPaneAgent"
   | "markProjectWikiPaneAttached"
   | "toggleProjectWikiMaximize"
@@ -48,6 +55,7 @@ type AuxiliaryTerminalActions = Pick<
   | "loadCodeReviewFromTmux"
   | "getCodeReviewPaneIdByTmuxWindowName"
   | "setCodeReviewDynamicTitle"
+  | "setCodeReviewOscTitle"
   | "setCodeReviewPaneAgent"
   | "markCodeReviewPaneAttached"
   | "toggleCodeReviewMaximize"
@@ -216,6 +224,22 @@ export function createTerminalAuxiliaryActions(
         },
       }));
     },
+    setProjectWikiOscTitle: (workspaceId, paneId, oscTitle) => {
+      const panes = get().projectWikiPanes[workspaceId];
+      if (!panes?.[paneId]) return;
+      // Wiki scope is in-memory only; still drop shell path noise.
+      const next = normalizeStoredOscTitle(oscTitle);
+      if (panes[paneId].oscTitle === next) return;
+      set((state) => ({
+        projectWikiPanes: {
+          ...state.projectWikiPanes,
+          [workspaceId]: {
+            ...panes,
+            [paneId]: { ...panes[paneId], oscTitle: next },
+          },
+        },
+      }));
+    },
     markProjectWikiPaneAttached: (workspaceId, paneId) => {
       const panes = get().projectWikiPanes[workspaceId];
       const pane = panes?.[paneId];
@@ -368,6 +392,21 @@ export function createTerminalAuxiliaryActions(
           [workspaceId]: {
             ...panes,
             [paneId]: { ...panes[paneId], dynamicTitle },
+          },
+        },
+      }));
+    },
+    setCodeReviewOscTitle: (workspaceId, paneId, oscTitle) => {
+      const panes = get().codeReviewPanes[workspaceId];
+      if (!panes?.[paneId]) return;
+      const next = normalizeStoredOscTitle(oscTitle);
+      if (panes[paneId].oscTitle === next) return;
+      set((state) => ({
+        codeReviewPanes: {
+          ...state.codeReviewPanes,
+          [workspaceId]: {
+            ...panes,
+            [paneId]: { ...panes[paneId], oscTitle: next },
           },
         },
       }));

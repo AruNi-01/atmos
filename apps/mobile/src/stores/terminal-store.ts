@@ -10,6 +10,8 @@ export type MobileTerminalEntry = {
   sessionId?: string;
   agentLabel?: string;
   dynamicTitle?: string;
+  /** Native OSC 0/2 title; transient display-only (APP-047). */
+  oscTitle?: string;
   isNew?: boolean;
 };
 

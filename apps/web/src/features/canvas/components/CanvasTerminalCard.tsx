@@ -127,7 +127,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     [contextScope, workspaceId, tmuxWindowName],
   );
 
-  const { displayTitle, toolbarAgent, onTitleChange } = useTerminalToolbarTitle({
+  const { displayTitle, toolbarAgent, onTitleChange, onOscTitleChange } = useTerminalToolbarTitle({
     baseTitle: shape.props.terminalName,
     configuredAgents,
     pinnedAgent: shape.props.paneAgent,
@@ -548,6 +548,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               }}
               onSessionReady={handleSessionReady}
               onTitleChange={onTitleChange}
+              onOscTitleChange={onOscTitleChange}
               onSessionError={(_, error) => {
                 setIsTerminalReady(false);
                 toastManager.add({

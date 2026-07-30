@@ -25,6 +25,7 @@ import {
 import { TerminalTitleWithAgent } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalToolbarTitle } from "../hooks/use-terminal-toolbar-title";
+import { useToolbarHoverExpand } from "../hooks/use-toolbar-hover-expand";
 import { useTerminalSideChats, type SpawnTerminalRequest } from "../hooks/use-terminal-side-chats";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
@@ -56,7 +57,7 @@ export function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId:
     <AgentHookStatusIndicator
       state={paneState}
       variant="full"
-      className="ml-2"
+      className="shrink-0"
     />
   );
 }
@@ -139,6 +140,12 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     surfaceActive = true,
   } = props;
 
+  const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
+  const splitMenuOpenForPane =
+    splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
+  const toolbarExpanded =
+    maximizedId === id || toolbarHovered || splitMenuOpenForPane;
+
   const storeWrite = useMemo(
     () =>
       ({
@@ -150,14 +157,15 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     [workspaceId, id, terminalTabId],
   );
 
-  const { displayTitle, toolbarAgent, onTitleChange } = useTerminalToolbarTitle({
-    baseTitle: pane.label,
-    configuredAgents,
-    storeWrite,
-    customLabel: pane.customLabel,
-    keepAgentName: pane.keepAgentName,
-    keepCwd: pane.keepCwd,
-  });
+  const { displayTitle, primaryTitle, oscSuffix, toolbarAgent, onTitleChange, onOscTitleChange } =
+    useTerminalToolbarTitle({
+      baseTitle: pane.label,
+      configuredAgents,
+      storeWrite,
+      customLabel: pane.customLabel,
+      keepAgentName: pane.keepAgentName,
+      keepCwd: pane.keepCwd,
+    });
   const [isTerminalReady, setIsTerminalReady] = React.useState(false);
 
   React.useEffect(() => {
@@ -270,24 +278,34 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
       onDragEnd={() => setIsPaneDragging(false)}
       renderToolbar={() => {
         return (
-          <div className="terminal-mosaic-toolbar group/toolbar">
+          <div
+            className={cn(
+              "terminal-mosaic-toolbar group/toolbar",
+              toolbarExpanded && "is-toolbar-expanded",
+            )}
+            onMouseEnter={onToolbarMouseEnter}
+            onMouseLeave={onToolbarMouseLeave}
+          >
             <div className="terminal-mosaic-toolbar-left">
               {displayTitle ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
+                  primaryTitle={primaryTitle}
+                  oscSuffix={oscSuffix}
                   toolbarAgent={toolbarAgent}
                   className="terminal-mosaic-title gap-1.5"
                 />
               ) : null}
-              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
             </div>
 
-            {(actions.split || actions.maximize || actions.close) && (
+            <div className="terminal-mosaic-toolbar-end">
+              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
+              {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
                 <button
                   type="button"
                   className={cn(
-                    "terminal-mosaic-btn transition-opacity opacity-0 group-hover/toolbar:opacity-100",
+                    "terminal-mosaic-btn",
                     isPanePinned && "cursor-default text-primary hover:text-primary",
                   )}
                   onClick={() => {
@@ -303,7 +321,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
                 </button>
                 <div className="flex items-center gap-0.5">
                   {actions.split && (
-                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
+                    <div className="flex items-center gap-0.5">
                       <DropdownMenu
                         open={splitMenuKey === `${id}:row`}
                         onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
@@ -383,12 +401,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
                     </div>
                   )}
                   {(actions.maximize || actions.close) && (
-                    <div
-                      className={cn(
-                        "flex items-center gap-0.5 transition-opacity",
-                        maximizedId === id ? "opacity-100" : "opacity-0 group-hover/toolbar:opacity-100",
-                      )}
-                    >
+                    <div className="flex items-center gap-0.5">
                       {actions.maximize && (
                         <button
                           type="button"
@@ -422,7 +435,8 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
                   )}
                 </div>
               </div>
-            )}
+              )}
+            </div>
           </div>
         );
       }}
@@ -466,6 +480,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
           onTitleChange={onTitleChange}
+          onOscTitleChange={onOscTitleChange}
           onAddSelectionAsContext={(snapshot) => {
             setActivePaneId(id);
             agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);

@@ -146,6 +146,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     toggleMaximize,
     getMaximizedTerminalId,
     setDynamicTitle,
+    setOscTitle,
     setPaneAgent,
     markPaneAttached,
     setPaneCustomLabel,
@@ -159,6 +160,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     initProjectWikiWorkspace,
     getProjectWikiPaneIdByTmuxWindowName,
     setProjectWikiDynamicTitle,
+    setProjectWikiOscTitle,
     setProjectWikiPaneAgent,
     markProjectWikiPaneAttached,
     toggleProjectWikiMaximize,
@@ -173,6 +175,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     initCodeReviewWorkspace,
     getCodeReviewPaneIdByTmuxWindowName,
     setCodeReviewDynamicTitle,
+    setCodeReviewOscTitle,
     setCodeReviewPaneAgent,
     markCodeReviewPaneAttached,
     toggleCodeReviewMaximize,
@@ -515,6 +518,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     : isProjectWiki
     ? setProjectWikiDynamicTitle
     : setDynamicTitle;
+  const setOscTitleForScope = isCodeReview
+    ? setCodeReviewOscTitle
+    : isProjectWiki
+    ? setProjectWikiOscTitle
+    : setOscTitle;
   const setPaneAgentForScope = isCodeReview
     ? setCodeReviewPaneAgent
     : isProjectWiki
@@ -705,9 +713,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, []);
 
   const handleSplitMenuLeave = useCallback(() => {
+    // Grace period to reach the portaled dropdown from the split trigger.
+    // Keep in mind with toolbar hover leave delay (useToolbarHoverExpand).
     splitMenuTimeoutRef.current = setTimeout(() => {
       setSplitMenuKey(null);
-    }, 120);
+    }, 280);
   }, []);
 
   const handleContextSplitSubmenuEnter = useCallback((key: "row" | "column") => {
@@ -911,6 +921,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         pendingRunsRef={pendingRunsRef}
         deliverPendingRunForPane={deliverPendingRunForPane}
         setDynamicTitle={setDynamicTitleForScope}
+        setOscTitle={setOscTitleForScope}
         setPaneAgent={setPaneAgentForScope}
         markPaneAttached={isCodeReview ? markCodeReviewPaneAttached : markProjectWikiPaneAttached}
         surfaceActive={isSurfaceActive}
@@ -927,6 +938,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     workspaceId,
     onToggleMaximize,
     setDynamicTitleForScope,
+    setOscTitleForScope,
     setPaneAgentForScope,
     actions,
     configuredAgents,

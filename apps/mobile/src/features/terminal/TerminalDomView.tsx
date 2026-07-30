@@ -13,6 +13,7 @@ import {
   extractCommandName,
   isTerminalSnapshot,
   isUsableTerminalGrid,
+  sanitizeNativeOscTitle,
   shortenPath,
   type TerminalSnapshot,
   type TerminalThemeTokens,
@@ -43,6 +44,7 @@ type Props = {
   onReady: (cols: number, rows: number) => Promise<void>;
   onRendererError: (message: string) => Promise<void>;
   onTitleChange: (title: string) => Promise<void>;
+  onOscTitleChange?: (title: string | undefined) => Promise<void>;
   ref?: React.Ref<TerminalDomHandle>;
   theme: TerminalThemeTokens;
   dom?: DOMProps;
@@ -68,18 +70,20 @@ export default function TerminalDomView({
   onResize,
   theme,
   onTitleChange,
+  onOscTitleChange,
   ref,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const callbacksRef = useRef({ onInput, onReady, onRendererError, onResize, onTitleChange });
+  const callbacksRef = useRef({ onInput, onReady, onRendererError, onResize, onTitleChange, onOscTitleChange });
   const cmdStartTimerRef = useRef<number | null>(null);
   const connectedRef = useRef(connected);
   const lastTitleRef = useRef<string | null>(null);
+  const lastOscTitleRef = useRef<string | undefined>(undefined);
 
   connectedRef.current = connected;
-  callbacksRef.current = { onInput, onReady, onRendererError, onResize, onTitleChange };
+  callbacksRef.current = { onInput, onReady, onRendererError, onResize, onTitleChange, onOscTitleChange };
 
   useEffect(() => {
     let isDisposed = false;
@@ -174,6 +178,17 @@ export default function TerminalDomView({
         void callbacksRef.current.onResize(cols, rows).catch(reportError);
       });
 
+      const emitOscTitle = (raw: string | undefined) => {
+        const next = sanitizeNativeOscTitle(raw) || undefined;
+        if (next === lastOscTitleRef.current) return;
+        lastOscTitleRef.current = next;
+        const handler = callbacksRef.current.onOscTitleChange;
+        if (handler) void handler(next).catch(reportError);
+      };
+      const titleChangeDisposable = terminal.onTitleChange((raw) => {
+        emitOscTitle(raw);
+      });
+
       const CMD_START_DELAY_MS = 150;
       terminal.parser.registerOscHandler(9999, (data: string) => {
         const colonIdx = data.indexOf(":");
@@ -202,6 +217,7 @@ export default function TerminalDomView({
             window.clearTimeout(cmdStartTimerRef.current);
             cmdStartTimerRef.current = null;
           }
+          emitOscTitle(undefined);
           const nextTitle = shortenPath(payload);
           if (nextTitle !== lastTitleRef.current) {
             lastTitleRef.current = nextTitle;
@@ -231,6 +247,7 @@ export default function TerminalDomView({
         mount.removeEventListener("touchstart", focusTerminal, passiveFocusOptions);
         mount.removeEventListener("click", focusTerminal, focusOptions);
         resizeObserver?.disconnect();
+        titleChangeDisposable.dispose();
         webglContextLossDisposable?.dispose();
         webglAddon?.dispose();
         onData.dispose();

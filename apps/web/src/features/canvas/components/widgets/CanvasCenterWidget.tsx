@@ -55,7 +55,6 @@ import {
   removeCanvasCenterTab,
   type CanvasCenterTab,
 } from "@/features/canvas/lib/canvas-center-tabs";
-import { clientPointToLocalElementPoint } from "@/shared/lib/dom-position";
 import {
   CANVAS_WIDGET_SHAPE_TYPE,
   getCanvasContextId,
@@ -362,14 +361,10 @@ function CanvasCenterWidgetBody({
                     event.stopPropagation();
                     editor.markEventAsHandled(event);
                     handleTabChange(tab.id);
-                    const point = clientPointToLocalElementPoint(
-                      rootRef.current,
-                      event.clientX,
-                      event.clientY,
-                    );
+                    // Viewport coords: menu is portaled to body with position:fixed.
                     setTabContextMenu({
-                      x: point.x,
-                      y: point.y,
+                      x: event.clientX,
+                      y: event.clientY,
                       filePath: tab.path,
                     });
                   }}

@@ -23,7 +23,7 @@ import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folde
 import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
 import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
-import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
+import { useFileTreeQuery, useListDirQuery } from '@/features/files/hooks/use-file-tree-query';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
 import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
@@ -40,6 +40,22 @@ import { useProjects } from '@/features/project/hooks/use-project-bootstrap-quer
 import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/features/files/components/FileTree';
 import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
+
+/** Strip trailing slashes only — keep a leading `/` for absolute paths. */
+function stripTrailingSlashes(path: string): string {
+  if (!path) return path;
+  const trimmed = path.replace(/\/+$/, '');
+  return trimmed.length > 0 ? trimmed : '/';
+}
+
+function parentDirPath(path: string, fallbackRoot: string | null): string {
+  const normalized = stripTrailingSlashes(path);
+  const idx = normalized.lastIndexOf('/');
+  if (idx <= 0) {
+    return fallbackRoot && fallbackRoot.length > 0 ? stripTrailingSlashes(fallbackRoot) : '/';
+  }
+  return normalized.slice(0, idx) || '/';
+}
 
 interface CodeMirrorEditorProps {
   file: OpenFile;
@@ -137,10 +153,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (settingsModalOpen) setSettingsOpen(false);
   }, [settingsModalOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
-  const fileTreeRootPath = useFileTreeStore((s) => s.rootPath);
+  const storeFileTreeRootPath = useFileTreeStore((s) => s.rootPath);
   const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
-  const fileTreeQuery = useFileTreeQuery(fileTreeRootPath, fileTreeShowHidden);
-  const fileTreeData = fileTreeQuery.data?.tree ?? [];
   const editorViewRef = useRef<EditorView | null>(null);
 
   // Get relative path for breadcrumbs (strict root boundary + longest project prefix)
@@ -176,11 +190,31 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       };
     }
 
+    // Last resort: walk up from the file until we still have a path (for canvas
+    // opens where sidebar file-tree context was never set).
+    const abs = stripTrailingSlashes(fullPath.replace(/\\/g, '/'));
+    const lastSlash = abs.lastIndexOf('/');
+    if (lastSlash > 0) {
+      return {
+        relativePath: abs.slice(lastSlash + 1),
+        projectRoot: abs.slice(0, lastSlash),
+      };
+    }
+
     return {
       relativePath: fullPath,
       projectRoot: '',
     };
   }, [file.path, currentProjectPath, projects]);
+
+  // Canvas / keepMounted editors must not depend on the left sidebar Files panel
+  // having set useFileTreeStore.rootPath — query the open file's project root.
+  const breadcrumbTreeRoot =
+    (projectRoot && projectRoot.length > 0 ? projectRoot : null) ?? storeFileTreeRootPath;
+
+  const fileTreeQuery = useFileTreeQuery(breadcrumbTreeRoot, fileTreeShowHidden);
+  const fileTreeData = fileTreeQuery.data?.tree ?? [];
+  const fileTreeRootPath = breadcrumbTreeRoot;
 
   const breadcrumbParts = useMemo(() => {
     return relativePath.split('/').filter(Boolean);
@@ -198,41 +232,62 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const getBreadcrumbPath = useCallback((index: number) => {
     const parts = relativePath.split('/').filter(Boolean);
     const relevantParts = parts.slice(0, index + 1);
-    return projectRoot ? `${projectRoot}/${relevantParts.join('/')}` : relevantParts.join('/');
+    if (!projectRoot) return relevantParts.join('/');
+    const joined = relevantParts.join('/');
+    return joined ? `${stripTrailingSlashes(projectRoot)}/${joined}` : stripTrailingSlashes(projectRoot);
   }, [relativePath, projectRoot]);
+
+  // Parent dir of the open breadcrumb segment — used for listDir fallback when
+  // the recursive tree is empty / not synced (common on canvas).
+  const openBreadcrumbParentPath = useMemo(() => {
+    if (openBreadcrumbIndex == null || !fileTreeRootPath) return null;
+    const segmentPath = getBreadcrumbPath(openBreadcrumbIndex);
+    return parentDirPath(segmentPath, fileTreeRootPath);
+  }, [openBreadcrumbIndex, fileTreeRootPath, getBreadcrumbPath]);
+
+  const breadcrumbListDirQuery = useListDirQuery(openBreadcrumbParentPath, {
+    dirsOnly: false,
+    showHidden: fileTreeShowHidden,
+  });
 
   // Get the sibling files/directories for a breadcrumb path (same level)
   const getBreadcrumbSiblings = useCallback((targetPath: string): FileTreeNode[] => {
+    // Prefer a live listDir for the open popover's parent — independent of
+    // whether the left Files panel has loaded this project.
+    if (
+      openBreadcrumbParentPath &&
+      breadcrumbListDirQuery.data?.entries &&
+      parentDirPath(targetPath, fileTreeRootPath) === stripTrailingSlashes(openBreadcrumbParentPath)
+    ) {
+      return breadcrumbListDirQuery.data.entries.map((entry) => ({
+        name: entry.name,
+        path: entry.path,
+        is_dir: entry.is_dir,
+        is_symlink: entry.is_symlink,
+        is_ignored: entry.is_ignored,
+        symlink_target: entry.symlink_target,
+      }));
+    }
+
     if (!fileTreeData.length || !fileTreeRootPath) return [];
 
-    // Normalize paths to ensure consistent comparison
-    const normalizePath = (path: string) => path.replace(/\/+$/, '').replace(/^\/+/, '');
+    // Normalize for comparison only (strip trailing slash + unify separators).
+    const normalizePath = (path: string) =>
+      stripTrailingSlashes(path.replace(/\\/g, '/')).replace(/^\/+/, '');
 
-    const normalizedTargetPath = normalizePath(targetPath);
-
-    // Get the parent directory of the target path
-    const getParentPath = (path: string): string => {
-      const parts = path.split('/').filter(Boolean);
-      parts.pop(); // Remove the last part
-      return parts.length > 0 ? parts.join('/') : fileTreeRootPath || '/';
-    };
-
-    const parentPath = getParentPath(normalizedTargetPath);
+    const parentPath = parentDirPath(targetPath, fileTreeRootPath);
     const normalizedParentPath = normalizePath(parentPath);
     const normalizedTreeRootPath = normalizePath(fileTreeRootPath);
 
-    // `list_project_files` returns immediate children of `root_path` only — no node whose
-    // `path` equals the project root. Siblings under the workspace root live at `fileTreeData`.
+    // Top-level list_project_files payload is the children of the project root.
     if (normalizedParentPath === normalizedTreeRootPath) {
       return fileTreeData;
     }
 
-    // Helper function to find the parent directory and return its children
     const findSiblings = (nodes: FileTreeNode[], targetParentPath: string): FileTreeNode[] => {
       for (const node of nodes) {
         const normalizedNodePath = normalizePath(node.path);
         if (normalizedNodePath === targetParentPath && node.children) {
-          // Found the parent directory, return its children (siblings)
           return node.children;
         }
         if (node.children) {
@@ -244,7 +299,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     };
 
     return findSiblings(fileTreeData, normalizedParentPath);
-  }, [fileTreeData, fileTreeRootPath]);
+  }, [
+    breadcrumbListDirQuery.data?.entries,
+    fileTreeData,
+    fileTreeRootPath,
+    openBreadcrumbParentPath,
+  ]);
 
   // Handle search button click (trigger Cmd+F)
   const handleSearchClick = useCallback(() => {
@@ -698,6 +758,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   {breadcrumbParts.map((part, index, array) => {
                     const breadcrumbPath = getBreadcrumbPath(index);
                     const siblingsData = getBreadcrumbSiblings(breadcrumbPath);
+                    const siblingRootPath =
+                      parentDirPath(breadcrumbPath, fileTreeRootPath) || fileTreeRootPath;
+                    const isListDirLoading =
+                      openBreadcrumbIndex === index &&
+                      breadcrumbListDirQuery.isLoading &&
+                      siblingsData.length === 0;
                     const segmentClass =
                       index === array.length - 1
                         ? 'text-foreground font-medium cursor-default truncate flex items-center gap-1'
@@ -730,15 +796,25 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                             sideOffset={4}
                             className="z-[80] w-80 max-h-96 overflow-y-auto p-0"
                           >
-                            {siblingsData.length === 0 ? (
+                            {isListDirLoading ? (
+                              <div className="flex items-center justify-center px-2 py-4 text-muted-foreground">
+                                <LucideLoader2 className="size-3.5 animate-spin" />
+                              </div>
+                            ) : siblingsData.length === 0 ? (
                               <div className="text-xs text-muted-foreground px-2 py-4 text-center">
                                 {t('codeMirror.noFilesFound')}
                               </div>
                             ) : (
                               <FileTree
                                 data={siblingsData}
-                                rootPath={breadcrumbPath}
-                                onRefresh={() => {}}
+                                rootPath={siblingRootPath}
+                                showHidden={fileTreeShowHidden}
+                                contextId={editorContextId}
+                                currentProjectPath={projectRoot || null}
+                                onRefresh={() => {
+                                  void breadcrumbListDirQuery.refetch();
+                                  void fileTreeQuery.refetch();
+                                }}
                                 beforeOpenFile={() => {
                                   flushSync(() => setOpenBreadcrumbIndex(null));
                                 }}

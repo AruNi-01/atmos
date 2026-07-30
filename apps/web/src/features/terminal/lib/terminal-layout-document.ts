@@ -6,6 +6,7 @@ import type { TerminalPaneProps } from "@/features/terminal/types/index";
 export const TERMINAL_LAYOUT_SCHEMA = "terminal-layout.v1";
 export const FIXED_TERMINAL_TAB_VALUE = "terminal";
 
+/** sessionId / dynamicTitle stay frontend-only; oscTitle is persisted (agent session topic). */
 export type PersistedTerminalPane = Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">;
 
 export interface PersistedTerminalTabDocument {

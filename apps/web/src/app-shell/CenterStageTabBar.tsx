@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -412,6 +413,10 @@ function TerminalExtraTab({
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
   const [renameDraft, setRenameDraft] = React.useState(tab.customTitle ?? "");
   const skipBlurCommitRef = React.useRef(false);
+  const [menuMounted, setMenuMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMenuMounted(true);
+  }, []);
 
   React.useEffect(() => {
     if (menuPos) {
@@ -523,50 +528,56 @@ function TerminalExtraTab({
       </TooltipContent>
     </Tooltip>
 
-    <DropdownMenu
-      open={!!menuPos}
-      onOpenChange={(open) => {
-        if (!open) setMenuPos(null);
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-hidden
-          tabIndex={-1}
-          className="fixed size-0 pointer-events-none"
-          style={{ left: menuPos?.x ?? -9999, top: menuPos?.y ?? -9999 }}
-        />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={4} className="w-56">
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="cursor-pointer">
-            <Pencil className="size-4 mr-2 text-muted-foreground" />
-            <span>{t("centerStageTabBar.renameTab")}</span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-64 p-2">
-            <Input
-              ref={focusRenameInput}
-              value={renameDraft}
-              placeholder={t("centerStageTabBar.renameTabPlaceholder")}
-              onChange={(event) => setRenameDraft(event.target.value)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  commitRename();
-                } else if (event.key === "Escape") {
-                  event.preventDefault();
-                  cancelRename();
-                }
-              }}
-              onBlur={handleRenameBlur}
-              className="h-8 text-sm"
-            />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    {menuMounted
+      ? createPortal(
+          <DropdownMenu
+            open={!!menuPos}
+            onOpenChange={(open) => {
+              if (!open) setMenuPos(null);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-hidden
+                tabIndex={-1}
+                className="fixed size-0 pointer-events-none"
+                style={{ left: menuPos?.x ?? -9999, top: menuPos?.y ?? -9999 }}
+              />
+            </DropdownMenuTrigger>
+            {/* Portal whole menu to body so app-shell transforms don't offset fixed anchors. */}
+            <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-56">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="cursor-pointer">
+                  <Pencil className="size-4 mr-2 text-muted-foreground" />
+                  <span>{t("centerStageTabBar.renameTab")}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-64 p-2">
+                  <Input
+                    ref={focusRenameInput}
+                    value={renameDraft}
+                    placeholder={t("centerStageTabBar.renameTabPlaceholder")}
+                    onChange={(event) => setRenameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        commitRename();
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelRename();
+                      }
+                    }}
+                    onBlur={handleRenameBlur}
+                    className="h-8 text-sm"
+                  />
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>,
+          document.body,
+        )
+      : null}
     </>
   );
 }

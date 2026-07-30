@@ -427,12 +427,190 @@ function resolveAgentForLabel<TAgent extends TerminalTitleAgent>(
   });
 }
 
+/** Practical cap for native OSC 0/2 titles in Atmos toolbars (APP-047). */
+export const MAX_NATIVE_OSC_TITLE_CHARS = 64;
+
+/**
+ * Normalize untrusted native OSC 0/2 title text into a single display line.
+ * Strips control characters, collapses whitespace, and caps length.
+ */
+export function sanitizeNativeOscTitle(title: string | undefined): string {
+  if (!title) return "";
+  let pendingSpace = false;
+  let out = "";
+  for (const ch of title) {
+    // Whitespace (including \t/\n) collapses to a single space.
+    if (/\s/u.test(ch)) {
+      if (out.length > 0) pendingSpace = true;
+      continue;
+    }
+    // Drop remaining C0/C1 controls and DEL so titles cannot break OSC framing.
+    if (ch <= "\u001f" || ch === "\u007f" || (ch >= "\u0080" && ch <= "\u009f")) {
+      continue;
+    }
+    if (pendingSpace) {
+      if (out.length + 1 >= MAX_NATIVE_OSC_TITLE_CHARS) break;
+      out += " ";
+      pendingSpace = false;
+    }
+    if (out.length >= MAX_NATIVE_OSC_TITLE_CHARS) break;
+    out += ch;
+  }
+  return out;
+}
+
+export type OscTitleDisplayContext = {
+  /** Atmos auto title already shown (agent label / command / path). */
+  autoDisplayTitle?: string;
+  /** Shim dynamic title (CMD_START command name, etc.). */
+  dynamicTitle?: string;
+  /** Resolved toolbar agent — when set, bare CLI names are redundant. */
+  toolbarAgent?: TerminalTitleAgent;
+};
+
+/**
+ * Shell / terminal-integration titles that only restate host + cwd.
+ * Examples: `user@Host:~/path`, pure paths, `Host:/tmp/foo`.
+ *
+ * Intentionally does NOT treat multi-word session topics that merely contain
+ * a slash (e.g. "fix src/api") as noise — those are useful OSC titles.
+ */
+export function isNoisyShellOscTitle(osc: string): boolean {
+  const t = osc.trim();
+  if (!t) return true;
+  // user@host:…  (classic bash/zsh PROMPT_COMMAND / oh-my-zsh auto-title)
+  if (/^[^@\s]+@[^:\s]+:/.test(t)) return true;
+  // host:absolute-or-home path without @
+  if (/^[\w.-]+:(?:~|\/)/.test(t)) return true;
+  // Entire title is a bare filesystem path (no spaces / not a phrase).
+  if (isBareFilesystemOscTitle(t)) return true;
+  return false;
+}
+
+/** True when the whole OSC string is a path, not a multi-word session topic. */
+function isBareFilesystemOscTitle(t: string): boolean {
+  if (/\s/.test(t)) return false;
+  // Absolute / home / Windows / UNC
+  if (
+    t.startsWith("/") ||
+    t.startsWith("~/") ||
+    t === "~" ||
+    t === "." ||
+    t === ".." ||
+    t.startsWith("../") ||
+    /^[a-zA-Z]:[\\/]/.test(t) ||
+    t.startsWith("\\\\")
+  ) {
+    return true;
+  }
+  // Shortened path form from Atmos shim style (.../foo/bar)
+  if (/^\.\.\.?\//.test(t)) return true;
+  // Single path-like token under common roots (e.g. Users/me/proj without leading /)
+  if (
+    /^(?:Users|home|tmp|var|opt|private|Volumes|Library|\.atmos)\//i.test(t) ||
+    t.includes("/.atmos/") ||
+    t.includes("/workspaces/")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * OSC text that only repeats what Atmos already shows as agent brand / command.
+ * E.g. agent label "Claude Code" + OSC "claude" → redundant.
+ */
+export function isRedundantAgentOscTitle(
+  osc: string,
+  context: OscTitleDisplayContext = {},
+): boolean {
+  const t = osc.trim();
+  if (!t) return true;
+
+  const oscNorm = normalizeAgentCommand(t);
+  const oscLower = t.toLowerCase();
+  const auto = context.autoDisplayTitle?.trim() ?? "";
+  if (auto && (auto === t || auto.toLowerCase() === oscLower)) return true;
+
+  const dynamic = context.dynamicTitle?.trim() ?? "";
+  if (dynamic) {
+    if (dynamic === t || dynamic.toLowerCase() === oscLower) return true;
+    if (normalizeAgentCommand(dynamic) === oscNorm && !/\s/.test(t)) return true;
+  }
+
+  const agent = context.toolbarAgent;
+  if (!agent) return false;
+
+  const label = agent.label?.trim() ?? "";
+  if (label && label.toLowerCase() === oscLower) return true;
+
+  // Single-token OSC that is just the agent CLI / brand / id (e.g. "claude").
+  if (!/\s/.test(t)) {
+    const tokens = new Set<string>();
+    for (const raw of [agent.command, agent.pipeCommand, ...(agent.aliases ?? [])]) {
+      if (!raw?.trim()) continue;
+      tokens.add(normalizeAgentCommand(raw));
+    }
+    if (agent.id) tokens.add(agent.id.toLowerCase());
+    if (label) {
+      tokens.add(label.toLowerCase());
+      tokens.add(label.replace(/\s+/g, "").toLowerCase());
+      tokens.add(normalizeAgentCommand(label));
+      const firstWord = label.split(/\s+/)[0]?.toLowerCase();
+      if (firstWord) tokens.add(firstWord);
+    }
+    if (tokens.has(oscNorm) || tokens.has(oscLower)) return true;
+    // Grok packaged binaries: osc "grok-macos-aarc" while agent cmd is "grok"
+    if (tokens.has("grok") && isGrokBuildCommandToken(oscNorm)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Sanitize + filter native OSC for toolbar display.
+ * Drops shell host/cwd noise and agent-command duplicates.
+ */
+export function resolveDisplayOscTitle(
+  oscTitle: string | undefined,
+  context: OscTitleDisplayContext = {},
+): string {
+  const osc = sanitizeNativeOscTitle(oscTitle);
+  if (!osc) return "";
+  if (isNoisyShellOscTitle(osc)) return "";
+  if (isRedundantAgentOscTitle(osc, context)) return "";
+  return osc;
+}
+
+/**
+ * Append a native OSC title after an Atmos auto/custom display title.
+ * Returns auto-only when `oscTitle` is empty, suppressed, or filtered as noise.
+ */
+export function appendNativeOscTitle(
+  autoDisplayTitle: string | undefined,
+  oscTitle: string | undefined,
+  suppress = false,
+  context: OscTitleDisplayContext = {},
+): string {
+  const base = autoDisplayTitle?.trim() ?? "";
+  if (suppress) return base;
+  const osc = resolveDisplayOscTitle(oscTitle, {
+    ...context,
+    autoDisplayTitle: context.autoDisplayTitle ?? base,
+  });
+  if (!osc) return base;
+  if (!base) return osc;
+  return `${base} | ${osc}`;
+}
+
 export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(options: {
   baseTitle: string | undefined;
   dynamicTitle: string | undefined;
   configuredAgents?: TAgent[];
   agent?: TAgent;
   contestedOwners?: ContestedOwnersMap;
+  oscTitle?: string;
+  suppressOscTitle?: boolean;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -443,11 +621,31 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   configuredAgents?: TAgent[];
   agent?: TAgent;
   contestedOwners?: ContestedOwnersMap;
+  /**
+   * Native OSC 0/2 title from the foreground process (Codex/Claude/…).
+   * Never used for agent detection — display suffix only (APP-047).
+   */
+  oscTitle?: string;
+  /** User set a custom pane label — hide OSC suffix. */
+  suppressOscTitle?: boolean;
 }): {
+  /** Combined title for plain string consumers (tabs, tooltips, a11y). */
   displayTitle: string;
+  /** Atmos-owned left title (agent brand / command / path / custom). */
+  primaryTitle: string;
+  /** Filtered OSC session topic; empty when suppressed or noise. */
+  oscSuffix: string;
   toolbarAgent: TAgent | undefined;
 } {
-  const { baseTitle, dynamicTitle, configuredAgents = [], agent, contestedOwners } = options;
+  const {
+    baseTitle,
+    dynamicTitle,
+    configuredAgents = [],
+    agent,
+    contestedOwners,
+    oscTitle,
+    suppressOscTitle,
+  } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
   const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
     contestedOwners,
@@ -471,14 +669,31 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
+  const primaryTitle =
+    toolbarAgent?.label ??
+    (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
+      ? baseTitle
+      : dynamicTitle) ??
+    baseTitle ??
+    "";
+
+  const oscSuffix =
+    suppressOscTitle === true
+      ? ""
+      : resolveDisplayOscTitle(oscTitle, {
+          autoDisplayTitle: primaryTitle,
+          dynamicTitle,
+          toolbarAgent,
+        });
+
   return {
     toolbarAgent,
-    displayTitle:
-      toolbarAgent?.label ??
-      (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
-        ? baseTitle
-        : dynamicTitle) ??
-      baseTitle ??
-      "",
+    primaryTitle,
+    oscSuffix,
+    displayTitle: appendNativeOscTitle(primaryTitle, oscTitle, suppressOscTitle === true, {
+      autoDisplayTitle: primaryTitle,
+      dynamicTitle,
+      toolbarAgent,
+    }),
   };
 }

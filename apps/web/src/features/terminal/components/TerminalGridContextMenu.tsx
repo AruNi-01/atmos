@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import {
   Checkbox,
@@ -93,6 +94,10 @@ export function TerminalGridContextMenu({
   onContextSplitWithAgent,
 }: TerminalGridContextMenuProps) {
   const t = useTranslations("Terminal.chrome");
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Local draft for the rename input; reset whenever the menu (re)opens.
   const [renameDraft, setRenameDraft] = React.useState(paneCustomLabel);
@@ -209,7 +214,10 @@ export function TerminalGridContextMenu({
     );
   };
 
-  return (
+  // Portal the whole menu (trigger + content root) to body so app-shell
+  // transforms / zoom cannot turn position:fixed into a mis-offset containing
+  // block (same pattern as FileTreeContextMenu).
+  const menu = (
     <DropdownMenu
       open={!!contextMenu}
       onOpenChange={onOpenChange}
@@ -225,7 +233,7 @@ export function TerminalGridContextMenu({
           }}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={4} className="w-56">
+      <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-56">
         <DropdownMenuItem onClick={() => onAction("new-tab")} className="cursor-pointer">
           <SquareTerminal className="size-4 mr-2 text-muted-foreground" />
           <span>{t("contextMenu.newTerminalTab")}</span>
@@ -385,4 +393,7 @@ export function TerminalGridContextMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  if (!mounted) return null;
+  return createPortal(menu, document.body);
 }
