@@ -471,6 +471,9 @@ export type OscTitleDisplayContext = {
 /**
  * Shell / terminal-integration titles that only restate host + cwd.
  * Examples: `user@Host:~/path`, pure paths, `Host:/tmp/foo`.
+ *
+ * Intentionally does NOT treat multi-word session topics that merely contain
+ * a slash (e.g. "fix src/api") as noise — those are useful OSC titles.
  */
 export function isNoisyShellOscTitle(osc: string): boolean {
   const t = osc.trim();
@@ -479,7 +482,37 @@ export function isNoisyShellOscTitle(osc: string): boolean {
   if (/^[^@\s]+@[^:\s]+:/.test(t)) return true;
   // host:absolute-or-home path without @
   if (/^[\w.-]+:(?:~|\/)/.test(t)) return true;
-  if (isPathLikeTitle(t)) return true;
+  // Entire title is a bare filesystem path (no spaces / not a phrase).
+  if (isBareFilesystemOscTitle(t)) return true;
+  return false;
+}
+
+/** True when the whole OSC string is a path, not a multi-word session topic. */
+function isBareFilesystemOscTitle(t: string): boolean {
+  if (/\s/.test(t)) return false;
+  // Absolute / home / Windows / UNC
+  if (
+    t.startsWith("/") ||
+    t.startsWith("~/") ||
+    t === "~" ||
+    t === "." ||
+    t === ".." ||
+    t.startsWith("../") ||
+    /^[a-zA-Z]:[\\/]/.test(t) ||
+    t.startsWith("\\\\")
+  ) {
+    return true;
+  }
+  // Shortened path form from Atmos shim style (.../foo/bar)
+  if (/^\.\.\.?\//.test(t)) return true;
+  // Single path-like token under common roots (e.g. Users/me/proj without leading /)
+  if (
+    /^(?:Users|home|tmp|var|opt|private|Volumes|Library|\.atmos)\//i.test(t) ||
+    t.includes("/.atmos/") ||
+    t.includes("/workspaces/")
+  ) {
+    return true;
+  }
   return false;
 }
 

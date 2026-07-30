@@ -398,6 +398,17 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     ).toBe("atmos/abra");
   });
 
+  it("keeps multi-word OSC topics that contain slashes (not bare paths)", () => {
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "fix src/api auth",
+      }).oscSuffix,
+    ).toBe("fix src/api auth");
+  });
+
   it("hides OSC that only repeats the agent command or brand", () => {
     const claude = {
       id: "claude",

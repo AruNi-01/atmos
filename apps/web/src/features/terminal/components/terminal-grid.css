@@ -210,30 +210,66 @@
   font-weight: 500;
   color: var(--foreground);
   opacity: 0.9;
-  white-space: nowrap;
-  overflow: hidden;
   min-width: 0;
   flex: 1 1 auto;
+  max-width: 100%;
 }
 
-/* OSC session topic: marquee only when wider than the slot */
-.terminal-title-marquee {
-  position: relative;
+/* Title row: icon + primary + optional | OSC marquee */
+.terminal-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  gap: 0.25rem;
+}
+
+.terminal-title-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.terminal-title-primary {
   min-width: 0;
   overflow: hidden;
-  mask-image: linear-gradient(to right, #000 0%, #000 88%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 88%, transparent 100%);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-title-primary.has-osc {
+  flex: 0 1 auto;
+  max-width: 42%;
+}
+
+.terminal-title-sep {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+}
+
+/* OSC session topic: always visible; marquee only when wider than the slot */
+.terminal-title-osc,
+.terminal-title-marquee {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 2.5rem;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, #000 0%, #000 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 90%, transparent 100%);
 }
 
 .terminal-title-marquee-text {
   display: inline-block;
+  max-width: none;
   white-space: nowrap;
-  will-change: transform;
+  vertical-align: bottom;
 }
 
 .terminal-title-marquee-text.is-overflowing {
   animation: terminal-title-marquee-scroll var(--marquee-duration, 10s) linear infinite;
   animation-delay: 0.6s;
+  will-change: transform;
 }
 
 .terminal-title-marquee:hover .terminal-title-marquee-text.is-overflowing {
