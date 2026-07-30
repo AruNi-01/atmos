@@ -168,6 +168,8 @@ export function buildCanvasTerminalPinKey(
 
 export function createCanvasTerminalShapeProps(
   props: Omit<CanvasTerminalShapeProps, "w" | "h" | "isPinned" | "pinKey" | "lastAttachedAt"> & {
+    w?: number;
+    h?: number;
     isPinned?: boolean;
     pinKey?: string;
     lastAttachedAt?: number | null;
@@ -176,6 +178,8 @@ export function createCanvasTerminalShapeProps(
   return {
     ...CANVAS_TERMINAL_DEFAULT_SIZE,
     ...props,
+    w: props.w ?? CANVAS_TERMINAL_DEFAULT_SIZE.w,
+    h: props.h ?? CANVAS_TERMINAL_DEFAULT_SIZE.h,
     sourceTerminalTabId: props.sourceTerminalTabId ?? "terminal",
     paneAgent: props.paneAgent,
     isPinned: props.isPinned ?? false,

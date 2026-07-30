@@ -2644,6 +2644,21 @@
         "description": "在画布上打开一个实时终端 Widget。"
       }
     },
+    "emptyBrushAddWidget": {
+      "title": "添加 Widget",
+      "sizeHint": "{width} × {height}",
+      "contextPlaceholder": "项目 / 工作区",
+      "contextNone": "无上下文",
+      "contextOptional": "全局 Widget 可不选",
+      "contextSelected": "已选择",
+      "contextButtonPlaceholder": "选择项目或工作区",
+      "contextButtonHint": "点击搜索并选择上下文",
+      "contextRequired": "此 Widget 需要选择项目或工作区。",
+      "componentSearchPlaceholder": "搜索组件",
+      "clearComponentSearchAria": "清除组件搜索",
+      "componentEmptyTitle": "没有匹配的组件",
+      "componentEmptyDescription": "试试其他搜索词。"
+    },
     "unsupportedInteraction": {
       "dialogAria": "画布不支持的交互",
       "title": "画布中暂不可用",

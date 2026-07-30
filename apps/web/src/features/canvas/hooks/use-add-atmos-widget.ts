@@ -110,6 +110,7 @@ export function useAddAtmosWidget(editor: Editor | null) {
       context?: CanvasContextRef | null;
       frameId: TLShapeId | null;
       position?: { x: number; y: number };
+      size?: { w: number; h: number };
       select?: boolean;
     }) => {
       if (!editor) {
@@ -126,7 +127,7 @@ export function useAddAtmosWidget(editor: Editor | null) {
         input.widgetType,
         input.context ?? createGlobalCanvasContextRef(),
       );
-      const size = CANVAS_WIDGET_REGISTRY[widgetType].defaultSize;
+      const size = input.size ?? CANVAS_WIDGET_REGISTRY[widgetType].defaultSize;
       const shapeId = createShapeId();
       const { x, y } =
         input.position ??
@@ -143,6 +144,8 @@ export function useAddAtmosWidget(editor: Editor | null) {
           widgetType,
           source,
           frameId: input.frameId,
+          w: size.w,
+          h: size.h,
         }),
       });
       reparentCanvasShapeToFrame(editor, shapeId, input.frameId);

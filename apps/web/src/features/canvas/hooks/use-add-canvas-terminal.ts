@@ -39,6 +39,7 @@ export function useAddCanvasTerminal(editor: Editor | null) {
       context?: CanvasContextRef | null;
       frameId: TLShapeId | null;
       position?: { x: number; y: number };
+      size?: { w: number; h: number };
       select?: boolean;
     }) => {
       if (!editor || !input.context) {
@@ -66,9 +67,10 @@ export function useAddCanvasTerminal(editor: Editor | null) {
         contextId,
         tmuxWindowName,
       );
+      const size = input.size ?? CANVAS_TERMINAL_DEFAULT_SIZE;
       const position = input.position ?? findCanvasWidgetPlacement(
         editor,
-        CANVAS_TERMINAL_DEFAULT_SIZE,
+        size,
         { frameId: input.frameId },
       );
 
@@ -91,6 +93,8 @@ export function useAddCanvasTerminal(editor: Editor | null) {
           isPinned: true,
           pinKey,
           lastAttachedAt: attachedAt,
+          w: size.w,
+          h: size.h,
         }),
       });
       reparentCanvasShapeToFrame(editor, shapeId, input.frameId);
