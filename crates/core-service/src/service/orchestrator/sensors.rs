@@ -155,9 +155,32 @@ pub fn immutable_paths_from_spec(criteria: &[Criterion]) -> Vec<String> {
     paths
 }
 
-/// Compare protected path mtimes against a pre-maker snapshot.
-/// Kept for sensor-integrity wiring on the maker/verify path (call sites TBD).
-#[allow(dead_code)]
+/// Snapshot mtimes for protected paths (pre-maker).
+pub fn snapshot_immutable_mtimes(
+    protected: &[String],
+    home: &Path,
+) -> std::collections::HashMap<String, u64> {
+    let mut map = std::collections::HashMap::new();
+    for rel in protected {
+        let p = if Path::new(rel).is_absolute() {
+            PathBuf::from(rel)
+        } else {
+            home.join(rel)
+        };
+        if let Ok(meta) = std::fs::metadata(&p) {
+            let mtime = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            map.insert(rel.clone(), mtime);
+        }
+    }
+    map
+}
+
+/// Compare protected path mtimes against a pre-maker snapshot (M11b).
 pub fn check_immutable_not_modified(
     protected: &[String],
     home: &Path,

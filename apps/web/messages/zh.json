@@ -1433,7 +1433,13 @@
     "copiedSkill": "已复制技能路径",
     "cancel": "取消运行",
     "roleChromePreview": "角色标识预览",
+    "roleChromeHint": "托管终端标题会显示角色 + 实例 + 状态，即使 Agent 品牌相同也能区分。",
     "selectedRun": "当前选中",
+    "specTitle": "判定标准 (Judgment Spec)",
+    "draftSpec": "起草 Spec",
+    "confirmSpec": "确认 Spec",
+    "startRun": "开始运行",
+    "hitlTitle": "等待你的确认",
     "mode": {
       "loop": "循环",
       "graph": "图",

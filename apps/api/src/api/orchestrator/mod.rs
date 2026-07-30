@@ -20,8 +20,6 @@ pub fn routes() -> Router<AppState> {
             .route("/runs/{id}/start", post(handlers::start_run))
             .route("/runs/{id}/cancel", post(handlers::cancel_run))
             .route("/runs/{id}/context", get(handlers::context_get))
-            .route("/runs/{id}/tick", post(handlers::tick_loop))
-            .route("/runs/{id}/graph/step", post(handlers::step_graph))
             .route("/runs/{id}/spec/draft", post(handlers::spec_draft))
             .route(
                 "/runs/{id}/spec",

@@ -1433,7 +1433,13 @@
     "copiedSkill": "Copied skill path",
     "cancel": "Cancel run",
     "roleChromePreview": "Role chrome",
+    "roleChromeHint": "Managed terminal headers show role + instance + activity even when agent brands match.",
     "selectedRun": "Selected run",
+    "specTitle": "Judgment Spec",
+    "draftSpec": "Draft Spec",
+    "confirmSpec": "Confirm Spec",
+    "startRun": "Start run",
+    "hitlTitle": "Waiting on you",
     "mode": {
       "loop": "Loop",
       "graph": "Graph",

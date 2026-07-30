@@ -35,11 +35,6 @@ pub enum OrchestratorCommand {
         run: String,
     },
     Agents,
-    /// Fixture Loop tick (server-side sensors).
-    Tick {
-        #[arg(long)]
-        run: String,
-    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -132,10 +127,6 @@ pub enum GraphCmd {
         #[arg(long)]
         run: String,
     },
-    Step {
-        #[arg(long)]
-        run: String,
-    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -198,15 +189,6 @@ pub async fn execute(
                 &api,
                 opts.timeout_ms,
                 &format!("/api/orchestrator/v1/runs/{run}/context"),
-            )
-            .await
-        }
-        OrchestratorCommand::Tick { run } => {
-            post(
-                &api,
-                opts.timeout_ms,
-                &format!("/api/orchestrator/v1/runs/{run}/tick"),
-                json!({}),
             )
             .await
         }
@@ -356,15 +338,6 @@ pub async fn execute(
                     &api,
                     opts.timeout_ms,
                     &format!("/api/orchestrator/v1/runs/{run}/graph"),
-                )
-                .await
-            }
-            GraphCmd::Step { run } => {
-                post(
-                    &api,
-                    opts.timeout_ms,
-                    &format!("/api/orchestrator/v1/runs/{run}/graph/step"),
-                    json!({}),
                 )
                 .await
             }

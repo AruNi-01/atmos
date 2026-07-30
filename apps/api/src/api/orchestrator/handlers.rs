@@ -158,26 +158,6 @@ pub async fn context_get(
     Ok(Json(ApiResponse::success(pack)))
 }
 
-pub async fn tick_loop(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
-    let run = orch(&state).tick_loop_fixture(&id).map_err(map_err)?;
-    Ok(Json(ApiResponse::success(
-        serde_json::to_value(run).unwrap_or_default(),
-    )))
-}
-
-pub async fn step_graph(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
-    let run = orch(&state).step_graph_fixture(&id).map_err(map_err)?;
-    Ok(Json(ApiResponse::success(
-        serde_json::to_value(run).unwrap_or_default(),
-    )))
-}
-
 pub async fn spec_draft(
     State(state): State<AppState>,
     Path(id): Path<String>,

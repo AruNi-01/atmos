@@ -12,8 +12,9 @@ Do **not** invent “done” without a Judgment Spec + sensors.
 Do **not** use ordinary Canvas (`atmos canvas`) to simulate orchestration.
 
 ```text
-Default:  run create → spec draft → confirm → start → tick/poll → done
+Default:  run create → spec draft → confirm → start → poll run get → done
 Optional: workspace create/use/merge for isolation
+Runtime owns Loop/Graph advancement (no public tick verb).
 ```
 
 ---
@@ -48,8 +49,9 @@ Optional: workspace create/use/merge for isolation
 3. Write Spec JSON (sensors first), then:  
    `atmos orchestrator spec draft --run <id> --file spec.json`
 4. `atmos orchestrator spec confirm --run <id> --version 1` if required
-5. `atmos orchestrator run start --run <id>`
-6. Loop: `atmos orchestrator tick --run <id>` **or** `run get` until terminal status
+5. `atmos orchestrator run start --run <id>`  
+   (Runtime advances Loop/Graph with fixture or worker agents — agents do **not** call tick)
+6. Poll: `atmos orchestrator run get --run <id>` / `context get` until terminal status
 7. On need for isolation: see workspace section below
 8. Report `stop_reason`, Spec version, evidence paths
 
@@ -97,7 +99,6 @@ Do **not** run raw `git worktree` outside this CLI (orphans forbidden).
 | `graph compile\|get\|step` | Graph |
 | `workspace get\|list\|create\|use\|merge\|abandon` | Home + children |
 | `context get` | Agent context pack |
-| `tick` | Fixture Loop step (sensors) |
 | `agents` | Agent ids |
 
 Full flags: `references/command-reference.md`.

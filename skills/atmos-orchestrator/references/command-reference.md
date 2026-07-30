@@ -13,7 +13,6 @@ Global: `--api-url`, token env, `--json`, `--timeout-ms`.
 | `run get` | `GET /runs/{id}` |
 | `run start` | `POST /runs/{id}/start` |
 | `run cancel` | `POST /runs/{id}/cancel` |
-| `tick` | `POST /runs/{id}/tick` |
 | `spec draft` | `POST /runs/{id}/spec/draft` |
 | `spec get` | `GET /runs/{id}/spec` |
 | `spec confirm` | `POST /runs/{id}/spec/confirm` |
@@ -21,7 +20,6 @@ Global: `--api-url`, token env, `--json`, `--timeout-ms`.
 | `evidence attach` | `POST /runs/{id}/evidence` |
 | `context get` | `GET /runs/{id}/context` |
 | `graph compile` | `POST /runs/{id}/graph/compile` |
-| `graph step` | `POST /runs/{id}/graph/step` |
 | `workspace create` | `POST /runs/{id}/workspaces` |
 | `workspace use` | `POST /runs/{id}/workspace/use` |
 | `workspace merge` | `POST /runs/{id}/workspaces/{ws}/merge` |

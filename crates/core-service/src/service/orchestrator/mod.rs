@@ -9,7 +9,10 @@ mod sensors;
 pub use graph_compile::{compile_graph, join_ready, CompileError, NodeTerminal};
 pub use runtime::*;
 pub use schemas::*;
-pub use sensors::{evaluate_acceptance, immutable_paths_from_spec, run_sensor};
+pub use sensors::{
+    check_immutable_not_modified, evaluate_acceptance, immutable_paths_from_spec, run_sensor,
+    snapshot_immutable_mtimes,
+};
 
 use std::collections::HashMap;
 use std::fs;
@@ -469,6 +472,11 @@ impl OrchestratorService {
     }
 
     pub fn start_run(&self, run_id: &str) -> Result<RunRecord> {
+        self.start_run_with_options(run_id, true)
+    }
+
+    /// `sync_advance`: Runtime runs fixture Loop/Graph to terminal (default true for tests/CLI).
+    pub fn start_run_with_options(&self, run_id: &str, sync_advance: bool) -> Result<RunRecord> {
         let mut run = self.load_run(run_id)?;
         if run.locked_spec_version.is_none() {
             return Err(ServiceError::Validation("ORCH_SPEC_REQUIRED".into()));
@@ -556,11 +564,124 @@ impl OrchestratorService {
             "run_updated",
             serde_json::to_value(&run).unwrap_or_default(),
         );
+
+        if !sync_advance {
+            return Ok(run);
+        }
+        // Runtime owns advancement (M26): fixture agents run to terminal state.
+        let run = match effective {
+            EffectiveMode::Loop => self.advance_loop_until_terminal(run_id)?,
+            EffectiveMode::Graph => self.advance_graph_until_terminal(run_id)?,
+        };
         Ok(run)
     }
 
-    /// Fixture-friendly Loop tick: runs sensors in home (or bound) cwd; no real terminal agent.
-    pub fn tick_loop_fixture(&self, run_id: &str) -> Result<RunRecord> {
+    /// Fixture Terminal Agent role invoke: writes contracted artifacts under run dir with bound cwd.
+    pub fn role_invoke(
+        &self,
+        run_id: &str,
+        role: OrchRole,
+        node_id: Option<&str>,
+    ) -> Result<PathBuf> {
+        let run = self.load_run(run_id)?;
+        let cwd = PathBuf::from(self.resolve_cwd(
+            &run,
+            Some(role.as_str()),
+            node_id,
+        ));
+        fs::create_dir_all(&cwd)
+            .map_err(|e| ServiceError::Processing(format!("role cwd: {e}")))?;
+
+        let inv_id = Uuid::new_v4().to_string();
+        let role_dir = PathBuf::from(&run.artifact_dir)
+            .join("roles")
+            .join(role.as_str())
+            .join(&inv_id);
+        fs::create_dir_all(&role_dir)
+            .map_err(|e| ServiceError::Processing(format!("role dir: {e}")))?;
+
+        let prompt = format!(
+            "role={}\nrun_id={}\ncwd={}\ngoal={}\nnode={}\n",
+            role.as_str(),
+            run_id,
+            cwd.display(),
+            run.goal,
+            node_id.unwrap_or("-")
+        );
+        fs::write(role_dir.join("prompt.md"), &prompt)
+            .map_err(|e| ServiceError::Processing(format!("write prompt: {e}")))?;
+
+        let artifact = match role {
+            OrchRole::Orchestrator => {
+                let path = PathBuf::from(&run.artifact_dir).join("mode_proposal.json");
+                let proposal = ModeProposal {
+                    mode: EffectiveMode::Loop,
+                    reason: "fixture planner defaults to loop".into(),
+                    plan_complexity: "low".into(),
+                    topology_hint: Some("linear".into()),
+                    graph: None,
+                    named_units: vec![],
+                };
+                write_json_atomic(&path, &proposal)?;
+                path
+            }
+            OrchRole::Criteria => {
+                let path = PathBuf::from(&run.artifact_dir)
+                    .join("specs")
+                    .join("role_criteria_hint.json");
+                write_json_atomic(
+                    &path,
+                    &serde_json::json!({"ok": true, "role": "criteria", "cwd": cwd.display().to_string()}),
+                )?;
+                path
+            }
+            OrchRole::Maker => {
+                let path = PathBuf::from(&run.artifact_dir).join("work_state.json");
+                write_json_atomic(
+                    &path,
+                    &serde_json::json!({
+                        "role": "maker",
+                        "cwd": cwd.display().to_string(),
+                        "files_touched": [],
+                        "iteration": run.iterations_used + 1,
+                    }),
+                )?;
+                // marker in working cwd
+                let _ = fs::write(cwd.join(".orch_maker_ran"), inv_id.as_bytes());
+                path
+            }
+            OrchRole::Verify => {
+                let path = PathBuf::from(&run.artifact_dir)
+                    .join("verdicts")
+                    .join(format!("verify-{inv_id}.json"));
+                // Fresh context: verify must not share maker role dir
+                write_json_atomic(
+                    &path,
+                    &serde_json::json!({
+                        "role": "verify",
+                        "cwd": cwd.display().to_string(),
+                        "fresh_context": true,
+                        "node_id": node_id,
+                    }),
+                )?;
+                let _ = fs::write(cwd.join(".orch_verify_ran"), inv_id.as_bytes());
+                path
+            }
+        };
+
+        // Atomic done sentinel after artifact
+        write_json_atomic(
+            &role_dir.join("role.done"),
+            &serde_json::json!({
+                "ok": true,
+                "artifact": artifact.display().to_string(),
+            }),
+        )?;
+        Ok(artifact)
+    }
+
+    /// Runtime-owned Loop advance (not agent CLI). Runs maker role + sensors + integrity.
+    pub fn advance_loop_once(&self, run_id: &str) -> Result<RunRecord> {
         let mut run = self.load_run(run_id)?;
         if run.status != RunStatus::Running.as_str() {
             return Err(ServiceError::Validation("run not running".into()));
@@ -579,21 +700,28 @@ impl OrchestratorService {
             run.maker_invocations,
             elapsed,
         ) {
-            BudgetCheck::Iterations => {
-                return self.fail_run(run, StopReason::BudgetIterations);
-            }
+            BudgetCheck::Iterations => return self.fail_run(run, StopReason::BudgetIterations),
             BudgetCheck::Wall => return self.fail_run(run, StopReason::BudgetWall),
             BudgetCheck::Makers => return self.fail_run(run, StopReason::BudgetMakers),
             BudgetCheck::Ok => {}
         }
 
+        let spec = self.get_spec(run_id, run.locked_spec_version)?;
+        let cwd = PathBuf::from(self.resolve_cwd(&run, Some("maker"), None));
+        let protected = immutable_paths_from_spec(&spec.acceptance);
+        let before = snapshot_immutable_mtimes(&protected, &cwd);
+
+        // Maker Terminal Agent (fixture)
+        self.role_invoke(run_id, OrchRole::Maker, None)?;
         run.iterations_used += 1;
         run.maker_invocations += 1;
 
-        let spec = self.get_spec(run_id, run.locked_spec_version)?;
-        let cwd = PathBuf::from(self.resolve_cwd(&run, Some("maker"), None));
+        if let Err(msg) = check_immutable_not_modified(&protected, &cwd, &before) {
+            return self.fail_run_msg(run, StopReason::WorkerFailed, &msg);
+        }
 
-        // Sensor integrity snapshot would be here; fixture skips file mtime unless paths exist
+        // Verify role on fresh binding (same home unless isolated)
+        let _ = self.role_invoke(run_id, OrchRole::Verify, Some("loop-verify"));
 
         let results = evaluate_acceptance(&spec.acceptance, &cwd)?;
         let verdict_id = Uuid::new_v4().to_string();
@@ -619,20 +747,19 @@ impl OrchestratorService {
             Err(e) => (VerdictResult::Fail, format!("{e:?}")),
         };
 
-        let verdict = serde_json::json!({
-            "id": verdict_id,
-            "run_id": run_id,
-            "spec_version": run.locked_spec_version,
-            "iteration": run.iterations_used,
-            "result": result.as_str(),
-            "summary": summary,
-            "criterion_results": results,
-        });
         write_json_atomic(
             &PathBuf::from(&run.artifact_dir)
                 .join("verdicts")
                 .join(format!("{verdict_id}.json")),
-            &verdict,
+            &serde_json::json!({
+                "id": verdict_id,
+                "run_id": run_id,
+                "spec_version": run.locked_spec_version,
+                "iteration": run.iterations_used,
+                "result": result.as_str(),
+                "summary": summary,
+                "criterion_results": results,
+            }),
         )?;
 
         if complete.is_ok() {
@@ -650,30 +777,22 @@ impl OrchestratorService {
             run.stop_reason = Some(StopReason::NoProgress.as_str().into());
             run.finished_at = Some(Utc::now().to_rfc3339());
         } else {
-            // continue loop — re-check budget after tick
             let elapsed = run
                 .wall_started_ms
                 .map(|s| now_ms().saturating_sub(s))
                 .unwrap_or(0);
-            if check_budget(
+            match check_budget(
                 &run.budget,
                 run.iterations_used,
                 run.maker_invocations,
                 elapsed,
-            ) != BudgetCheck::Ok
-            {
-                let reason = match check_budget(
-                    &run.budget,
-                    run.iterations_used,
-                    run.maker_invocations,
-                    elapsed,
-                ) {
-                    BudgetCheck::Iterations => StopReason::BudgetIterations,
-                    BudgetCheck::Wall => StopReason::BudgetWall,
-                    BudgetCheck::Makers => StopReason::BudgetMakers,
-                    BudgetCheck::Ok => StopReason::WorkerFailed,
-                };
-                return self.fail_run(run, reason);
+            ) {
+                BudgetCheck::Ok => {}
+                BudgetCheck::Iterations => {
+                    return self.fail_run(run, StopReason::BudgetIterations);
+                }
+                BudgetCheck::Wall => return self.fail_run(run, StopReason::BudgetWall),
+                BudgetCheck::Makers => return self.fail_run(run, StopReason::BudgetMakers),
             }
         }
 
@@ -682,8 +801,41 @@ impl OrchestratorService {
         Ok(run)
     }
 
-    /// Execute a simple graph sequence once (fixture): walk entry, verify join.
-    pub fn step_graph_fixture(&self, run_id: &str) -> Result<RunRecord> {
+    pub fn advance_loop_until_terminal(&self, run_id: &str) -> Result<RunRecord> {
+        loop {
+            let run = self.load_run(run_id)?;
+            if RunStatus::parse(&run.status).is_some_and(|s| s.is_terminal())
+                || run.status == RunStatus::BlockedHuman.as_str()
+            {
+                return Ok(run);
+            }
+            let run = self.advance_loop_once(run_id)?;
+            if RunStatus::parse(&run.status).is_some_and(|s| s.is_terminal())
+                || run.status == RunStatus::BlockedHuman.as_str()
+            {
+                return Ok(run);
+            }
+            if run.iterations_used >= run.budget.max_iterations {
+                return self.fail_run(run, StopReason::BudgetIterations);
+            }
+        }
+    }
+
+    /// Graph node fixture outcome from id/label suffix: -fail, -hang, else success.
+    fn node_fixture_outcome(n: &GraphNode) -> NodeTerminal {
+        let key = format!("{} {}", n.id, n.label).to_ascii_lowercase();
+        if key.contains("-hang") || key.contains("hang") && key.contains("timeout") {
+            return NodeTerminal::TimedOut;
+        }
+        if key.contains("-fail") || key.ends_with("_fail") {
+            return NodeTerminal::Failed;
+        }
+        // Optional outcome file under nodes/{id}/outcome.json
+        NodeTerminal::Succeeded
+    }
+
+    /// Runtime-owned Graph advance with join fail-closed and Spec completion gate.
+    pub fn advance_graph_until_terminal(&self, run_id: &str) -> Result<RunRecord> {
         let mut run = self.load_run(run_id)?;
         if run.mode.as_deref() != Some("graph") {
             return Err(ServiceError::Validation("not graph mode".into()));
@@ -694,54 +846,189 @@ impl OrchestratorService {
             .ok_or_else(|| ServiceError::Validation("no graph".into()))?;
         compile_graph(&graph).map_err(|e| ServiceError::Validation(e.0))?;
 
+        // Require Spec for completion (M12)
+        let spec = self
+            .get_spec(run_id, run.locked_spec_version)
+            .map_err(|_| ServiceError::Validation("ORCH_SPEC_REQUIRED".into()))?;
+
+        // Topological-ish: process in order entry → edges; simple multi-pass
         let mut states: HashMap<String, NodeTerminal> = HashMap::new();
-        for n in &graph.nodes {
-            if n.kind == "maker" {
-                run.maker_invocations += 1;
-                // isolation check already at compile
-                states.insert(n.id.clone(), NodeTerminal::Succeeded);
-            } else if n.kind == "verify" {
-                // fresh context simulated by different binding key
-                let _cwd = self.resolve_cwd(&run, Some("verify"), Some(&n.id));
-                states.insert(n.id.clone(), NodeTerminal::Succeeded);
-            } else if n.kind == "join" {
-                match join_ready(&n.id, &graph.edges, &states) {
-                    Ok(()) => {
-                        states.insert(n.id.clone(), NodeTerminal::Succeeded);
+        let mut pending: Vec<String> = graph.entry.clone();
+        let mut safety = 0usize;
+
+        while !pending.is_empty() && safety < 64 {
+            safety += 1;
+            let id = pending.remove(0);
+            if states.contains_key(&id) {
+                continue;
+            }
+            let Some(n) = graph.nodes.iter().find(|n| n.id == id) else {
+                continue;
+            };
+
+            // Wait for required predecessors
+            let preds: Vec<_> = graph
+                .edges
+                .iter()
+                .filter(|e| e.to == id && e.kind == "control" && e.required)
+                .map(|e| e.from.clone())
+                .collect();
+            let mut ready = true;
+            for p in &preds {
+                match states.get(p) {
+                    None => {
+                        ready = false;
+                        break;
                     }
-                    Err(e) => {
+                    Some(NodeTerminal::Running) => {
+                        ready = false;
+                        break;
+                    }
+                    Some(NodeTerminal::Failed | NodeTerminal::Cancelled | NodeTerminal::TimedOut) => {
+                        // fail-closed at join or when processing node with failed required pred
+                        if n.kind == "join" || n.kind == "verify" || n.kind == "reduce" {
+                            run.status = RunStatus::Failed.as_str().into();
+                            run.stop_reason = Some(StopReason::JoinIncomplete.as_str().into());
+                            run.finished_at = Some(Utc::now().to_rfc3339());
+                            run.updated_at = Utc::now().to_rfc3339();
+                            self.save_run(&run)?;
+                            return Ok(run);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if !ready {
+                pending.push(id);
+                continue;
+            }
+
+            let outcome = if n.kind == "join" {
+                match join_ready(&n.id, &graph.edges, &states) {
+                    Ok(()) => NodeTerminal::Succeeded,
+                    Err(_) => {
                         run.status = RunStatus::Failed.as_str().into();
                         run.stop_reason = Some(StopReason::JoinIncomplete.as_str().into());
                         run.finished_at = Some(Utc::now().to_rfc3339());
                         run.updated_at = Utc::now().to_rfc3339();
                         self.save_run(&run)?;
-                        return Err(ServiceError::Validation(e));
+                        return Ok(run);
                     }
                 }
+            } else if n.kind == "maker" {
+                run.maker_invocations += 1;
+                // Bind cwd for this node if isolated
+                if n.isolation == "worktree" {
+                    // ensure child workspace binding for node
+                    if let Some(ws) = &n.workspace_guid {
+                        let _ = self.workspace_use(run_id, ws, Some("maker"), Some(&n.id));
+                    }
+                }
+                let _ = self.role_invoke(run_id, OrchRole::Maker, Some(&n.id));
+                Self::node_fixture_outcome(n)
+            } else if n.kind == "verify" {
+                // Fresh verify context: bind verify role separately from maker
+                let verify_cwd = self.resolve_cwd(&run, Some("verify"), Some(&n.id));
+                // Ensure verify does not use maker node binding only
+                let _ = verify_cwd;
+                let _ = self.role_invoke(run_id, OrchRole::Verify, Some(&n.id));
+                Self::node_fixture_outcome(n)
+            } else if n.kind == "sensor" {
+                Self::node_fixture_outcome(n)
             } else {
-                states.insert(n.id.clone(), NodeTerminal::Succeeded);
+                Self::node_fixture_outcome(n)
+            };
+
+            if matches!(outcome, NodeTerminal::TimedOut | NodeTerminal::Failed)
+                && (n.kind == "maker" || n.kind == "verify")
+            {
+                states.insert(n.id.clone(), outcome);
+                // enqueue successors so join can observe failure
+            } else {
+                states.insert(n.id.clone(), outcome);
+            }
+
+            for e in &graph.edges {
+                if e.from == id && e.kind == "control" && !states.contains_key(&e.to) {
+                    pending.push(e.to.clone());
+                }
             }
         }
 
-        // final complete via sensors if present
-        if let Ok(spec) = self.get_spec(run_id, run.locked_spec_version) {
-            let results = evaluate_acceptance(&spec.acceptance, Path::new(&run.home_cwd))?;
-            if can_complete(&spec, &results, false).is_ok() {
+        // Any hang left as Running?
+        for n in &graph.nodes {
+            if matches!(states.get(&n.id), Some(NodeTerminal::TimedOut)) {
+                run.status = RunStatus::Failed.as_str().into();
+                run.stop_reason = Some(StopReason::JoinIncomplete.as_str().into());
+                run.finished_at = Some(Utc::now().to_rfc3339());
+                run.updated_at = Utc::now().to_rfc3339();
+                self.save_run(&run)?;
+                return Ok(run);
+            }
+            if matches!(states.get(&n.id), Some(NodeTerminal::Failed)) {
+                // If any required terminal node failed without successful join path
+                if n.kind == "maker" || n.kind == "verify" {
+                    run.status = RunStatus::Failed.as_str().into();
+                    run.stop_reason = Some(StopReason::WorkerFailed.as_str().into());
+                    run.finished_at = Some(Utc::now().to_rfc3339());
+                    run.updated_at = Utc::now().to_rfc3339();
+                    self.save_run(&run)?;
+                    return Ok(run);
+                }
+            }
+        }
+
+        // Spec gate — never complete without Spec + evidence
+        let results = evaluate_acceptance(&spec.acceptance, Path::new(&run.home_cwd))?;
+        match can_complete(&spec, &results, false) {
+            Ok(()) => {
                 run.status = RunStatus::Completed.as_str().into();
                 run.stop_reason = Some(StopReason::SpecMet.as_str().into());
                 run.finished_at = Some(Utc::now().to_rfc3339());
             }
-        } else {
-            run.status = RunStatus::Completed.as_str().into();
-            run.stop_reason = Some(StopReason::SpecMet.as_str().into());
-            run.finished_at = Some(Utc::now().to_rfc3339());
+            Err(CompleteGateError::HumanBlocked { .. }) => {
+                run.status = RunStatus::BlockedHuman.as_str().into();
+            }
+            Err(_) => {
+                run.status = RunStatus::Failed.as_str().into();
+                run.stop_reason = Some(StopReason::WorkerFailed.as_str().into());
+                run.finished_at = Some(Utc::now().to_rfc3339());
+            }
         }
         run.updated_at = Utc::now().to_rfc3339();
         self.save_run(&run)?;
         Ok(run)
     }
 
+    /// @deprecated use advance_loop_once — kept as alias for internal tests
+    pub fn tick_loop_fixture(&self, run_id: &str) -> Result<RunRecord> {
+        self.advance_loop_once(run_id)
+    }
+
+    /// @deprecated use advance_graph_until_terminal
+    pub fn step_graph_fixture(&self, run_id: &str) -> Result<RunRecord> {
+        self.advance_graph_until_terminal(run_id)
+    }
+
     fn fail_run(&self, mut run: RunRecord, reason: StopReason) -> Result<RunRecord> {
+        run.status = RunStatus::Failed.as_str().into();
+        run.stop_reason = Some(reason.as_str().into());
+        run.finished_at = Some(Utc::now().to_rfc3339());
+        run.updated_at = Utc::now().to_rfc3339();
+        self.save_run(&run)?;
+        Ok(run)
+    }
+
+    fn fail_run_msg(
+        &self,
+        mut run: RunRecord,
+        reason: StopReason,
+        msg: &str,
+    ) -> Result<RunRecord> {
+        let _ = fs::write(
+            PathBuf::from(&run.artifact_dir).join("fail_detail.txt"),
+            msg,
+        );
         run.status = RunStatus::Failed.as_str().into();
         run.stop_reason = Some(reason.as_str().into());
         run.finished_at = Some(Utc::now().to_rfc3339());
@@ -1148,11 +1435,479 @@ mod integration_tests {
         meta["confirmed"] = serde_json::json!(true);
         write_json_atomic(&meta_path, &meta).unwrap();
 
-        let started = svc.start_run(&run.id).unwrap();
-        assert_eq!(started.mode.as_deref(), Some("loop"));
-        let done = svc.tick_loop_fixture(&run.id).unwrap();
+        let done = svc.start_run(&run.id).unwrap();
+        assert_eq!(done.mode.as_deref(), Some("loop"));
         assert_eq!(done.status, "completed");
         assert_eq!(done.stop_reason.as_deref(), Some("spec_met"));
+        // role_invoke wrote maker/verify artifacts
+        assert!(
+            PathBuf::from(&done.artifact_dir)
+                .join("work_state.json")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn sensor_integrity_fails_when_protected_file_mutated() {
+        let (svc, home) = svc();
+        let home_cwd = home.join("proj");
+        fs::create_dir_all(&home_cwd).unwrap();
+        let protected = home_cwd.join("tests/guard.rs");
+        fs::create_dir_all(protected.parent().unwrap()).unwrap();
+        fs::write(&protected, b"// original\n").unwrap();
+
+        let run = svc
+            .create_run(CreateRunReq {
+                goal: "integrity".into(),
+                requested_mode: "loop".into(),
+                target_kind: "standalone".into(),
+                project_guid: None,
+                workspace_guid: None,
+                home_cwd: home_cwd.display().to_string(),
+                budget: Some(Budget {
+                    max_iterations: 2,
+                    max_wall_ms: 60_000,
+                    max_maker_invocations: 3,
+                    max_spec_versions: 3,
+                }),
+                carry_from_run_id: None,
+                maker_agent_id: None,
+                planner_agent_id: None,
+                criteria_agent_id: None,
+                verify_agent_id: None,
+            })
+            .unwrap();
+
+        let body = JudgmentSpecBody {
+            goal_summary: "g".into(),
+            risk_tier: "low".into(),
+            acceptance: vec![Criterion {
+                id: "c1".into(),
+                description: "true".into(),
+                kind: "sensor".into(),
+                required: true,
+                sensor: Some(SensorSpec {
+                    argv: vec!["true".into()],
+                    cwd: None,
+                    pass_exit_codes: vec![0],
+                    timeout_ms: 5000,
+                }),
+                falsify: None,
+                evidence_required: vec![],
+                immutable_paths: vec!["tests/guard.rs".into()],
+                sole_source: Some("sensor".into()),
+            }],
+            rejection: vec![],
+            judgment_order: vec!["sensor".into()],
+        };
+        svc.draft_spec_from_body(&run.id, body).unwrap();
+        let meta_path = PathBuf::from(&run.artifact_dir).join("specs/v1.meta.json");
+        let mut meta: serde_json::Value = read_json_file(&meta_path).unwrap();
+        meta["confirmed"] = serde_json::json!(true);
+        write_json_atomic(&meta_path, &meta).unwrap();
+
+        // After start, maker runs — but we mutate protected file mid-flight by racing:
+        // Call advance after mutating between snapshot and check by temporarily
+        // wrapping: mutate file after snapshot inside maker by pre-mutating with
+        // newer mtime during role_invoke — simulate by calling advance after
+        // changing file with sleep for mtime granularity.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        // Manually run one advance path with mutation: use start which auto-runs;
+        // Instead invoke advance after setting running and mutating during maker.
+        // Simpler: unit-level check that mutating after snapshot fails:
+        let before = snapshot_immutable_mtimes(&["tests/guard.rs".into()], &home_cwd);
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        fs::write(&protected, b"// tampered\n").unwrap();
+        assert!(check_immutable_not_modified(
+            &["tests/guard.rs".into()],
+            &home_cwd,
+            &before
+        )
+        .is_err());
+
+        // Also ensure start with integrity path can fail when file changes during maker:
+        // Pre-mutate won't trigger because snapshot is after create; instead monkey by
+        // running advance_loop_once after setting status running with confirmed spec.
+        let mut run = svc.load_run(&run.id).unwrap();
+        run.status = "running".into();
+        run.mode = Some("loop".into());
+        run.wall_started_ms = Some(now_ms());
+        svc.save_run(&run).unwrap();
+
+        // Snapshot happens at start of advance; change file by making maker write to it:
+        // role_invoke maker doesn't touch tests/guard.rs — so inject tamper via custom:
+        // Call snapshot, then write, then check is unit-tested above.
+        // Integration: replace immutable path with a file maker touches:
+        let marker = home_cwd.join(".orch_maker_ran");
+        // re-draft with immutable_paths on maker marker that role_invoke writes
+        let body2 = JudgmentSpecBody {
+            goal_summary: "g".into(),
+            risk_tier: "low".into(),
+            acceptance: vec![Criterion {
+                id: "c1".into(),
+                description: "true".into(),
+                kind: "sensor".into(),
+                required: true,
+                sensor: Some(SensorSpec {
+                    argv: vec!["true".into()],
+                    cwd: None,
+                    pass_exit_codes: vec![0],
+                    timeout_ms: 5000,
+                }),
+                falsify: None,
+                evidence_required: vec![],
+                immutable_paths: vec![".orch_maker_ran".into()],
+                sole_source: Some("sensor".into()),
+            }],
+            rejection: vec![],
+            judgment_order: vec!["sensor".into()],
+        };
+        // Pre-create protected empty file so snapshot has mtime
+        fs::write(&marker, b"seed").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        svc.draft_spec_from_body(&run.id, body2).unwrap();
+        let meta_path = PathBuf::from(&run.artifact_dir).join("specs/v2.meta.json");
+        let mut meta: serde_json::Value = read_json_file(&meta_path).unwrap();
+        meta["confirmed"] = serde_json::json!(true);
+        write_json_atomic(&meta_path, &meta).unwrap();
+        let mut run = svc.load_run(&run.id).unwrap();
+        run.locked_spec_version = Some(2);
+        run.status = "running".into();
+        run.mode = Some("loop".into());
+        run.wall_started_ms = Some(now_ms());
+        svc.save_run(&run).unwrap();
+
+        let after = svc.advance_loop_once(&run.id).unwrap();
+        // maker role_invoke overwrites .orch_maker_ran → integrity fail
+        assert_eq!(after.status, "failed");
+        assert_eq!(after.stop_reason.as_deref(), Some("worker_failed"));
+    }
+
+    #[test]
+    fn graph_fail_closed_on_failed_branch() {
+        let (svc, home) = svc();
+        let home_cwd = home.join("g");
+        fs::create_dir_all(&home_cwd).unwrap();
+        let run = svc
+            .create_run(CreateRunReq {
+                goal: "graph fail".into(),
+                requested_mode: "graph".into(),
+                target_kind: "standalone".into(),
+                project_guid: None,
+                workspace_guid: None,
+                home_cwd: home_cwd.display().to_string(),
+                budget: None,
+                carry_from_run_id: None,
+                maker_agent_id: None,
+                planner_agent_id: None,
+                criteria_agent_id: None,
+                verify_agent_id: None,
+            })
+            .unwrap();
+        let body = JudgmentSpecBody {
+            goal_summary: "g".into(),
+            risk_tier: "low".into(),
+            acceptance: vec![Criterion {
+                id: "c1".into(),
+                description: "true".into(),
+                kind: "sensor".into(),
+                required: true,
+                sensor: Some(SensorSpec {
+                    argv: vec!["true".into()],
+                    cwd: None,
+                    pass_exit_codes: vec![0],
+                    timeout_ms: 5000,
+                }),
+                falsify: None,
+                evidence_required: vec![],
+                immutable_paths: vec![],
+                sole_source: Some("sensor".into()),
+            }],
+            rejection: vec![],
+            judgment_order: vec!["sensor".into()],
+        };
+        svc.draft_spec_from_body(&run.id, body).unwrap();
+        let meta_path = PathBuf::from(&run.artifact_dir).join("specs/v1.meta.json");
+        let mut meta: serde_json::Value = read_json_file(&meta_path).unwrap();
+        meta["confirmed"] = serde_json::json!(true);
+        write_json_atomic(&meta_path, &meta).unwrap();
+
+        let g = CompiledGraph {
+            nodes: vec![
+                GraphNode {
+                    id: "a".into(),
+                    kind: "maker".into(),
+                    label: "a".into(),
+                    agent_id: None,
+                    fresh_context: None,
+                    writes: true,
+                    isolation: "worktree".into(),
+                    node_timeout_ms: None,
+                    workspace_guid: None,
+                },
+                GraphNode {
+                    id: "b-fail".into(),
+                    kind: "maker".into(),
+                    label: "b-fail".into(),
+                    agent_id: None,
+                    fresh_context: None,
+                    writes: true,
+                    isolation: "worktree".into(),
+                    node_timeout_ms: None,
+                    workspace_guid: None,
+                },
+                GraphNode {
+                    id: "join".into(),
+                    kind: "join".into(),
+                    label: "join".into(),
+                    agent_id: None,
+                    fresh_context: None,
+                    writes: false,
+                    isolation: "none".into(),
+                    node_timeout_ms: None,
+                    workspace_guid: None,
+                },
+            ],
+            edges: vec![
+                GraphEdge {
+                    id: "e1".into(),
+                    from: "a".into(),
+                    to: "join".into(),
+                    kind: "control".into(),
+                    required: true,
+                    max_cycles: None,
+                },
+                GraphEdge {
+                    id: "e2".into(),
+                    from: "b-fail".into(),
+                    to: "join".into(),
+                    kind: "control".into(),
+                    required: true,
+                    max_cycles: None,
+                },
+            ],
+            entry: vec!["a".into(), "b-fail".into()],
+        };
+        svc.compile_run_graph(&run.id, &g).unwrap();
+        // write mode proposal with graph for start
+        svc.write_mode_proposal(
+            &run.id,
+            &ModeProposal {
+                mode: EffectiveMode::Graph,
+                reason: "parallel".into(),
+                plan_complexity: "high".into(),
+                topology_hint: None,
+                graph: Some(g),
+                named_units: vec![],
+            },
+        )
+        .unwrap();
+
+        let done = svc.start_run(&run.id).unwrap();
+        assert_eq!(done.status, "failed");
+        assert!(
+            done.stop_reason.as_deref() == Some("join_incomplete")
+                || done.stop_reason.as_deref() == Some("worker_failed")
+        );
+    }
+
+    #[test]
+    fn graph_never_completes_without_spec() {
+        let (svc, home) = svc();
+        let home_cwd = home.join("gs");
+        fs::create_dir_all(&home_cwd).unwrap();
+        let run = svc
+            .create_run(CreateRunReq {
+                goal: "no spec".into(),
+                requested_mode: "loop".into(),
+                target_kind: "standalone".into(),
+                project_guid: None,
+                workspace_guid: None,
+                home_cwd: home_cwd.display().to_string(),
+                budget: None,
+                carry_from_run_id: None,
+                maker_agent_id: None,
+                planner_agent_id: None,
+                criteria_agent_id: None,
+                verify_agent_id: None,
+            })
+            .unwrap();
+        // Force graph mode without going through start_run's full path
+        let mut run = svc.load_run(&run.id).unwrap();
+        run.mode = Some("graph".into());
+        run.status = "running".into();
+        run.graph = Some(CompiledGraph {
+            nodes: vec![GraphNode {
+                id: "a".into(),
+                kind: "maker".into(),
+                label: "a".into(),
+                agent_id: None,
+                fresh_context: None,
+                writes: false,
+                isolation: "none".into(),
+                node_timeout_ms: None,
+                workspace_guid: None,
+            }],
+            edges: vec![],
+            entry: vec!["a".into()],
+        });
+        svc.save_run(&run).unwrap();
+        let err = svc.advance_graph_until_terminal(&run.id).unwrap_err();
+        assert!(err.to_string().contains("SPEC"));
+    }
+
+    #[test]
+    fn cli_workflow_create_spec_start_context_workspace() {
+        // Mirrors agent CLI sequence without HTTP: create → draft → confirm → start → context → workspace.
+        let (svc, home) = svc();
+        let home_cwd = home.join("cli-home");
+        fs::create_dir_all(&home_cwd).unwrap();
+        let run = svc
+            .create_run(CreateRunReq {
+                goal: "cli path".into(),
+                requested_mode: "loop".into(),
+                target_kind: "project".into(),
+                project_guid: Some("pj-1".into()),
+                workspace_guid: None,
+                home_cwd: home_cwd.display().to_string(),
+                budget: Some(Budget::default()),
+                carry_from_run_id: None,
+                maker_agent_id: Some("codex".into()),
+                planner_agent_id: None,
+                criteria_agent_id: None,
+                verify_agent_id: None,
+            })
+            .unwrap();
+        assert!(!run.id.is_empty());
+
+        // start without spec → ORCH_SPEC_REQUIRED
+        let err = svc.start_run(&run.id).unwrap_err().to_string();
+        assert!(err.contains("SPEC"), "{err}");
+
+        let body = JudgmentSpecBody {
+            goal_summary: "cli".into(),
+            risk_tier: "low".into(),
+            acceptance: vec![Criterion {
+                id: "c1".into(),
+                description: "ok".into(),
+                kind: "sensor".into(),
+                required: true,
+                sensor: Some(SensorSpec {
+                    argv: vec!["true".into()],
+                    cwd: None,
+                    pass_exit_codes: vec![0],
+                    timeout_ms: 3000,
+                }),
+                falsify: None,
+                evidence_required: vec![],
+                immutable_paths: vec![],
+                sole_source: Some("sensor".into()),
+            }],
+            rejection: vec![],
+            judgment_order: vec!["sensor".into()],
+        };
+        let (_, ver) = svc.draft_spec_from_body(&run.id, body).unwrap();
+        svc.confirm_spec(&run.id, ver).unwrap();
+
+        let ctx = svc.context_pack(&run.id).unwrap();
+        assert_eq!(ctx["home"]["cwd"], home_cwd.display().to_string());
+
+        let child = svc
+            .workspace_create(&run.id, "iso", None)
+            .unwrap();
+        svc.workspace_use(&run.id, &child.workspace_guid, Some("maker"), None)
+            .unwrap();
+        let run2 = svc.load_run(&run.id).unwrap();
+        assert_eq!(
+            svc.resolve_cwd(&run2, Some("maker"), None),
+            child.path
+        );
+        fs::write(PathBuf::from(&child.path).join("ORCH_RESULT.txt"), "x").unwrap();
+        let merged = svc.workspace_merge(&run.id, &child.workspace_guid).unwrap();
+        assert!(
+            merged
+                .workspaces
+                .iter()
+                .any(|w| w.workspace_guid == child.workspace_guid && w.status == "merged")
+        );
+
+        let finished = svc.start_run(&run.id).unwrap();
+        assert_eq!(finished.status, "completed");
+        assert_eq!(finished.stop_reason.as_deref(), Some("spec_met"));
+
+        let cancelled_base = svc
+            .create_run(CreateRunReq {
+                goal: "cancel me".into(),
+                requested_mode: "loop".into(),
+                target_kind: "standalone".into(),
+                project_guid: None,
+                workspace_guid: None,
+                home_cwd: home_cwd.display().to_string(),
+                budget: None,
+                carry_from_run_id: None,
+                maker_agent_id: None,
+                planner_agent_id: None,
+                criteria_agent_id: None,
+                verify_agent_id: None,
+            })
+            .unwrap();
+        let body = JudgmentSpecBody {
+            goal_summary: "c".into(),
+            risk_tier: "low".into(),
+            acceptance: vec![Criterion {
+                id: "c1".into(),
+                description: "f".into(),
+                kind: "sensor".into(),
+                required: true,
+                sensor: Some(SensorSpec {
+                    argv: vec!["false".into()],
+                    cwd: None,
+                    pass_exit_codes: vec![0],
+                    timeout_ms: 2000,
+                }),
+                falsify: None,
+                evidence_required: vec![],
+                immutable_paths: vec![],
+                sole_source: None,
+            }],
+            rejection: vec![],
+            judgment_order: vec!["sensor".into()],
+        };
+        let (_, v) = svc.draft_spec_from_body(&cancelled_base.id, body).unwrap();
+        svc.confirm_spec(&cancelled_base.id, v).unwrap();
+        svc.start_run_with_options(&cancelled_base.id, false)
+            .unwrap();
+        let c = svc.cancel_run(&cancelled_base.id).unwrap();
+        assert_eq!(c.status, "cancelled");
+    }
+
+    #[test]
+    fn role_invoke_uses_home_cwd() {
+        let (svc, home) = svc();
+        let home_cwd = home.join("cwdproj");
+        fs::create_dir_all(&home_cwd).unwrap();
+        let run = svc
+            .create_run(CreateRunReq {
+                goal: "cwd".into(),
+                requested_mode: "loop".into(),
+                target_kind: "standalone".into(),
+                project_guid: None,
+                workspace_guid: None,
+                home_cwd: home_cwd.display().to_string(),
+                budget: None,
+                carry_from_run_id: None,
+                maker_agent_id: None,
+                planner_agent_id: None,
+                criteria_agent_id: None,
+                verify_agent_id: None,
+            })
+            .unwrap();
+        let art = svc.role_invoke(&run.id, OrchRole::Maker, None).unwrap();
+        assert!(art.exists());
+        assert!(home_cwd.join(".orch_maker_ran").exists());
+        let ws: serde_json::Value =
+            read_json_file(&PathBuf::from(&run.artifact_dir).join("work_state.json")).unwrap();
+        assert_eq!(ws["cwd"], home_cwd.display().to_string());
     }
 
     #[test]
@@ -1335,7 +2090,7 @@ mod integration_tests {
         let mut meta: serde_json::Value = read_json_file(&meta_path).unwrap();
         meta["confirmed"] = serde_json::json!(true);
         write_json_atomic(&meta_path, &meta).unwrap();
-        svc.start_run(&run.id).unwrap();
+        svc.start_run_with_options(&run.id, false).unwrap();
         let cancelled = svc.cancel_run(&run.id).unwrap();
         assert_eq!(cancelled.status, "cancelled");
         assert_eq!(cancelled.stop_reason.as_deref(), Some("user_cancel"));
