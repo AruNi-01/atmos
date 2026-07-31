@@ -223,7 +223,7 @@ pub(super) fn run_control_mode_tmux_session(
             .get_pane_mouse_tracking_by_id(&reader_pane_id)
             .ok()
             .flatten()
-            .unwrap_or_else(MouseModeState::default);
+            .unwrap_or_default();
 
         // Suppress %output bytes that flow during the tmux control client's
         // initial attach/resize/refresh cycle. Those bytes are tmux replaying
