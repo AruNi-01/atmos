@@ -32,6 +32,8 @@ use core_service::{
     NotificationService, ProjectService, ReviewService, TerminalService, TestService,
     WorkspaceService,
 };
+use infra::jobs::{IntervalSpec, JobId, LocalScheduler, RetryPolicy};
+use infra::queue::{topics, LocalMemoryQueue, QueueError, Topic};
 use infra::{DbConnection, Migrator};
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
@@ -240,22 +242,42 @@ fn spawn_non_critical_startup_tasks(
     });
 }
 
-/// Spawn the agent-hook session cleanup task.
-/// Runs every 5 minutes; reads timeouts from
-/// `~/.atmos/agent/terminal_code_agent.json` each tick.
-fn spawn_idle_session_cleanup(agent_hooks_service: Arc<core_service::AgentHooksService>) {
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5 * 60));
-        interval.tick().await; // skip the immediate first tick
-        loop {
-            interval.tick().await;
-            let timeouts = read_agent_hook_session_timeouts();
-            agent_hooks_service.clear_idle_older_than(timeouts.idle_mins);
-            // Force stuck running / permission sessions idle when hooks never
-            // reported a terminal event after interrupt or process death.
-            agent_hooks_service.clear_stale_active_older_than(timeouts.active_stale_mins);
-        }
-    });
+/// Product job id for agent-hooks idle session cleanup (APP-051).
+const AGENT_HOOKS_IDLE_CLEANUP_JOB_ID: &str = "agent-hooks.idle_session_cleanup";
+
+/// Register the agent-hook session cleanup interval job (every 5 minutes).
+async fn register_idle_session_cleanup_job(
+    jobs: Arc<LocalScheduler>,
+    agent_hooks_service: Arc<core_service::AgentHooksService>,
+) {
+    if let Err(error) = jobs
+        .set_interval_job(
+            JobId::new(AGENT_HOOKS_IDLE_CLEANUP_JOB_ID),
+            IntervalSpec {
+                every: std::time::Duration::from_secs(5 * 60),
+                skip_if_running: true,
+                fire_immediately: false,
+            },
+            RetryPolicy::none(),
+            move || {
+                let agent_hooks_service = Arc::clone(&agent_hooks_service);
+                async move {
+                    let timeouts = read_agent_hook_session_timeouts();
+                    agent_hooks_service.clear_idle_older_than(timeouts.idle_mins);
+                    // Force stuck running / permission sessions idle when hooks never
+                    // reported a terminal event after interrupt or process death.
+                    agent_hooks_service.clear_stale_active_older_than(timeouts.active_stale_mins);
+                    Ok(())
+                }
+            },
+        )
+        .await
+    {
+        warn!(
+            "Failed to register agent-hooks idle session cleanup job: {}",
+            error
+        );
+    }
 }
 
 struct AgentHookSessionTimeouts {
@@ -389,7 +411,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let review_service = Arc::new(ReviewService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
     let agent_service_for_startup = Arc::clone(&agent_service);
+
+    // APP-051: process-local jobs + event queue (local adapters only).
+    let jobs = Arc::new(LocalScheduler::new());
+    let event_queue = Arc::new(LocalMemoryQueue::builder().capacity(128).build());
+
     let usage_service = Arc::new(UsageService::default());
+    usage_service.attach_jobs(Arc::clone(&jobs)).await;
     let token_usage_service = Arc::new(TokenUsageService::default());
     let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
     let agent_hooks_service = Arc::new(AgentHooksService::new());
@@ -467,7 +495,66 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             review_service: Arc::clone(&review_service),
         },
         server_config.port,
+        Arc::clone(&event_queue),
     );
+
+    // APP-051: GitHub external events → queue consumer → domain handler.
+    {
+        let automation_for_queue = Arc::clone(&automation_service);
+        let replies = Arc::clone(&app_state.github_trigger_replies);
+        if let Err(error) = event_queue
+            .subscribe(
+                Topic::new(topics::AUTOMATION_GITHUB_DELIVERY),
+                move |msg| {
+                    let automation_for_queue = Arc::clone(&automation_for_queue);
+                    let replies = Arc::clone(&replies);
+                    async move {
+                        let parsed =
+                            serde_json::from_slice::<core_service::GithubTriggerEvent>(&msg.payload);
+                        let reply_key = parsed.as_ref().ok().map(|event| {
+                            crate::relay::external_events::github_reply_key(
+                                &event.delivery_id,
+                                &event.route_id,
+                            )
+                        });
+                        let outcome = match parsed {
+                            Ok(event) => automation_for_queue.handle_external_trigger(event).await,
+                            Err(error) => {
+                                warn!(
+                                    error = %error,
+                                    "github queue payload deserialize failed"
+                                );
+                                Err(core_service::ServiceError::Validation(format!(
+                                    "invalid github queue payload: {error}"
+                                )))
+                            }
+                        };
+                        let handler_err = outcome.as_ref().err().map(|error| {
+                            QueueError::Handler(format!("github delivery failed: {error}"))
+                        });
+                        if let Some(reply_key) = reply_key {
+                            if let Some(tx) = replies.lock().await.remove(&reply_key) {
+                                let _ = tx.send(outcome);
+                            } else if let Some(error) = &handler_err {
+                                warn!(
+                                    reply_key = %reply_key,
+                                    error = %error,
+                                    "github queue message processed without reply waiter"
+                                );
+                            }
+                        }
+                        match handler_err {
+                            Some(error) => Err(error),
+                            None => Ok(()),
+                        }
+                    }
+                },
+            )
+            .await
+        {
+            warn!("Failed to subscribe github delivery queue consumer: {}", error);
+        }
+    }
 
     // Inject WsManager into WsMessageService for server-to-client notifications
     ws_message_service
@@ -491,7 +578,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         automation_service.subscribe_events(),
         Arc::clone(&ws_manager),
     );
-    Arc::clone(&automation_service).start_scheduler();
+    Arc::clone(&automation_service)
+        .start_scheduler(Arc::clone(&jobs))
+        .await;
 
     spawn_disk_analyzer_forwarder(
         ws_message_service
@@ -640,7 +729,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&agent_hooks_for_startup),
         actual_addr.port(),
     );
-    spawn_idle_session_cleanup(agent_hooks_for_startup);
+    register_idle_session_cleanup_job(Arc::clone(&jobs), agent_hooks_for_startup).await;
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
@@ -652,8 +741,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
 
-    // Graceful shutdown: clean up all terminal sessions and PTY resources
-    info!("Shutdown signal received, cleaning up terminal sessions...");
+    // Graceful shutdown: stop jobs/queue, then clean up terminal sessions / PTY resources.
+    info!("Shutdown signal received, cleaning up jobs, queue, and terminal sessions...");
+    if let Err(err) = jobs.shutdown().await {
+        warn!(error = %err, "jobs shutdown failed");
+    }
+    if let Err(err) = event_queue.shutdown().await {
+        warn!(error = %err, "event queue shutdown failed");
+    }
     if let Err(err) = runtime_manager::remove_runtime_manifest() {
         warn!(target: "atmos_runtime", error = %err, "failed to remove runtime manifest");
     }

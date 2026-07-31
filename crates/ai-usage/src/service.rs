@@ -1,9 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
+use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
 use tokio::sync::{broadcast, RwLock};
-use tokio::task::JoinHandle;
-use tokio::time::MissedTickBehavior;
 use tracing::{debug, info, warn};
 
 use crate::config::{add_provider_api_key, delete_provider_api_key, persist_provider_manual_setup};
@@ -21,6 +20,9 @@ use crate::refresh::{
 use crate::runtime::{default_providers, error_status, UsageProvider};
 use crate::support::{round_metric, unix_now};
 
+/// Product job id for AI usage auto-refresh (APP-051).
+pub const AI_USAGE_AUTO_REFRESH_JOB_ID: &str = "ai-usage.auto_refresh";
+
 #[derive(Debug, Clone)]
 struct CachedOverview {
     overview: UsageOverview,
@@ -33,7 +35,8 @@ pub struct UsageService {
     cache: Arc<RwLock<Option<CachedOverview>>>,
     cache_ttl: Duration,
     auto_refresh_interval_minutes: Arc<RwLock<Option<u64>>>,
-    auto_refresh_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    /// Set via [`Self::attach_jobs`]; until attached, auto-refresh is not scheduled.
+    jobs: Arc<RwLock<Option<Arc<LocalScheduler>>>>,
     update_tx: broadcast::Sender<UsageOverview>,
 }
 
@@ -44,20 +47,30 @@ impl Default for UsageService {
 }
 
 impl UsageService {
+    /// Construct without starting timers. Call [`Self::attach_jobs`] after the process
+    /// `LocalScheduler` is ready (APP-051 bootstrap order).
     pub fn new(providers: Vec<Arc<dyn UsageProvider>>) -> Self {
         let interval_minutes = load_auto_refresh_interval_minutes();
         let (update_tx, _) = broadcast::channel(32);
 
-        let service = Self {
+        Self {
             providers,
             cache: Arc::new(RwLock::new(None)),
             cache_ttl: Duration::from_secs(CACHE_TTL_SECS),
             auto_refresh_interval_minutes: Arc::new(RwLock::new(interval_minutes)),
-            auto_refresh_task: Arc::new(Mutex::new(None)),
+            jobs: Arc::new(RwLock::new(None)),
             update_tx,
-        };
-        service.schedule_auto_refresh_task(interval_minutes);
-        service
+        }
+    }
+
+    /// Attach the process job scheduler and register auto-refresh if configured.
+    pub async fn attach_jobs(&self, jobs: Arc<LocalScheduler>) {
+        {
+            let mut slot = self.jobs.write().await;
+            *slot = Some(jobs);
+        }
+        let interval_minutes = *self.auto_refresh_interval_minutes.read().await;
+        self.schedule_auto_refresh_task(interval_minutes).await;
     }
 
     pub async fn get_overview(&self, refresh: bool, provider_id: Option<&str>) -> UsageOverview {
@@ -333,7 +346,7 @@ impl UsageService {
         let refresh = interval_minutes.is_some();
         let overview = self.get_overview(refresh, None).await;
         self.publish_overview_update(&overview);
-        self.schedule_auto_refresh_task(interval_minutes);
+        self.schedule_auto_refresh_task(interval_minutes).await;
         Ok(overview)
     }
 
@@ -341,24 +354,23 @@ impl UsageService {
         self.update_tx.subscribe()
     }
 
-    fn schedule_auto_refresh_task(&self, interval_minutes: Option<u64>) {
-        let mut task = match self.auto_refresh_task.lock() {
-            Ok(task) => task,
-            Err(error) => {
-                warn!(
-                    "Failed to lock AI usage auto-refresh task handle: {}",
-                    error
-                );
-                return;
-            }
+    async fn schedule_auto_refresh_task(&self, interval_minutes: Option<u64>) {
+        let jobs = {
+            let guard = self.jobs.read().await;
+            guard.clone()
+        };
+        let Some(jobs) = jobs else {
+            debug!("AI usage auto-refresh deferred until jobs runtime is attached");
+            return;
         };
 
-        if let Some(existing) = task.take() {
-            existing.abort();
-        }
-
+        let job_id = JobId::new(AI_USAGE_AUTO_REFRESH_JOB_ID);
         let Some(interval_minutes) = interval_minutes else {
             info!("AI usage auto-refresh disabled");
+            if let Err(error) = jobs.cancel(&job_id).await {
+                // Not registered is fine when disabling.
+                debug!(error = %error, "AI usage auto-refresh cancel (may be unregistered)");
+            }
             return;
         };
 
@@ -368,21 +380,32 @@ impl UsageService {
         );
 
         let service = self.clone();
-        *task = Some(tokio::spawn(async move {
-            let mut ticker = tokio::time::interval(Duration::from_secs(interval_minutes * 60));
-            ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
-            ticker.tick().await;
-
-            loop {
-                ticker.tick().await;
-                debug!(
-                    "Running scheduled AI usage overview refresh (interval={}m)",
-                    interval_minutes
-                );
-                let overview = service.get_overview(true, None).await;
-                service.publish_overview_update(&overview);
-            }
-        }));
+        if let Err(error) = jobs
+            .set_interval_job(
+                job_id,
+                IntervalSpec {
+                    every: Duration::from_secs(interval_minutes.saturating_mul(60)),
+                    skip_if_running: true,
+                    fire_immediately: false,
+                },
+                RetryPolicy::none(),
+                move || {
+                    let service = service.clone();
+                    async move {
+                        debug!(
+                            "Running scheduled AI usage overview refresh (interval={}m)",
+                            interval_minutes
+                        );
+                        let overview = service.get_overview(true, None).await;
+                        service.publish_overview_update(&overview);
+                        Ok::<(), JobError>(())
+                    }
+                },
+            )
+            .await
+        {
+            warn!("Failed to register AI usage auto-refresh job: {}", error);
+        }
     }
 
     async fn with_auto_refresh_config(&self, mut overview: UsageOverview) -> UsageOverview {

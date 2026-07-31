@@ -1,11 +1,13 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use infra::jobs::{JobId, LocalScheduler};
 
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
-    ProviderKind, ProviderStatus, UsageProvider, UsageService,
+    ProviderKind, ProviderStatus, UsageProvider, UsageService, AI_USAGE_AUTO_REFRESH_JOB_ID,
 };
 
 #[derive(Clone)]
@@ -123,4 +125,60 @@ async fn provider_specific_refresh_updates_generated_at() {
         initial.generated_at,
         refreshed.generated_at
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn attach_jobs_registers_and_cancels_auto_refresh() {
+    let collect_count = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&collect_count);
+    let service = UsageService::new(vec![Arc::new(CountingProvider {
+        collect_count: counter,
+    })]);
+    let jobs = Arc::new(LocalScheduler::new());
+    let job_id = JobId::new(AI_USAGE_AUTO_REFRESH_JOB_ID);
+
+    // No timer until jobs are attached.
+    assert!(!jobs.is_registered(&job_id).await);
+
+    service
+        .set_auto_refresh_interval(Some(1))
+        .await
+        .expect("set interval");
+    // Still unregistered until attach_jobs.
+    assert!(!jobs.is_registered(&job_id).await);
+
+    service.attach_jobs(Arc::clone(&jobs)).await;
+    assert!(jobs.is_registered(&job_id).await);
+
+    service
+        .set_auto_refresh_interval(None)
+        .await
+        .expect("disable");
+    assert!(!jobs.is_registered(&job_id).await);
+
+    jobs.shutdown().await.unwrap();
+}
+
+#[derive(Clone)]
+struct CountingProvider {
+    collect_count: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl UsageProvider for CountingProvider {
+    fn descriptor(&self) -> ProviderDescriptor {
+        ProviderDescriptor {
+            id: "counter".to_string(),
+            label: "Counter".to_string(),
+        }
+    }
+
+    fn timeout(&self) -> Duration {
+        Duration::from_millis(500)
+    }
+
+    async fn collect(&self) -> Result<ProviderStatus, ProviderError> {
+        self.collect_count.fetch_add(1, Ordering::SeqCst);
+        Ok(mock_status("counter", "Counter"))
+    }
 }

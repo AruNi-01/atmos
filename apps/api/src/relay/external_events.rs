@@ -1,10 +1,15 @@
 //! Relay external-event ingress for APP-019 provider triggers.
+//!
+//! APP-051: validate → enqueue on `automation.github_delivery` → await consumer
+//! domain outcome for ACK parity (LocalRejected / Accepted / Error).
 
 use chrono::{DateTime, Utc};
 use core_service::{
     ExternalTriggerOutcome, ExternalTriggerRejectReason, GithubTriggerEvent, ServiceError,
 };
+use infra::queue::{topics, EnqueueError, Topic};
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 use tracing::warn;
 
 use crate::app_state::AppState;
@@ -81,10 +86,7 @@ pub async fn handle_external_event_body(state: &AppState, body: &str) -> Option<
 
     let delivery_id = event.delivery_id.clone();
     let route_id = event.route_id.clone();
-    let outcome = state
-        .automation_service
-        .handle_external_trigger(event)
-        .await;
+    let outcome = enqueue_github_trigger(state, event).await;
     let ack = match outcome {
         Ok(ExternalTriggerOutcome::Accepted { .. }) => ExternalEventAck {
             delivery_id,
@@ -107,6 +109,65 @@ pub async fn handle_external_event_body(state: &AppState, body: &str) -> Option<
     };
 
     serialize_ack(ack)
+}
+
+pub(crate) fn github_reply_key(delivery_id: &str, route_id: &str) -> String {
+    format!("{delivery_id}|{route_id}")
+}
+
+async fn enqueue_github_trigger(
+    state: &AppState,
+    event: GithubTriggerEvent,
+) -> Result<ExternalTriggerOutcome, ServiceError> {
+    let payload = serde_json::to_vec(&event).map_err(|error| {
+        ServiceError::Validation(format!("github trigger serialize failed: {error}"))
+    })?;
+    let reply_key = github_reply_key(&event.delivery_id, &event.route_id);
+    let (tx, rx) = oneshot::channel();
+    // Register waiter before enqueue so the consumer can always find a reply channel.
+    state
+        .github_trigger_replies
+        .lock()
+        .await
+        .insert(reply_key.clone(), tx);
+
+    match state
+        .event_queue
+        .enqueue(&Topic::new(topics::AUTOMATION_GITHUB_DELIVERY), payload)
+        .await
+    {
+        Ok(_) => {}
+        Err(error) => {
+            state.github_trigger_replies.lock().await.remove(&reply_key);
+            return Err(match error {
+                EnqueueError::Full => {
+                    ServiceError::Processing("github delivery queue is full".to_string())
+                }
+                EnqueueError::ShuttingDown => {
+                    ServiceError::Processing("github delivery queue is shutting down".to_string())
+                }
+                EnqueueError::NoConsumer => {
+                    ServiceError::Processing("github delivery queue has no consumer".to_string())
+                }
+            });
+        }
+    }
+
+    match tokio::time::timeout(std::time::Duration::from_secs(60), rx).await {
+        Ok(Ok(outcome)) => outcome,
+        Ok(Err(_)) => {
+            state.github_trigger_replies.lock().await.remove(&reply_key);
+            Err(ServiceError::Processing(
+                "github delivery queue reply channel closed".to_string(),
+            ))
+        }
+        Err(_) => {
+            state.github_trigger_replies.lock().await.remove(&reply_key);
+            Err(ServiceError::Processing(
+                "github delivery queue processing timed out".to_string(),
+            ))
+        }
+    }
 }
 
 fn parse_github_trigger_event(body: &str) -> Result<GithubTriggerEvent, String> {
