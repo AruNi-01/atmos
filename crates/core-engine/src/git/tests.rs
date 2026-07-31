@@ -26,6 +26,19 @@ fn unique_temp_dir(name: &str) -> PathBuf {
     dir
 }
 
+/// Best-effort cleanup for temp git repos (macOS can briefly leave dirs non-empty).
+fn remove_temp_repo(root: impl AsRef<Path>) {
+    let root = root.as_ref();
+    for _ in 0..8 {
+        match fs::remove_dir_all(root) {
+            Ok(()) => return,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return,
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(25)),
+        }
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
 fn git(current_dir: &Path, args: &[&str]) {
     let output = Command::new("git")
         .current_dir(current_dir)
@@ -183,7 +196,7 @@ fn git_fetch_targets_current_refs_for_shallow_repositories() {
         &["show-ref", "--verify", "refs/remotes/origin/extra"]
     ));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -227,7 +240,7 @@ fn git_fetch_targets_non_origin_upstream_for_shallow_repositories() {
     let after_upstream = git_output(&repo_path, &["rev-parse", "upstream/main"]);
     assert_ne!(before_upstream, after_upstream);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -254,7 +267,7 @@ fn non_origin_remote_branch_uses_remote_qualified_local_branch_name() {
         .expect("upstream target should be present");
     assert_eq!(upstream_target.local_branch_name(), "upstream/main");
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -282,7 +295,7 @@ fn git_status_reports_equal_remote_default_branch() {
     assert_eq!(status.default_branch_ahead, Some(0));
     assert_eq!(status.default_branch_behind, Some(0));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -303,7 +316,7 @@ fn git_status_reports_branch_ahead_of_remote_default_branch() {
     assert_eq!(status.default_branch_ahead, Some(1));
     assert_eq!(status.default_branch_behind, Some(0));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -329,7 +342,7 @@ fn git_status_reports_branch_behind_remote_default_branch() {
     assert_eq!(status.default_branch_ahead, Some(0));
     assert_eq!(status.default_branch_behind, Some(1));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -349,7 +362,7 @@ fn git_status_reports_unknown_branch_sync_without_upstream() {
     assert_eq!(status.default_branch_ahead, None);
     assert_eq!(status.default_branch_behind, None);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -372,7 +385,7 @@ fn git_status_reports_unknown_branch_sync_when_only_tracking_default_branch() {
     assert_eq!(status.default_branch_ahead, None);
     assert_eq!(status.default_branch_behind, None);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -400,7 +413,7 @@ fn git_status_reports_merge_conflicts() {
 
     assert!(status.has_merge_conflicts);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -432,7 +445,7 @@ fn changed_files_preserve_unmerged_status_codes() {
         .chain(changes.unstaged_files.iter())
         .any(|file| file.path == "README.md" && file.status == "UU"));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -451,7 +464,7 @@ fn preferred_compare_ref_uses_upstream_when_available() {
 
     assert_eq!(compare_ref.as_deref(), Some("origin/feature"));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -469,7 +482,7 @@ fn preferred_compare_ref_falls_back_to_remote_default_branch() {
 
     assert_eq!(compare_ref.as_deref(), Some("origin/main"));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -494,7 +507,7 @@ fn changed_files_compare_ref_accepts_commit_hash_on_clean_tree() {
         .iter()
         .any(|file| file.path == "feature.txt" && file.status == "A"));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -530,7 +543,7 @@ fn changed_files_for_commit_returns_only_that_commit_patch() {
     assert_eq!(diff.new_text.as_deref(), Some("first\n"));
     assert_eq!(diff.kind, DiffContentKind::Text);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -587,7 +600,7 @@ fn changed_files_preserve_rename_numstat_counts() {
     assert_eq!(commit_rename.additions, 1);
     assert_eq!(commit_rename.deletions, 0);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -636,7 +649,7 @@ fn changed_files_preserve_literal_arrow_path_numstat_counts() {
     assert_eq!(commit_file.additions, 1);
     assert_eq!(commit_file.deletions, 0);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -679,7 +692,7 @@ fn changed_files_for_merge_commit_uses_first_parent_patch() {
     assert_eq!(diff.new_text.as_deref(), Some("feature from branch\n"));
     assert_eq!(diff.kind, DiffContentKind::Text);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -703,7 +716,7 @@ fn push_republishes_branch_when_tracking_default_branch() {
     let remote_branch = git_output(&repo_path, &["rev-parse", "--verify", "origin/feature"]);
     assert!(!remote_branch.trim().is_empty());
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -727,7 +740,7 @@ fn apply_patch_to_index_stages_trailing_line() {
     let staged = git_output(&repo_path, &["show", ":a.txt"]);
     assert!(staged.contains("three"));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -751,7 +764,7 @@ fn apply_patch_to_worktree_reverse_removes_line() {
     let wt = fs::read_to_string(repo_path.join("a.txt")).expect("read worktree");
     assert!(!wt.contains("three"));
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[cfg(unix)]
@@ -782,7 +795,7 @@ fn file_diff_reads_symlink_target_instead_of_following_link() {
     assert_eq!(diff.new_text.as_deref(), Some("AGENTS.md"));
     assert_eq!(diff.kind, DiffContentKind::Text);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -838,7 +851,7 @@ fn file_diff_classifies_png_as_binary_without_text() {
         other => panic!("expected worktree locator, got {other:?}"),
     }
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -854,7 +867,7 @@ fn show_git_blob_bytes_rejects_option_like_specs() {
         "unexpected error: {msg}"
     );
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[test]
@@ -869,7 +882,7 @@ fn show_git_blob_bytes_reads_index_path_spec() {
     let bytes = show_git_blob_bytes(&repo_path, ":icon.png").expect("index blob");
     assert_eq!(bytes, TINY_PNG);
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[cfg(unix)]
@@ -905,7 +918,7 @@ fn worktree_local_exclude_hides_compensated_symlink_directory() {
         "symlink dir should be ignored after worktree-local exclude, got: {after}"
     );
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }
 
 #[cfg(unix)]
@@ -981,5 +994,5 @@ fn worktree_local_exclude_uses_private_gitdir_not_common_dir() {
         "compensated symlink should be hidden from status, got: {status}"
     );
 
-    fs::remove_dir_all(root).expect("temp repo should be removed");
+    remove_temp_repo(root);
 }

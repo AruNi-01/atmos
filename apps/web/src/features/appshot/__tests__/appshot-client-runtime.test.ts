@@ -14,9 +14,16 @@ describe("S11 - Appshot browser runtime gating", () => {
   it("returns non-desktop state and avoids Tauri record calls outside Tauri", async () => {
     const browserWindow = new Window({ url: "http://localhost:3030" });
     const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: browserWindow,
+      writable: true,
+    });
+    // appshotLibT → currentAppLocale reads document.documentElement.lang
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: browserWindow.document,
       writable: true,
     });
 
@@ -40,6 +47,11 @@ describe("S11 - Appshot browser runtime gating", () => {
         Object.defineProperty(globalThis, "window", previousWindow);
       } else {
         Reflect.deleteProperty(globalThis, "window");
+      }
+      if (previousDocument) {
+        Object.defineProperty(globalThis, "document", previousDocument);
+      } else {
+        Reflect.deleteProperty(globalThis, "document");
       }
     }
   });

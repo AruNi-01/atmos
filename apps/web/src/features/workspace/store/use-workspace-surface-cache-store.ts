@@ -26,6 +26,25 @@ export type {
 
 export { buildProtectSignals } from "@/app-shell/workspace-surface-policies";
 
+/** Persist a workspace_surface setting only when the app WS is already connected. */
+async function persistWorkspaceSurfaceSetting(
+  key: string,
+  value: number,
+): Promise<void> {
+  try {
+    const { useWebSocketStore } = await import(
+      "@/features/connection/hooks/use-websocket"
+    );
+    if (useWebSocketStore.getState().connectionState !== "connected") {
+      return;
+    }
+    const { functionSettingsApi } = await import("@/api/ws-api");
+    await functionSettingsApi.update("workspace_surface", key, value);
+  } catch {
+    // Settings transport may be unavailable in unit tests / offline.
+  }
+}
+
 interface WorkspaceSurfaceCacheState extends SurfaceBudgets {
   activeContextId: string | null;
   /**
@@ -524,80 +543,50 @@ export const useWorkspaceSurfaceCacheStore = create<WorkspaceSurfaceCacheState>(
     // Immediately freeze excess warm contexts (do not wait for next touch).
     trimWarmToBudget(get, set);
     get().enforceMountBudgets("settings");
-    try {
-      const { functionSettingsApi } = await import("@/api/ws-api");
-      await functionSettingsApi.update(
-        "workspace_surface",
-        "max_warm_workspaces",
-        maxWarmWorkspaces,
-      );
-    } catch {
-      // Settings transport may be unavailable in unit tests / offline.
-    }
+    await persistWorkspaceSurfaceSetting(
+      "max_warm_workspaces",
+      maxWarmWorkspaces,
+    );
   },
 
   setMaxGlobalTerminalPanes: async (n) => {
     const maxGlobalTerminalPanes = Math.min(100, Math.max(1, n));
     set({ maxGlobalTerminalPanes });
     get().enforceMountBudgets("settings");
-    try {
-      const { functionSettingsApi } = await import("@/api/ws-api");
-      await functionSettingsApi.update(
-        "workspace_surface",
-        "max_global_terminal_panes",
-        maxGlobalTerminalPanes,
-      );
-    } catch {
-      // ignore offline / test environments
-    }
+    await persistWorkspaceSurfaceSetting(
+      "max_global_terminal_panes",
+      maxGlobalTerminalPanes,
+    );
   },
 
   setMaxMountedEditorsPerWorkspace: async (n) => {
     const maxMountedEditorsPerWorkspace = Math.min(50, Math.max(1, n));
     set({ maxMountedEditorsPerWorkspace });
     get().enforceMountBudgets("settings");
-    try {
-      const { functionSettingsApi } = await import("@/api/ws-api");
-      await functionSettingsApi.update(
-        "workspace_surface",
-        "max_mounted_editors_per_workspace",
-        maxMountedEditorsPerWorkspace,
-      );
-    } catch {
-      // ignore
-    }
+    await persistWorkspaceSurfaceSetting(
+      "max_mounted_editors_per_workspace",
+      maxMountedEditorsPerWorkspace,
+    );
   },
 
   setMaxGlobalMountedEditors: async (n) => {
     const maxGlobalMountedEditors = Math.min(100, Math.max(1, n));
     set({ maxGlobalMountedEditors });
     get().enforceMountBudgets("settings");
-    try {
-      const { functionSettingsApi } = await import("@/api/ws-api");
-      await functionSettingsApi.update(
-        "workspace_surface",
-        "max_global_mounted_editors",
-        maxGlobalMountedEditors,
-      );
-    } catch {
-      // ignore
-    }
+    await persistWorkspaceSurfaceSetting(
+      "max_global_mounted_editors",
+      maxGlobalMountedEditors,
+    );
   },
 
   setMaxGlobalBrowsers: async (n) => {
     const maxGlobalBrowsers = Math.min(20, Math.max(1, n));
     set({ maxGlobalBrowsers });
     get().enforceMountBudgets("settings");
-    try {
-      const { functionSettingsApi } = await import("@/api/ws-api");
-      await functionSettingsApi.update(
-        "workspace_surface",
-        "max_global_browsers",
-        maxGlobalBrowsers,
-      );
-    } catch {
-      // ignore
-    }
+    await persistWorkspaceSurfaceSetting(
+      "max_global_browsers",
+      maxGlobalBrowsers,
+    );
   },
 
   getMountedContextIds: () => {

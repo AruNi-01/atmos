@@ -1,0 +1,21 @@
+{
+  "name": "@atmos/api-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./ws": "./src/ws/index.ts",
+    "./platform": "./src/platform/types.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@atmos/api-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "6.0.3"
+  }
+}

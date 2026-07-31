@@ -15,7 +15,12 @@ export function currentAppLocale(fallback: string | null = defaultLocale): strin
     return firstPathSegment;
   }
 
-  const htmlLang = document.documentElement.lang;
+  // Prefer global document; fall back to window.document (happy-dom / partial polyfills).
+  const doc =
+    typeof document !== "undefined"
+      ? document
+      : (window as Window & { document?: Document }).document;
+  const htmlLang = doc?.documentElement?.lang;
   if (isLocaleSegment(htmlLang)) {
     return htmlLang;
   }

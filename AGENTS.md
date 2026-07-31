@@ -28,6 +28,9 @@
 | **Desktop Tauri (DEPRECATED — do not change for product)** | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
 | **Mobile** (Expo / React Native) | [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
+| **Main `/ws` wire types** (`@atmos/api-types`) | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md) |
+| **Main `/ws` session kernel** (`@atmos/api-client`) | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
+| **Package boundary map** (shared / types / client) | [packages/AGENTS.md](packages/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
 | **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |

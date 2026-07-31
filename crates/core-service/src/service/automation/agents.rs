@@ -480,9 +480,7 @@ fn agent_yolo_mode_enabled() -> bool {
 }
 
 fn definition_launch_flags(definition: &TerminalAgentDefinition, yolo: bool) -> (String, String) {
-    if yolo
-        && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some())
-    {
+    if yolo && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some()) {
         let params = definition
             .yolo_params
             .clone()
@@ -1500,7 +1498,10 @@ mod tests {
             && agent.stdout_parser == StdoutParser::CodexJsonl));
         assert!(agents.iter().any(|agent| agent.id == "cursor"
             && agent.cmd == "cursor-agent"
-            && agent.yolo_params.as_deref().is_some_and(|p| p.contains("--force --print"))
+            && agent
+                .yolo_params
+                .as_deref()
+                .is_some_and(|p| p.contains("--force --print"))
             && agent.yolo_interactive_params.as_deref() == Some("--yolo")));
         assert!(agents.iter().any(|agent| {
             agent.id == "antigravity"
@@ -1630,7 +1631,6 @@ mod tests {
                 "claude",
                 PromptStrategy::Arg,
                 vec![
-                    "--dangerously-skip-permissions",
                     "--print",
                     "--output-format",
                     "stream-json",
@@ -1643,58 +1643,49 @@ mod tests {
             (
                 "codex",
                 PromptStrategy::Arg,
-                vec![
-                    "exec",
-                    "--json",
-                    "--dangerously-bypass-approvals-and-sandbox",
-                ],
+                vec!["exec", "--json"],
                 PromptDelivery::Arg,
                 StdoutParser::CodexJsonl,
             ),
             (
                 "gemini",
                 PromptStrategy::PromptFlag,
-                vec!["--yolo", "--output-format", "stream-json", "--prompt"],
+                vec!["--output-format", "stream-json", "--prompt"],
                 PromptDelivery::Arg,
                 StdoutParser::CursorStreamJson,
             ),
             (
                 "antigravity",
                 PromptStrategy::PromptFlag,
-                vec![
-                    "--dangerously-skip-permissions",
-                    "--output-format",
-                    "stream-json",
-                    "-p",
-                ],
+                vec!["--output-format", "stream-json", "-p"],
                 PromptDelivery::Arg,
                 StdoutParser::CursorStreamJson,
             ),
             (
                 "devin",
                 PromptStrategy::Arg,
-                vec!["--permission-mode", "dangerous", "--print"],
+                vec!["--print"],
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),
             (
                 "amp",
                 PromptStrategy::Stdin,
-                vec!["--dangerously-allow-all", "--execute"],
+                vec!["--execute"],
                 PromptDelivery::Stdin,
                 StdoutParser::Plain,
             ),
             (
                 "droid",
                 PromptStrategy::Arg,
-                vec!["exec", "--skip-permissions-unsafe"],
+                vec!["exec"],
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),
             (
                 "opencode",
                 PromptStrategy::Arg,
-                vec!["run", "--format", "json", "--dangerously-skip-permissions"],
+                vec!["run", "--format", "json"],
                 PromptDelivery::Arg,
                 StdoutParser::OpencodeJson,
             ),
@@ -1709,9 +1700,7 @@ mod tests {
                 "cursor",
                 PromptStrategy::Arg,
                 vec![
-                    "--force",
                     "--print",
-                    "--trust",
                     "--output-format",
                     "stream-json",
                     "--stream-partial-output",
@@ -1722,21 +1711,21 @@ mod tests {
             (
                 "kilocode",
                 PromptStrategy::Arg,
-                vec!["run", "--auto", "--format", "json"],
+                vec!["run", "--format", "json"],
                 PromptDelivery::Arg,
                 StdoutParser::OpencodeJson,
             ),
             (
                 "kiro",
                 PromptStrategy::Arg,
-                vec!["chat", "--agent", "atmos", "--trust-all-tools"],
+                vec!["chat", "--agent", "atmos"],
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),
             (
                 "commandcode",
                 PromptStrategy::Arg,
-                vec!["--trust", "--yolo", "--skip-onboarding", "--print"],
+                vec!["--skip-onboarding", "--print"],
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),
@@ -1757,19 +1746,14 @@ mod tests {
             (
                 "hermes",
                 PromptStrategy::PromptFlag,
-                vec!["chat", "--yolo", "-q"],
+                vec!["chat", "-q"],
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),
             (
                 "grok-build",
                 PromptStrategy::PromptFlag,
-                vec![
-                    "--always-approve",
-                    "--output-format",
-                    "streaming-json",
-                    "-p",
-                ],
+                vec!["--output-format", "streaming-json", "-p"],
                 PromptDelivery::Arg,
                 StdoutParser::GrokStreamingJson,
             ),

@@ -52,9 +52,10 @@ fn run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Vec<u8>> {
 
 /// Like `run_git` but returns Ok(None) instead of Err on non-zero exit.
 fn try_run_git(repo_path: &Path, args: &[&str]) -> Result<Option<String>> {
-    Ok(try_run_git_bytes(repo_path, args)?.map(|bytes| {
-        String::from_utf8_lossy(&bytes).to_string()
-    }))
+    Ok(
+        try_run_git_bytes(repo_path, args)?
+            .map(|bytes| String::from_utf8_lossy(&bytes).to_string()),
+    )
 }
 
 /// Like `run_git_bytes` but returns Ok(None) instead of Err on non-zero exit.
@@ -84,14 +85,9 @@ fn try_run_git_bytes(repo_path: &Path, args: &[&str]) -> Result<Option<Vec<u8>>>
 pub fn show_git_blob_bytes(repo_path: &Path, rev_path_spec: &str) -> Result<Vec<u8>> {
     let spec = rev_path_spec.trim();
     if !is_safe_blob_show_spec(spec) {
-        return Err(EngineError::Git(
-            "Invalid git blob show-spec".to_string(),
-        ));
+        return Err(EngineError::Git("Invalid git blob show-spec".to_string()));
     }
-    let oid = run_git(
-        repo_path,
-        &["rev-parse", "--verify", "--quiet", spec],
-    )?;
+    let oid = run_git(repo_path, &["rev-parse", "--verify", "--quiet", spec])?;
     let oid = oid.trim();
     if oid.is_empty() {
         return Err(EngineError::Git("Blob object not found".to_string()));

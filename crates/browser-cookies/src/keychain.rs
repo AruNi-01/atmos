@@ -14,13 +14,17 @@
 //! stick across rebuilds/restarts. Fixing that requires a stable Developer ID
 //! signature — not a local secret file.
 
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-
 use crate::types::ExtractError;
 
+#[cfg(target_os = "macos")]
+use std::collections::HashMap;
+#[cfg(target_os = "macos")]
+use std::sync::{Mutex, OnceLock};
+
+#[cfg(target_os = "macos")]
 static PASSPHRASE_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 
+#[cfg(target_os = "macos")]
 fn passphrase_cache() -> &'static Mutex<HashMap<String, String>> {
     PASSPHRASE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
@@ -132,17 +136,15 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn process_cache_returns_stored_value_without_reentry() {
         let service = "__atmos_test_keychain_cache__";
         {
             let mut guard = passphrase_cache().lock().expect("cache lock");
             guard.insert(service.to_string(), "cached-pass".to_string());
         }
-        #[cfg(target_os = "macos")]
-        {
-            let got = safe_storage_passphrase(service).expect("cached hit");
-            assert_eq!(got, "cached-pass");
-        }
+        let got = safe_storage_passphrase(service).expect("cached hit");
+        assert_eq!(got, "cached-pass");
         if let Ok(mut guard) = passphrase_cache().lock() {
             guard.remove(service);
         }

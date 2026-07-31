@@ -37,7 +37,6 @@ use super::workspace::WorkspaceService;
 use agents::automation_agent_capabilities;
 pub use agents::AutomationAgentCapability;
 pub mod builtin_agent_upgrade;
-pub use builtin_agent_upgrade::ensure_builtin_terminal_agents_upgraded;
 pub(crate) use agents::{
     resolve_automation_agent, AutomationAgentInvocation, AutomationCommandInput, PromptDelivery,
     StdoutParser,
@@ -47,6 +46,7 @@ pub use agents::{
     AutomationAgentRunConfig, TerminalAgentCliStatus, TerminalAgentModelCatalog,
     TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
 };
+pub use builtin_agent_upgrade::ensure_builtin_terminal_agents_upgraded;
 pub use events::{AutomationDefinitionChange, AutomationEvent};
 pub use external_trigger::{
     ExternalTriggerOutcome, ExternalTriggerRejectReason, ExternalTriggerRejection,

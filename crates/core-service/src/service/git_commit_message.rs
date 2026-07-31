@@ -505,6 +505,7 @@ mod tests {
                 status: "M".to_string(),
                 additions: 1,
                 deletions: 0,
+                is_binary: false,
                 staged: false,
             })
             .collect::<Vec<_>>();
@@ -523,6 +524,7 @@ mod tests {
                 status: "M".to_string(),
                 additions: 5,
                 deletions: 2,
+                is_binary: false,
                 staged: false,
             })
             .collect::<Vec<_>>();

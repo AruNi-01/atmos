@@ -39,10 +39,14 @@ packages/shared/
 ### NEVER
 - Add framework-specific code to utils — keep them framework-agnostic
 - Add API calls or side effects to `utils/` functions
+- Add main-app `/ws` wire types (`WsAction`, frames, multi-client DTOs) — use `@atmos/api-types`
+- Add WS session / reconnect / pending-map kernels — use `@atmos/api-client`
+- Import `@atmos/api-client` or `@atmos/api-types` from utils (keep pure-shared free of wire coupling)
 
 ### ALWAYS
 - Keep `utils/` functions pure and reusable
 - Use tree-shaking-friendly exports
+- Put **terminal stream** protocol helpers under `src/terminal/` only (not a dumping ground for main `/ws`)
 
 ### Exception: `src/debug/`
 `src/debug/` is explicitly allowed to contain utilities with side effects (network

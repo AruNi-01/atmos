@@ -95,7 +95,7 @@ On successful `TcpListener::bind`:
 ### ALWAYS
 
 - Use `AppState` for services.
-- Keep DTOs in sync with `apps/web/src/types/api.ts` (or app-local types).
+- Keep main-app WS action/frame TS surface in sync via `@atmos/api-types` (APP-048): when adding `WsAction` variants, update `packages/api-types` (enum extract + catalog) in the same change set.
 - When changing relay protocol, update `packages/relay` and APP-016 TECH.
 
 ---

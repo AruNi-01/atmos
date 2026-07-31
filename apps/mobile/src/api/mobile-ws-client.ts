@@ -1,10 +1,12 @@
-import type { WsError, WsRequest, WsResponse } from "@/api/types";
+import type { WsAction } from "@atmos/api-types/ws/actions";
+import {
+  createWsSession,
+  DEFAULT_MOBILE_RECONNECT,
+  type ConnectionState as KernelState,
+  type WsSession,
+} from "@atmos/api-client/ws";
+import type { WebSocketLike } from "@atmos/api-client/platform";
 import { redactUrl } from "@/lib/relay-url";
-
-type PendingRequest = {
-  resolve: (value: unknown) => void;
-  reject: (error: Error) => void;
-};
 
 type MobileWebSocketLike = {
   readyState: number;
@@ -20,7 +22,13 @@ type MobileWebSocketCtor = new (url: string) => MobileWebSocketLike;
 
 type MobileTimer = ReturnType<typeof setTimeout>;
 
-export type MobileWsState = "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
+export type MobileWsState =
+  | "idle"
+  | "connecting"
+  | "open"
+  | "reconnecting"
+  | "closed"
+  | "error";
 
 type MobileWsClientOptions = {
   WebSocketCtor?: MobileWebSocketCtor;
@@ -32,108 +40,158 @@ type MobileWsClientOptions = {
   setTimeout?: (callback: () => void, delayMs: number) => MobileTimer;
 };
 
-const DEFAULT_RECONNECT_INITIAL_DELAY_MS = 500;
-const DEFAULT_RECONNECT_MAX_DELAY_MS = 5_000;
-const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
-const WEBSOCKET_OPEN = 1;
+function mapState(state: KernelState): MobileWsState {
+  switch (state) {
+    case "connected":
+      return "open";
+    case "connecting":
+      return "connecting";
+    case "reconnecting":
+      return "reconnecting";
+    case "error":
+      return "error";
+    case "closed":
+      return "closed";
+    case "idle":
+      return "idle";
+    case "disconnected":
+    default:
+      return "closed";
+  }
+}
 
+function adaptSocket(raw: MobileWebSocketLike): WebSocketLike {
+  return {
+    get readyState() {
+      return raw.readyState;
+    },
+    send: (data) => raw.send(data),
+    close: (code, reason) => {
+      // Mobile fakes often ignore args
+      void code;
+      void reason;
+      raw.close();
+    },
+    get onopen() {
+      return raw.onopen as WebSocketLike["onopen"];
+    },
+    set onopen(fn) {
+      raw.onopen = fn as MobileWebSocketLike["onopen"];
+    },
+    get onmessage() {
+      return raw.onmessage as WebSocketLike["onmessage"];
+    },
+    set onmessage(fn) {
+      raw.onmessage = fn as MobileWebSocketLike["onmessage"];
+    },
+    get onerror() {
+      return raw.onerror as WebSocketLike["onerror"];
+    },
+    set onerror(fn) {
+      raw.onerror = fn as MobileWebSocketLike["onerror"];
+    },
+    get onclose() {
+      return raw.onclose as unknown as WebSocketLike["onclose"];
+    },
+    set onclose(fn) {
+      if (!fn) {
+        raw.onclose = null;
+        return;
+      }
+      // Mobile CloseEvent often lacks wasClean; treat as unclean for reconnect
+      raw.onclose = () => {
+        fn({ code: 1006, reason: "", wasClean: false });
+      };
+    },
+  };
+}
+
+/**
+ * Mobile façade over `@atmos/api-client` WsSession (APP-049).
+ * Preserves historical state names (`open`) and constructor options for tests.
+ */
 export class MobileWsClient {
-  private socket: MobileWebSocketLike | null = null;
-  private pending = new Map<string, PendingRequest>();
+  private session: WsSession;
   private stateListeners = new Set<(state: MobileWsState) => void>();
-  private messageListeners = new Set<(message: unknown) => void>();
+  private messageUnsub: (() => void) | null = null;
+  private stateUnsub: (() => void) | null = null;
   private currentState: MobileWsState = "idle";
-  private reconnectAttempt = 0;
-  private reconnectTimer: MobileTimer | null = null;
-  private shouldReconnect = true;
-
-  private readonly WebSocketCtor: MobileWebSocketCtor;
-  private readonly clearTimer: (timer: MobileTimer) => void;
-  private readonly maxReconnectAttempts: number;
-  private readonly reconnect: boolean;
-  private readonly reconnectInitialDelayMs: number;
-  private readonly reconnectMaxDelayMs: number;
-  private readonly setTimer: (callback: () => void, delayMs: number) => MobileTimer;
 
   constructor(
     private readonly wsUrl: string,
     options: MobileWsClientOptions = {},
   ) {
-    this.WebSocketCtor = options.WebSocketCtor ?? (WebSocket as unknown as MobileWebSocketCtor);
-    this.clearTimer = options.clearTimeout ?? clearTimeout;
-    this.maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
-    this.reconnect = options.reconnect ?? true;
-    this.reconnectInitialDelayMs = options.reconnectInitialDelayMs ?? DEFAULT_RECONNECT_INITIAL_DELAY_MS;
-    this.reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? DEFAULT_RECONNECT_MAX_DELAY_MS;
-    this.setTimer = options.setTimeout ?? setTimeout;
+    const WebSocketCtor =
+      options.WebSocketCtor ?? (WebSocket as unknown as MobileWebSocketCtor);
+    const setTimer = options.setTimeout ?? setTimeout;
+    const clearTimer = options.clearTimeout ?? clearTimeout;
+    const maxAttempts =
+      options.maxReconnectAttempts ?? DEFAULT_MOBILE_RECONNECT.maxAttempts;
+    const reconnectEnabled = options.reconnect ?? true;
+
+    this.session = createWsSession({
+      url: wsUrl,
+      platform: {
+        createWebSocket: (url) =>
+          adaptSocket(new WebSocketCtor(url) as MobileWebSocketLike),
+        timers: {
+          setTimeout: (fn, ms) => setTimer(fn, ms),
+          clearTimeout: (id) => clearTimer(id as MobileTimer),
+        },
+        log: (level, msg) => {
+          if (level === "error") {
+            console.error(`[mobile-ws] ${msg} ${redactUrl(this.wsUrl)}`);
+          }
+        },
+      },
+      reconnect: {
+        ...DEFAULT_MOBILE_RECONNECT,
+        enabled: reconnectEnabled,
+        maxAttempts,
+        initialDelayMs:
+          options.reconnectInitialDelayMs ??
+          DEFAULT_MOBILE_RECONNECT.initialDelayMs,
+        maxDelayMs:
+          options.reconnectMaxDelayMs ?? DEFAULT_MOBILE_RECONNECT.maxDelayMs,
+      },
+      requestTimeoutMs: 0,
+    });
+
+    this.stateUnsub = this.session.onState((s) => {
+      this.currentState = mapState(s);
+      this.stateListeners.forEach((l) => l(this.currentState));
+    });
+    this.messageUnsub = this.session.onMessage((msg) => {
+      this.messageListeners.forEach((l) => l(msg));
+    });
   }
+
+  private messageListeners = new Set<(message: unknown) => void>();
 
   get state() {
     return this.currentState;
   }
 
   connect() {
-    if (this.socket && this.currentState === "open") return;
-
-    this.shouldReconnect = true;
-    this.openSocket("connecting");
-  }
-
-  private openSocket(state: MobileWsState) {
-    this.clearReconnectTimer();
-    this.setState(state);
-    const socket = new this.WebSocketCtor(this.wsUrl);
-    this.socket = socket;
-
-    socket.onopen = () => {
-      this.reconnectAttempt = 0;
-      this.setState("open");
-    };
-    socket.onclose = () => {
-      if (this.socket === socket) {
-        this.socket = null;
-      }
-      this.rejectAll(new Error("Atmos mobile WebSocket closed"));
-      this.scheduleReconnect();
-    };
-    socket.onerror = () => {
-      this.rejectAll(new Error(`Atmos mobile WebSocket error: ${redactUrl(this.wsUrl)}`));
-      this.setState("error");
-      socket.close();
-    };
-    socket.onmessage = (event) => this.handleMessage(event.data);
+    if (this.currentState === "open") return;
+    void this.session.connect().catch(() => undefined);
   }
 
   close() {
-    this.shouldReconnect = false;
-    this.clearReconnectTimer();
-    this.socket?.close();
-    this.socket = null;
-    this.rejectAll(new Error("Atmos mobile WebSocket closed"));
-    this.setState("closed");
+    this.session.disconnect();
+    this.currentState = "closed";
+    this.stateListeners.forEach((l) => l(this.currentState));
   }
 
-  request<T>(action: string, data?: unknown): Promise<T> {
-    if (!this.socket || this.currentState !== "open" || this.socket.readyState !== WEBSOCKET_OPEN) {
-      return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
-    }
-
-    const requestId = createRequestId();
-    const message: WsRequest = {
-      type: "request",
-      payload: {
-        request_id: requestId,
-        action,
-        data,
-      },
-    };
-
-    return new Promise<T>((resolve, reject) => {
-      this.pending.set(requestId, {
-        resolve: (value) => resolve(value as T),
-        reject,
-      });
-      this.socket?.send(JSON.stringify(message));
+  request<T>(action: WsAction | string, data?: unknown): Promise<T> {
+    return this.session.request<T>(action, data).catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("not connected")) {
+        return Promise.reject(
+          new Error("Atmos mobile WebSocket is not connected"),
+        );
+      }
+      return Promise.reject(err instanceof Error ? err : new Error(message));
     });
   }
 
@@ -146,87 +204,5 @@ export class MobileWsClient {
   subscribeMessages(listener: (message: unknown) => void) {
     this.messageListeners.add(listener);
     return () => this.messageListeners.delete(listener);
-  }
-
-  private scheduleReconnect() {
-    if (!this.shouldReconnect || !this.reconnect) {
-      this.setState("closed");
-      return;
-    }
-
-    if (this.reconnectAttempt >= this.maxReconnectAttempts) {
-      this.setState("closed");
-      return;
-    }
-
-    const delayMs = Math.min(
-      this.reconnectInitialDelayMs * 2 ** this.reconnectAttempt,
-      this.reconnectMaxDelayMs,
-    );
-    this.reconnectAttempt += 1;
-    this.setState("reconnecting");
-    this.reconnectTimer = this.setTimer(() => {
-      this.reconnectTimer = null;
-      if (!this.shouldReconnect) return;
-      this.openSocket("reconnecting");
-    }, delayMs);
-  }
-
-  private clearReconnectTimer() {
-    if (!this.reconnectTimer) return;
-    this.clearTimer(this.reconnectTimer);
-    this.reconnectTimer = null;
-  }
-
-  private handleMessage(raw: unknown) {
-    const parsed = typeof raw === "string" ? safeJson(raw) : raw;
-    this.messageListeners.forEach((listener) => listener(parsed));
-
-    const envelope = parsed as WsResponse | WsError | null;
-    if (envelope?.type === "error") {
-      const error = envelope;
-      const requestId = error.payload.request_id;
-      const failure = new Error(error.payload.message);
-      if (requestId && this.pending.has(requestId)) {
-        this.pending.get(requestId)?.reject(failure);
-        this.pending.delete(requestId);
-      }
-      return;
-    }
-
-    if (envelope?.type !== "response") return;
-
-    const pending = this.pending.get(envelope.payload.request_id);
-    if (!pending) return;
-
-    this.pending.delete(envelope.payload.request_id);
-    if (envelope.payload.success === false || envelope.payload.error) {
-      pending.reject(new Error(envelope.payload.message ?? envelope.payload.error ?? "WS request failed"));
-      return;
-    }
-
-    pending.resolve(envelope.payload.data);
-  }
-
-  private rejectAll(error: Error) {
-    this.pending.forEach((pending) => pending.reject(error));
-    this.pending.clear();
-  }
-
-  private setState(state: MobileWsState) {
-    this.currentState = state;
-    this.stateListeners.forEach((listener) => listener(state));
-  }
-}
-
-function createRequestId() {
-  return `mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function safeJson(raw: string) {
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    return raw;
   }
 }

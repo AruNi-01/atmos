@@ -163,9 +163,11 @@ export function getUniqueAgentName(
 }
 
 export function createFixedTerminalTab(): TerminalCenterTab {
+  const title = terminalT("tab.fixedTitle");
   return {
     id: FIXED_TERMINAL_TAB_VALUE,
-    title: terminalT("tab.fixedTitle"),
+    // Fall back when translator returns the raw key (partial i18n / test order).
+    title: title === "tab.fixedTitle" ? "Term" : title,
     closable: true,
   };
 }

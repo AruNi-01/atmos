@@ -1,3 +1,57 @@
+/** Mobile API types — shared wire DTOs from `@atmos/api-types`; mobile-only shapes stay here. */
+
+export type {
+  WsError,
+  WsMessage,
+  WsNotification,
+  WsRequest,
+  WsResponse,
+} from "@atmos/api-types/ws/frames";
+export type { WsAction } from "@atmos/api-types/ws/actions";
+
+export type {
+  FsEntry,
+  FsListDirResponse,
+  FsValidateGitPathResponse,
+} from "@atmos/api-types/ws/dto/fs";
+export type {
+  GitChangedFile,
+  GitChangedFilesResponse,
+  GitCommitResponse,
+  GitStatusResponse,
+} from "@atmos/api-types/ws/dto/git";
+export type {
+  ProjectModel,
+  ProjectWorkspaceBootstrapResponse,
+} from "@atmos/api-types/ws/dto/project";
+export type {
+  WorkspaceLabelModel,
+  WorkspaceModel,
+} from "@atmos/api-types/ws/dto/workspace";
+export type { GroupMemberModel, GroupModel } from "@atmos/api-types/ws/dto/group";
+export type {
+  GithubIssueLabelPayload,
+  GithubIssuePayload,
+  GithubPrPayload,
+} from "@atmos/api-types/ws/dto/github";
+
+/** Mobile transitional git diff (accepts legacy + structured fields). */
+export type GitFileDiffResponse = {
+  file_path: string;
+  /** @deprecated use old_text — kept optional during mobile transition */
+  old_content?: string;
+  /** @deprecated use new_text */
+  new_content?: string;
+  kind?: "text" | "binary" | "too_large";
+  preview_kind?: "none" | "image" | "media";
+  old_text?: string | null;
+  new_text?: string | null;
+  old_size?: number | null;
+  new_size?: number | null;
+  status: string;
+  compare_ref: string | null;
+};
+
 export type ApiEnvelope<T> = {
   success?: boolean;
   data?: T;
@@ -29,186 +83,6 @@ export type RegisterTokenResponse = {
   register_command: string;
 };
 
-export type FsEntry = {
-  name: string;
-  path: string;
-  is_dir: boolean;
-  is_symlink: boolean;
-  is_ignored: boolean;
-  symlink_target?: string | null;
-  is_git_repo: boolean;
-};
-
-export type FsListDirResponse = {
-  path: string;
-  parent_path: string | null;
-  entries: FsEntry[];
-};
-
-export type FsValidateGitPathResponse = {
-  is_valid: boolean;
-  is_git_repo: boolean;
-  suggested_name: string | null;
-  default_branch: string | null;
-  error: string | null;
-};
-
-export type ProjectModel = {
-  guid: string;
-  name: string;
-  main_file_path: string;
-  sidebar_order: number;
-  border_color: string | null;
-  logo_path?: string | null;
-  target_branch?: string | null;
-  created_at: string;
-  updated_at: string;
-  is_deleted: boolean;
-};
-
-export type GithubIssueLabelPayload = {
-  name: string;
-  color: string | null;
-  description: string | null;
-};
-
-export type GithubIssuePayload = {
-  owner: string;
-  repo: string;
-  number: number;
-  title: string;
-  body: string | null;
-  url: string;
-  state: string;
-  created_at?: string;
-  updated_at?: string;
-  labels: GithubIssueLabelPayload[];
-};
-
-export type GithubPrPayload = {
-  owner: string;
-  repo: string;
-  number: number;
-  title: string;
-  body: string | null;
-  url: string;
-  state: string;
-  head_ref: string;
-  base_ref: string;
-  is_draft: boolean;
-  labels: GithubIssueLabelPayload[];
-};
-
-export type WorkspaceLabelModel = {
-  guid: string;
-  name: string;
-  color: string;
-  source: string;
-  created_at?: string;
-};
-
-export type WorkspaceModel = {
-  guid: string;
-  project_guid: string;
-  name: string;
-  display_name: string | null;
-  branch: string;
-  base_branch: string;
-  sidebar_order: number;
-  created_at: string;
-  updated_at: string;
-  is_deleted: boolean;
-  is_pinned: boolean;
-  pinned_at: string | null;
-  pin_order: number | null;
-  is_archived: boolean;
-  archived_at: string | null;
-  last_visited_at: string | null;
-  workflow_status: string;
-  priority: string;
-  local_path: string;
-  github_issue: GithubIssuePayload | null;
-  github_pr: GithubPrPayload | null;
-  labels: WorkspaceLabelModel[];
-  create_source: string;
-};
-
-export type GroupMemberModel = {
-  guid: string;
-  member_type: string;
-  member_guid: string;
-  sort_order: number;
-};
-
-export type GroupModel = {
-  guid: string;
-  name: string;
-  sidebar_order: number;
-  members: GroupMemberModel[];
-};
-
-export type ProjectWorkspaceBootstrapResponse = {
-  projects: ProjectModel[];
-  workspace_labels: WorkspaceLabelModel[];
-  workspaces_by_project: Record<string, WorkspaceModel[]>;
-  groups?: GroupModel[];
-};
-
-export type GitStatusResponse = {
-  has_uncommitted_changes: boolean;
-  has_merge_conflicts: boolean;
-  has_unpushed_commits: boolean;
-  uncommitted_count: number;
-  unpushed_count: number;
-  upstream_behind_count: number | null;
-  default_branch: string | null;
-  default_branch_ahead: number | null;
-  default_branch_behind: number | null;
-  current_branch: string | null;
-  github_owner: string | null;
-  github_repo: string | null;
-};
-
-export type GitChangedFile = {
-  path: string;
-  status: string;
-  additions: number;
-  deletions: number;
-  is_binary?: boolean;
-  staged: boolean;
-};
-
-export type GitChangedFilesResponse = {
-  staged_files: GitChangedFile[];
-  unstaged_files: GitChangedFile[];
-  untracked_files: GitChangedFile[];
-  total_additions: number;
-  total_deletions: number;
-  is_branch_published: boolean;
-  compare_ref: string | null;
-};
-
-export type GitFileDiffResponse = {
-  file_path: string;
-  /** @deprecated use old_text — kept optional during mobile transition */
-  old_content?: string;
-  /** @deprecated use new_text */
-  new_content?: string;
-  kind?: "text" | "binary" | "too_large";
-  preview_kind?: "none" | "image" | "media";
-  old_text?: string | null;
-  new_text?: string | null;
-  old_size?: number | null;
-  new_size?: number | null;
-  status: string;
-  compare_ref: string | null;
-};
-
-export type GitCommitResponse = {
-  success: boolean;
-  commit_hash: string | null;
-};
-
 export type TerminalWorkspaceCandidate = {
   id: string;
   workspace_id: string;
@@ -227,45 +101,6 @@ export type TerminalWorkspaceCandidate = {
 
 export type TerminalWorkspaceCandidatesResponse = {
   candidates: TerminalWorkspaceCandidate[];
-};
-
-export type WsRequestPayload = {
-  request_id: string;
-  action: string;
-  data?: unknown;
-};
-
-export type WsRequest = {
-  type: "request";
-  payload: WsRequestPayload;
-};
-
-export type WsResponse<T = unknown> = {
-  type: "response";
-  payload: {
-    request_id: string;
-    success?: boolean;
-    data?: T;
-    message?: string | null;
-    error?: string | null;
-  };
-};
-
-export type WsError = {
-  type: "error";
-  payload: {
-    request_id?: string;
-    code: "validation_error" | "not_found" | "error" | "already_running";
-    message: string;
-  };
-};
-
-export type WsNotification<T = unknown> = {
-  type: "notification";
-  payload: {
-    event: string;
-    data: T;
-  };
 };
 
 export type WorkspaceSetupContextNotification = {

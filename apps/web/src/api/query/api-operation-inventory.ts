@@ -531,6 +531,7 @@ export const apiOperationInventory = [
     legacyOwner: "use-canvas-board + /api/canvas/documents",
     phase: "extended",
     status: "complete",
+    queryKeyRoot: "queryKeys.computer.canvas",
     rationale: "APP-037: file-backed documents via REST list/get under ~/.atmos/canvas.",
   },
   {
