@@ -13,7 +13,6 @@ import {
   Loader2,
   Plus,
   Search,
-  SquareTerminal,
   X,
 } from "lucide-react";
 import {
@@ -36,17 +35,23 @@ import {
   useProjects,
   useProjectsLoading,
 } from "@/features/project/hooks/use-project-bootstrap-query";
-import type { Project, Workspace } from "@/shared/types/domain";
+import type { Project } from "@/shared/types/domain";
 import { listCanvasFrameTargets, type CanvasFrameTarget } from "@/features/canvas/lib/canvas-widget-frame";
 import { findCanvasWidgetPlacements } from "@/features/canvas/lib/canvas-widget-placement";
-import type { CanvasContextRef } from "@/features/canvas/lib/canvas-widget-shape";
 import {
-  ADDABLE_CANVAS_WIDGET_TYPES,
   CANVAS_WIDGET_GROUPS,
-  CANVAS_WIDGET_REGISTRY,
-  type AddableCanvasWidgetType,
 } from "@/features/canvas/lib/canvas-widget-registry";
-import { CANVAS_TERMINAL_DEFAULT_SIZE } from "@/features/canvas/lib/canvas-terminal-shape";
+import {
+  ADDABLE_CANVAS_ITEM_TYPES,
+  CANVAS_TERMINAL_ADD_ITEM_TYPE,
+  type AddableCanvasItemType,
+  type CanvasAddContextOption,
+  buildCanvasAddContextOptions,
+  buildSearchText,
+  getCanvasAddItemEntry,
+  isCanvasWidgetAddItemType,
+  normalizeQuery,
+} from "@/features/canvas/lib/canvas-add-widget-catalog";
 import { useAddCanvasTerminal } from "@/features/canvas/hooks/use-add-canvas-terminal";
 import { useAddAtmosWidget } from "@/features/canvas/hooks/use-add-atmos-widget";
 import { focusCanvasShapes } from "@/features/canvas/lib/canvas-shape-focus";
@@ -54,39 +59,6 @@ import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-st
 
 const NO_FRAME_VALUE = "__no_frame__";
 const ALL_PROJECTS_FILTER = "__all_projects__";
-const CANVAS_TERMINAL_ADD_ITEM_TYPE = "terminal" as const;
-
-type AddableCanvasItemType = AddableCanvasWidgetType | typeof CANVAS_TERMINAL_ADD_ITEM_TYPE;
-
-const CANVAS_TERMINAL_ADD_ITEM = {
-  group: "workspace",
-  label: "",
-  description: "",
-  icon: SquareTerminal,
-  defaultSize: CANVAS_TERMINAL_DEFAULT_SIZE,
-  requiresContext: true,
-} as const;
-
-const ADDABLE_CANVAS_ITEM_TYPES: AddableCanvasItemType[] = [
-  "center",
-  CANVAS_TERMINAL_ADD_ITEM_TYPE,
-  "workspace-context",
-  ...ADDABLE_CANVAS_WIDGET_TYPES.filter(
-    (type) => type !== "center" && type !== "workspace-context",
-  ),
-];
-
-function isCanvasWidgetAddItemType(
-  type: AddableCanvasItemType,
-): type is AddableCanvasWidgetType {
-  return type !== CANVAS_TERMINAL_ADD_ITEM_TYPE;
-}
-
-function getCanvasAddItemEntry(type: AddableCanvasItemType) {
-  return type === CANVAS_TERMINAL_ADD_ITEM_TYPE
-    ? CANVAS_TERMINAL_ADD_ITEM
-    : CANVAS_WIDGET_REGISTRY[type];
-}
 
 function getAddButtonLabel(
   t: ReturnType<typeof useTranslations>,
@@ -100,19 +72,7 @@ function getAddButtonLabel(
     : t("actions.addWidget");
 }
 
-type ContextOption = {
-  value: string;
-  kind: "project" | "workspace";
-  label: string;
-  detail: string;
-  projectId: string;
-  projectName: string;
-  branch?: string;
-  path: string;
-  workspaceCount?: number;
-  searchText: string;
-  context: CanvasContextRef;
-};
+type ContextOption = CanvasAddContextOption;
 
 type ProjectFilterOption = {
   id: string;
@@ -120,82 +80,12 @@ type ProjectFilterOption = {
   contextCount: number;
 };
 
-function buildProjectContext(project: Project): CanvasContextRef {
-  return {
-    contextScope: "project",
-    projectId: project.id,
-    workspaceId: null,
-    projectName: project.name,
-    workspaceName: null,
-    localPath: project.mainFilePath,
-    repoPath: project.mainFilePath,
-  };
-}
-
-function buildWorkspaceContext(project: Project, workspace: Workspace): CanvasContextRef {
-  return {
-    contextScope: "workspace",
-    projectId: project.id,
-    workspaceId: workspace.id,
-    projectName: project.name,
-    // Stable workspace handle for tmux session naming (not display label).
-    workspaceName: workspace.name,
-    localPath: workspace.localPath,
-    repoPath: workspace.localPath,
-  };
-}
-
-function buildContextOptions(projects: Project[]): ContextOption[] {
-  return projects.flatMap((project) => {
-    const projectOption: ContextOption = {
-      value: `project:${project.id}`,
-      kind: "project",
-      label: project.name,
-      detail: project.mainFilePath,
-      projectId: project.id,
-      projectName: project.name,
-      path: project.mainFilePath,
-      workspaceCount: project.workspaces.length,
-      searchText: buildSearchText([project.name, project.mainFilePath, project.targetBranch ?? ""]),
-      context: buildProjectContext(project),
-    };
-    const workspaceOptions = project.workspaces.map((workspace): ContextOption => ({
-      value: `workspace:${workspace.id}`,
-      kind: "workspace",
-      label: workspace.displayName || workspace.name,
-      detail: `${project.name} / ${workspace.branch}`,
-      projectId: project.id,
-      projectName: project.name,
-      branch: workspace.branch,
-      path: workspace.localPath,
-      searchText: buildSearchText([
-        workspace.displayName ?? "",
-        workspace.name,
-        workspace.branch,
-        workspace.localPath,
-        project.name,
-        project.mainFilePath,
-      ]),
-      context: buildWorkspaceContext(project, workspace),
-    }));
-    return [projectOption, ...workspaceOptions];
-  });
-}
-
 function buildProjectFilterOptions(projects: Project[]): ProjectFilterOption[] {
   return projects.map((project) => ({
     id: project.id,
     name: project.name,
     contextCount: project.workspaces.length + 1,
   }));
-}
-
-function buildSearchText(parts: string[]): string {
-  return parts.join(" ").toLocaleLowerCase();
-}
-
-function normalizeQuery(query: string): string {
-  return query.trim().toLocaleLowerCase();
 }
 
 function filterContextOptions(
@@ -536,7 +426,7 @@ export function CanvasAddAtmosWidgetPopover({
     setIsAdding(false);
   }, [open]);
 
-  const contextOptions = React.useMemo(() => buildContextOptions(projects), [projects]);
+  const contextOptions = React.useMemo(() => buildCanvasAddContextOptions(projects), [projects]);
   const selectedContext = contextOptions.find((option) => option.value === selectedContextValue);
   const selectedFrameId =
     selectedFrameValue === NO_FRAME_VALUE ? null : (selectedFrameValue as TLShapeId);

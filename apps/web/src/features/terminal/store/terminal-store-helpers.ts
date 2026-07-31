@@ -3,6 +3,7 @@
 import { createTranslator } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
 import type { MosaicDirection, MosaicNode } from "react-mosaic-component";
+import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
 
 import type { TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
@@ -18,6 +19,12 @@ import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
 export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
+
+/** Normalize untrusted OSC 0/2 text before storing on a pane (shared by mosaic / wiki / CR). */
+export function normalizeStoredOscTitle(oscTitle: string | undefined): string | undefined {
+  const cleaned = sanitizeNativeOscTitle(oscTitle);
+  return cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
+}
 
 type TerminalMessagesLocale = "en" | "zh";
 

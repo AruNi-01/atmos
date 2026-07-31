@@ -8,17 +8,12 @@ import {
   CODE_REVIEW_WINDOW_NAME,
   PROJECT_WIKI_WINDOW_NAME,
   createTerminalPane,
+  normalizeStoredOscTitle,
   removePaneFromLayout,
   samePaneAgent,
   splitPaneInLayout,
 } from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalStore } from "@/features/terminal/store/terminal-store-types";
-import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
-
-function normalizeStoredOscTitle(oscTitle: string | undefined): string | undefined {
-  const cleaned = sanitizeNativeOscTitle(oscTitle);
-  return cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
-}
 
 type TerminalStoreSet = (
   partial:

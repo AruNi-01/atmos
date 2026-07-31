@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   filterMentionFileCandidates,
+  MENTION_FILE_RESULT_LIMIT,
   splitHighlightParts,
 } from "@/features/welcome/lib/mention-file-search";
 import type { MentionFileCandidate } from "@/features/welcome/lib/welcome-page-helpers";
@@ -73,7 +74,7 @@ describe("filterMentionFileCandidates", () => {
     expect(names).not.toContain("unrelated.md");
   });
 
-  it("returns all matches with no result limit", () => {
+  it(`caps results at MENTION_FILE_RESULT_LIMIT (${MENTION_FILE_RESULT_LIMIT}) after ranking`, () => {
     const crowded: MentionFileCandidate[] = [];
     for (let i = 0; i < 50; i++) {
       crowded.push(candidate(`prefix/appshot_file_${i}.ts`));
@@ -84,9 +85,9 @@ describe("filterMentionFileCandidates", () => {
 
     const names = filterMentionFileCandidates(crowded, "appshot").map((item) => item.name);
 
-    expect(names).toHaveLength(52);
-    expect(names).toContain("libatmos_appshot_shift.dylib");
-    expect(names).toContain("zz_end_appshot");
+    expect(names).toHaveLength(MENTION_FILE_RESULT_LIMIT);
+    // Prefix matches rank ahead of mid-string; first row should be a prefix hit.
+    expect(names[0]?.startsWith("appshot_")).toBe(true);
     expect(names).not.toContain("unrelated.md");
   });
 

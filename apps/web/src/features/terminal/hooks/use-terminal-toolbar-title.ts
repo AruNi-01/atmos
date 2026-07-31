@@ -39,7 +39,9 @@ export function useTerminalToolbarTitle(options: {
   keepAgentName?: boolean;
   keepCwd?: boolean;
 }) {
-  const [localOscTitle, setLocalOscTitle] = useState<string | undefined>();
+  // Shim OSC 9999 / dynamic titles (agent detection input) — not native OSC 0/2.
+  const [localShimDynamicTitle, setLocalShimDynamicTitle] = useState<string | undefined>();
+  // Native OSC 0/2 window titles (display suffix only; never drives agent detection).
   const [localNativeOscTitle, setLocalNativeOscTitle] = useState<string | undefined>();
   const { storeWrite, configuredAgents, baseTitle, pinnedAgent, customLabel, keepAgentName, keepCwd } = options;
   const contestedOwners = useContestedCliOwners();
@@ -70,7 +72,7 @@ export function useTerminalToolbarTitle(options: {
 
   const onTitleChange = useCallback(
     (title: string) => {
-      setLocalOscTitle(title);
+      setLocalShimDynamicTitle(title);
       if (storeWrite.kind === "none") return;
       const { setDynamicTitle, setPaneAgent } = useTerminalStore.getState();
       // Agent detection uses shim dynamic titles only — never native OSC (APP-047).
@@ -144,7 +146,7 @@ export function useTerminalToolbarTitle(options: {
   );
 
   const { displayTitle, primaryTitle, oscSuffix, toolbarAgent } = useMemo(() => {
-    const mergedDynamic = storeLive.dynamicTitle ?? localOscTitle;
+    const mergedDynamic = storeLive.dynamicTitle ?? localShimDynamicTitle;
     const mergedNativeOsc = storeLive.oscTitle ?? localNativeOscTitle;
     const shapeAgent =
       pinnedAgent ??
@@ -202,7 +204,7 @@ export function useTerminalToolbarTitle(options: {
     storeLive.agent,
     storeLive.dynamicTitle,
     storeLive.oscTitle,
-    localOscTitle,
+    localShimDynamicTitle,
     localNativeOscTitle,
     customLabel,
     keepAgentName,
