@@ -30,13 +30,13 @@ import {
   hydratePersistedTab,
   isTerminalWorkspaceScopeKeyForWorkspace,
   normalizeCustomName,
+  normalizeStoredOscTitle,
   removePaneFromLayout,
   samePaneAgent,
   splitPaneInLayout,
   type TerminalCenterTab,
 } from "@/features/terminal/store/terminal-store-helpers";
 import type { TerminalStore } from "@/features/terminal/store/terminal-store-types";
-import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
 
 export { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 export {
@@ -973,9 +973,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     if (!panes || !panes[paneId]) return;
 
     // Sanitize; drop shell user@host:cwd noise so we never persist it.
-    const cleaned = sanitizeNativeOscTitle(oscTitle);
-    const next =
-      cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
+    const next = normalizeStoredOscTitle(oscTitle);
     if (panes[paneId].oscTitle === next) return;
 
     set((state) => ({

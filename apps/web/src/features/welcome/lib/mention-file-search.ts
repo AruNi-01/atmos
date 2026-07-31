@@ -1,5 +1,8 @@
 import type { MentionFileCandidate } from "@/features/welcome/lib/welcome-page-helpers";
 
+/** Max rows returned for the composer `@` mention popover (keeps keyboard nav cheap). */
+export const MENTION_FILE_RESULT_LIMIT = 12;
+
 /** Case-insensitive substring split for UI highlight. */
 export type HighlightPart = { text: string; match: boolean };
 
@@ -113,13 +116,15 @@ export function filterMentionFileCandidates(
     });
     searchQuery = query.slice(slashIndex + 1).trim();
     if (!searchQuery) {
-      return [...searchEntries].sort((a, b) => {
-        const bucket = (item: MentionFileCandidate) =>
-          item.isHidden ? 2 : item.isDir ? 1 : 0;
-        const bucketDiff = bucket(a) - bucket(b);
-        if (bucketDiff !== 0) return bucketDiff;
-        return a.relativePath.localeCompare(b.relativePath);
-      });
+      return [...searchEntries]
+        .sort((a, b) => {
+          const bucket = (item: MentionFileCandidate) =>
+            item.isHidden ? 2 : item.isDir ? 1 : 0;
+          const bucketDiff = bucket(a) - bucket(b);
+          if (bucketDiff !== 0) return bucketDiff;
+          return a.relativePath.localeCompare(b.relativePath);
+        })
+        .slice(0, MENTION_FILE_RESULT_LIMIT);
     }
   }
 
@@ -135,7 +140,7 @@ export function filterMentionFileCandidates(
     });
   }
 
-  return sortRankedMentionFiles(ranked).map(
-    ({ score: _score, matchIndex: _matchIndex, ...item }) => item,
-  );
+  return sortRankedMentionFiles(ranked)
+    .slice(0, MENTION_FILE_RESULT_LIMIT)
+    .map(({ score: _score, matchIndex: _matchIndex, ...item }) => item);
 }
