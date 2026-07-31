@@ -411,12 +411,15 @@ jobs:
             candidates+=("$f")
           done
 
-          # De-dupe while preserving order
-          declare -A seen=()
+          # De-dupe while preserving order.
+          # macOS runners ship Bash 3.2 (no associative arrays / declare -A).
+          seen_bases=" "
           for f in "${candidates[@]}"; do
             base="$(basename "$f")"
-            [ -n "${seen[$base]:-}" ] && continue
-            seen[$base]=1
+            case "$seen_bases" in
+              *" $base "*) continue ;;
+            esac
+            seen_bases="${seen_bases}${base} "
 
             # Atmos.dmg → Atmos_<version>_<arch>.dmg
             # Atmos-setup.exe → Atmos_<version>_<arch>-setup.exe
