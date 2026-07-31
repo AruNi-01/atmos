@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   filterMentionFileCandidates,
+  MENTION_CONTAINS_RESERVE,
   MENTION_FILE_RESULT_LIMIT,
   splitHighlightParts,
 } from "@/features/welcome/lib/mention-file-search";
@@ -74,20 +75,29 @@ describe("filterMentionFileCandidates", () => {
     expect(names).not.toContain("unrelated.md");
   });
 
-  it(`caps results at MENTION_FILE_RESULT_LIMIT (${MENTION_FILE_RESULT_LIMIT}) after ranking`, () => {
+  it(`caps results at MENTION_FILE_RESULT_LIMIT (${MENTION_FILE_RESULT_LIMIT}) while keeping contains hits`, () => {
     const crowded: MentionFileCandidate[] = [];
-    for (let i = 0; i < 50; i++) {
+    // More prefix hits than the cap so slice/reserve logic is actually exercised.
+    for (let i = 0; i < MENTION_FILE_RESULT_LIMIT + 20; i++) {
       crowded.push(candidate(`prefix/appshot_file_${i}.ts`));
     }
     crowded.push(candidate("bin/libatmos_appshot_shift.dylib"));
     crowded.push(candidate("misc/zz_end_appshot"));
+    crowded.push(candidate("nested/my_appshot_helper.ts"));
     crowded.push(candidate("docs/unrelated.md"));
 
     const names = filterMentionFileCandidates(crowded, "appshot").map((item) => item.name);
 
     expect(names).toHaveLength(MENTION_FILE_RESULT_LIMIT);
-    // Prefix matches rank ahead of mid-string; first row should be a prefix hit.
+    // Prefix matches still lead the list.
     expect(names[0]?.startsWith("appshot_")).toBe(true);
+    // But naive prefix-only slice must not hide mid/suffix contains matches.
+    const containsHits = names.filter((name) => !name.startsWith("appshot"));
+    expect(containsHits.length).toBeGreaterThanOrEqual(
+      Math.min(MENTION_CONTAINS_RESERVE, 3),
+    );
+    expect(names).toContain("libatmos_appshot_shift.dylib");
+    expect(names).toContain("zz_end_appshot");
     expect(names).not.toContain("unrelated.md");
   });
 

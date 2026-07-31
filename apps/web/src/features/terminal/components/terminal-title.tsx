@@ -26,6 +26,10 @@ export {
  * OSC titles often update rapidly while an agent is running. We always paint the
  * latest text immediately, but only remount/restart the scroll after the string
  * has been stable briefly — otherwise the animation is stuck in its start delay.
+ *
+ * Important: never thrash CSS animation properties on every ResizeObserver tick.
+ * Updating `--marquee-duration` restarts the animation, which looks like the title
+ * is "constantly updating" and prevents the marquee from actually scrolling.
  */
 export function TerminalTitleMarquee({
   text,
@@ -37,34 +41,38 @@ export function TerminalTitleMarquee({
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLSpanElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
-  // Bump to remount the animating node at translateX(0).
+  // Bump to remount the animating node at translateX(0) after a stable text change.
   const [animKey, setAnimKey] = useState(0);
-  const lastRestartAtRef = useRef(0);
-  const isFirstTextRef = useRef(true);
+  const lastAnimatedTextRef = useRef(text);
+  const lastDistanceRef = useRef(-1);
+  const lastDurationRef = useRef(-1);
+  const restartTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Skip the initial mount — nothing to "restart" yet.
-    if (isFirstTextRef.current) {
-      isFirstTextRef.current = false;
-      return;
-    }
+    // Identical string → no restart (also covers parent re-renders with same OSC).
+    if (text === lastAnimatedTextRef.current) return;
 
-    // Immediate restart if we haven't just restarted; otherwise wait for a quiet
-    // window. Agent OSC can update many times per second and would otherwise
-    // keep the marquee stuck in its lead-in delay forever.
-    const RESTART_GAP_MS = 450;
-    const elapsed = Date.now() - lastRestartAtRef.current;
-    if (elapsed >= RESTART_GAP_MS) {
-      lastRestartAtRef.current = Date.now();
-      setAnimKey((k) => k + 1);
-      return;
+    // Debounce: only restart after the title stops changing. Agent CLIs can
+    // re-emit OSC many times per second; immediate remount pins the marquee at
+    // animation-delay forever.
+    const STABLE_MS = 700;
+    if (restartTimerRef.current != null) {
+      window.clearTimeout(restartTimerRef.current);
     }
-
-    const timer = window.setTimeout(() => {
-      lastRestartAtRef.current = Date.now();
+    restartTimerRef.current = window.setTimeout(() => {
+      restartTimerRef.current = null;
+      lastAnimatedTextRef.current = text;
+      lastDistanceRef.current = -1;
+      lastDurationRef.current = -1;
       setAnimKey((k) => k + 1);
-    }, RESTART_GAP_MS - elapsed);
-    return () => window.clearTimeout(timer);
+    }, STABLE_MS);
+
+    return () => {
+      if (restartTimerRef.current != null) {
+        window.clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+    };
   }, [text]);
 
   useEffect(() => {
@@ -75,23 +83,39 @@ export function TerminalTitleMarquee({
     const measure = () => {
       // transform does not affect layout metrics; do not reset it on resize
       // (toolbar expand / agent-status mount) or a running marquee is interrupted.
-      const overflow = Math.max(0, content.scrollWidth - container.clientWidth);
+      const overflow = Math.max(0, Math.round(content.scrollWidth - container.clientWidth));
       setOverflowPx((prev) => (prev === overflow ? prev : overflow));
-      container.style.setProperty("--marquee-distance", `${overflow}px`);
-      const durationSec = overflow > 0 ? Math.min(28, Math.max(6, overflow / 40)) : 0;
-      container.style.setProperty("--marquee-duration", `${durationSec}s`);
+
+      // Only write CSS vars when values actually change — assigning
+      // `--marquee-duration` restarts the CSS animation even for tiny float noise.
+      if (overflow !== lastDistanceRef.current) {
+        lastDistanceRef.current = overflow;
+        container.style.setProperty("--marquee-distance", `${overflow}px`);
+      }
+      const durationSec =
+        overflow > 0 ? Math.min(28, Math.max(6, Math.round(overflow / 40))) : 0;
+      if (durationSec !== lastDurationRef.current) {
+        lastDurationRef.current = durationSec;
+        container.style.setProperty("--marquee-duration", `${durationSec}s`);
+      }
     };
 
     measure();
     const raf = requestAnimationFrame(measure);
-    const ro = new ResizeObserver(measure);
+    // Coalesce resize storms (toolbar expand/collapse) onto the next frame.
+    let roRaf = 0;
+    const ro = new ResizeObserver(() => {
+      if (roRaf) cancelAnimationFrame(roRaf);
+      roRaf = requestAnimationFrame(measure);
+    });
     ro.observe(container);
     ro.observe(content);
     return () => {
       cancelAnimationFrame(raf);
+      if (roRaf) cancelAnimationFrame(roRaf);
       ro.disconnect();
     };
-  }, [text, animKey]);
+  }, [text, animKey, overflowPx > 0]);
 
   return (
     <div

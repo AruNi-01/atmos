@@ -27,7 +27,10 @@ import {
   isTerminalAgentInputShortcut,
   resolveTerminalAgentSubmitMode,
 } from "@/features/terminal/lib/terminal-runtime-utils";
-import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
+import {
+  FIXED_TERMINAL_TAB_VALUE,
+  useTerminalStore,
+} from "@/features/terminal/store/use-terminal-store";
 import { clearLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasBoard } from "../hooks/use-canvas-board";
@@ -186,7 +189,23 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     setPortalRoot(wrapper instanceof HTMLElement ? wrapper : container);
   }, [editor]);
 
+  const markPaneAttached = useTerminalStore((state) => state.markPaneAttached);
+  const getPaneIdByTmuxWindowName = useTerminalStore((state) => state.getPaneIdByTmuxWindowName);
+
   const markAttached = React.useCallback(() => {
+    // Keep store layout in sync with the live tmux window. Without this, center
+    // tabs rehydrate as attach-only and fail with "window 'N' not found" when
+    // the canvas pane never flipped isNewPane → false before refresh.
+    const tabId = shape.props.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE;
+    const paneId = getPaneIdByTmuxWindowName(
+      shape.props.workspaceId,
+      shape.props.tmuxWindowName,
+      tabId,
+    );
+    if (paneId) {
+      markPaneAttached(shape.props.workspaceId, paneId, tabId);
+    }
+
     if (!shape.props.isNewTerminal) {
       return;
     }
@@ -198,7 +217,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         isNewTerminal: false,
       },
     });
-  }, [editor, shape]);
+  }, [editor, getPaneIdByTmuxWindowName, markPaneAttached, shape]);
 
   const handleSessionReady = React.useCallback(() => {
     markAttached();

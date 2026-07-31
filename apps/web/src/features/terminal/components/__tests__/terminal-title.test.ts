@@ -398,6 +398,61 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     ).toBe("atmos/abra");
   });
 
+  it("filters shell builtins/navigation (ls) but keeps program CLIs (git/npm)", () => {
+    // Shells themselves + builtins / listing / cwd helpers — no flash.
+    for (const cmd of ["zsh", "bash", "fish", "ls", "ll", "pwd", "cd", "echo", "clear", "cat"]) {
+      expect(
+        getTerminalDisplayMeta({
+          baseTitle: "1",
+          dynamicTitle: ".../atmos/abra",
+          oscTitle: cmd,
+        }).oscSuffix,
+      ).toBe("");
+    }
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../atmos/abra",
+        oscTitle: "ls -la",
+      }).displayTitle,
+    ).toBe(".../atmos/abra");
+
+    // Program CLIs can still surface as running-process titles.
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../atmos/abra",
+        oscTitle: "git",
+      }).oscSuffix,
+    ).toBe("git");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../atmos/abra",
+        oscTitle: "npm",
+      }).oscSuffix,
+    ).toBe("npm");
+
+    // Multi-word agent session topics still show.
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "debugging auth",
+      }).oscSuffix,
+    ).toBe("debugging auth");
+    // Title-Case agent status words are not treated as shell commands.
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "Claude Code",
+        dynamicTitle: "claude",
+        agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+        oscTitle: "Compacting",
+      }).oscSuffix,
+    ).toBe("Compacting");
+  });
+
   it("keeps multi-word OSC topics that contain slashes (not bare paths)", () => {
     expect(
       getTerminalDisplayMeta({

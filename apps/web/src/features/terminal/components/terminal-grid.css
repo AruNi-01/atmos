@@ -260,10 +260,11 @@
   align-items: center;
 }
 
-/* Fixed left segment — never grows into the OSC area. */
+/* Fixed left segment — never grows into the OSC area; can shrink with ellipsis. */
 .terminal-title-primary {
   flex: 0 1 auto;
   max-width: 45%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -276,13 +277,14 @@
 
 /*
  * Marquee container: takes remaining width inside the title row.
- * min-width:0 is required so nowrap text cannot force the flex item wider
- * than the squeezed title column (otherwise it paints under the end rail).
+ * Keep a small min-width so a squeezed toolbar still shows OSC and can marquee
+ * (min-width:0 collapsed the segment to 0px when the action rail expanded).
+ * overflow:hidden + the end-rail fade still prevent painting under buttons.
  */
 .terminal-title-marquee {
   position: relative;
   flex: 1 1 0%;
-  min-width: 0;
+  min-width: 3.5rem;
   overflow: hidden;
   white-space: nowrap;
 }

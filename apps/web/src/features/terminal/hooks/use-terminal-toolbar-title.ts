@@ -11,9 +11,8 @@ import {
 } from "@/features/terminal/store/use-terminal-store";
 import { getTerminalDisplayMeta, resolveAgentForTitle } from "@/features/terminal/components/terminal-title";
 import {
-  isNoisyShellOscTitle,
   isPathLikeTitle,
-  sanitizeNativeOscTitle,
+  resolveIncomingOscTitle,
   shortenPath,
 } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
@@ -114,13 +113,17 @@ export function useTerminalToolbarTitle(options: {
 
   const onOscTitleChange = useCallback(
     (title: string | undefined) => {
-      // Keep local + store in lockstep. Shell path noise must clear both so a
-      // filtered store write cannot fall back to a stale local path string.
-      const cleaned = sanitizeNativeOscTitle(title);
-      const next = cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
-      setLocalNativeOscTitle(next);
+      // Keep local + store in lockstep. Shell path/`ls` noise is ignored so it
+      // cannot wipe a real agent session topic (or flash as a suffix).
+      const resolved = resolveIncomingOscTitle(title);
+      if (resolved.action === "ignore") return;
+      const next = resolved.action === "set" ? resolved.value : undefined;
+      // Skip identical titles — agent CLIs re-emit OSC frequently; thrashing
+      // local state restarts the marquee even when the topic did not change.
+      setLocalNativeOscTitle((prev) => (prev === next ? prev : next));
       if (storeWrite.kind === "none") return;
       const { setOscTitle } = useTerminalStore.getState();
+      // Pass the raw resolved value through setOscTitle (which also ignores noise).
       if (storeWrite.kind === "mosaic-pane") {
         setOscTitle(
           storeWrite.workspaceId,

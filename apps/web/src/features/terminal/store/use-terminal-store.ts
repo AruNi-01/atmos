@@ -30,7 +30,7 @@ import {
   hydratePersistedTab,
   isTerminalWorkspaceScopeKeyForWorkspace,
   normalizeCustomName,
-  normalizeStoredOscTitle,
+  nextOscTitleFromIncoming,
   removePaneFromLayout,
   samePaneAgent,
   splitPaneInLayout,
@@ -972,8 +972,8 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     const panes = get().workspacePanes[scopeKey];
     if (!panes || !panes[paneId]) return;
 
-    // Sanitize; drop shell user@host:cwd noise so we never persist it.
-    const next = normalizeStoredOscTitle(oscTitle);
+    // Shell path/host/`ls` noise must not wipe a real agent session topic.
+    const next = nextOscTitleFromIncoming(panes[paneId].oscTitle, oscTitle);
     if (panes[paneId].oscTitle === next) return;
 
     set((state) => ({

@@ -62,7 +62,7 @@ import {
 import type { TerminalSelectionSnapshot } from "../types";
 import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
-import { sanitizeNativeOscTitle } from "@atmos/shared/terminal";
+import { resolveIncomingOscTitle } from "@atmos/shared/terminal";
 
 export interface TerminalRef {
   focus: () => void;
@@ -198,6 +198,9 @@ const Terminal = ({
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounce native OSC 0/2 so shell preexec (`ls`) → precmd (path) never paints.
+  const oscSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingOscRawRef = useRef<string | undefined>(undefined);
   const terminalInputCleanupRef = useRef<(() => void) | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [selectionSnapshot, setSelectionSnapshot] = useState<TerminalSelectionSnapshot | null>(null);
@@ -208,6 +211,9 @@ const Terminal = ({
     () => (wasTerminalSessionLive(sessionId) ? "connected" : "connecting"),
   );
   const [attachError, setAttachError] = useState<string | null>(null);
+  // One-shot auto-create after attach NotFound (missing tmux window). Avoids
+  // looping if create also fails.
+  const missingWindowCreateAttemptedRef = useRef(false);
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
@@ -343,16 +349,40 @@ const Terminal = ({
     onSessionClose?.(sessionId);
   }, [resetInputReady, sessionId, onSessionClose]);
 
+  // Filled after handleCreateNew is defined — attach NotFound auto-recovers
+  // via create (same window name; backend attach-if-exists).
+  const recoverMissingWindowRef = useRef<(() => void) | null>(null);
+
   const handleError = useCallback(
     (error: string) => {
       onSessionError?.(sessionId, error);
+
+      // Canvas/center refresh can leave a stored window name that no longer
+      // exists in tmux (layout saved before first attach, or window killed).
+      // Backend create is idempotent for the same name (attach-if-exists), so
+      // auto-recover once instead of parking on "4 not found".
+      const missingWindow =
+        !isNewPane &&
+        !noTmux &&
+        !missingWindowCreateAttemptedRef.current &&
+        /tmux window with name/i.test(error) &&
+        /not found/i.test(error);
+      if (missingWindow) {
+        missingWindowCreateAttemptedRef.current = true;
+        setAttachError(null);
+        setStatus("connecting");
+        // Defer so the failed socket teardown runs first.
+        window.setTimeout(() => recoverMissingWindowRef.current?.(), 0);
+        return;
+      }
+
       // Surface attach/create failures so the user can manually retry instead of
       // being left on a blank "connecting" or silent disconnected state.
       setAttachError(error);
       setStatus("error");
       resetInputReady();
     },
-    [sessionId, onSessionError, resetInputReady]
+    [isNewPane, noTmux, onSessionError, resetInputReady, sessionId],
   );
 
   const handleAttached = useCallback((snapshot?: TerminalSnapshot | null) => {
@@ -454,6 +484,8 @@ const Terminal = ({
     workspaceId,
     workspaceName,
   ]);
+
+  recoverMissingWindowRef.current = handleCreateNew;
 
   // Keep refs in sync (breaks circular dependencies with handleConnected)
   useEffect(() => {
@@ -841,14 +873,28 @@ const Terminal = ({
     // Do NOT reset lastOscTitleRef here: a warm remount must not drop a title that
     // was already restored from the pane store before this effect re-ran.
     lastTitleRef.current = "";
+    if (oscSettleTimerRef.current) {
+      clearTimeout(oscSettleTimerRef.current);
+      oscSettleTimerRef.current = null;
+    }
+    // Shell preexec sets OSC to the command name (`ls`) then precmd sets path
+    // within ~tens of ms. Settle before painting so short commands never flash.
+    const OSC_SETTLE_MS = 180;
     const emitOscTitle = (raw: string | undefined) => {
-      // Empty / whitespace → clear. Meaningful text is sanitized; shell path noise
-      // is filtered later in setOscTitle so we still deliver it (to overwrite).
-      const cleaned = raw == null ? undefined : sanitizeNativeOscTitle(raw);
-      const next = cleaned && cleaned.length > 0 ? cleaned : undefined;
-      if (next === lastOscTitleRef.current) return;
-      lastOscTitleRef.current = next;
-      onOscTitleChangeRef.current?.(next);
+      pendingOscRawRef.current = raw;
+      if (oscSettleTimerRef.current) {
+        clearTimeout(oscSettleTimerRef.current);
+      }
+      oscSettleTimerRef.current = setTimeout(() => {
+        oscSettleTimerRef.current = null;
+        const resolved = resolveIncomingOscTitle(pendingOscRawRef.current);
+        // Shell path/host/`ls` noise: keep the previous topic (do not flash, do not wipe).
+        if (resolved.action === "ignore") return;
+        const next = resolved.action === "set" ? resolved.value : undefined;
+        if (next === lastOscTitleRef.current) return;
+        lastOscTitleRef.current = next;
+        onOscTitleChangeRef.current?.(next);
+      }, OSC_SETTLE_MS);
     };
     titleChangeDisposable = terminal.onTitleChange((raw) => {
       emitOscTitle(raw);
@@ -1174,6 +1220,10 @@ const Terminal = ({
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
+      if (oscSettleTimerRef.current) {
+        clearTimeout(oscSettleTimerRef.current);
+        oscSettleTimerRef.current = null;
+      }
       searchResultsListenerRef.current?.dispose();
       searchResultsListenerRef.current = null;
       linkProvider?.dispose();

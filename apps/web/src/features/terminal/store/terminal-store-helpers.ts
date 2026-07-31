@@ -3,7 +3,7 @@
 import { createTranslator } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
 import type { MosaicDirection, MosaicNode } from "react-mosaic-component";
-import { isNoisyShellOscTitle, sanitizeNativeOscTitle } from "@atmos/shared/terminal";
+import { resolveIncomingOscTitle } from "@atmos/shared/terminal";
 
 import type { TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
@@ -20,10 +20,29 @@ import zhMessages from "../../../../messages/zh.json";
 
 export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
 
-/** Normalize untrusted OSC 0/2 text before storing on a pane (shared by mosaic / wiki / CR). */
+/**
+ * Normalize untrusted OSC 0/2 text before storing on a pane (shared by mosaic / wiki / CR).
+ * Returns `undefined` for empty/noise. Callers that must **not** wipe a previous
+ * agent topic on shell path noise should use {@link resolveIncomingOscTitle}
+ * and ignore the `ignore` action instead of writing `undefined`.
+ */
 export function normalizeStoredOscTitle(oscTitle: string | undefined): string | undefined {
-  const cleaned = sanitizeNativeOscTitle(oscTitle);
-  return cleaned && !isNoisyShellOscTitle(cleaned) ? cleaned : undefined;
+  const resolved = resolveIncomingOscTitle(oscTitle);
+  if (resolved.action === "set") return resolved.value;
+  // clear + ignore both map to undefined for the simple helper; store writers
+  // that need ignore-vs-clear semantics call resolveIncomingOscTitle directly.
+  return undefined;
+}
+
+/** Apply an incoming OSC update: set, clear, or leave previous value untouched. */
+export function nextOscTitleFromIncoming(
+  previous: string | undefined,
+  raw: string | undefined,
+): string | undefined {
+  const resolved = resolveIncomingOscTitle(raw);
+  if (resolved.action === "ignore") return previous;
+  if (resolved.action === "clear") return undefined;
+  return resolved.value;
 }
 
 type TerminalMessagesLocale = "en" | "zh";
@@ -414,10 +433,22 @@ export function hydratePersistedTab(
       tmuxWindowName: windowName,
       // Always mint a new frontend session id (WS attach identity).
       sessionId: uuidv4(),
-      // Prefer attach when we have a stable window name. Listing can race with
-      // API/tmux startup after app restart; treating unknown windows as "new"
-      // forces create and can orphan a still-running TUI agent.
-      isNewPane: liveByWindow ? false : windowName ? false : !windowExists,
+      // Reconnect strategy:
+      // - Live in-memory pane → attach
+      // - Window confirmed present in tmux list → attach
+      // - Window confirmed absent from a non-empty list → create (same name);
+      //   backend create is idempotent and will attach if the window reappears
+      // - Empty list (startup race) → prefer attach by name so we don't mint a
+      //   second window that orphans a still-running TUI agent
+      isNewPane: liveByWindow
+        ? false
+        : windowExists
+          ? false
+          : existingWindowNames.size > 0
+            ? true
+            : windowName
+              ? false
+              : true,
       // dynamicTitle is display-only (reattach inject); keep warm in-memory.
       // oscTitle is persisted so agent session topics survive refresh (APP-047).
       dynamicTitle: liveByWindow?.dynamicTitle,

@@ -8,7 +8,7 @@ import {
   CODE_REVIEW_WINDOW_NAME,
   PROJECT_WIKI_WINDOW_NAME,
   createTerminalPane,
-  normalizeStoredOscTitle,
+  nextOscTitleFromIncoming,
   removePaneFromLayout,
   samePaneAgent,
   splitPaneInLayout,
@@ -222,8 +222,8 @@ export function createTerminalAuxiliaryActions(
     setProjectWikiOscTitle: (workspaceId, paneId, oscTitle) => {
       const panes = get().projectWikiPanes[workspaceId];
       if (!panes?.[paneId]) return;
-      // Wiki scope is in-memory only; still drop shell path noise.
-      const next = normalizeStoredOscTitle(oscTitle);
+      // Wiki scope is in-memory only; shell path/`ls` noise must not wipe topics.
+      const next = nextOscTitleFromIncoming(panes[paneId].oscTitle, oscTitle);
       if (panes[paneId].oscTitle === next) return;
       set((state) => ({
         projectWikiPanes: {
@@ -394,7 +394,7 @@ export function createTerminalAuxiliaryActions(
     setCodeReviewOscTitle: (workspaceId, paneId, oscTitle) => {
       const panes = get().codeReviewPanes[workspaceId];
       if (!panes?.[paneId]) return;
-      const next = normalizeStoredOscTitle(oscTitle);
+      const next = nextOscTitleFromIncoming(panes[paneId].oscTitle, oscTitle);
       if (panes[paneId].oscTitle === next) return;
       set((state) => ({
         codeReviewPanes: {

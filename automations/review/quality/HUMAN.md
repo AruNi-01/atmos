@@ -14,7 +14,7 @@
 
 ## Prompt 内容
 
-在 Atmos Automation 的 Prompt / Instructions 输入框中填入：
+在 Automation / scheduled runner 的 Prompt / Instructions 输入框中填入：
 
 ```text
 请先读取并严格遵守 `automations/review/quality/INSTRUCTION.md`。
@@ -23,6 +23,8 @@
 
 按照 `INSTRUCTION.md` 的按需加载规则读取对应 `references/` 文件。完成后按结果规则写入本次报告，并按规则提交和推送结果文件。如果总分低于 90，按规则自动修复并创建 PR。
 ```
+
+说明：分支前缀、PR label、PR body 末尾署名由执行 Agent **自行识别身份后填写**（见 `references/auto-fix-pr.md`），仓库侧不绑定某一厂商。
 
 ## 结果位置
 

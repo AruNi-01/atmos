@@ -1,7 +1,13 @@
 import type { MentionFileCandidate } from "@/features/welcome/lib/welcome-page-helpers";
 
 /** Max rows returned for the composer `@` mention popover (keeps keyboard nav cheap). */
-export const MENTION_FILE_RESULT_LIMIT = 12;
+export const MENTION_FILE_RESULT_LIMIT = 100;
+
+/**
+ * When many exact/prefix hits exist, still keep this many slots for suffix/mid
+ * contains matches so `*query*` never looks prefix-only under the result cap.
+ */
+export const MENTION_CONTAINS_RESERVE = 3;
 
 /** Case-insensitive substring split for UI highlight. */
 export type HighlightPart = { text: string; match: boolean };
@@ -40,6 +46,9 @@ type RankedMentionFile = MentionFileCandidate & {
   score: number;
   matchIndex: number;
 };
+
+/** Scores below this are exact or prefix (see `rankNameMatch`). */
+const PREFIX_OR_EXACT_SCORE_MAX = 15;
 
 /**
  * Score a name against a lowercase query.
@@ -82,6 +91,48 @@ function sortRankedMentionFiles(items: RankedMentionFile[]) {
   });
 }
 
+function stripRank(item: RankedMentionFile): MentionFileCandidate {
+  const { score: _score, matchIndex: _matchIndex, ...rest } = item;
+  return rest;
+}
+
+/**
+ * Cap ranked results while preserving left/right contains hits.
+ *
+ * A naive `sort + slice(limit)` with prefix-first scoring drops every mid-string
+ * match once prefix hits fill the cap (the daily-quality regression). Reserve a
+ * few slots for suffix/mid so `*query*` stays visible under the budget.
+ */
+function takeMentionResults(ranked: RankedMentionFile[]): MentionFileCandidate[] {
+  const sorted = sortRankedMentionFiles(ranked);
+  if (sorted.length <= MENTION_FILE_RESULT_LIMIT) {
+    return sorted.map(stripRank);
+  }
+
+  const preferred = sorted.filter((item) => item.score < PREFIX_OR_EXACT_SCORE_MAX);
+  const contains = sorted.filter((item) => item.score >= PREFIX_OR_EXACT_SCORE_MAX);
+
+  if (contains.length === 0) {
+    return preferred.slice(0, MENTION_FILE_RESULT_LIMIT).map(stripRank);
+  }
+
+  const reservedForContains = Math.min(MENTION_CONTAINS_RESERVE, contains.length);
+  const preferredTake = Math.min(
+    preferred.length,
+    MENTION_FILE_RESULT_LIMIT - reservedForContains,
+  );
+  const containsTake = Math.min(
+    contains.length,
+    MENTION_FILE_RESULT_LIMIT - preferredTake,
+  );
+
+  // Keep display order: exact/prefix first, then best contains.
+  return [
+    ...preferred.slice(0, preferredTake),
+    ...contains.slice(0, containsTake),
+  ].map(stripRank);
+}
+
 /**
  * Filter project file/folder candidates for the composer `@` mention popover.
  *
@@ -93,6 +144,8 @@ function sortRankedMentionFiles(items: RankedMentionFile[]) {
  *   in the candidate list (caller loads the tree with `showHidden: true`).
  * - A trailing path prefix (`dir/`) still scopes results under that directory;
  *   the segment after the last `/` is matched against names only.
+ * - Results are capped at {@link MENTION_FILE_RESULT_LIMIT}, with a few slots
+ *   reserved for non-prefix contains hits so ranking does not look prefix-only.
  */
 export function filterMentionFileCandidates(
   entries: MentionFileCandidate[],
@@ -140,7 +193,5 @@ export function filterMentionFileCandidates(
     });
   }
 
-  return sortRankedMentionFiles(ranked)
-    .slice(0, MENTION_FILE_RESULT_LIMIT)
-    .map(({ score: _score, matchIndex: _matchIndex, ...item }) => item);
+  return takeMentionResults(ranked);
 }

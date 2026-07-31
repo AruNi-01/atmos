@@ -469,11 +469,156 @@ export type OscTitleDisplayContext = {
 };
 
 /**
- * Shell / terminal-integration titles that only restate host + cwd.
- * Examples: `user@Host:~/path`, pure paths, `Host:/tmp/foo`.
+ * Shell builtins / navigation / listing helpers that auto-title on every
+ * short interactive command. These should never flash as OSC suffixes.
  *
- * Intentionally does NOT treat multi-word session topics that merely contain
- * a slash (e.g. "fix src/api") as noise — those are useful OSC titles.
+ * Program CLIs (`git`, `npm`, `node`, `cargo`, …) are intentionally **not**
+ * listed — bare tool names can still surface as running-process titles.
+ */
+const TRANSIENT_SHELL_COMMAND_OSC = new Set([
+  // Interactive shells themselves (idle prompt / reattach titles)
+  "zsh",
+  "bash",
+  "sh",
+  "fish",
+  "nu",
+  "nushell",
+  "pwsh",
+  "powershell",
+  "cmd",
+  "cmd.exe",
+  "dash",
+  "ksh",
+  "csh",
+  "tcsh",
+  "xonsh",
+  "elvish",
+  "oil",
+  "osh",
+  // Directory / listing
+  "ls",
+  "ll",
+  "la",
+  "l",
+  "dir",
+  "tree",
+  "pwd",
+  "cd",
+  "pushd",
+  "popd",
+  "dirs",
+  // Shell builtins / job control / trivial interactive
+  "echo",
+  "printf",
+  "true",
+  "false",
+  ":",
+  "type",
+  "which",
+  "whence",
+  "command",
+  "builtin",
+  "hash",
+  "alias",
+  "unalias",
+  "export",
+  "unset",
+  "set",
+  "shift",
+  "read",
+  "readonly",
+  "local",
+  "declare",
+  "typeset",
+  "let",
+  "eval",
+  "source",
+  ".",
+  "exec",
+  "exit",
+  "logout",
+  "return",
+  "break",
+  "continue",
+  "wait",
+  "jobs",
+  "fg",
+  "bg",
+  "disown",
+  "kill",
+  "killall",
+  "history",
+  "fc",
+  "bind",
+  "bindkey",
+  "compdef",
+  "complete",
+  "compgen",
+  "ulimit",
+  "umask",
+  "times",
+  "time",
+  "trap",
+  "clear",
+  "reset",
+  "tput",
+  // Common short filesystem one-shots that only restate cwd activity
+  "touch",
+  "mkdir",
+  "rmdir",
+  "rm",
+  "cp",
+  "mv",
+  "ln",
+  "chmod",
+  "chown",
+  "stat",
+  "file",
+  "du",
+  "df",
+  "head",
+  "tail",
+  "cat",
+  "less",
+  "more",
+  "wc",
+  "basename",
+  "dirname",
+  "realpath",
+  "readlink",
+  "env",
+  "printenv",
+  "date",
+  "whoami",
+  "hostname",
+  "uname",
+  "sleep",
+]);
+
+/**
+ * Whether OSC text is a bare shell builtin/navigation command from preexec
+ * auto-title (e.g. `ls`, `pwd`, `cd`) — not a program CLI or agent topic.
+ *
+ * Only the first token is checked (so `ls -la` is also treated as transient).
+ * Multi-word agent topics (`fix src/api`) and program names (`git`, `npm`)
+ * are not in the denylist and still pass.
+ */
+export function isTransientShellCommandOscTitle(osc: string): boolean {
+  const t = osc.trim();
+  if (!t) return false;
+  const first = t.split(/\s+/)[0]?.toLowerCase() ?? "";
+  if (!first) return false;
+  // Drop leading `./` / path wrappers so `./ls` still matches if ever used.
+  const base = first.includes("/") ? (first.split("/").pop() ?? first) : first;
+  return TRANSIENT_SHELL_COMMAND_OSC.has(base);
+}
+
+/**
+ * Shell / terminal-integration titles that should not appear as OSC suffixes.
+ * Examples: `user@Host:~/path`, pure paths, bare preexec shell cmds (`ls`).
+ *
+ * Intentionally keeps program CLIs (`git`, `npm`) and multi-word session topics
+ * (`fix src/api`) — those are useful OSC titles.
  */
 export function isNoisyShellOscTitle(osc: string): boolean {
   const t = osc.trim();
@@ -484,7 +629,27 @@ export function isNoisyShellOscTitle(osc: string): boolean {
   if (/^[\w.-]+:(?:~|\/)/.test(t)) return true;
   // Entire title is a bare filesystem path (no spaces / not a phrase).
   if (isBareFilesystemOscTitle(t)) return true;
+  // Shell preexec builtins / navigation (ls, pwd, cd, …) — not a session topic.
+  if (isTransientShellCommandOscTitle(t)) return true;
   return false;
+}
+
+/**
+ * Classify an incoming native OSC 0/2 title for store/UI updates.
+ *
+ * - `set`: meaningful session topic — store it
+ * - `clear`: explicit empty title — wipe stored OSC
+ * - `ignore`: shell path/host/command noise — keep the previous topic
+ *   (do **not** treat noise as clear, or every prompt would erase agent topics)
+ */
+export function resolveIncomingOscTitle(
+  raw: string | undefined,
+): { action: "set"; value: string } | { action: "clear" } | { action: "ignore" } {
+  if (raw == null) return { action: "clear" };
+  const cleaned = sanitizeNativeOscTitle(raw);
+  if (!cleaned) return { action: "clear" };
+  if (isNoisyShellOscTitle(cleaned)) return { action: "ignore" };
+  return { action: "set", value: cleaned };
 }
 
 /** True when the whole OSC string is a path, not a multi-word session topic. */
