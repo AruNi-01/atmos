@@ -17,7 +17,8 @@ Usage: install-desktop.sh [options]
 
 Options:
   --version <tag>        Install a specific release tag instead of latest
-  --archive <path>       Install from a prebuilt local .app.tar.gz archive
+                         (example: desktop-electron-2026.7.29)
+  --archive <path>       Install from a prebuilt local .zip or .app.tar.gz archive
   --github-source        Use GitHub Releases instead of custom domain
   --no-cli               Install Desktop only, do not install/update ~/.atmos/bin/atmos
   -h, --help             Show this help
@@ -118,28 +119,6 @@ curl_to_file() {
   local url="$1"
   local output="$2"
   curl -fsSL --retry 3 --retry-delay 1 --retry-all-errors --connect-timeout 10 "$url" -o "$output"
-}
-
-download_with_fallback() {
-  local asset="$1"
-  local version="$2"
-  local custom_url="${DOWNLOAD_BASE}/desktop/${version}/${asset}"
-  local github_url="https://github.com/${REPO}/releases/download/${version}/${asset}"
-
-  if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
-    echo "Downloading from GitHub: ${github_url}"
-    curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
-    return 0
-  fi
-
-  echo "Downloading from custom domain: ${custom_url}"
-  if curl -fsSL "$custom_url" -o "$ARCHIVE_FILE"; then
-    return 0
-  fi
-
-  echo "Failed to download from custom domain, trying GitHub as fallback..."
-  echo "Downloading from GitHub: ${github_url}"
-  curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
 }
 
 ensure_path_hint() {
@@ -387,15 +366,67 @@ install_best_cli() {
   return 1
 }
 
-download_latest_with_fallback() {
-  local asset="$1"
-  local latest_url="${DOWNLOAD_BASE}/desktop/latest/${asset}"
+# Map a release tag to the calendar version segment (no tag prefix).
+desktop_tag_version() {
+  local tag="$1"
+  case "$tag" in
+    desktop-electron-*) echo "${tag#desktop-electron-}" ;;
+    desktop-*) echo "${tag#desktop-}" ;;
+    *) echo "$tag" ;;
+  esac
+}
 
-  echo "Trying to download from custom domain latest path: ${latest_url}"
-  if curl -fsSL "$latest_url" -o "$ARCHIVE_FILE"; then
-    echo "Successfully downloaded from latest path"
+# Asset names differ by channel:
+# - Electron latest path: Atmos_<arch>.zip (unversioned)
+# - Electron tag path:    Atmos_<version>_<arch>.zip
+# - Legacy Tauri:         Atmos_<arch>.app.tar.gz
+desktop_asset_candidates() {
+  local target="$1"
+  local tag_or_latest="$2"
+  local version
+
+  if [[ "$tag_or_latest" == "latest" ]]; then
+    echo "Atmos_${target}.zip"
+    echo "Atmos_${target}.app.tar.gz"
     return 0
   fi
+
+  version="$(desktop_tag_version "$tag_or_latest")"
+  case "$tag_or_latest" in
+    desktop-electron-*)
+      echo "Atmos_${version}_${target}.zip"
+      echo "Atmos_${target}.zip"
+      ;;
+    desktop-*)
+      echo "Atmos_${target}.app.tar.gz"
+      ;;
+    *)
+      echo "Atmos_${version}_${target}.zip"
+      echo "Atmos_${target}.zip"
+      echo "Atmos_${target}.app.tar.gz"
+      ;;
+  esac
+}
+
+download_latest_with_fallback() {
+  local target="$1"
+  local asset candidate_url
+  local -a candidates=()
+
+  while IFS= read -r asset; do
+    candidates+=("$asset")
+  done < <(desktop_asset_candidates "$target" "latest")
+
+  for asset in "${candidates[@]}"; do
+    candidate_url="${DOWNLOAD_BASE}/desktop/latest/${asset}"
+    ARCHIVE_FILE="${TMP_DIR}/${asset}"
+    echo "Trying custom domain latest path: ${candidate_url}"
+    if curl -fsSL "$candidate_url" -o "$ARCHIVE_FILE"; then
+      echo "Successfully downloaded from latest path"
+      ASSET="$asset"
+      return 0
+    fi
+  done
 
   echo "Latest path not available, falling back to GitHub API to resolve version..."
   RESOLVED_VERSION="$(resolve_release_tag)"
@@ -404,7 +435,57 @@ download_latest_with_fallback() {
     exit 1
   fi
 
-  download_with_fallback "$asset" "$RESOLVED_VERSION"
+  download_with_fallback_resolved "$target" "$RESOLVED_VERSION"
+}
+
+download_with_fallback_resolved() {
+  local target="$1"
+  local version="$2"
+  local asset
+  local -a candidates=()
+
+  while IFS= read -r asset; do
+    candidates+=("$asset")
+  done < <(desktop_asset_candidates "$target" "$version")
+
+  for asset in "${candidates[@]}"; do
+    ARCHIVE_FILE="${TMP_DIR}/${asset}"
+    if download_with_fallback "$asset" "$version"; then
+      ASSET="$asset"
+      return 0
+    fi
+  done
+
+  echo "Failed to download a desktop installer for ${version} (${target})." >&2
+  exit 1
+}
+
+# Override download_with_fallback to not fail hard on first URL so candidates can try.
+download_with_fallback() {
+  local asset="$1"
+  local version="$2"
+  local custom_url="${DOWNLOAD_BASE}/desktop/${version}/${asset}"
+  local github_url="https://github.com/${REPO}/releases/download/${version}/${asset}"
+
+  if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
+    echo "Downloading from GitHub: ${github_url}"
+    if curl -fsSL "$github_url" -o "$ARCHIVE_FILE"; then
+      return 0
+    fi
+    return 1
+  fi
+
+  echo "Downloading from custom domain: ${custom_url}"
+  if curl -fsSL "$custom_url" -o "$ARCHIVE_FILE"; then
+    return 0
+  fi
+
+  echo "Failed to download from custom domain, trying GitHub as fallback..."
+  echo "Downloading from GitHub: ${github_url}"
+  if curl -fsSL "$github_url" -o "$ARCHIVE_FILE"; then
+    return 0
+  fi
+  return 1
 }
 
 resolve_release_tag() {
@@ -415,10 +496,11 @@ resolve_release_tag() {
 
   local releases_json
   if ! releases_json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100")"; then
-    echo "Failed to query GitHub releases. Try again, or pass --version desktop-2026.7.2." >&2
+    echo "Failed to query GitHub releases. Try again, or pass --version desktop-electron-2026.7.29." >&2
     return 1
   fi
 
+  # Prefer production Electron tags; fall back to legacy Tauri desktop-* tags.
   printf '%s' "$releases_json" | awk '
     function extract_string(line, key, value, pattern) {
       pattern = "\"" key "\"[[:space:]]*:[[:space:]]*\"[^\"]*\""
@@ -442,9 +524,20 @@ resolve_release_tag() {
     }
 
     function maybe_select() {
-      if (selected == "" && tag ~ /^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$/ && draft == "false" && prerelease == "false") {
-        selected = tag
+      if (draft != "false" || prerelease != "false" || tag == "") {
+        return
       }
+      if (selected_electron == "" && tag ~ /^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$/) {
+        selected_electron = tag
+      }
+      if (selected_legacy == "" && tag ~ /^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$/) {
+        selected_legacy = tag
+      }
+    }
+
+    BEGIN {
+      selected_electron = ""
+      selected_legacy = ""
     }
 
     /^  \{/ {
@@ -473,35 +566,74 @@ resolve_release_tag() {
     }
 
     END {
-      if (selected != "") {
-        print selected
+      if (selected_electron != "") {
+        print selected_electron
+      } else if (selected_legacy != "") {
+        print selected_legacy
       }
     }
   '
 }
 
+install_app_archive() {
+  local archive="$1"
+  local extract_dir="${TMP_DIR}/app-extract"
+  mkdir -p "$extract_dir"
+
+  case "$archive" in
+    *.zip)
+      if ! command -v unzip >/dev/null 2>&1; then
+        echo "unzip is required to install Electron desktop zip archives." >&2
+        exit 1
+      fi
+      echo "Extracting zip archive..."
+      unzip -q -o "$archive" -d "$extract_dir"
+      ;;
+    *.tar.gz|*.tgz)
+      echo "Extracting tar archive..."
+      tar -xzf "$archive" -C "$extract_dir"
+      ;;
+    *)
+      echo "Unsupported archive format: $archive" >&2
+      exit 1
+      ;;
+  esac
+
+  local app_bundle
+  app_bundle="$(find "$extract_dir" -maxdepth 3 -type d -name 'Atmos.app' | head -n 1)"
+  if [[ -z "$app_bundle" ]]; then
+    echo "Archive did not contain Atmos.app" >&2
+    exit 1
+  fi
+
+  echo "Installing to /Applications..."
+  rm -rf /Applications/Atmos.app
+  cp -R "$app_bundle" /Applications/Atmos.app
+}
+
 TARGET="$(detect_target)"
 CLI_TARGET="$(detect_cli_target)"
-ASSET="Atmos_${TARGET}.app.tar.gz"
+ASSET=""
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-ARCHIVE_FILE="${TMP_DIR}/${ASSET}"
+ARCHIVE_FILE=""
 if [[ -n "$ARCHIVE_PATH" ]]; then
+  ARCHIVE_FILE="${TMP_DIR}/$(basename "$ARCHIVE_PATH")"
   cp "$ARCHIVE_PATH" "$ARCHIVE_FILE"
   RESOLVED_VERSION="$VERSION"
+  ASSET="$(basename "$ARCHIVE_PATH")"
 else
   if [[ "$VERSION" == "latest" ]]; then
-    download_latest_with_fallback "$ASSET"
+    download_latest_with_fallback "$TARGET"
     RESOLVED_VERSION="latest"
   else
     RESOLVED_VERSION="$VERSION"
-    download_with_fallback "$ASSET" "$RESOLVED_VERSION"
+    download_with_fallback_resolved "$TARGET" "$RESOLVED_VERSION"
   fi
 fi
 
-echo "Extracting to /Applications..."
-tar -xzf "$ARCHIVE_FILE" -C /Applications
+install_app_archive "$ARCHIVE_FILE"
 
 echo "Installed Atmos Desktop app to /Applications"
 if [[ "$NO_CLI" -eq 0 ]]; then

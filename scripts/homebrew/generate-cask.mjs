@@ -10,12 +10,16 @@ const DEFAULT_REPO = "atmos";
 const DEFAULT_HOMEPAGE = "https://atmos.land";
 const DEFAULT_OUTPUT = "Casks/atmos.rb";
 
+/** Production desktop tag prefix (Electron). Legacy Tauri used `desktop-`. */
+const DESKTOP_ELECTRON_TAG_PREFIX = "desktop-electron-";
+const DESKTOP_TAURI_TAG_PREFIX = "desktop-";
+
 function printUsage() {
   console.error(`Usage:
   node scripts/homebrew/generate-cask.mjs [options]
 
 Options:
-  --tag <tag>           Release tag, e.g. desktop-2026.7.2
+  --tag <tag>           Release tag, e.g. desktop-electron-2026.7.2
   --owner <owner>       GitHub owner (default: ${DEFAULT_OWNER})
   --repo <repo>         GitHub repo (default: ${DEFAULT_REPO})
   --token <token>       Cask token (default: atmos)
@@ -27,8 +31,8 @@ Options:
   --help                Show this message
 
 Examples:
-  node scripts/homebrew/generate-cask.mjs --tag desktop-2026.7.2
-  GITHUB_TOKEN=xxx node scripts/homebrew/generate-cask.mjs --tag desktop-2026.7.2 --output Casks/atmos.rb
+  node scripts/homebrew/generate-cask.mjs --tag desktop-electron-2026.7.2
+  GITHUB_TOKEN=xxx node scripts/homebrew/generate-cask.mjs --tag desktop-electron-2026.7.2 --output Casks/atmos.rb
 `);
 }
 
@@ -122,8 +126,26 @@ function normalizeSha256(digest) {
   return "";
 }
 
+/**
+ * Prefer production Electron tags; keep legacy Tauri `desktop-` for emergency rebuilds.
+ */
 function extractVersionFromTag(tag) {
-  return extractCalendarVersionFromTag(tag, "desktop-");
+  const normalized = String(tag || "").trim();
+  if (normalized.startsWith(DESKTOP_ELECTRON_TAG_PREFIX)) {
+    return {
+      version: extractCalendarVersionFromTag(normalized, DESKTOP_ELECTRON_TAG_PREFIX),
+      tagPrefix: DESKTOP_ELECTRON_TAG_PREFIX,
+    };
+  }
+  if (normalized.startsWith(DESKTOP_TAURI_TAG_PREFIX)) {
+    return {
+      version: extractCalendarVersionFromTag(normalized, DESKTOP_TAURI_TAG_PREFIX),
+      tagPrefix: DESKTOP_TAURI_TAG_PREFIX,
+    };
+  }
+  throw new Error(
+    `Invalid release tag "${normalized}". Expected format: desktop-electron-<version> (or legacy desktop-<version>).`,
+  );
 }
 
 function inferDmgArch(assetName) {
@@ -175,6 +197,7 @@ function buildCaskContent({
   token,
   version,
   assetVersion,
+  tagPrefix,
   armSha,
   intelSha,
   owner,
@@ -183,6 +206,13 @@ function buildCaskContent({
   desc,
   homepage,
 }) {
+  // livecheck prefers Electron production tags; still matches legacy Tauri if needed.
+  // In the emitted Ruby source this must be a single-backslash regex (\d, not \\d).
+  const livecheckTagRe =
+    tagPrefix === DESKTOP_ELECTRON_TAG_PREFIX
+      ? "^desktop-electron-(\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:[-.a-zA-Z0-9]+)?)$"
+      : "^desktop-(\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:[-.a-zA-Z0-9]+)?)$";
+
   return `cask "${escapeRubyString(token)}" do
   arch arm: "aarch64", intel: "x64"
 
@@ -190,7 +220,7 @@ function buildCaskContent({
   sha256 arm:   "${armSha}",
          intel: "${intelSha}"
 
-  url "https://github.com/${escapeRubyString(owner)}/${escapeRubyString(repo)}/releases/download/desktop-#{version.csv.first}/Atmos_#{version.csv.second}_#{arch}.dmg",
+  url "https://github.com/${escapeRubyString(owner)}/${escapeRubyString(repo)}/releases/download/${escapeRubyString(tagPrefix)}#{version.csv.first}/Atmos_#{version.csv.second}_#{arch}.dmg",
       verified: "github.com/${escapeRubyString(owner)}/${escapeRubyString(repo)}/"
   name "${escapeRubyString(name)}"
   desc "${escapeRubyString(desc)}"
@@ -199,7 +229,7 @@ function buildCaskContent({
   livecheck do
     url :url
     strategy :github_latest do |json, _regex|
-      match = json["tag_name"]&.match(/^desktop-(\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:[-.a-zA-Z0-9]+)?)$/)
+      match = json["tag_name"]&.match(/${livecheckTagRe}/)
       next if match.blank?
 
       version = match[1]
@@ -239,7 +269,7 @@ async function main() {
 
   const release = await getRelease(args);
   const tag = ensure(release.tag_name, "Release payload does not contain tag_name");
-  const version = extractVersionFromTag(tag);
+  const { version, tagPrefix } = extractVersionFromTag(tag);
 
   const dmgAssets = (release.assets || []).filter((asset) => String(asset.name || "").endsWith(".dmg"));
   const armAsset = dmgAssets.find((asset) => inferDmgArch(asset.name) === "arm");
@@ -277,6 +307,7 @@ async function main() {
     token: args.token,
     version,
     assetVersion: armAssetVersion,
+    tagPrefix,
     armSha,
     intelSha,
     owner: args.owner,
@@ -293,6 +324,7 @@ async function main() {
 
   console.log(`Generated Homebrew cask: ${outputPath}`);
   console.log(`Release tag: ${tag}`);
+  console.log(`Tag prefix: ${tagPrefix}`);
   console.log(`App version: ${version}`);
   console.log(`DMG version: ${armAssetVersion}`);
   console.log(`arm64 sha256: ${armSha}`);

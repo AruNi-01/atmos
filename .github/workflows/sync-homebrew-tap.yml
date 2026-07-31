@@ -9,26 +9,36 @@ on:
       - published
   workflow_run:
     workflows:
+      # Production Electron desktop ship path
+      - Desktop Electron CI & Release
+      # Legacy Tauri emergency rebuilds only
+      - Desktop CI & Release (DEPRECATED Tauri)
       - Desktop CI & Release
     types:
       - completed
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Desktop release tag to sync (example: desktop-2026.7.2)"
+        description: "Desktop release tag to sync (example: desktop-electron-2026.7.2)"
         required: false
 
 jobs:
   sync-homebrew-tap:
     name: Update shared homebrew-tap
     # Allow stable desktop releases and explicit manual dispatch.
-    # Prerelease detection (e.g. desktop-2026.7.2-rc.1, -beta.x, -alpha.x) for
-    # the workflow_run path is enforced inside the "Resolve release tag" step
-    # because GitHub Actions expressions cannot match the calendar prerelease shape.
+    # Prerelease detection for the workflow_run path is enforced inside the
+    # "Resolve release tag" step (Actions expressions cannot match the calendar
+    # prerelease shape cleanly for both tag prefixes).
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-') && github.event.release.prerelease == false) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'desktop-'))
+      (github.event_name == 'release' &&
+       (startsWith(github.event.release.tag_name, 'desktop-electron-') ||
+        startsWith(github.event.release.tag_name, 'desktop-')) &&
+       github.event.release.prerelease == false) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'desktop-'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,6 +52,8 @@ jobs:
         id: release
         shell: bash
         run: |
+          set -euo pipefail
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.release_tag }}"
             if [ -z "$TAG" ]; then
@@ -50,20 +62,19 @@ jobs:
             fi
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
             TAG="${{ github.event.workflow_run.head_branch }}"
-            if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-              echo "workflow_run event but branch is not a desktop tag: $TAG"
-              exit 1
-            fi
           else
             TAG="${{ github.event.release.tag_name }}"
           fi
 
-          if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-            echo "Only desktop-<YYYY.M.D> tags are supported. Got: $TAG"
+          # Prefer Electron production tags; keep legacy Tauri `desktop-*`.
+          if [[ "$TAG" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            VERSION="${TAG#desktop-electron-}"
+          elif [[ "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            VERSION="${TAG#desktop-}"
+          else
+            echo "Only desktop-electron-<YYYY.M.D> (or legacy desktop-<YYYY.M.D>) tags are supported. Got: $TAG"
             exit 1
           fi
-
-          VERSION="${TAG#desktop-}"
 
           # Skip calendar prereleases on the workflow_run path so they do not
           # overwrite the stable cask. workflow_dispatch is always allowed

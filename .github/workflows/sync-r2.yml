@@ -8,6 +8,10 @@ on:
     types: [published]
   workflow_run:
     workflows:
+      # Production Electron desktop ship path
+      - Desktop Electron CI & Release
+      # Legacy Tauri emergency rebuilds only
+      - Desktop CI & Release (DEPRECATED Tauri)
       - Desktop CI & Release
       - CLI Release
       - Local Runtime Release
@@ -16,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to sync (e.g., desktop-2026.7.2)'
+        description: 'Release tag to sync (e.g., desktop-electron-2026.7.2)'
         required: true
 
 env:
@@ -65,7 +69,8 @@ jobs:
           fi
 
           SKIP_ASSETS=false
-          if [[ ! "$TAG" =~ ^(desktop|cli|local-web-runtime)-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+          # desktop-electron-* is production; desktop-* is legacy Tauri.
+          if [[ ! "$TAG" =~ ^(desktop-electron|desktop|cli|local-web-runtime)-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
             if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_run" ]; then
               echo "Unsupported release tag: $TAG" >&2
               exit 1
@@ -78,7 +83,9 @@ jobs:
             exit 0
           fi
 
+          # Order matters: desktop-electron- must be checked before desktop-.
           case "$TAG" in
+            desktop-electron-*) VERSION="${TAG#desktop-electron-}" ;;
             desktop-*) VERSION="${TAG#desktop-}" ;;
             cli-*) VERSION="${TAG#cli-}" ;;
             local-web-runtime-*) VERSION="${TAG#local-web-runtime-}" ;;
@@ -304,14 +311,38 @@ jobs:
           TAG: ${{ needs.resolve-release.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ ! "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+          set -euo pipefail
+          # Production Electron: desktop-electron-YYYY.M.D
+          # Legacy Tauri emergency: desktop-YYYY.M.D
+          if [[ "$TAG" =~ ^desktop-electron-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+            KIND=electron
+          elif [[ "$TAG" =~ ^desktop-[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+            KIND=tauri
+          else
             echo "Unexpected desktop release tag: $TAG" >&2
             exit 1
           fi
-          echo "Downloading assets for tag: $TAG"
-          gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
+          mkdir -p /tmp/assets
+          echo "Downloading assets for tag: $TAG (kind=$KIND)"
+          if [ "$KIND" = "electron" ]; then
+            # Electron ship path: versioned dmg/zip/exe/AppImage (no .app.tar.gz).
+            gh release download "$TAG" --dir /tmp/assets \
+              --pattern "*.dmg" \
+              --pattern "*.zip" \
+              --pattern "*-setup.exe" \
+              --pattern "*.AppImage"
+          else
+            # Legacy Tauri installer used by install-desktop.sh historically.
+            gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
+          fi
+          # Drop intermediate updater blockmaps from public mirror paths.
+          find /tmp/assets -maxdepth 1 -type f -name '*.blockmap' -delete || true
           echo "Downloaded files:"
           ls -la /tmp/assets/
+          if [ -z "$(find /tmp/assets -mindepth 1 -maxdepth 1 -type f -print -quit)" ]; then
+            echo "❌ No desktop assets downloaded for $TAG" >&2
+            exit 1
+          fi
 
       - name: Configure AWS CLI for R2
         env:
@@ -345,27 +376,89 @@ jobs:
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           TAG: ${{ needs.resolve-release.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           echo "Checking if this is the latest desktop release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c 'import json,re,sys; prefix="desktop-"; candidates=[(tuple(map(int, tag[len(prefix):].split("."))), tag) for release in json.load(sys.stdin) for tag in [str(release.get("tag_name") or "")] if not release.get("draft") and not release.get("prerelease") and tag.startswith(prefix) and re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", tag[len(prefix):])]; print(max(candidates)[1] if candidates else "")')
+          # Prefer production Electron tags; fall back to legacy Tauri tags only if
+          # no stable Electron release exists.
+          LATEST_TAG=$(
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${REPO}/releases?per_page=100" \
+            | python3 -c '
+import json, re, sys
+
+releases = json.load(sys.stdin)
+
+def candidates(prefix):
+    out = []
+    for release in releases:
+        tag = str(release.get("tag_name") or "")
+        if release.get("draft") or release.get("prerelease"):
+            continue
+        if not tag.startswith(prefix):
+            continue
+        version = tag[len(prefix):]
+        if not re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", version):
+            continue
+        parts = tuple(int(p) for p in version.split("."))
+        out.append((parts, tag))
+    return out
+
+electron = candidates("desktop-electron-")
+legacy = candidates("desktop-")
+# Drop legacy tags that are actually electron (startswith desktop- matches both).
+legacy = [(p, t) for (p, t) in legacy if not t.startswith("desktop-electron-")]
+pool = electron or legacy
+print(max(pool)[1] if pool else "")
+'
+          )
 
           echo "Latest stable desktop release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
 
-          if [[ "$TAG" == "$LATEST_TAG" ]]; then
-            echo "This is the latest stable desktop release, updating latest path..."
+          if [[ "$TAG" != "$LATEST_TAG" ]]; then
+            echo "This is not the latest stable desktop release, skipping latest path update"
+            exit 0
+          fi
+
+          echo "This is the latest stable desktop release, updating latest path..."
+          if [[ "$TAG" == desktop-electron-* ]]; then
+            # install-desktop.sh expects unversioned zip names under desktop/latest/.
+            shopt -s nullglob
+            for file in /tmp/assets/Atmos_*_aarch64.zip /tmp/assets/Atmos_*_x64.zip; do
+              base="$(basename "$file")"
+              if [[ "$base" == *_aarch64.zip ]]; then
+                dest="Atmos_aarch64.zip"
+              else
+                dest="Atmos_x64.zip"
+              fi
+              aws s3 cp "$file" "s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/${dest}" \
+                --endpoint-url "$AWS_ENDPOINT_URL" \
+                --cache-control "public, max-age=60"
+              echo "  $base → latest/${dest}"
+            done
+            # Also mirror full installer set under latest/ with original names for
+            # landing/custom-domain links that reuse release asset names.
+            for file in /tmp/assets/*; do
+              [ -f "$file" ] || continue
+              aws s3 cp "$file" "s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file")" \
+                --endpoint-url "$AWS_ENDPOINT_URL" \
+                --cache-control "public, max-age=60"
+            done
+          else
             for file in /tmp/assets/*.app.tar.gz; do
-              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
-                --endpoint-url $AWS_ENDPOINT_URL \
+              aws s3 cp "$file" "s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file")" \
+                --endpoint-url "$AWS_ENDPOINT_URL" \
                 --cache-control "public, max-age=60" || {
                 echo "Failed to copy $file to latest"
                 exit 1
               }
             done
-            echo "Successfully updated latest files"
-          else
-            echo "This is not the latest stable desktop release, skipping latest path update"
           fi
+          echo "Successfully updated latest files"
 
   sync-local-web-runtime:
     needs: resolve-release
@@ -487,6 +580,25 @@ jobs:
 
           FILES=()
           case "$TAG" in
+            desktop-electron-*)
+              VERSION="${TAG#desktop-electron-}"
+              FILES+=(
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_aarch64.zip"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_x64.zip"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_${VERSION}_aarch64.dmg"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_${VERSION}_x64.dmg"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_${VERSION}_aarch64.zip"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_${VERSION}_x64.zip"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_${VERSION}_x64-setup.exe"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_${VERSION}_x64.AppImage"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_${VERSION}_aarch64.dmg"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_${VERSION}_x64.dmg"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_${VERSION}_aarch64.zip"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_${VERSION}_x64.zip"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_${VERSION}_x64-setup.exe"
+                "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/${TAG}/Atmos_${VERSION}_x64.AppImage"
+              )
+              ;;
             desktop-*)
               FILES+=(
                 "${PUBLIC_DOWNLOAD_BASE_URL}/desktop/latest/Atmos_aarch64.app.tar.gz"
