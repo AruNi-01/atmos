@@ -382,38 +382,13 @@ jobs:
           echo "Checking if this is the latest desktop release..."
           # Prefer production Electron tags; fall back to legacy Tauri tags only if
           # no stable Electron release exists.
+          # Prefer production Electron tags; fall back to legacy Tauri only if none.
           LATEST_TAG=$(
             curl -fsSL \
               -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${REPO}/releases?per_page=100" \
-            | python3 -c '
-import json, re, sys
-
-releases = json.load(sys.stdin)
-
-def candidates(prefix):
-    out = []
-    for release in releases:
-        tag = str(release.get("tag_name") or "")
-        if release.get("draft") or release.get("prerelease"):
-            continue
-        if not tag.startswith(prefix):
-            continue
-        version = tag[len(prefix):]
-        if not re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", version):
-            continue
-        parts = tuple(int(p) for p in version.split("."))
-        out.append((parts, tag))
-    return out
-
-electron = candidates("desktop-electron-")
-legacy = candidates("desktop-")
-# Drop legacy tags that are actually electron (startswith desktop- matches both).
-legacy = [(p, t) for (p, t) in legacy if not t.startswith("desktop-electron-")]
-pool = electron or legacy
-print(max(pool)[1] if pool else "")
-'
+            | python3 -c 'import json,re,sys; releases=json.load(sys.stdin); c=lambda prefix: [(tuple(map(int,t[len(prefix):].split("."))),t) for r in releases for t in [str(r.get("tag_name") or "")] if (not r.get("draft") and not r.get("prerelease") and t.startswith(prefix) and re.fullmatch(r"\d{4}\.\d{1,2}\.\d{1,2}", t[len(prefix):]))]; electron=c("desktop-electron-"); legacy=[x for x in c("desktop-") if not x[1].startswith("desktop-electron-")]; pool=electron or legacy; print(max(pool)[1] if pool else "")'
           )
 
           echo "Latest stable desktop release: ${LATEST_TAG}"
