@@ -9,11 +9,10 @@ use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
 use tracing::{debug, warn};
 
-use super::types::{
-    IntervalSpec, JobError, JobId, JobResult, JobsError, RetryPolicy,
-};
+use super::types::{IntervalSpec, JobError, JobId, JobResult, JobsError, RetryPolicy};
 
-type DynHandler = Arc<dyn Fn() -> std::pin::Pin<Box<dyn Future<Output = JobResult> + Send>> + Send + Sync>;
+type DynHandler =
+    Arc<dyn Fn() -> std::pin::Pin<Box<dyn Future<Output = JobResult> + Send>> + Send + Sync>;
 
 struct RegisteredJob {
     cancel: Arc<AtomicBool>,
@@ -139,13 +138,7 @@ impl LocalScheduler {
             previous.cancel.store(true, Ordering::SeqCst);
             previous.handle.abort();
         }
-        jobs.insert(
-            id,
-            RegisteredJob {
-                cancel,
-                handle,
-            },
-        );
+        jobs.insert(id, RegisteredJob { cancel, handle });
         Ok(())
     }
 
@@ -197,7 +190,11 @@ async fn run_with_retry(job_id: &JobId, retry: &RetryPolicy, handler: DynHandler
             let next = Duration::from_secs_f64(
                 (delay.as_secs_f64() * retry.multiplier).min(retry.max_delay.as_secs_f64()),
             );
-            delay = if next.is_zero() { retry.max_delay } else { next };
+            delay = if next.is_zero() {
+                retry.max_delay
+            } else {
+                next
+            };
         }
 
         match handler().await {

@@ -503,56 +503,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let automation_for_queue = Arc::clone(&automation_service);
         let replies = Arc::clone(&app_state.github_trigger_replies);
         if let Err(error) = event_queue
-            .subscribe(
-                Topic::new(topics::AUTOMATION_GITHUB_DELIVERY),
-                move |msg| {
-                    let automation_for_queue = Arc::clone(&automation_for_queue);
-                    let replies = Arc::clone(&replies);
-                    async move {
-                        let parsed =
-                            serde_json::from_slice::<core_service::GithubTriggerEvent>(&msg.payload);
-                        let reply_key = parsed.as_ref().ok().map(|event| {
-                            crate::relay::external_events::github_reply_key(
-                                &event.delivery_id,
-                                &event.route_id,
-                            )
-                        });
-                        let outcome = match parsed {
-                            Ok(event) => automation_for_queue.handle_external_trigger(event).await,
-                            Err(error) => {
-                                warn!(
-                                    error = %error,
-                                    "github queue payload deserialize failed"
-                                );
-                                Err(core_service::ServiceError::Validation(format!(
-                                    "invalid github queue payload: {error}"
-                                )))
-                            }
-                        };
-                        let handler_err = outcome.as_ref().err().map(|error| {
-                            QueueError::Handler(format!("github delivery failed: {error}"))
-                        });
-                        if let Some(reply_key) = reply_key {
-                            if let Some(tx) = replies.lock().await.remove(&reply_key) {
-                                let _ = tx.send(outcome);
-                            } else if let Some(error) = &handler_err {
-                                warn!(
-                                    reply_key = %reply_key,
-                                    error = %error,
-                                    "github queue message processed without reply waiter"
-                                );
-                            }
+            .subscribe(Topic::new(topics::AUTOMATION_GITHUB_DELIVERY), move |msg| {
+                let automation_for_queue = Arc::clone(&automation_for_queue);
+                let replies = Arc::clone(&replies);
+                async move {
+                    let parsed =
+                        serde_json::from_slice::<core_service::GithubTriggerEvent>(&msg.payload);
+                    let reply_key = parsed.as_ref().ok().map(|event| {
+                        crate::relay::external_events::github_reply_key(
+                            &event.delivery_id,
+                            &event.route_id,
+                        )
+                    });
+                    let outcome = match parsed {
+                        Ok(event) => automation_for_queue.handle_external_trigger(event).await,
+                        Err(error) => {
+                            warn!(
+                                error = %error,
+                                "github queue payload deserialize failed"
+                            );
+                            Err(core_service::ServiceError::Validation(format!(
+                                "invalid github queue payload: {error}"
+                            )))
                         }
-                        match handler_err {
-                            Some(error) => Err(error),
-                            None => Ok(()),
+                    };
+                    let handler_err = outcome.as_ref().err().map(|error| {
+                        QueueError::Handler(format!("github delivery failed: {error}"))
+                    });
+                    if let Some(reply_key) = reply_key {
+                        if let Some(tx) = replies.lock().await.remove(&reply_key) {
+                            let _ = tx.send(outcome);
+                        } else if let Some(error) = &handler_err {
+                            warn!(
+                                reply_key = %reply_key,
+                                error = %error,
+                                "github queue message processed without reply waiter"
+                            );
                         }
                     }
-                },
-            )
+                    match handler_err {
+                        Some(error) => Err(error),
+                        None => Ok(()),
+                    }
+                }
+            })
             .await
         {
-            warn!("Failed to subscribe github delivery queue consumer: {}", error);
+            warn!(
+                "Failed to subscribe github delivery queue consumer: {}",
+                error
+            );
         }
     }
 

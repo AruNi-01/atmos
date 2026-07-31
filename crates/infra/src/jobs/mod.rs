@@ -9,6 +9,4 @@ mod local;
 mod types;
 
 pub use local::LocalScheduler;
-pub use types::{
-    IntervalSpec, JobError, JobId, JobResult, JobsError, RetryPolicy,
-};
+pub use types::{IntervalSpec, JobError, JobId, JobResult, JobsError, RetryPolicy};

@@ -84,8 +84,7 @@ impl LocalMemoryQueue {
 
         let dyn_handler: DynHandler = Arc::new(move |msg| {
             let fut = handler(msg);
-            Box::pin(fut)
-                as std::pin::Pin<Box<dyn Future<Output = Result<(), QueueError>> + Send>>
+            Box::pin(fut) as std::pin::Pin<Box<dyn Future<Output = Result<(), QueueError>> + Send>>
         });
 
         let (tx, mut rx) = mpsc::channel::<QueueMessage>(self.capacity);

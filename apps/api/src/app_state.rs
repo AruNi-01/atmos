@@ -8,13 +8,12 @@ use core_service::{
     ProjectService, ReviewService, ServiceError, TerminalService, TestService, WorkspaceService,
 };
 use infra::queue::LocalMemoryQueue;
-use tokio::sync::{oneshot, Mutex};
 use token_usage::TokenUsageService;
+use tokio::sync::{oneshot, Mutex};
 
 use crate::relay::RelaySupervisor;
 
-pub type GithubTriggerReply =
-    oneshot::Sender<Result<ExternalTriggerOutcome, ServiceError>>;
+pub type GithubTriggerReply = oneshot::Sender<Result<ExternalTriggerOutcome, ServiceError>>;
 
 pub struct AppServices {
     pub test_service: Arc<TestService>,
