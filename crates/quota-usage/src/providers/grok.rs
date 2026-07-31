@@ -290,7 +290,7 @@ async fn request_credits_billing(
         .get(GROK_BILLING_CREDITS_URL)
         .bearer_auth(&auth.access_token)
         .header("Accept", "application/json")
-        .header("User-Agent", "Atmos/ai-usage")
+        .header("User-Agent", "Atmos/quota-usage")
         .send()
         .await
         .map_err(|error| ProviderError::Fetch(format!("Grok billing request failed: {error}")))?;

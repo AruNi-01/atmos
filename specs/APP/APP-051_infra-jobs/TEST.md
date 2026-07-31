@@ -50,9 +50,9 @@ Backend infrastructure. Proof is **Rust unit tests** in `infra` plus **service-l
 | S17 | Service / static | `rg` + existing tests | manual run path | start_run API | no enqueue/set_interval in path | planned |
 | S18 | Service / API | `cargo test` | enqueue on github ingress | mock queue | message enqueued | planned |
 | S19 | Service | `cargo test` | consumer → domain | payload fixture | claim/start path invoked | planned |
-| S20 | Service | `cargo test -p ai-usage` | attach_jobs enables refresh | short interval / mock | refresh runs | planned |
-| S21 | Service | `cargo test -p ai-usage` | change interval | replace | one registration | planned |
-| S22 | Service | `cargo test -p ai-usage` | disable | cancel | no further refresh | planned |
+| S20 | Service | `cargo test -p quota-usage` | attach_jobs enables refresh | short interval / mock | refresh runs | planned |
+| S21 | Service | `cargo test -p quota-usage` | change interval | replace | one registration | planned |
+| S22 | Service | `cargo test -p quota-usage` | disable | cancel | no further refresh | planned |
 | S23 | Unit / integration | `cargo test` or api test | hooks cleanup job | jobs registry | id registered; no main.rs raw loop | planned |
 | S24 | Static | `rg` | jobs/queue modules | infra | no domain imports | planned |
 | S25 | Static | `rg` / review | inventory | relay/pty/manual | non-migrate list respected | planned |
@@ -270,7 +270,7 @@ None (no UI surface).
 - [ ] Migrated product sites have passing service/static proof (S14–S23).
 - [ ] No apalis/external MQ required for v1 default build.
 - [ ] AGENTS docs updated (jobs/queue ports; entry-style rules).
-- [ ] Scoped `cargo test` / clippy on `infra`, `core-service`, `ai-usage`, `api` pass.
+- [ ] Scoped `cargo test` / clippy on `infra`, `core-service`, `quota-usage`, `api` pass.
 - [ ] Coverage Status filled by `atmos-specs-test-run` after implementation.
 
 ## Manual verification steps

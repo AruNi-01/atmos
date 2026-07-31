@@ -15,10 +15,10 @@ find crates/<x> -name '*.rs' | xargs wc -l
 find apps/<x> \( -name '*.ts' -o -name '*.tsx' \) -not -path '*/node_modules/*' | xargs wc -l
 
 # Layering bypass (api importing below core-service)
-rg 'use (infra|core_engine|agent|llm|ai_usage|token_usage|local_model_runtime)' apps/api/src
+rg 'use (infra|core_engine|agent|llm|quota_usage|token_usage|local_model_runtime)' apps/api/src
 
 # Dead workspace deps
-rg -c 'ai_usage|local_model_runtime' crates/core-service/src   # → 0
+rg -c 'quota_usage|local_model_runtime' crates/core-service/src   # → 0
 
 # Contract mirror size
 awk '/pub enum WsAction/,/^}/' apps/api/src/api/ws/message.rs | rg -c '^\s+[A-Z][A-Za-z0-9]*,?$'  # → 201
@@ -41,7 +41,7 @@ diff AGENTS.md CLAUDE.md               # → identical
 
 | Directory | Responsibility | Health |
 |---|---|---|
-| `crates/` | Rust backend layers: infra (L1) → core-engine (L2) → core-service (L3) + capability crates (agent, llm, ai-usage, token-usage, local-model-runtime, runtime-manager, tunnel-connector) | Layer story partially followed; see F-01 |
+| `crates/` | Rust backend layers: infra (L1) → core-engine (L2) → core-service (L3) + capability crates (agent, llm, quota-usage, token-usage, local-model-runtime, runtime-manager, tunnel-connector) | Layer story partially followed; see F-01 |
 | `apps/` | Deployables: `api` (Axum server), `web` (Next.js), `desktop` (Tauri shell), `mobile` (Expo), `cli`, `docs`, `landing` | `web` is a 173k-LOC monolith; `api` is a second orchestrator |
 | `packages/` | Shared TS: `ui`, `shared`, `i18n`, `config`, `relay` | `relay` is actually a deployable app; `config` is dead; `i18n` is 36 LOC |
 | `resources/` | Cross-runtime manifests (`terminal-agents/builtin_agents.json`, `local-runtime/version.json`) | Healthy pattern — the only true cross-language shared artifact |
@@ -57,10 +57,10 @@ diff AGENTS.md CLAUDE.md               # → identical
 |---|---:|---:|---|---|
 | `crates/infra` | 8,873 | 74 | L1: DB (SeaORM), repos, disk cache | — |
 | `crates/core-engine` | 11,161 | 40 | L2: PTY, Git, FS, GitHub, tmux | — |
-| `crates/core-service` | 23,336 | 78 | L3: business orchestration | infra, core-engine, agent, llm, ~~ai-usage~~, ~~local-model-runtime~~ (both unused, F-08) |
+| `crates/core-service` | 23,336 | 78 | L3: business orchestration | infra, core-engine, agent, llm, ~~quota-usage~~, ~~local-model-runtime~~ (both unused, F-08) |
 | `crates/agent` | 4,483 | 15 | ACP client + AgentManager | vendored ACP schema |
-| `crates/ai-usage` | 10,692 | 29 | Provider billing/subscription usage | infra |
-| `crates/token-usage` | 1,395 | 5 | Local token analytics | ai-usage, vendor/tokscale-core |
+| `crates/quota-usage` | 10,692 | 29 | Provider billing/subscription usage | infra |
+| `crates/token-usage` | 1,395 | 5 | Local token analytics | quota-usage, vendor/tokscale-core |
 | `crates/llm` | 1,583 | 9 | Remote LLM HTTP client | — |
 | `crates/local-model-runtime` | 1,828 | 13 | Local model binary manager | — |
 | `crates/runtime-manager` | 2,396 | 11 | Manifest, relay identity, supervisor | — |
@@ -96,7 +96,7 @@ flowchart TB
     coreengine[core-engine] --> coreservice
     agentc[agent] --> coreservice
     llm --> coreservice
-    infra --> aiusage[ai-usage]
+    infra --> aiusage[quota-usage]
     aiusage --> tokenusage[token-usage]
     coreservice --> api[apps/api 18.4k]
     infra -. bypass .-> api
@@ -218,7 +218,7 @@ Severity: High / Medium / Low. Fix cost: Small (≤1 day) / Medium (days) / Larg
 
 ### F-08 · Dead and misplaced Cargo dependencies + minimal workspace.dependencies — Medium / Small
 
-- **Files:** `crates/core-service/Cargo.toml:7-8` declares `ai-usage` and `local-model-runtime` with **zero** source references (`rg -c 'ai_usage|local_model_runtime' crates/core-service/src` → 0). Root `Cargo.toml` defines only serde/tokio/clap in `[workspace.dependencies]`; real drift exists: `dirs` **5.x vs 6.x** split across crates, serde declared inline in 9 crates (core-service without `derive`), tokio feature sets diverge, tokscale vendored with `native-tls-vendored` against the repo's rustls preference.
+- **Files:** `crates/core-service/Cargo.toml:7-8` declares `quota-usage` and `local-model-runtime` with **zero** source references (`rg -c 'quota_usage|local_model_runtime' crates/core-service/src` → 0). Root `Cargo.toml` defines only serde/tokio/clap in `[workspace.dependencies]`; real drift exists: `dirs` **5.x vs 6.x** split across crates, serde declared inline in 9 crates (core-service without `derive`), tokio feature sets diverge, tokscale vendored with `native-tls-vendored` against the repo's rustls preference.
 - **Why it matters:** dead deps distort the mental dependency graph and rebuild graph; version drift produces duplicate compiled artifacts and eventual upgrade pain.
 - **Fix:** delete the two dead deps; expand `[workspace.dependencies]` to serde, tokio, reqwest, anyhow, thiserror, uuid, chrono, tracing, dirs, sea-orm, axum and migrate crates to `workspace = true`.
 - **Cost:** Small.
@@ -283,9 +283,9 @@ Severity: High / Medium / Low. Fix cost: Small (≤1 day) / Medium (days) / Larg
 
 `core-engine/src/agent_hooks/` (hook script install) vs `core-service/src/service/agent_hooks/` (session state). Rename one (`hook_installer` / `hook_sessions`).
 
-### F-17 · `token-usage` reaches into `ai-usage` for Cursor auth only — Low / Small
+### F-17 · `token-usage` reaches into `quota-usage` for Cursor auth only — Low / Small
 
-`token-usage/src/cursor_sync.rs:48` calls `ai_usage::load_cursor_session_token()`. Fine today; extract a tiny shared auth util if either crate grows.
+`token-usage/src/cursor_sync.rs:48` calls `quota_usage::load_cursor_session_token()`. Fine today; extract a tiny shared auth util if either crate grows.
 
 ### F-18 · e2e is smoke-only; `tests/specs/` is an empty planned directory — Low / Small
 
@@ -306,7 +306,7 @@ Ordered for best final design; backward compatibility is not a constraint.
 Everything here is config/docs; zero product-code risk. It makes the repo stop lying to contributors before structural work begins.
 
 1. CI: always-on `ci.yml` with TS typecheck + `bun test`; add `apps/cli/**` to backend paths; relay test-before-deploy; mobile typecheck+test job (F-04).
-2. Delete dead machinery: core-service's unused `ai-usage`/`local-model-runtime` deps (F-08); `build:packages`; landing's unused `@atmos/shared`; either wire or remove `@atmos/config` and the root `catalog` — **recommendation: wire both** (adopt `catalog:` refs; they solve the observed version drift cheaply) (F-11).
+2. Delete dead machinery: core-service's unused `quota-usage`/`local-model-runtime` deps (F-08); `build:packages`; landing's unused `@atmos/shared`; either wire or remove `@atmos/config` and the root `catalog` — **recommendation: wire both** (adopt `catalog:` refs; they solve the observed version drift cheaply) (F-11).
 3. Prettier: add as root devDependency with config, or delete the `fmt` recipes (F-04).
 4. Docs: `CLAUDE.md` → pointer; fix the three stale AGENTS files; describe infra honestly (F-14, F-07-docs).
 5. Move `packages/relay` → `apps/relay` (F-12) and release orchestration → `scripts/release/` (F-13).

@@ -168,7 +168,7 @@
       "openActions": "Open actions menu",
       "openInWeb": "Open in Web",
       "remoteAccess": "Remote Access",
-      "aiUsage": "AI Usage",
+      "aiUsage": "Quota Usage",
       "settings": "Settings",
       "theme": "Theme",
       "themeLight": "Light",
@@ -261,7 +261,7 @@
     "hotkeys": {
       "toggleLeftSidebar": "Toggle left sidebar",
       "refreshPage": "Refresh page",
-      "toggleAiUsage": "Toggle AI Usage",
+      "toggleAiUsage": "Toggle Quota Usage",
       "toggleMenu": "Toggle menu",
       "toggleRightSidebar": "Toggle right sidebar"
     },
@@ -4657,7 +4657,7 @@
             "navigateBack": "Navigate back",
             "navigateForward": "Navigate forward",
             "toggleActionMenu": "Toggle action menu",
-            "toggleUsagePopover": "Toggle usage popover"
+            "toggleUsagePopover": "Toggle quota usage popover"
           }
         },
         "workspace": {
@@ -4978,7 +4978,7 @@
         "localServicesTitle": "Local Services",
         "localServicesDescription": "Show Project and Workspace local services in the footer.",
         "usageCarouselTitle": "AI Quota Usage carousel",
-        "usageCarouselDescription": "Rotate enabled AI usage summaries in the footer. Provider picks and the master switch in AI Usage also apply here.",
+        "usageCarouselDescription": "Rotate enabled quota usage summaries in the footer. Provider picks and the master switch in Quota Usage also apply here.",
         "agentStatusTitle": "Agent Status Panel",
         "agentStatusDescriptionPrefix": "Show running agent sessions in the footer. Install hooks for each agent in",
         "codeAgent": "Code Agent",

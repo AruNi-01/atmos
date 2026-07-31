@@ -47,7 +47,7 @@ Add Antigravity CLI as a first-class agent alongside Gemini CLI. Share standard 
 
 - Antigravity CLI Reference: [references/cli.md](file:///Users/aarynlu/.gemini/antigravity/builtin/skills/antigravity_guide/references/cli.md)
 - Existing Gemini CLI hook: [gemini.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/core-engine/src/agent_hooks/gemini.rs)
-- Existing Gemini AI usage: `crates/ai-usage/src/runtime.rs`
+- Existing Gemini AI usage: `crates/quota-usage/src/runtime.rs`
 
 ## Ready to promote
 

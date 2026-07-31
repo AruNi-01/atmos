@@ -95,7 +95,7 @@ cd apps/web && bun run typecheck
 cd apps/web && bunx eslint <touched web files>
 ```
 
-Known existing warnings remain in dependencies such as `infra`, `core-engine`, `agent`, and `ai-usage`; no verification failure was introduced by the cleanup.
+Known existing warnings remain in dependencies such as `infra`, `core-engine`, `agent`, and `quota-usage`; no verification failure was introduced by the cleanup.
 
 ## Residual Risks
 

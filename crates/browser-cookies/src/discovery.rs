@@ -2,7 +2,7 @@
 //!
 //! The import feature (`list_profiles`) surfaces only the four supported
 //! [`BrowserKind`]s, but discovery also enumerates the wider Chromium family
-//! (Arc, Chromium, Helium, Dia, Atlas, betas…) for the `ai-usage` reuse path.
+//! (Arc, Chromium, Helium, Dia, Atlas, betas…) for the `quota-usage` reuse path.
 //! Modern Chromium keeps cookies in `<Profile>/Network/Cookies`; the legacy
 //! `<Profile>/Cookies` is a fallback and is checked second.
 
@@ -31,7 +31,7 @@ pub(crate) struct FirefoxProfile {
     pub running: bool,
 }
 
-/// Simplified Chromium candidate for the `ai-usage` Cookie-header path.
+/// Simplified Chromium candidate for the `quota-usage` Cookie-header path.
 #[derive(Debug, Clone)]
 pub struct ChromiumProfileCandidate {
     pub label: String,
@@ -39,7 +39,7 @@ pub struct ChromiumProfileCandidate {
     pub safe_storage_service: String,
 }
 
-/// Simplified Firefox candidate for the `ai-usage` Cookie-header path.
+/// Simplified Firefox candidate for the `quota-usage` Cookie-header path.
 #[derive(Debug, Clone)]
 pub struct FirefoxProfileCandidate {
     pub label: String,
@@ -114,7 +114,7 @@ fn chromium_bases() -> Vec<ChromiumBase> {
             Some(BrowserKind::Brave),
             "BraveSoftware/Brave-Browser-Beta",
         ),
-        // Discovered for the ai-usage reuse path only (no import BrowserKind).
+        // Discovered for the quota-usage reuse path only (no import BrowserKind).
         ("Arc", "Arc Safe Storage", None, "Arc/User Data"),
         ("Arc Beta", "Arc Safe Storage", None, "Arc Beta/User Data"),
         (
@@ -171,7 +171,7 @@ fn chromium_profile_priority(profile_name: &str) -> (usize, String) {
         "guest profile" => usize::MAX,
         // `Profile <N>` ranks by its numeric suffix so `Profile 3` sorts before
         // `Profile 10` (a plain lexicographic fallback would invert them and
-        // change which profile ai-usage's first-match selection picks).
+        // change which profile quota-usage's first-match selection picks).
         other => other
             .strip_prefix("profile ")
             .and_then(|n| n.trim().parse::<usize>().ok())
@@ -331,7 +331,7 @@ pub(crate) fn handle_for(cookie_db: &Path) -> ProfileHandle {
     ProfileHandle(hex::encode(digest))
 }
 
-// --- Public candidate lists (ai-usage reuse path) -------------------------
+// --- Public candidate lists (quota-usage reuse path) -------------------------
 
 /// All Chromium cookie DBs (full browser family), in profile-priority order.
 pub fn chromium_profile_candidates() -> Vec<ChromiumProfileCandidate> {

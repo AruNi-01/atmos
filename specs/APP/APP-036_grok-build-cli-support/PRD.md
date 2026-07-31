@@ -144,4 +144,4 @@
 | Freehand bare `agent` | Real CLI identity; unknown → raw `agent` |
 | Automation output | `streaming-json` + dedicated Grok parser |
 | Hooks | In M1; status-only; PermissionRequest from `permission_prompt` and `elicitation_dialog` |
-| AI usage | In scope (M11): `ai-usage` Grok provider via CLI billing JSON + `~/.grok/auth.json` |
+| AI usage | In scope (M11): `quota-usage` Grok provider via CLI billing JSON + `~/.grok/auth.json` |

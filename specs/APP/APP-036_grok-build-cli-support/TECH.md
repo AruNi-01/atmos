@@ -69,7 +69,7 @@ Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest
 | M8 automation stream | new `StdoutParser::GrokStreamingJson` |
 | M9 hooks | engine install + service handler + API route |
 | M10 UI | store/labels/settings cards + icons |
-| M11 usage | `crates/ai-usage` provider `grok` + web icon |
+| M11 usage | `crates/quota-usage` provider `grok` + web icon |
 | N1 icons | `apps/web/public/agents/grok-build.svg` (+ mobile asset) from Downloads |
 
 ---
@@ -395,7 +395,7 @@ const THEME_PAIR_ICONS: Record<string, { light: string; dark: string }> = {
 
 `crates/core-service/src/service/notification.rs` — `tool_display_name(AgentToolType::GrokBuild) => "Grok Build"`.
 
-### 10. AI usage / quota — `crates/ai-usage` (M11)
+### 10. AI usage / quota — `crates/quota-usage` (M11)
 
 Add a live **Grok Build** usage provider (id `grok`, label `Grok Build`) that reuses the same local SuperGrok credentials the Grok CLI writes.
 
@@ -546,7 +546,7 @@ Grok may load Claude/Cursor hooks via `[compat.*] hooks = true`.
 4. **Identity probe API** + title matcher rewrite + tests (collision matrix).
 5. **Frontend wiring** — run-config flags, hooks store, settings card, vendor map, **remove `agent→cursor` icon alias**, contested owner fetch.
 6. **Icons** — copy/adapt SVGs from Downloads into `public/agents` (+ mobile asset).
-7. **AI usage (M11)** — `ai-usage` Grok provider + `public/ai-provider/grok.svg` + unit tests.
+7. **AI usage (M11)** — `quota-usage` Grok provider + `public/ai-provider/grok.svg` + unit tests.
 8. **Manual smoke** — interactive Grok launch; Cursor with Grok-owned PATH; freehand matrix; automation sample; hooks install → Running/PermissionRequest/Idle; usage popover shows Grok when `~/.grok/auth.json` is present.
 
 Each step 1–4 is independently mergeable with tests green.
@@ -570,7 +570,7 @@ Each step 1–4 is independently mergeable with tests green.
 
 ## Dependencies & compatibility
 
-- Depends on: existing terminal-agent manifest loaders, hooks install framework, automation OutputRenderer, title helpers, `ai-usage` provider pipeline.
+- Depends on: existing terminal-agent manifest loaders, hooks install framework, automation OutputRenderer, title helpers, `quota-usage` provider pipeline.
 - External: Grok Build CLI ≥ probed `0.2.101` behavior (hooks + streaming-json + local `auth.json`); Cursor CLI providing `cursor-agent`.
 - Related specs: APP-024 run config, APP-017 automations, APP-032 hooks pattern.
 - Open source: `xai-org/grok-build` for envelope field names; CodexBar / OpenUsage for billing endpoint discovery (OpenUsage JSON path preferred).

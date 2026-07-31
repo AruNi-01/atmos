@@ -20,8 +20,8 @@ use crate::refresh::{
 use crate::runtime::{default_providers, error_status, UsageProvider};
 use crate::support::{round_metric, unix_now};
 
-/// Product job id for AI usage auto-refresh (APP-051).
-pub const AI_USAGE_AUTO_REFRESH_JOB_ID: &str = "ai-usage.auto_refresh";
+/// Product job id for quota usage auto-refresh (APP-051).
+pub const QUOTA_USAGE_AUTO_REFRESH_JOB_ID: &str = "quota-usage.auto_refresh";
 
 #[derive(Debug, Clone)]
 struct CachedOverview {
@@ -364,7 +364,7 @@ impl UsageService {
             return;
         };
 
-        let job_id = JobId::new(AI_USAGE_AUTO_REFRESH_JOB_ID);
+        let job_id = JobId::new(QUOTA_USAGE_AUTO_REFRESH_JOB_ID);
         let Some(interval_minutes) = interval_minutes else {
             info!("AI usage auto-refresh disabled");
             if let Err(error) = jobs.cancel(&job_id).await {

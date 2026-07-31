@@ -1,5 +1,5 @@
 [package]
-name = "ai-usage"
+name = "quota-usage"
 version = "0.1.0"
 edition = "2021"
 

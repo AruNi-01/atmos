@@ -7,7 +7,7 @@ use infra::jobs::{JobId, LocalScheduler};
 
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
-    ProviderKind, ProviderStatus, UsageProvider, UsageService, AI_USAGE_AUTO_REFRESH_JOB_ID,
+    ProviderKind, ProviderStatus, UsageProvider, UsageService, QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
 };
 
 #[derive(Clone)]
@@ -135,7 +135,7 @@ async fn attach_jobs_registers_and_cancels_auto_refresh() {
         collect_count: counter,
     })]);
     let jobs = Arc::new(LocalScheduler::new());
-    let job_id = JobId::new(AI_USAGE_AUTO_REFRESH_JOB_ID);
+    let job_id = JobId::new(QUOTA_USAGE_AUTO_REFRESH_JOB_ID);
 
     // No timer until jobs are attached.
     assert!(!jobs.is_registered(&job_id).await);

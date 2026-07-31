@@ -1,21 +1,21 @@
-# AI Usage Tracking - AGENTS.md
+# Quota Usage Tracking - AGENTS.md
 
-> **📊 AI Usage Analytics**: Tracks and reports AI usage across multiple AI coding platforms.
+> **📊 Quota Usage Analytics**: Tracks and reports AI usage across multiple AI coding platforms.
 
 ---
 
 ## Build And Test
 
-- **Build**: `cargo build -p ai-usage`
-- **Test**: `cargo test -p ai-usage` or `just test-rust`
-- **Lint**: `cargo clippy -p ai-usage`
+- **Build**: `cargo build -p quota-usage`
+- **Test**: `cargo test -p quota-usage` or `just test-rust`
+- **Lint**: `cargo clippy -p quota-usage`
 
 ---
 
 ## 📁 Directory Structure
 
 ```
-crates/ai-usage/
+crates/quota-usage/
 └── src/
     ├── lib.rs              # Public exports
     ├── models.rs           # Data models

@@ -13,7 +13,7 @@ use crate::support::browser::{load_commandcode_browser_cookie_source, BrowserCoo
 use crate::support::{expand_home, format_reset_relative_text, unix_now};
 
 fn dbg() -> infra::utils::debug_logging::DebugLogger {
-    infra::utils::debug_logging::DebugLogger::new("AI_USAGE_COMMANDCODE")
+    infra::utils::debug_logging::DebugLogger::new("QUOTA_USAGE_COMMANDCODE")
 }
 
 #[derive(Debug, Clone, Deserialize)]

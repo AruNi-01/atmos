@@ -636,16 +636,21 @@ fn snapshot_candidates(provider_id: &str) -> Vec<PathBuf> {
         candidates.push(path.join(format!("{provider_id}.json")));
     }
     if let Some(home) = dirs::home_dir() {
+        let file_name = format!("{provider_id}.json");
+        candidates.push(home.join(".atmos").join("quota-usage").join(&file_name));
+        // Legacy dir name before rename from ai-usage → quota-usage.
+        candidates.push(home.join(".atmos").join("ai-usage").join(&file_name));
         candidates.push(
-            home.join(".atmos")
-                .join("ai-usage")
-                .join(format!("{provider_id}.json")),
+            home.join(".config")
+                .join("atmos")
+                .join("quota-usage")
+                .join(&file_name),
         );
         candidates.push(
             home.join(".config")
                 .join("atmos")
                 .join("ai-usage")
-                .join(format!("{provider_id}.json")),
+                .join(&file_name),
         );
     }
     candidates
@@ -804,7 +809,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Desktop,
             live_kind: Some(LiveProviderKind::Amp),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to Amp locally. Atmos reads ~/.local/share/amp/secrets.json automatically and falls back to browser session import; AMP_COOKIE_HEADER / ~/.atmos/ai-usage/amp.cookie is only a fallback.",
+            setup_hint: "Sign in to Amp locally. Atmos reads ~/.local/share/amp/secrets.json automatically and falls back to browser session import; AMP_COOKIE_HEADER / ~/.atmos/quota-usage/amp.cookie is only a fallback.",
             auth_env_keys: &["AMP_COOKIE_HEADER", "ATMOS_USAGE_AMP_COOKIE_HEADER"],
             auth_paths: &["~/.local/share/amp/secrets.json"],
         },
@@ -814,7 +819,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Desktop,
             live_kind: Some(LiveProviderKind::Zed),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to Zed on zed.dev first. Atmos auto-imports supported browser session cookies when available; otherwise configure ZED_COOKIE_HEADER (or ~/.atmos/ai-usage/zed.cookie) for cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.",
+            setup_hint: "Sign in to Zed on zed.dev first. Atmos auto-imports supported browser session cookies when available; otherwise configure ZED_COOKIE_HEADER (or ~/.atmos/quota-usage/zed.cookie) for cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.",
             auth_env_keys: &[
                 "ZED_COOKIE_HEADER",
                 "ATMOS_USAGE_ZED_COOKIE_HEADER",

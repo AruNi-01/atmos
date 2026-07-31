@@ -37,7 +37,7 @@ flowchart TD
 | Store adapter | `apps/desktop/src-tauri` (macOS native) | dedicated WebKit store: inject + read-back verify, clear, surface rebuild |
 
 Layering: crates never import apps. `crates/browser-cookies` is a leaf capability consumed by
-`apps/desktop`; **`ai-usage` is refactored to depend on it too** (see §7). Native store work stays
+`apps/desktop`; **`quota-usage` is refactored to depend on it too** (see §7). Native store work stays
 in the app because it needs Wry/WebKit handles.
 
 ## 2. Where cookies live — dedicated data store (fixes Blocker #1)
@@ -192,7 +192,7 @@ Fidelity rules:
 Modern Chromium prefers `Network/Cookies`; check it **before** the legacy `<Profile>/Cookies`
 (fixes part of #4). Chromium profiles + display names come from `Local State`
 (`profile.info_cache`); Firefox from `profiles.ini`. Reuse the discovery tables already proven in
-`ai-usage` (Chrome/Edge/Brave/Arc/Chromium/Dia/Atlas variants, profile priority).
+`quota-usage` (Chrome/Edge/Brave/Arc/Chromium/Dia/Atlas variants, profile priority).
 
 ### 4.3 WAL-safe snapshot + typed read (fixes #4)
 
@@ -206,7 +206,7 @@ Two supported modes; MVP uses **(a)**:
   open the copy so WAL is applied to a consistent snapshot, delete the copy immediately after read.
 
 Read via **`rusqlite` typed BLOB API** — never a `sqlite3` subprocess piping plaintext cookies
-through stdout (the current `ai-usage` approach; a value-leak and quoting risk). Columns:
+through stdout (the current `quota-usage` approach; a value-leak and quoting risk). Columns:
 Chromium `cookies(host_key, name, encrypted_value, path, expires_utc, is_secure, is_httponly,
 samesite, is_persistent[, top_frame_site_key for CHIPS partition detection])`;
 Firefox `moz_cookies(host, name, value, path, expiry, isSecure, isHttpOnly, sameSite[,
@@ -215,7 +215,7 @@ rows and route to `skipped_unsupported`.
 
 ### 4.4 Chromium decryption
 
-Reuse the crypto already in `ai-usage`: Keychain passphrase → `PBKDF2-HMAC-SHA1(pass, "saltysalt",
+Reuse the crypto already in `quota-usage`: Keychain passphrase → `PBKDF2-HMAC-SHA1(pass, "saltysalt",
 1003, 16)` → AES-128-CBC (IV = 16×`0x20`), strip `v10`/`v11` prefix, strip optional 32-byte SHA-256
 host-hash prefix. macOS has no ABE (`v20` is Windows-only). Per-row failures increment the relevant
 `skipped_*` and continue. Prefer reading the Keychain key via the Security framework rather than a
@@ -336,16 +336,16 @@ sequenceDiagram
     end
 ```
 
-## 7. Reuse & refactor `ai-usage` (fixes reuse finding)
+## 7. Reuse & refactor `quota-usage` (fixes reuse finding)
 
-`crates/ai-usage/src/support/browser.rs` already implements profile discovery, Keychain access,
+`crates/quota-usage/src/support/browser.rs` already implements profile discovery, Keychain access,
 Chromium v10/v11 decrypt (PBKDF2/AES + host-hash strip), and Firefox/Chromium SQLite queries — but
 it is **header-oriented**: dedupes by name, **drops** path/expiry/Secure/HttpOnly/SameSite/host-only,
 and reads via a `sqlite3` subprocess. It is therefore unsuitable as the import API directly.
 
 Plan: sink the **generic discovery / snapshot / query / decrypt primitives** down into
-`crates/browser-cookies`, then make **`ai-usage` depend on the new crate** and keep only its
-provider-domain filtering + Cookie-header assembly. This removes duplication and upgrades `ai-usage`
+`crates/browser-cookies`, then make **`quota-usage` depend on the new crate** and keep only its
+provider-domain filtering + Cookie-header assembly. This removes duplication and upgrades `quota-usage`
 to the typed BLOB read at the same time. This refactor is in-scope for the MVP crate extraction.
 
 ## 8. Security & privacy
@@ -425,7 +425,7 @@ dependency versions + existing in-repo code, without a runtime spike. Findings:
    Allow" persists **per app code-signing identity**; unsigned / ad-hoc / re-signed **dev** builds
    get a new identity each rebuild and therefore re-prompt, while a stably-signed **release** build
    persists the grant. Prefer the Security framework over a `security` subprocess.
-4. **SQLite / WAL / schema — CONFIRMED by docs + in-repo code.** `crates/ai-usage/src/support/
+4. **SQLite / WAL / schema — CONFIRMED by docs + in-repo code.** `crates/quota-usage/src/support/
    browser.rs` already decrypts Chromium v10/v11 and reads `Cookies`; modern profiles use
    `Network/Cookies` (checked first, §4.2); `immutable=1` ignoring WAL is documented SQLite behavior
    (hence not used, §4.3). No spike needed; the work is refactoring these into typed BLOB reads.
@@ -445,7 +445,7 @@ ordinary implementation-time checks, not open feasibility risks.
 ## 12. Rollout & phasing
 
 1. **MVP:** macOS 14+ · Chrome/Edge/Brave/Firefox · on-demand import into a dedicated store ·
-   dedicated capability · Clear Cache / Clear Site Data · `ai-usage` refactor onto the new crate.
+   dedicated capability · Clear Cache / Clear Site Data · `quota-usage` refactor onto the new crate.
 2. **Phase 2:** Windows (App-Bound Encryption — extension/supported path) and Linux
    (Secret Service/kwallet); import-while-running snapshot mode (§4.3b).
 3. **Phase 3:** Safari source (Full Disk Access onboarding); per-domain selective import;

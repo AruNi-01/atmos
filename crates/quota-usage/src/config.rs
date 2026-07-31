@@ -30,16 +30,12 @@ pub(crate) struct NamedApiKey {
     pub api_key: String,
 }
 
-fn provider_config_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| {
-        home.join(".atmos")
-            .join("ai-usage")
-            .join("provider_config.json")
-    })
+fn provider_config_path_for_write() -> Option<PathBuf> {
+    crate::paths::data_path("provider_config.json")
 }
 
 fn load_provider_config_file() -> ProviderConfigFile {
-    let Some(path) = provider_config_path() else {
+    let Some(path) = crate::paths::resolve_data_file("provider_config.json") else {
         return ProviderConfigFile::default();
     };
     let Ok(contents) = fs::read_to_string(path) else {
@@ -49,7 +45,7 @@ fn load_provider_config_file() -> ProviderConfigFile {
 }
 
 fn save_provider_config_file(state: &ProviderConfigFile) {
-    let Some(path) = provider_config_path() else {
+    let Some(path) = provider_config_path_for_write() else {
         return;
     };
     if let Some(parent) = path.parent() {
@@ -170,7 +166,8 @@ pub(crate) fn provider_config_region(provider_id: &str) -> Option<String> {
 }
 
 pub(crate) fn provider_config_source_label() -> Option<String> {
-    provider_config_path().map(|path| path.display().to_string())
+    crate::paths::resolve_data_file("provider_config.json")
+        .map(|path| path.display().to_string())
 }
 
 fn derive_key_id(provider_id: &str, api_key: &str) -> String {

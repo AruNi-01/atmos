@@ -32,7 +32,7 @@ Wire them from `apps/api`, migrate product timers and event intake, keep **manua
                 │                             │
     ┌───────────┼───────────┐                 │
     ▼           ▼           ▼                 ▼
- automation  ai-usage   agent-hooks     github/hooks
+ automation  quota-usage   agent-hooks     github/hooks
  schedule_   auto_      idle_           consumer →
  tick job    refresh    cleanup         domain service
     │
@@ -47,12 +47,12 @@ Wire them from `apps/api`, migrate product timers and event intake, keep **manua
 | Layer | Owns | Must not |
 |-------|------|----------|
 | `infra::jobs` / `queue` | timers, channels, retry *primitives*, lifecycle | automation pause, agent start, GitHub matching, usage providers |
-| `core-service` / `ai-usage` | domain handlers, when to upsert/cancel/enqueue | raw product-level `tokio::interval` loops for migrated sites |
+| `core-service` / `quota-usage` | domain handlers, when to upsert/cancel/enqueue | raw product-level `tokio::interval` loops for migrated sites |
 | `apps/api` | compose adapters, bootstrap order, thin HTTP/WS ingress | long domain work on webhook task when queue path exists |
 
 ```text
-apps/api → core-service / ai-usage → infra
-infra does not depend on core-service or ai-usage
+apps/api → core-service / quota-usage → infra
+infra does not depend on core-service or quota-usage
 ```
 
 ---
@@ -297,7 +297,7 @@ Do not move claim tables into infra.
 4. `set_auto_refresh_interval` only goes through jobs after attach.
 
 ```text
-JobId: "ai-usage.auto_refresh"
+JobId: "quota-usage.auto_refresh"
 IntervalSpec: every = minutes * 60s, skip_if_running: true, fire_immediately: false
 RetryPolicy: none()  // parity with “fail once, wait next interval”
 ```
@@ -327,7 +327,7 @@ let queue = Arc::new(LocalMemoryQueue::builder().capacity(128).build());
 
 // subscribe queue consumers (github, etc.)
 // construct services with jobs/queue arcs
-// attach ai-usage jobs
+// attach quota-usage jobs
 // automation.start_scheduler(jobs.clone()).await
 // register agent-hooks cleanup job
 
@@ -363,7 +363,7 @@ Store on `AppState` if useful for future registrations.
 | JobId | Owner | fire_immediately | Notes |
 |-------|--------|------------------|-------|
 | `automation.schedule_tick` | core-service | true | 30s due poll |
-| `ai-usage.auto_refresh` | ai-usage | false | replace on config change |
+| `quota-usage.auto_refresh` | quota-usage | false | replace on config change |
 | `agent-hooks.idle_session_cleanup` | apps/api + AgentHooksService | false | 5m |
 
 ### Queue topics
@@ -478,7 +478,7 @@ v1 **must not** implement these.
 
 - **No new heavy deps required** for v1 (Tokio already in infra). Optional: `flume` if preferred over `tokio::sync::mpsc`.  
 - Depends on APP-017/019 behavior remaining stable.  
-- `ai-usage` already depends on `infra` — OK for jobs port.
+- `quota-usage` already depends on `infra` — OK for jobs port.
 
 ---
 
@@ -488,7 +488,7 @@ v1 **must not** implement these.
 |------|--------|
 | `crates/infra/AGENTS.md` | jobs/queue real; local adapters; NEVER domain rules |
 | Root / `crates/AGENTS.md` | Decision: time → jobs, events → queue, interactive → direct |
-| `core-service` / `ai-usage` AGENTS | Point at ports for timers |
+| `core-service` / `quota-usage` AGENTS | Point at ports for timers |
 
 ---
 

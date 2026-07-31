@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ai-usage = { path = "../ai-usage" }
+quota-usage = { path = "../quota-usage" }
 local-model-runtime = { path = "../local-model-runtime" }
 infra = { path = "../infra" }
 core-engine = { path = "../core-engine" }

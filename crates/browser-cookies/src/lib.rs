@@ -13,10 +13,10 @@
 //! - [`list_profiles`] — discover importable profiles (Chrome/Edge/Brave/Firefox).
 //! - [`extract`] — extract cookies for one profile by opaque handle.
 //!
-//! # Reuse surface (for `ai-usage`)
+//! # Reuse surface (for `quota-usage`)
 //!
 //! In addition to the frozen contract, this crate exposes lower-level, WAL-safe
-//! primitives that `ai-usage` composes into its provider-domain filtering and
+//! primitives that `quota-usage` composes into its provider-domain filtering and
 //! Cookie-header assembly: [`chromium_profile_candidates`],
 //! [`firefox_profile_candidates`], [`read_chromium_filtered`],
 //! [`read_firefox_filtered`], [`safe_storage_passphrase`], and
@@ -37,7 +37,7 @@ pub use types::{
     ProfileHandle, SameSite,
 };
 
-// --- Reuse primitives (ai-usage) -----------------------------------------
+// --- Reuse primitives (quota-usage) -----------------------------------------
 pub use decrypt::{decrypt_chromium_value, DecryptError};
 pub use discovery::{
     chromium_profile_candidates, firefox_profile_candidates, ChromiumProfileCandidate,

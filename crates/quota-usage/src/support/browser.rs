@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-//! Provider-domain cookie filtering + Cookie-header assembly for `ai-usage`.
+//! Provider-domain cookie filtering + Cookie-header assembly for `quota-usage`.
 //!
 //! The generic discovery / snapshot / typed-read / Keychain / decrypt
 //! primitives now live in the `browser-cookies` leaf crate (APP-041). This
-//! module keeps only the `ai-usage`-specific concerns: env/file overrides,
+//! module keeps only the `quota-usage`-specific concerns: env/file overrides,
 //! provider domain + cookie-name filtering, session detection, and assembling
 //! the `Cookie:` request header consumed by the usage providers.
 
@@ -56,11 +56,14 @@ pub(crate) fn normalize_cookie_header(raw: &str) -> String {
 }
 
 pub(crate) fn cookie_override_path(file_stem: &str) -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".atmos")
-        .join("ai-usage")
-        .join(format!("{file_stem}.cookie"))
+    let file_name = format!("{file_stem}.cookie");
+    crate::paths::resolve_data_file(&file_name).unwrap_or_else(|| {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".atmos")
+            .join("quota-usage")
+            .join(file_name)
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -305,7 +308,7 @@ fn load_chromium_cookie_source(
 
     // Lazy Keychain access: only fetch the Safe Storage passphrase when a row
     // actually needs decryption. The passphrase is memoized in browser-cookies
-    // for the process lifetime so multi-provider ai-usage scans do not re-prompt.
+    // for the process lifetime so multi-provider quota-usage scans do not re-prompt.
     let mut passphrase: Option<String> = None;
     let mut cookie_pairs: Vec<(String, String)> = Vec::new();
     for row in rows {

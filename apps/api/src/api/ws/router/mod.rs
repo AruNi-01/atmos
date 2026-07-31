@@ -28,7 +28,7 @@ mod workspace_setup;
 use std::sync::Arc;
 
 use super::{message::*, WsManager, WsMessageHandler};
-use ai_usage::UsageService;
+use quota_usage::UsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use core_service::service::canvas_agent_relay::{

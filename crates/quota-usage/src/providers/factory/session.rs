@@ -84,9 +84,11 @@ pub(crate) fn clear_factory_session_state() -> Result<(), ProviderError> {
 }
 
 fn factory_session_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".atmos")
-        .join("ai-usage")
-        .join("factory-session.json")
+    crate::paths::resolve_data_file("factory-session.json").unwrap_or_else(|| {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".atmos")
+            .join("quota-usage")
+            .join("factory-session.json")
+    })
 }

@@ -12,7 +12,7 @@ We will verify this feature using a mix of backend unit/integration tests and ma
 | Scenario ID | PRD Req | Description | Level | Tool/Cmd |
 |-------------|---------|-------------|-------|----------|
 | **SCENARIO-1** | 3.1.1, 3.1.2 | Antigravity CLI is exposed as built-in agent with correct presets | Unit / Integration | `cargo test --package core-service` & `bun test` |
-| **SCENARIO-2** | 3.2.1, 3.2.2 | Quota provider detects Antigravity auth paths & env vars | Integration | `cargo test --package ai-usage` |
+| **SCENARIO-2** | 3.2.1, 3.2.2 | Quota provider detects Antigravity auth paths & env vars | Integration | `cargo test --package quota-usage` |
 | **SCENARIO-3** | 3.3.1, 3.3.2 | Antigravity hook can check, install, and uninstall triggers in settings file | Integration | `cargo test --package core-engine` |
 | **SCENARIO-4** | 3.3.3, 3.3.4 | Antigravity webhook endpoints correctly process session triggers | Integration | HTTP/API endpoint tests |
 

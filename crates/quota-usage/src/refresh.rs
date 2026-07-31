@@ -50,19 +50,12 @@ pub(crate) struct ProviderStateFile {
 }
 
 fn provider_state_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| {
-        home.join(".atmos")
-            .join("ai-usage")
-            .join("provider_state.json")
-    })
+    // Prefer primary write path; loaders also resolve legacy `ai-usage` via resolve_data_file.
+    crate::paths::data_path("provider_state.json")
 }
 
 fn legacy_refresh_state_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| {
-        home.join(".atmos")
-            .join("ai-usage")
-            .join("refresh-state.json")
-    })
+    crate::paths::resolve_data_file("refresh-state.json")
 }
 
 fn read_json_file<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Option<T> {
@@ -71,32 +64,36 @@ fn read_json_file<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Option<T> {
 }
 
 fn load_provider_state() -> ProviderStateFile {
-    if let Some(path) = provider_state_path() {
-        if let Some(state) = read_json_file::<ProviderStateFile>(&path) {
-            return state;
+    if let Some(path) = crate::paths::resolve_data_file("provider_state.json") {
+        if path.is_file() {
+            if let Some(state) = read_json_file::<ProviderStateFile>(&path) {
+                return state;
+            }
         }
     }
 
     if let Some(path) = legacy_refresh_state_path() {
-        if let Some(state) = read_json_file::<LegacyRefreshStateFile>(&path) {
-            return ProviderStateFile {
-                all_updated_at_utc: state.all_updated_at_utc,
-                providers: state
-                    .provider_updated_at_utc
-                    .into_iter()
-                    .map(|(provider_id, updated_at_utc)| {
-                        (
-                            provider_id,
-                            ProviderStateEntry {
-                                updated_at_utc: Some(updated_at_utc),
-                                switch: true,
-                                footer_carousel_show: false,
-                            },
-                        )
-                    })
-                    .collect(),
-                auto_refresh_interval_minutes: None,
-            };
+        if path.is_file() {
+            if let Some(state) = read_json_file::<LegacyRefreshStateFile>(&path) {
+                return ProviderStateFile {
+                    all_updated_at_utc: state.all_updated_at_utc,
+                    providers: state
+                        .provider_updated_at_utc
+                        .into_iter()
+                        .map(|(provider_id, updated_at_utc)| {
+                            (
+                                provider_id,
+                                ProviderStateEntry {
+                                    updated_at_utc: Some(updated_at_utc),
+                                    switch: true,
+                                    footer_carousel_show: false,
+                                },
+                            )
+                        })
+                        .collect(),
+                    auto_refresh_interval_minutes: None,
+                };
+            }
         }
     }
 

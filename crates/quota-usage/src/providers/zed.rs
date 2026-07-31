@@ -275,7 +275,7 @@ fn load_zed_auth() -> Result<ZedAuth, ProviderError> {
     }
 
     Err(ProviderError::Fetch(
-        "Zed credentials not available. Atmos could not find a supported Zed browser session. Configure ZED_COOKIE_HEADER (or ~/.atmos/ai-usage/zed.cookie) for manual cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.".to_string(),
+        "Zed credentials not available. Atmos could not find a supported Zed browser session. Configure ZED_COOKIE_HEADER (or ~/.atmos/quota-usage/zed.cookie) for manual cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.".to_string(),
     ))
 }
 

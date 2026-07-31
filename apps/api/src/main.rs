@@ -11,7 +11,7 @@ use crate::api::ws::{
     automation_event_to_ws_message, WsEvent, WsManager, WsMessage, WsMessageService,
 };
 use crate::middleware::{require_local_token, require_loopback_or_token};
-use ai_usage::UsageService;
+use quota_usage::UsageService;
 use app_state::{AppServices, AppState};
 use axum::{
     http::{

@@ -73,7 +73,7 @@
 
 - Code: `crates/infra/src/jobs/mod.rs`, `queue/mod.rs`, `lib.rs`
 - `crates/core-service/src/service/automation/scheduler_service.rs`, `scheduler.rs`
-- `crates/ai-usage/src/service.rs`
+- `crates/quota-usage/src/service.rs`
 - `apps/api/src/main.rs` (`start_scheduler`, `spawn_idle_session_cleanup`)
 - Specs: `APP-017_atmos-automations`, `APP-019_github-automation-triggers`
 
