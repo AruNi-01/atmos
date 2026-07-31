@@ -273,14 +273,15 @@ impl GitEngine {
                 }
 
                 if y != ' ' {
-                    let counts = unstaged_numstat
-                        .get(&file_path)
-                        .copied()
-                        .unwrap_or(NumstatCounts {
-                            additions: 0,
-                            deletions: 0,
-                            is_binary: false,
-                        });
+                    let counts =
+                        unstaged_numstat
+                            .get(&file_path)
+                            .copied()
+                            .unwrap_or(NumstatCounts {
+                                additions: 0,
+                                deletions: 0,
+                                is_binary: false,
+                            });
                     if !counts.is_binary {
                         total_additions += counts.additions;
                         total_deletions += counts.deletions;
@@ -923,13 +924,9 @@ impl GitEngine {
         let old_classified = old_side.as_ref().map(Self::classify_side);
         let new_classified = new_side.as_ref().map(Self::classify_side);
 
-        let any_binary = old_classified
-            .as_ref()
-            .is_some_and(|s| s.is_binary)
+        let any_binary = old_classified.as_ref().is_some_and(|s| s.is_binary)
             || new_classified.as_ref().is_some_and(|s| s.is_binary);
-        let any_too_large = old_classified
-            .as_ref()
-            .is_some_and(|s| s.too_large)
+        let any_too_large = old_classified.as_ref().is_some_and(|s| s.too_large)
             || new_classified.as_ref().is_some_and(|s| s.too_large);
 
         let kind = if any_binary {
@@ -1026,5 +1023,4 @@ impl GitEngine {
             path.to_string()
         }
     }
-
 }

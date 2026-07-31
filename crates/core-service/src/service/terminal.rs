@@ -236,7 +236,8 @@ impl TerminalService {
             let workspace_repo = WorkspaceRepo::new(db);
             if let Ok(Some(workspace)) = workspace_repo.find_by_guid(workspace_id).await {
                 let project_repo = ProjectRepo::new(db);
-                if let Ok(Some(project)) = project_repo.find_by_guid(&workspace.project_guid).await {
+                if let Ok(Some(project)) = project_repo.find_by_guid(&workspace.project_guid).await
+                {
                     candidates.push(
                         self.tmux_engine
                             .get_session_name_from_names(&project.name, &workspace.name),
@@ -284,7 +285,6 @@ impl TerminalService {
             .next()
             .unwrap_or_else(|| self.tmux_engine.get_session_name(workspace_id))
     }
-
 
     /// Detect the best available tmux installation plan for the current API host.
     pub fn get_tmux_install_plan(&self) -> core_engine::TmuxInstallPlan {
@@ -1147,7 +1147,12 @@ mod tests {
         let resolved = service
             .resolve_tmux_session_name("ws-guid", Some("Atmos"), Some("Main"))
             .await;
-        assert_eq!(resolved, service.tmux_engine.get_session_name_from_names("Atmos", "Main"));
+        assert_eq!(
+            resolved,
+            service
+                .tmux_engine
+                .get_session_name_from_names("Atmos", "Main")
+        );
     }
 
     #[tokio::test]

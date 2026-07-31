@@ -84,10 +84,7 @@ fn trim_str(value: Option<&str>) -> Option<String> {
 }
 
 /// True when the user entry is a real customization (not just YOLO on/off defaults).
-fn is_user_customized_command(
-    entry: &Value,
-    definition: &TerminalAgentDefinitionPublic,
-) -> bool {
+fn is_user_customized_command(entry: &Value, definition: &TerminalAgentDefinitionPublic) -> bool {
     let (yolo_params, yolo_interactive) = definition_launch_flags_for_upgrade(definition, true);
     let (safe_params, safe_interactive) = definition_launch_flags_for_upgrade(definition, false);
 
@@ -103,9 +100,7 @@ fn is_user_customized_command(
         }
     }
 
-    if let Some(interactive) =
-        trim_str(entry.get("interactiveFlags").and_then(|v| v.as_str()))
-    {
+    if let Some(interactive) = trim_str(entry.get("interactiveFlags").and_then(|v| v.as_str())) {
         if interactive != yolo_interactive && interactive != safe_interactive {
             return true;
         }
@@ -149,10 +144,7 @@ fn strip_non_custom_overrides(
             }
         }
         // If nothing meaningful remains besides id (+ optional enabled:true), drop later.
-        let enabled_false = obj
-            .get("enabled")
-            .and_then(|v| v.as_bool())
-            == Some(false);
+        let enabled_false = obj.get("enabled").and_then(|v| v.as_bool()) == Some(false);
         let has_cmd = trim_str(obj.get("cmd").and_then(|v| v.as_str())).is_some();
         if !enabled_false && !has_cmd {
             // Mark for removal by clearing id-only shell — caller filters.
@@ -246,8 +238,8 @@ pub fn ensure_builtin_terminal_agents_upgraded() -> Result<bool> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::agents::definition_launch_flags_for_upgrade;
+    use super::*;
 
     #[test]
     fn yolo_matching_flags_are_not_customized() {

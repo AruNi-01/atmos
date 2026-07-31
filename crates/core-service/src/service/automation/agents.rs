@@ -480,9 +480,7 @@ fn agent_yolo_mode_enabled() -> bool {
 }
 
 fn definition_launch_flags(definition: &TerminalAgentDefinition, yolo: bool) -> (String, String) {
-    if yolo
-        && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some())
-    {
+    if yolo && (definition.yolo_params.is_some() || definition.yolo_interactive_params.is_some()) {
         let params = definition
             .yolo_params
             .clone()
@@ -1500,7 +1498,10 @@ mod tests {
             && agent.stdout_parser == StdoutParser::CodexJsonl));
         assert!(agents.iter().any(|agent| agent.id == "cursor"
             && agent.cmd == "cursor-agent"
-            && agent.yolo_params.as_deref().is_some_and(|p| p.contains("--force --print"))
+            && agent
+                .yolo_params
+                .as_deref()
+                .is_some_and(|p| p.contains("--force --print"))
             && agent.yolo_interactive_params.as_deref() == Some("--yolo")));
         assert!(agents.iter().any(|agent| {
             agent.id == "antigravity"
@@ -1752,11 +1753,7 @@ mod tests {
             (
                 "grok-build",
                 PromptStrategy::PromptFlag,
-                vec![
-                    "--output-format",
-                    "streaming-json",
-                    "-p",
-                ],
+                vec!["--output-format", "streaming-json", "-p"],
                 PromptDelivery::Arg,
                 StdoutParser::GrokStreamingJson,
             ),

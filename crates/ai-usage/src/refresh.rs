@@ -187,9 +187,7 @@ pub(crate) fn persist_all_provider_switch(provider_ids: &[String], switch_enable
 }
 
 /// Batch-write switch + footer carousel flags without refreshing provider data.
-pub(crate) fn persist_provider_visibility_batch(
-    prefs: &[(String, bool, bool)],
-) {
+pub(crate) fn persist_provider_visibility_batch(prefs: &[(String, bool, bool)]) {
     if prefs.is_empty() {
         return;
     }

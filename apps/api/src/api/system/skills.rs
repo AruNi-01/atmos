@@ -437,7 +437,9 @@ bestFor: >-
 
         assert_eq!(
             parse_frontmatter_field(content, "description"),
-            Some("Expert reviewer for multi-line skill descriptions and best practices.".to_string())
+            Some(
+                "Expert reviewer for multi-line skill descriptions and best practices.".to_string()
+            )
         );
         assert_eq!(
             parse_frontmatter_field(content, "bestFor"),

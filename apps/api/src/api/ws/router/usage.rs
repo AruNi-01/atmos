@@ -4,9 +4,9 @@ use core_service::{Result, ServiceError};
 
 use super::{
     TokenUsageOverviewRequest, UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest,
-    UsageApplyProviderVisibilityRequest, UsageAutoRefreshRequest,
-    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
-    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WsMessageService,
+    UsageApplyProviderVisibilityRequest, UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest,
+    UsageOverviewRequest, UsageProviderFooterCarouselRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WsMessageService,
 };
 
 impl WsMessageService {
@@ -69,10 +69,7 @@ impl WsMessageService {
                 )
             })
             .collect();
-        let overview = self
-            .usage_service
-            .apply_provider_visibility(prefs)
-            .await;
+        let overview = self.usage_service.apply_provider_visibility(prefs).await;
         Ok(json!(overview))
     }
 

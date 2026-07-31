@@ -295,10 +295,8 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                     );
                     last_error = Some(e);
                     if attempt < ATTACH_MAX_ATTEMPTS {
-                        tokio::time::sleep(std::time::Duration::from_millis(
-                            150 * attempt as u64,
-                        ))
-                        .await;
+                        tokio::time::sleep(std::time::Duration::from_millis(150 * attempt as u64))
+                            .await;
                     }
                 }
             }

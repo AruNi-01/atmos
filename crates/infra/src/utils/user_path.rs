@@ -32,8 +32,10 @@ pub fn ensure_user_cli_path_on_startup() -> Result<(), String> {
 /// Cached PATH suitable for child processes (login shell + common bins + env).
 pub fn user_cli_path() -> &'static OsStr {
     static PATH: OnceLock<OsString> = OnceLock::new();
-    PATH.get_or_init(|| build_user_cli_path().unwrap_or_else(|_| env::var_os("PATH").unwrap_or_default()))
-        .as_os_str()
+    PATH.get_or_init(|| {
+        build_user_cli_path().unwrap_or_else(|_| env::var_os("PATH").unwrap_or_default())
+    })
+    .as_os_str()
 }
 
 /// `std::process::Command` that resolves `program` on the user CLI PATH.
