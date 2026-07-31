@@ -52,10 +52,10 @@ if (target !== "auto") {
 } else if (eventName === "workflow_dispatch") {
   addMany(smokeSuites);
 } else if (flags.global) {
+  // packages/**, app-shell providers, shared fixtures, etc. can break multi-client
+  // transport/cutover journeys — always include specs when global paths change.
   addMany(smokeSuites);
-  if (flags.specs) {
-    add("specs");
-  }
+  add("specs");
 } else {
   if (flags.routes) add("smoke-routes");
   if (flags.onboarding) add("smoke-onboarding");
