@@ -1,5 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
-import { describe, expect, it, beforeEach } from "bun:test";
+import { describe, expect, it, beforeEach, afterEach } from "bun:test";
+import { Window } from "happy-dom";
 
 import { globalKey } from "@/shared/lib/browser-store";
 import {
@@ -9,9 +10,42 @@ import {
 
 const STORAGE_KEY = globalKey("canvasChrome");
 
+let previousWindow: PropertyDescriptor | undefined;
+
+function installDom() {
+  const win = new Window({ url: "http://localhost:3030" });
+  previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: win,
+    writable: true,
+  });
+  // happy-dom exposes localStorage on window; mirror for bare localStorage access
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: win.localStorage,
+    writable: true,
+  });
+  return win;
+}
+
+function restoreDom() {
+  if (previousWindow) {
+    Object.defineProperty(globalThis, "window", previousWindow);
+  } else {
+    Reflect.deleteProperty(globalThis, "window");
+  }
+  Reflect.deleteProperty(globalThis, "localStorage");
+}
+
 describe("canvas chrome prefs storage", () => {
   beforeEach(() => {
+    installDom();
     localStorage.removeItem(STORAGE_KEY);
+  });
+
+  afterEach(() => {
+    restoreDom();
   });
 
   it("round-trips via localStorage", () => {

@@ -41,10 +41,13 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "@atmos/api-types": "workspace:*",
+    "@atmos/api-client": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
+    "sf-symbols-typescript": "^2.2.0",
     "typescript": "6.0.3"
   },
   "scripts": {

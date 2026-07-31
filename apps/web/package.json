@@ -103,7 +103,9 @@
     "unicode-animations": "^1.0.3",
     "use-stick-to-bottom": "^1.1.3",
     "uuid": "^13.0.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "@atmos/api-types": "workspace:*",
+    "@atmos/api-client": "workspace:*"
   },
   "devDependencies": {
     "@react-symbols/icons": "^1.3.0",

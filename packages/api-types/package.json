@@ -1,0 +1,27 @@
+{
+  "name": "@atmos/api-types",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./ws": "./src/ws/index.ts",
+    "./ws/frames": "./src/ws/frames.ts",
+    "./ws/actions": "./src/ws/actions.ts",
+    "./ws/dto/fs": "./src/ws/dto/fs.ts",
+    "./ws/dto/git": "./src/ws/dto/git.ts",
+    "./ws/dto/project": "./src/ws/dto/project.ts",
+    "./ws/dto/workspace": "./src/ws/dto/workspace.ts",
+    "./ws/dto/group": "./src/ws/dto/group.ts",
+    "./ws/dto/github": "./src/ws/dto/github.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src scripts",
+    "extract-actions": "bun scripts/extract-ws-actions.ts",
+    "check-actions": "bun scripts/check-ws-actions.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "6.0.3"
+  }
+}

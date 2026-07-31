@@ -49,15 +49,27 @@ function createClient({
   maxReconnectAttempts?: number;
   timers: TimerCall[];
 }) {
+  const byId = new Map<number, TimerCall>();
+  let nextId = 1;
   return new MobileWsClient("wss://relay.example/ws/client", {
     WebSocketCtor: FakeMobileWebSocket,
-    clearTimeout: () => {},
+    clearTimeout: (id) => {
+      const key = id as unknown as number;
+      const entry = byId.get(key);
+      if (!entry) return;
+      byId.delete(key);
+      const idx = timers.indexOf(entry);
+      if (idx >= 0) timers.splice(idx, 1);
+    },
     maxReconnectAttempts,
     reconnectInitialDelayMs: 100,
     reconnectMaxDelayMs: 1_000,
     setTimeout: (callback, delayMs) => {
-      timers.push({ callback, delayMs });
-      return timers.length as unknown as ReturnType<typeof setTimeout>;
+      const entry = { callback, delayMs };
+      const id = nextId++;
+      byId.set(id, entry);
+      timers.push(entry);
+      return id as unknown as ReturnType<typeof setTimeout>;
     },
   });
 }
