@@ -135,7 +135,6 @@ mod tests {
         assert_eq!(account_for("Brave"), "Brave");
     }
 
-    #[cfg(target_os = "macos")]
     #[test]
     #[cfg(target_os = "macos")]
     fn process_cache_returns_stored_value_without_reentry() {
