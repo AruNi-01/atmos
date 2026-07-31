@@ -11,7 +11,7 @@ use core_engine::tmux::control::{
     encode_refresh_client_report_command, encode_send_keys_hex_commands, parse_control_line_bytes,
     ControlModeEvent, TmuxPassthroughUnwrapper,
 };
-use core_engine::{MouseModeState, TmuxEngine};
+use core_engine::TmuxEngine;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};

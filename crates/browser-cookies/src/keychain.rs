@@ -137,6 +137,7 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    #[cfg(target_os = "macos")]
     fn process_cache_returns_stored_value_without_reentry() {
         let service = "__atmos_test_keychain_cache__";
         {
