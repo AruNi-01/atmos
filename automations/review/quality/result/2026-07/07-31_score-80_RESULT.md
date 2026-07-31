@@ -135,5 +135,7 @@
 ## 11. 结果提交与推送
 
 - 修复分支：`codex/quality-fix/2026-07-30`
-- 结果文件与修复同分支提交并推送；PR base 为 `main`。
-- PR URL、提交 hash 在 push/`gh pr create` 成功后回填。
+- 修复 + 结果提交：`eea2ab65bd82e350af7b9b85427497b4fc91a3f6`
+- 推送目标：`origin/codex/quality-fix/2026-07-30`
+- PR：https://github.com/AruNi-01/atmos/pull/182
+- Labels：已添加 `codex`；仓库无 `codex-automation` label，已跳过。
