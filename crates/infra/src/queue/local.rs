@@ -115,9 +115,21 @@ impl LocalMemoryQueue {
     pub async fn shutdown(&self) -> Result<(), QueueError> {
         self.shutting_down.store(true, Ordering::SeqCst);
         let mut topics = self.topics.lock().await;
-        for (_, state) in topics.drain() {
-            drop(state.tx);
-            state.consumer.abort();
+        let consumers: Vec<(mpsc::Sender<QueueMessage>, JoinHandle<()>)> = topics
+            .drain()
+            .map(|(_, state)| (state.tx, state.consumer))
+            .collect();
+        drop(topics);
+        for (tx, consumer) in consumers {
+            // Close the channel so recv returns None after draining remaining items.
+            drop(tx);
+            let abort = consumer.abort_handle();
+            match tokio::time::timeout(std::time::Duration::from_secs(5), consumer).await {
+                Ok(_) => {}
+                Err(_) => {
+                    abort.abort();
+                }
+            }
         }
         Ok(())
     }

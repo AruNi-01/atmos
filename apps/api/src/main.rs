@@ -507,35 +507,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let automation_for_queue = Arc::clone(&automation_for_queue);
                 let replies = Arc::clone(&replies);
                 async move {
-                    let parsed =
-                        serde_json::from_slice::<core_service::GithubTriggerEvent>(&msg.payload);
-                    let reply_key = parsed.as_ref().ok().map(|event| {
-                        crate::relay::external_events::github_reply_key(
-                            &event.delivery_id,
-                            &event.route_id,
-                        )
-                    });
-                    let outcome = match parsed {
-                        Ok(event) => automation_for_queue.handle_external_trigger(event).await,
+                    let envelope = serde_json::from_slice::<
+                        crate::relay::external_events::GithubQueueEnvelope,
+                    >(&msg.payload);
+                    let (reply_id, outcome) = match envelope {
+                        Ok(envelope) => {
+                            let reply_id = envelope.reply_id;
+                            let outcome = automation_for_queue
+                                .handle_external_trigger(envelope.event)
+                                .await;
+                            (Some(reply_id), outcome)
+                        }
                         Err(error) => {
                             warn!(
                                 error = %error,
                                 "github queue payload deserialize failed"
                             );
-                            Err(core_service::ServiceError::Validation(format!(
-                                "invalid github queue payload: {error}"
-                            )))
+                            (
+                                None,
+                                Err(core_service::ServiceError::Validation(format!(
+                                    "invalid github queue payload: {error}"
+                                ))),
+                            )
                         }
                     };
                     let handler_err = outcome.as_ref().err().map(|error| {
                         QueueError::Handler(format!("github delivery failed: {error}"))
                     });
-                    if let Some(reply_key) = reply_key {
-                        if let Some(tx) = replies.lock().await.remove(&reply_key) {
+                    if let Some(reply_id) = reply_id {
+                        if let Some(tx) = replies.lock().await.remove(&reply_id) {
                             let _ = tx.send(outcome);
                         } else if let Some(error) = &handler_err {
                             warn!(
-                                reply_key = %reply_key,
+                                reply_id = %reply_id,
                                 error = %error,
                                 "github queue message processed without reply waiter"
                             );

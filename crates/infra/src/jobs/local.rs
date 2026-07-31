@@ -160,9 +160,21 @@ impl LocalScheduler {
     pub async fn shutdown(&self) -> Result<(), JobsError> {
         self.shutting_down.store(true, Ordering::SeqCst);
         let mut jobs = self.jobs.lock().await;
-        for (_, job) in jobs.drain() {
-            job.cancel.store(true, Ordering::SeqCst);
-            job.handle.abort();
+        let handles: Vec<(Arc<AtomicBool>, JoinHandle<()>)> = jobs
+            .drain()
+            .map(|(_, job)| (job.cancel, job.handle))
+            .collect();
+        drop(jobs);
+        for (cancel, handle) in handles {
+            cancel.store(true, Ordering::SeqCst);
+            let abort = handle.abort_handle();
+            // Prefer cooperative stop; abort only if the task is stuck.
+            match tokio::time::timeout(Duration::from_secs(2), handle).await {
+                Ok(_) => {}
+                Err(_) => {
+                    abort.abort();
+                }
+            }
         }
         Ok(())
     }

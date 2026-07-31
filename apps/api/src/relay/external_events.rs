@@ -111,25 +111,32 @@ pub async fn handle_external_event_body(state: &AppState, body: &str) -> Option<
     serialize_ack(ack)
 }
 
-pub(crate) fn github_reply_key(delivery_id: &str, route_id: &str) -> String {
-    format!("{delivery_id}|{route_id}")
+/// Queue envelope so reply correlation uses a unique `reply_id` (not delivery_id).
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct GithubQueueEnvelope {
+    pub reply_id: String,
+    pub event: GithubTriggerEvent,
 }
 
 async fn enqueue_github_trigger(
     state: &AppState,
     event: GithubTriggerEvent,
 ) -> Result<ExternalTriggerOutcome, ServiceError> {
-    let payload = serde_json::to_vec(&event).map_err(|error| {
+    let reply_id = uuid::Uuid::new_v4().to_string();
+    let payload = serde_json::to_vec(&GithubQueueEnvelope {
+        reply_id: reply_id.clone(),
+        event,
+    })
+    .map_err(|error| {
         ServiceError::Validation(format!("github trigger serialize failed: {error}"))
     })?;
-    let reply_key = github_reply_key(&event.delivery_id, &event.route_id);
     let (tx, rx) = oneshot::channel();
     // Register waiter before enqueue so the consumer can always find a reply channel.
     state
         .github_trigger_replies
         .lock()
         .await
-        .insert(reply_key.clone(), tx);
+        .insert(reply_id.clone(), tx);
 
     match state
         .event_queue
@@ -138,7 +145,7 @@ async fn enqueue_github_trigger(
     {
         Ok(_) => {}
         Err(error) => {
-            state.github_trigger_replies.lock().await.remove(&reply_key);
+            state.github_trigger_replies.lock().await.remove(&reply_id);
             return Err(match error {
                 EnqueueError::Full => {
                     ServiceError::Processing("github delivery queue is full".to_string())
@@ -156,13 +163,13 @@ async fn enqueue_github_trigger(
     match tokio::time::timeout(std::time::Duration::from_secs(60), rx).await {
         Ok(Ok(outcome)) => outcome,
         Ok(Err(_)) => {
-            state.github_trigger_replies.lock().await.remove(&reply_key);
+            state.github_trigger_replies.lock().await.remove(&reply_id);
             Err(ServiceError::Processing(
                 "github delivery queue reply channel closed".to_string(),
             ))
         }
         Err(_) => {
-            state.github_trigger_replies.lock().await.remove(&reply_key);
+            state.github_trigger_replies.lock().await.remove(&reply_id);
             Err(ServiceError::Processing(
                 "github delivery queue processing timed out".to_string(),
             ))
