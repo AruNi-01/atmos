@@ -638,18 +638,10 @@ fn snapshot_candidates(provider_id: &str) -> Vec<PathBuf> {
     if let Some(home) = dirs::home_dir() {
         let file_name = format!("{provider_id}.json");
         candidates.push(home.join(".atmos").join("quota-usage").join(&file_name));
-        // Legacy dir name before rename from ai-usage → quota-usage.
-        candidates.push(home.join(".atmos").join("ai-usage").join(&file_name));
         candidates.push(
             home.join(".config")
                 .join("atmos")
                 .join("quota-usage")
-                .join(&file_name),
-        );
-        candidates.push(
-            home.join(".config")
-                .join("atmos")
-                .join("ai-usage")
                 .join(&file_name),
         );
     }

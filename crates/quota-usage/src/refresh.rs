@@ -50,7 +50,6 @@ pub(crate) struct ProviderStateFile {
 }
 
 fn provider_state_path() -> Option<PathBuf> {
-    // Prefer primary write path; loaders also resolve legacy `ai-usage` via resolve_data_file.
     crate::paths::data_path("provider_state.json")
 }
 
