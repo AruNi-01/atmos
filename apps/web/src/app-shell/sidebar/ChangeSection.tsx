@@ -49,6 +49,7 @@ export interface ChangeSectionProps {
   onUnstageAll?: () => void;
   onDiscardAll?: () => void;
   workspaceId: string | null;
+  contextId?: string | null;
   viewMode?: "list" | "tree";
   selectedFilePath?: string | null;
   hideHeader?: boolean;
@@ -295,6 +296,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   onUnstageAll,
   onDiscardAll,
   workspaceId,
+  contextId,
   viewMode = "list",
   selectedFilePath,
   hideHeader = false,
@@ -305,13 +307,14 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
   const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
   const groupPath = buildDiffGroupPath(kind as DiffChangeGroupKind);
+  const editorContextId = contextId ?? workspaceId;
   const selectedDiffFilePath = useEditorStore((s) => {
     if (selectedFilePath !== undefined) return selectedFilePath ?? undefined;
     if (readOnly) return undefined;
-    if (!workspaceId) return undefined;
-    const active = s.workspaceStates[workspaceId]?.activeFilePath;
+    if (!editorContextId) return undefined;
+    const active = s.workspaceStates[editorContextId]?.activeFilePath;
     if (active !== groupPath) return undefined;
-    return s.diffGroupActiveFiles[workspaceId]?.[groupPath];
+    return s.diffGroupActiveFiles[editorContextId]?.[groupPath];
   });
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
@@ -334,6 +337,13 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
         (kind === "staged" && onUnstageAll) ||
         (isDestructiveSection && onDiscardAll),
     );
+  const hasTreeItemActions =
+    !readOnly &&
+    Boolean(
+      onStage ||
+        (kind === "staged" && onUnstage) ||
+        (isDestructiveSection && onDiscard),
+    );
   const runAction = async (
     actionKey: string,
     action?: () => void | Promise<void>,
@@ -355,9 +365,12 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
       onOpenDiffFile({ kind, groupPath, filePath, preview });
       return;
     }
-    void openFile(groupPath, workspaceId || undefined, { preview, diffFilePath: filePath });
+    void openFile(groupPath, editorContextId || undefined, {
+      preview,
+      diffFilePath: filePath,
+    });
     if (!preview) {
-      pinFile(groupPath, workspaceId || undefined);
+      pinFile(groupPath, editorContextId || undefined);
     }
   };
 
@@ -473,19 +486,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 runningActionKey === `${kind}:file:${path}:unstage` ||
                 runningActionKey === `${kind}:file:${path}:discard`
               }
-              isDirectoryActionActive={readOnly ? undefined : (items) => {
-                const paths = items.map((item) => item.path);
-                const key = paths.join("|");
-                return (
-                  confirmingActionKey === `${kind}:dir:${key}:stage` ||
-                  confirmingActionKey === `${kind}:dir:${key}:unstage` ||
-                  confirmingActionKey === `${kind}:dir:${key}:discard` ||
-                  runningActionKey === `${kind}:dir:${key}:stage` ||
-                  runningActionKey === `${kind}:dir:${key}:unstage` ||
-                  runningActionKey === `${kind}:dir:${key}:discard`
-                );
-              }}
-              renderFileActions={readOnly ? undefined : (file) => {
+              renderFileActions={!hasTreeItemActions ? undefined : (file) => {
                 const fileName = file.path.split("/").pop() || file.path;
 
                 return (
@@ -543,7 +544,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   </>
                 );
               }}
-              renderDirectoryActions={readOnly ? undefined : (items) => {
+              renderDirectoryActions={!hasTreeItemActions ? undefined : (items) => {
                 const paths = items.map((item) => item.path);
                 const label = t("changeSection.fileCountLabel", { count: paths.length });
                 const key = paths.join("|");
@@ -638,21 +639,17 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     </>
   );
 
-  const renderSectionActions = (variant: "header" | "headerless") => {
+  const renderSectionActions = () => {
     if (!hasSectionActions) return null;
 
     return (
       <div
         className={cn(
           "absolute z-10 flex items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
-          variant === "header"
-            ? "top-1/2 right-2 -translate-y-1/2"
-            : "top-1 right-2",
+          "top-1/2 right-2 -translate-y-1/2",
           hasActiveSectionAction
             ? "opacity-100 pointer-events-auto"
-            : variant === "header"
-              ? "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100"
-              : "pointer-events-none opacity-0 group-hover/headerless:pointer-events-auto group-hover/headerless:opacity-100",
+            : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
         )}
       >
         {onStageAll && (
@@ -706,12 +703,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   };
 
   if (hideHeader) {
-    return (
-      <div className="group/headerless relative w-full">
-        {content}
-        {renderSectionActions("headerless")}
-      </div>
-    );
+    return <div className="w-full">{content}</div>;
   }
 
   return (
@@ -730,7 +722,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </span>
         </CollapsibleTrigger>
 
-        {renderSectionActions("header")}
+        {renderSectionActions()}
       </div>
 
       <CollapsibleContent>

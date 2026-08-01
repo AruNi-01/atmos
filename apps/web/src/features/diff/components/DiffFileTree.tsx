@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Binary, ChevronRight } from "lucide-react";
 import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
@@ -26,7 +26,6 @@ interface DiffFileTreeProps {
   indentOffset?: number;
   style?: React.CSSProperties;
   isFileActionActive?: (path: string) => boolean;
-  isDirectoryActionActive?: (items: DiffFileTreeItem[]) => boolean;
   renderFileActions?: (item: DiffFileTreeItem) => React.ReactNode;
   renderDirectoryActions?: (items: DiffFileTreeItem[]) => React.ReactNode;
   renderDirectoryDecoration?: (items: DiffFileTreeItem[]) => React.ReactNode;
@@ -313,8 +312,8 @@ interface DiffFileTreeRowProps {
   row: TreeRow;
   indentOffset: number;
   isSelected: boolean;
+  isHovered: boolean;
   isActionActive: boolean;
-  isDirectoryActionsVisible: boolean;
   actions: React.ReactNode;
   directoryActions: React.ReactNode;
   decoration: React.ReactNode;
@@ -324,14 +323,15 @@ interface DiffFileTreeRowProps {
   onToggleDirectory: (path: string) => void;
   onSelectFile: (path: string) => void;
   onDoubleClickFile?: (path: string) => void;
+  onHover: (path: string) => void;
 }
 
 function DiffFileTreeRow({
   row,
   indentOffset,
   isSelected,
+  isHovered,
   isActionActive,
-  isDirectoryActionsVisible,
   actions,
   directoryActions,
   decoration,
@@ -341,6 +341,7 @@ function DiffFileTreeRow({
   onToggleDirectory,
   onSelectFile,
   onDoubleClickFile,
+  onHover,
 }: DiffFileTreeRowProps) {
   const file = row.type === "file" ? row.file : undefined;
   const { nameRef, countsRef, shouldHideCounts } =
@@ -362,6 +363,7 @@ function DiffFileTreeRow({
   return (
     <div
       role="treeitem"
+      data-diff-file-path={file?.path}
       aria-selected={isSelected || undefined}
       aria-expanded={
         row.type === "directory" ? openDirectories.has(row.path) : undefined
@@ -393,6 +395,7 @@ function DiffFileTreeRow({
           onDoubleClickFile?.(row.path);
         }
       }}
+      onMouseEnter={() => onHover(row.id)}
     >
       {row.type === "directory" ? (
         <>
@@ -410,22 +413,15 @@ function DiffFileTreeRow({
               className={cn(
                 "ml-auto flex shrink-0 items-center justify-end transition-opacity",
                 directoryActions &&
-                  (isDirectoryActionsVisible
-                    ? "invisible"
-                    : "group-hover/file:invisible"),
+                  (isHovered ? "invisible" : undefined),
               )}
             >
               {directoryDecoration ?? defaultDirectoryDecorationNode}
             </div>
           ) : null}
-          {directoryActions ? (
+          {directoryActions && isHovered ? (
             <div
-              className={cn(
-                "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
-                isDirectoryActionsVisible
-                  ? "opacity-100 pointer-events-auto"
-                  : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
-              )}
+              className="absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95"
             >
               {directoryActions}
             </div>
@@ -480,7 +476,6 @@ export function DiffFileTree({
   indentOffset = 0,
   style,
   isFileActionActive,
-  isDirectoryActionActive,
   renderFileActions,
   renderDirectoryActions,
   renderDirectoryDecoration,
@@ -493,10 +488,20 @@ export function DiffFileTree({
   const [openDirectories, setOpenDirectories] = useState(() =>
     getInitialOpenDirectories(root),
   );
+  const [hoveredRowPath, setHoveredRowPath] = useState<string | null>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
   const rows = useMemo(
     () => buildRows(root, openDirectories),
     [openDirectories, root],
   );
+
+  useEffect(() => {
+    if (!selectedPath) return;
+    const selectedRow = Array.from(
+      treeRef.current?.querySelectorAll<HTMLElement>("[data-diff-file-path]") ?? [],
+    ).find((row) => row.dataset.diffFilePath === selectedPath);
+    selectedRow?.scrollIntoView({ block: "nearest" });
+  }, [rows, selectedPath]);
 
   const toggleDirectory = (path: string) => {
     setOpenDirectories((current) => {
@@ -512,10 +517,12 @@ export function DiffFileTree({
 
   return (
     <div
+      ref={treeRef}
       role="tree"
       aria-label={ariaLabel}
       className={cn("w-full overflow-y-auto pr-1", className)}
       style={style}
+      onMouseLeave={() => setHoveredRowPath(null)}
     >
       <AnimatePresence>
       {rows.map((row) => {
@@ -525,10 +532,6 @@ export function DiffFileTree({
           file && isFileActionActive ? isFileActionActive(row.path) : false;
         const directoryActions =
           !file && renderDirectoryActions ? renderDirectoryActions(row.files) : null;
-        const isDirectoryActionsVisible =
-          !file && isDirectoryActionActive
-            ? isDirectoryActionActive(row.files)
-            : false;
         const actions = file && renderFileActions ? renderFileActions(file) : null;
         const decoration =
           file
@@ -554,8 +557,8 @@ export function DiffFileTree({
               row={row}
               indentOffset={indentOffset}
               isSelected={isSelected}
+              isHovered={hoveredRowPath === row.id}
               isActionActive={isActionActive}
-              isDirectoryActionsVisible={isDirectoryActionsVisible}
               actions={actions}
               directoryActions={directoryActions}
               decoration={decoration}
@@ -565,6 +568,7 @@ export function DiffFileTree({
               onToggleDirectory={toggleDirectory}
               onSelectFile={onSelectFile}
               onDoubleClickFile={onDoubleClickFile}
+              onHover={setHoveredRowPath}
             />
           </motion.div>
         );

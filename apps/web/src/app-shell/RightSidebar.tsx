@@ -136,6 +136,7 @@ interface ChangesScopeState {
   scope: ChangesDiffScope;
   selectedCommitHash: string | null;
   menuOpen: boolean;
+  autoSelectScope: boolean;
 }
 
 function defaultChangesScopeState(key: string): ChangesScopeState {
@@ -144,6 +145,7 @@ function defaultChangesScopeState(key: string): ChangesScopeState {
     scope: "branch",
     selectedCommitHash: null,
     menuOpen: false,
+    autoSelectScope: true,
   };
 }
 
@@ -290,6 +292,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const stagedFiles = worktreeQuery.data?.staged_files ?? EMPTY_CHANGED_FILES;
   const unstagedFiles = worktreeQuery.data?.unstaged_files ?? EMPTY_CHANGED_FILES;
   const untrackedFiles = worktreeQuery.data?.untracked_files ?? EMPTY_CHANGED_FILES;
+  const preferredChangesScope: Exclude<ChangesDiffScope, "commit"> =
+    unstagedFiles.length > 0 || untrackedFiles.length > 0
+      ? "unstaged"
+      : stagedFiles.length > 0
+        ? "staged"
+        : "branch";
   const { files: compareFiles, compareRef } = selectCompareChangedFiles(compareQuery.data);
   const { files: branchRecommendationFiles } = selectCompareChangedFiles(
     branchRecommendationQuery.data,
@@ -396,7 +404,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     changesScopeState.key === changesScopeKey
       ? changesScopeState
       : defaultChangesScopeState(changesScopeKey);
-  const changesScope = activeChangesScopeState.scope;
+  const changesScope = activeChangesScopeState.autoSelectScope
+    ? preferredChangesScope
+    : activeChangesScopeState.scope;
   const selectedCommitHash = activeChangesScopeState.selectedCommitHash;
   const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
   useEffect(() => {
@@ -490,6 +500,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         scope,
         selectedCommitHash: null,
         menuOpen: false,
+        autoSelectScope: false,
       });
 
       if (scope === "branch") {
@@ -510,6 +521,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         scope: "commit",
         selectedCommitHash: commitHash,
         menuOpen: false,
+        autoSelectScope: false,
       });
       setHasVisitedCommits(true);
       void compareAgainstRef(commitHash);
@@ -821,6 +833,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           }
                           files={displayedComparedFiles}
                           workspaceId={workspaceId}
+                          contextId={contextId}
                           viewMode={changesFileViewMode}
                           hideHeader
                         />
@@ -830,6 +843,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                           title={t("rightSidebar.changes.stagedChanges")}
                           files={displayedStagedFiles}
                           workspaceId={workspaceId}
+                          contextId={contextId}
                           viewMode={changesFileViewMode}
                           hideHeader
                           onUnstage={unstageFiles}
@@ -842,6 +856,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             title={t("rightSidebar.changes.unstagedChanges")}
                             files={displayedUnstagedFiles}
                             workspaceId={workspaceId}
+                            contextId={contextId}
                             viewMode={changesFileViewMode}
                             hideHeader
                             onStage={stageFiles}
@@ -854,6 +869,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             title={t("rightSidebar.changes.untrackedChanges")}
                             files={displayedUntrackedFiles}
                             workspaceId={workspaceId}
+                            contextId={contextId}
                             viewMode={changesFileViewMode}
                             hideHeader
                             onStage={stageFiles}
