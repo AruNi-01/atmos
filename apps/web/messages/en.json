@@ -1882,6 +1882,73 @@
         "create": "Create Automation",
         "update": "Update Automation"
       }
+    },
+    "schedule": {
+      "triggerOptions": {
+        "manual": {
+          "label": "Manual",
+          "description": "Run only when you trigger it."
+        },
+        "github": {
+          "label": "GitHub",
+          "description": "Run from GitHub events."
+        },
+        "hourly": {
+          "label": "Hourly",
+          "description": "Run once every hour."
+        },
+        "daily": {
+          "label": "Daily",
+          "description": "Run once per day."
+        },
+        "weekly": {
+          "label": "Weekly",
+          "description": "Run on selected weekdays."
+        },
+        "monthly": {
+          "label": "Monthly",
+          "description": "Run on a day each month."
+        },
+        "cron": {
+          "label": "Cron",
+          "description": "Use a custom cron expression."
+        }
+      },
+      "days": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      }
+    },
+    "validation": {
+      "displayNameRequired": "Enter a name for this automation.",
+      "instructionsRequired": "Enter instructions for the agent.",
+      "supportedAgentRequired": "Select an agent that supports automations.",
+      "targetRequired": "Choose a valid environment target.",
+      "scheduleRequired": "Configure a valid schedule.",
+      "completeRequiredFields": "Complete the required fields to continue."
+    },
+    "artifacts": {
+      "openedPathTitle": "Opened path",
+      "failedToOpenPathTitle": "Failed to open path",
+      "unknownError": "Unknown error"
+    },
+    "githubRelay": {
+      "errors": {
+        "connectComputerBeforeSetup": "Connect a computer with Relay before setting up GitHub triggers.",
+        "connectComputerBeforeSync": "Connect a computer with Relay before syncing the GitHub route.",
+        "connectComputerBeforeRemove": "Connect a computer with Relay before removing the GitHub route.",
+        "accessTokenMissing": "Relay access token is missing."
+      }
+    },
+    "runHistory": {
+      "failedToLoadTitle": "Failed to load run history",
+      "failedToFetchArtifactTitle": "Failed to load artifact",
+      "unknownError": "Unknown error"
     }
   },
   "project": {
@@ -3843,6 +3910,11 @@
       "syncFailedTitle": "Settings Sync Failed",
       "budgetFailed": "Failed to update the side chat context budget."
     },
+    "terminalRichInputSettingsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "enabledFailed": "Failed to update Terminal Rich Input.",
+      "triggerBarFailed": "Failed to update the Rich Input trigger bar."
+    },
     "notificationStore": {
       "unknownError": "Unknown error"
     },
@@ -5363,11 +5435,6 @@
         "title": "Project Wiki (Center Tabs)",
         "description": "Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base."
       }
-    },
-    "terminalRichInputSettingsStore": {
-      "syncFailedTitle": "Settings Sync Failed",
-      "enabledFailed": "Failed to update Terminal Rich Input.",
-      "triggerBarFailed": "Failed to update the Rich Input trigger bar."
     }
   },
   "agent": {

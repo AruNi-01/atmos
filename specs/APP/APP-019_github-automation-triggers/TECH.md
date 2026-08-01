@@ -295,10 +295,13 @@ interface ExternalEventAckEnvelope {
 interface GithubTriggerAck {
   delivery_id: string;
   route_id: string;
-  status: "accepted" | "local_rejected" | "error";
+  /** APP-051: accept-on-persist uses `accepted` | `error` only. */
+  status: "accepted" | "error" | "local_rejected"; // local_rejected = legacy
   error_code?: string;
 }
 ```
+
+**Accept-on-persist (APP-051):** The local server ACKs `accepted` after the delivery is written to the durable `queue_event` table — **not** after domain matching or `start_run`. A worker then runs `handle_external_trigger` with internal retries. Domain outcomes (`LocalRejected` for filter mismatch, disabled trigger, etc.) complete the queue event without changing the already-sent provider ACK. `error` is reserved for accept-path failures (decode / persist). See APP-051 TECH for queue semantics.
 
 `event-dispatch.ts` should call the `ServerHub` Durable Object through an internal Worker-to-DO stub method, not a public HTTP route. The DO does not need to understand GitHub semantics. It only checks whether a server socket exists and sends the envelope. If a test-only HTTP dispatch route is added for local development, it must require a separate `RELAY_INTERNAL_SECRET` and be disabled in production.
 
@@ -313,9 +316,9 @@ Add:
 Responsibilities:
 
 - Parse `GithubTriggerEnvelope`.
-- Call `AutomationService::handle_external_trigger`.
-- Return `ExternalEventAckEnvelope` so Relay can mark the delivery as `accepted`, `local_rejected`, or `error`.
-- Ensure ack failure does not start a second run. The local run decision is based on idempotent validation and APP-017 same-automation concurrency, not on whether the ack reaches Relay.
+- **Persist** to the durable event queue and ACK `accepted` (or `error` if accept fails).
+- Domain match / `start_run` runs in the queue worker (`handle_external_trigger`), not on the ACK path.
+- Ensure delivery claim idempotency: unfinished claims (`claimed` without `run_guid`) are recovered on retry rather than treated as permanent duplicates.
 
 The browser/client WebSocket protocol still owns UI setup actions. Relay transport adaptation stays in `apps/api/src/relay`, while user-facing automation DTOs stay in `apps/api/src/api/ws`.
 

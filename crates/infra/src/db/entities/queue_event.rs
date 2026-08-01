@@ -1,3 +1,9 @@
+//! Durable queue row for third-party trigger events (APP-051).
+//!
+//! Intentionally **not** a soft-delete `BaseEntity`: this is an operational log
+//! (like `automation_github_delivery_claim`). Terminal rows are hard-deleted by
+//! retention cleanup; soft-delete would fight that lifecycle.
+
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

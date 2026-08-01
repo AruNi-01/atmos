@@ -62,10 +62,20 @@ pub enum QueueError {
     ShuttingDown,
     #[error("topic already has a consumer: {0}")]
     ConsumerExists(String),
+    /// Transient handler failure — requeue with backoff until max attempts.
     #[error("queue consumer error: {0}")]
     Handler(String),
+    /// Permanent handler failure — mark failed immediately, no retries.
+    #[error("queue permanent error: {0}")]
+    Permanent(String),
     #[error("queue internal error: {0}")]
     Internal(String),
+}
+
+impl QueueError {
+    pub fn is_permanent(&self) -> bool {
+        matches!(self, Self::Permanent(_))
+    }
 }
 
 /// Well-known product topics (APP-051 catalog).

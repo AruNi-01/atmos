@@ -207,7 +207,15 @@ GitHub trigger dispatch uses a server-directed system envelope:
 }
 ```
 
-The server replies with `stream: "system"` / `kind: "external_event_ack"` and a body containing `delivery_id`, `route_id`, and `status` (`accepted`, `local_rejected`, or `error`). Relay updates `github_webhook_deliveries` from that ack; it does not execute automation business logic.
+The server replies with `stream: "system"` / `kind: "external_event_ack"` and a body containing `delivery_id`, `route_id`, and `status`:
+
+| status | Meaning (APP-051 accept-on-persist) |
+|--------|--------------------------------------|
+| `accepted` | Local server **persisted** the delivery for internal processing. Not a guarantee that a run started. Domain rejects (disabled automation, filter mismatch, etc.) complete inside the queue worker and do **not** re-ACK as `local_rejected`. |
+| `error` | Could not accept (invalid payload, local queue/DB failure). Provider may redeliver per GitHub policy. |
+| `local_rejected` | **Legacy** only — older servers may still emit this for synchronous domain rejects. Relay still accepts it for D1 updates. |
+
+Relay updates `github_webhook_deliveries` from that ack; it does not execute automation business logic.
 
 ## `apps/web`
 

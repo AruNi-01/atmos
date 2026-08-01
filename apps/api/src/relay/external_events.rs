@@ -55,15 +55,15 @@ pub struct ExternalEventAck {
     status: ExternalEventAckStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     error_code: Option<String>,
-    /// Durable queue event id when status is Accepted.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    queue_event_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum ExternalEventAckStatus {
-    /// Event was persisted for internal processing.
+    /// Event was persisted for internal processing (accept-on-persist).
+    /// Domain match / start_run happens asynchronously in the queue worker.
+    /// `local_rejected` is no longer used on this path — domain rejects complete
+    /// the queue event without asking the provider to redeliver.
     Accepted,
     Error,
 }
@@ -83,7 +83,6 @@ pub async fn handle_external_event_body(state: &AppState, body: &str) -> Option<
                     route_id,
                     status: ExternalEventAckStatus::Error,
                     error_code: Some("invalid_external_event".to_string()),
-                    queue_event_id: None,
                 })
             });
         }
@@ -93,21 +92,31 @@ pub async fn handle_external_event_body(state: &AppState, body: &str) -> Option<
     let route_id = event.route_id.clone();
 
     match accept_github_trigger(state, event).await {
-        Ok(queue_event_id) => serialize_ack(ExternalEventAck {
-            delivery_id,
-            route_id,
-            status: ExternalEventAckStatus::Accepted,
-            error_code: None,
-            queue_event_id: Some(queue_event_id),
-        }),
+        Ok(queue_event_id) => {
+            debug_queue_accepted(&delivery_id, &queue_event_id);
+            serialize_ack(ExternalEventAck {
+                delivery_id,
+                route_id,
+                status: ExternalEventAckStatus::Accepted,
+                error_code: None,
+            })
+        }
         Err(error) => serialize_ack(ExternalEventAck {
             delivery_id,
             route_id,
             status: ExternalEventAckStatus::Error,
             error_code: Some(service_error_code(&error).to_string()),
-            queue_event_id: None,
         }),
     }
+}
+
+fn debug_queue_accepted(delivery_id: &str, queue_event_id: &str) {
+    tracing::debug!(
+        target: "atmos_relay",
+        delivery_id = %delivery_id,
+        queue_event_id = %queue_event_id,
+        "github external event accepted into durable queue"
+    );
 }
 
 /// Payload stored in the durable queue (no reply channel — ACK is accept-only).

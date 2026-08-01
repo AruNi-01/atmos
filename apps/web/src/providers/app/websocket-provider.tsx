@@ -43,8 +43,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       return;
     }
 
-    // 应用启动时建立连接
-    connect();
+    // Bootstrap / target-switch may cancel an in-flight connect; that is not a failure.
+    void connect().catch(() => undefined);
 
     // 页面可见性变化时的处理
     const handleVisibilityChange = () => {
@@ -52,7 +52,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         // 页面变为可见时，检查并重新连接
         const state = useWebSocketStore.getState();
         if (shouldConnect && state.connectionState === 'disconnected') {
-          connect();
+          void connect().catch(() => undefined);
         }
       }
     };
@@ -61,7 +61,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     const handleOnline = () => {
       const state = useWebSocketStore.getState();
       if (shouldConnect && state.connectionState === 'disconnected') {
-        connect();
+        void connect().catch(() => undefined);
       }
     };
 

@@ -1882,6 +1882,73 @@
         "create": "创建自动化",
         "update": "更新自动化"
       }
+    },
+    "schedule": {
+      "triggerOptions": {
+        "manual": {
+          "label": "手动",
+          "description": "仅在你主动触发时运行。"
+        },
+        "github": {
+          "label": "GitHub",
+          "description": "由 GitHub 事件触发运行。"
+        },
+        "hourly": {
+          "label": "每小时",
+          "description": "每小时运行一次。"
+        },
+        "daily": {
+          "label": "每天",
+          "description": "每天运行一次。"
+        },
+        "weekly": {
+          "label": "每周",
+          "description": "在选定的星期几运行。"
+        },
+        "monthly": {
+          "label": "每月",
+          "description": "每月某一天运行。"
+        },
+        "cron": {
+          "label": "Cron",
+          "description": "使用自定义 Cron 表达式。"
+        }
+      },
+      "days": {
+        "sunday": "周日",
+        "monday": "周一",
+        "tuesday": "周二",
+        "wednesday": "周三",
+        "thursday": "周四",
+        "friday": "周五",
+        "saturday": "周六"
+      }
+    },
+    "validation": {
+      "displayNameRequired": "请输入自动化名称。",
+      "instructionsRequired": "请输入给 Agent 的指令。",
+      "supportedAgentRequired": "请选择支持自动化的 Agent。",
+      "targetRequired": "请选择有效的运行环境。",
+      "scheduleRequired": "请配置有效的计划。",
+      "completeRequiredFields": "请填写必填项后再继续。"
+    },
+    "artifacts": {
+      "openedPathTitle": "已打开路径",
+      "failedToOpenPathTitle": "打开路径失败",
+      "unknownError": "未知错误"
+    },
+    "githubRelay": {
+      "errors": {
+        "connectComputerBeforeSetup": "设置 GitHub 触发器前，请先连接已配置 Relay 的计算机。",
+        "connectComputerBeforeSync": "同步 GitHub 路由前，请先连接已配置 Relay 的计算机。",
+        "connectComputerBeforeRemove": "移除 GitHub 路由前，请先连接已配置 Relay 的计算机。",
+        "accessTokenMissing": "缺少 Relay 访问令牌。"
+      }
+    },
+    "runHistory": {
+      "failedToLoadTitle": "加载运行历史失败",
+      "failedToFetchArtifactTitle": "加载产物失败",
+      "unknownError": "未知错误"
     }
   },
   "project": {
@@ -3843,6 +3910,11 @@
       "syncFailedTitle": "设置同步失败",
       "budgetFailed": "更新 side chat 上下文预算失败。"
     },
+    "terminalRichInputSettingsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "enabledFailed": "更新 Terminal Rich Input 失败。",
+      "triggerBarFailed": "更新 Rich Input 触发条失败。"
+    },
     "notificationStore": {
       "unknownError": "未知错误"
     },
@@ -5363,11 +5435,6 @@
         "title": "Project Wiki（Center Tabs）",
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
       }
-    },
-    "terminalRichInputSettingsStore": {
-      "syncFailedTitle": "设置同步失败",
-      "enabledFailed": "更新 Terminal Rich Input 失败。",
-      "triggerBarFailed": "更新 Rich Input 触发条失败。"
     }
   },
   "agent": {

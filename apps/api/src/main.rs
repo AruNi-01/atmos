@@ -28,7 +28,7 @@ use core_engine::TestEngine;
 use core_service::{
     AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, AutomationEvent,
     AutomationService, CanvasAgentRelay, CanvasDocumentService, GroupService, MessagePushService,
-    NotificationService, ProjectService, ReviewService, TerminalService, TestService,
+    NotificationService, ProjectService, ReviewService, ServiceError, TerminalService, TestService,
     WorkspaceService,
 };
 use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
@@ -499,9 +499,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // APP-051: GitHub events — durable queue worker (internal process + retry).
+    // Startup-critical: without a worker we would ACK+persist events that never run.
     {
         let automation_for_queue = Arc::clone(&automation_service);
-        if let Err(error) = event_queue
+        event_queue
             .subscribe_worker(Topic::new(topics::AUTOMATION_GITHUB_DELIVERY), move |msg| {
                 let automation_for_queue = Arc::clone(&automation_for_queue);
                 async move {
@@ -509,7 +510,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         crate::relay::external_events::GithubQueuePayload,
                     >(&msg.payload)
                     .map_err(|error| {
-                        QueueError::Handler(format!("invalid github queue payload: {error}"))
+                        // Corrupt / unsupported payload will not fix itself on retry.
+                        QueueError::Permanent(format!("invalid github queue payload: {error}"))
                     })?;
                     match automation_for_queue
                         .handle_external_trigger(payload.event)
@@ -524,6 +526,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             );
                             Ok(())
                         }
+                        // Validation / not-found are permanent domain outcomes.
+                        Err(error @ ServiceError::Validation(_))
+                        | Err(error @ ServiceError::NotFound(_)) => Err(QueueError::Permanent(
+                            format!("github delivery rejected: {error}"),
+                        )),
                         // Transient / infra errors → persistent queue retries.
                         Err(error) => Err(QueueError::Handler(format!(
                             "github delivery processing failed: {error}"
@@ -532,45 +539,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             })
             .await
-        {
-            warn!("Failed to start github delivery queue worker: {}", error);
-        }
+            .map_err(|error| format!("failed to start github delivery queue worker: {error}"))?;
     }
 
-    // Retention: drop succeeded/failed queue events older than 30 days (daily job).
+    // Retention: drop succeeded/failed queue events older than 30 days.
+    // fire_immediately: desktop sessions often restart before 24h elapses.
     {
         let queue_for_cleanup = Arc::clone(&event_queue);
-        if let Err(error) = jobs
-            .set_interval_job(
-                JobId::new("queue.event_cleanup"),
-                IntervalSpec {
-                    every: std::time::Duration::from_secs(24 * 60 * 60),
-                    skip_if_running: true,
-                    fire_immediately: false,
-                },
-                RetryPolicy::none(),
-                move || {
-                    let queue_for_cleanup = Arc::clone(&queue_for_cleanup);
-                    async move {
-                        let retention = std::time::Duration::from_secs(30 * 24 * 60 * 60);
-                        match queue_for_cleanup.cleanup_older_than(retention).await {
-                            Ok(deleted) => {
-                                if deleted > 0 {
-                                    info!(deleted, "queue event cleanup removed old rows");
-                                }
-                                Ok(())
+        jobs.set_interval_job(
+            JobId::new("queue.event_cleanup"),
+            IntervalSpec {
+                every: std::time::Duration::from_secs(24 * 60 * 60),
+                skip_if_running: true,
+                fire_immediately: true,
+            },
+            RetryPolicy::none(),
+            move || {
+                let queue_for_cleanup = Arc::clone(&queue_for_cleanup);
+                async move {
+                    let retention = std::time::Duration::from_secs(30 * 24 * 60 * 60);
+                    match queue_for_cleanup.cleanup_older_than(retention).await {
+                        Ok(deleted) => {
+                            if deleted > 0 {
+                                info!(deleted, "queue event cleanup removed old rows");
                             }
-                            Err(error) => Err(JobError::Retryable(format!(
-                                "queue event cleanup failed: {error}"
-                            ))),
+                            Ok(())
                         }
+                        // RetryPolicy::none — Fatal logs once until the next daily tick.
+                        Err(error) => Err(JobError::Fatal(format!(
+                            "queue event cleanup failed: {error}"
+                        ))),
                     }
-                },
-            )
-            .await
-        {
-            warn!("Failed to register queue event cleanup job: {}", error);
-        }
+                }
+            },
+        )
+        .await
+        .map_err(|error| format!("failed to register queue event cleanup job: {error}"))?;
     }
 
     // Inject WsManager into WsMessageService for server-to-client notifications

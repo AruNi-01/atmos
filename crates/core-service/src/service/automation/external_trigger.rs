@@ -136,12 +136,24 @@ impl AutomationService {
                 automation_guid: automation.guid.clone(),
             })
             .await?;
-        if matches!(delivery_claim, GithubDeliveryClaimResult::AlreadyClaimed(_)) {
-            return Ok(local_rejected(
-                &event,
-                ExternalTriggerRejectReason::DuplicateDelivery,
-                "GitHub delivery was already processed for this route.",
-            ));
+        // Unfinished claim (status=claimed, no run_guid) means we crashed after
+        // claiming but before start_run / associate. Recover and continue instead
+        // of treating it as a permanent DuplicateDelivery (which would drop the
+        // already-ACKed queue event as succeeded).
+        match delivery_claim {
+            GithubDeliveryClaimResult::Claimed(_) => {}
+            GithubDeliveryClaimResult::AlreadyClaimed(existing)
+                if existing.run_guid.is_none() && existing.status == "claimed" =>
+            {
+                // Resume ownership of the incomplete claim.
+            }
+            GithubDeliveryClaimResult::AlreadyClaimed(_) => {
+                return Ok(local_rejected(
+                    &event,
+                    ExternalTriggerRejectReason::DuplicateDelivery,
+                    "GitHub delivery was already processed for this route.",
+                ));
+            }
         }
 
         if repo

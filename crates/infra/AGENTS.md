@@ -31,7 +31,7 @@ crates/infra/
 | Driver | Port | Use for |
 |--------|------|---------|
 | Time (interval) | `infra::jobs` (`LocalScheduler`) | Product timers: automation tick, AI usage refresh, idle cleanup |
-| External events | `infra::queue` (`LocalMemoryQueue`) | GitHub delivery → consumer |
+| External events | `infra::queue` (`LocalPersistentQueue` / `LocalMemoryQueue`) | GitHub delivery → durable worker (persist-on-accept); memory for droppable buffers |
 | Interactive user action | **Direct service call** | Manual automation run — never jobs/queue |
 
 v1 adapters are **process-local only** (Tokio). No apalis / external MQ in default deps.
@@ -69,4 +69,5 @@ v1 adapters are **process-local only** (Tokio). No apalis / external MQ in defau
 ### ALWAYS
 - Keep entities inheriting from `base.rs`
 - Use Repository pattern to abstract SeaORM
-- Register product timers via `LocalScheduler`; event work via `LocalMemoryQueue`
+- Register product timers via `LocalScheduler`; durable third-party events via `LocalPersistentQueue` (`QueueEventRepo`); droppable buffers via `LocalMemoryQueue`
+- `queue_event` is an operational log (hard-delete retention), not a soft-delete `BaseEntity` — same class as `automation_github_delivery_claim`

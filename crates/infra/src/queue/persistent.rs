@@ -3,6 +3,8 @@
 //! Persist-on-accept: `enqueue` writes a row before the caller ACKs the provider.
 //! Workers claim `pending` rows, run handlers, and retry on failure until max attempts.
 //! [`super::LocalMemoryQueue`] remains available for process-local, droppable buffering.
+//!
+//! DB access goes through [`crate::db::repo::QueueEventRepo`].
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -11,21 +13,25 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{Duration as ChronoDuration, Utc};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
-};
+use sea_orm::DatabaseConnection;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
-use crate::db::entities::queue_event::{self, status as event_status};
+use crate::db::entities::queue_event;
+use crate::db::repo::QueueEventRepo;
 
 use super::types::{EnqueueError, QueueError, QueueMessage, Topic};
 
 const DEFAULT_MAX_ATTEMPTS: i32 = 5;
 const POLL_IDLE: Duration = Duration::from_millis(250);
-const MAX_BACKOFF_SECS: i64 = 300;
+/// While a worker is running, reclaim `processing` rows older than this (crash mid-handler).
+const STALE_PROCESSING_LEASE: ChronoDuration = ChronoDuration::minutes(10);
+/// How often the worker reclaims stale processing rows during idle polls.
+const STALE_RECLAIM_EVERY: Duration = Duration::from_secs(60);
+const FINALIZE_RETRIES: u32 = 5;
+const FINALIZE_RETRY_DELAY: Duration = Duration::from_millis(100);
 
 type DynHandler = Arc<
     dyn Fn(QueueMessage) -> std::pin::Pin<Box<dyn Future<Output = Result<(), QueueError>> + Send>>
@@ -54,7 +60,9 @@ impl LocalPersistentQueue {
     }
 
     pub fn with_max_attempts(mut self, max_attempts: u32) -> Self {
-        self.default_max_attempts = max_attempts.max(1) as i32;
+        // Column is signed INTEGER; clamp so we never wrap to a negative limit.
+        let clamped = max_attempts.clamp(1, i32::MAX as u32) as i32;
+        self.default_max_attempts = clamped;
         self
     }
 
@@ -64,26 +72,14 @@ impl LocalPersistentQueue {
             return Err(EnqueueError::ShuttingDown);
         }
 
-        let now = Utc::now().naive_utc();
         let guid = Uuid::new_v4().to_string();
-        let model = queue_event::ActiveModel {
-            guid: Set(guid.clone()),
-            created_at: Set(now),
-            updated_at: Set(now),
-            topic: Set(topic.as_str().to_string()),
-            payload: Set(payload),
-            status: Set(event_status::PENDING.to_string()),
-            attempts: Set(0),
-            max_attempts: Set(self.default_max_attempts),
-            last_error: Set(None),
-            available_at: Set(now),
-            processed_at: Set(None),
-        };
-
-        model.insert(&self.db).await.map_err(|error| {
-            warn!(error = %error, "persistent queue enqueue failed");
-            EnqueueError::Internal(format!("persist enqueue failed: {error}"))
-        })?;
+        QueueEventRepo::new(&self.db)
+            .insert_pending(&guid, topic.as_str(), payload, self.default_max_attempts)
+            .await
+            .map_err(|error| {
+                warn!(error = %error, "persistent queue enqueue failed");
+                EnqueueError::Internal(format!("persist enqueue failed: {error}"))
+            })?;
 
         debug!(topic = %topic, guid = %guid, "persistent queue enqueued");
         self.notify.notify_waiters();
@@ -105,7 +101,9 @@ impl LocalPersistentQueue {
             return Err(QueueError::ConsumerExists(topic.as_str().to_string()));
         }
 
-        self.requeue_stuck_processing(topic.as_str()).await?;
+        // Crash recovery: reclaim all processing rows for this topic immediately.
+        self.requeue_stale_processing(topic.as_str(), ChronoDuration::zero())
+            .await?;
 
         let dyn_handler: DynHandler = Arc::new(move |msg| {
             let fut = handler(msg);
@@ -118,9 +116,35 @@ impl LocalPersistentQueue {
         let topic_for_task = topic.as_str().to_string();
 
         let handle = tokio::spawn(async move {
+            let mut last_stale_reclaim = tokio::time::Instant::now();
             loop {
                 if shutting_down.load(Ordering::SeqCst) {
                     break;
+                }
+
+                if last_stale_reclaim.elapsed() >= STALE_RECLAIM_EVERY {
+                    let repo = QueueEventRepo::new(&db);
+                    match repo
+                        .requeue_stale_processing(&topic_for_task, STALE_PROCESSING_LEASE)
+                        .await
+                    {
+                        Ok(n) if n > 0 => {
+                            warn!(
+                                topic = %topic_for_task,
+                                count = n,
+                                "requeued stale processing queue events"
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            warn!(
+                                topic = %topic_for_task,
+                                error = %error,
+                                "stale processing reclaim failed"
+                            );
+                        }
+                    }
+                    last_stale_reclaim = tokio::time::Instant::now();
                 }
 
                 match claim_next(&db, &topic_for_task).await {
@@ -132,24 +156,10 @@ impl LocalPersistentQueue {
                         };
                         match dyn_handler(msg).await {
                             Ok(()) => {
-                                if let Err(error) = mark_succeeded(&db, &model.guid).await {
-                                    warn!(
-                                        guid = %model.guid,
-                                        error = %error,
-                                        "failed to mark queue event succeeded"
-                                    );
-                                }
+                                finalize_succeeded(&db, &model.guid).await;
                             }
                             Err(error) => {
-                                if let Err(mark_error) =
-                                    mark_failure(&db, &model, error.to_string()).await
-                                {
-                                    warn!(
-                                        guid = %model.guid,
-                                        error = %mark_error,
-                                        "failed to mark queue event failure"
-                                    );
-                                }
+                                finalize_failure(&db, &model, error).await;
                             }
                         }
                     }
@@ -172,27 +182,20 @@ impl LocalPersistentQueue {
         Ok(())
     }
 
-    async fn requeue_stuck_processing(&self, topic: &str) -> Result<(), QueueError> {
-        let now = Utc::now().naive_utc();
-        let result = queue_event::Entity::update_many()
-            .col_expr(
-                queue_event::Column::Status,
-                sea_orm::sea_query::Expr::value(event_status::PENDING),
-            )
-            .col_expr(
-                queue_event::Column::UpdatedAt,
-                sea_orm::sea_query::Expr::value(now),
-            )
-            .filter(queue_event::Column::Topic.eq(topic))
-            .filter(queue_event::Column::Status.eq(event_status::PROCESSING))
-            .exec(&self.db)
+    async fn requeue_stale_processing(
+        &self,
+        topic: &str,
+        stale_after: ChronoDuration,
+    ) -> Result<(), QueueError> {
+        let count = QueueEventRepo::new(&self.db)
+            .requeue_stale_processing(topic, stale_after)
             .await
             .map_err(|e| QueueError::Internal(e.to_string()))?;
-        if result.rows_affected > 0 {
+        if count > 0 {
             warn!(
                 topic = %topic,
-                count = result.rows_affected,
-                "requeued stuck processing queue events after restart"
+                count,
+                "requeued stuck processing queue events"
             );
         }
         Ok(())
@@ -202,21 +205,14 @@ impl LocalPersistentQueue {
     pub async fn cleanup_older_than(&self, retention: Duration) -> Result<u64, QueueError> {
         let cutoff = Utc::now().naive_utc()
             - ChronoDuration::from_std(retention).unwrap_or_else(|_| ChronoDuration::days(30));
-        let result = queue_event::Entity::delete_many()
-            .filter(queue_event::Column::CreatedAt.lt(cutoff))
-            .filter(
-                queue_event::Column::Status.is_in([event_status::SUCCEEDED, event_status::FAILED]),
-            )
-            .exec(&self.db)
+        let deleted = QueueEventRepo::new(&self.db)
+            .delete_terminal_older_than(cutoff)
             .await
             .map_err(|e| QueueError::Internal(e.to_string()))?;
-        if result.rows_affected > 0 {
-            info!(
-                deleted = result.rows_affected,
-                "cleaned up old queue events"
-            );
+        if deleted > 0 {
+            info!(deleted, "cleaned up old queue events");
         }
-        Ok(result.rows_affected)
+        Ok(deleted)
     }
 
     pub async fn shutdown(&self) -> Result<(), QueueError> {
@@ -238,109 +234,95 @@ async fn claim_next(
     db: &DatabaseConnection,
     topic: &str,
 ) -> Result<Option<queue_event::Model>, QueueError> {
-    let now = Utc::now().naive_utc();
-    let candidate = queue_event::Entity::find()
-        .filter(queue_event::Column::Topic.eq(topic))
-        .filter(queue_event::Column::Status.eq(event_status::PENDING))
-        .filter(queue_event::Column::AvailableAt.lte(now))
-        .order_by_asc(queue_event::Column::AvailableAt)
-        .order_by_asc(queue_event::Column::CreatedAt)
-        .one(db)
+    QueueEventRepo::new(db)
+        .claim_next(topic)
         .await
-        .map_err(|e| QueueError::Internal(e.to_string()))?;
-
-    let Some(model) = candidate else {
-        return Ok(None);
-    };
-
-    let attempts = model.attempts + 1;
-    let updated = queue_event::ActiveModel {
-        guid: Set(model.guid.clone()),
-        status: Set(event_status::PROCESSING.to_string()),
-        attempts: Set(attempts),
-        updated_at: Set(now),
-        ..Default::default()
-    }
-    .update(db)
-    .await
-    .map_err(|e| QueueError::Internal(e.to_string()))?;
-
-    // Ensure we only process if still ours — single-process is enough for v1.
-    if updated.status != event_status::PROCESSING {
-        return Ok(None);
-    }
-
-    Ok(Some(updated))
+        .map_err(|e| QueueError::Internal(e.to_string()))
 }
 
-async fn mark_succeeded(db: &DatabaseConnection, guid: &str) -> Result<(), QueueError> {
-    let now = Utc::now().naive_utc();
-    queue_event::ActiveModel {
-        guid: Set(guid.to_string()),
-        status: Set(event_status::SUCCEEDED.to_string()),
-        last_error: Set(None),
-        processed_at: Set(Some(now)),
-        updated_at: Set(now),
-        ..Default::default()
-    }
-    .update(db)
-    .await
-    .map_err(|e| QueueError::Internal(e.to_string()))?;
-    Ok(())
-}
-
-async fn mark_failure(
-    db: &DatabaseConnection,
-    model: &queue_event::Model,
-    error: String,
-) -> Result<(), QueueError> {
-    let now = Utc::now().naive_utc();
-    let attempts = model.attempts; // already incremented at claim
-    if attempts >= model.max_attempts {
-        queue_event::ActiveModel {
-            guid: Set(model.guid.clone()),
-            status: Set(event_status::FAILED.to_string()),
-            last_error: Set(Some(error)),
-            processed_at: Set(Some(now)),
-            updated_at: Set(now),
-            ..Default::default()
+/// Retry terminal succeed write; if still failing, release back to pending so the
+/// event is not stuck in `processing` until process restart.
+async fn finalize_succeeded(db: &DatabaseConnection, guid: &str) {
+    let repo = QueueEventRepo::new(db);
+    for attempt in 1..=FINALIZE_RETRIES {
+        match repo.mark_succeeded(guid).await {
+            Ok(()) => return,
+            Err(error) => {
+                warn!(
+                    guid = %guid,
+                    attempt,
+                    error = %error,
+                    "failed to mark queue event succeeded"
+                );
+                tokio::time::sleep(FINALIZE_RETRY_DELAY * attempt).await;
+            }
         }
-        .update(db)
+    }
+    if let Err(error) = repo
+        .release_to_pending(guid, "finalize succeed failed after retries")
         .await
-        .map_err(|e| QueueError::Internal(e.to_string()))?;
+    {
+        warn!(
+            guid = %guid,
+            error = %error,
+            "failed to release queue event after succeed finalize failure"
+        );
+    }
+}
+
+async fn finalize_failure(db: &DatabaseConnection, model: &queue_event::Model, error: QueueError) {
+    let permanent = error.is_permanent();
+    let message = error.to_string();
+    let repo = QueueEventRepo::new(db);
+    for attempt in 1..=FINALIZE_RETRIES {
+        match repo.mark_failure(model, message.clone(), permanent).await {
+            Ok(()) => {
+                if permanent || model.attempts >= model.max_attempts {
+                    warn!(
+                        guid = %model.guid,
+                        attempts = model.attempts,
+                        permanent,
+                        "queue event permanently failed"
+                    );
+                } else {
+                    debug!(
+                        guid = %model.guid,
+                        attempts = model.attempts,
+                        "queue event requeued after failure"
+                    );
+                }
+                return;
+            }
+            Err(mark_error) => {
+                warn!(
+                    guid = %model.guid,
+                    attempt,
+                    error = %mark_error,
+                    "failed to mark queue event failure"
+                );
+                tokio::time::sleep(FINALIZE_RETRY_DELAY * attempt).await;
+            }
+        }
+    }
+    if let Err(release_error) = repo
+        .release_to_pending(
+            &model.guid,
+            &format!("finalize failure failed after retries; last handler error: {message}"),
+        )
+        .await
+    {
         warn!(
             guid = %model.guid,
-            attempts,
-            "queue event permanently failed after max attempts"
+            error = %release_error,
+            "failed to release queue event after failure finalize failure"
         );
-        return Ok(());
     }
-
-    let backoff_secs = (1_i64 << (attempts.saturating_sub(1).min(8))).min(MAX_BACKOFF_SECS);
-    let available_at = now + ChronoDuration::seconds(backoff_secs);
-    queue_event::ActiveModel {
-        guid: Set(model.guid.clone()),
-        status: Set(event_status::PENDING.to_string()),
-        last_error: Set(Some(error)),
-        available_at: Set(available_at),
-        updated_at: Set(now),
-        ..Default::default()
-    }
-    .update(db)
-    .await
-    .map_err(|e| QueueError::Internal(e.to_string()))?;
-    debug!(
-        guid = %model.guid,
-        attempts,
-        backoff_secs,
-        "queue event requeued after failure"
-    );
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::entities::queue_event::status as event_status;
     use crate::db::migration::Migrator;
     use sea_orm::Database;
     use sea_orm_migration::MigratorTrait;
@@ -388,8 +370,8 @@ mod tests {
 
         // Row should be succeeded
         tokio::time::sleep(Duration::from_millis(50)).await;
-        let row = queue_event::Entity::find_by_id(id)
-            .one(&queue.db)
+        let row = QueueEventRepo::new(&queue.db)
+            .find_by_guid(&id)
             .await
             .unwrap()
             .unwrap();
@@ -419,16 +401,76 @@ mod tests {
 
         let id = queue.enqueue(&topic, b"x".to_vec()).await.unwrap();
 
-        tokio::time::sleep(Duration::from_secs(3)).await;
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        let row = loop {
+            let row = QueueEventRepo::new(&queue.db)
+                .find_by_guid(&id)
+                .await
+                .unwrap()
+                .unwrap();
+            if row.status == event_status::FAILED {
+                break row;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                panic!(
+                    "queue event did not reach FAILED before deadline (status={})",
+                    row.status
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        };
         assert!(attempts.load(Ordering::SeqCst) >= 2);
-
-        let row = queue_event::Entity::find_by_id(id)
-            .one(&queue.db)
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(row.status, event_status::FAILED);
         assert!(row.last_error.as_deref().unwrap_or("").contains("boom"));
+
+        queue.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn permanent_failure_skips_retries() {
+        let db = test_db().await;
+        let queue = Arc::new(LocalPersistentQueue::new(db).with_max_attempts(5));
+        let topic = Topic::new("test.permanent");
+        let attempts = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let a = Arc::clone(&attempts);
+
+        queue
+            .subscribe_worker(topic.clone(), move |_msg| {
+                let a = Arc::clone(&a);
+                async move {
+                    a.fetch_add(1, Ordering::SeqCst);
+                    Err(QueueError::Permanent("bad payload".into()))
+                }
+            })
+            .await
+            .unwrap();
+
+        let id = queue.enqueue(&topic, b"x".to_vec()).await.unwrap();
+
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+        let row = loop {
+            let row = QueueEventRepo::new(&queue.db)
+                .find_by_guid(&id)
+                .await
+                .unwrap()
+                .unwrap();
+            if row.status == event_status::FAILED {
+                break row;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                panic!(
+                    "permanent failure did not mark FAILED before deadline (status={})",
+                    row.status
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        };
+        assert_eq!(attempts.load(Ordering::SeqCst), 1);
+        assert_eq!(row.attempts, 1);
+        assert!(row
+            .last_error
+            .as_deref()
+            .unwrap_or("")
+            .contains("bad payload"));
 
         queue.shutdown().await.unwrap();
     }
@@ -438,6 +480,7 @@ mod tests {
         let db = test_db().await;
         let queue = LocalPersistentQueue::new(db.clone());
         let old = Utc::now().naive_utc() - ChronoDuration::days(40);
+        use sea_orm::{ActiveModelTrait, Set};
         let model = queue_event::ActiveModel {
             guid: Set(Uuid::new_v4().to_string()),
             created_at: Set(old),
@@ -458,5 +501,32 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(deleted, 1);
+    }
+
+    #[tokio::test]
+    async fn with_max_attempts_clamps_to_i32() {
+        let db = test_db().await;
+        let queue = LocalPersistentQueue::new(db).with_max_attempts(u32::MAX);
+        assert_eq!(queue.default_max_attempts, i32::MAX);
+        let queue = LocalPersistentQueue::new(queue.db.clone()).with_max_attempts(0);
+        assert_eq!(queue.default_max_attempts, 1);
+    }
+
+    #[tokio::test]
+    async fn claim_is_conditional_on_pending() {
+        let db = test_db().await;
+        let repo = QueueEventRepo::new(&db);
+        let guid = Uuid::new_v4().to_string();
+        repo.insert_pending(&guid, "t", b"p".to_vec(), 3)
+            .await
+            .unwrap();
+
+        let first = repo.claim_next("t").await.unwrap().unwrap();
+        assert_eq!(first.guid, guid);
+        assert_eq!(first.status, event_status::PROCESSING);
+        assert_eq!(first.attempts, 1);
+
+        // Second claim should not re-take the processing row.
+        assert!(repo.claim_next("t").await.unwrap().is_none());
     }
 }

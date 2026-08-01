@@ -6,13 +6,10 @@ import { useShallow } from 'zustand/react/shallow';
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
   Input,
-  ScrollArea,
   Tabs,
   TabsContent,
   TabsList,
@@ -504,8 +501,8 @@ function HostedConnectionOnboarding({
     t('hosted.local.thisComputer');
 
   return (
-    <main className="flex size-full overflow-hidden bg-background px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-10">
-      <div className="mx-auto flex h-full w-full max-w-5xl min-h-0 flex-col items-center justify-start">
+    <main className="size-full overflow-y-auto bg-background px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-10">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-start pb-10">
         <div className="mx-auto mb-6 flex max-w-3xl shrink-0 flex-col items-center text-center sm:mb-8">
           <AtmosWordmark
             className="w-full"
@@ -519,341 +516,335 @@ function HostedConnectionOnboarding({
           </p>
         </div>
 
-        <Card className="mx-auto flex h-[min(42rem,calc(100dvh-14rem))] w-full max-w-3xl min-h-0 min-w-0 overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-[0_28px_90px_rgba(0,0,0,0.2)] backdrop-blur-md">
-          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit] p-5 sm:p-7">
-            <Tabs
-              value={activeTab}
-              onValueChange={value => setActiveTab(value as 'local' | 'remote')}
-              className="flex min-h-0 flex-1 flex-col space-y-7 overflow-hidden"
-            >
-              <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-lg border border-border/70 bg-muted/30 p-1">
-                <TabsTrigger value="local" className="gap-2 rounded-md text-sm">
-                  <Laptop className="size-4" />
-                  {t('hosted.tabs.local')}
-                </TabsTrigger>
-                <TabsTrigger value="remote" className="gap-2 rounded-md text-sm">
-                  <Server className="size-4" />
-                  {t('hosted.tabs.remote')}
-                </TabsTrigger>
-              </TabsList>
+        <div className="mx-auto w-full max-w-3xl min-w-0">
+          <Tabs
+            value={activeTab}
+            onValueChange={value => setActiveTab(value as 'local' | 'remote')}
+            className="flex flex-col space-y-7"
+          >
+            <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-lg border border-border/70 bg-muted/30 p-1">
+              <TabsTrigger value="local" className="gap-2 rounded-md text-sm">
+                <Laptop className="size-4" />
+                {t('hosted.tabs.local')}
+              </TabsTrigger>
+              <TabsTrigger value="remote" className="gap-2 rounded-md text-sm">
+                <Server className="size-4" />
+                {t('hosted.tabs.remote')}
+              </TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="local" className="mt-0 min-h-0 flex-1 overflow-hidden rounded-[inherit]">
-                <ScrollArea className="flex-1 min-h-0 rounded-[inherit]" scrollbarGutter>
-                  <div className="min-h-full space-y-4 pe-2 pb-4">
-                    <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                            <h2 className="text-base font-medium text-foreground">{t('hosted.local.title')}</h2>
-                            {localProbeState === 'available' ? (
-                              <Badge variant="secondary" className="gap-1">
-                                <CheckCircle2 className="size-3.5" />
-                                {t('hosted.local.status.available')}
-                              </Badge>
-                            ) : localProbeState === 'checking' ? (
-                              <Badge variant="secondary" className="gap-1">
-                                <LoaderCircle className="size-3.5 animate-spin" />
-                                {t('hosted.local.status.checking')}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">{t('hosted.local.status.notFound')}</Badge>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="ml-auto shrink-0"
-                            onClick={() => void onRefreshLocal()}
-                            disabled={localProbeState === 'checking' || busyAction !== null}
-                          >
-                            {localProbeState === 'checking' ? (
-                              <LoaderCircle className="mr-2 size-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="mr-2 size-4" />
-                            )}
-                            {t('hosted.local.checkAgain')}
-                          </Button>
-                        </div>
-                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {t('hosted.local.description')}
-                        </p>
-                        {localProbeState === 'unavailable' && localError ? (
-                          <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
-                            {localError}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {localProbeState === 'available' ? (
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground">{localComputerName}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {t('hosted.local.loopbackFoundAt', {
-                                provider: `${localApiConfig?.host}:${localApiConfig?.port}`,
-                              })}
-                            </p>
-                          </div>
-                          <Button onClick={() => void onConnectLocal()} disabled={busyAction === 'connect-local'}>
-                            {busyAction === 'connect-local' ? (
-                              <LoaderCircle className="mr-2 size-4 animate-spin" />
-                            ) : (
-                              <Link2 className="mr-2 size-4" />
-                            )}
-                            {t('hosted.common.connect')}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="mt-5 space-y-4 rounded-lg border border-border/70 bg-background/70 p-4">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{t('hosted.local.installStartTitle')}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {t('hosted.local.installStartDescription')}
-                            </p>
-                          </div>
-                          <div className="space-y-3">
-                            <HostedLocalCommandField
-                              command={localInstallCommand}
-                              copied={copiedInstall}
-                              onCopy={() => void copyLocalCommand(localInstallCommand, 'install')}
-                              copiedLabel={t('hosted.common.copied')}
-                              copyLabel={t('hosted.common.copyCommand')}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              {t('hosted.local.alreadyInstalled')}
-                            </p>
-                            <HostedLocalCommandField
-                              command={localStartCommand}
-                              copied={copiedStart}
-                              onCopy={() => void copyLocalCommand(localStartCommand, 'start')}
-                              copiedLabel={t('hosted.common.copied')}
-                              copyLabel={t('hosted.common.copyCommand')}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </section>
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="remote" className="mt-0 min-h-0 flex-1 overflow-hidden rounded-[inherit]">
-                <ScrollArea className="flex-1 min-h-0 rounded-[inherit]" scrollbarGutter>
-                  <div className="min-h-full space-y-4 pe-2 pb-4">
-                    <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 rounded-md border border-border/70 bg-background/70 p-2">
-                          <KeyRound className="size-4 text-foreground" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h2 className="text-base font-medium text-foreground">{t('hosted.remote.accessKeyTitle')}</h2>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            {t('hosted.remote.accessKeyDescription')}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                          <Input
-                            type="password"
-                            value={tokenDraft}
-                            onChange={event => onTokenDraftChange(event.target.value)}
-                            placeholder={t('hosted.remote.accessKeyPlaceholder')}
-                            className="flex-1"
-                          />
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void onGenerateToken()}
-                            disabled={busyAction !== null}
-                          >
-                            {busyAction === 'generate-token' ? (
-                              <LoaderCircle className="mr-2 size-4 animate-spin" />
-                            ) : (
-                              <KeyRound className="mr-2 size-4" />
-                            )}
-                            {t('hosted.remote.generateKey')}
-                          </Button>
-                          <Button onClick={() => void onSaveToken()} disabled={!hasKey || busyAction !== null}>
-                            {busyAction === 'save-token' ? (
-                              <LoaderCircle className="mr-2 size-4 animate-spin" />
-                            ) : null}
-                            {t('hosted.remote.useKey')}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <Collapsible className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
-                        <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left">
-                            <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                              <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                              <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium text-foreground">{t('hosted.remote.privateRelayTitle')}</span>
-                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                              {t('hosted.remote.privateRelayDescription')}
-                            </span>
-                          </span>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="grid gap-3 border-t border-border/70 px-4 py-4 md:grid-cols-2">
-                            <label className="space-y-2">
-                              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                {t('hosted.remote.relayUrlLabel')}
-                              </span>
-                              <Input
-                                value={relayUrlDraft}
-                                onChange={event => setRelayUrlDraft(event.target.value)}
-                                placeholder={t('hosted.remote.relayUrlPlaceholder')}
-                                autoComplete="off"
-                              />
-                            </label>
-                            <label className="space-y-2">
-                              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                {t('hosted.remote.privateRelayTokenLabel')}
-                              </span>
-                              <Input
-                                type="password"
-                                value={relaySecretDraft}
-                                onChange={event => setRelaySecretDraft(event.target.value)}
-                                placeholder={t('hosted.remote.privateRelayTokenPlaceholder')}
-                                autoComplete="off"
-                              />
-                            </label>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-
-                      {accessKeyNotice ? (
-                        <p
-                          className={cn(
-                            'mt-3 text-sm',
-                            accessKeyNotice.tone === 'warning'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-muted-foreground',
-                          )}
-                        >
-                          {accessKeyNotice.message}
-                        </p>
-                      ) : null}
-
-                      {generatedTokenReveal ? (
-                        <div className="mt-4 space-y-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-                          <p className="text-sm font-medium text-foreground">{t('hosted.remote.copyAccessKeyNow')}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {generatedTokenLocation === 'api'
-                              ? t('hosted.remote.generatedKeySaved')
-                              : t('hosted.remote.generatedKeyNotSaved')}
-                          </p>
-                          <pre className="overflow-x-auto break-all rounded-md bg-background/70 px-3 py-2 font-mono text-xs text-foreground">
-                            {generatedTokenReveal}
-                          </pre>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => void copyGeneratedToken()}
-                          >
-                            {generatedTokenCopied ? (
-                              <Check className="mr-2 size-4 text-emerald-500" />
-                            ) : (
-                              <Copy className="mr-2 size-4" />
-                            )}
-                            {generatedTokenCopied ? t('hosted.common.copied') : t('hosted.remote.copyKey')}
-                          </Button>
-                        </div>
-                      ) : null}
-
-                      {remoteError ? (
-                        <p className="mt-3 text-sm leading-6 text-muted-foreground">{remoteError}</p>
-                      ) : null}
-                    </section>
-
-                    <section className="rounded-xl border border-border/70 bg-background/70 p-5">
-                      <div className="mb-4 flex items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-base font-medium text-foreground">{t('hosted.remote.availableComputersTitle')}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {t('hosted.remote.availableComputersDescription')}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void refreshRemoteList()}
-                          disabled={!hasKey || listRefreshing || busyAction !== null}
-                        >
-                          {listRefreshing ? (
-                            <LoaderCircle className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="mr-2 size-4" />
-                          )}
-                          {t('hosted.common.refresh')}
-                        </Button>
-                      </div>
-
-                      <div className="space-y-4">
-                        {activeComputers.length > 0 ? (
-                          <div className="space-y-3">
-                            {activeComputers.map(computer => {
-                              const isConnected = connectedRemoteServerId === computer.server_id;
-                              return (
-                                <div
-                                  key={computer.server_id}
-                                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="truncate text-sm font-medium text-foreground">
-                                        {computer.display_name?.trim() || computer.server_id}
-                                      </p>
-                                      {computer.online ? <Badge variant="secondary">{t('hosted.remote.badge.online')}</Badge> : null}
-                                      {isConnected ? <Badge variant="secondary">{t('hosted.remote.badge.connected')}</Badge> : null}
-                                    </div>
-                                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                                      {computer.server_id}
-                                    </p>
-                                  </div>
-                                  <Button
-                                    variant={isConnected ? 'outline' : 'default'}
-                                    onClick={() => void onConnectRemote(computer.server_id)}
-                                    disabled={!hasKey || busyAction !== null}
-                                  >
-                                    {busyAction === `connect-${computer.server_id}` ? (
-                                      <LoaderCircle className="mr-2 size-4 animate-spin" />
-                                    ) : null}
-                                    {isConnected ? t('hosted.remote.reconnect') : t('hosted.common.connect')}
-                                  </Button>
-                                </div>
-                              );
-                            })}
-                          </div>
+            <TabsContent value="local" className="mt-0">
+              <div className="space-y-4 pb-4">
+                <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <h2 className="text-base font-medium text-foreground">{t('hosted.local.title')}</h2>
+                        {localProbeState === 'available' ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <CheckCircle2 className="size-3.5" />
+                            {t('hosted.local.status.available')}
+                          </Badge>
+                        ) : localProbeState === 'checking' ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <LoaderCircle className="size-3.5 animate-spin" />
+                            {t('hosted.local.status.checking')}
+                          </Badge>
                         ) : (
-                          <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
-                            {hasKey
-                              ? t('hosted.remote.emptyWithKey')
-                              : t('hosted.remote.emptyWithoutKey')}
-                          </div>
+                          <Badge variant="secondary">{t('hosted.local.status.notFound')}</Badge>
                         )}
-                        <RemoteComputerSetupBlock
-                          active={activeTab === 'remote'}
-                          hasAccessToken={hasKey}
-                          relayUrl={relayUrlDraft}
-                          accessToken={tokenDraft.trim()}
-                          relaySecretKey={relaySecretDraft}
-                          busy={busyAction !== null}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="ml-auto shrink-0"
+                        onClick={() => void onRefreshLocal()}
+                        disabled={localProbeState === 'checking' || busyAction !== null}
+                      >
+                        {localProbeState === 'checking' ? (
+                          <LoaderCircle className="mr-2 size-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 size-4" />
+                        )}
+                        {t('hosted.local.checkAgain')}
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {t('hosted.local.description')}
+                    </p>
+                    {localProbeState === 'unavailable' && localError ? (
+                      <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
+                        {localError}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {localProbeState === 'available' ? (
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{localComputerName}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t('hosted.local.loopbackFoundAt', {
+                            provider: `${localApiConfig?.host}:${localApiConfig?.port}`,
+                          })}
+                        </p>
+                      </div>
+                      <Button onClick={() => void onConnectLocal()} disabled={busyAction === 'connect-local'}>
+                        {busyAction === 'connect-local' ? (
+                          <LoaderCircle className="mr-2 size-4 animate-spin" />
+                        ) : (
+                          <Link2 className="mr-2 size-4" />
+                        )}
+                        {t('hosted.common.connect')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4 rounded-lg border border-border/70 bg-background/70 p-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{t('hosted.local.installStartTitle')}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t('hosted.local.installStartDescription')}
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <HostedLocalCommandField
+                          command={localInstallCommand}
+                          copied={copiedInstall}
+                          onCopy={() => void copyLocalCommand(localInstallCommand, 'install')}
+                          copiedLabel={t('hosted.common.copied')}
+                          copyLabel={t('hosted.common.copyCommand')}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t('hosted.local.alreadyInstalled')}
+                        </p>
+                        <HostedLocalCommandField
+                          command={localStartCommand}
+                          copied={copiedStart}
+                          onCopy={() => void copyLocalCommand(localStartCommand, 'start')}
+                          copiedLabel={t('hosted.common.copied')}
+                          copyLabel={t('hosted.common.copyCommand')}
                         />
                       </div>
-                    </section>
+                    </div>
+                  )}
+                </section>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="remote" className="mt-0">
+              <div className="space-y-4 pb-4">
+                <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-md border border-border/70 bg-background/70 p-2">
+                      <KeyRound className="size-4 text-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base font-medium text-foreground">{t('hosted.remote.accessKeyTitle')}</h2>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {t('hosted.remote.accessKeyDescription')}
+                      </p>
+                    </div>
                   </div>
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <Input
+                        type="password"
+                        value={tokenDraft}
+                        onChange={event => onTokenDraftChange(event.target.value)}
+                        placeholder={t('hosted.remote.accessKeyPlaceholder')}
+                        className="flex-1"
+                      />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void onGenerateToken()}
+                        disabled={busyAction !== null}
+                      >
+                        {busyAction === 'generate-token' ? (
+                          <LoaderCircle className="mr-2 size-4 animate-spin" />
+                        ) : (
+                          <KeyRound className="mr-2 size-4" />
+                        )}
+                        {t('hosted.remote.generateKey')}
+                      </Button>
+                      <Button onClick={() => void onSaveToken()} disabled={!hasKey || busyAction !== null}>
+                        {busyAction === 'save-token' ? (
+                          <LoaderCircle className="mr-2 size-4 animate-spin" />
+                        ) : null}
+                        {t('hosted.remote.useKey')}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Collapsible className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+                    <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left">
+                        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                          <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
+                          <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-foreground">{t('hosted.remote.privateRelayTitle')}</span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {t('hosted.remote.privateRelayDescription')}
+                        </span>
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="grid gap-3 border-t border-border/70 px-4 py-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t('hosted.remote.relayUrlLabel')}
+                          </span>
+                          <Input
+                            value={relayUrlDraft}
+                            onChange={event => setRelayUrlDraft(event.target.value)}
+                            placeholder={t('hosted.remote.relayUrlPlaceholder')}
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t('hosted.remote.privateRelayTokenLabel')}
+                          </span>
+                          <Input
+                            type="password"
+                            value={relaySecretDraft}
+                            onChange={event => setRelaySecretDraft(event.target.value)}
+                            placeholder={t('hosted.remote.privateRelayTokenPlaceholder')}
+                            autoComplete="off"
+                          />
+                        </label>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {accessKeyNotice ? (
+                    <p
+                      className={cn(
+                        'mt-3 text-sm',
+                        accessKeyNotice.tone === 'warning'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {accessKeyNotice.message}
+                    </p>
+                  ) : null}
+
+                  {generatedTokenReveal ? (
+                    <div className="mt-4 space-y-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3">
+                      <p className="text-sm font-medium text-foreground">{t('hosted.remote.copyAccessKeyNow')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {generatedTokenLocation === 'api'
+                          ? t('hosted.remote.generatedKeySaved')
+                          : t('hosted.remote.generatedKeyNotSaved')}
+                      </p>
+                      <pre className="overflow-x-auto break-all rounded-md bg-background/70 px-3 py-2 font-mono text-xs text-foreground">
+                        {generatedTokenReveal}
+                      </pre>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void copyGeneratedToken()}
+                      >
+                        {generatedTokenCopied ? (
+                          <Check className="mr-2 size-4 text-emerald-500" />
+                        ) : (
+                          <Copy className="mr-2 size-4" />
+                        )}
+                        {generatedTokenCopied ? t('hosted.common.copied') : t('hosted.remote.copyKey')}
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {remoteError ? (
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{remoteError}</p>
+                  ) : null}
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-background/70 p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-medium text-foreground">{t('hosted.remote.availableComputersTitle')}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {t('hosted.remote.availableComputersDescription')}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void refreshRemoteList()}
+                      disabled={!hasKey || listRefreshing || busyAction !== null}
+                    >
+                      {listRefreshing ? (
+                        <LoaderCircle className="mr-2 size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 size-4" />
+                      )}
+                      {t('hosted.common.refresh')}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {activeComputers.length > 0 ? (
+                      <div className="space-y-3">
+                        {activeComputers.map(computer => {
+                          const isConnected = connectedRemoteServerId === computer.server_id;
+                          return (
+                            <div
+                              key={computer.server_id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {computer.display_name?.trim() || computer.server_id}
+                                  </p>
+                                  {computer.online ? <Badge variant="secondary">{t('hosted.remote.badge.online')}</Badge> : null}
+                                  {isConnected ? <Badge variant="secondary">{t('hosted.remote.badge.connected')}</Badge> : null}
+                                </div>
+                                <p className="mt-1 truncate text-xs text-muted-foreground">
+                                  {computer.server_id}
+                                </p>
+                              </div>
+                              <Button
+                                variant={isConnected ? 'outline' : 'default'}
+                                onClick={() => void onConnectRemote(computer.server_id)}
+                                disabled={!hasKey || busyAction !== null}
+                              >
+                                {busyAction === `connect-${computer.server_id}` ? (
+                                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                                ) : null}
+                                {isConnected ? t('hosted.remote.reconnect') : t('hosted.common.connect')}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
+                        {hasKey
+                          ? t('hosted.remote.emptyWithKey')
+                          : t('hosted.remote.emptyWithoutKey')}
+                      </div>
+                    )}
+                    <RemoteComputerSetupBlock
+                      active={activeTab === 'remote'}
+                      hasAccessToken={hasKey}
+                      relayUrl={relayUrlDraft}
+                      accessToken={tokenDraft.trim()}
+                      relaySecretKey={relaySecretDraft}
+                      busy={busyAction !== null}
+                    />
+                  </div>
+                </section>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </main>
   );
