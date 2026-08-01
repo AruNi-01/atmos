@@ -3,9 +3,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import type { UsageOverviewResponse } from "@/api/ws/usage-api";
+import type { QuotaOverviewResponse } from "@/api/ws/quota-usage-api";
 
-export function isUsageOverviewResponse(data: unknown): data is UsageOverviewResponse {
+export function isQuotaOverviewResponse(data: unknown): data is QuotaOverviewResponse {
   if (!data || typeof data !== "object") return false;
   const value = data as Record<string, unknown>;
   return (
@@ -20,12 +20,12 @@ export function isUsageOverviewResponse(data: unknown): data is UsageOverviewRes
 }
 
 /** Authoritative push: replace the default usage overview snapshot. */
-export function applyUsageOverviewUpdated(
+export function applyQuotaOverviewUpdated(
   client: QueryClient,
   scope: ComputerQueryScope,
   data: unknown,
 ): boolean {
-  if (!isUsageOverviewResponse(data)) return false;
-  client.setQueryData(queryKeys.computer.usageOverview(scope), data);
+  if (!isQuotaOverviewResponse(data)) return false;
+  client.setQueryData(queryKeys.computer.quotaOverview(scope), data);
   return true;
 }

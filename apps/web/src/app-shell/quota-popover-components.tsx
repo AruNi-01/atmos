@@ -22,9 +22,9 @@ import {
   useTimer,
 } from "@workspace/ui";
 
-import type { UsageManualSetupResponse } from "@/api/ws-api";
+import type { QuotaManualSetupResponse } from "@/api/ws-api";
 
-import { formatCountdownDisplay, usagePortalUrl, type ProviderRegion } from "./usage-popover-utils";
+import { formatCountdownDisplay, usagePortalUrl, type ProviderRegion } from "./quota-popover-utils";
 
 const ALL_PROVIDER_ID = "all";
 
@@ -74,7 +74,7 @@ export function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: numb
 
 function regionOptionLabel(
   region: string | null,
-  options: UsageManualSetupResponse["region_options"],
+  options: QuotaManualSetupResponse["region_options"],
   autoLabel: string,
 ): string {
   if (options.length === 0) return "";
@@ -91,7 +91,7 @@ export function ProviderApiKeyManager({
   deletingKeyId,
 }: {
   providerId: string;
-  manualSetup: UsageManualSetupResponse;
+  manualSetup: QuotaManualSetupResponse;
   onAddKey: (providerId: string, region: string, apiKey: string) => void;
   onDeleteKey: (providerId: string, keyId: string) => void;
   isSaving: boolean;

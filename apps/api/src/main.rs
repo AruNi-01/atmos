@@ -11,7 +11,7 @@ use crate::api::ws::{
     automation_event_to_ws_message, WsEvent, WsManager, WsMessage, WsMessageService,
 };
 use crate::middleware::{require_local_token, require_loopback_or_token};
-use quota_usage::UsageService;
+use quota_usage::QuotaUsageService;
 use app_state::{AppServices, AppState};
 use axum::{
     http::{
@@ -416,8 +416,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let jobs = Arc::new(LocalScheduler::new());
     let event_queue = Arc::new(LocalMemoryQueue::builder().capacity(128).build());
 
-    let usage_service = Arc::new(UsageService::default());
-    usage_service.attach_jobs(Arc::clone(&jobs)).await;
+    let quota_usage_service = Arc::new(QuotaUsageService::default());
+    quota_usage_service.attach_jobs(Arc::clone(&jobs)).await;
     let token_usage_service = Arc::new(TokenUsageService::default());
     let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
     let agent_hooks_service = Arc::new(AgentHooksService::new());
@@ -447,7 +447,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&agent_session_service),
         Arc::clone(&automation_service),
         Arc::clone(&review_service),
-        Arc::clone(&usage_service),
+        Arc::clone(&quota_usage_service),
         Arc::clone(&canvas_agent_relay),
         Arc::clone(&notification_service),
         Arc::clone(&token_usage_service),
@@ -601,9 +601,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     spawn_ws_forwarder(
-        usage_service.subscribe_updates(),
+        quota_usage_service.subscribe_updates(),
         Arc::clone(&ws_manager),
-        WsEvent::UsageOverviewUpdated,
+        WsEvent::QuotaOverviewUpdated,
         "usage overview",
     );
 

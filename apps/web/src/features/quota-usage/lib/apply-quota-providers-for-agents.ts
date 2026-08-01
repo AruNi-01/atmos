@@ -1,6 +1,6 @@
-import { usageWsApi } from "@/api/ws/usage-api";
+import { quotaUsageApi } from "@/api/ws/quota-usage-api";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
-import { usageProviderIdsForAgents } from "@/features/usage/lib/agent-usage-provider-map";
+import { usageProviderIdsForAgents } from "@/features/quota-usage/lib/agent-quota-provider-map";
 
 /**
  * Sync AI Quota Usage provider switches + footer carousel picks to match
@@ -10,7 +10,7 @@ import { usageProviderIdsForAgents } from "@/features/usage/lib/agent-usage-prov
  * - All other known providers → switch off + footer carousel off
  * - Footer layout "AI Quota Usage carousel" master switch → on
  */
-export async function applyUsageProvidersForAgents(
+export async function applyQuotaProvidersForAgents(
   selectedAgentIds: Iterable<string>,
 ): Promise<void> {
   const enabledProviderIds = usageProviderIdsForAgents(selectedAgentIds);
@@ -22,6 +22,6 @@ export async function applyUsageProvidersForAgents(
   }));
 
   // Backend turns unspecified known providers off for both flags.
-  await usageWsApi.applyProviderVisibility(providers);
+  await quotaUsageApi.applyProviderVisibility(providers);
   await useLayoutSettingsStore.getState().setFooterShowUsageCarousel(true);
 }

@@ -168,7 +168,7 @@
       "openActions": "Open actions menu",
       "openInWeb": "Open in Web",
       "remoteAccess": "Remote Access",
-      "aiUsage": "Quota Usage",
+      "quotaUsage": "Quota Usage",
       "settings": "Settings",
       "theme": "Theme",
       "themeLight": "Light",
@@ -261,7 +261,7 @@
     "hotkeys": {
       "toggleLeftSidebar": "Toggle left sidebar",
       "refreshPage": "Refresh page",
-      "toggleAiUsage": "Toggle Quota Usage",
+      "toggleQuotaUsage": "Toggle Quota Usage",
       "toggleMenu": "Toggle menu",
       "toggleRightSidebar": "Toggle right sidebar"
     },
@@ -4657,7 +4657,7 @@
             "navigateBack": "Navigate back",
             "navigateForward": "Navigate forward",
             "toggleActionMenu": "Toggle action menu",
-            "toggleUsagePopover": "Toggle quota usage popover"
+            "toggleQuotaPopover": "Toggle quota usage popover"
           }
         },
         "workspace": {

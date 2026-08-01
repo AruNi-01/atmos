@@ -28,7 +28,7 @@ struct CursorUsageResponse {
 // REST API: https://cursor.com/api/usage-summary
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CursorUsageSummaryResponse {
+struct CursorQuotaSummaryResponse {
     #[serde(default)]
     billing_cycle_end: Option<String>,
     #[serde(default)]
@@ -350,7 +350,7 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
 async fn build_result_from_summary(
     _client: &Client,
     auth: &CursorAuth,
-    summary: CursorUsageSummaryResponse,
+    summary: CursorQuotaSummaryResponse,
     plan_info: Option<CursorPlanInfo>,
 ) -> Result<LiveFetchResult, ProviderError> {
     let reset_at = summary
@@ -527,7 +527,7 @@ async fn request_cursor_usage_summary(
     client: &Client,
     cookie_header: &str,
     team_id: Option<&str>,
-) -> Result<CursorUsageSummaryResponse, String> {
+) -> Result<CursorQuotaSummaryResponse, String> {
     let url = match team_id {
         Some(id) => format!("{CURSOR_USAGE_SUMMARY_URL}?teamId={id}"),
         None => CURSOR_USAGE_SUMMARY_URL.to_string(),
@@ -547,7 +547,7 @@ async fn request_cursor_usage_summary(
     }
 
     response
-        .json::<CursorUsageSummaryResponse>()
+        .json::<CursorQuotaSummaryResponse>()
         .await
         .map_err(|e| format!("Invalid Cursor usage-summary payload: {e}"))
 }

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import type { UsageOverviewResponse } from "@/api/ws/usage-api";
+import type { QuotaOverviewResponse } from "@/api/ws/quota-usage-api";
 import {
-  applyUsageOverviewUpdated,
-  isUsageOverviewResponse,
-} from "@/features/usage/lib/usage-query-events";
+  applyQuotaOverviewUpdated,
+  isQuotaOverviewResponse,
+} from "@/features/quota-usage/lib/quota-query-events";
 import { createAtmosWebQueryClient } from "@/providers/app/query-client";
 
 const scope: ComputerQueryScope = {
@@ -14,7 +14,7 @@ const scope: ComputerQueryScope = {
   relaySessionRevision: 0,
 };
 
-function sampleOverview(generatedAt = 1_700_000_000): UsageOverviewResponse {
+function sampleOverview(generatedAt = 1_700_000_000): QuotaOverviewResponse {
   return {
     generated_at: generatedAt,
     providers: [],
@@ -34,27 +34,27 @@ function sampleOverview(generatedAt = 1_700_000_000): UsageOverviewResponse {
   };
 }
 
-describe("usage-query-events applyUsageOverviewUpdated", () => {
-  test("isUsageOverviewResponse accepts complete payloads only", () => {
-    expect(isUsageOverviewResponse(sampleOverview())).toBe(true);
-    expect(isUsageOverviewResponse(null)).toBe(false);
-    expect(isUsageOverviewResponse({ generated_at: 1, providers: [] })).toBe(false);
+describe("quota-query-events applyQuotaOverviewUpdated", () => {
+  test("isQuotaOverviewResponse accepts complete payloads only", () => {
+    expect(isQuotaOverviewResponse(sampleOverview())).toBe(true);
+    expect(isQuotaOverviewResponse(null)).toBe(false);
+    expect(isQuotaOverviewResponse({ generated_at: 1, providers: [] })).toBe(false);
     expect(
-      isUsageOverviewResponse({
+      isQuotaOverviewResponse({
         generated_at: 1,
         providers: [],
         all: null,
       }),
     ).toBe(false);
     expect(
-      isUsageOverviewResponse({
+      isQuotaOverviewResponse({
         generated_at: 1,
         providers: [],
         all: sampleOverview().all,
       }),
     ).toBe(false);
     expect(
-      isUsageOverviewResponse({
+      isQuotaOverviewResponse({
         generated_at: 1,
         providers: [],
         all: sampleOverview().all,
@@ -64,21 +64,21 @@ describe("usage-query-events applyUsageOverviewUpdated", () => {
     ).toBe(false);
   });
 
-  test("applyUsageOverviewUpdated patches the default usage overview key", () => {
+  test("applyQuotaOverviewUpdated patches the default usage overview key", () => {
     const client = createAtmosWebQueryClient();
-    const key = queryKeys.computer.usageOverview(scope);
+    const key = queryKeys.computer.quotaOverview(scope);
     const overview = sampleOverview(42);
 
-    expect(applyUsageOverviewUpdated(client, scope, overview)).toBe(true);
+    expect(applyQuotaOverviewUpdated(client, scope, overview)).toBe(true);
     expect(client.getQueryData(key)).toEqual(overview);
   });
 
-  test("applyUsageOverviewUpdated rejects partial payloads", () => {
+  test("applyQuotaOverviewUpdated rejects partial payloads", () => {
     const client = createAtmosWebQueryClient();
-    const key = queryKeys.computer.usageOverview(scope);
+    const key = queryKeys.computer.quotaOverview(scope);
     client.setQueryData(key, sampleOverview(1));
 
-    expect(applyUsageOverviewUpdated(client, scope, { providers: [] })).toBe(false);
+    expect(applyQuotaOverviewUpdated(client, scope, { providers: [] })).toBe(false);
     expect(client.getQueryData(key)).toEqual(sampleOverview(1));
   });
 });

@@ -168,7 +168,7 @@
       "openActions": "打开操作菜单",
       "openInWeb": "在浏览器中打开",
       "remoteAccess": "远程访问",
-      "aiUsage": "配额用量",
+      "quotaUsage": "配额用量",
       "settings": "设置",
       "theme": "主题",
       "themeLight": "浅色",
@@ -261,7 +261,7 @@
     "hotkeys": {
       "toggleLeftSidebar": "切换左侧边栏",
       "refreshPage": "刷新页面",
-      "toggleAiUsage": "切换配额用量",
+      "toggleQuotaUsage": "切换配额用量",
       "toggleMenu": "切换菜单",
       "toggleRightSidebar": "切换右侧边栏"
     },
@@ -4657,7 +4657,7 @@
             "navigateBack": "返回上一步",
             "navigateForward": "前进",
             "toggleActionMenu": "切换操作菜单",
-            "toggleUsagePopover": "切换配额用量弹层"
+            "toggleQuotaPopover": "切换配额用量弹层"
           }
         },
         "workspace": {

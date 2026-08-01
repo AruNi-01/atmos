@@ -5,7 +5,7 @@ use serde_json::Value;
 use time::format_description::well_known::Rfc3339;
 use time::{Date, OffsetDateTime};
 
-use crate::models::UsageSummary;
+use crate::models::QuotaSummary;
 use crate::support::unix_now;
 
 pub(crate) fn extract_named_object(text: &str, tokens: &[&str]) -> Option<String> {
@@ -133,9 +133,9 @@ pub(crate) fn fraction_to_percent(value: f64) -> f64 {
     round_metric(value * 100.0)
 }
 
-pub(crate) fn build_percent_usage_summary(percent: Option<f64>) -> UsageSummary {
+pub(crate) fn build_percent_usage_summary(percent: Option<f64>) -> QuotaSummary {
     let percent = percent.map(round_metric);
-    UsageSummary {
+    QuotaSummary {
         unit: Some("percent".to_string()),
         currency: None,
         used: percent,

@@ -4,20 +4,20 @@ import { useEffect, useRef } from "react";
 import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import { getComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { applyUsageOverviewUpdated } from "@/features/usage/lib/usage-query-events";
-import { invalidateTokenUsageQueries } from "@/features/usage/lib/token-usage-query-options";
+import { applyQuotaOverviewUpdated } from "@/features/quota-usage/lib/quota-query-events";
+import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
 import { invalidateAutomationDefinitionQueries, invalidateAutomationRunQueries } from "@/features/automations/lib/automations-query-options";
 
-let usageOverviewSubscriberCount = 0;
+let quotaOverviewSubscriberCount = 0;
 let tokenUsageSubscriberCount = 0;
 let localModelSubscriberCount = 0;
 let automationDefinitionSubscriberCount = 0;
 let automationRunSubscriberCount = 0;
 
 /** Test helpers: expose per-domain subscription counts. */
-export function getUsageOverviewBridgeSubscriberCount(): number {
-  return usageOverviewSubscriberCount;
+export function getQuotaOverviewBridgeSubscriberCount(): number {
+  return quotaOverviewSubscriberCount;
 }
 export function getTokenUsageBridgeSubscriberCount(): number {
   return tokenUsageSubscriberCount;
@@ -64,22 +64,22 @@ export function ServerStateEventBridge() {
     if (cleanupRef.current) return;
 
     const store = useWebSocketStore.getState();
-    const usageOverviewCounter = { value: usageOverviewSubscriberCount };
+    const quotaOverviewCounter = { value: quotaOverviewSubscriberCount };
     const tokenUsageCounter = { value: tokenUsageSubscriberCount };
     const localModelCounter = { value: localModelSubscriberCount };
     const automationDefinitionCounter = { value: automationDefinitionSubscriberCount };
     const automationRunCounter = { value: automationRunSubscriberCount };
 
-    const unsubUsageOverview = subscribeOnce(
+    const unsubQuotaOverview = subscribeOnce(
       store,
-      "usage_overview_updated",
+      "quota_overview_updated",
       (data: unknown) => {
         const client = getAtmosWebQueryClient();
-        applyUsageOverviewUpdated(client, getComputerQueryScope(), data);
+        applyQuotaOverviewUpdated(client, getComputerQueryScope(), data);
       },
-      usageOverviewCounter,
+      quotaOverviewCounter,
     );
-    usageOverviewSubscriberCount = usageOverviewCounter.value;
+    quotaOverviewSubscriberCount = quotaOverviewCounter.value;
 
     const unsubTokenUsage = subscribeOnce(
       store,
@@ -122,8 +122,8 @@ export function ServerStateEventBridge() {
     automationRunSubscriberCount = automationRunCounter.value;
 
     cleanupRef.current = () => {
-      unsubUsageOverview();
-      usageOverviewSubscriberCount = Math.max(0, usageOverviewSubscriberCount - 1);
+      unsubQuotaOverview();
+      quotaOverviewSubscriberCount = Math.max(0, quotaOverviewSubscriberCount - 1);
       unsubTokenUsage();
       tokenUsageSubscriberCount = Math.max(0, tokenUsageSubscriberCount - 1);
       unsubLocalModel();

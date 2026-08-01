@@ -7,7 +7,7 @@
  * Keep provider ids in sync with `provider_specs()` in
  * `crates/quota-usage/src/runtime.rs`.
  */
-export const AGENT_TO_USAGE_PROVIDER_IDS: Readonly<Record<string, readonly string[]>> = {
+export const AGENT_TO_QUOTA_PROVIDER_IDS: Readonly<Record<string, readonly string[]>> = {
   claude: ["claude"],
   codex: ["codex"],
   cursor: ["cursor"],
@@ -23,7 +23,7 @@ export const AGENT_TO_USAGE_PROVIDER_IDS: Readonly<Record<string, readonly strin
 };
 
 /** Known usage providers that are not tied to a terminal agent (stay off on agent onboarding). */
-export const AGENT_UNLINKED_USAGE_PROVIDER_IDS = [
+export const AGENT_UNLINKED_QUOTA_PROVIDER_IDS = [
   "zai",
   "minimax",
   "mimo",
@@ -38,7 +38,7 @@ export function usageProviderIdsForAgents(
 ): Set<string> {
   const providers = new Set<string>();
   for (const agentId of agentIds) {
-    const mapped = AGENT_TO_USAGE_PROVIDER_IDS[agentId];
+    const mapped = AGENT_TO_QUOTA_PROVIDER_IDS[agentId];
     if (!mapped) continue;
     for (const providerId of mapped) {
       providers.add(providerId);

@@ -138,7 +138,7 @@ describe("api-operation-inventory", () => {
     const required = [
       "system",
       "settings",
-      "usage",
+      "quota",
       "project",
       "git",
       "tokenUsage",

@@ -8,8 +8,8 @@ use tracing::{debug, info, warn};
 use crate::config::{add_provider_api_key, delete_provider_api_key, persist_provider_manual_setup};
 use crate::constants::CACHE_TTL_SECS;
 use crate::models::{
-    AutoRefreshConfig, FetchStateStatus, ProviderStatus, UsageAggregate, UsageFetchIssue,
-    UsageOverview,
+    AutoRefreshConfig, FetchStateStatus, ProviderStatus, QuotaAggregate, QuotaFetchIssue,
+    QuotaOverview,
 };
 use crate::refresh::{
     apply_provider_state, load_auto_refresh_interval_minutes, persist_all_provider_switch,
@@ -17,7 +17,7 @@ use crate::refresh::{
     persist_provider_state_for_overview, persist_provider_state_for_provider,
     persist_provider_switch, persist_provider_visibility_batch, provider_switch_enabled,
 };
-use crate::runtime::{default_providers, error_status, UsageProvider};
+use crate::runtime::{default_providers, error_status, QuotaProvider};
 use crate::support::{round_metric, unix_now};
 
 /// Product job id for quota usage auto-refresh (APP-051).
@@ -25,31 +25,31 @@ pub const QUOTA_USAGE_AUTO_REFRESH_JOB_ID: &str = "quota-usage.auto_refresh";
 
 #[derive(Debug, Clone)]
 struct CachedOverview {
-    overview: UsageOverview,
+    overview: QuotaOverview,
     fetched_at: u64,
 }
 
 #[derive(Clone)]
-pub struct UsageService {
-    providers: Vec<Arc<dyn UsageProvider>>,
+pub struct QuotaUsageService {
+    providers: Vec<Arc<dyn QuotaProvider>>,
     cache: Arc<RwLock<Option<CachedOverview>>>,
     cache_ttl: Duration,
     auto_refresh_interval_minutes: Arc<RwLock<Option<u64>>>,
     /// Set via [`Self::attach_jobs`]; until attached, auto-refresh is not scheduled.
     jobs: Arc<RwLock<Option<Arc<LocalScheduler>>>>,
-    update_tx: broadcast::Sender<UsageOverview>,
+    update_tx: broadcast::Sender<QuotaOverview>,
 }
 
-impl Default for UsageService {
+impl Default for QuotaUsageService {
     fn default() -> Self {
         Self::new(default_providers())
     }
 }
 
-impl UsageService {
+impl QuotaUsageService {
     /// Construct without starting timers. Call [`Self::attach_jobs`] after the process
     /// `LocalScheduler` is ready (APP-051 bootstrap order).
-    pub fn new(providers: Vec<Arc<dyn UsageProvider>>) -> Self {
+    pub fn new(providers: Vec<Arc<dyn QuotaProvider>>) -> Self {
         let interval_minutes = load_auto_refresh_interval_minutes();
         let (update_tx, _) = broadcast::channel(32);
 
@@ -73,7 +73,7 @@ impl UsageService {
         self.schedule_auto_refresh_task(interval_minutes).await;
     }
 
-    pub async fn get_overview(&self, refresh: bool, provider_id: Option<&str>) -> UsageOverview {
+    pub async fn get_overview(&self, refresh: bool, provider_id: Option<&str>) -> QuotaOverview {
         if !refresh && provider_id.is_none() {
             let cache = self.cache.read().await;
             if let Some(cache) = cache.as_ref() {
@@ -99,7 +99,7 @@ impl UsageService {
         } else if provider_id.is_some() {
             cached_previous
                 .map(|cached| apply_provider_state_and_rebuild(cached.overview))
-                .unwrap_or_else(|| UsageOverview {
+                .unwrap_or_else(|| QuotaOverview {
                     all: build_aggregate(&[]),
                     providers: vec![],
                     generated_at: unix_now(),
@@ -119,7 +119,7 @@ impl UsageService {
         fresh
     }
 
-    pub async fn set_provider_switch(&self, provider_id: &str, enabled: bool) -> UsageOverview {
+    pub async fn set_provider_switch(&self, provider_id: &str, enabled: bool) -> QuotaOverview {
         persist_provider_switch(provider_id, enabled);
 
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
@@ -147,7 +147,7 @@ impl UsageService {
         overview
     }
 
-    pub async fn set_all_provider_switch(&self, enabled: bool) -> UsageOverview {
+    pub async fn set_all_provider_switch(&self, enabled: bool) -> QuotaOverview {
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
             cached.overview
         } else {
@@ -180,7 +180,7 @@ impl UsageService {
         &self,
         provider_id: &str,
         enabled: bool,
-    ) -> UsageOverview {
+    ) -> QuotaOverview {
         persist_provider_footer_carousel_show(provider_id, enabled);
 
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
@@ -217,7 +217,7 @@ impl UsageService {
     pub async fn apply_provider_visibility(
         &self,
         prefs: Vec<(String, bool, bool)>,
-    ) -> UsageOverview {
+    ) -> QuotaOverview {
         // Seed provider rows from descriptors when the cache is cold so unknown
         // ids still land in provider_state.json and appear in the overview shell.
         let known_ids: Vec<String> = self
@@ -271,7 +271,7 @@ impl UsageService {
         provider_id: &str,
         region: Option<String>,
         api_key: Option<String>,
-    ) -> UsageOverview {
+    ) -> QuotaOverview {
         persist_provider_manual_setup(provider_id, region, api_key);
 
         let cached_previous = self.cache.read().await.clone();
@@ -293,7 +293,7 @@ impl UsageService {
         provider_id: &str,
         region: Option<String>,
         api_key: String,
-    ) -> UsageOverview {
+    ) -> QuotaOverview {
         add_provider_api_key(provider_id, region, api_key);
 
         let cached_previous = self.cache.read().await.clone();
@@ -310,7 +310,7 @@ impl UsageService {
         overview
     }
 
-    pub async fn delete_provider_api_key(&self, provider_id: &str, key_id: &str) -> UsageOverview {
+    pub async fn delete_provider_api_key(&self, provider_id: &str, key_id: &str) -> QuotaOverview {
         delete_provider_api_key(provider_id, key_id);
 
         let cached_previous = self.cache.read().await.clone();
@@ -330,7 +330,7 @@ impl UsageService {
     pub async fn set_auto_refresh_interval(
         &self,
         interval_minutes: Option<u64>,
-    ) -> Result<UsageOverview, String> {
+    ) -> Result<QuotaOverview, String> {
         if let Some(interval_minutes) = interval_minutes {
             if !matches!(interval_minutes, 1 | 5 | 15 | 30 | 60) {
                 return Err("Unsupported auto-refresh interval".to_string());
@@ -350,7 +350,7 @@ impl UsageService {
         Ok(overview)
     }
 
-    pub fn subscribe_updates(&self) -> broadcast::Receiver<UsageOverview> {
+    pub fn subscribe_updates(&self) -> broadcast::Receiver<QuotaOverview> {
         self.update_tx.subscribe()
     }
 
@@ -408,14 +408,14 @@ impl UsageService {
         }
     }
 
-    async fn with_auto_refresh_config(&self, mut overview: UsageOverview) -> UsageOverview {
+    async fn with_auto_refresh_config(&self, mut overview: QuotaOverview) -> QuotaOverview {
         overview.auto_refresh = AutoRefreshConfig {
             interval_minutes: *self.auto_refresh_interval_minutes.read().await,
         };
         overview
     }
 
-    fn publish_overview_update(&self, overview: &UsageOverview) {
+    fn publish_overview_update(&self, overview: &QuotaOverview) {
         let _ = self.update_tx.send(overview.clone());
     }
 
@@ -423,7 +423,7 @@ impl UsageService {
         &self,
         cached_previous: Option<CachedOverview>,
         honor_switches: bool,
-    ) -> UsageOverview {
+    ) -> QuotaOverview {
         let mut providers = vec![None; self.providers.len()];
         let mut issues = Vec::new();
         let mut success_count = 0usize;
@@ -475,7 +475,7 @@ impl UsageService {
                     ProviderRefreshResult {
                         index,
                         status: error_status(&descriptor, message.clone()),
-                        issue: Some(UsageFetchIssue {
+                        issue: Some(QuotaFetchIssue {
                             provider_id: descriptor.id.clone(),
                             provider_label: descriptor.label.clone(),
                             message,
@@ -500,7 +500,7 @@ impl UsageService {
 
         let providers = providers.into_iter().flatten().collect::<Vec<_>>();
 
-        let overview = UsageOverview {
+        let overview = QuotaOverview {
             all: build_aggregate(&providers),
             providers,
             generated_at: unix_now(),
@@ -510,7 +510,7 @@ impl UsageService {
 
         if success_count == 0 {
             if let Some(previous) = cached_previous {
-                return apply_provider_state_and_rebuild(UsageOverview {
+                return apply_provider_state_and_rebuild(QuotaOverview {
                     partial_failures: overview.partial_failures,
                     generated_at: overview.generated_at,
                     ..previous.overview
@@ -527,7 +527,7 @@ impl UsageService {
         &self,
         provider_id: &str,
         cached_previous: Option<CachedOverview>,
-    ) -> UsageOverview {
+    ) -> QuotaOverview {
         let Some(provider) = self
             .providers
             .iter()
@@ -535,11 +535,11 @@ impl UsageService {
         else {
             return cached_previous
                 .map(|cached| apply_provider_state_and_rebuild(cached.overview))
-                .unwrap_or_else(|| UsageOverview {
+                .unwrap_or_else(|| QuotaOverview {
                     all: build_aggregate(&[]),
                     providers: vec![],
                     generated_at: unix_now(),
-                    partial_failures: vec![UsageFetchIssue {
+                    partial_failures: vec![QuotaFetchIssue {
                         provider_id: provider_id.to_string(),
                         provider_label: provider_id.to_string(),
                         message: "Unknown usage provider".to_string(),
@@ -550,7 +550,7 @@ impl UsageService {
 
         let mut overview = cached_previous
             .map(|cached| cached.overview)
-            .unwrap_or_else(|| UsageOverview {
+            .unwrap_or_else(|| QuotaOverview {
                 all: build_aggregate(&[]),
                 providers: vec![],
                 generated_at: unix_now(),
@@ -602,7 +602,7 @@ impl UsageService {
                 .iter()
                 .find(|provider| provider.id == provider_id)
             {
-                overview.partial_failures.push(UsageFetchIssue {
+                overview.partial_failures.push(QuotaFetchIssue {
                     provider_id: provider.id.clone(),
                     provider_label: provider.label.clone(),
                     message: provider
@@ -626,14 +626,14 @@ impl UsageService {
 struct ProviderRefreshResult {
     index: usize,
     status: ProviderStatus,
-    issue: Option<UsageFetchIssue>,
+    issue: Option<QuotaFetchIssue>,
     refreshed_provider_id: Option<String>,
     succeeded: bool,
 }
 
 async fn refresh_provider_status(
     index: usize,
-    provider: Arc<dyn UsageProvider>,
+    provider: Arc<dyn QuotaProvider>,
 ) -> ProviderRefreshResult {
     let descriptor = provider.descriptor();
     match tokio::time::timeout(provider.timeout(), provider.collect()).await {
@@ -649,7 +649,7 @@ async fn refresh_provider_status(
             ProviderRefreshResult {
                 index,
                 status: error_status(&descriptor, message.clone()),
-                issue: Some(UsageFetchIssue {
+                issue: Some(QuotaFetchIssue {
                     provider_id: descriptor.id.clone(),
                     provider_label: descriptor.label.clone(),
                     message,
@@ -663,7 +663,7 @@ async fn refresh_provider_status(
             ProviderRefreshResult {
                 index,
                 status: error_status(&descriptor, message.clone()),
-                issue: Some(UsageFetchIssue {
+                issue: Some(QuotaFetchIssue {
                     provider_id: descriptor.id.clone(),
                     provider_label: descriptor.label.clone(),
                     message,
@@ -675,13 +675,13 @@ async fn refresh_provider_status(
     }
 }
 
-fn apply_provider_state_and_rebuild(mut overview: UsageOverview) -> UsageOverview {
+fn apply_provider_state_and_rebuild(mut overview: QuotaOverview) -> QuotaOverview {
     overview = apply_provider_state(overview);
     overview.all = build_aggregate(&overview.providers);
     overview
 }
 
-fn build_aggregate(providers: &[ProviderStatus]) -> UsageAggregate {
+fn build_aggregate(providers: &[ProviderStatus]) -> QuotaAggregate {
     let switched: Vec<&ProviderStatus> = providers
         .iter()
         .filter(|provider| provider.switch_enabled)
@@ -759,7 +759,7 @@ fn build_aggregate(providers: &[ProviderStatus]) -> UsageAggregate {
         found_credit_rows += 1;
     }
 
-    UsageAggregate {
+    QuotaAggregate {
         enabled_count: providers
             .iter()
             .filter(|provider| provider.switch_enabled)

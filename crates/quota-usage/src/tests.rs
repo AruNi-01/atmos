@@ -7,7 +7,7 @@ use infra::jobs::{JobId, LocalScheduler};
 
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
-    ProviderKind, ProviderStatus, UsageProvider, UsageService, QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
+    ProviderKind, ProviderStatus, QuotaProvider, QuotaUsageService, QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
 };
 
 #[derive(Clone)]
@@ -19,7 +19,7 @@ struct MockProvider {
 }
 
 #[async_trait]
-impl UsageProvider for MockProvider {
+impl QuotaProvider for MockProvider {
     fn descriptor(&self) -> ProviderDescriptor {
         ProviderDescriptor {
             id: self.id.to_string(),
@@ -67,7 +67,7 @@ fn mock_status(id: &str, label: &str) -> ProviderStatus {
 
 #[tokio::test(flavor = "current_thread")]
 async fn get_overview_refreshes_all_providers_in_parallel_and_preserves_order() {
-    let service = UsageService::new(vec![
+    let service = QuotaUsageService::new(vec![
         Arc::new(MockProvider {
             id: "first",
             label: "First",
@@ -108,7 +108,7 @@ async fn get_overview_refreshes_all_providers_in_parallel_and_preserves_order() 
 
 #[tokio::test(flavor = "current_thread")]
 async fn provider_specific_refresh_updates_generated_at() {
-    let service = UsageService::new(vec![Arc::new(MockProvider {
+    let service = QuotaUsageService::new(vec![Arc::new(MockProvider {
         id: "factory",
         label: "Factory",
         latency: Duration::from_millis(10),
@@ -131,7 +131,7 @@ async fn provider_specific_refresh_updates_generated_at() {
 async fn attach_jobs_registers_and_cancels_auto_refresh() {
     let collect_count = Arc::new(AtomicUsize::new(0));
     let counter = Arc::clone(&collect_count);
-    let service = UsageService::new(vec![Arc::new(CountingProvider {
+    let service = QuotaUsageService::new(vec![Arc::new(CountingProvider {
         collect_count: counter,
     })]);
     let jobs = Arc::new(LocalScheduler::new());
@@ -165,7 +165,7 @@ struct CountingProvider {
 }
 
 #[async_trait]
-impl UsageProvider for CountingProvider {
+impl QuotaProvider for CountingProvider {
     fn descriptor(&self) -> ProviderDescriptor {
         ProviderDescriptor {
             id: "counter".to_string(),

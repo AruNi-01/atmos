@@ -70,7 +70,7 @@ pub struct SubscriptionSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct UsageSummary {
+pub struct QuotaSummary {
     pub unit: Option<String>,
     pub currency: Option<String>,
     pub used: Option<f64>,
@@ -129,7 +129,7 @@ pub struct ProviderStatus {
     pub healthy: bool,
     pub last_updated_at: Option<u64>,
     pub subscription_summary: Option<SubscriptionSummary>,
-    pub usage_summary: Option<UsageSummary>,
+    pub usage_summary: Option<QuotaSummary>,
     pub detail_sections: Vec<DetailSection>,
     pub warnings: Vec<String>,
     pub auth_state: AuthState,
@@ -139,7 +139,7 @@ pub struct ProviderStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct UsageAggregate {
+pub struct QuotaAggregate {
     pub enabled_count: usize,
     pub total_count: usize,
     pub active_subscription_count: usize,
@@ -152,7 +152,7 @@ pub struct UsageAggregate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct UsageFetchIssue {
+pub struct QuotaFetchIssue {
     pub provider_id: String,
     pub provider_label: String,
     pub message: String,
@@ -164,11 +164,11 @@ pub struct AutoRefreshConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct UsageOverview {
-    pub all: UsageAggregate,
+pub struct QuotaOverview {
+    pub all: QuotaAggregate,
     pub providers: Vec<ProviderStatus>,
     pub generated_at: u64,
-    pub partial_failures: Vec<UsageFetchIssue>,
+    pub partial_failures: Vec<QuotaFetchIssue>,
     #[serde(default)]
     pub auto_refresh: AutoRefreshConfig,
 }

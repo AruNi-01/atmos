@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 use crate::constants::{
     COMMANDCODE_API_URL, COMMANDCODE_CREDITS_PATH, COMMANDCODE_SUBSCRIPTIONS_PATH,
 };
-use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, UsageSummary};
+use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, QuotaSummary};
 use crate::runtime::LiveFetchResult;
 use crate::support::browser::{load_commandcode_browser_cookie_source, BrowserCookieSource};
 use crate::support::{expand_home, format_reset_relative_text, unix_now};
@@ -292,7 +292,7 @@ pub(crate) async fn fetch_commandcode_live(client: &Client) -> Result<LiveFetchR
         .and_then(|s| parse_iso8601(s));
 
     let usage_summary = if display_total_credits > 0.0 {
-        Some(UsageSummary {
+        Some(QuotaSummary {
             unit: Some("credits".to_string()),
             currency: Some("USD".to_string()),
             used: None,

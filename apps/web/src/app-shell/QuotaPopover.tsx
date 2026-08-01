@@ -42,26 +42,26 @@ import {
 } from "@workspace/ui";
 
 import {
-  usageWsApi,
-  type UsageAggregateResponse,
-  type UsageOverviewResponse,
+  quotaUsageApi,
+  type QuotaAggregateResponse,
+  type QuotaOverviewResponse,
 } from "@/api/ws-api";
-import { useUsageOverviewCache, useUsageOverviewQuery } from "@/features/usage/hooks/use-usage-overview-query";
+import { useQuotaOverviewCache, useQuotaOverviewQuery } from "@/features/quota-usage/hooks/use-quota-overview-query";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
-import { useUsageProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
+import { useQuotaProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
 import {
   formatNextAutoRefreshHint,
   formatTimestamp,
-} from "./usage-popover-utils";
-import { AggregateDetail, ProviderDetail } from "./usage-popover-detail";
+} from "./quota-popover-utils";
+import { AggregateDetail, ProviderDetail } from "./quota-popover-detail";
 import {
   AutoRefreshCountdownBadge,
   ProviderGlyph,
   ProviderSwitch,
   SortableProviderSwitch,
-} from "./usage-popover-components";
+} from "./quota-popover-components";
 
-export { ProviderGlyph } from "./usage-popover-components";
+export { ProviderGlyph } from "./quota-popover-components";
 
 const ALL_PROVIDER_ID = "all";
 const ALL_PROVIDER_SWITCH_ID = "__all_providers_switch__";
@@ -86,7 +86,7 @@ function LoadingState() {
   );
 }
 
-const EMPTY_AGGREGATE: UsageAggregateResponse = {
+const EMPTY_AGGREGATE: QuotaAggregateResponse = {
   enabled_count: 0,
   total_count: 0,
   active_subscription_count: 0,
@@ -98,14 +98,14 @@ const EMPTY_AGGREGATE: UsageAggregateResponse = {
   soonest_reset_at: null,
 };
 
-interface UsagePopoverProps {
+interface QuotaPopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   embedded?: boolean;
   onPopoverCloseAutoFocus?: (e: Event) => void;
 }
 
-export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, onPopoverCloseAutoFocus }: UsagePopoverProps = {}) {
+export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, onPopoverCloseAutoFocus }: QuotaPopoverProps = {}) {
   const t = useTranslations("appShell.usagePopover");
   const locale = useLocale();
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
@@ -113,8 +113,8 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
-  const usageQuery = useUsageOverviewQuery({ enabled: open || embedded });
-  const { setOverview: writeOverviewCache } = useUsageOverviewCache();
+  const usageQuery = useQuotaOverviewQuery({ enabled: open || embedded });
+  const { setOverview: writeOverviewCache } = useQuotaOverviewCache();
   const overview = usageQuery.data ?? null;
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +134,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     canScrollLeft: false,
     canScrollRight: false,
   });
-  const [providerOrder, setProviderOrder] = useUsageProviderOrder();
+  const [providerOrder, setProviderOrder] = useQuotaProviderOrder();
   const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<string | null>(null);
   const footerShowUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
   const setFooterShowUsageCarousel = useLayoutSettingsStore((s) => s.setFooterShowUsageCarousel);
@@ -163,7 +163,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     setError(null);
 
     try {
-      const next = await usageWsApi.getOverview(refresh, providerId);
+      const next = await quotaUsageApi.getOverview(refresh, providerId);
       writeOverviewCache(next);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : loadOverviewErrorTextRef.current);
@@ -178,7 +178,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     setError(null);
 
     try {
-      const next = await usageWsApi.setProviderSwitch(providerId, enabled);
+      const next = await quotaUsageApi.setProviderSwitch(providerId, enabled);
       writeOverviewCache(next);
     } catch (switchError) {
       setError(switchError instanceof Error ? switchError.message : t("errors.updateProviderSwitch"));
@@ -192,7 +192,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     setError(null);
 
     try {
-      const next = await usageWsApi.setAllProvidersSwitch(enabled);
+      const next = await quotaUsageApi.setAllProvidersSwitch(enabled);
       writeOverviewCache(next);
     } catch (switchError) {
       setError(
@@ -209,7 +209,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       setError(null);
 
       try {
-        const next = await usageWsApi.addProviderApiKey(providerId, region || null, apiKey);
+        const next = await quotaUsageApi.addProviderApiKey(providerId, region || null, apiKey);
         writeOverviewCache(next);
       } catch (addError) {
         setError(addError instanceof Error ? addError.message : t("errors.addApiKey"));
@@ -226,7 +226,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       setError(null);
 
       try {
-        const next = await usageWsApi.deleteProviderApiKey(providerId, keyId);
+        const next = await quotaUsageApi.deleteProviderApiKey(providerId, keyId);
         writeOverviewCache(next);
       } catch (deleteError) {
         setError(deleteError instanceof Error ? deleteError.message : t("errors.deleteApiKey"));
@@ -241,7 +241,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     void loadLayoutSettings();
   }, [loadLayoutSettings]);
 
-  // Initial load is owned by useUsageOverviewQuery when open/embedded.
+  // Initial load is owned by useQuotaOverviewQuery when open/embedded.
   // loadOverview remains for manual/forced refresh only.
 
   useEffect(() => {
@@ -461,7 +461,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     setError(null);
 
     try {
-      const next = await usageWsApi.setAutoRefresh(nextValue ? Number(nextValue) : null);
+      const next = await quotaUsageApi.setAutoRefresh(nextValue ? Number(nextValue) : null);
       writeOverviewCache(next);
       setIsAutoRefreshPopoverOpen(false);
     } catch (updateError) {
@@ -478,7 +478,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     setError(null);
 
     try {
-      const next = await usageWsApi.setProviderFooterCarousel(providerId, enabled);
+      const next = await quotaUsageApi.setProviderFooterCarousel(providerId, enabled);
       writeOverviewCache(next);
     } catch (toggleError) {
       setError(

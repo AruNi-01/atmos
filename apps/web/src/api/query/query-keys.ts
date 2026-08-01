@@ -50,13 +50,13 @@ export const queryKeys = {
       [...queryKeys.computer.system(scope), "wsConnections"] as const,
     settingsBootstrap: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "settings", "bootstrap"] as const,
-    usageOverview: (
+    quotaOverview: (
       scope: ComputerQueryScope,
       filters?: { providerId?: string | null },
     ) =>
       [
         ...queryKeys.computer.root(scope),
-        "usage",
+        "quota",
         "overview",
         {
           providerId: filters?.providerId ?? null,

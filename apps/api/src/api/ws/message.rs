@@ -107,7 +107,7 @@ pub struct WsErrorPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageOverviewRequest {
+pub struct QuotaOverviewRequest {
     #[serde(default)]
     pub refresh: bool,
     #[serde(default)]
@@ -115,24 +115,24 @@ pub struct UsageOverviewRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageProviderSwitchRequest {
+pub struct QuotaProviderSwitchRequest {
     pub provider_id: String,
     pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageProviderFooterCarouselRequest {
+pub struct QuotaProviderFooterCarouselRequest {
     pub provider_id: String,
     pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageAllProvidersSwitchRequest {
+pub struct QuotaAllProvidersSwitchRequest {
     pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageProviderVisibilityPref {
+pub struct QuotaProviderVisibilityPref {
     pub provider_id: String,
     pub switch_enabled: bool,
     pub footer_carousel_show: bool,
@@ -140,12 +140,12 @@ pub struct UsageProviderVisibilityPref {
 
 /// Batch-apply provider switch + footer carousel visibility (onboarding).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageApplyProviderVisibilityRequest {
-    pub providers: Vec<UsageProviderVisibilityPref>,
+pub struct QuotaApplyProviderVisibilityRequest {
+    pub providers: Vec<QuotaProviderVisibilityPref>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageProviderManualSetupRequest {
+pub struct QuotaProviderManualSetupRequest {
     pub provider_id: String,
     #[serde(default)]
     pub region: Option<String>,
@@ -154,7 +154,7 @@ pub struct UsageProviderManualSetupRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageAddProviderApiKeyRequest {
+pub struct QuotaAddProviderApiKeyRequest {
     pub provider_id: String,
     #[serde(default)]
     pub region: Option<String>,
@@ -162,13 +162,13 @@ pub struct UsageAddProviderApiKeyRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageDeleteProviderApiKeyRequest {
+pub struct QuotaDeleteProviderApiKeyRequest {
     pub provider_id: String,
     pub key_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageAutoRefreshRequest {
+pub struct QuotaAutoRefreshRequest {
     #[serde(default)]
     pub interval_minutes: Option<u64>,
 }
@@ -283,23 +283,23 @@ pub enum WsAction {
 
     // ===== Usage 操作 =====
     /// 获取 usage 概览
-    UsageGetOverview,
+    QuotaGetOverview,
     /// 更新单个 provider 的刷新开关
-    UsageSetProviderSwitch,
+    QuotaSetProviderSwitch,
     /// 更新单个 provider 是否显示在 footer usage 轮播中
-    UsageSetProviderFooterCarousel,
+    QuotaSetProviderFooterCarousel,
     /// 更新全部 provider 的刷新开关
-    UsageSetAllProvidersSwitch,
+    QuotaSetAllProvidersSwitch,
     /// 批量更新 provider switch + footer carousel（onboarding 对齐 Agent）
-    UsageApplyProviderVisibility,
+    QuotaApplyProviderVisibility,
     /// 更新 provider 的手动配置
-    UsageSetProviderManualSetup,
+    QuotaSetProviderManualSetup,
     /// 添加 provider API key
-    UsageAddProviderApiKey,
+    QuotaAddProviderApiKey,
     /// 删除 provider API key
-    UsageDeleteProviderApiKey,
+    QuotaDeleteProviderApiKey,
     /// 更新 ALL usage 的自动刷新周期
-    UsageSetAutoRefresh,
+    QuotaSetAutoRefresh,
     /// 获取本地 token usage 概览
     TokenUsageOverviewGet,
 
@@ -676,8 +676,8 @@ pub enum WsEvent {
     WorkspaceSetupProgress,
     /// GitIgnore compensation failed after workspace creation
     WorkspaceGitignoreSyncFailed,
-    /// AI usage overview changed and should be refreshed on all clients
-    UsageOverviewUpdated,
+    /// Quota usage overview changed and should be refreshed on all clients
+    QuotaOverviewUpdated,
     /// Local token usage overview changed and should be refreshed on all clients
     TokenUsageUpdated,
     /// Git commit message 流式生成 chunk

@@ -6,7 +6,7 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use crate::constants::{ZED_BILLING_USAGE_URL, ZED_SUBSCRIPTION_URL};
-use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, UsageSummary};
+use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, QuotaSummary};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     load_cookie_header, load_zed_browser_cookie_source, normalize_cookie_header, unix_now,
@@ -111,7 +111,7 @@ pub(crate) async fn fetch_zed_live(client: &Client) -> Result<LiveFetchResult, P
         _ => None,
     };
 
-    let usage_summary = Some(UsageSummary {
+    let usage_summary = Some(QuotaSummary {
         unit: Some("USD".to_string()),
         currency: Some("$".to_string()),
         used: used_dollars,

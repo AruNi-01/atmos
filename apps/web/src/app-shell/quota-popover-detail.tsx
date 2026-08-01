@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 
 import { cn } from "@workspace/ui";
 
-import type { UsageAggregateResponse, UsageProviderResponse } from "@/api/ws-api";
+import type { QuotaAggregateResponse, QuotaProviderResponse } from "@/api/ws-api";
 
 import {
   displayMetricUsedText,
@@ -19,16 +19,16 @@ import {
   inferProviderRegion,
   providerIdentity,
   sectionHeaderValue,
-  usageMetrics,
+  quotaMetrics,
   visibleSectionRows,
-} from "./usage-popover-utils";
+} from "./quota-popover-utils";
 import {
   ProviderApiKeyManager,
   ProviderGlyph,
   UsageBar,
   UsagePortalLink,
   UsageSwitch,
-} from "./usage-popover-components";
+} from "./quota-popover-components";
 
 type ProviderSwitchHandler = (providerId: string, enabled: boolean) => void;
 type ApiKeyAddHandler = (providerId: string, region: string, apiKey: string) => void;
@@ -47,8 +47,8 @@ export function AggregateDetail({
   deletingKeyId,
   switchingProviderId,
 }: {
-  aggregate: UsageAggregateResponse;
-  providers: UsageProviderResponse[];
+  aggregate: QuotaAggregateResponse;
+  providers: QuotaProviderResponse[];
   providerOrder: string[];
   onToggleAllProviders: (enabled: boolean) => void;
   onToggleProvider: ProviderSwitchHandler;
@@ -125,7 +125,7 @@ function AggregateProviderRow({
   deletingKeyId,
   isSwitching,
 }: {
-  provider: UsageProviderResponse;
+  provider: QuotaProviderResponse;
   onToggleProvider: ProviderSwitchHandler;
   onAddApiKey: ApiKeyAddHandler;
   onDeleteApiKey: ApiKeyDeleteHandler;
@@ -135,7 +135,7 @@ function AggregateProviderRow({
 }) {
   const t = useTranslations("appShell.usagePopover");
   const [open, setOpen] = useState(false);
-  const metrics = usageMetrics(provider);
+  const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
   const primaryMetric = metrics[0] ?? null;
@@ -288,10 +288,10 @@ function DetectedProviderDetails({
   isSavingManualSetup,
   deletingKeyId,
 }: {
-  provider: UsageProviderResponse;
+  provider: QuotaProviderResponse;
   accountLabel: string;
   periodLabel: string | null;
-  metrics: ReturnType<typeof usageMetrics>;
+  metrics: ReturnType<typeof quotaMetrics>;
   extraDetailSections: ReturnType<typeof extraSections>;
   providerRegion: ReturnType<typeof inferProviderRegion>;
   creditsBalance: string | null;
@@ -392,7 +392,7 @@ export function ProviderDetail({
   deletingKeyId,
   isSwitching,
 }: {
-  provider: UsageProviderResponse;
+  provider: QuotaProviderResponse;
   onToggleProvider: ProviderSwitchHandler;
   onAddApiKey: ApiKeyAddHandler;
   onDeleteApiKey: ApiKeyDeleteHandler;
@@ -402,7 +402,7 @@ export function ProviderDetail({
 }) {
   const t = useTranslations("appShell.usagePopover");
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider, t("detail.notDetected"));
-  const metrics = usageMetrics(provider);
+  const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
   const creditsBalance = firstRowValue(provider, "Credits", "Balance");
@@ -506,7 +506,7 @@ function ExtraDetailSections({
   sections,
   compact = false,
 }: {
-  provider: UsageProviderResponse;
+  provider: QuotaProviderResponse;
   sections: ReturnType<typeof extraSections>;
   compact?: boolean;
 }) {

@@ -1,6 +1,6 @@
-import type { UsageProviderResponse } from "@/api/ws-api";
+import type { QuotaProviderResponse } from "@/api/ws-api";
 
-export type UsagePopoverFormatters = {
+export type QuotaPopoverFormatters = {
   unknownLabel?: string;
   resetUnknownLabel?: string;
   resettingNowLabel?: string;
@@ -52,7 +52,7 @@ function resolveFormatterValue(
 export function formatTimestamp(
   value?: number | null,
   locale: Intl.LocalesArgument = "en",
-  formatters: UsagePopoverFormatters = {},
+  formatters: QuotaPopoverFormatters = {},
 ): string {
   if (!value) return resolveFormatterValue(formatters.unknownLabel, "Unknown");
   return new Intl.DateTimeFormat(locale, {
@@ -65,7 +65,7 @@ export function formatTimestamp(
 
 function formatRelativeReset(
   value?: number | null,
-  formatters: UsagePopoverFormatters = {},
+  formatters: QuotaPopoverFormatters = {},
   locale?: Intl.LocalesArgument,
 ): string {
   if (!value) {
@@ -97,7 +97,7 @@ export function formatNextAutoRefreshHint(
   generatedAt?: number | null,
   intervalMinutes?: number | null,
   nowMs: number = Date.now(),
-  formatters: UsagePopoverFormatters = {},
+  formatters: QuotaPopoverFormatters = {},
   locale?: Intl.LocalesArgument,
 ): { value: string; suffix: string } | null {
   if (!generatedAt || !intervalMinutes) return null;
@@ -167,7 +167,7 @@ function extractMetricDetail(text?: string | null): string | null {
 export function displayResetText(
   explicitResetText?: string | null,
   fallbackResetAt?: number | null,
-  formatters: UsagePopoverFormatters = {},
+  formatters: QuotaPopoverFormatters = {},
   locale?: Intl.LocalesArgument,
 ): string | null {
   const normalizedResetText = explicitResetText?.trim();
@@ -186,7 +186,7 @@ export function displayResetText(
 }
 
 export function displayMetricUsedText(
-  metric: UsageMetricRow,
+  metric: QuotaMetricRow,
   usedSuffix = "used",
 ): string {
   if (metric.percent === null || metric.percent === undefined) {
@@ -200,7 +200,7 @@ export function displayMetricUsedText(
   return `${metric.percent.toFixed(0)}% ${usedSuffix}${amountSuffix}`;
 }
 
-export type UsageMetricRow = {
+export type QuotaMetricRow = {
   label: string;
   value: string;
   percent: number | null;
@@ -209,7 +209,7 @@ export type UsageMetricRow = {
   resetText: string | null;
 };
 
-function formatUsageAmountText(provider: UsageProviderResponse): string | null {
+function formatQuotaAmountText(provider: QuotaProviderResponse): string | null {
   const summary = provider.usage_summary;
   if (!summary) return null;
   const isDollarUsage =
@@ -225,7 +225,7 @@ function formatUsageAmountText(provider: UsageProviderResponse): string | null {
 export type ProviderRegion = "global" | "china";
 
 export function firstRowValue(
-  provider: UsageProviderResponse,
+  provider: QuotaProviderResponse,
   sectionTitle: string,
   rowLabel: string,
 ): string | null {
@@ -236,7 +236,7 @@ export function firstRowValue(
   return row?.value ?? null;
 }
 
-function sectionRows(provider: UsageProviderResponse, sectionTitle: string) {
+function sectionRows(provider: QuotaProviderResponse, sectionTitle: string) {
   return (
     provider.detail_sections.find(
       (item) => item.title.toLowerCase() === sectionTitle.toLowerCase(),
@@ -244,7 +244,7 @@ function sectionRows(provider: UsageProviderResponse, sectionTitle: string) {
   );
 }
 
-export function extraSections(provider: UsageProviderResponse) {
+export function extraSections(provider: QuotaProviderResponse) {
   return provider.detail_sections.filter((section) => {
     const title = section.title.toLowerCase();
     return (
@@ -257,8 +257,8 @@ export function extraSections(provider: UsageProviderResponse) {
 }
 
 export function sectionHeaderValue(
-  provider: UsageProviderResponse,
-  section: UsageProviderResponse["detail_sections"][number],
+  provider: QuotaProviderResponse,
+  section: QuotaProviderResponse["detail_sections"][number],
 ): string | null {
   if (provider.id !== "zai") return null;
   if (section.title.toLowerCase() !== "mcp details") return null;
@@ -266,22 +266,22 @@ export function sectionHeaderValue(
 }
 
 export function visibleSectionRows(
-  provider: UsageProviderResponse,
-  section: UsageProviderResponse["detail_sections"][number],
+  provider: QuotaProviderResponse,
+  section: QuotaProviderResponse["detail_sections"][number],
 ) {
   if (provider.id !== "zai") return section.rows;
   if (section.title.toLowerCase() !== "mcp details") return section.rows;
   return section.rows.filter((row) => row.label.toLowerCase() !== "total");
 }
 
-export function inferProviderRegion(provider: UsageProviderResponse): ProviderRegion | null {
+export function inferProviderRegion(provider: QuotaProviderResponse): ProviderRegion | null {
   const selectedRegion = provider.manual_setup?.selected_region?.toLowerCase();
   if (selectedRegion === "global" || selectedRegion === "china") {
     return selectedRegion;
   }
 
   if (provider.id === "minimax") {
-    const labels = usageMetrics(provider).map((metric) => metric.label.toLowerCase());
+    const labels = quotaMetrics(provider).map((metric) => metric.label.toLowerCase());
     const hasGlobal = labels.includes("global");
     const hasChina = labels.includes("china");
     if (hasGlobal && !hasChina) return "global";
@@ -291,7 +291,7 @@ export function inferProviderRegion(provider: UsageProviderResponse): ProviderRe
 
   if (provider.id === "zai") {
     const labels = [
-      ...usageMetrics(provider).map((metric) => metric.label.toLowerCase()),
+      ...quotaMetrics(provider).map((metric) => metric.label.toLowerCase()),
       ...extraSections(provider).map((section) => section.title.toLowerCase()),
     ];
     const hasGlobal = labels.some((label) => label.startsWith("global "));
@@ -323,8 +323,8 @@ export function usagePortalUrl(providerId: string, region: ProviderRegion | null
   return null;
 }
 
-export function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] {
-  const amountText = formatUsageAmountText(provider);
+export function quotaMetrics(provider: QuotaProviderResponse): QuotaMetricRow[] {
+  const amountText = formatQuotaAmountText(provider);
   return sectionRows(provider, "Usage")
     .filter((row) => Boolean(row.value?.trim()))
     .filter((row) => row.label.toLowerCase() !== "billing period")
@@ -341,7 +341,7 @@ export function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] 
 }
 
 export function providerIdentity(
-  provider: UsageProviderResponse,
+  provider: QuotaProviderResponse,
   notDetectedLabel = "Not detected",
 ) {
   const rawAccount =

@@ -3,60 +3,60 @@ use serde_json::{json, Value};
 use core_service::{Result, ServiceError};
 
 use super::{
-    TokenUsageOverviewRequest, UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest,
-    UsageApplyProviderVisibilityRequest, UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest,
-    UsageOverviewRequest, UsageProviderFooterCarouselRequest, UsageProviderManualSetupRequest,
-    UsageProviderSwitchRequest, WsMessageService,
+    TokenUsageOverviewRequest, QuotaAddProviderApiKeyRequest, QuotaAllProvidersSwitchRequest,
+    QuotaApplyProviderVisibilityRequest, QuotaAutoRefreshRequest, QuotaDeleteProviderApiKeyRequest,
+    QuotaOverviewRequest, QuotaProviderFooterCarouselRequest, QuotaProviderManualSetupRequest,
+    QuotaProviderSwitchRequest, WsMessageService,
 };
 
 impl WsMessageService {
-    pub(super) async fn handle_usage_get_overview(
+    pub(super) async fn handle_quota_get_overview(
         &self,
-        req: UsageOverviewRequest,
+        req: QuotaOverviewRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .get_overview(req.refresh, req.provider_id.as_deref())
             .await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_set_provider_switch(
+    pub(super) async fn handle_quota_set_provider_switch(
         &self,
-        req: UsageProviderSwitchRequest,
+        req: QuotaProviderSwitchRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .set_provider_switch(&req.provider_id, req.enabled)
             .await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_set_provider_footer_carousel(
+    pub(super) async fn handle_quota_set_provider_footer_carousel(
         &self,
-        req: UsageProviderFooterCarouselRequest,
+        req: QuotaProviderFooterCarouselRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .set_provider_footer_carousel_show(&req.provider_id, req.enabled)
             .await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_set_all_providers_switch(
+    pub(super) async fn handle_quota_set_all_providers_switch(
         &self,
-        req: UsageAllProvidersSwitchRequest,
+        req: QuotaAllProvidersSwitchRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .set_all_provider_switch(req.enabled)
             .await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_apply_provider_visibility(
+    pub(super) async fn handle_quota_apply_provider_visibility(
         &self,
-        req: UsageApplyProviderVisibilityRequest,
+        req: QuotaApplyProviderVisibilityRequest,
     ) -> Result<Value> {
         let prefs = req
             .providers
@@ -69,38 +69,38 @@ impl WsMessageService {
                 )
             })
             .collect();
-        let overview = self.usage_service.apply_provider_visibility(prefs).await;
+        let overview = self.quota_usage_service.apply_provider_visibility(prefs).await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_set_provider_manual_setup(
+    pub(super) async fn handle_quota_set_provider_manual_setup(
         &self,
-        req: UsageProviderManualSetupRequest,
+        req: QuotaProviderManualSetupRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .set_provider_manual_setup(&req.provider_id, req.region, req.api_key)
             .await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_add_provider_api_key(
+    pub(super) async fn handle_quota_add_provider_api_key(
         &self,
-        req: UsageAddProviderApiKeyRequest,
+        req: QuotaAddProviderApiKeyRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .add_provider_api_key(&req.provider_id, req.region, req.api_key)
             .await;
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_delete_provider_api_key(
+    pub(super) async fn handle_quota_delete_provider_api_key(
         &self,
-        req: UsageDeleteProviderApiKeyRequest,
+        req: QuotaDeleteProviderApiKeyRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .delete_provider_api_key(&req.provider_id, &req.key_id)
             .await;
         Ok(json!(overview))
@@ -127,12 +127,12 @@ impl WsMessageService {
         Ok(json!(overview))
     }
 
-    pub(super) async fn handle_usage_set_auto_refresh(
+    pub(super) async fn handle_quota_set_auto_refresh(
         &self,
-        req: UsageAutoRefreshRequest,
+        req: QuotaAutoRefreshRequest,
     ) -> Result<Value> {
         let overview = self
-            .usage_service
+            .quota_usage_service
             .set_auto_refresh_interval(req.interval_minutes)
             .await
             .map_err(ServiceError::Validation)?;

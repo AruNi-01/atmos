@@ -1,4 +1,4 @@
-import type { UsageProviderResponse, UsageOverviewResponse } from "@/api/ws-api";
+import type { QuotaProviderResponse, QuotaOverviewResponse } from "@/api/ws-api";
 
 export interface UsageCarouselItem {
   providerId: string;
@@ -6,20 +6,20 @@ export interface UsageCarouselItem {
   text: string;
 }
 
-interface UsageMetricBrief {
+interface QuotaMetricBrief {
   label: string;
   value: string;
   percent: number | null;
 }
 
-function sectionRows(provider: UsageProviderResponse, sectionTitle: string) {
+function sectionRows(provider: QuotaProviderResponse, sectionTitle: string) {
   return provider.detail_sections.find(
     (item) => item.title.toLowerCase() === sectionTitle.toLowerCase()
   )?.rows ?? [];
 }
 
 function firstRowValue(
-  provider: UsageProviderResponse,
+  provider: QuotaProviderResponse,
   sectionTitle: string,
   rowLabel: string
 ): string | null {
@@ -54,7 +54,7 @@ function trimUsageValue(value: string): string {
     .trim();
 }
 
-function usageMetrics(provider: UsageProviderResponse): UsageMetricBrief[] {
+function quotaMetrics(provider: QuotaProviderResponse): QuotaMetricBrief[] {
   return sectionRows(provider, "Usage")
     .filter((row) => Boolean(row.value?.trim()))
     .filter((row) => row.label.toLowerCase() !== "billing period")
@@ -65,7 +65,7 @@ function usageMetrics(provider: UsageProviderResponse): UsageMetricBrief[] {
     }));
 }
 
-function formatMetric(metric: UsageMetricBrief, includeLabel = true): string {
+function formatMetric(metric: QuotaMetricBrief, includeLabel = true): string {
   const prefix = includeLabel ? `${metric.label} ` : "";
   if (metric.percent !== null && metric.percent !== undefined) {
     return `${prefix}${metric.percent.toFixed(0)}% used`;
@@ -74,15 +74,15 @@ function formatMetric(metric: UsageMetricBrief, includeLabel = true): string {
   return metric.label;
 }
 
-function creditsText(provider: UsageProviderResponse): string | null {
+function creditsText(provider: QuotaProviderResponse): string | null {
   const balance = firstRowValue(provider, "Credits", "Balance");
   if (balance) return balance;
   const summary = provider.subscription_summary?.credits_label;
   return summary?.trim() || null;
 }
 
-export function formatUsageCarouselText(provider: UsageProviderResponse): string {
-  const metrics = usageMetrics(provider);
+export function formatQuotaCarouselText(provider: QuotaProviderResponse): string {
+  const metrics = quotaMetrics(provider);
   const credit = creditsText(provider);
 
   if (!provider.enabled) {
@@ -108,7 +108,7 @@ export function formatUsageCarouselText(provider: UsageProviderResponse): string
 }
 
 export function buildUsageCarouselItems(
-  overview: UsageOverviewResponse | null
+  overview: QuotaOverviewResponse | null
 ): UsageCarouselItem[] {
   if (!overview) return [];
 
@@ -117,6 +117,6 @@ export function buildUsageCarouselItems(
     .map((provider) => ({
       providerId: provider.id,
       label: provider.label,
-      text: formatUsageCarouselText(provider),
+      text: formatQuotaCarouselText(provider),
     }));
 }

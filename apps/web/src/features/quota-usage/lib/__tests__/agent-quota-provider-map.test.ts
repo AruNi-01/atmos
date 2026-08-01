@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
-  AGENT_TO_USAGE_PROVIDER_IDS,
+  AGENT_TO_QUOTA_PROVIDER_IDS,
   usageProviderIdsForAgents,
-} from "@/features/usage/lib/agent-usage-provider-map";
+} from "@/features/quota-usage/lib/agent-quota-provider-map";
 
 describe("usageProviderIdsForAgents", () => {
   test("maps known agents to usage providers", () => {
@@ -20,10 +20,10 @@ describe("usageProviderIdsForAgents", () => {
 
   test("dedupes providers when multiple agents map to the same provider", () => {
     // Currently 1:1, but mapping values are arrays — ensure Set semantics.
-    const agentIds = Object.keys(AGENT_TO_USAGE_PROVIDER_IDS);
+    const agentIds = Object.keys(AGENT_TO_QUOTA_PROVIDER_IDS);
     const ids = usageProviderIdsForAgents([...agentIds, ...agentIds]);
     expect(ids.size).toBe(
-      new Set(Object.values(AGENT_TO_USAGE_PROVIDER_IDS).flat()).size,
+      new Set(Object.values(AGENT_TO_QUOTA_PROVIDER_IDS).flat()).size,
     );
   });
 });

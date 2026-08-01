@@ -19,7 +19,7 @@ export function useHeaderHotkeys({
   isActionMenuOpen,
   refreshCurrentRoute,
   setIsActionMenuOpen,
-  setIsUsagePopoverOpen,
+  setIsQuotaPopoverOpen,
   showRightSidebar,
   toggleLeftSidebar,
   toggleRightSidebar,
@@ -28,7 +28,7 @@ export function useHeaderHotkeys({
   isActionMenuOpen: boolean;
   refreshCurrentRoute?: () => void;
   setIsActionMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsUsagePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   showRightSidebar: boolean;
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
@@ -80,11 +80,11 @@ export function useHeaderHotkeys({
     description: t("refreshPage"),
   }, [handleRefreshCurrentRoute]);
 
-  useHotkeys("mod+u", () => setIsUsagePopoverOpen((prev) => !prev), {
+  useHotkeys("mod+u", () => setIsQuotaPopoverOpen((prev) => !prev), {
     enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
-    description: t("toggleAiUsage"),
+    description: t("toggleQuotaUsage"),
   });
 
   useHotkeys("mod+shift+m", () => {

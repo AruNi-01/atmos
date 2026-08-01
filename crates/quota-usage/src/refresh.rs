@@ -1,4 +1,4 @@
-use crate::models::UsageOverview;
+use crate::models::QuotaOverview;
 use crate::support::parse_offset_datetime;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -131,7 +131,7 @@ pub(crate) fn persist_auto_refresh_interval_minutes(interval_minutes: Option<u64
 }
 
 pub(crate) fn persist_provider_state_for_overview(
-    overview: &UsageOverview,
+    overview: &QuotaOverview,
     refreshed_provider_ids: &[String],
 ) {
     let mut state = load_provider_state();
@@ -197,7 +197,7 @@ pub(crate) fn persist_provider_visibility_batch(prefs: &[(String, bool, bool)]) 
     save_provider_state(&state);
 }
 
-pub(crate) fn apply_provider_state(mut overview: UsageOverview) -> UsageOverview {
+pub(crate) fn apply_provider_state(mut overview: QuotaOverview) -> QuotaOverview {
     let state = load_provider_state();
 
     if let Some(all_updated_at) = state

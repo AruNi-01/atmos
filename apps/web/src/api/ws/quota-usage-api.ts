@@ -3,62 +3,62 @@
 import { wsRequest } from "@/api/ws/request";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
-export type UsageDetailRowTone =
+export type QuotaDetailRowTone =
   | "default"
   | "muted"
   | "success"
   | "warning"
   | "danger";
-export type UsageProviderKind = "cli" | "desktop" | "api" | "hybrid";
-export type UsageAuthStateStatus = "detected" | "missing" | "unsupported";
-export type UsageFetchStateStatus =
+export type QuotaProviderKind = "cli" | "desktop" | "api" | "hybrid";
+export type QuotaAuthStateStatus = "detected" | "missing" | "unsupported";
+export type QuotaFetchStateStatus =
   | "ready"
   | "unavailable"
   | "partial"
   | "error"
   | "unsupported";
 
-export interface UsageDetailRowResponse {
+export interface QuotaDetailRowResponse {
   label: string;
   value: string;
-  tone: UsageDetailRowTone;
+  tone: QuotaDetailRowTone;
 }
 
-export interface UsageDetailSectionResponse {
+export interface QuotaDetailSectionResponse {
   title: string;
-  rows: UsageDetailRowResponse[];
+  rows: QuotaDetailRowResponse[];
 }
 
-export interface UsageAuthStateResponse {
-  status: UsageAuthStateStatus;
+export interface QuotaAuthStateResponse {
+  status: QuotaAuthStateStatus;
   source: string | null;
   detail: string | null;
   setup_hint: string | null;
 }
 
-export interface UsageFetchStateResponse {
-  status: UsageFetchStateStatus;
+export interface QuotaFetchStateResponse {
+  status: QuotaFetchStateStatus;
   message: string | null;
 }
 
-export interface UsageManualSetupOptionResponse {
+export interface QuotaManualSetupOptionResponse {
   value: string;
   label: string;
 }
 
-export interface UsageConfiguredApiKey {
+export interface QuotaConfiguredApiKey {
   id: string;
   region: string | null;
 }
 
-export interface UsageManualSetupResponse {
+export interface QuotaManualSetupResponse {
   selected_region: string | null;
-  region_options: UsageManualSetupOptionResponse[];
+  region_options: QuotaManualSetupOptionResponse[];
   api_key_configured: boolean;
-  configured_keys: UsageConfiguredApiKey[];
+  configured_keys: QuotaConfiguredApiKey[];
 }
 
-export interface UsageSubscriptionSummaryResponse {
+export interface QuotaSubscriptionSummaryResponse {
   plan_label: string | null;
   window_label: string | null;
   credits_label: string | null;
@@ -66,7 +66,7 @@ export interface UsageSubscriptionSummaryResponse {
   reset_at: number | null;
 }
 
-export interface UsageSummaryResponse {
+export interface QuotaSummaryResponse {
   unit: string | null;
   currency: string | null;
   used: number | null;
@@ -78,25 +78,25 @@ export interface UsageSummaryResponse {
   cap_label: string | null;
 }
 
-export interface UsageProviderResponse {
+export interface QuotaProviderResponse {
   id: string;
   label: string;
-  kind: UsageProviderKind;
+  kind: QuotaProviderKind;
   enabled: boolean;
   switch_enabled: boolean;
   footer_carousel_show: boolean;
   healthy: boolean;
   last_updated_at: number | null;
-  subscription_summary: UsageSubscriptionSummaryResponse | null;
-  usage_summary: UsageSummaryResponse | null;
-  detail_sections: UsageDetailSectionResponse[];
+  subscription_summary: QuotaSubscriptionSummaryResponse | null;
+  usage_summary: QuotaSummaryResponse | null;
+  detail_sections: QuotaDetailSectionResponse[];
   warnings: string[];
-  auth_state: UsageAuthStateResponse;
-  fetch_state: UsageFetchStateResponse;
-  manual_setup: UsageManualSetupResponse | null;
+  auth_state: QuotaAuthStateResponse;
+  fetch_state: QuotaFetchStateResponse;
+  manual_setup: QuotaManualSetupResponse | null;
 }
 
-export interface UsageAggregateResponse {
+export interface QuotaAggregateResponse {
   enabled_count: number;
   total_count: number;
   active_subscription_count: number;
@@ -108,37 +108,37 @@ export interface UsageAggregateResponse {
   soonest_reset_at: number | null;
 }
 
-export interface UsageFetchIssueResponse {
+export interface QuotaFetchIssueResponse {
   provider_id: string;
   provider_label: string;
   message: string;
 }
 
-export interface UsageAutoRefreshResponse {
+export interface QuotaAutoRefreshResponse {
   interval_minutes: number | null;
 }
 
-export interface UsageOverviewResponse {
-  all: UsageAggregateResponse;
-  providers: UsageProviderResponse[];
+export interface QuotaOverviewResponse {
+  all: QuotaAggregateResponse;
+  providers: QuotaProviderResponse[];
   generated_at: number;
-  partial_failures: UsageFetchIssueResponse[];
-  auto_refresh: UsageAutoRefreshResponse;
+  partial_failures: QuotaFetchIssueResponse[];
+  auto_refresh: QuotaAutoRefreshResponse;
 }
 
-function emitUsageOverviewUpdated(overview: UsageOverviewResponse): void {
-  const listeners = useWebSocketStore.getState().eventListeners.get("usage_overview_updated");
+function emitQuotaOverviewUpdated(overview: QuotaOverviewResponse): void {
+  const listeners = useWebSocketStore.getState().eventListeners.get("quota_overview_updated");
   if (!listeners) return;
   listeners.forEach((listener) => listener(overview));
 }
 
-export const usageWsApi = {
+export const quotaUsageApi = {
   getOverview: async (
     refresh = false,
     providerId?: string | null,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_get_overview",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_get_overview",
       {
         refresh,
         provider_id: providerId ?? null,
@@ -149,7 +149,7 @@ export const usageWsApi = {
     // cache (refresh=false may even return an empty shell). Callers that pass
     // providerId write the result themselves when appropriate.
     if (!providerId) {
-      emitUsageOverviewUpdated(overview);
+      emitQuotaOverviewUpdated(overview);
     }
     return overview;
   },
@@ -157,44 +157,44 @@ export const usageWsApi = {
   setProviderSwitch: async (
     providerId: string,
     enabled: boolean,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_set_provider_switch",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_set_provider_switch",
       {
         provider_id: providerId,
         enabled,
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
   setProviderFooterCarousel: async (
     providerId: string,
     enabled: boolean,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_set_provider_footer_carousel",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_set_provider_footer_carousel",
       {
         provider_id: providerId,
         enabled,
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
   setAllProvidersSwitch: async (
     enabled: boolean,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_set_all_providers_switch",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_set_all_providers_switch",
       { enabled },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
@@ -208,13 +208,13 @@ export const usageWsApi = {
       switch_enabled: boolean;
       footer_carousel_show: boolean;
     }>,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_apply_provider_visibility",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_apply_provider_visibility",
       { providers },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
@@ -222,9 +222,9 @@ export const usageWsApi = {
     providerId: string,
     region: string | null,
     apiKey?: string | null,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_set_provider_manual_setup",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_set_provider_manual_setup",
       {
         provider_id: providerId,
         region,
@@ -232,7 +232,7 @@ export const usageWsApi = {
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
@@ -240,9 +240,9 @@ export const usageWsApi = {
     providerId: string,
     region: string | null,
     apiKey: string,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_add_provider_api_key",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_add_provider_api_key",
       {
         provider_id: providerId,
         region,
@@ -250,37 +250,37 @@ export const usageWsApi = {
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
   deleteProviderApiKey: async (
     providerId: string,
     keyId: string,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_delete_provider_api_key",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_delete_provider_api_key",
       {
         provider_id: providerId,
         key_id: keyId,
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 
   setAutoRefresh: async (
     intervalMinutes?: number | null,
-  ): Promise<UsageOverviewResponse> => {
-    const overview = await wsRequest<UsageOverviewResponse>(
-      "usage_set_auto_refresh",
+  ): Promise<QuotaOverviewResponse> => {
+    const overview = await wsRequest<QuotaOverviewResponse>(
+      "quota_set_auto_refresh",
       {
         interval_minutes: intervalMinutes ?? null,
       },
       45_000,
     );
-    emitUsageOverviewUpdated(overview);
+    emitQuotaOverviewUpdated(overview);
     return overview;
   },
 };

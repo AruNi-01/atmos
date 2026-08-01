@@ -14,7 +14,7 @@ use crate::config::{
 use crate::constants::PROVIDER_TIMEOUT_MILLIS;
 use crate::models::{
     AuthState, AuthStateStatus, DetailRow, DetailSection, FetchState, FetchStateStatus,
-    ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
+    ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, QuotaSummary,
 };
 use crate::providers::{
     amp,
@@ -45,7 +45,7 @@ pub struct ProviderDescriptor {
 #[derive(Debug, Clone)]
 pub(crate) struct LiveFetchResult {
     pub(crate) plan_label: Option<String>,
-    pub(crate) usage_summary: Option<UsageSummary>,
+    pub(crate) usage_summary: Option<QuotaSummary>,
     pub(crate) detail_sections: Vec<DetailSection>,
     pub(crate) warnings: Vec<String>,
     pub(crate) fetch_message: String,
@@ -112,7 +112,7 @@ pub(crate) struct ProviderSpec {
 }
 
 #[async_trait]
-pub trait UsageProvider: Send + Sync {
+pub trait QuotaProvider: Send + Sync {
     fn descriptor(&self) -> ProviderDescriptor;
     fn timeout(&self) -> Duration;
     async fn collect(&self) -> Result<ProviderStatus, ProviderError>;
@@ -125,7 +125,7 @@ struct ManagedProvider {
 }
 
 #[async_trait]
-impl UsageProvider for ManagedProvider {
+impl QuotaProvider for ManagedProvider {
     fn descriptor(&self) -> ProviderDescriptor {
         ProviderDescriptor {
             id: self.spec.id.to_string(),
@@ -172,7 +172,7 @@ impl UsageProvider for ManagedProvider {
     }
 }
 
-pub(crate) fn default_providers() -> Vec<Arc<dyn UsageProvider>> {
+pub(crate) fn default_providers() -> Vec<Arc<dyn QuotaProvider>> {
     provider_specs()
         .into_iter()
         .map(|spec| {
@@ -180,7 +180,7 @@ pub(crate) fn default_providers() -> Vec<Arc<dyn UsageProvider>> {
                 .timeout(Duration::from_secs(10))
                 .build()
                 .unwrap_or_else(|_| Client::new());
-            Arc::new(ManagedProvider { spec, client }) as Arc<dyn UsageProvider>
+            Arc::new(ManagedProvider { spec, client }) as Arc<dyn QuotaProvider>
         })
         .collect()
 }

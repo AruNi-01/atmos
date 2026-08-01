@@ -9,7 +9,7 @@ export function reconnectInvalidationKeys(scope: ComputerQueryScope): QueryKey[]
   return [
     queryKeys.computer.system(scope),
     queryKeys.computer.settingsBootstrap(scope),
-    queryKeys.computer.usageOverview(scope),
+    queryKeys.computer.quotaOverview(scope),
     [...queryKeys.computer.root(scope), "tokenUsage"] as const,
     queryKeys.computer.projectBootstrap(scope),
     queryKeys.computer.filesRoot(scope),

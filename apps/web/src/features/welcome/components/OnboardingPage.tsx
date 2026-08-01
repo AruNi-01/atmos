@@ -60,7 +60,7 @@ import {
   buildBuiltInEntries,
   isBuiltInAgentId,
 } from '@/features/settings/components/settings/settings-modal-utils';
-import { applyUsageProvidersForAgents } from '@/features/usage/lib/apply-usage-providers-for-agents';
+import { applyQuotaProvidersForAgents } from '@/features/quota-usage/lib/apply-quota-providers-for-agents';
 import {
   DEFAULT_AGENT_YOLO_MODE,
   setAgentYoloMode,
@@ -303,7 +303,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
     // AI Quota Usage: only track providers for agents the user enabled;
     // turn footer carousel on for those providers (and the footer master switch).
-    await applyUsageProvidersForAgents(selectedAgentIds);
+    await applyQuotaProvidersForAgents(selectedAgentIds);
   }, [defaultAgentId, selectedAgentIds, yoloMode]);
 
   const handleAgentsContinue = useCallback(async () => {

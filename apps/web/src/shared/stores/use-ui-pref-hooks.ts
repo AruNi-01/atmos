@@ -185,19 +185,19 @@ export function useSidebarUiPrefs(): [
   return [prefs, patch => setPrefs(prev => ({ ...prev, ...patch }))];
 }
 
-// --- Usage ---
+// --- Quota usage (provider order in popover) ---
 
-const DEFAULT_USAGE_PREFS: { providerOrder: string[] } = {
+const DEFAULT_QUOTA_PREFS: { providerOrder: string[] } = {
   providerOrder: [],
 };
 
-export function useUsageProviderOrder(): [
+export function useQuotaProviderOrder(): [
   string[],
   (order: string[] | ((prev: string[]) => string[])) => void,
 ] {
   const [prefs, setPrefs] = useInstanceSlice<{ providerOrder: string[] }>(
-    'usage',
-    DEFAULT_USAGE_PREFS,
+    "quota",
+    DEFAULT_QUOTA_PREFS,
   );
   const setProviderOrder = useCallback(
     (order: string[] | ((prev: string[]) => string[])) => {

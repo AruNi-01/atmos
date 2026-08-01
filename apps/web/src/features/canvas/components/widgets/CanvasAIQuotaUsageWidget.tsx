@@ -1,6 +1,6 @@
 "use client";
 
-import { UsagePopover } from "@/app-shell/UsagePopover";
+import { QuotaPopover } from "@/app-shell/QuotaPopover";
 import type {
   CanvasWidgetShape,
   CanvasWidgetSourceRef,
@@ -16,7 +16,7 @@ export function CanvasAIQuotaUsageWidget({ shape }: { shape: CanvasWidgetShape }
 
   return (
     <div className="h-full min-h-0 overflow-hidden bg-background">
-      <UsagePopover embedded />
+      <QuotaPopover embedded />
     </div>
   );
 }

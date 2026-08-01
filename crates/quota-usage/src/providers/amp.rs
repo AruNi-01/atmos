@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde_json::Value;
 use std::fs;
 
-use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, UsageSummary};
+use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, QuotaSummary};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     expand_home, extract_named_object, extract_object_number, format_reset_relative_text,
@@ -218,7 +218,7 @@ fn build_amp_live_result(
 
     Ok(LiveFetchResult {
         plan_label: Some(balance.plan),
-        usage_summary: percent.map(|percent| UsageSummary {
+        usage_summary: percent.map(|percent| QuotaSummary {
             unit: Some("dollars".to_string()),
             currency: Some("USD".to_string()),
             used: used.map(round_metric),
