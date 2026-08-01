@@ -75,6 +75,9 @@ impl<'a> QueueEventRepo<'a> {
             .col_expr(queue_event::Column::UpdatedAt, Expr::value(now))
             .filter(queue_event::Column::Guid.eq(&model.guid))
             .filter(queue_event::Column::Status.eq(event_status::PENDING))
+            // Re-check availability so a concurrent requeue with future
+            // available_at cannot be claimed early.
+            .filter(queue_event::Column::AvailableAt.lte(now))
             .exec(self.db)
             .await?;
 
@@ -197,6 +200,9 @@ impl<'a> QueueEventRepo<'a> {
     /// Reclaim `processing` rows whose `updated_at` is older than `stale_after`.
     /// Pass a lease longer than the handler timeout so live handlers are not
     /// double-claimed by another process (including on worker start).
+    ///
+    /// Rows that already exhausted `max_attempts` are marked `failed` instead of
+    /// being re-queued, so attempt limits stay terminal across reclaim.
     pub async fn requeue_stale_processing(
         &self,
         topic: &str,
@@ -204,6 +210,30 @@ impl<'a> QueueEventRepo<'a> {
     ) -> Result<u64> {
         let cutoff = Utc::now().naive_utc() - stale_after;
         let now = Utc::now().naive_utc();
+
+        let exhausted = queue_event::Entity::update_many()
+            .col_expr(
+                queue_event::Column::Status,
+                Expr::value(event_status::FAILED),
+            )
+            .col_expr(
+                queue_event::Column::LastError,
+                Expr::value(Some(
+                    "stale processing reclaim: max attempts already exhausted".to_string(),
+                )),
+            )
+            .col_expr(queue_event::Column::ProcessedAt, Expr::value(Some(now)))
+            .col_expr(queue_event::Column::UpdatedAt, Expr::value(now))
+            .filter(queue_event::Column::Topic.eq(topic))
+            .filter(queue_event::Column::Status.eq(event_status::PROCESSING))
+            .filter(queue_event::Column::UpdatedAt.lte(cutoff))
+            .filter(
+                Expr::col(queue_event::Column::Attempts)
+                    .gte(Expr::col(queue_event::Column::MaxAttempts)),
+            )
+            .exec(self.db)
+            .await?;
+
         let result = queue_event::Entity::update_many()
             .col_expr(
                 queue_event::Column::Status,
@@ -214,9 +244,39 @@ impl<'a> QueueEventRepo<'a> {
             .filter(queue_event::Column::Topic.eq(topic))
             .filter(queue_event::Column::Status.eq(event_status::PROCESSING))
             .filter(queue_event::Column::UpdatedAt.lte(cutoff))
+            .filter(
+                Expr::col(queue_event::Column::Attempts)
+                    .lt(Expr::col(queue_event::Column::MaxAttempts)),
+            )
             .exec(self.db)
             .await?;
-        Ok(result.rows_affected)
+        Ok(exhausted.rows_affected + result.rows_affected)
+    }
+
+    /// Force a `processing` row to `failed` (last-resort terminalization).
+    pub async fn force_mark_failed(&self, guid: &str, error: &str) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = queue_event::Entity::update_many()
+            .col_expr(
+                queue_event::Column::Status,
+                Expr::value(event_status::FAILED),
+            )
+            .col_expr(
+                queue_event::Column::LastError,
+                Expr::value(Some(error.to_string())),
+            )
+            .col_expr(queue_event::Column::ProcessedAt, Expr::value(Some(now)))
+            .col_expr(queue_event::Column::UpdatedAt, Expr::value(now))
+            .filter(queue_event::Column::Guid.eq(guid))
+            .filter(queue_event::Column::Status.eq(event_status::PROCESSING))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom(format!(
+                "queue event {guid} not in processing for force fail"
+            )));
+        }
+        Ok(())
     }
 
     /// Delete terminal rows whose **completion** time is older than `cutoff`.

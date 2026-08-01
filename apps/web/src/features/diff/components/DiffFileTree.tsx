@@ -26,6 +26,8 @@ interface DiffFileTreeProps {
   indentOffset?: number;
   style?: React.CSSProperties;
   isFileActionActive?: (path: string) => boolean;
+  /** Keep directory action chrome mounted while confirm/run is in progress. */
+  isDirectoryActionActive?: (items: DiffFileTreeItem[]) => boolean;
   renderFileActions?: (item: DiffFileTreeItem) => React.ReactNode;
   renderDirectoryActions?: (items: DiffFileTreeItem[]) => React.ReactNode;
   renderDirectoryDecoration?: (items: DiffFileTreeItem[]) => React.ReactNode;
@@ -314,6 +316,7 @@ interface DiffFileTreeRowProps {
   isSelected: boolean;
   isHovered: boolean;
   isActionActive: boolean;
+  isDirectoryActionActive: boolean;
   actions: React.ReactNode;
   directoryActions: React.ReactNode;
   decoration: React.ReactNode;
@@ -332,6 +335,7 @@ function DiffFileTreeRow({
   isSelected,
   isHovered,
   isActionActive,
+  isDirectoryActionActive,
   actions,
   directoryActions,
   decoration,
@@ -343,6 +347,8 @@ function DiffFileTreeRow({
   onDoubleClickFile,
   onHover,
 }: DiffFileTreeRowProps) {
+  const showDirectoryActions =
+    !!directoryActions && (isHovered || isDirectoryActionActive);
   const file = row.type === "file" ? row.file : undefined;
   const { nameRef, countsRef, shouldHideCounts } =
     useShouldHideTreeChangeCounts(row.id);
@@ -413,15 +419,20 @@ function DiffFileTreeRow({
               className={cn(
                 "ml-auto flex shrink-0 items-center justify-end transition-opacity",
                 directoryActions &&
-                  (isHovered ? "invisible" : undefined),
+                  (showDirectoryActions ? "invisible" : undefined),
               )}
             >
               {directoryDecoration ?? defaultDirectoryDecorationNode}
             </div>
           ) : null}
-          {directoryActions && isHovered ? (
+          {showDirectoryActions ? (
             <div
-              className="absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95"
+              className={cn(
+                "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95",
+                isDirectoryActionActive
+                  ? "opacity-100 pointer-events-auto"
+                  : undefined,
+              )}
             >
               {directoryActions}
             </div>
@@ -476,6 +487,7 @@ export function DiffFileTree({
   indentOffset = 0,
   style,
   isFileActionActive,
+  isDirectoryActionActive,
   renderFileActions,
   renderDirectoryActions,
   renderDirectoryDecoration,
@@ -530,6 +542,10 @@ export function DiffFileTree({
         const isSelected = !!file && selectedPath === row.path;
         const isActionActive =
           file && isFileActionActive ? isFileActionActive(row.path) : false;
+        const directoryActionActive =
+          !file && isDirectoryActionActive
+            ? isDirectoryActionActive(row.files)
+            : false;
         const directoryActions =
           !file && renderDirectoryActions ? renderDirectoryActions(row.files) : null;
         const actions = file && renderFileActions ? renderFileActions(file) : null;
@@ -559,6 +575,7 @@ export function DiffFileTree({
               isSelected={isSelected}
               isHovered={hoveredRowPath === row.id}
               isActionActive={isActionActive}
+              isDirectoryActionActive={directoryActionActive}
               actions={actions}
               directoryActions={directoryActions}
               decoration={decoration}

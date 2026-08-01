@@ -645,14 +645,48 @@ const TRANSIENT_SHELL_COMMAND_OSC = new Set([
 
 /**
  * Commands that commonly accept BSD-style option bundles without a leading dash
- * (e.g. `ps aux`, `ps ax`, `tar xzf`). Only these may treat bare letter tokens as
- * flags — do not apply this to prose-prone commands like `find`.
+ * (e.g. `ps aux`, `ps ax`). Only these may treat bare letter tokens as flags —
+ * do not apply this to prose-prone commands like `find`.
+ * Note: `tar` is intentionally not in TRANSIENT_SHELL_COMMAND_OSC (program CLI),
+ * so it is not listed here either.
  */
-const OPTION_BUNDLE_TRANSIENT_COMMANDS = new Set(["ps", "tar"]);
+const OPTION_BUNDLE_TRANSIENT_COMMANDS = new Set(["ps"]);
 
 /** BSD / clustered option bundle: `aux`, `ax`, `ef`, `xzf` — letters only, short. */
 function isShellOptionBundleToken(tok: string): boolean {
   return /^[A-Za-z]+$/.test(tok) && tok.length <= 8;
+}
+
+/** Path-ish target after a standalone `<` redirect (not prose `A < B`). */
+function looksLikeRedirectTarget(tok: string): boolean {
+  return (
+    tok.startsWith("./") ||
+    tok.startsWith("../") ||
+    tok.startsWith("/") ||
+    tok.startsWith("~/") ||
+    tok.includes("/") ||
+    /\.\w{1,10}$/.test(tok)
+  );
+}
+
+/**
+ * Shell redirect operators as tokens — keeps `Generics<T>` / `A < B check` as
+ * legitimate OSC topics while still catching `cat file > out` and `2>&1`.
+ */
+function hasShellRedirectTokens(osc: string): boolean {
+  const tokens = osc.trim().split(/\s+/).filter(Boolean);
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i] ?? "";
+    // Output / fd redirects: `>`, `>>`, `2>&1`, `>out`
+    if (/^\d*>{1,2}&?\d*$/.test(tok) || /^\d*>{1,2}.+/.test(tok)) return true;
+    // Attached input / heredoc: `<file`, `<<EOF`, `2<&0`
+    if (/^\d*<{1,2}&?\d+$/.test(tok) || /^\d*<{1,2}.+/.test(tok)) return true;
+    // Standalone `<` / `<<` only when the next token looks like a path/file.
+    if ((tok === "<" || tok === "<<") && looksLikeRedirectTarget(tokens[i + 1] ?? "")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -702,14 +736,9 @@ export function isShellPreexecCommandOscTitle(osc: string): boolean {
   if (!t) return false;
   // Pipeline / chain / command substitution — classic shell preexec.
   if (/[|`]|\$\(|\$\{|\s(?:&&|\|\|)\s/.test(t)) return true;
-  // Redirects (`> out`, `< in`, `2>&1`) but not language arrows / comparisons
-  // (`->`, `=>`, `<-`, `>=`, `<=`).
-  const withoutArrows = t
-    .replace(/[-=]>/g, " ")
-    .replace(/<[-=]/g, " ")
-    .replace(/>=/g, " ")
-    .replace(/<=/g, " ");
-  if (/[<>]/.test(withoutArrows)) return true;
+  // Redirect-like tokens (`> out`, `>>log`, `< /tmp/x`, `2>&1`) — not angle
+  // brackets inside prose/types (`Generics<T>`, `A < B check`).
+  if (hasShellRedirectTokens(t)) return true;
   // Background job: trailing or token-alone `&` (not `Q&A`, not `X & Y` prose).
   // Require `&` at end of title or before `;` / another operator-like boundary.
   if (/(?:^|\s)&\s*$/.test(t) || /(?:^|\s)&\s*[;|]/.test(t)) return true;

@@ -486,6 +486,22 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 runningActionKey === `${kind}:file:${path}:unstage` ||
                 runningActionKey === `${kind}:file:${path}:discard`
               }
+              isDirectoryActionActive={
+                readOnly
+                  ? undefined
+                  : (items) => {
+                      const paths = items.map((item) => item.path);
+                      const key = paths.join("|");
+                      return (
+                        confirmingActionKey === `${kind}:dir:${key}:stage` ||
+                        confirmingActionKey === `${kind}:dir:${key}:unstage` ||
+                        confirmingActionKey === `${kind}:dir:${key}:discard` ||
+                        runningActionKey === `${kind}:dir:${key}:stage` ||
+                        runningActionKey === `${kind}:dir:${key}:unstage` ||
+                        runningActionKey === `${kind}:dir:${key}:discard`
+                      );
+                    }
+              }
               renderFileActions={!hasTreeItemActions ? undefined : (file) => {
                 const fileName = file.path.split("/").pop() || file.path;
 
@@ -639,17 +655,21 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     </>
   );
 
-  const renderSectionActions = () => {
+  const renderSectionActions = (variant: "header" | "headerless" = "header") => {
     if (!hasSectionActions) return null;
 
     return (
       <div
         className={cn(
           "absolute z-10 flex items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
-          "top-1/2 right-2 -translate-y-1/2",
+          variant === "header"
+            ? "top-1/2 right-2 -translate-y-1/2"
+            : "top-1 right-2",
           hasActiveSectionAction
             ? "opacity-100 pointer-events-auto"
-            : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
+            : variant === "header"
+              ? "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100"
+              : "pointer-events-none opacity-0 group-hover/headerless:pointer-events-auto group-hover/headerless:opacity-100",
         )}
       >
         {onStageAll && (
@@ -703,7 +723,13 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   };
 
   if (hideHeader) {
-    return <div className="w-full">{content}</div>;
+    // Right sidebar uses hideHeader; bulk Stage/Unstage/Discard All still need a home.
+    return (
+      <div className="group/headerless relative w-full">
+        {content}
+        {renderSectionActions("headerless")}
+      </div>
+    );
   }
 
   return (
@@ -722,7 +748,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </span>
         </CollapsibleTrigger>
 
-        {renderSectionActions()}
+        {renderSectionActions("header")}
       </div>
 
       <CollapsibleContent>

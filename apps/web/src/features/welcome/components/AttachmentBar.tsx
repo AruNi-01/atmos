@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ImageIcon, X } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@workspace/ui";
+import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@workspace/ui";
 import { useTranslations } from "next-intl";
 
 export interface ComposerAttachment {
@@ -61,9 +61,10 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
             </TooltipTrigger>
             <TooltipContent side="top">{att.filename}</TooltipContent>
           </Tooltip>
-          <button
+          <Button
             type="button"
-            className="absolute -right-1 -top-1 z-10 flex size-4 items-center justify-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            variant="ghost"
+            className="absolute -right-1 -top-1 z-10 size-4 min-h-0 min-w-0 rounded-full border border-border/70 bg-background p-0 text-muted-foreground shadow-sm opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 [&>svg]:size-2.5"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -72,8 +73,8 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
             title={t("remove")}
             aria-label={t("remove")}
           >
-            <X className="size-2.5" strokeWidth={2.5} />
-          </button>
+            <X strokeWidth={2.5} />
+          </Button>
         </div>
       ))}
     </div>

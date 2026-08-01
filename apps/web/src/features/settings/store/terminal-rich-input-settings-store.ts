@@ -26,14 +26,16 @@ interface TerminalRichInputSettingsState {
 
 type TerminalRichInputSettingsStoreTranslator = ReturnType<typeof useTranslations>;
 
+/** Last non-null translator wins; do not clear to null on unmount (multi-consumer). */
 let terminalRichInputSettingsTranslator: TerminalRichInputSettingsStoreTranslator | null = null;
 let enabledRequestToken = 0;
 let triggerBarRequestToken = 0;
 let loadRequestToken = 0;
 let lastPersistedEnabled = DEFAULT_TERMINAL_RICH_INPUT_ENABLED;
 let lastPersistedTriggerBarVisible = DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE;
-/** True once we have applied values from the server at least once. */
-let hydratedFromServer = false;
+/** True only after a full server hydrate of both fields. */
+let hydratedEnabledFromServer = false;
+let hydratedTriggerBarFromServer = false;
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
@@ -66,7 +68,8 @@ async function hydratePersistedFromServer(): Promise<void> {
     settings.terminal?.rich_input_trigger_bar_visible,
     DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
   );
-  hydratedFromServer = true;
+  hydratedEnabledFromServer = true;
+  hydratedTriggerBarFromServer = true;
 }
 
 const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((set, get) => ({
@@ -81,7 +84,8 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     triggerBarRequestToken += 1;
     lastPersistedEnabled = DEFAULT_TERMINAL_RICH_INPUT_ENABLED;
     lastPersistedTriggerBarVisible = DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE;
-    hydratedFromServer = false;
+    hydratedEnabledFromServer = false;
+    hydratedTriggerBarFromServer = false;
     set({
       enabled: DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
       triggerBarVisible: DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
@@ -116,11 +120,13 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
       });
     } catch {
       if (loadRequestToken === requestToken) {
-        if (!get().loaded) {
-          set({ loaded: false, loading: false });
-        } else {
-          set({ loading: false });
-        }
+        // Fail open to defaults so the default-on composer is not stuck disabled.
+        set({
+          enabled: DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
+          triggerBarVisible: DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
+          loaded: true,
+          loading: false,
+        });
       }
     }
   },
@@ -141,17 +147,19 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
         enabled,
         expectedScope,
       );
+      // Always advance the rollback snapshot for a successful write so a later
+      // failed toggle does not roll back past a value that did persist.
+      lastPersistedEnabled = enabled;
       if (enabledRequestToken === requestToken) {
-        lastPersistedEnabled = enabled;
-        hydratedFromServer = true;
+        // no-op: UI already shows `enabled`
       }
     } catch {
       if (enabledRequestToken === requestToken) {
-        if (!hydratedFromServer) {
+        if (!hydratedEnabledFromServer) {
           try {
             await hydratePersistedFromServer();
           } catch {
-            /* keep last known defaults */
+            /* keep last known */
           }
         }
         set({ enabled: lastPersistedEnabled });
@@ -180,17 +188,17 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
         visible,
         expectedScope,
       );
+      lastPersistedTriggerBarVisible = visible;
       if (triggerBarRequestToken === requestToken) {
-        lastPersistedTriggerBarVisible = visible;
-        hydratedFromServer = true;
+        // no-op: UI already shows `visible`
       }
     } catch {
       if (triggerBarRequestToken === requestToken) {
-        if (!hydratedFromServer) {
+        if (!hydratedTriggerBarFromServer) {
           try {
             await hydratePersistedFromServer();
           } catch {
-            /* keep last known defaults */
+            /* keep last known */
           }
         }
         set({ triggerBarVisible: lastPersistedTriggerBarVisible });
@@ -211,12 +219,9 @@ export const useTerminalRichInputSettingsStore = Object.assign(
     const t = useTranslations('settings.terminalRichInputSettingsStore');
 
     React.useEffect(() => {
+      // Keep the newest translator; never null out on unmount so long-lived
+      // terminal consumers still get localized setter toasts after Settings closes.
       terminalRichInputSettingsTranslator = t;
-      return () => {
-        if (terminalRichInputSettingsTranslator === t) {
-          terminalRichInputSettingsTranslator = null;
-        }
-      };
     }, [t]);
 
     return terminalRichInputSettingsStore(...args);

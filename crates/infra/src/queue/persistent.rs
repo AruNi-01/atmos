@@ -24,9 +24,16 @@ use std::time::Duration;
 use chrono::{Duration as ChronoDuration, Utc};
 use sea_orm::DatabaseConnection;
 use tokio::sync::{Mutex, Notify};
-use tokio::task::JoinHandle;
+use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
+
+struct WorkerSlot {
+    handle: JoinHandle<()>,
+    /// In-flight nested handler task (if any). Shutdown aborts this so domain
+    /// work does not outlive the outer worker after the join handle is dropped.
+    current_handler: Arc<Mutex<Option<AbortHandle>>>,
+}
 
 use crate::db::entities::queue_event;
 use crate::db::repo::QueueEventRepo;
@@ -56,7 +63,7 @@ pub struct LocalPersistentQueue {
     db: DatabaseConnection,
     notify: Arc<Notify>,
     shutting_down: Arc<AtomicBool>,
-    workers: Mutex<HashMap<String, JoinHandle<()>>>,
+    workers: Mutex<HashMap<String, WorkerSlot>>,
     default_max_attempts: i32,
 }
 
@@ -110,7 +117,7 @@ impl LocalPersistentQueue {
 
         let mut workers = self.workers.lock().await;
         // Drop finished handles so a panicked worker does not permanently block resubscribe.
-        workers.retain(|_, handle| !handle.is_finished());
+        workers.retain(|_, slot| !slot.handle.is_finished());
         if workers.contains_key(topic.as_str()) {
             return Err(QueueError::ConsumerExists(topic.as_str().to_string()));
         }
@@ -131,6 +138,8 @@ impl LocalPersistentQueue {
         let notify = Arc::clone(&self.notify);
         let shutting_down = Arc::clone(&self.shutting_down);
         let topic_for_task = topic.as_str().to_string();
+        let current_handler: Arc<Mutex<Option<AbortHandle>>> = Arc::new(Mutex::new(None));
+        let current_handler_for_task = Arc::clone(&current_handler);
 
         let handle = tokio::spawn(async move {
             let mut last_stale_reclaim = tokio::time::Instant::now();
@@ -178,8 +187,16 @@ impl LocalPersistentQueue {
                         let handler = Arc::clone(&dyn_handler);
                         let join = tokio::spawn(async move { handler(msg).await });
                         let abort = join.abort_handle();
+                        {
+                            let mut slot = current_handler_for_task.lock().await;
+                            *slot = Some(abort.clone());
+                        }
                         let handler_result =
                             tokio::time::timeout(HANDLER_TIMEOUT, join).await;
+                        {
+                            let mut slot = current_handler_for_task.lock().await;
+                            *slot = None;
+                        }
                         match handler_result {
                             Ok(Ok(Ok(()))) => {
                                 finalize_succeeded(&db, &model.guid).await;
@@ -236,7 +253,13 @@ impl LocalPersistentQueue {
             }
         });
 
-        workers.insert(topic.as_str().to_string(), handle);
+        workers.insert(
+            topic.as_str().to_string(),
+            WorkerSlot {
+                handle,
+                current_handler,
+            },
+        );
         info!(topic = %topic, "persistent queue worker started");
         Ok(())
     }
@@ -280,9 +303,13 @@ impl LocalPersistentQueue {
         self.shutting_down.store(true, Ordering::SeqCst);
         self.notify.notify_waiters();
         let mut workers = self.workers.lock().await;
-        for (_, handle) in workers.drain() {
-            let abort = handle.abort_handle();
-            match tokio::time::timeout(Duration::from_secs(5), handle).await {
+        for (_, slot) in workers.drain() {
+            // Cancel nested handler first so domain work cannot outlive shutdown.
+            if let Some(handler_abort) = slot.current_handler.lock().await.take() {
+                handler_abort.abort();
+            }
+            let abort = slot.handle.abort_handle();
+            match tokio::time::timeout(Duration::from_secs(5), slot.handle).await {
                 Ok(_) => {}
                 Err(_) => abort.abort(),
             }
@@ -362,15 +389,22 @@ async fn finalize_failure(db: &DatabaseConnection, model: &queue_event::Model, e
             }
         }
     }
-    // Permanent failures must not re-enter `pending` — that would violate
-    // "no retries". Leave the row in `processing` so stale reclaim (or a
-    // later successful mark_failure) can still resolve it without inventing
-    // a new retry for a domain-permanent error.
-    if permanent {
-        warn!(
-            guid = %model.guid,
-            "leaving permanent failure in processing after finalize write failures"
-        );
+    // Terminal outcomes must not re-enter `pending`. Force-fail as a last resort
+    // so stale reclaim cannot re-dispatch permanent / exhausted rows.
+    if permanent || model.attempts >= model.max_attempts {
+        if let Err(force_error) = repo
+            .force_mark_failed(
+                &model.guid,
+                &format!("finalize failure failed after retries; last handler error: {message}"),
+            )
+            .await
+        {
+            warn!(
+                guid = %model.guid,
+                error = %force_error,
+                "failed to force-mark queue event failed after finalize retries"
+            );
+        }
         return;
     }
     if let Err(release_error) = repo

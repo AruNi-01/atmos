@@ -4,16 +4,12 @@ import * as React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
   Switch,
-  cn,
 } from '@workspace/ui';
 import {
   Check,
@@ -36,87 +32,10 @@ import {
   QuickOpenAppIcon,
   type QuickOpenAppName,
 } from '@/app-shell/quick-open-apps';
-
-function SettingRow({
-  title,
-  description,
-  children,
-  wide = false,
-  footer,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-  wide?: boolean;
-  footer?: React.ReactNode;
-}) {
-  return (
-    <div className="border-b border-border px-2 py-4 last:border-b-0">
-      <div
-        className={cn(
-          'grid gap-8',
-          wide
-            ? 'grid-cols-[minmax(0,1fr)_320px]'
-            : 'grid-cols-[minmax(0,1fr)_100px]',
-        )}
-      >
-        <div>
-          <p className="text-base font-medium text-foreground">{title}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {description}
-          </p>
-          {footer}
-        </div>
-        <div className="flex items-center justify-end">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function SettingsGroup({
-  open,
-  onOpenChange,
-  icon: Icon,
-  title,
-  description,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={onOpenChange}
-      className="overflow-hidden rounded-2xl border border-border"
-    >
-      <div className="flex items-start justify-between gap-4 px-6 py-5">
-        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-0.5 size-5 shrink-0">
-              <Icon className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{title}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
-            </div>
-          </div>
-        </CollapsibleTrigger>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-4">{children}</div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+} from '@/features/settings/components/settings/SettingsGroupCard';
 
 export function TerminalSettingsSection({
   fileLinkOpenMode,
@@ -240,14 +159,14 @@ export function TerminalSettingsSection({
 
   return (
     <div className="space-y-4">
-      <SettingsGroup
+      <SettingsGroupCard
         open={behaviorExpanded}
         onOpenChange={setBehaviorExpanded}
         icon={Link2}
         title={t('groups.behavior.title')}
         description={t('groups.behavior.description')}
       >
-        <SettingRow
+        <SettingsGroupRow
           title={t('fileLinkOpenMode.title')}
           description={t('fileLinkOpenMode.description')}
           wide
@@ -313,8 +232,8 @@ export function TerminalSettingsSection({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </SettingRow>
-        <SettingRow
+        </SettingsGroupRow>
+        <SettingsGroupRow
           title={t('defaultSplitAgent.title')}
           description={t('defaultSplitAgent.description')}
           footer={
@@ -330,17 +249,17 @@ export function TerminalSettingsSection({
             checked={useLastSplitAgentOnSplit}
             onCheckedChange={setUseLastSplitAgentOnSplit}
           />
-        </SettingRow>
-      </SettingsGroup>
+        </SettingsGroupRow>
+      </SettingsGroupCard>
 
-      <SettingsGroup
+      <SettingsGroupCard
         open={richInputExpanded}
         onOpenChange={setRichInputExpanded}
         icon={Keyboard}
         title={t('groups.richInput.title')}
         description={t('groups.richInput.description')}
       >
-        <SettingRow
+        <SettingsGroupRow
           title={t('richInputEnabled.title')}
           description={t('richInputEnabled.description')}
         >
@@ -349,8 +268,8 @@ export function TerminalSettingsSection({
             onCheckedChange={(value) => void setRichInputEnabled(!!value)}
             aria-label={t('richInputEnabled.title')}
           />
-        </SettingRow>
-        <SettingRow
+        </SettingsGroupRow>
+        <SettingsGroupRow
           title={t('richInputTriggerBar.title')}
           description={t('richInputTriggerBar.description')}
         >
@@ -360,17 +279,17 @@ export function TerminalSettingsSection({
             onCheckedChange={(value) => void setRichInputTriggerBarVisible(!!value)}
             aria-label={t('richInputTriggerBar.title')}
           />
-        </SettingRow>
-      </SettingsGroup>
+        </SettingsGroupRow>
+      </SettingsGroupCard>
 
-      <SettingsGroup
+      <SettingsGroupCard
         open={sideChatExpanded}
         onOpenChange={setSideChatExpanded}
         icon={MessageSquareText}
         title={t('groups.sideChat.title')}
         description={t('groups.sideChat.description')}
       >
-        <SettingRow
+        <SettingsGroupRow
           title={t('sideContextBudget.title')}
           description={t('sideContextBudget.description', {
             min: formattedMinSideContextBudget,
@@ -396,17 +315,17 @@ export function TerminalSettingsSection({
             />
             <span className="text-sm text-muted-foreground">{t('sideContextBudget.bytes')}</span>
           </div>
-        </SettingRow>
-      </SettingsGroup>
+        </SettingsGroupRow>
+      </SettingsGroupCard>
 
-      <SettingsGroup
+      <SettingsGroupCard
         open={performanceExpanded}
         onOpenChange={setPerformanceExpanded}
         icon={Gauge}
         title={t('groups.performance.title')}
         description={t('groups.performance.description')}
       >
-        <SettingRow
+        <SettingsGroupRow
           title={t('cacheWorkspaces.title')}
           description={t('cacheWorkspaces.description')}
           wide
@@ -429,8 +348,8 @@ export function TerminalSettingsSection({
             />
             <span className="text-sm text-muted-foreground">{t('cacheWorkspaces.contexts')}</span>
           </div>
-        </SettingRow>
-        <SettingRow
+        </SettingsGroupRow>
+        <SettingsGroupRow
           title={t('cachePanels.title')}
           description={t('cachePanels.description')}
           wide
@@ -453,8 +372,8 @@ export function TerminalSettingsSection({
             />
             <span className="text-sm text-muted-foreground">{t('cachePanels.panels')}</span>
           </div>
-        </SettingRow>
-      </SettingsGroup>
+        </SettingsGroupRow>
+      </SettingsGroupCard>
     </div>
   );
 }

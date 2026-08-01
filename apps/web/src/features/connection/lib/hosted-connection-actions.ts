@@ -31,7 +31,8 @@ export async function reconnectForCurrentTarget(): Promise<void> {
   const { waitForWebSocketConnection } = await import(
     '@/features/connection/hooks/use-websocket'
   );
-  void useWebSocketStore.getState().connect().catch(() => undefined);
+  // waitForWebSocketConnection already starts connect() and retries the shared
+  // in-flight promise; an extra connect() only duplicates startup logs.
   await waitForWebSocketConnection();
   await reloadActiveConnectionData();
 }

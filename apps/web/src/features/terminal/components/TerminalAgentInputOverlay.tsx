@@ -161,6 +161,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     void loadRichInputSettings();
   }, [loadRichInputSettings]);
 
+  // After Computer switch, store resets to loaded=false; re-hydrate so the
+  // default-on composer is not stuck off forever.
+  React.useEffect(() => {
+    if (richInputSettingsLoaded) return;
+    void loadRichInputSettings();
+  }, [richInputSettingsLoaded, loadRichInputSettings]);
+
   React.useEffect(() => {
     if (richInputActive) return;
     setIsOpen(false);
