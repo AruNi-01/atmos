@@ -15,7 +15,7 @@ export type UiPrefSlice =
   | 'previewBrowser'
   | 'canvas'
   | 'sidebar'
-  | 'usage'
+  | 'quota'
   | 'connection';
 
 type SliceMap = Partial<Record<UiPrefSlice, unknown>>;
