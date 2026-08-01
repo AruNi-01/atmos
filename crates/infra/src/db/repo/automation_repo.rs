@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::{Duration as ChronoDuration, NaiveDateTime, Utc};
 use sea_orm::sea_query::Expr;
 use sea_orm::*;
 
@@ -289,6 +289,106 @@ impl<'a> AutomationRepo<'a> {
             .filter(automation_run::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?)
+    }
+
+    /// Best-effort lookup for a run already started for this GitHub delivery
+    /// (crash between start_run and associate_github_delivery_run).
+    ///
+    /// Scoped by automation + route so multi-route fan-out for the same
+    /// `delivery_id` cannot attach the wrong run.
+    pub async fn find_run_by_github_delivery(
+        &self,
+        delivery_id: &str,
+        automation_guid: &str,
+        route_id: &str,
+    ) -> Result<Option<automation_run::Model>> {
+        // Prefer the delivery claim's run_guid when associate already ran.
+        let claim = self
+            .find_github_delivery_claim(delivery_id, route_id)
+            .await?;
+        if let Some(claim) = claim.as_ref() {
+            if let Some(run_guid) = claim.run_guid.as_deref() {
+                if let Some(run) = self.find_run_by_guid(run_guid).await? {
+                    if run.automation_guid == automation_guid {
+                        return Ok(Some(run));
+                    }
+                }
+            }
+        }
+
+        // Crash between start_run and associate: claim may lack run_guid.
+        // Bound the scan to runs started at/after the claim (plus a small
+        // skew window) so high-volume automations do not full-scan history.
+        let mut query = automation_run::Entity::find()
+            .filter(automation_run::Column::IsDeleted.eq(false))
+            .filter(automation_run::Column::TriggerKind.eq("github"))
+            .filter(automation_run::Column::AutomationGuid.eq(automation_guid));
+        if let Some(claim) = claim.as_ref() {
+            let started_after = claim.created_at - ChronoDuration::minutes(5);
+            query = query.filter(automation_run::Column::StartedAt.gte(started_after));
+        } else {
+            query = query.limit(64);
+        }
+        let runs = query
+            .order_by_desc(automation_run::Column::StartedAt)
+            .all(self.db)
+            .await?;
+
+        for run in runs {
+            let Some(raw) = run.trigger_source_json.as_deref() else {
+                continue;
+            };
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+                continue;
+            };
+            let matches_delivery = value
+                .get("delivery_id")
+                .and_then(|v| v.as_str())
+                .is_some_and(|id| id == delivery_id);
+            let matches_route = value
+                .get("route_id")
+                .and_then(|v| v.as_str())
+                .is_some_and(|id| id == route_id);
+            if matches_delivery && matches_route {
+                return Ok(Some(run));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Atomically take ownership of a stale incomplete claim for crash recovery.
+    ///
+    /// Returns `true` only when this caller won the CAS (status still `claimed`,
+    /// no `run_guid`, and `updated_at` still matches the snapshot). Live claims
+    /// with a recent `updated_at` must not be reclaimed.
+    pub async fn try_reclaim_incomplete_github_delivery(
+        &self,
+        delivery_id: &str,
+        route_id: &str,
+        expected_updated_at: chrono::NaiveDateTime,
+        min_age: ChronoDuration,
+    ) -> Result<bool> {
+        let now = Utc::now().naive_utc();
+        let stale_before = now - min_age;
+        if expected_updated_at > stale_before {
+            // Still considered live — do not steal.
+            return Ok(false);
+        }
+        let result = automation_github_delivery_claim::Entity::update_many()
+            .col_expr(
+                automation_github_delivery_claim::Column::UpdatedAt,
+                Expr::value(now),
+            )
+            .filter(automation_github_delivery_claim::Column::DeliveryId.eq(delivery_id))
+            .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
+            .filter(automation_github_delivery_claim::Column::Status.eq(GITHUB_DELIVERY_CLAIMED))
+            .filter(automation_github_delivery_claim::Column::RunGuid.is_null())
+            .filter(
+                automation_github_delivery_claim::Column::UpdatedAt.eq(expected_updated_at),
+            )
+            .exec(self.db)
+            .await?;
+        Ok(result.rows_affected == 1)
     }
 
     pub async fn create_run(

@@ -76,6 +76,7 @@ import {
   stripResolvedTerminalAiProtocolTokens,
   type TerminalPromptContext,
 } from "../lib/terminal-ai-context-protocol";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 
 import "./TerminalAgentInputOverlay.css";
 
@@ -140,12 +141,38 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   submitMode = "text-enter",
 }, ref) {
   const t = useTranslations("terminal.agentInput");
+  const {
+    enabled: richInputEnabled,
+    triggerBarVisible,
+    loaded: richInputSettingsLoaded,
+    loadSettings: loadRichInputSettings,
+  } = useTerminalRichInputSettingsStore();
+  // Until prefs hydrate, treat Rich Input as off so a previously disabled
+  // preference does not flash the composer for a frame.
+  const richInputActive = richInputSettingsLoaded && richInputEnabled;
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const inputShellRef = React.useRef<HTMLDivElement | null>(null);
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
   const flyingMessageIdRef = React.useRef(0);
   const [isOpen, setIsOpen] = React.useState(false);
   const [isPinned, setIsPinned] = React.useState(false);
+
+  React.useEffect(() => {
+    void loadRichInputSettings();
+  }, [loadRichInputSettings]);
+
+  // After Computer switch, store resets to loaded=false; re-hydrate so the
+  // default-on composer is not stuck off forever.
+  React.useEffect(() => {
+    if (richInputSettingsLoaded) return;
+    void loadRichInputSettings();
+  }, [richInputSettingsLoaded, loadRichInputSettings]);
+
+  React.useEffect(() => {
+    if (richInputActive) return;
+    setIsOpen(false);
+    setIsPinned(false);
+  }, [richInputActive]);
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -259,7 +286,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, []);
 
   const toggleInput = React.useCallback(() => {
-    if (isSendAnimating || isSendExiting) return;
+    if (!richInputActive || isSendAnimating || isSendExiting) return;
     setIsOpen((current) => {
       const next = !current;
       if (next) focusComposerSoon();
@@ -274,9 +301,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-  }, [focusComposerSoon, isSendAnimating, isSendExiting]);
+  }, [focusComposerSoon, isSendAnimating, isSendExiting, richInputActive]);
 
   const togglePin = React.useCallback(() => {
+    if (!richInputActive) return;
     setIsPinned((current) => {
       const next = !current;
       if (next) {
@@ -285,13 +313,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       }
       return next;
     });
-  }, [focusComposerSoon]);
+  }, [focusComposerSoon, richInputActive]);
 
   const focusInput = React.useCallback(() => {
-    if (isSendAnimating || isSendExiting) return;
+    if (!richInputActive || isSendAnimating || isSendExiting) return;
     setIsOpen(true);
     focusComposerSoon();
-  }, [focusComposerSoon, isSendAnimating, isSendExiting]);
+  }, [focusComposerSoon, isSendAnimating, isSendExiting, richInputActive]);
 
   const prevOpenRef = React.useRef(isOpen);
   React.useEffect(() => {
@@ -318,6 +346,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, [upsertPromptContext]);
 
   const insertTerminalSelectionContext = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
+    if (!richInputActive) return;
     const context = createTerminalSelectionContextFromSnapshot(snapshot);
     upsertPromptContext(context);
     setIsOpen(true);
@@ -325,9 +354,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       composerRef.current?.focus();
       composerRef.current?.insertTerminalSelectionContext(context.contextId);
     });
-  }, [upsertPromptContext]);
+  }, [richInputActive, upsertPromptContext]);
 
   const insertSideChatForTerminalSelection = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
+    if (!richInputActive) return;
     const context = createTerminalSelectionContextFromSnapshot(snapshot);
     upsertPromptContext(context);
     setIsOpen(true);
@@ -336,7 +366,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       composerRef.current?.insertSideChatCommand(context.contextId);
       composerRef.current?.insertTerminalSelectionContext(context.contextId);
     });
-  }, [upsertPromptContext]);
+  }, [richInputActive, upsertPromptContext]);
 
   const stopOverlayInteractionPropagation = React.useCallback(
     (event: React.SyntheticEvent) => {
@@ -919,8 +949,20 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
   }, []);
 
+  // Rich Input off (or prefs not loaded yet): keep side-chat dots; no composer.
+  if (!richInputActive) {
+    if (!sideChatDots) return null;
+    return (
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
+        <div className="pointer-events-auto flex w-full max-w-3xl flex-col items-center">
+          <div className="flex items-end">{sideChatDots}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-1">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
       <div
         className="pointer-events-auto flex w-full max-w-3xl flex-col items-center"
         onPointerDown={stopOverlayInteractionPropagation}
@@ -998,21 +1040,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           }
         />
 
-        <div className="flex items-center">
-          <button
-            type="button"
-            aria-label="Open agent input"
-            className={cn(
-              "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
-              isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
-            )}
-            onFocus={() => setIsOpen(true)}
-            onClick={focusInput}
-            onMouseEnter={() => setIsOpen(true)}
-          />
+        <div className="flex items-end">
+          {triggerBarVisible ? (
+            <button
+              type="button"
+              aria-label="Open agent input"
+              className={cn(
+                "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
+                isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
+              )}
+              onFocus={() => setIsOpen(true)}
+              onClick={focusInput}
+              onMouseEnter={() => setIsOpen(true)}
+            />
+          ) : null}
           <div
             className={cn(
-              "flex min-h-5 items-center gap-1 transition-opacity duration-200",
+              "flex items-end gap-1 transition-opacity duration-200",
               isOverlayVisible ? "pointer-events-none opacity-0" : "opacity-100",
             )}
           >

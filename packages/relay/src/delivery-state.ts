@@ -2,6 +2,12 @@ import type { Env } from "./index";
 
 export type DeliveryProvider = "github";
 export type DeliveryDispatchStatus = "dispatched" | "missed_offline" | "error";
+/**
+ * Delivery ack from the local Atmos Server.
+ *
+ * Current servers (APP-051 accept-on-persist) emit only `accepted` | `error`.
+ * `local_rejected` remains for historical rows / older server builds.
+ */
 export type DeliveryAckStatus = "accepted" | "local_rejected" | "error";
 
 export const GITHUB_DELIVERY_LIMITS = {

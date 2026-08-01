@@ -2,6 +2,7 @@
 
 import React from "react";
 
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import { isTerminalAgentInputPinShortcut, isTerminalAgentInputShortcut } from "../lib/terminal-runtime-utils";
 
 type UseTerminalGridHotkeysOptions = {
@@ -29,6 +30,10 @@ export function useTerminalGridHotkeys({
   toggleFocusedAgentInput,
   togglePinFocusedAgentInput,
 }: UseTerminalGridHotkeysOptions) {
+  const richInputEnabled = useTerminalRichInputSettingsStore(
+    (s) => s.loaded && s.enabled,
+  );
+
   React.useEffect(() => {
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
       const container = terminalHotkeyScopeRef.current;
@@ -66,14 +71,16 @@ export function useTerminalGridHotkeys({
         return;
       }
 
-      if (isTerminalAgentInputPinShortcut(event)) {
+      // Only intercept ⌘G / ⌘⇧G when Terminal Rich Input is enabled so the
+      // terminal can receive those chords when the setting is off.
+      if (richInputEnabled && isTerminalAgentInputPinShortcut(event)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         togglePinFocusedAgentInput();
         return;
       }
 
-      if (isTerminalAgentInputShortcut(event)) {
+      if (richInputEnabled && isTerminalAgentInputShortcut(event)) {
         event.preventDefault();
         event.stopImmediatePropagation();
         toggleFocusedAgentInput();
@@ -129,6 +136,7 @@ export function useTerminalGridHotkeys({
     onToggleMaximize,
     pinPaneToCanvas,
     requestCloseTerminal,
+    richInputEnabled,
     splitFocusedTerminal,
     terminalHotkeyScopeRef,
     toggleFocusedAgentInput,

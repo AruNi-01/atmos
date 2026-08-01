@@ -1,19 +1,15 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::api::ws::{WsMessageService, WsService};
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, AutomationService, CanvasAgentRelay,
-    CanvasDocumentService, ExternalTriggerOutcome, MessagePushService, NotificationService,
-    ProjectService, ReviewService, ServiceError, TerminalService, TestService, WorkspaceService,
+    CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
+    TerminalService, TestService, WorkspaceService,
 };
-use infra::queue::LocalMemoryQueue;
+use infra::queue::LocalPersistentQueue;
 use token_usage::TokenUsageService;
-use tokio::sync::{oneshot, Mutex};
 
 use crate::relay::RelaySupervisor;
-
-pub type GithubTriggerReply = oneshot::Sender<Result<ExternalTriggerOutcome, ServiceError>>;
 
 pub struct AppServices {
     pub test_service: Arc<TestService>,
@@ -51,10 +47,8 @@ pub struct AppState {
     pub ws_service: Arc<WsService>,
     pub api_port: std::sync::atomic::AtomicU16,
     pub relay_supervisor: RelaySupervisor,
-    /// APP-051 local event queue (GitHub deliveries, etc.).
-    pub event_queue: Arc<LocalMemoryQueue>,
-    /// Reply channels for github queue messages awaiting ingress ACK.
-    pub github_trigger_replies: Arc<Mutex<HashMap<String, GithubTriggerReply>>>,
+    /// Durable SQLite-backed event queue (GitHub / future third-party triggers).
+    pub event_queue: Arc<LocalPersistentQueue>,
 }
 
 impl Clone for AppState {
@@ -78,7 +72,6 @@ impl Clone for AppState {
             api_port: std::sync::atomic::AtomicU16::new(self.api_port()),
             relay_supervisor: self.relay_supervisor.clone(),
             event_queue: Arc::clone(&self.event_queue),
-            github_trigger_replies: Arc::clone(&self.github_trigger_replies),
         }
     }
 }
@@ -87,7 +80,7 @@ impl AppState {
     pub fn new(
         services: AppServices,
         default_port: u16,
-        event_queue: Arc<LocalMemoryQueue>,
+        event_queue: Arc<LocalPersistentQueue>,
     ) -> Self {
         let ws_service = WsService::new().with_message_handler(services.ws_message_service);
 
@@ -110,7 +103,6 @@ impl AppState {
             api_port: std::sync::atomic::AtomicU16::new(default_port),
             relay_supervisor: RelaySupervisor::new(),
             event_queue,
-            github_trigger_replies: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 

@@ -136,24 +136,84 @@ impl AutomationService {
                 automation_guid: automation.guid.clone(),
             })
             .await?;
-        if matches!(delivery_claim, GithubDeliveryClaimResult::AlreadyClaimed(_)) {
-            return Ok(local_rejected(
-                &event,
-                ExternalTriggerRejectReason::DuplicateDelivery,
-                "GitHub delivery was already processed for this route.",
-            ));
+        // Fresh insert owns the claim. Incomplete claims (status=claimed, no
+        // run_guid) may be crash leftovers — reclaim only when stale, so a live
+        // in-flight worker is not rejected or double-started.
+        enum ClaimOwnership {
+            /// We inserted the claim in this invocation.
+            Fresh,
+            /// We won CAS on a stale incomplete claim.
+            Recovered,
         }
+        let ownership = match delivery_claim {
+            GithubDeliveryClaimResult::Claimed(_) => ClaimOwnership::Fresh,
+            GithubDeliveryClaimResult::AlreadyClaimed(existing)
+                if existing.run_guid.is_none() && existing.status == "claimed" =>
+            {
+                let reclaimed = repo
+                    .try_reclaim_incomplete_github_delivery(
+                        &event.delivery_id,
+                        &event.route_id,
+                        existing.updated_at,
+                        // Match short handler windows; live workers refresh
+                        // claim ownership only via associate/reject.
+                        chrono::Duration::minutes(2),
+                    )
+                    .await?;
+                if !reclaimed {
+                    return Ok(local_rejected(
+                        &event,
+                        ExternalTriggerRejectReason::DuplicateDelivery,
+                        "GitHub delivery claim is already in progress for this route.",
+                    ));
+                }
+                // Resume: if a run was already started and only associate()
+                // failed, attach it instead of starting again.
+                if let Some(existing_run) = repo
+                    .find_run_by_github_delivery(
+                        &event.delivery_id,
+                        &event.automation_guid,
+                        &event.route_id,
+                    )
+                    .await?
+                {
+                    repo.associate_github_delivery_run(
+                        &event.delivery_id,
+                        &event.route_id,
+                        &existing_run.guid,
+                    )
+                    .await?;
+                    return Ok(ExternalTriggerOutcome::Accepted {
+                        run: Box::new(AutomationRunDetail {
+                            summary: AutomationRunSummary::from(existing_run),
+                        }),
+                    });
+                }
+                ClaimOwnership::Recovered
+            }
+            GithubDeliveryClaimResult::AlreadyClaimed(_) => {
+                return Ok(local_rejected(
+                    &event,
+                    ExternalTriggerRejectReason::DuplicateDelivery,
+                    "GitHub delivery was already processed for this route.",
+                ));
+            }
+        };
 
         if repo
             .has_running_run_for_automation(&automation.guid)
             .await?
         {
-            repo.reject_github_delivery_claim(
-                &event.delivery_id,
-                &event.route_id,
-                "already_running",
-            )
-            .await?;
+            // Only the fresh owner should mark the claim rejected. A recovered
+            // loser that lost a race must not clobber a live claim.
+            if matches!(ownership, ClaimOwnership::Fresh) {
+                repo.reject_github_delivery_claim(
+                    &event.delivery_id,
+                    &event.route_id,
+                    "already_running",
+                )
+                .await?;
+            }
             return Ok(local_rejected(
                 &event,
                 ExternalTriggerRejectReason::AlreadyRunning,
@@ -182,12 +242,14 @@ impl AutomationService {
                 })
             }
             Err(ServiceError::Validation(message)) if message == "already_running" => {
-                repo.reject_github_delivery_claim(
-                    &event.delivery_id,
-                    &event.route_id,
-                    "already_running",
-                )
-                .await?;
+                if matches!(ownership, ClaimOwnership::Fresh) {
+                    repo.reject_github_delivery_claim(
+                        &event.delivery_id,
+                        &event.route_id,
+                        "already_running",
+                    )
+                    .await?;
+                }
                 Ok(local_rejected(
                     &event,
                     ExternalTriggerRejectReason::AlreadyRunning,
@@ -195,6 +257,8 @@ impl AutomationService {
                 ))
             }
             Err(error) => {
+                // Only the claim owner may release; recovered CAS already
+                // advanced updated_at — release still only deletes claimed+null.
                 repo.release_github_delivery_claim(&event.delivery_id, &event.route_id)
                     .await?;
                 Err(error)

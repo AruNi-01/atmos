@@ -55,6 +55,10 @@ export interface FunctionSettings {
     file_link_open_mode?: "atmos" | "finder" | "app";
     file_link_open_app?: string;
     side_context_prompt_budget_bytes?: number;
+    /** When false, Terminal Rich Input is fully disabled (shortcuts no-op). Default true. */
+    rich_input_enabled?: boolean;
+    /** When false, hide the bottom trigger bar; shortcuts still open Rich Input. Default true. */
+    rich_input_trigger_bar_visible?: boolean;
   };
   workspace_surface?: {
     max_warm_workspaces?: number;
@@ -125,6 +129,21 @@ export interface LlmProviderTestResponse {
   text: string;
 }
 
+/**
+ * Server `function_settings_update` is whole-file RMW. Serialize client writers
+ * so concurrent key updates (e.g. rich input + side chat budget) do not clobber.
+ */
+let functionSettingsWriteChain: Promise<void> = Promise.resolve();
+
+function enqueueFunctionSettingsWrite<T>(task: () => Promise<T>): Promise<T> {
+  const run = functionSettingsWriteChain.then(task, task);
+  functionSettingsWriteChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 export const functionSettingsApi = {
   get: async (): Promise<FunctionSettings> => {
     return settingsBootstrapCache.getFunctionSettings();
@@ -136,20 +155,23 @@ export const functionSettingsApi = {
     value: unknown,
     expectedScope?: ComputerQueryScope,
   ): Promise<{ ok: boolean }> => {
+    // Capture scope before enqueue so a Computer switch mid-queue rejects the write.
     const scope = expectedScope ?? getComputerQueryScope();
-    const result = await wsRequestForComputerScope<{ ok: boolean }>(
-      scope,
-      "function_settings_update",
-      {
-        function_name: functionName,
-        key,
-        value,
-      },
-    );
-    if (result.ok) {
-      settingsBootstrapCache.patchFunctionSetting(functionName, key, value, scope);
-    }
-    return result;
+    return enqueueFunctionSettingsWrite(async () => {
+      const result = await wsRequestForComputerScope<{ ok: boolean }>(
+        scope,
+        "function_settings_update",
+        {
+          function_name: functionName,
+          key,
+          value,
+        },
+      );
+      if (result.ok) {
+        settingsBootstrapCache.patchFunctionSetting(functionName, key, value, scope);
+      }
+      return result;
+    });
   },
 };
 

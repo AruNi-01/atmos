@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde_json::Value;
 use std::fs;
 
-use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, QuotaSummary};
+use crate::models::{DetailRow, DetailSection, ProviderError, QuotaSummary, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     expand_home, extract_named_object, extract_object_number, format_reset_relative_text,

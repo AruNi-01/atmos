@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { instKey, readJson, writeJson } from '@/shared/lib/browser-store';
+import { hasStorageKey, instKey, readJson, removeKey, writeJson } from '@/shared/lib/browser-store';
 import type { ConnectionInstanceId } from '@/features/connection/lib/connection-instance';
 
 export type UiPrefSlice =
@@ -15,7 +15,7 @@ export type UiPrefSlice =
   | 'previewBrowser'
   | 'canvas'
   | 'sidebar'
-  | 'usage'
+  | 'quota'
   | 'connection';
 
 type SliceMap = Partial<Record<UiPrefSlice, unknown>>;
@@ -44,6 +44,31 @@ export const useUiPrefStore = create<UiPrefStoreState>((set, get) => ({
     const cached = get().byInstance[instanceId]?.[slice];
     if (cached !== undefined) {
       return cached as typeof fallback;
+    }
+    // One-shot migrate pre-rename `usage` → `quota` when quota is absent.
+    if (slice === 'quota') {
+      const quotaKey = instKey(instanceId, 'quota');
+      if (!hasStorageKey(quotaKey)) {
+        const legacyKey = instKey(instanceId, 'usage');
+        const legacy = readJson<typeof fallback | null>(legacyKey, null);
+        if (legacy != null) {
+          // Only drop legacy after quota write succeeds — otherwise next reload
+          // loses the preference.
+          if (writeJson(quotaKey, legacy)) {
+            removeKey(legacyKey);
+          }
+          set(state => ({
+            byInstance: {
+              ...state.byInstance,
+              [instanceId]: {
+                ...state.byInstance[instanceId],
+                [slice]: legacy,
+              },
+            },
+          }));
+          return legacy;
+        }
+      }
     }
     const fromDisk = readJson(instKey(instanceId, slice), fallback);
     set(state => ({

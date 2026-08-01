@@ -356,11 +356,6 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     window.open(`https://github.com/${owner}/${repo}/pull/${prNumber}`, '_blank');
   };
 
-  const handleOpenBetterHub = () => {
-    if (!prNumber) return;
-    window.open(`https://better-hub.com/${owner}/${repo}/pull/${prNumber}`, '_blank');
-  };
-
   const handlePostComment = async (body: string) => {
     if (!prNumber || !body.trim()) return;
     setActionLoading('comment');
@@ -1023,7 +1018,6 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
           mergeStrategy={mergeStrategy}
           onMergeStrategyChange={setMergeStrategy}
           onOpenGitHub={handleOpenGitHub}
-          onOpenBetterHub={handleOpenBetterHub}
           onClose={() => handleClose()}
           onMerge={() => handleMerge()}
           onReopen={() => handleReopen()}

@@ -644,6 +644,25 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("terminal.defaultSplitAgent", {
       keywords: ["split terminal", "last agent", "toolbar click", "command d", "context menu"],
     }),
+    settingsModalSearchItem("terminal.richInputEnabled", {
+      keywords: [
+        "terminal rich input",
+        "agent input",
+        "command g",
+        "prompt composer",
+        "terminal input",
+      ],
+    }),
+    settingsModalSearchItem("terminal.richInputTriggerBar", {
+      keywords: [
+        "trigger bar",
+        "handle",
+        "hover bar",
+        "rich input bar",
+        "hide bar",
+        "command g",
+      ],
+    }),
     settingsModalSearchItem("terminal.sideContextBudget", {
       keywords: ["/side", "side chat", "context budget", "prompt bytes", "terminal capture"],
     }),

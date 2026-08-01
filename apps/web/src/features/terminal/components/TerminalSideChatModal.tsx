@@ -22,6 +22,7 @@ import {
   sideChatTabLabel,
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
   isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
@@ -77,6 +78,9 @@ export function TerminalSideChatModal({
   onSelectSideChat,
 }: TerminalSideChatModalProps) {
   const t = useTranslations("terminal.sideChat");
+  const richInputActive = useTerminalRichInputSettingsStore(
+    (s) => s.loaded && s.enabled,
+  );
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
   const agentInputOverlayRefs = React.useRef<Map<string, TerminalAgentInputOverlayHandle>>(new Map());
   const [closeAllConfirmOpen, setCloseAllConfirmOpen] = React.useState(false);
@@ -126,6 +130,8 @@ export function TerminalSideChatModal({
   const handleModalKeyDownCapture = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       markInteraction(event);
+      const rich = useTerminalRichInputSettingsStore.getState();
+      if (!rich.loaded || !rich.enabled) return;
       if (isTerminalAgentInputPinShortcut(event)) {
         event.preventDefault();
         event.stopPropagation();
@@ -337,9 +343,15 @@ export function TerminalSideChatModal({
                   sourcePaneId={sourcePaneId}
                   sourceTmuxWindowName={sourceTmuxWindowName}
                   terminalScale={terminalScale}
-                  onAddSelectionAsContext={(snapshot) => {
-                    agentInputOverlayRefs.current.get(record.side_chat_id)?.addTerminalSelectionContext(snapshot);
-                  }}
+                  onAddSelectionAsContext={
+                    richInputActive
+                      ? (snapshot) => {
+                          agentInputOverlayRefs.current
+                            .get(record.side_chat_id)
+                            ?.addTerminalSelectionContext(snapshot);
+                        }
+                      : undefined
+                  }
                   onSessionReady={() => {
                     setReadySideChatIds((current) => new Set(current).add(record.side_chat_id));
                     onReady(record);

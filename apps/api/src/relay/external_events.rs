@@ -1,15 +1,16 @@
 //! Relay external-event ingress for APP-019 provider triggers.
 //!
-//! APP-051: validate → enqueue on `automation.github_delivery` → await consumer
-//! domain outcome for ACK parity (LocalRejected / Accepted / Error).
+//! Accept path (durable queue):
+//! 1. Parse / validate shape
+//! 2. Persist to [`infra::queue::LocalPersistentQueue`]
+//! 3. ACK Accepted (provider should not redeliver for internal processing failures)
+//!
+//! Domain matching / start_run runs in the queue worker with internal retries.
 
 use chrono::{DateTime, Utc};
-use core_service::{
-    ExternalTriggerOutcome, ExternalTriggerRejectReason, GithubTriggerEvent, ServiceError,
-};
+use core_service::{GithubTriggerEvent, ServiceError};
 use infra::queue::{topics, EnqueueError, Topic};
 use serde::{Deserialize, Serialize};
-use tokio::sync::oneshot;
 use tracing::warn;
 
 use crate::app_state::AppState;
@@ -59,8 +60,11 @@ pub struct ExternalEventAck {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum ExternalEventAckStatus {
+    /// Event was persisted for internal processing (accept-on-persist).
+    /// Domain match / start_run happens asynchronously in the queue worker.
+    /// `local_rejected` is no longer used on this path — domain rejects complete
+    /// the queue event without asking the provider to redeliver.
     Accepted,
-    LocalRejected,
     Error,
 }
 
@@ -86,95 +90,64 @@ pub async fn handle_external_event_body(state: &AppState, body: &str) -> Option<
 
     let delivery_id = event.delivery_id.clone();
     let route_id = event.route_id.clone();
-    let outcome = enqueue_github_trigger(state, event).await;
-    let ack = match outcome {
-        Ok(ExternalTriggerOutcome::Accepted { .. }) => ExternalEventAck {
-            delivery_id,
-            route_id,
-            status: ExternalEventAckStatus::Accepted,
-            error_code: None,
-        },
-        Ok(ExternalTriggerOutcome::LocalRejected { rejection }) => ExternalEventAck {
-            delivery_id: rejection.delivery_id,
-            route_id: rejection.route_id,
-            status: ExternalEventAckStatus::LocalRejected,
-            error_code: Some(reject_reason_code(rejection.reason).to_string()),
-        },
-        Err(error) => ExternalEventAck {
+
+    match accept_github_trigger(state, event).await {
+        Ok(queue_event_id) => {
+            debug_queue_accepted(&delivery_id, &queue_event_id);
+            serialize_ack(ExternalEventAck {
+                delivery_id,
+                route_id,
+                status: ExternalEventAckStatus::Accepted,
+                error_code: None,
+            })
+        }
+        Err(error) => serialize_ack(ExternalEventAck {
             delivery_id,
             route_id,
             status: ExternalEventAckStatus::Error,
             error_code: Some(service_error_code(&error).to_string()),
-        },
-    };
-
-    serialize_ack(ack)
+        }),
+    }
 }
 
-/// Queue envelope so reply correlation uses a unique `reply_id` (not delivery_id).
+fn debug_queue_accepted(delivery_id: &str, queue_event_id: &str) {
+    tracing::debug!(
+        target: "atmos_relay",
+        delivery_id = %delivery_id,
+        queue_event_id = %queue_event_id,
+        "github external event accepted into durable queue"
+    );
+}
+
+/// Payload stored in the durable queue (no reply channel — ACK is accept-only).
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct GithubQueueEnvelope {
-    pub reply_id: String,
+pub(crate) struct GithubQueuePayload {
     pub event: GithubTriggerEvent,
 }
 
-async fn enqueue_github_trigger(
+async fn accept_github_trigger(
     state: &AppState,
     event: GithubTriggerEvent,
-) -> Result<ExternalTriggerOutcome, ServiceError> {
-    let reply_id = uuid::Uuid::new_v4().to_string();
-    let payload = serde_json::to_vec(&GithubQueueEnvelope {
-        reply_id: reply_id.clone(),
-        event,
-    })
-    .map_err(|error| {
+) -> Result<String, ServiceError> {
+    let payload = serde_json::to_vec(&GithubQueuePayload { event }).map_err(|error| {
         ServiceError::Validation(format!("github trigger serialize failed: {error}"))
     })?;
-    let (tx, rx) = oneshot::channel();
-    // Register waiter before enqueue so the consumer can always find a reply channel.
-    state
-        .github_trigger_replies
-        .lock()
-        .await
-        .insert(reply_id.clone(), tx);
 
-    match state
+    state
         .event_queue
         .enqueue(&Topic::new(topics::AUTOMATION_GITHUB_DELIVERY), payload)
         .await
-    {
-        Ok(_) => {}
-        Err(error) => {
-            state.github_trigger_replies.lock().await.remove(&reply_id);
-            return Err(match error {
-                EnqueueError::Full => {
-                    ServiceError::Processing("github delivery queue is full".to_string())
-                }
-                EnqueueError::ShuttingDown => {
-                    ServiceError::Processing("github delivery queue is shutting down".to_string())
-                }
-                EnqueueError::NoConsumer => {
-                    ServiceError::Processing("github delivery queue has no consumer".to_string())
-                }
-            });
-        }
-    }
-
-    match tokio::time::timeout(std::time::Duration::from_secs(60), rx).await {
-        Ok(Ok(outcome)) => outcome,
-        Ok(Err(_)) => {
-            state.github_trigger_replies.lock().await.remove(&reply_id);
-            Err(ServiceError::Processing(
-                "github delivery queue reply channel closed".to_string(),
-            ))
-        }
-        Err(_) => {
-            state.github_trigger_replies.lock().await.remove(&reply_id);
-            Err(ServiceError::Processing(
-                "github delivery queue processing timed out".to_string(),
-            ))
-        }
-    }
+        .map_err(|error| match error {
+            EnqueueError::ShuttingDown => {
+                ServiceError::Processing("event queue is shutting down".to_string())
+            }
+            EnqueueError::Full => ServiceError::Processing("event queue is full".to_string()),
+            EnqueueError::NoConsumer => {
+                // Durable queue does not require a live consumer to accept.
+                ServiceError::Processing("event queue has no consumer".to_string())
+            }
+            EnqueueError::Internal(message) => ServiceError::Processing(message),
+        })
 }
 
 fn parse_github_trigger_event(body: &str) -> Result<GithubTriggerEvent, String> {
@@ -234,22 +207,6 @@ fn serialize_ack(ack: ExternalEventAck) -> Option<String> {
             );
             None
         }
-    }
-}
-
-fn reject_reason_code(reason: ExternalTriggerRejectReason) -> &'static str {
-    match reason {
-        ExternalTriggerRejectReason::AutomationNotFound => "automation_not_found",
-        ExternalTriggerRejectReason::TriggerKindMismatch => "trigger_kind_mismatch",
-        ExternalTriggerRejectReason::TriggerDisabled => "trigger_disabled",
-        ExternalTriggerRejectReason::TriggerStatusInactive => "trigger_status_inactive",
-        ExternalTriggerRejectReason::TriggerConfigMissing => "trigger_config_missing",
-        ExternalTriggerRejectReason::TriggerConfigInvalid => "trigger_config_invalid",
-        ExternalTriggerRejectReason::RouteMismatch => "route_mismatch",
-        ExternalTriggerRejectReason::RepositoryMismatch => "repository_mismatch",
-        ExternalTriggerRejectReason::EventMismatch => "event_mismatch",
-        ExternalTriggerRejectReason::DuplicateDelivery => "duplicate_delivery",
-        ExternalTriggerRejectReason::AlreadyRunning => "already_running",
     }
 }
 

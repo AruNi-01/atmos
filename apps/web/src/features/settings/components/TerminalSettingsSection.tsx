@@ -11,7 +11,14 @@ import {
   Input,
   Switch,
 } from '@workspace/ui';
-import { Check, ChevronDown } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  Gauge,
+  Keyboard,
+  Link2,
+  MessageSquareText,
+} from 'lucide-react';
 import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
 import {
   MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES,
@@ -25,6 +32,10 @@ import {
   QuickOpenAppIcon,
   type QuickOpenAppName,
 } from '@/app-shell/quick-open-apps';
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+} from '@/features/settings/components/settings/SettingsGroupCard';
 
 export function TerminalSettingsSection({
   fileLinkOpenMode,
@@ -32,10 +43,14 @@ export function TerminalSettingsSection({
   useLastSplitAgentOnSplit,
   lastSplitAgentId,
   sideContextPromptBudgetBytes,
+  richInputEnabled,
+  richInputTriggerBarVisible,
   setFileLinkOpenMode,
   setFileLinkOpenApp,
   setUseLastSplitAgentOnSplit,
   setSideContextPromptBudgetBytes,
+  setRichInputEnabled,
+  setRichInputTriggerBarVisible,
   maxWarmWorkspaces,
   maxGlobalTerminalPanes,
   setMaxWarmWorkspaces,
@@ -46,10 +61,14 @@ export function TerminalSettingsSection({
   useLastSplitAgentOnSplit: boolean;
   lastSplitAgentId: string | null;
   sideContextPromptBudgetBytes: number;
+  richInputEnabled: boolean;
+  richInputTriggerBarVisible: boolean;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
+  setRichInputEnabled: (enabled: boolean) => Promise<void> | void;
+  setRichInputTriggerBarVisible: (visible: boolean) => Promise<void> | void;
   maxWarmWorkspaces: number;
   maxGlobalTerminalPanes: number;
   setMaxWarmWorkspaces: (size: number) => Promise<void> | void;
@@ -57,6 +76,10 @@ export function TerminalSettingsSection({
 }) {
   const t = useTranslations('settings.terminalSection');
   const locale = useLocale();
+  const [behaviorExpanded, setBehaviorExpanded] = React.useState(true);
+  const [richInputExpanded, setRichInputExpanded] = React.useState(true);
+  const [sideChatExpanded, setSideChatExpanded] = React.useState(true);
+  const [performanceExpanded, setPerformanceExpanded] = React.useState(true);
   const [localTerminalCacheMaxSize, setLocalTerminalCacheMaxSize] = React.useState(maxWarmWorkspaces.toString());
   const [localTerminalCacheMaxPanels, setLocalTerminalCacheMaxPanels] = React.useState(maxGlobalTerminalPanes.toString());
   const [localSideContextBudget, setLocalSideContextBudget] = React.useState(
@@ -135,107 +158,145 @@ export function TerminalSettingsSection({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border">
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
-        <div>
-          <p className="text-base font-medium text-foreground">{t('fileLinkOpenMode.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('fileLinkOpenMode.description')}
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-3">
-          {fileLinkOpenMode === 'app' && activeQuickOpenApp && (
+    <div className="space-y-4">
+      <SettingsGroupCard
+        open={behaviorExpanded}
+        onOpenChange={setBehaviorExpanded}
+        icon={Link2}
+        title={t('groups.behavior.title')}
+        description={t('groups.behavior.description')}
+      >
+        <SettingsGroupRow
+          title={t('fileLinkOpenMode.title')}
+          description={t('fileLinkOpenMode.description')}
+          wide
+        >
+          <div className="flex items-center justify-end gap-3">
+            {fileLinkOpenMode === 'app' && activeQuickOpenApp && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="min-w-44 justify-between">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <QuickOpenAppIcon
+                        iconName={activeQuickOpenApp.iconName}
+                        themed={activeQuickOpenApp.themed}
+                        className="size-4 shrink-0"
+                      />
+                      <span className="truncate">{activeQuickOpenApp.label}</span>
+                    </span>
+                    <ChevronDown className="ml-2 size-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  {QUICK_OPEN_APP_OPTIONS.map((app) => (
+                    <DropdownMenuItem
+                      key={app.name}
+                      className="cursor-pointer"
+                      onClick={() => void setFileLinkOpenApp(app.name)}
+                    >
+                      <QuickOpenAppIcon
+                        iconName={app.iconName}
+                        themed={app.themed}
+                        className="mr-2 size-4"
+                      />
+                      <span className="flex-1">{app.label}</span>
+                      {fileLinkOpenApp === app.name && <Check className="size-4" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="min-w-44 justify-between">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <QuickOpenAppIcon
-                      iconName={activeQuickOpenApp.iconName}
-                      themed={activeQuickOpenApp.themed}
-                      className="size-4 shrink-0"
-                    />
-                    <span className="truncate">{activeQuickOpenApp.label}</span>
-                  </span>
+                <Button variant="outline" className="min-w-48 justify-between">
+                  <span>{activeTerminalLinkMode.label}</span>
                   <ChevronDown className="ml-2 size-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                {QUICK_OPEN_APP_OPTIONS.map((app) => (
+              <DropdownMenuContent align="end" className="w-80">
+                {terminalLinkModeOptions.map((option) => (
                   <DropdownMenuItem
-                    key={app.name}
-                    className="cursor-pointer"
-                    onClick={() => void setFileLinkOpenApp(app.name)}
+                    key={option.value}
+                    className="cursor-pointer items-start"
+                    onClick={() => void setFileLinkOpenMode(option.value as TerminalFileLinkOpenMode)}
                   >
-                    <QuickOpenAppIcon
-                      iconName={app.iconName}
-                      themed={app.themed}
-                      className="mr-2 size-4"
-                    />
-                    <span className="flex-1">{app.label}</span>
-                    {fileLinkOpenApp === app.name && <Check className="size-4" />}
+                    <div className="flex-1 pr-3">
+                      <p className="text-sm font-medium text-foreground">{option.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </div>
+                    {fileLinkOpenMode === option.value && <Check className="mt-0.5 size-4 shrink-0" />}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="min-w-48 justify-between">
-                <span>{activeTerminalLinkMode.label}</span>
-                <ChevronDown className="ml-2 size-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              {terminalLinkModeOptions.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  className="cursor-pointer items-start"
-                  onClick={() => void setFileLinkOpenMode(option.value as TerminalFileLinkOpenMode)}
-                >
-                  <div className="flex-1 pr-3">
-                    <p className="text-sm font-medium text-foreground">{option.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      {option.description}
-                    </p>
-                  </div>
-                  {fileLinkOpenMode === option.value && <Check className="mt-0.5 size-4 shrink-0" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-        <div>
-          <p className="text-base font-medium text-foreground">{t('defaultSplitAgent.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('defaultSplitAgent.description')}
-          </p>
-          {lastSplitAgentId ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t('defaultSplitAgent.lastAgent')}{' '}
-              <span className="font-medium text-foreground">{lastSplitAgentId}</span>
-            </p>
-          ) : null}
-        </div>
-        <div className="flex items-center justify-end">
+          </div>
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('defaultSplitAgent.title')}
+          description={t('defaultSplitAgent.description')}
+          footer={
+            lastSplitAgentId ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t('defaultSplitAgent.lastAgent')}{' '}
+                <span className="font-medium text-foreground">{lastSplitAgentId}</span>
+              </p>
+            ) : null
+          }
+        >
           <Switch
             checked={useLastSplitAgentOnSplit}
             onCheckedChange={setUseLastSplitAgentOnSplit}
           />
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
-        <div>
-          <p className="text-base font-medium text-foreground">{t('sideContextBudget.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('sideContextBudget.description', {
-              min: formattedMinSideContextBudget,
-              max: formattedMaxSideContextBudget,
-            })}
-          </p>
-        </div>
-        <div className="flex items-center justify-end">
+        </SettingsGroupRow>
+      </SettingsGroupCard>
+
+      <SettingsGroupCard
+        open={richInputExpanded}
+        onOpenChange={setRichInputExpanded}
+        icon={Keyboard}
+        title={t('groups.richInput.title')}
+        description={t('groups.richInput.description')}
+      >
+        <SettingsGroupRow
+          title={t('richInputEnabled.title')}
+          description={t('richInputEnabled.description')}
+        >
+          <Switch
+            checked={richInputEnabled}
+            onCheckedChange={(value) => void setRichInputEnabled(!!value)}
+            aria-label={t('richInputEnabled.title')}
+          />
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('richInputTriggerBar.title')}
+          description={t('richInputTriggerBar.description')}
+        >
+          <Switch
+            checked={richInputTriggerBarVisible}
+            disabled={!richInputEnabled}
+            onCheckedChange={(value) => void setRichInputTriggerBarVisible(!!value)}
+            aria-label={t('richInputTriggerBar.title')}
+          />
+        </SettingsGroupRow>
+      </SettingsGroupCard>
+
+      <SettingsGroupCard
+        open={sideChatExpanded}
+        onOpenChange={setSideChatExpanded}
+        icon={MessageSquareText}
+        title={t('groups.sideChat.title')}
+        description={t('groups.sideChat.description')}
+      >
+        <SettingsGroupRow
+          title={t('sideContextBudget.title')}
+          description={t('sideContextBudget.description', {
+            min: formattedMinSideContextBudget,
+            max: formattedMaxSideContextBudget,
+          })}
+          wide
+        >
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -254,16 +315,21 @@ export function TerminalSettingsSection({
             />
             <span className="text-sm text-muted-foreground">{t('sideContextBudget.bytes')}</span>
           </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
-        <div>
-          <p className="text-base font-medium text-foreground">{t('cacheWorkspaces.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('cacheWorkspaces.description')}
-          </p>
-        </div>
-        <div className="flex items-center justify-end">
+        </SettingsGroupRow>
+      </SettingsGroupCard>
+
+      <SettingsGroupCard
+        open={performanceExpanded}
+        onOpenChange={setPerformanceExpanded}
+        icon={Gauge}
+        title={t('groups.performance.title')}
+        description={t('groups.performance.description')}
+      >
+        <SettingsGroupRow
+          title={t('cacheWorkspaces.title')}
+          description={t('cacheWorkspaces.description')}
+          wide
+        >
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -282,16 +348,12 @@ export function TerminalSettingsSection({
             />
             <span className="text-sm text-muted-foreground">{t('cacheWorkspaces.contexts')}</span>
           </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
-        <div>
-          <p className="text-base font-medium text-foreground">{t('cachePanels.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('cachePanels.description')}
-          </p>
-        </div>
-        <div className="flex items-center justify-end">
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('cachePanels.title')}
+          description={t('cachePanels.description')}
+          wide
+        >
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -310,8 +372,8 @@ export function TerminalSettingsSection({
             />
             <span className="text-sm text-muted-foreground">{t('cachePanels.panels')}</span>
           </div>
-        </div>
-      </div>
+        </SettingsGroupRow>
+      </SettingsGroupCard>
     </div>
   );
 }

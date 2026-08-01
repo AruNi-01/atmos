@@ -34,8 +34,8 @@ export function TerminalSideChatDots({
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center overflow-hidden transition-all duration-200 ease-out",
-        shouldShowIndicator ? "w-[38px] opacity-100" : "w-0 opacity-0",
+        "inline-flex items-center overflow-hidden transition-all duration-200 ease-out",
+        shouldShowIndicator ? "h-5 w-[38px] opacity-100" : "h-0 w-0 opacity-0",
       )}
     >
       {isStarting ? (

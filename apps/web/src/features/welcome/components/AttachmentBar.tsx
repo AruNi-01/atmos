@@ -63,9 +63,8 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
           </Tooltip>
           <Button
             type="button"
-            variant="secondary"
-            size="icon"
-            className="absolute right-0.5 top-0.5 size-4 rounded-full opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+            variant="ghost"
+            className="absolute -right-1 -top-1 z-10 size-4 min-h-0 min-w-0 rounded-full border border-border/70 bg-background p-0 text-muted-foreground shadow-sm opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 [&>svg]:size-2.5"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -74,7 +73,7 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
             title={t("remove")}
             aria-label={t("remove")}
           >
-            <X className="size-3" />
+            <X strokeWidth={2.5} />
           </Button>
         </div>
       ))}

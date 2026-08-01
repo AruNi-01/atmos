@@ -1882,6 +1882,73 @@
         "create": "Create Automation",
         "update": "Update Automation"
       }
+    },
+    "schedule": {
+      "triggerOptions": {
+        "manual": {
+          "label": "Manual",
+          "description": "Run only when you trigger it."
+        },
+        "github": {
+          "label": "GitHub",
+          "description": "Run from GitHub events."
+        },
+        "hourly": {
+          "label": "Hourly",
+          "description": "Run once every hour."
+        },
+        "daily": {
+          "label": "Daily",
+          "description": "Run once per day."
+        },
+        "weekly": {
+          "label": "Weekly",
+          "description": "Run on selected weekdays."
+        },
+        "monthly": {
+          "label": "Monthly",
+          "description": "Run on a day each month."
+        },
+        "cron": {
+          "label": "Cron",
+          "description": "Use a custom cron expression."
+        }
+      },
+      "days": {
+        "sunday": "Sunday",
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday"
+      }
+    },
+    "validation": {
+      "displayNameRequired": "Enter a name for this automation.",
+      "instructionsRequired": "Enter instructions for the agent.",
+      "supportedAgentRequired": "Select an agent that supports automations.",
+      "targetRequired": "Choose a valid environment target.",
+      "scheduleRequired": "Configure a valid schedule.",
+      "completeRequiredFields": "Complete the required fields to continue."
+    },
+    "artifacts": {
+      "openedPathTitle": "Opened path",
+      "failedToOpenPathTitle": "Failed to open path",
+      "unknownError": "Unknown error"
+    },
+    "githubRelay": {
+      "errors": {
+        "connectComputerBeforeSetup": "Connect a computer with Relay before setting up GitHub triggers.",
+        "connectComputerBeforeSync": "Connect a computer with Relay before syncing the GitHub route.",
+        "connectComputerBeforeRemove": "Connect a computer with Relay before removing the GitHub route.",
+        "accessTokenMissing": "Relay access token is missing."
+      }
+    },
+    "runHistory": {
+      "failedToLoadTitle": "Failed to load run history",
+      "failedToFetchArtifactTitle": "Failed to load artifact",
+      "unknownError": "Unknown error"
     }
   },
   "project": {
@@ -3843,6 +3910,11 @@
       "syncFailedTitle": "Settings Sync Failed",
       "budgetFailed": "Failed to update the side chat context budget."
     },
+    "terminalRichInputSettingsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "enabledFailed": "Failed to update Terminal Rich Input.",
+      "triggerBarFailed": "Failed to update the Rich Input trigger bar."
+    },
     "notificationStore": {
       "unknownError": "Unknown error"
     },
@@ -4218,6 +4290,12 @@
             },
             "defaultSplitAgent": {
               "label": "Default split agent"
+            },
+            "richInputEnabled": {
+              "label": "Terminal Rich Input"
+            },
+            "richInputTriggerBar": {
+              "label": "Trigger bar"
             },
             "sideContextBudget": {
               "label": "Side chat context budget"
@@ -4991,6 +5069,24 @@
       }
     },
     "terminalSection": {
+      "groups": {
+        "behavior": {
+          "title": "Behavior",
+          "description": "How terminal file links open and how plain split reuses the last agent."
+        },
+        "richInput": {
+          "title": "Rich Input",
+          "description": "Floating prompt composer over the terminal for mentions, commands, and paste."
+        },
+        "sideChat": {
+          "title": "Side Chat",
+          "description": "How much terminal context is injected into /side agent prompts."
+        },
+        "performance": {
+          "title": "Performance",
+          "description": "Warm workspace and mounted pane limits that trade memory for switch speed."
+        }
+      },
       "fileLinkOpenMode": {
         "title": "File link open mode",
         "description": "Choose how terminal file and directory links should open when clicked."
@@ -5013,6 +5109,14 @@
         "title": "Default split agent",
         "description": "When enabled, plain split (toolbar click, ⌘D, or context menu) reuses the last agent you picked from a split submenu. Hover split to choose a different agent.",
         "lastAgent": "Last split agent:"
+      },
+      "richInputEnabled": {
+        "title": "Terminal Rich Input",
+        "description": "Show the floating rich input over the terminal for @ mentions, / commands, and image paste. When off, the input and its shortcuts are fully disabled."
+      },
+      "richInputTriggerBar": {
+        "title": "Trigger bar",
+        "description": "Show the thin bar at the bottom of the terminal that opens Rich Input on hover. When hidden, open Rich Input with ⌘G (⌘⇧G to pin)."
       },
       "sideContextBudget": {
         "title": "Side chat context budget",

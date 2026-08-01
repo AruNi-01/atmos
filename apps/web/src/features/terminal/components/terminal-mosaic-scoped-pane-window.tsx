@@ -36,6 +36,7 @@ import {
   getAgentContextDragText,
   hasAgentContextDragData,
 } from "@/shared/lib/agent-context-drag";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 
 type MosaicToolbarActions = {
   split: boolean;
@@ -125,6 +126,9 @@ export function TerminalMosaicScopedPaneWindow({
 }: ScopedPaneWindowProps) {
   const t = useTranslations("Terminal.chrome");
   const contestedOwners = useContestedCliOwners();
+  const richInputActive = useTerminalRichInputSettingsStore(
+    (s) => s.loaded && s.enabled,
+  );
   const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
   const splitMenuOpenForPane =
     splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
@@ -416,14 +420,22 @@ export function TerminalMosaicScopedPaneWindow({
           cwd={workspaceInfo?.localPath}
           projectRootPath={activeProject?.mainFilePath}
           surfaceActive={surfaceActive}
-          onAddSelectionAsContext={(snapshot) => {
-            setActivePaneId(id);
-            agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
-          }}
-          onStartSideChatForSelection={(snapshot) => {
-            setActivePaneId(id);
-            agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
-          }}
+          onAddSelectionAsContext={
+            richInputActive
+              ? (snapshot) => {
+                  setActivePaneId(id);
+                  agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
+                }
+              : undefined
+          }
+          onStartSideChatForSelection={
+            richInputActive
+              ? (snapshot) => {
+                  setActivePaneId(id);
+                  agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
+                }
+              : undefined
+          }
           onTitleChange={(title) => {
             const detectedAgent = resolveAgentForTitle(title, configuredAgents, {
               contestedOwners,

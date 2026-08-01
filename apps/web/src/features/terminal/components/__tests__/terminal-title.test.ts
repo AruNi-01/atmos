@@ -4,7 +4,9 @@ import {
   appendNativeOscTitle,
   getTerminalDisplayMeta,
   isDynamicTitleDowngrade,
+  isShellPreexecCommandOscTitle,
   MAX_NATIVE_OSC_TITLE_CHARS,
+  nextOscTitleAfterIncoming,
   resolveAgentForTitle,
   sanitizeNativeOscTitle,
 } from "@atmos/shared/terminal";
@@ -451,6 +453,83 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
         oscTitle: "Compacting",
       }).oscSuffix,
     ).toBe("Compacting");
+  });
+
+  it("filters shell preexec pipelines and process inspection commands", () => {
+    const pipeline =
+      "ps aux | grep --color=auto -i iris | grep --color=auto -v grep;";
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../OpenSource/atmos",
+        oscTitle: pipeline,
+      }).displayTitle,
+    ).toBe(".../OpenSource/atmos");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../OpenSource/atmos",
+        oscTitle: "ps aux",
+      }).oscSuffix,
+    ).toBe("");
+    expect(
+      getTerminalDisplayMeta({
+        baseTitle: "1",
+        dynamicTitle: ".../OpenSource/atmos",
+        oscTitle: "lsof -i -P",
+      }).oscSuffix,
+    ).toBe("");
+    // Chained / redirected command lines are never agent topics.
+    for (const cmd of [
+      "echo hi && ls",
+      "cat file > out",
+      "echo $(date)",
+      "true || false",
+    ]) {
+      expect(
+        getTerminalDisplayMeta({
+          baseTitle: "1",
+          dynamicTitle: ".../proj",
+          oscTitle: cmd,
+        }).oscSuffix,
+      ).toBe("");
+    }
+  });
+
+  it("clears previous OSC when an ignored shell command arrives, keeps agent topics on path redraw", () => {
+    const pipeline =
+      "ps aux | grep --color=auto -i iris | grep --color=auto -v grep;";
+    expect(isShellPreexecCommandOscTitle(pipeline)).toBe(true);
+    expect(isShellPreexecCommandOscTitle("debugging auth")).toBe(false);
+    expect(isShellPreexecCommandOscTitle("fix src/api")).toBe(false);
+
+    // Ignored shell command (even after an agent topic) → empty. The command
+    // is not shown, and any previous suffix must not stick.
+    expect(nextOscTitleAfterIncoming("debugging auth", "ls -la")).toBeUndefined();
+    expect(nextOscTitleAfterIncoming("debugging auth", pipeline)).toBeUndefined();
+    expect(nextOscTitleAfterIncoming("git", "ps aux")).toBeUndefined();
+    expect(nextOscTitleAfterIncoming(undefined, "pwd")).toBeUndefined();
+
+    // Idle user@host:cwd noise after a finished shell command → clear suffix.
+    expect(
+      nextOscTitleAfterIncoming(
+        pipeline,
+        "aarynlu@Host:~/OpenSource/atmos",
+      ),
+    ).toBeUndefined();
+    // Path/host redraw after a real agent topic → keep topic (agent may not
+    // re-emit immediately; prompt redraw must not erase it).
+    expect(
+      nextOscTitleAfterIncoming(
+        "debugging auth",
+        "aarynlu@Host:~/OpenSource/atmos",
+      ),
+    ).toBe("debugging auth");
+    // Explicit empty still clears.
+    expect(nextOscTitleAfterIncoming("debugging auth", "")).toBeUndefined();
+    expect(nextOscTitleAfterIncoming("debugging auth", undefined)).toBeUndefined();
+    // New meaningful topic replaces previous.
+    expect(nextOscTitleAfterIncoming(pipeline, "fix auth")).toBe("fix auth");
   });
 
   it("keeps multi-word OSC topics that contain slashes (not bare paths)", () => {

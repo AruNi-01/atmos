@@ -62,7 +62,10 @@ import {
 import type { TerminalSelectionSnapshot } from "../types";
 import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
-import { resolveIncomingOscTitle } from "@atmos/shared/terminal";
+import {
+  isShellPreexecCommandOscTitle,
+  nextOscTitleAfterIncoming,
+} from "@atmos/shared/terminal";
 
 export interface TerminalRef {
   focus: () => void;
@@ -887,11 +890,24 @@ const Terminal = ({
       }
       oscSettleTimerRef.current = setTimeout(() => {
         oscSettleTimerRef.current = null;
-        const resolved = resolveIncomingOscTitle(pendingOscRawRef.current);
-        // Shell path/host/`ls` noise: keep the previous topic (do not flash, do not wipe).
-        if (resolved.action === "ignore") return;
-        const next = resolved.action === "set" ? resolved.value : undefined;
-        if (next === lastOscTitleRef.current) return;
+        // nextOscTitleAfterIncoming keeps agent topics on path noise, but
+        // clears a stale shell preexec command line (`ps aux | …`).
+        const next = nextOscTitleAfterIncoming(
+          lastOscTitleRef.current,
+          pendingOscRawRef.current,
+        );
+        if (next === lastOscTitleRef.current) {
+          // Warm remount: local ref may be unhydrated while the pane store still
+          // holds a topic. Shell preexec must still clear the store suffix.
+          if (
+            lastOscTitleRef.current === undefined &&
+            pendingOscRawRef.current != null &&
+            isShellPreexecCommandOscTitle(pendingOscRawRef.current)
+          ) {
+            onOscTitleChangeRef.current?.(undefined);
+          }
+          return;
+        }
         lastOscTitleRef.current = next;
         onOscTitleChangeRef.current?.(next);
       }, OSC_SETTLE_MS);
@@ -958,10 +974,10 @@ const Terminal = ({
           clearTimeout(cmdStartTimerRef.current);
           cmdStartTimerRef.current = null;
         }
-        // Do NOT clear OSC here. Reattach injects synthetic CMD_END on every
-        // refresh and was wiping persisted agent session topics before they
-        // could paint. Shell path OSC (user@host:cwd) overwrites via setOscTitle
-        // noise filter; empty OSC 0/2 clears explicitly.
+        // Do NOT clear OSC on CMD_END. Shell preexec titles are never stored in
+        // lastOscTitleRef (nextOscTitleAfterIncoming discards them as they
+        // arrive). Reattach injects synthetic CMD_END and must not wipe agent
+        // session topics. Empty OSC 0/2 still clears via emitOscTitle.
         const title = shortenPath(payload);
         if (title !== lastTitleRef.current) {
           lastTitleRef.current = title;

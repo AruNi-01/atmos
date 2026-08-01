@@ -13,12 +13,12 @@ mod group;
 mod local_model;
 mod local_services;
 mod project;
+mod quota;
 mod review;
 mod settings;
 mod skills;
 mod support;
 mod terminal;
-mod quota;
 mod workspace;
 mod workspace_cleanup;
 mod workspace_gitignore;
@@ -28,13 +28,13 @@ mod workspace_setup;
 use std::sync::Arc;
 
 use super::{message::*, WsManager, WsMessageHandler};
-use quota_usage::QuotaUsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use core_service::service::canvas_agent_relay::{
     CanvasAgentDispatchOutcome, CanvasAgentRelay, CompleteDispatchResult,
 };
 use local_model_runtime::LocalRuntimeManager;
+use quota_usage::QuotaUsageService;
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 

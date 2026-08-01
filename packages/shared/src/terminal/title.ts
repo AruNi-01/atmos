@@ -593,29 +593,163 @@ const TRANSIENT_SHELL_COMMAND_OSC = new Set([
   "hostname",
   "uname",
   "sleep",
+  // Process / network inspection one-shots (oh-my-zsh style auto-title)
+  "ps",
+  "pgrep",
+  "pkill",
+  "lsof",
+  "top",
+  "htop",
+  "btop",
+  "iotop",
+  "vmstat",
+  "iostat",
+  "netstat",
+  "ss",
+  "ifconfig",
+  "ip",
+  "ping",
+  "traceroute",
+  "dig",
+  "nslookup",
+  "curl",
+  "wget",
+  "grep",
+  "egrep",
+  "fgrep",
+  "rg",
+  "ag",
+  "ack",
+  "find",
+  "fd",
+  "locate",
+  "awk",
+  "sed",
+  "cut",
+  "sort",
+  "uniq",
+  "tr",
+  "xargs",
+  "tee",
+  "watch",
+  "man",
+  "info",
+  "open",
+  "xdg-open",
+  "pbcopy",
+  "pbpaste",
+  "clip",
+  "jq",
+  "yq",
 ]);
+
+/**
+ * Commands that commonly accept BSD-style option bundles without a leading dash
+ * (e.g. `ps aux`, `ps ax`). Only these may treat bare letter tokens as flags —
+ * do not apply this to prose-prone commands like `find`.
+ * Note: `tar` is intentionally not in TRANSIENT_SHELL_COMMAND_OSC (program CLI),
+ * so it is not listed here either.
+ */
+const OPTION_BUNDLE_TRANSIENT_COMMANDS = new Set(["ps"]);
+
+/** BSD / clustered option bundle: `aux`, `ax`, `ef`, `xzf` — letters only, short. */
+function isShellOptionBundleToken(tok: string): boolean {
+  return /^[A-Za-z]+$/.test(tok) && tok.length <= 8;
+}
+
+/** Path-ish target after a standalone `<` redirect (not prose `A < B`). */
+function looksLikeRedirectTarget(tok: string): boolean {
+  return (
+    tok.startsWith("./") ||
+    tok.startsWith("../") ||
+    tok.startsWith("/") ||
+    tok.startsWith("~/") ||
+    tok.includes("/") ||
+    /\.\w{1,10}$/.test(tok)
+  );
+}
+
+/**
+ * Shell redirect operators as tokens — keeps `Generics<T>` / `A < B check` as
+ * legitimate OSC topics while still catching `cat file > out` and `2>&1`.
+ */
+function hasShellRedirectTokens(osc: string): boolean {
+  const tokens = osc.trim().split(/\s+/).filter(Boolean);
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i] ?? "";
+    // Output / fd redirects: `>`, `>>`, `2>&1`, `>out`
+    if (/^\d*>{1,2}&?\d*$/.test(tok) || /^\d*>{1,2}.+/.test(tok)) return true;
+    // Attached input / heredoc: `<file`, `<<EOF`, `2<&0`
+    if (/^\d*<{1,2}&?\d+$/.test(tok) || /^\d*<{1,2}.+/.test(tok)) return true;
+    // Standalone `<` / `<<` only when the next token looks like a path/file.
+    if ((tok === "<" || tok === "<<") && looksLikeRedirectTarget(tokens[i + 1] ?? "")) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Whether OSC text is a bare shell builtin/navigation command from preexec
  * auto-title (e.g. `ls`, `pwd`, `cd`) — not a program CLI or agent topic.
  *
- * Only the first token is checked (so `ls -la` is also treated as transient).
- * Multi-word agent topics (`fix src/api`) and program names (`git`, `npm`)
- * are not in the denylist and still pass.
+ * Only bare commands or command+flags/paths (`ls`, `ls -la`, `find .`, `ps aux`)
+ * count. Multi-word natural-language topics (`find memory leak`, `fix src/api`)
+ * pass.
  */
 export function isTransientShellCommandOscTitle(osc: string): boolean {
   const t = osc.trim();
   if (!t) return false;
-  const first = t.split(/\s+/)[0]?.toLowerCase() ?? "";
+  const tokens = t.split(/\s+/).filter(Boolean);
+  const first = tokens[0]?.toLowerCase() ?? "";
   if (!first) return false;
   // Drop leading `./` / path wrappers so `./ls` still matches if ever used.
   const base = first.includes("/") ? (first.split("/").pop() ?? first) : first;
-  return TRANSIENT_SHELL_COMMAND_OSC.has(base);
+  if (!TRANSIENT_SHELL_COMMAND_OSC.has(base)) return false;
+  if (tokens.length === 1) return true;
+  const allowOptionBundles = OPTION_BUNDLE_TRANSIENT_COMMANDS.has(base);
+  // Further tokens must look like shell flags/paths, not prose words.
+  return tokens.slice(1).every((tok) => {
+    return (
+      tok.startsWith("-") ||
+      tok.startsWith("./") ||
+      tok.startsWith("/") ||
+      tok.startsWith("~/") ||
+      tok === "." ||
+      tok === ".." ||
+      tok.includes("/") ||
+      (allowOptionBundles && isShellOptionBundleToken(tok))
+    );
+  });
+}
+
+/**
+ * Whether OSC text looks like a shell preexec auto-title of the typed command
+ * line (pipelines, chains, redirects, transient builtins) rather than an
+ * agent session topic (`debugging auth`, `fix src/api`).
+ *
+ * Used both to reject noise on ingest and to clear a stale command line when
+ * the shell returns to idle (path OSC / CMD_END) without wiping real topics.
+ */
+export function isShellPreexecCommandOscTitle(osc: string): boolean {
+  const t = osc.trim();
+  if (!t) return false;
+  // Pipeline / chain / command substitution — classic shell preexec.
+  if (/[|`]|\$\(|\$\{|\s(?:&&|\|\|)\s/.test(t)) return true;
+  // Redirect-like tokens (`> out`, `>>log`, `< /tmp/x`, `2>&1`) — not angle
+  // brackets inside prose/types (`Generics<T>`, `A < B check`).
+  if (hasShellRedirectTokens(t)) return true;
+  // Background job: trailing or token-alone `&` (not `Q&A`, not `X & Y` prose).
+  // Require `&` at end of title or before `;` / another operator-like boundary.
+  if (/(?:^|\s)&\s*$/.test(t) || /(?:^|\s)&\s*[;|]/.test(t)) return true;
+  if (isTransientShellCommandOscTitle(t)) return true;
+  return false;
 }
 
 /**
  * Shell / terminal-integration titles that should not appear as OSC suffixes.
- * Examples: `user@Host:~/path`, pure paths, bare preexec shell cmds (`ls`).
+ * Examples: `user@Host:~/path`, pure paths, bare preexec shell cmds (`ls`),
+ * full preexec command lines (`ps aux | grep foo`).
  *
  * Intentionally keeps program CLIs (`git`, `npm`) and multi-word session topics
  * (`fix src/api`) — those are useful OSC titles.
@@ -629,8 +763,8 @@ export function isNoisyShellOscTitle(osc: string): boolean {
   if (/^[\w.-]+:(?:~|\/)/.test(t)) return true;
   // Entire title is a bare filesystem path (no spaces / not a phrase).
   if (isBareFilesystemOscTitle(t)) return true;
-  // Shell preexec builtins / navigation (ls, pwd, cd, …) — not a session topic.
-  if (isTransientShellCommandOscTitle(t)) return true;
+  // Shell preexec command lines (builtins, inspection tools, pipelines).
+  if (isShellPreexecCommandOscTitle(t)) return true;
   return false;
 }
 
@@ -639,8 +773,9 @@ export function isNoisyShellOscTitle(osc: string): boolean {
  *
  * - `set`: meaningful session topic — store it
  * - `clear`: explicit empty title — wipe stored OSC
- * - `ignore`: shell path/host/command noise — keep the previous topic
- *   (do **not** treat noise as clear, or every prompt would erase agent topics)
+ * - `ignore`: shell path/host/command noise — do not store the noise as the
+ *   new title (callers should use {@link nextOscTitleAfterIncoming} so ignored
+ *   commands still clear a previous suffix)
  */
 export function resolveIncomingOscTitle(
   raw: string | undefined,
@@ -650,6 +785,34 @@ export function resolveIncomingOscTitle(
   if (!cleaned) return { action: "clear" };
   if (isNoisyShellOscTitle(cleaned)) return { action: "ignore" };
   return { action: "set", value: cleaned };
+}
+
+/**
+ * Apply an incoming native OSC update against a previously stored value.
+ *
+ * - `set` / `clear` — take the resolved value
+ * - ignored **shell command** preexec (`ls`, `ps aux | …`) — always clear.
+ *   The command is not a session topic, so the toolbar suffix should be empty
+ *   rather than keeping a stale previous title.
+ * - ignored **path/host** redraw (`user@host:cwd`) — clear a stale preexec
+ *   command line, but keep real agent session topics (agents re-emit slowly;
+ *   prompt redraw must not erase them).
+ */
+export function nextOscTitleAfterIncoming(
+  previous: string | undefined,
+  raw: string | undefined,
+): string | undefined {
+  const resolved = resolveIncomingOscTitle(raw);
+  if (resolved.action === "set") return resolved.value;
+  if (resolved.action === "clear") return undefined;
+
+  // ignore — never paint the noise; decide whether to wipe previous.
+  const cleaned = sanitizeNativeOscTitle(raw);
+  // User ran an ignored shell command → final suffix must be empty.
+  if (cleaned && isShellPreexecCommandOscTitle(cleaned)) return undefined;
+  // Idle path/host noise: drop stuck preexec lines; keep agent topics.
+  if (previous && isShellPreexecCommandOscTitle(previous)) return undefined;
+  return previous;
 }
 
 /** True when the whole OSC string is a path, not a multi-word session topic. */

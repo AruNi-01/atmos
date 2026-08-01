@@ -11,7 +11,7 @@ import {
 import {
   Check,
   ChevronDown,
-  ExternalLink,
+  Github,
   GitMerge,
   Loader2,
   LoaderCircle,
@@ -36,7 +36,6 @@ interface PRActionBarProps {
   mergeStrategy: PRMergeStrategy;
   onMergeStrategyChange: (strategy: PRMergeStrategy) => void;
   onOpenGitHub: () => void;
-  onOpenBetterHub: () => void;
   onClose: () => void;
   onMerge: () => void;
   onReopen: () => void;
@@ -49,7 +48,6 @@ export function PRActionBar({
   mergeStrategy,
   onMergeStrategyChange,
   onOpenGitHub,
-  onOpenBetterHub,
   onClose,
   onMerge,
   onReopen,
@@ -162,14 +160,9 @@ export function PRActionBar({
           >
             <div className="absolute left-1/2 top-full h-4 w-24 -translate-x-1/2" />
             <div className="flex gap-2.5">
-              <Button variant="outline" size="sm" onClick={onOpenGitHub} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3">
-                <ExternalLink className="mr-1.5 size-3.5" />
+              <Button variant="outline" size="sm" onClick={onOpenGitHub} className="h-8 border-0 text-[11px] px-3 shadow-sm hover:shadow-md transition-shadow">
+                <Github className="mr-1.5 size-3.5" />
                 GitHub
-              </Button>
-
-              <Button variant="outline" size="sm" onClick={onOpenBetterHub} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3">
-                <ExternalLink className="mr-1.5 size-3.5" />
-                BetterHub
               </Button>
             </div>
 
@@ -188,20 +181,22 @@ export function PRActionBar({
                     size="sm"
                     onClick={onClose}
                     disabled={!!actionLoading}
-                    className="shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
+                    className="h-8 sm:h-8 border-0 shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
                   >
                     {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
                     {t('closePr')}
                   </Button>
-                  <div className="flex h-8 items-stretch gap-px shadow-sm rounded-md overflow-hidden">
+                  <div className="flex items-stretch shadow-sm">
                     <Button
                       variant="default"
                       size="sm"
                       onClick={onMerge}
                       disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
                       className={cn(
-                        "rounded-none h-full shadow-none transition-all transform active:scale-[0.98] text-white border-r border-white/10",
-                        (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+                        "h-8 sm:h-8 rounded-r-none border-0 shadow-none before:rounded-none transition-all transform active:scale-[0.98] text-white",
+                        (pr.isDraft || pr.mergeable !== 'MERGEABLE')
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-emerald-600 hover:bg-emerald-700",
                       )}
                     >
                       {actionLoading === 'merge' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
@@ -214,8 +209,10 @@ export function PRActionBar({
                           variant="default"
                           size="sm"
                           className={cn(
-                            "px-2 rounded-none h-full min-w-0 shadow-none transition-all text-white",
-                            (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+                            "h-8 sm:h-8 min-w-0 rounded-l-none border-0 border-l border-white/15 px-2 shadow-none before:rounded-none transition-all text-white",
+                            (pr.isDraft || pr.mergeable !== 'MERGEABLE')
+                              ? "bg-muted text-muted-foreground cursor-not-allowed border-l-border/40"
+                              : "bg-emerald-600 hover:bg-emerald-700",
                           )}
                           disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
                         >
@@ -253,7 +250,7 @@ export function PRActionBar({
                   size="sm"
                   onClick={onReopen}
                   disabled={!!actionLoading}
-                  className="shadow-sm hover:shadow-md transition-all font-semibold"
+                  className="h-8 sm:h-8 border-0 shadow-sm hover:shadow-md transition-all font-semibold"
                 >
                   {actionLoading === 'reopen' ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <RotateCw className="mr-2 size-4" />}
                   {t('reopenPr')}
@@ -263,7 +260,7 @@ export function PRActionBar({
                   variant="secondary"
                   size="sm"
                   disabled
-                  className="shadow-sm bg-purple-600/90 text-white opacity-100 cursor-default"
+                  className="h-8 sm:h-8 border-0 shadow-sm bg-purple-600/90 text-white opacity-100 cursor-default"
                 >
                   <GitMerge className="mr-2 size-4" />
                   {t('merged')}

@@ -13,6 +13,7 @@ import {
 } from '@workspace/ui';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 import { useTerminalLinkSettingsStore } from '@/features/settings/store/terminal-link-settings-store';
+import { useTerminalRichInputSettingsStore } from '@/features/settings/store/terminal-rich-input-settings-store';
 import { useTerminalSideChatSettingsStore } from '@/features/settings/store/terminal-side-chat-settings-store';
 import { useWorkspaceSurfaceCacheStore } from '@/features/workspace/store/use-workspace-surface-cache-store';
 import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
@@ -285,6 +286,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     loadSettings: loadTerminalSideChatSettings,
     setSideContextPromptBudgetBytes,
   } = useTerminalSideChatSettingsStore();
+  const {
+    enabled: richInputEnabled,
+    triggerBarVisible: richInputTriggerBarVisible,
+    loadSettings: loadTerminalRichInputSettings,
+    setEnabled: setRichInputEnabled,
+    setTriggerBarVisible: setRichInputTriggerBarVisible,
+  } = useTerminalRichInputSettingsStore();
   const maxWarmWorkspaces = useWorkspaceSurfaceCacheStore((state) => state.maxWarmWorkspaces);
   const maxGlobalTerminalPanes = useWorkspaceSurfaceCacheStore((state) => state.maxGlobalTerminalPanes);
   const setMaxWarmWorkspaces = useWorkspaceSurfaceCacheStore((state) => state.setMaxWarmWorkspaces);
@@ -294,11 +302,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     void loadTerminalLinkSettings();
     void loadTerminalSideChatSettings();
+    void loadTerminalRichInputSettings();
     void loadWorkspaceSurfaceSettings();
     hydrateTerminalSplitPrefs();
   }, [
     hydrateTerminalSplitPrefs,
     loadTerminalLinkSettings,
+    loadTerminalRichInputSettings,
     loadTerminalSideChatSettings,
     loadWorkspaceSurfaceSettings,
   ]);
@@ -967,10 +977,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     useLastSplitAgentOnSplit={useLastSplitAgentOnSplit}
                     lastSplitAgentId={lastSplitAgentId}
                     sideContextPromptBudgetBytes={sideContextPromptBudgetBytes}
+                    richInputEnabled={richInputEnabled}
+                    richInputTriggerBarVisible={richInputTriggerBarVisible}
                     setFileLinkOpenMode={setFileLinkOpenMode}
                     setFileLinkOpenApp={setFileLinkOpenApp}
                     setUseLastSplitAgentOnSplit={setUseLastSplitAgentOnSplit}
                     setSideContextPromptBudgetBytes={setSideContextPromptBudgetBytes}
+                    setRichInputEnabled={setRichInputEnabled}
+                    setRichInputTriggerBarVisible={setRichInputTriggerBarVisible}
                     maxWarmWorkspaces={maxWarmWorkspaces}
                     maxGlobalTerminalPanes={maxGlobalTerminalPanes}
                     setMaxWarmWorkspaces={setMaxWarmWorkspaces}
