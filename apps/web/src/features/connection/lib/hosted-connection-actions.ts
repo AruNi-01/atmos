@@ -26,11 +26,12 @@ import {
 export async function reconnectForCurrentTarget(): Promise<void> {
   useWebSocketStore.getState().disconnect();
   await prepareConnectionTargetChange();
-  // connect() rejects on cancel; waitFor ensures we only reload once connected.
+  // connect() may resolve without connecting if a concurrent cancel races;
+  // wait until the socket is actually up before reloading target data.
   const { waitForWebSocketConnection } = await import(
     '@/features/connection/hooks/use-websocket'
   );
-  await useWebSocketStore.getState().connect().catch(() => undefined);
+  void useWebSocketStore.getState().connect().catch(() => undefined);
   await waitForWebSocketConnection();
   await reloadActiveConnectionData();
 }
