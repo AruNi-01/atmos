@@ -43,13 +43,13 @@ describe("queryKeys", () => {
       queryKeys.computer.root(scope) as unknown as string[],
     );
     expect(queryKeys.computer.settingsBootstrap(scope)).toContain("settings");
-    expect(queryKeys.computer.usageOverview(scope)).toEqual([
+    expect(queryKeys.computer.quotaOverview(scope)).toEqual([
       "atmos",
       "computer",
       "local",
       2,
       3,
-      "usage",
+      "quota",
       "overview",
       { providerId: null },
     ]);
@@ -117,16 +117,16 @@ describe("queryKeys", () => {
   });
 
   test("usage overview filter segment defaults providerId to null", () => {
-    expect(queryKeys.computer.usageOverview(scope, {})).toEqual(
-      queryKeys.computer.usageOverview(scope),
+    expect(queryKeys.computer.quotaOverview(scope, {})).toEqual(
+      queryKeys.computer.quotaOverview(scope),
     );
-    expect(queryKeys.computer.usageOverview(scope, { providerId: "openai" })).toEqual([
+    expect(queryKeys.computer.quotaOverview(scope, { providerId: "openai" })).toEqual([
       "atmos",
       "computer",
       "local",
       2,
       3,
-      "usage",
+      "quota",
       "overview",
       { providerId: "openai" },
     ]);

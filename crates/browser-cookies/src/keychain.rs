@@ -2,11 +2,11 @@
 //!
 //! Prefers the Security framework (via `security-framework`) and falls back to
 //! the `security` CLI, which finds the item by service name alone (matching the
-//! previously-shipped `ai-usage` behavior). A non-owning app reading the item
+//! previously-shipped `quota-usage` behavior). A non-owning app reading the item
 //! triggers the standard Keychain ACL prompt.
 //!
 //! Successful reads are memoized **in-process only** (never written to disk) so
-//! multi-provider `ai-usage` scans do not re-prompt within one Server lifetime.
+//! multi-provider `quota-usage` scans do not re-prompt within one Server lifetime.
 //! Failures are never cached so the user can grant access and retry.
 //!
 //! Note: ad-hoc signed `Atmos Server` (`com.atmos.desktop.sidecar`) has no Team

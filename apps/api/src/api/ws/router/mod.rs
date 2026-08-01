@@ -18,7 +18,7 @@ mod settings;
 mod skills;
 mod support;
 mod terminal;
-mod usage;
+mod quota;
 mod workspace;
 mod workspace_cleanup;
 mod workspace_gitignore;
@@ -28,7 +28,7 @@ mod workspace_setup;
 use std::sync::Arc;
 
 use super::{message::*, WsManager, WsMessageHandler};
-use ai_usage::UsageService;
+use quota_usage::QuotaUsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use core_service::service::canvas_agent_relay::{
@@ -60,7 +60,7 @@ pub struct WsMessageService {
     agent_session_service: Arc<AgentSessionService>,
     automation_service: Arc<AutomationService>,
     review_service: Arc<ReviewService>,
-    usage_service: Arc<UsageService>,
+    quota_usage_service: Arc<QuotaUsageService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
     disk_analyzer_service: Arc<DiskAnalyzerService>,
@@ -81,7 +81,7 @@ impl WsMessageService {
         agent_session_service: Arc<AgentSessionService>,
         automation_service: Arc<AutomationService>,
         review_service: Arc<ReviewService>,
-        usage_service: Arc<UsageService>,
+        quota_usage_service: Arc<QuotaUsageService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
@@ -108,7 +108,7 @@ impl WsMessageService {
             agent_session_service,
             automation_service,
             review_service,
-            usage_service,
+            quota_usage_service,
             canvas_agent_relay,
             local_services_service,
             disk_analyzer_service,
@@ -246,40 +246,40 @@ impl WsMessageService {
             WsAction::GitLog => self.handle_git_log(parse_request(request.data)?),
 
             // Usage
-            WsAction::UsageGetOverview => {
-                self.handle_usage_get_overview(parse_request(request.data)?)
+            WsAction::QuotaGetOverview => {
+                self.handle_quota_get_overview(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageSetProviderSwitch => {
-                self.handle_usage_set_provider_switch(parse_request(request.data)?)
+            WsAction::QuotaSetProviderSwitch => {
+                self.handle_quota_set_provider_switch(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageSetProviderFooterCarousel => {
-                self.handle_usage_set_provider_footer_carousel(parse_request(request.data)?)
+            WsAction::QuotaSetProviderFooterCarousel => {
+                self.handle_quota_set_provider_footer_carousel(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageSetAllProvidersSwitch => {
-                self.handle_usage_set_all_providers_switch(parse_request(request.data)?)
+            WsAction::QuotaSetAllProvidersSwitch => {
+                self.handle_quota_set_all_providers_switch(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageApplyProviderVisibility => {
-                self.handle_usage_apply_provider_visibility(parse_request(request.data)?)
+            WsAction::QuotaApplyProviderVisibility => {
+                self.handle_quota_apply_provider_visibility(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageSetProviderManualSetup => {
-                self.handle_usage_set_provider_manual_setup(parse_request(request.data)?)
+            WsAction::QuotaSetProviderManualSetup => {
+                self.handle_quota_set_provider_manual_setup(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageAddProviderApiKey => {
-                self.handle_usage_add_provider_api_key(parse_request(request.data)?)
+            WsAction::QuotaAddProviderApiKey => {
+                self.handle_quota_add_provider_api_key(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageDeleteProviderApiKey => {
-                self.handle_usage_delete_provider_api_key(parse_request(request.data)?)
+            WsAction::QuotaDeleteProviderApiKey => {
+                self.handle_quota_delete_provider_api_key(parse_request(request.data)?)
                     .await
             }
-            WsAction::UsageSetAutoRefresh => {
-                self.handle_usage_set_auto_refresh(parse_request(request.data)?)
+            WsAction::QuotaSetAutoRefresh => {
+                self.handle_quota_set_auto_refresh(parse_request(request.data)?)
                     .await
             }
             WsAction::TokenUsageOverviewGet => {

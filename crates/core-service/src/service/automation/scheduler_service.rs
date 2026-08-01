@@ -5,6 +5,7 @@ use std::time::Duration;
 use chrono::Utc;
 use infra::db::entities::automation;
 use infra::db::repo::{AutomationRepo, CreateAutomationRunRecord, UpdateAutomationRunStatusRecord};
+use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
 use tracing::warn;
 
 use crate::error::{Result, ServiceError};
@@ -15,24 +16,43 @@ use super::{
     AutomationSummary, AutomationTriggerKind, START_FAILURE_KIND,
 };
 
-impl AutomationService {
-    pub fn start_scheduler(self: Arc<Self>) {
-        tokio::spawn(async move {
-            if let Err(error) = self.recover_running_runs().await {
-                warn!("Automation startup recovery failed: {}", error);
-            }
-            if let Err(error) = self.normalize_missed_schedules().await {
-                warn!("Automation schedule normalization failed: {}", error);
-            }
+/// Product job id for the domain due-schedule poller (APP-051).
+pub const AUTOMATION_SCHEDULE_TICK_JOB_ID: &str = "automation.schedule_tick";
 
-            let mut interval = tokio::time::interval(Duration::from_secs(30));
-            loop {
-                interval.tick().await;
-                if let Err(error) = self.tick_due_schedules().await {
-                    warn!("Automation scheduler tick failed: {}", error);
-                }
-            }
-        });
+impl AutomationService {
+    /// Start recovery/normalize once, then register the 30s due-schedule tick on `jobs`.
+    pub async fn start_scheduler(self: Arc<Self>, jobs: Arc<LocalScheduler>) {
+        if let Err(error) = self.recover_running_runs().await {
+            warn!("Automation startup recovery failed: {}", error);
+        }
+        if let Err(error) = self.normalize_missed_schedules().await {
+            warn!("Automation schedule normalization failed: {}", error);
+        }
+
+        let service = Arc::clone(&self);
+        if let Err(error) = jobs
+            .set_interval_job(
+                JobId::new(AUTOMATION_SCHEDULE_TICK_JOB_ID),
+                IntervalSpec {
+                    every: Duration::from_secs(30),
+                    skip_if_running: true,
+                    // Match prior tokio::interval first-tick immediacy after recover/normalize.
+                    fire_immediately: true,
+                },
+                RetryPolicy::none(),
+                move || {
+                    let service = Arc::clone(&service);
+                    async move {
+                        service.tick_due_schedules().await.map_err(|error| {
+                            JobError::Retryable(format!("automation schedule tick failed: {error}"))
+                        })
+                    }
+                },
+            )
+            .await
+        {
+            warn!("Failed to register automation schedule tick job: {}", error);
+        }
     }
 
     pub async fn recover_running_runs(&self) -> Result<()> {

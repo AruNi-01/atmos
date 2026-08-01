@@ -13,8 +13,8 @@ import { cn } from "@/shared/lib/utils";
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
 import type { WsConnectionInfo } from '@/api/rest-api';
-import { buildUsageCarouselItems } from '@/features/usage/lib/usage-display';
-import { useUsageOverviewQuery } from '@/features/usage/hooks/use-usage-overview-query';
+import { buildUsageCarouselItems } from '@/features/quota-usage/lib/quota-display';
+import { useQuotaOverviewQuery } from '@/features/quota-usage/hooks/use-quota-overview-query';
 import { useWsConnectionsQuery } from '@/features/system/hooks/use-system-status-queries';
 import {
   useAgentHooksStore,
@@ -30,7 +30,7 @@ import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { LayoutDashboard, X } from 'lucide-react';
-import { ProviderGlyph } from '@/app-shell/UsagePopover';
+import { ProviderGlyph } from '@/app-shell/QuotaPopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
@@ -443,10 +443,10 @@ const Footer: React.FC = () => {
   const showUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
   const showAgentStatus = useLayoutSettingsStore((s) => s.showAgentStatus);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
-  const usageQuery = useUsageOverviewQuery({
+  const usageQuery = useQuotaOverviewQuery({
     enabled: connectionState === 'connected' && showUsageCarousel,
   });
-  const usageOverview = usageQuery.data ?? null;
+  const quotaOverview = usageQuery.data ?? null;
   const [connectionsEnabled, setConnectionsEnabled] = useState(false);
   const wsConnectionsQuery = useWsConnectionsQuery({
     enabled: connectionState === 'connected' && showWsConnection && connectionsEnabled,
@@ -465,8 +465,8 @@ const Footer: React.FC = () => {
   const hasPermission = activeSessions.some((s) => s.state === AGENT_STATE.PERMISSION_REQUEST);
   const tickerSession = useSessionTicker(activeSessions);
   const usageCarouselItems = useMemo(
-    () => buildUsageCarouselItems(usageOverview),
-    [usageOverview]
+    () => buildUsageCarouselItems(quotaOverview),
+    [quotaOverview]
   );
   const usageCarouselItem = usageCarouselItems.length > 0
     ? usageCarouselItems[usageIndex % usageCarouselItems.length]

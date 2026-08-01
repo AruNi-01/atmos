@@ -56,8 +56,8 @@ Prove deterministic logic at the cheapest honest layer; reserve manual/E2E for C
 | S19 | Manual / agent-browser | manual + `agent-browser` | Settings Code Agent + hooks card | dev web | Grok Build listed; hook row install status | planned |
 | S20 | Manual | manual | Agent Select | workspace terminal | Grok Build option with label | planned |
 | S21 | Bun / visual | manual or snapshot | AgentIcon | light/dark theme | grok-build icon visible; not Bot fallback; not cursor icon for freehand agent when owner grok | planned |
-| S22 | Rust unit | `cargo test -p ai-usage` | Grok auth parse | synthetic auth.json | OIDC preferred; missing key errors | planned |
-| S23 | Rust unit | `cargo test -p ai-usage` | credits billing map | fixture JSON | percent + weekly reset + product row | planned |
+| S22 | Rust unit | `cargo test -p quota-usage` | Grok auth parse | synthetic auth.json | OIDC preferred; missing key errors | planned |
+| S23 | Rust unit | `cargo test -p quota-usage` | credits billing map | fixture JSON | percent + weekly reset + product row | planned |
 | S24 | Manual | manual | usage popover | real `~/.grok/auth.json` | Grok Build row with % / reset or re-login | planned |
 
 ## Scenarios
@@ -322,8 +322,8 @@ Commands:
 cargo test -p core-service --lib
 cargo test -p api
 cargo test -p core-engine --lib agent_hooks::grok_build
-cargo test -p ai-usage --lib
-cargo clippy -p ai-usage --all-targets --no-deps
+cargo test -p quota-usage --lib
+cargo clippy -p quota-usage --all-targets --no-deps
 bun test apps/web/src/api/__tests__/agent-hooks-api.test.ts apps/web/src/features/terminal/components/__tests__/terminal-title.test.ts apps/web/src/features/wiki/components/__tests__/agent-select.test.ts
 bun --cwd apps/web typecheck
 bunx eslint <touched APP-036 web files>

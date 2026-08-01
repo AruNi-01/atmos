@@ -1,6 +1,6 @@
 //! APP-016 Atmos Computer — outbound relay over Cloudflare Workers + DO.
 
-mod external_events;
+pub(crate) mod external_events;
 mod http_gateway;
 mod ingest;
 mod register;

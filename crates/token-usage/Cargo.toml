@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ai-usage = { path = "../ai-usage" }
+quota-usage = { path = "../quota-usage" }
 async-trait = "0.1"
 dirs = "6.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

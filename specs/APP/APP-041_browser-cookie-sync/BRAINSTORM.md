@@ -111,15 +111,15 @@ implementation**. Findings verified against code and folded into PRD/TECH/TEST:
   **Clear Site Data & Cache** (storage + cookies, warns sign-out).
 - **Reload contract & privacy wording.** Resolved: success only after inject+verify; reload active
   tab / CTA; privacy statement scoped to non-cookie-scope endpoints (TECH §8, PRD §8).
-- **Reuse.** Confirmed `ai-usage/src/support/browser.rs` has discovery/decrypt/Keychain (header-
-  oriented, subprocess sqlite). Resolved: sink primitives into `crates/browser-cookies`; `ai-usage`
+- **Reuse.** Confirmed `quota-usage/src/support/browser.rs` has discovery/decrypt/Keychain (header-
+  oriented, subprocess sqlite). Resolved: sink primitives into `crates/browser-cookies`; `quota-usage`
   depends on it. (TECH §7.)
 - **IPC types.** Resolved: opaque `profile_handle`, typed `code` errors, no path/value to frontend.
 - **Library choice.** Un-locked: MVP uses `rusqlite` + Security.framework + existing crypto (not
   `rookie`), pending the four spikes (TECH §11) before finalizing crate internals.
 
 ### Resolved open questions
-- Reuse vs `rookie` → reuse/refactor `ai-usage` primitives into `crates/browser-cookies`.
+- Reuse vs `rookie` → reuse/refactor `quota-usage` primitives into `crates/browser-cookies`.
 - Passwords toggle → omitted (Cookies only).
 - Clear Cache scope → split Cache vs Site Data.
 - Partial failures → typed `skipped_*` + `failed_injection`, verified counts only.

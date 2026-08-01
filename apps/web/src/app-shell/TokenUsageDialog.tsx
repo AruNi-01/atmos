@@ -53,7 +53,7 @@ import {
   type ChartConfig,
 } from "@/shared/components/ui/chart";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
-import { useTokenUsageQuery } from "@/features/usage/hooks/use-token-usage-query";
+import { useTokenUsageQuery } from "@/features/quota-usage/hooks/use-token-usage-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";

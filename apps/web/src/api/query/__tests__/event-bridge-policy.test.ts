@@ -8,7 +8,7 @@
  * that prevents duplicate subscriptions.
  *
  * Policy table (mirrors server-state-event-bridge.tsx):
- *  usage_overview_updated          → setQueryData  (complete snapshot)
+ *  quota_overview_updated          → setQueryData  (complete snapshot)
  *  token_usage_updated             → invalidateQueries (tokenUsage root)
  *  local_model_state_changed       → invalidateQueries (localModelList)
  *  automation_definition_updated   → invalidateQueries (automationList)
@@ -19,16 +19,16 @@
 import { describe, expect, test } from "bun:test";
 import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import type { UsageOverviewResponse } from "@/api/ws/usage-api";
-import { applyUsageOverviewUpdated } from "@/features/usage/lib/usage-query-events";
-import { invalidateTokenUsageQueries } from "@/features/usage/lib/token-usage-query-options";
+import type { QuotaOverviewResponse } from "@/api/ws/quota-usage-api";
+import { applyQuotaOverviewUpdated } from "@/features/quota-usage/lib/quota-query-events";
+import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
 import {
   invalidateAutomationDefinitionQueries,
   invalidateAutomationRunQueries,
 } from "@/features/automations/lib/automations-query-options";
 import {
-  getUsageOverviewBridgeSubscriberCount,
+  getQuotaOverviewBridgeSubscriberCount,
   getTokenUsageBridgeSubscriberCount,
   getLocalModelBridgeSubscriberCount,
   getAutomationDefinitionBridgeSubscriberCount,
@@ -42,7 +42,7 @@ const scope: ComputerQueryScope = {
   relaySessionRevision: 0,
 };
 
-function makeUsageOverview(ts = 1_700_000_000): UsageOverviewResponse {
+function makeQuotaOverview(ts = 1_700_000_000): QuotaOverviewResponse {
   return {
     generated_at: ts,
     providers: [],
@@ -65,24 +65,24 @@ function makeUsageOverview(ts = 1_700_000_000): UsageOverviewResponse {
 describe("event-bridge-policy", () => {
   // ─── S7 — Complete event patches cache ───────────────────────────────────
 
-  describe("S7 — usage_overview_updated patches cache (setQueryData policy)", () => {
+  describe("S7 — quota_overview_updated patches cache (setQueryData policy)", () => {
     test("complete payload sets query data without triggering a network fetch", () => {
       const client = createAtmosWebQueryClient();
-      const overview = makeUsageOverview(999);
+      const overview = makeQuotaOverview(999);
 
-      const applied = applyUsageOverviewUpdated(client, scope, overview);
+      const applied = applyQuotaOverviewUpdated(client, scope, overview);
 
       expect(applied).toBe(true);
-      expect(client.getQueryData(queryKeys.computer.usageOverview(scope))).toEqual(overview);
+      expect(client.getQueryData(queryKeys.computer.quotaOverview(scope))).toEqual(overview);
     });
 
     test("complete payload does not create an in-flight request (no queryFn execution)", () => {
       const client = createAtmosWebQueryClient();
-      const key = queryKeys.computer.usageOverview(scope);
+      const key = queryKeys.computer.quotaOverview(scope);
 
       // Nothing was fetched — no queryFn was ever registered
       const before = client.getQueryState(key);
-      applyUsageOverviewUpdated(client, scope, makeUsageOverview());
+      applyQuotaOverviewUpdated(client, scope, makeQuotaOverview());
       const after = client.getQueryState(key);
 
       // Data is present and fetchStatus remains idle (no network call was made)
@@ -93,12 +93,12 @@ describe("event-bridge-policy", () => {
 
     test("partial payload (missing `all`) is rejected — cache unchanged", () => {
       const client = createAtmosWebQueryClient();
-      const key = queryKeys.computer.usageOverview(scope);
-      const seed = makeUsageOverview(1);
+      const key = queryKeys.computer.quotaOverview(scope);
+      const seed = makeQuotaOverview(1);
       client.setQueryData(key, seed);
 
       // Partial: missing required 'all' field
-      const applied = applyUsageOverviewUpdated(client, scope, {
+      const applied = applyQuotaOverviewUpdated(client, scope, {
         generated_at: 999,
         providers: [],
         // all: missing
@@ -111,7 +111,7 @@ describe("event-bridge-policy", () => {
 
     test("null payload is rejected", () => {
       const client = createAtmosWebQueryClient();
-      expect(applyUsageOverviewUpdated(client, scope, null)).toBe(false);
+      expect(applyQuotaOverviewUpdated(client, scope, null)).toBe(false);
     });
 
     test("usage event is scoped — patches only the matching scope key", () => {
@@ -122,11 +122,11 @@ describe("event-bridge-policy", () => {
         relaySessionRevision: 0,
       };
 
-      applyUsageOverviewUpdated(client, scope, makeUsageOverview());
+      applyQuotaOverviewUpdated(client, scope, makeQuotaOverview());
 
       // Other scope's key remains empty
       expect(
-        client.getQueryData(queryKeys.computer.usageOverview(otherScope)),
+        client.getQueryData(queryKeys.computer.quotaOverview(otherScope)),
       ).toBeUndefined();
     });
   });
@@ -195,11 +195,11 @@ describe("event-bridge-policy", () => {
       const overviewKey = queryKeys.computer.tokenUsageOverview(scope);
       const overviewFiltered = queryKeys.computer.tokenUsageOverview(scope, { year: "2025" });
       // Unrelated key
-      const usageKey = queryKeys.computer.usageOverview(scope);
+      const usageKey = queryKeys.computer.quotaOverview(scope);
 
       client.setQueryData(overviewKey, { data: "base" });
       client.setQueryData(overviewFiltered, { data: "filtered" });
-      client.setQueryData(usageKey, makeUsageOverview());
+      client.setQueryData(usageKey, makeQuotaOverview());
 
       invalidateTokenUsageQueries(client, scope);
       await Promise.resolve();
@@ -266,12 +266,12 @@ describe("event-bridge-policy", () => {
       expect(client.getQueryState(listKey)?.isInvalidated).toBe(false);
     });
 
-    test("usage_overview_updated (complete): sets data, zero invalidations needed", () => {
+    test("quota_overview_updated (complete): sets data, zero invalidations needed", () => {
       const client = createAtmosWebQueryClient();
-      const key = queryKeys.computer.usageOverview(scope);
-      const overview = makeUsageOverview(42);
+      const key = queryKeys.computer.quotaOverview(scope);
+      const overview = makeQuotaOverview(42);
 
-      applyUsageOverviewUpdated(client, scope, overview);
+      applyQuotaOverviewUpdated(client, scope, overview);
 
       expect(client.getQueryData(key)).toEqual(overview);
       // No invalidation — setQueryData is the policy
@@ -287,7 +287,7 @@ describe("event-bridge-policy", () => {
         localModel: queryKeys.computer.localModelList(scope),
         automationList: queryKeys.computer.automationList(scope),
         automationRun: queryKeys.computer.automationRunList(scope, "g1"),
-        usage: queryKeys.computer.usageOverview(scope),
+        usage: queryKeys.computer.quotaOverview(scope),
         skills: queryKeys.computer.skillsList(scope),
         settings: queryKeys.computer.settingsBootstrap(scope),
       };
@@ -316,7 +316,7 @@ describe("event-bridge-policy", () => {
       // These helpers expose per-domain subscription counts for the
       // ServerStateEventBridge component. Before any component mounts, the
       // module-level counters start at 0 (the bridge increments on mount).
-      expect(typeof getUsageOverviewBridgeSubscriberCount()).toBe("number");
+      expect(typeof getQuotaOverviewBridgeSubscriberCount()).toBe("number");
       expect(typeof getTokenUsageBridgeSubscriberCount()).toBe("number");
       expect(typeof getLocalModelBridgeSubscriberCount()).toBe("number");
       expect(typeof getAutomationDefinitionBridgeSubscriberCount()).toBe("number");
@@ -324,7 +324,7 @@ describe("event-bridge-policy", () => {
     });
 
     test("subscriber count helpers are non-negative", () => {
-      expect(getUsageOverviewBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
+      expect(getQuotaOverviewBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getTokenUsageBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getLocalModelBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getAutomationDefinitionBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);

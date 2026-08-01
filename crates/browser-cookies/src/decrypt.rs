@@ -1,6 +1,6 @@
 //! Chromium cookie value decryption (macOS `v10`/`v11`).
 //!
-//! Algorithm (unchanged from the proven `ai-usage` implementation):
+//! Algorithm (unchanged from the proven `quota-usage` implementation):
 //!   Keychain passphrase -> PBKDF2-HMAC-SHA1(pass, "saltysalt", 1003, 16 bytes)
 //!   -> AES-128-CBC (IV = 16 x 0x20) -> strip `v10`/`v11` prefix
 //!   -> strip optional 32-byte SHA-256 host-hash prefix.

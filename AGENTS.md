@@ -18,7 +18,7 @@
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
 | **Backend: Business Logic** (Auth, Project, Workspace) | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md) |
 | **Backend: Agent Integration** (ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md) |
-| **Backend: AI Usage Tracking** | [crates/ai-usage/AGENTS.md](crates/ai-usage/AGENTS.md) |
+| **Backend: Quota Usage Tracking** | [crates/quota-usage/AGENTS.md](crates/quota-usage/AGENTS.md) |
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
 | **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
 | **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
@@ -52,7 +52,7 @@ atmos/
 │   ├── core-engine/           # L2: Tech Capabilities (PTY, Git, FS)
 │   ├── core-service/          # L3: Business Rules
 │   ├── agent/                 # Agent capability (ACP Client)
-│   ├── ai-usage/              # AI Usage Tracking
+│   ├── quota-usage/              # Quota Usage Tracking
 │   ├── token-usage/           # Token Usage Tracking
 │   ├── llm/                   # LLM capability
 │   ├── local-model-runtime/   # Local model runtime capability

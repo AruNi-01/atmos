@@ -98,8 +98,8 @@ const Header: React.FC = () => {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
-  const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
-  const { onCloseAutoFocusPrevent } = useFocusRestore(isUsagePopoverOpen);
+  const [isQuotaPopoverOpen, setIsQuotaPopoverOpen] = useState(false);
+  const { onCloseAutoFocusPrevent } = useFocusRestore(isQuotaPopoverOpen);
   const actionMenuFocusRef = useRef<HTMLElement | null>(null);
   const {
     isDesktopFullscreen,
@@ -282,7 +282,7 @@ const Header: React.FC = () => {
     isActionMenuOpen,
     refreshCurrentRoute,
     setIsActionMenuOpen,
-    setIsUsagePopoverOpen,
+    setIsQuotaPopoverOpen,
     showRightSidebar,
     toggleLeftSidebar,
     toggleRightSidebar,
@@ -425,7 +425,7 @@ const Header: React.FC = () => {
   }, [openInBrowser, t]);
 
   const isAnyHeaderOverlayOpen =
-    isActionMenuOpen || desktopWebPopoverOpen || isUsagePopoverOpen ||
+    isActionMenuOpen || desktopWebPopoverOpen || isQuotaPopoverOpen ||
     isTokenUsageOpen || isSettingsOpen || isSkillsModalOpen || isTargetBranchOpen;
 
   useEffect(() => {
@@ -625,7 +625,7 @@ const Header: React.FC = () => {
           isOpeningDesktopWeb={isOpeningDesktopWeb}
           isTunnelConnectorRunning={isTunnelConnectorRunning}
           isRightCollapsed={isRightCollapsed}
-          isUsagePopoverOpen={isUsagePopoverOpen}
+          isQuotaPopoverOpen={isQuotaPopoverOpen}
           layout={layout}
           managementAgentsEnabled={managementAgentsEnabled}
           currentProjectName={currentProject?.name}
@@ -648,7 +648,7 @@ const Header: React.FC = () => {
           setIsActionMenuOpen={setIsActionMenuOpen}
           setIsSettingsOpen={setIsSettingsOpen}
           setIsTokenUsageOpen={setIsTokenUsageOpen}
-          setIsUsagePopoverOpen={setIsUsagePopoverOpen}
+          setIsQuotaPopoverOpen={setIsQuotaPopoverOpen}
           setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
           setTheme={setTheme}
           showRightSidebar={showRightSidebar}

@@ -45,12 +45,12 @@ pub(crate) async fn maybe_sync_cursor_csv(
         return CursorSyncOutcome { warnings: vec![] };
     }
 
-    let session_source = match ai_usage::load_cursor_session_token() {
+    let session_source = match quota_usage::load_cursor_session_token() {
         Ok(Some(source)) => source,
         Ok(None) => {
             return CursorSyncOutcome {
                 warnings: vec![
-                    "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/ai-usage/cursor.cookie".to_string(),
+                    "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/quota-usage/cursor.cookie".to_string(),
                 ],
             };
         }

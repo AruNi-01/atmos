@@ -13,7 +13,7 @@
 | L3 | `core-service` | [core-service/AGENTS.md](core-service/AGENTS.md) |
 | Capability | `agent` | [agent/AGENTS.md](agent/AGENTS.md) |
 | Capability | `llm` | [llm/AGENTS.md](llm/AGENTS.md) |
-| Capability | `ai-usage` | [ai-usage/AGENTS.md](ai-usage/AGENTS.md) |
+| Capability | `quota-usage` | [quota-usage/AGENTS.md](quota-usage/AGENTS.md) |
 | Capability | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |
 | Capability | `local-model-runtime` | — |
 | Capability | `tunnel-connector` | — |

@@ -128,6 +128,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-048** | API Types (`@atmos/api-types` main `/ws` wire types; Rust enum drift) | `specs/APP/APP-048_api-types/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-049** | API Client (`@atmos/api-client` WS session kernel; app-owned URL/auth) | `specs/APP/APP-049_api-client/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-050** | Shared Package Layering (roles, edges, AGENTS rewrite, cheap gate) | `specs/APP/APP-050_shared-package-layering/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-051** | Infra Jobs & Queue (local-first ports; timers + events; no apalis/MQ in v1) | `specs/APP/APP-051_infra-jobs/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

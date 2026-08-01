@@ -76,7 +76,7 @@ import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
-import { UsagePopover } from "./UsagePopover";
+import { QuotaPopover } from "./QuotaPopover";
 import { TunnelItem } from "./header-parts";
 import { HeaderWorkspaceSummaryButton } from "./header-workspace-widgets";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
@@ -97,7 +97,7 @@ type HeaderActionControlsProps = {
   isOpeningDesktopWeb: boolean;
   isTunnelConnectorRunning: boolean;
   isRightCollapsed: boolean;
-  isUsagePopoverOpen: boolean;
+  isQuotaPopoverOpen: boolean;
   layout: { opacity: number };
   managementAgentsEnabled: boolean;
   currentProjectName?: string | null;
@@ -124,7 +124,7 @@ type HeaderActionControlsProps = {
   setIsActionMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
   setIsTokenUsageOpen: (open: boolean) => Promise<URLSearchParams>;
-  setIsUsagePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<"atmos-computer" | "tunnel-connector" | null>>;
   setTheme: (theme: string) => void;
   showRightSidebar: boolean;
@@ -628,7 +628,7 @@ export function HeaderActionControls({
   isOpeningDesktopWeb,
   isTunnelConnectorRunning,
   isRightCollapsed,
-  isUsagePopoverOpen,
+  isQuotaPopoverOpen,
   layout,
   managementAgentsEnabled,
   currentProjectName,
@@ -651,7 +651,7 @@ export function HeaderActionControls({
   setIsActionMenuOpen,
   setIsSettingsOpen,
   setIsTokenUsageOpen,
-  setIsUsagePopoverOpen,
+  setIsQuotaPopoverOpen,
   setRemoteAccessSettingsSection,
   setTheme,
   showRightSidebar,
@@ -765,15 +765,15 @@ export function HeaderActionControls({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <UsagePopover
-              open={isUsagePopoverOpen}
-              onOpenChange={setIsUsagePopoverOpen}
+            <QuotaPopover
+              open={isQuotaPopoverOpen}
+              onOpenChange={setIsQuotaPopoverOpen}
               onPopoverCloseAutoFocus={onCloseAutoFocusPrevent}
             />
           </TooltipTrigger>
           <TooltipContent>
               <div className="flex items-center gap-2">
-                <span>{t("menu.aiUsage")}</span>
+                <span>{t("menu.quotaUsage")}</span>
               <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                 <Command className="size-3" />
                 <span className="text-xs">U</span>

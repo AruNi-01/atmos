@@ -67,7 +67,7 @@ describe("connection-isolation", () => {
       // Populate several A keys
       client.setQueryData(queryKeys.computer.system(scopeA), { from: "A" });
       client.setQueryData(queryKeys.computer.settingsBootstrap(scopeA), { s: "A" });
-      client.setQueryData(queryKeys.computer.usageOverview(scopeA), {
+      client.setQueryData(queryKeys.computer.quotaOverview(scopeA), {
         generated_at: 1,
         providers: [],
         all: {},
@@ -83,7 +83,7 @@ describe("connection-isolation", () => {
       // All A entries are gone
       expect(client.getQueryData(queryKeys.computer.system(scopeA))).toBeUndefined();
       expect(client.getQueryData(queryKeys.computer.settingsBootstrap(scopeA))).toBeUndefined();
-      expect(client.getQueryData(queryKeys.computer.usageOverview(scopeA))).toBeUndefined();
+      expect(client.getQueryData(queryKeys.computer.quotaOverview(scopeA))).toBeUndefined();
       expect(client.getQueryData(queryKeys.computer.projectBootstrap(scopeA))).toBeUndefined();
 
       // B starts empty
@@ -190,7 +190,7 @@ describe("connection-isolation", () => {
 
       // A is active, data loaded
       client.setQueryData(queryKeys.computer.settingsBootstrap(scopeA), { theme: "dark" });
-      client.setQueryData(queryKeys.computer.usageOverview(scopeA), {
+      client.setQueryData(queryKeys.computer.quotaOverview(scopeA), {
         generated_at: 100,
         providers: [],
         all: {},
@@ -203,7 +203,7 @@ describe("connection-isolation", () => {
 
       // B scope is clean
       expect(client.getQueryData(queryKeys.computer.settingsBootstrap(scopeB))).toBeUndefined();
-      expect(client.getQueryData(queryKeys.computer.usageOverview(scopeB))).toBeUndefined();
+      expect(client.getQueryData(queryKeys.computer.quotaOverview(scopeB))).toBeUndefined();
 
       // Set B data
       client.setQueryData(queryKeys.computer.settingsBootstrap(scopeB), { theme: "light" });
@@ -226,7 +226,7 @@ describe("connection-isolation", () => {
       const domains = [
         queryKeys.computer.system(scopeA),
         queryKeys.computer.settingsBootstrap(scopeA),
-        queryKeys.computer.usageOverview(scopeA),
+        queryKeys.computer.quotaOverview(scopeA),
         queryKeys.computer.projectBootstrap(scopeA),
         queryKeys.computer.gitAll(scopeA),
         queryKeys.computer.filesRoot(scopeA),
@@ -245,7 +245,7 @@ describe("connection-isolation", () => {
       const bDomains = [
         queryKeys.computer.system(scopeB),
         queryKeys.computer.settingsBootstrap(scopeB),
-        queryKeys.computer.usageOverview(scopeB),
+        queryKeys.computer.quotaOverview(scopeB),
         queryKeys.computer.projectBootstrap(scopeB),
         queryKeys.computer.gitAll(scopeB),
         queryKeys.computer.filesRoot(scopeB),

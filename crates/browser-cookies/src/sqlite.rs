@@ -5,7 +5,7 @@
 //!     source browser closed; a locked/busy DB combined with a process-alive
 //!     check is classified as `DatabaseBusy` by the caller. `immutable=1` is
 //!     deliberately NOT used (it ignores the WAL and can miss newest cookies).
-//!   * [`with_snapshot`] — used by the `ai-usage` reuse path, which must keep
+//!   * [`with_snapshot`] — used by the `quota-usage` reuse path, which must keep
 //!     working while the browser is open. Opens the source read-only and uses
 //!     SQLite's online backup API to copy a CONSISTENT snapshot into a throwaway
 //!     temp database (never a torn multi-file copy), then queries the copy. If
@@ -37,7 +37,7 @@ pub(crate) struct ChromiumFullRow {
     pub has_partition: bool,
 }
 
-/// A minimal Chromium row for the `ai-usage` Cookie-header path.
+/// A minimal Chromium row for the `quota-usage` Cookie-header path.
 #[derive(Debug, Clone)]
 pub struct ChromiumCookieRow {
     pub host_key: String,
@@ -46,7 +46,7 @@ pub struct ChromiumCookieRow {
     pub value: String,
 }
 
-/// A Firefox `moz_cookies` row for the `ai-usage` path.
+/// A Firefox `moz_cookies` row for the `quota-usage` path.
 #[derive(Debug, Clone)]
 pub struct FirefoxCookieRow {
     pub host: String,
@@ -314,7 +314,7 @@ pub(crate) fn read_firefox_full(conn: &Connection) -> Result<Vec<FirefoxFullRow>
     rows.collect::<Result<Vec<_>, _>>().map_err(map_query_error)
 }
 
-// --- Filtered reads (ai-usage reuse path) ---------------------------------
+// --- Filtered reads (quota-usage reuse path) ---------------------------------
 
 /// Domain match values: for each requested domain, include the bare host and
 /// the dotted (`.host`) variant, matching Chromium/Firefox `host_key`/`host`.
@@ -341,7 +341,7 @@ fn placeholders(n: usize) -> String {
 }
 
 /// Read Chromium cookie rows filtered by domain (+ optional cookie names),
-/// ordered by `last_access_utc DESC` to preserve the `ai-usage` dedup order.
+/// ordered by `last_access_utc DESC` to preserve the `quota-usage` dedup order.
 /// Uses a WAL-safe snapshot so it works while the browser is open.
 pub fn read_chromium_filtered(
     db_path: &Path,

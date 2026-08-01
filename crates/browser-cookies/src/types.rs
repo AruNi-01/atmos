@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// The four browser families supported by the MVP import feature.
 ///
 /// Note: the crate can *discover* a wider set of Chromium-family browsers for
-/// the `ai-usage` reuse path (Arc, Chromium, Helium, Dia, Atlas, betas…), but
+/// the `quota-usage` reuse path (Arc, Chromium, Helium, Dia, Atlas, betas…), but
 /// the public import surface (`list_profiles`) only ever surfaces these four.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

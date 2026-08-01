@@ -130,7 +130,7 @@ Keychain prompt and full WebKit persistence-across-restart are covered by manual
       from the `···` menu.
 - [ ] Favorites and toolbar toggle still work as direct buttons.
 - [ ] Web/mobile run-preview unaffected (cookie/clear items hidden).
-- [ ] `ai-usage` cookie-header providers still work after refactor onto `crates/browser-cookies`.
+- [ ] `quota-usage` cookie-header providers still work after refactor onto `crates/browser-cookies`.
 - [ ] `just typecheck`, `just lint`, `cargo test -p browser-cookies`, and the desktop
       adapter/command tests are green.
 

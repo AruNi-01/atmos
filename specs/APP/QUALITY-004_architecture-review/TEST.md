@@ -10,13 +10,13 @@ Each High/Medium finding is reproducible from a clean checkout:
 
 | Finding | Command | Expected signal (as of 2026-07-02) |
 |---|---|---|
-| F-01 layering bypass | `rg -c 'use (infra\|core_engine\|agent\|llm\|ai_usage\|token_usage\|local_model_runtime)' apps/api/src` | 23 direct lower-layer import statements |
+| F-01 layering bypass | `rg -c 'use (infra\|core_engine\|agent\|llm\|quota_usage\|token_usage\|local_model_runtime)' apps/api/src` | 23 direct lower-layer import statements |
 | F-02 contract drift | `awk '/pub enum WsAction/,/^}/' apps/api/src/api/ws/message.rs \| rg -c '^\s+[A-Z][A-Za-z0-9]*,?$'` vs the web union in `use-websocket.ts` | 201 Rust variants; web union missing `terminal_workspace_candidates` |
 | F-03 web monolith | `find apps/web/src \( -name '*.ts' -o -name '*.tsx' \) -exec wc -l {} + \| awk '$1>800 && $2!="total"' \| wc -l` | 37 files > 800 lines |
 | F-04 CI gaps | `rg -l 'bun test' .github/workflows/` ; `rg -l 'apps/mobile' .github/workflows/` | both empty |
 | F-05 god-crate | `find crates/core-service -name '*.rs' \| xargs wc -l \| tail -1` | 23,336 LOC |
 | F-06 entity leak | `rg -n 'infra::db::entities' apps/api/src` | hits in project handlers + ws workspace DTOs |
-| F-08 dead deps | `rg -c 'ai_usage\|local_model_runtime' crates/core-service/src` | 0 |
+| F-08 dead deps | `rg -c 'quota_usage\|local_model_runtime' crates/core-service/src` | 0 |
 | F-09 relay dup | compare `RelayEnvelope` in `apps/api/src/relay/ingest.rs` and `packages/relay/src/server-hub.ts` | same shape, two definitions |
 | F-11 dead machinery | `rg -l '"catalog:' apps packages --glob 'package.json'` ; `rg -l '@atmos/config' apps/*/tsconfig.json` | both empty |
 | F-14 doc dup | `diff AGENTS.md CLAUDE.md` | no output (identical) |
@@ -46,7 +46,7 @@ All phases: `just test` (`bun test` + `cargo test --workspace`) and `just test-e
 ### Phase 2 (backend layering)
 
 - Per router migration (git, github, workspace_setup, local_model, skills, settings): existing `cargo test -p api` and `-p core-service` green; WS action behavior verified via the e2e smoke suites that touch it; no change to `message.rs` DTO shapes (protocol frozen during the move).
-- End-state assertions: `rg -c 'use (infra|core_engine|agent|llm|ai_usage|token_usage|local_model_runtime)' apps/api/src` trends to ~0; `apps/api/Cargo.toml` path deps reduced to core-service + runtime-manager.
+- End-state assertions: `rg -c 'use (infra|core_engine|agent|llm|quota_usage|token_usage|local_model_runtime)' apps/api/src` trends to ~0; `apps/api/Cargo.toml` path deps reduced to core-service + runtime-manager.
 - After infra util relocation: `cargo test --workspace` green; API startup (`just dev-api`) still performs skill sync (manual smoke: `logs` show sync ran).
 
 ### Phase 3 (frontend structure)

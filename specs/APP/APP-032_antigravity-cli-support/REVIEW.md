@@ -4,7 +4,7 @@
 
 **Review date**: 2026-07-04  
 **Review scope**: functional review | quality review  
-**Related code**: [antigravity.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/core-engine/src/agent_hooks/antigravity.rs), [antigravity.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/core-service/src/service/agent_hooks/antigravity.rs), [runtime.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/ai-usage/src/runtime.rs), [antigravity.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/ai-usage/src/providers/antigravity.rs)
+**Related code**: [antigravity.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/core-engine/src/agent_hooks/antigravity.rs), [antigravity.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/core-service/src/service/agent_hooks/antigravity.rs), [runtime.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/quota-usage/src/runtime.rs), [antigravity.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/quota-usage/src/providers/antigravity.rs)
 
 ---
 

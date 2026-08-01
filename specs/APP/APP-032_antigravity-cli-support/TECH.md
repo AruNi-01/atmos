@@ -61,7 +61,7 @@ We will group the changes into backend service extensions, API endpoint routing,
   )
   ```
 
-#### [MODIFY] [runtime.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/ai-usage/src/runtime.rs)
+#### [MODIFY] [runtime.rs](file:///Users/aarynlu/.gemini/antigravity/worktrees/atmos/add-antigravity-cli-support/crates/quota-usage/src/runtime.rs)
 - Update the `antigravity` `ProviderSpec` definition in `provider_specs()`:
   - Add auth path `"~/.gemini/antigravity-cli/settings.json"`.
   - Add auth env key `"GEMINI_API_KEY"`.

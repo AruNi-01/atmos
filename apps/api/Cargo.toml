@@ -9,7 +9,7 @@ name = "api"
 path = "src/main.rs"
 
 [dependencies]
-ai-usage = { path = "../../crates/ai-usage" }
+quota-usage = { path = "../../crates/quota-usage" }
 agent = { path = "../../crates/agent" }
 infra = { path = "../../crates/infra" }
 core-engine = { path = "../../crates/core-engine" }

@@ -50,7 +50,7 @@ export function ShortcutsSettingsSection() {
           { keys: ['⌘', '['], description: t('groups.global.items.navigateBack') },
           { keys: ['⌘', ']'], description: t('groups.global.items.navigateForward') },
           { keys: ['⌘', '⇧', 'M'], description: t('groups.global.items.toggleActionMenu') },
-          { keys: ['⌘', 'U'], description: t('groups.global.items.toggleUsagePopover') },
+          { keys: ['⌘', 'U'], description: t('groups.global.items.toggleQuotaPopover') },
         ]}
       />
       <ShortcutGroup

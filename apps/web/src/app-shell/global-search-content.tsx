@@ -27,7 +27,7 @@ import type { SearchMatch } from "@/api/ws-api";
 import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
 import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
-import { UsagePopover } from "@/app-shell/UsagePopover";
+import { QuotaPopover } from "@/app-shell/QuotaPopover";
 import {
   CodePreviewTooltip,
   CodeSearchResultItem,
@@ -214,7 +214,7 @@ export function UsageSubView({ onBack }: UsageSubViewProps) {
       onBack={onBack}
     >
       <div className="min-h-0 flex-1 overflow-hidden">
-        <UsagePopover embedded />
+        <QuotaPopover embedded />
       </div>
     </GlobalSearchSubViewFrame>
   );
