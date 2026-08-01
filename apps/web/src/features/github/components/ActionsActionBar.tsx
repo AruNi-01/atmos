@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@workspace/ui";
-import { ExternalLink, LoaderCircle, RotateCw } from "lucide-react";
+import { Github, LoaderCircle, RotateCw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 export function ActionsActionBar({
@@ -8,7 +8,6 @@ export function ActionsActionBar({
   isCompleted,
   isFailure,
   onOpenGitHub,
-  onOpenBetterHub,
   onRerunFailed,
   onRerunAll,
 }: {
@@ -16,7 +15,6 @@ export function ActionsActionBar({
   isCompleted: boolean;
   isFailure: boolean;
   onOpenGitHub: () => void;
-  onOpenBetterHub: () => void;
   onRerunFailed: () => void;
   onRerunAll: () => void;
 }) {
@@ -119,20 +117,10 @@ export function ActionsActionBar({
                 variant="outline"
                 size="sm"
                 onClick={onOpenGitHub}
-                className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium"
+                className="h-8 border-0 text-[11px] px-3 font-medium shadow-sm hover:shadow-md transition-shadow"
               >
-                <ExternalLink className="mr-1.5 size-3.5" />
+                <Github className="mr-1.5 size-3.5" />
                 GitHub
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenBetterHub}
-                className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium"
-              >
-                <ExternalLink className="mr-1.5 size-3.5" />
-                BetterHub
               </Button>
             </div>
 
@@ -147,7 +135,7 @@ export function ActionsActionBar({
                       size="sm"
                       onClick={onRerunFailed}
                       disabled={actionLoading}
-                      className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium"
+                      className="h-8 border-0 text-[11px] px-3 font-medium shadow-sm hover:shadow-md transition-shadow"
                     >
                       {actionLoading ? (
                         <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
@@ -163,7 +151,7 @@ export function ActionsActionBar({
                     size="sm"
                     onClick={onRerunAll}
                     disabled={actionLoading}
-                    className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium"
+                    className="h-8 border-0 text-[11px] px-3 font-medium shadow-sm hover:shadow-md transition-shadow"
                   >
                     {actionLoading ? (
                       <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />

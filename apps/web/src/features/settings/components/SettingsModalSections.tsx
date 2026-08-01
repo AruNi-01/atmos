@@ -48,10 +48,14 @@ interface SettingsModalSectionsProps {
   useLastSplitAgentOnSplit: boolean;
   lastSplitAgentId: string | null;
   sideContextPromptBudgetBytes: number;
+  richInputEnabled: boolean;
+  richInputTriggerBarVisible: boolean;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
+  setRichInputEnabled: (enabled: boolean) => Promise<void> | void;
+  setRichInputTriggerBarVisible: (visible: boolean) => Promise<void> | void;
   maxWarmWorkspaces: number;
   maxGlobalTerminalPanes: number;
   setMaxWarmWorkspaces: (size: number) => Promise<void> | void;
@@ -161,10 +165,14 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           useLastSplitAgentOnSplit={props.useLastSplitAgentOnSplit}
           lastSplitAgentId={props.lastSplitAgentId}
           sideContextPromptBudgetBytes={props.sideContextPromptBudgetBytes}
+          richInputEnabled={props.richInputEnabled}
+          richInputTriggerBarVisible={props.richInputTriggerBarVisible}
           setFileLinkOpenMode={props.setFileLinkOpenMode}
           setFileLinkOpenApp={props.setFileLinkOpenApp}
           setUseLastSplitAgentOnSplit={props.setUseLastSplitAgentOnSplit}
           setSideContextPromptBudgetBytes={props.setSideContextPromptBudgetBytes}
+          setRichInputEnabled={props.setRichInputEnabled}
+          setRichInputTriggerBarVisible={props.setRichInputTriggerBarVisible}
           maxWarmWorkspaces={props.maxWarmWorkspaces}
           maxGlobalTerminalPanes={props.maxGlobalTerminalPanes}
           setMaxWarmWorkspaces={props.setMaxWarmWorkspaces}

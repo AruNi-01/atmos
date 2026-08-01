@@ -55,6 +55,10 @@ export interface FunctionSettings {
     file_link_open_mode?: "atmos" | "finder" | "app";
     file_link_open_app?: string;
     side_context_prompt_budget_bytes?: number;
+    /** When false, Terminal Rich Input is fully disabled (shortcuts no-op). Default true. */
+    rich_input_enabled?: boolean;
+    /** When false, hide the bottom trigger bar; shortcuts still open Rich Input. Default true. */
+    rich_input_trigger_bar_visible?: boolean;
   };
   workspace_surface?: {
     max_warm_workspaces?: number;

@@ -32,10 +32,14 @@ export function TerminalSettingsSection({
   useLastSplitAgentOnSplit,
   lastSplitAgentId,
   sideContextPromptBudgetBytes,
+  richInputEnabled,
+  richInputTriggerBarVisible,
   setFileLinkOpenMode,
   setFileLinkOpenApp,
   setUseLastSplitAgentOnSplit,
   setSideContextPromptBudgetBytes,
+  setRichInputEnabled,
+  setRichInputTriggerBarVisible,
   maxWarmWorkspaces,
   maxGlobalTerminalPanes,
   setMaxWarmWorkspaces,
@@ -46,10 +50,14 @@ export function TerminalSettingsSection({
   useLastSplitAgentOnSplit: boolean;
   lastSplitAgentId: string | null;
   sideContextPromptBudgetBytes: number;
+  richInputEnabled: boolean;
+  richInputTriggerBarVisible: boolean;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
   setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
+  setRichInputEnabled: (enabled: boolean) => Promise<void> | void;
+  setRichInputTriggerBarVisible: (visible: boolean) => Promise<void> | void;
   maxWarmWorkspaces: number;
   maxGlobalTerminalPanes: number;
   setMaxWarmWorkspaces: (size: number) => Promise<void> | void;
@@ -222,6 +230,35 @@ export function TerminalSettingsSection({
           <Switch
             checked={useLastSplitAgentOnSplit}
             onCheckedChange={setUseLastSplitAgentOnSplit}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">{t('richInputEnabled.title')}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {t('richInputEnabled.description')}
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          <Switch
+            checked={richInputEnabled}
+            onCheckedChange={(value) => void setRichInputEnabled(!!value)}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-t border-border px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">{t('richInputTriggerBar.title')}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {t('richInputTriggerBar.description')}
+          </p>
+        </div>
+        <div className="flex items-center justify-end">
+          <Switch
+            checked={richInputTriggerBarVisible}
+            disabled={!richInputEnabled}
+            onCheckedChange={(value) => void setRichInputTriggerBarVisible(!!value)}
           />
         </div>
       </div>

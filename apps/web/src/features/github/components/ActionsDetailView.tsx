@@ -308,12 +308,6 @@ export function ActionsDetailView({
           isCompleted={isCompleted}
           isFailure={isFailure}
           onOpenGitHub={handleNativeOpen}
-          onOpenBetterHub={() =>
-            window.open(
-              `https://better-hub.com/${owner}/${repo}/actions/runs/${effectiveRun.databaseId}`,
-              "_blank",
-            )
-          }
           onRerunFailed={handleRerunFailed}
           onRerunAll={handleRerunAll}
         />

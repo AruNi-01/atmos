@@ -4219,6 +4219,12 @@
             "defaultSplitAgent": {
               "label": "默认分屏 Agent"
             },
+            "richInputEnabled": {
+              "label": "Terminal Rich Input"
+            },
+            "richInputTriggerBar": {
+              "label": "触发条"
+            },
             "sideContextBudget": {
               "label": "Side chat 上下文预算"
             }
@@ -5014,6 +5020,14 @@
         "description": "启用后，普通分屏操作（工具栏点击、⌘D 或右键菜单）会复用你上次在分屏子菜单中选择的 Agent。悬停分屏按钮可选择其他 Agent。",
         "lastAgent": "上次分屏 Agent："
       },
+      "richInputEnabled": {
+        "title": "Terminal Rich Input",
+        "description": "在终端底部显示悬浮富输入，支持 @ 提及、/ 命令和图片粘贴。关闭后，输入框及其快捷键会完全禁用。"
+      },
+      "richInputTriggerBar": {
+        "title": "触发条",
+        "description": "显示终端底部用于悬停打开 Rich Input 的细条。隐藏后仍可通过 ⌘G 打开（⌘⇧G 固定）。"
+      },
       "sideContextBudget": {
         "title": "Side chat 上下文预算",
         "description": "/side Agent prompt 中最多注入的终端上下文字节数。服务端仍会将请求限制在 {min} 到 {max} bytes 之间。",
@@ -5349,6 +5363,11 @@
         "title": "Project Wiki（Center Tabs）",
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
       }
+    },
+    "terminalRichInputSettingsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "enabledFailed": "更新 Terminal Rich Input 失败。",
+      "triggerBarFailed": "更新 Rich Input 触发条失败。"
     }
   },
   "agent": {
