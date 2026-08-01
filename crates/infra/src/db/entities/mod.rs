@@ -5,6 +5,7 @@ pub mod base;
 pub mod item_group;
 pub mod item_group_member;
 pub mod project;
+pub mod queue_event;
 pub mod review_agent_run;
 pub mod review_comment;
 pub mod review_file_identity;

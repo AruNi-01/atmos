@@ -14,7 +14,7 @@ use crate::config::{
 use crate::constants::PROVIDER_TIMEOUT_MILLIS;
 use crate::models::{
     AuthState, AuthStateStatus, DetailRow, DetailSection, FetchState, FetchStateStatus,
-    ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, QuotaSummary,
+    ProviderError, ProviderKind, ProviderStatus, QuotaSummary, RowTone, SubscriptionSummary,
 };
 use crate::providers::{
     amp,

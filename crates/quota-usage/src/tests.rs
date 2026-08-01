@@ -7,7 +7,8 @@ use infra::jobs::{JobId, LocalScheduler};
 
 use crate::{
     AuthState, AuthStateStatus, FetchState, FetchStateStatus, ProviderDescriptor, ProviderError,
-    ProviderKind, ProviderStatus, QuotaProvider, QuotaUsageService, QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
+    ProviderKind, ProviderStatus, QuotaProvider, QuotaUsageService,
+    QUOTA_USAGE_AUTO_REFRESH_JOB_ID,
 };
 
 #[derive(Clone)]

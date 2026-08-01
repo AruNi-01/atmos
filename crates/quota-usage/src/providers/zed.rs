@@ -6,7 +6,7 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 use crate::constants::{ZED_BILLING_USAGE_URL, ZED_SUBSCRIPTION_URL};
-use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, QuotaSummary};
+use crate::models::{DetailRow, DetailSection, ProviderError, QuotaSummary, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     load_cookie_header, load_zed_browser_cookie_source, normalize_cookie_header, unix_now,

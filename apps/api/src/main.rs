@@ -11,7 +11,6 @@ use crate::api::ws::{
     automation_event_to_ws_message, WsEvent, WsManager, WsMessage, WsMessageService,
 };
 use crate::middleware::{require_local_token, require_loopback_or_token};
-use quota_usage::QuotaUsageService;
 use app_state::{AppServices, AppState};
 use axum::{
     http::{
@@ -32,9 +31,10 @@ use core_service::{
     NotificationService, ProjectService, ReviewService, TerminalService, TestService,
     WorkspaceService,
 };
-use infra::jobs::{IntervalSpec, JobId, LocalScheduler, RetryPolicy};
-use infra::queue::{topics, LocalMemoryQueue, QueueError, Topic};
+use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
+use infra::queue::{topics, LocalPersistentQueue, QueueError, Topic};
 use infra::{DbConnection, Migrator};
+use quota_usage::QuotaUsageService;
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
 use token_usage::TokenUsageService;
@@ -412,9 +412,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_service = Arc::new(AgentService::new());
     let agent_service_for_startup = Arc::clone(&agent_service);
 
-    // APP-051: process-local jobs + event queue (local adapters only).
+    // APP-051: process-local jobs + durable SQLite event queue for third-party triggers.
     let jobs = Arc::new(LocalScheduler::new());
-    let event_queue = Arc::new(LocalMemoryQueue::builder().capacity(128).build());
+    let event_queue = Arc::new(LocalPersistentQueue::new(db.as_ref().clone()).with_max_attempts(5));
 
     let quota_usage_service = Arc::new(QuotaUsageService::default());
     quota_usage_service.attach_jobs(Arc::clone(&jobs)).await;
@@ -498,65 +498,78 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&event_queue),
     );
 
-    // APP-051: GitHub external events → queue consumer → domain handler.
+    // APP-051: GitHub events — durable queue worker (internal process + retry).
     {
         let automation_for_queue = Arc::clone(&automation_service);
-        let replies = Arc::clone(&app_state.github_trigger_replies);
         if let Err(error) = event_queue
-            .subscribe(Topic::new(topics::AUTOMATION_GITHUB_DELIVERY), move |msg| {
+            .subscribe_worker(Topic::new(topics::AUTOMATION_GITHUB_DELIVERY), move |msg| {
                 let automation_for_queue = Arc::clone(&automation_for_queue);
-                let replies = Arc::clone(&replies);
                 async move {
-                    let envelope = serde_json::from_slice::<
-                        crate::relay::external_events::GithubQueueEnvelope,
-                    >(&msg.payload);
-                    let (reply_id, outcome) = match envelope {
-                        Ok(envelope) => {
-                            let reply_id = envelope.reply_id;
-                            let outcome = automation_for_queue
-                                .handle_external_trigger(envelope.event)
-                                .await;
-                            (Some(reply_id), outcome)
-                        }
-                        Err(error) => {
-                            warn!(
-                                error = %error,
-                                "github queue payload deserialize failed"
+                    let payload = serde_json::from_slice::<
+                        crate::relay::external_events::GithubQueuePayload,
+                    >(&msg.payload)
+                    .map_err(|error| {
+                        QueueError::Handler(format!("invalid github queue payload: {error}"))
+                    })?;
+                    match automation_for_queue
+                        .handle_external_trigger(payload.event)
+                        .await
+                    {
+                        // Domain outcomes (accepted run or local reject) complete the event.
+                        Ok(outcome) => {
+                            debug!(
+                                queue_event_id = %msg.id,
+                                "github queue event processed: {:?}",
+                                outcome
                             );
-                            (
-                                None,
-                                Err(core_service::ServiceError::Validation(format!(
-                                    "invalid github queue payload: {error}"
-                                ))),
-                            )
+                            Ok(())
                         }
-                    };
-                    let handler_err = outcome.as_ref().err().map(|error| {
-                        QueueError::Handler(format!("github delivery failed: {error}"))
-                    });
-                    if let Some(reply_id) = reply_id {
-                        if let Some(tx) = replies.lock().await.remove(&reply_id) {
-                            let _ = tx.send(outcome);
-                        } else if let Some(error) = &handler_err {
-                            warn!(
-                                reply_id = %reply_id,
-                                error = %error,
-                                "github queue message processed without reply waiter"
-                            );
-                        }
-                    }
-                    match handler_err {
-                        Some(error) => Err(error),
-                        None => Ok(()),
+                        // Transient / infra errors → persistent queue retries.
+                        Err(error) => Err(QueueError::Handler(format!(
+                            "github delivery processing failed: {error}"
+                        ))),
                     }
                 }
             })
             .await
         {
-            warn!(
-                "Failed to subscribe github delivery queue consumer: {}",
-                error
-            );
+            warn!("Failed to start github delivery queue worker: {}", error);
+        }
+    }
+
+    // Retention: drop succeeded/failed queue events older than 30 days (daily job).
+    {
+        let queue_for_cleanup = Arc::clone(&event_queue);
+        if let Err(error) = jobs
+            .set_interval_job(
+                JobId::new("queue.event_cleanup"),
+                IntervalSpec {
+                    every: std::time::Duration::from_secs(24 * 60 * 60),
+                    skip_if_running: true,
+                    fire_immediately: false,
+                },
+                RetryPolicy::none(),
+                move || {
+                    let queue_for_cleanup = Arc::clone(&queue_for_cleanup);
+                    async move {
+                        let retention = std::time::Duration::from_secs(30 * 24 * 60 * 60);
+                        match queue_for_cleanup.cleanup_older_than(retention).await {
+                            Ok(deleted) => {
+                                if deleted > 0 {
+                                    info!(deleted, "queue event cleanup removed old rows");
+                                }
+                                Ok(())
+                            }
+                            Err(error) => Err(JobError::Retryable(format!(
+                                "queue event cleanup failed: {error}"
+                            ))),
+                        }
+                    }
+                },
+            )
+            .await
+        {
+            warn!("Failed to register queue event cleanup job: {}", error);
         }
     }
 

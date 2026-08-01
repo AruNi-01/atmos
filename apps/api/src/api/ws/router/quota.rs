@@ -3,10 +3,10 @@ use serde_json::{json, Value};
 use core_service::{Result, ServiceError};
 
 use super::{
-    TokenUsageOverviewRequest, QuotaAddProviderApiKeyRequest, QuotaAllProvidersSwitchRequest,
+    QuotaAddProviderApiKeyRequest, QuotaAllProvidersSwitchRequest,
     QuotaApplyProviderVisibilityRequest, QuotaAutoRefreshRequest, QuotaDeleteProviderApiKeyRequest,
     QuotaOverviewRequest, QuotaProviderFooterCarouselRequest, QuotaProviderManualSetupRequest,
-    QuotaProviderSwitchRequest, WsMessageService,
+    QuotaProviderSwitchRequest, TokenUsageOverviewRequest, WsMessageService,
 };
 
 impl WsMessageService {
@@ -69,7 +69,10 @@ impl WsMessageService {
                 )
             })
             .collect();
-        let overview = self.quota_usage_service.apply_provider_visibility(prefs).await;
+        let overview = self
+            .quota_usage_service
+            .apply_provider_visibility(prefs)
+            .await;
         Ok(json!(overview))
     }
 

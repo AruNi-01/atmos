@@ -13,8 +13,8 @@ mod tests;
 pub use models::{
     AuthState, AuthStateStatus, AutoRefreshConfig, DetailRow, DetailSection, FetchState,
     FetchStateStatus, ProviderError, ProviderKind, ProviderManualSetup, ProviderManualSetupOption,
-    ProviderStatus, RowTone, SubscriptionSummary, QuotaAggregate, QuotaFetchIssue, QuotaOverview,
-    QuotaSummary,
+    ProviderStatus, QuotaAggregate, QuotaFetchIssue, QuotaOverview, QuotaSummary, RowTone,
+    SubscriptionSummary,
 };
 pub use runtime::{ProviderDescriptor, QuotaProvider};
 pub use service::{QuotaUsageService, QUOTA_USAGE_AUTO_REFRESH_JOB_ID};
