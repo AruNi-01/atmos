@@ -24,6 +24,12 @@ export async function prepareConnectionTargetChange(): Promise<void> {
 
   // Compatibility: invalidate settings bootstrap cache until Settings cutover removes it.
   useFunctionSettingsStore.getState().invalidate();
+  // Terminal preference stores keep `loaded` across targets; reset so the next
+  // Computer's function_settings are re-hydrated instead of leaking prior prefs.
+  const { useTerminalRichInputSettingsStore } = await import(
+    '@/features/settings/store/terminal-rich-input-settings-store'
+  );
+  useTerminalRichInputSettingsStore.getState().resetForConnectionChange();
 
   // Legacy Computer-scoped snapshots Query does not yet own.
   await resetLegacyServerStateForConnectionChange();

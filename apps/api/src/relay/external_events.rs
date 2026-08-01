@@ -2,7 +2,7 @@
 //!
 //! Accept path (durable queue):
 //! 1. Parse / validate shape
-//! 2. Persist to [`LocalPersistentQueue`]
+//! 2. Persist to [`infra::queue::LocalPersistentQueue`]
 //! 3. ACK Accepted (provider should not redeliver for internal processing failures)
 //!
 //! Domain matching / start_run runs in the queue worker with internal retries.

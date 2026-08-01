@@ -33,6 +33,7 @@ import {
   getAgentContextDragText,
   hasAgentContextDragData,
 } from "@/shared/lib/agent-context-drag";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 
 type MosaicToolbarActions = {
   split: boolean;
@@ -141,6 +142,9 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
   } = props;
 
   const { toolbarHovered, onToolbarMouseEnter, onToolbarMouseLeave } = useToolbarHoverExpand(400);
+  const richInputActive = useTerminalRichInputSettingsStore(
+    (s) => s.loaded && s.enabled,
+  );
   const splitMenuOpenForPane =
     splitMenuKey === `${id}:row` || splitMenuKey === `${id}:column`;
   const toolbarExpanded =
@@ -481,14 +485,22 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           surfaceActive={surfaceActive}
           onTitleChange={onTitleChange}
           onOscTitleChange={onOscTitleChange}
-          onAddSelectionAsContext={(snapshot) => {
-            setActivePaneId(id);
-            agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
-          }}
-          onStartSideChatForSelection={(snapshot) => {
-            setActivePaneId(id);
-            agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
-          }}
+          onAddSelectionAsContext={
+            richInputActive
+              ? (snapshot) => {
+                  setActivePaneId(id);
+                  agentInputOverlayRefsMap.current.get(id)?.addTerminalSelectionContext(snapshot);
+                }
+              : undefined
+          }
+          onStartSideChatForSelection={
+            richInputActive
+              ? (snapshot) => {
+                  setActivePaneId(id);
+                  agentInputOverlayRefsMap.current.get(id)?.startSideChatForTerminalSelection(snapshot);
+                }
+              : undefined
+          }
           onSessionReady={() => {
             readyPanesRef.current.add(id);
             setIsTerminalReady(true);

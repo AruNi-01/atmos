@@ -19,15 +19,26 @@ export function instKey(instanceId: ConnectionInstanceId, slice: string): string
   return `${PREFIX_INST}${instanceId}:${slice}`;
 }
 
+/**
+ * Storage availability. Must not throw: some browsers throw SecurityError on
+ * any `localStorage` access when storage is denied (not only on setItem).
+ */
 function canUseStorage(): boolean {
-  return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  try {
+    return typeof window.localStorage !== 'undefined';
+  } catch {
+    return false;
+  }
 }
 
 export function readJson<T>(key: string, fallback: T): T {
-  if (!canUseStorage()) {
-    return fallback;
-  }
   try {
+    if (!canUseStorage()) {
+      return fallback;
+    }
     const raw = localStorage.getItem(key);
     if (!raw) {
       return fallback;
@@ -40,23 +51,23 @@ export function readJson<T>(key: string, fallback: T): T {
 
 /** Returns true when the value was written successfully. */
 export function writeJson(key: string, value: unknown): boolean {
-  if (!canUseStorage()) {
-    return false;
-  }
   try {
+    if (!canUseStorage()) {
+      return false;
+    }
     localStorage.setItem(key, JSON.stringify(value));
     return true;
   } catch {
-    // quota / private mode
+    // quota / private mode / denied storage
     return false;
   }
 }
 
 export function removeKey(key: string): void {
-  if (!canUseStorage()) {
-    return;
-  }
   try {
+    if (!canUseStorage()) {
+      return;
+    }
     localStorage.removeItem(key);
   } catch {
     // ignore
@@ -65,10 +76,10 @@ export function removeKey(key: string): void {
 
 /** True when `key` exists in localStorage (safe under blocked storage). */
 export function hasStorageKey(key: string): boolean {
-  if (!canUseStorage()) {
-    return false;
-  }
   try {
+    if (!canUseStorage()) {
+      return false;
+    }
     return localStorage.getItem(key) != null;
   } catch {
     return false;
@@ -78,10 +89,10 @@ export function hasStorageKey(key: string): boolean {
 export const ACTIVE_INSTANCE_GLOBAL_KEY = globalKey('activeInstance');
 
 export function readActiveInstanceIdRaw(): string | null {
-  if (!canUseStorage()) {
-    return null;
-  }
   try {
+    if (!canUseStorage()) {
+      return null;
+    }
     return localStorage.getItem(ACTIVE_INSTANCE_GLOBAL_KEY);
   } catch {
     return null;
@@ -89,10 +100,10 @@ export function readActiveInstanceIdRaw(): string | null {
 }
 
 export function writeActiveInstanceIdRaw(id: string): void {
-  if (!canUseStorage()) {
-    return;
-  }
   try {
+    if (!canUseStorage()) {
+      return;
+    }
     localStorage.setItem(ACTIVE_INSTANCE_GLOBAL_KEY, id);
   } catch {
     // ignore

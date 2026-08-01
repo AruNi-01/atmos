@@ -340,28 +340,28 @@ export const AttachmentRemove = ({
     <Button
       aria-label={label}
       className={cn(
+        // Explicit sizes win over Button size defaults; keep coarse-pointer
+        // 44px hit target from button base (`pointer-coarse:after:*`).
         variant === "grid" && [
           "absolute top-1 right-1 size-5 min-h-0 min-w-0 rounded-full p-0",
           "bg-background/80 backdrop-blur-sm",
           "opacity-0 transition-opacity group-hover:opacity-100",
           "hover:bg-background",
-          // Keep coarse-pointer 44px hit target; only hide ::after on fine pointers.
-          "pointer-fine:after:hidden [&>svg]:size-3",
+          "[&>svg]:size-3",
         ],
         variant === "inline" && [
           "size-4 min-h-0 min-w-0 rounded-full p-0",
           "opacity-0 transition-opacity group-hover:opacity-100",
-          "pointer-fine:after:hidden [&>svg]:size-2.5",
+          "[&>svg]:size-2.5",
         ],
         variant === "list" && [
           "size-7 min-h-0 min-w-0 shrink-0 rounded p-0",
-          "pointer-fine:after:hidden [&>svg]:size-3.5",
+          "[&>svg]:size-3.5",
         ],
         className
       )}
       onClick={handleClick}
       type="button"
-      size="icon-xs"
       variant="ghost"
       {...props}
     >

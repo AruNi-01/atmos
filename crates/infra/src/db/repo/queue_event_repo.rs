@@ -147,7 +147,8 @@ impl<'a> QueueEventRepo<'a> {
             return Ok(());
         }
 
-        let backoff_secs = (1_i64 << (attempts.saturating_sub(1).min(8))).min(MAX_BACKOFF_SECS);
+        // Cap exponent at 9 so 2^n can reach MAX_BACKOFF_SECS (300).
+        let backoff_secs = (1_i64 << (attempts.saturating_sub(1).min(9))).min(MAX_BACKOFF_SECS);
         let available_at = now + ChronoDuration::seconds(backoff_secs);
         let result = queue_event::Entity::update_many()
             .col_expr(
@@ -193,9 +194,9 @@ impl<'a> QueueEventRepo<'a> {
 
     /// Requeue `processing` rows that have not been updated within `stale_after`.
     ///
-    /// Pass a zero lease on worker start to reclaim crash leftovers immediately.
-    /// While workers run, pass a lease longer than the handler timeout so live
-    /// handlers are not double-claimed by another process.
+    /// Reclaim `processing` rows whose `updated_at` is older than `stale_after`.
+    /// Pass a lease longer than the handler timeout so live handlers are not
+    /// double-claimed by another process (including on worker start).
     pub async fn requeue_stale_processing(
         &self,
         topic: &str,
@@ -218,11 +219,21 @@ impl<'a> QueueEventRepo<'a> {
         Ok(result.rows_affected)
     }
 
+    /// Delete terminal rows whose **completion** time is older than `cutoff`.
+    ///
+    /// Prefer `processed_at` so a long-waiting job that finished recently is
+    /// retained for the full terminal retention window. Fall back to
+    /// `updated_at` when `processed_at` is missing (legacy / partial rows).
     pub async fn delete_terminal_older_than(&self, cutoff: NaiveDateTime) -> Result<u64> {
         let result = queue_event::Entity::delete_many()
-            .filter(queue_event::Column::CreatedAt.lt(cutoff))
             .filter(
                 queue_event::Column::Status.is_in([event_status::SUCCEEDED, event_status::FAILED]),
+            )
+            .filter(
+                Expr::cust_with_values(
+                    "(COALESCE(processed_at, updated_at) < ?)",
+                    [cutoff],
+                ),
             )
             .exec(self.db)
             .await?;

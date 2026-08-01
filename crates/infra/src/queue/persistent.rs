@@ -115,10 +115,11 @@ impl LocalPersistentQueue {
             return Err(QueueError::ConsumerExists(topic.as_str().to_string()));
         }
 
-        // On worker start there is no live handler for this process — reclaim all
-        // `processing` leftovers from a prior crash immediately (zero lease).
-        // Periodic reclaim below uses STALE_PROCESSING_LEASE so in-flight work is kept.
-        self.requeue_stale_processing(topic.as_str(), ChronoDuration::zero())
+        // Reclaim only *stale* processing rows. A zero lease would steal live
+        // work from another process (hot reload / dual API on the same DB).
+        // Crash leftovers older than STALE_PROCESSING_LEASE are reclaimed here
+        // and again on the periodic loop below.
+        self.requeue_stale_processing(topic.as_str(), STALE_PROCESSING_LEASE)
             .await?;
 
         let dyn_handler: DynHandler = Arc::new(move |msg| {
@@ -172,16 +173,41 @@ impl LocalPersistentQueue {
                         };
                         // Bound handler so a hang cannot block reclaim forever.
                         // Timeout must stay below STALE_PROCESSING_LEASE.
+                        // Nested spawn isolates handler panics so the topic
+                        // worker keeps running and the row can be retried.
+                        let handler = Arc::clone(&dyn_handler);
+                        let join = tokio::spawn(async move { handler(msg).await });
+                        let abort = join.abort_handle();
                         let handler_result =
-                            tokio::time::timeout(HANDLER_TIMEOUT, dyn_handler(msg)).await;
+                            tokio::time::timeout(HANDLER_TIMEOUT, join).await;
                         match handler_result {
-                            Ok(Ok(())) => {
+                            Ok(Ok(Ok(()))) => {
                                 finalize_succeeded(&db, &model.guid).await;
                             }
-                            Ok(Err(error)) => {
+                            Ok(Ok(Err(error))) => {
                                 finalize_failure(&db, &model, error).await;
                             }
+                            Ok(Err(join_error)) => {
+                                let message = if join_error.is_panic() {
+                                    "queue handler panicked".to_string()
+                                } else {
+                                    format!("queue handler task failed: {join_error}")
+                                };
+                                warn!(
+                                    guid = %model.guid,
+                                    topic = %topic_for_task,
+                                    error = %message,
+                                    "queue handler join failed; requeue for retry"
+                                );
+                                finalize_failure(
+                                    &db,
+                                    &model,
+                                    QueueError::Handler(message),
+                                )
+                                .await;
+                            }
                             Err(_) => {
+                                abort.abort();
                                 warn!(
                                     guid = %model.guid,
                                     topic = %topic_for_task,
@@ -236,8 +262,10 @@ impl LocalPersistentQueue {
 
     /// Delete terminal events older than `retention` (e.g. 30 days).
     pub async fn cleanup_older_than(&self, retention: Duration) -> Result<u64, QueueError> {
-        let cutoff = Utc::now().naive_utc()
-            - ChronoDuration::from_std(retention).unwrap_or_else(|_| ChronoDuration::days(30));
+        let chrono_retention = ChronoDuration::from_std(retention).map_err(|error| {
+            QueueError::Internal(format!("invalid queue retention duration: {error}"))
+        })?;
+        let cutoff = Utc::now().naive_utc() - chrono_retention;
         let deleted = QueueEventRepo::new(&self.db)
             .delete_terminal_older_than(cutoff)
             .await
@@ -333,6 +361,17 @@ async fn finalize_failure(db: &DatabaseConnection, model: &queue_event::Model, e
                 tokio::time::sleep(FINALIZE_RETRY_DELAY * attempt).await;
             }
         }
+    }
+    // Permanent failures must not re-enter `pending` — that would violate
+    // "no retries". Leave the row in `processing` so stale reclaim (or a
+    // later successful mark_failure) can still resolve it without inventing
+    // a new retry for a domain-permanent error.
+    if permanent {
+        warn!(
+            guid = %model.guid,
+            "leaving permanent failure in processing after finalize write failures"
+        );
+        return;
     }
     if let Err(release_error) = repo
         .release_to_pending(

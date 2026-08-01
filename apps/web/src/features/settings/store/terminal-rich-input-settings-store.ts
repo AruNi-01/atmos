@@ -6,6 +6,7 @@ import { toastManager } from '@workspace/ui';
 import { useTranslations } from 'next-intl';
 
 import { functionSettingsApi } from '@/api/ws-api';
+import { getComputerQueryScope } from '@/api/query/query-scope';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
 export const DEFAULT_TERMINAL_RICH_INPUT_ENABLED = true;
@@ -17,6 +18,8 @@ interface TerminalRichInputSettingsState {
   loaded: boolean;
   loading: boolean;
   loadSettings: () => Promise<void>;
+  /** Drop cached prefs when the active Computer changes so the next load is fresh. */
+  resetForConnectionChange: () => void;
   setEnabled: (enabled: boolean) => Promise<void>;
   setTriggerBarVisible: (visible: boolean) => Promise<void>;
 }
@@ -26,24 +29,11 @@ type TerminalRichInputSettingsStoreTranslator = ReturnType<typeof useTranslation
 let terminalRichInputSettingsTranslator: TerminalRichInputSettingsStoreTranslator | null = null;
 let enabledRequestToken = 0;
 let triggerBarRequestToken = 0;
+let loadRequestToken = 0;
 let lastPersistedEnabled = DEFAULT_TERMINAL_RICH_INPUT_ENABLED;
 let lastPersistedTriggerBarVisible = DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE;
 /** True once we have applied values from the server at least once. */
 let hydratedFromServer = false;
-/**
- * Serialize terminal function_settings writes: the server does whole-file RMW,
- * so concurrent updates for two keys can clobber each other.
- */
-let terminalSettingsWriteChain: Promise<void> = Promise.resolve();
-
-function enqueueTerminalSettingsWrite(task: () => Promise<void>): Promise<void> {
-  const run = terminalSettingsWriteChain.then(task, task);
-  terminalSettingsWriteChain = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
-}
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
@@ -85,13 +75,32 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
   loaded: false,
   loading: false,
 
+  resetForConnectionChange: () => {
+    loadRequestToken += 1;
+    enabledRequestToken += 1;
+    triggerBarRequestToken += 1;
+    lastPersistedEnabled = DEFAULT_TERMINAL_RICH_INPUT_ENABLED;
+    lastPersistedTriggerBarVisible = DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE;
+    hydratedFromServer = false;
+    set({
+      enabled: DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
+      triggerBarVisible: DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
+      loaded: false,
+      loading: false,
+    });
+  },
+
   loadSettings: async () => {
     if (get().loaded || get().loading) return;
 
+    const requestToken = ++loadRequestToken;
     set({ loading: true });
 
     try {
       await hydratePersistedFromServer();
+      if (loadRequestToken !== requestToken) {
+        return;
+      }
       // A setter may have marked loaded while this request was in flight —
       // do not clobber the user's optimistic toggle with a stale load result.
       // Still keep lastPersisted* in sync for correct rollback.
@@ -106,16 +115,19 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
         loading: false,
       });
     } catch {
-      if (!get().loaded) {
-        set({ loaded: false, loading: false });
-      } else {
-        set({ loading: false });
+      if (loadRequestToken === requestToken) {
+        if (!get().loaded) {
+          set({ loaded: false, loading: false });
+        } else {
+          set({ loading: false });
+        }
       }
     }
   },
 
   setEnabled: async (enabled) => {
     const requestToken = ++enabledRequestToken;
+    const expectedScope = getComputerQueryScope();
     set({
       enabled,
       loaded: true,
@@ -123,9 +135,12 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     });
 
     try {
-      await enqueueTerminalSettingsWrite(async () => {
-        await functionSettingsApi.update('terminal', 'rich_input_enabled', enabled);
-      });
+      await functionSettingsApi.update(
+        'terminal',
+        'rich_input_enabled',
+        enabled,
+        expectedScope,
+      );
       if (enabledRequestToken === requestToken) {
         lastPersistedEnabled = enabled;
         hydratedFromServer = true;
@@ -151,6 +166,7 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
 
   setTriggerBarVisible: async (visible) => {
     const requestToken = ++triggerBarRequestToken;
+    const expectedScope = getComputerQueryScope();
     set({
       triggerBarVisible: visible,
       loaded: true,
@@ -158,13 +174,12 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     });
 
     try {
-      await enqueueTerminalSettingsWrite(async () => {
-        await functionSettingsApi.update(
-          'terminal',
-          'rich_input_trigger_bar_visible',
-          visible,
-        );
-      });
+      await functionSettingsApi.update(
+        'terminal',
+        'rich_input_trigger_bar_visible',
+        visible,
+        expectedScope,
+      );
       if (triggerBarRequestToken === requestToken) {
         lastPersistedTriggerBarVisible = visible;
         hydratedFromServer = true;

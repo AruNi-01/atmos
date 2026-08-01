@@ -302,12 +302,27 @@ impl<'a> AutomationRepo<'a> {
         automation_guid: &str,
         route_id: &str,
     ) -> Result<Option<automation_run::Model>> {
+        // Prefer the delivery claim's run_guid when associate already ran.
+        if let Some(claim) = self
+            .find_github_delivery_claim(delivery_id, route_id)
+            .await?
+        {
+            if let Some(run_guid) = claim.run_guid.as_deref() {
+                if let Some(run) = self.find_run_by_guid(run_guid).await? {
+                    if run.automation_guid == automation_guid {
+                        return Ok(Some(run));
+                    }
+                }
+            }
+        }
+
+        // Crash between start_run and associate: claim may lack run_guid.
+        // Scan all github runs for this automation (no arbitrary window).
         let runs = automation_run::Entity::find()
             .filter(automation_run::Column::IsDeleted.eq(false))
             .filter(automation_run::Column::TriggerKind.eq("github"))
             .filter(automation_run::Column::AutomationGuid.eq(automation_guid))
             .order_by_desc(automation_run::Column::StartedAt)
-            .limit(32)
             .all(self.db)
             .await?;
 

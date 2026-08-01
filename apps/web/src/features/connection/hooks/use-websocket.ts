@@ -152,6 +152,8 @@ export async function waitForWebSocketConnection(
         return;
       }
       if (remainingMs() <= 0) {
+        // Drop a hung connect so the next wait does not re-attach to a stale promise.
+        useWebSocketStore.getState().disconnect();
         throw err instanceof Error ? err : new Error(String(err));
       }
       // connect() only rejects on real failures; cancels resolve without connecting.
@@ -176,7 +178,8 @@ export async function waitForWebSocketConnection(
       );
     } else {
       failureAttempt += 1;
-      const backoffMs = Math.min(2_000, 100 * 2 ** Math.min(failureAttempt - 1, 4));
+      // Cap exponent at 5 so the series can reach the 2s outer ceiling (100…3200).
+      const backoffMs = Math.min(2_000, 100 * 2 ** Math.min(failureAttempt - 1, 5));
       await new Promise<void>((resolve) =>
         setTimeout(resolve, Math.min(backoffMs, remainingAfter)),
       );
@@ -184,6 +187,7 @@ export async function waitForWebSocketConnection(
   }
 
   if (useWebSocketStore.getState().connectionState !== "connected") {
+    useWebSocketStore.getState().disconnect();
     throw new Error("WebSocket connection timeout");
   }
 }

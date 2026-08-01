@@ -644,11 +644,24 @@ const TRANSIENT_SHELL_COMMAND_OSC = new Set([
 ]);
 
 /**
+ * Commands that commonly accept BSD-style option bundles without a leading dash
+ * (e.g. `ps aux`, `ps ax`, `tar xzf`). Only these may treat bare letter tokens as
+ * flags — do not apply this to prose-prone commands like `find`.
+ */
+const OPTION_BUNDLE_TRANSIENT_COMMANDS = new Set(["ps", "tar"]);
+
+/** BSD / clustered option bundle: `aux`, `ax`, `ef`, `xzf` — letters only, short. */
+function isShellOptionBundleToken(tok: string): boolean {
+  return /^[A-Za-z]+$/.test(tok) && tok.length <= 8;
+}
+
+/**
  * Whether OSC text is a bare shell builtin/navigation command from preexec
  * auto-title (e.g. `ls`, `pwd`, `cd`) — not a program CLI or agent topic.
  *
- * Only bare commands or command+flags/paths (`ls`, `ls -la`, `find .`) count.
- * Multi-word natural-language topics (`find memory leak`, `fix src/api`) pass.
+ * Only bare commands or command+flags/paths (`ls`, `ls -la`, `find .`, `ps aux`)
+ * count. Multi-word natural-language topics (`find memory leak`, `fix src/api`)
+ * pass.
  */
 export function isTransientShellCommandOscTitle(osc: string): boolean {
   const t = osc.trim();
@@ -660,6 +673,7 @@ export function isTransientShellCommandOscTitle(osc: string): boolean {
   const base = first.includes("/") ? (first.split("/").pop() ?? first) : first;
   if (!TRANSIENT_SHELL_COMMAND_OSC.has(base)) return false;
   if (tokens.length === 1) return true;
+  const allowOptionBundles = OPTION_BUNDLE_TRANSIENT_COMMANDS.has(base);
   // Further tokens must look like shell flags/paths, not prose words.
   return tokens.slice(1).every((tok) => {
     return (
@@ -669,7 +683,8 @@ export function isTransientShellCommandOscTitle(osc: string): boolean {
       tok.startsWith("~/") ||
       tok === "." ||
       tok === ".." ||
-      tok.includes("/")
+      tok.includes("/") ||
+      (allowOptionBundles && isShellOptionBundleToken(tok))
     );
   });
 }

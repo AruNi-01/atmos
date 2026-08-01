@@ -974,17 +974,10 @@ const Terminal = ({
           clearTimeout(cmdStartTimerRef.current);
           cmdStartTimerRef.current = null;
         }
-        // Clear only shell preexec command lines (`ps aux | grep …`) when the
-        // shell returns to idle. Do NOT wipe agent session topics — reattach
-        // injects synthetic CMD_END on every refresh and those topics must
-        // survive. Empty OSC 0/2 still clears explicitly via emitOscTitle.
-        if (
-          lastOscTitleRef.current &&
-          isShellPreexecCommandOscTitle(lastOscTitleRef.current)
-        ) {
-          lastOscTitleRef.current = undefined;
-          onOscTitleChangeRef.current?.(undefined);
-        }
+        // Do NOT clear OSC on CMD_END. Shell preexec titles are never stored in
+        // lastOscTitleRef (nextOscTitleAfterIncoming discards them as they
+        // arrive). Reattach injects synthetic CMD_END and must not wipe agent
+        // session topics. Empty OSC 0/2 still clears via emitOscTitle.
         const title = shortenPath(payload);
         if (title !== lastTitleRef.current) {
           lastTitleRef.current = title;

@@ -144,8 +144,12 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const {
     enabled: richInputEnabled,
     triggerBarVisible,
+    loaded: richInputSettingsLoaded,
     loadSettings: loadRichInputSettings,
   } = useTerminalRichInputSettingsStore();
+  // Until prefs hydrate, treat Rich Input as off so a previously disabled
+  // preference does not flash the composer for a frame.
+  const richInputActive = richInputSettingsLoaded && richInputEnabled;
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const inputShellRef = React.useRef<HTMLDivElement | null>(null);
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
@@ -158,10 +162,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, [loadRichInputSettings]);
 
   React.useEffect(() => {
-    if (richInputEnabled) return;
+    if (richInputActive) return;
     setIsOpen(false);
     setIsPinned(false);
-  }, [richInputEnabled]);
+  }, [richInputActive]);
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -275,7 +279,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, []);
 
   const toggleInput = React.useCallback(() => {
-    if (!richInputEnabled || isSendAnimating || isSendExiting) return;
+    if (!richInputActive || isSendAnimating || isSendExiting) return;
     setIsOpen((current) => {
       const next = !current;
       if (next) focusComposerSoon();
@@ -290,10 +294,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
     setSkillDisableFilter("");
     setSkillDisableSessionActions([]);
-  }, [focusComposerSoon, isSendAnimating, isSendExiting, richInputEnabled]);
+  }, [focusComposerSoon, isSendAnimating, isSendExiting, richInputActive]);
 
   const togglePin = React.useCallback(() => {
-    if (!richInputEnabled) return;
+    if (!richInputActive) return;
     setIsPinned((current) => {
       const next = !current;
       if (next) {
@@ -302,13 +306,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       }
       return next;
     });
-  }, [focusComposerSoon, richInputEnabled]);
+  }, [focusComposerSoon, richInputActive]);
 
   const focusInput = React.useCallback(() => {
-    if (!richInputEnabled || isSendAnimating || isSendExiting) return;
+    if (!richInputActive || isSendAnimating || isSendExiting) return;
     setIsOpen(true);
     focusComposerSoon();
-  }, [focusComposerSoon, isSendAnimating, isSendExiting, richInputEnabled]);
+  }, [focusComposerSoon, isSendAnimating, isSendExiting, richInputActive]);
 
   const prevOpenRef = React.useRef(isOpen);
   React.useEffect(() => {
@@ -335,7 +339,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   }, [upsertPromptContext]);
 
   const insertTerminalSelectionContext = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
-    if (!richInputEnabled) return;
+    if (!richInputActive) return;
     const context = createTerminalSelectionContextFromSnapshot(snapshot);
     upsertPromptContext(context);
     setIsOpen(true);
@@ -343,10 +347,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       composerRef.current?.focus();
       composerRef.current?.insertTerminalSelectionContext(context.contextId);
     });
-  }, [richInputEnabled, upsertPromptContext]);
+  }, [richInputActive, upsertPromptContext]);
 
   const insertSideChatForTerminalSelection = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
-    if (!richInputEnabled) return;
+    if (!richInputActive) return;
     const context = createTerminalSelectionContextFromSnapshot(snapshot);
     upsertPromptContext(context);
     setIsOpen(true);
@@ -355,7 +359,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       composerRef.current?.insertSideChatCommand(context.contextId);
       composerRef.current?.insertTerminalSelectionContext(context.contextId);
     });
-  }, [richInputEnabled, upsertPromptContext]);
+  }, [richInputActive, upsertPromptContext]);
 
   const stopOverlayInteractionPropagation = React.useCallback(
     (event: React.SyntheticEvent) => {
@@ -938,8 +942,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
   }, []);
 
-  // Rich Input off: keep side-chat dots visible; do not mount the composer overlay.
-  if (!richInputEnabled) {
+  // Rich Input off (or prefs not loaded yet): keep side-chat dots; no composer.
+  if (!richInputActive) {
     if (!sideChatDots) return null;
     return (
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">

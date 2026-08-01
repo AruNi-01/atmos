@@ -114,6 +114,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
   const removeRenderedShapeId = useCanvasRuntimeStore((state) => state.removeRenderedShapeId);
   const maxRenderedTerminals = useCanvasSettingsStore((state) => state.maxRenderedTerminals);
+  const richInputActive = useTerminalRichInputSettingsStore(
+    (s) => s.loaded && s.enabled,
+  );
   const configuredAgents = React.useContext(CanvasAgentContext);
   const createRelatedTerminal = useCreateRelatedCanvasTerminal(shape);
   const markCanvasOverlayInteractionHandled = React.useCallback(
@@ -348,7 +351,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     };
 
     const handleCanvasTerminalAgentInputShortcut = (event: KeyboardEvent) => {
-      if (!useTerminalRichInputSettingsStore.getState().enabled) return;
+      const rich = useTerminalRichInputSettingsStore.getState();
+      if (!rich.loaded || !rich.enabled) return;
       if (isTerminalAgentInputPinShortcut(event) && resolveCanvasTerminalTarget(event)) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -559,14 +563,22 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               isNewPane={shape.props.isNewTerminal}
               className="h-full"
               terminalScale={terminalViewport.scale}
-              onAddSelectionAsContext={(snapshot) => {
-                activateTerminal();
-                agentInputOverlayRef.current?.addTerminalSelectionContext(snapshot);
-              }}
-              onStartSideChatForSelection={(snapshot) => {
-                activateTerminal();
-                agentInputOverlayRef.current?.startSideChatForTerminalSelection(snapshot);
-              }}
+              onAddSelectionAsContext={
+                richInputActive
+                  ? (snapshot) => {
+                      activateTerminal();
+                      agentInputOverlayRef.current?.addTerminalSelectionContext(snapshot);
+                    }
+                  : undefined
+              }
+              onStartSideChatForSelection={
+                richInputActive
+                  ? (snapshot) => {
+                      activateTerminal();
+                      agentInputOverlayRef.current?.startSideChatForTerminalSelection(snapshot);
+                    }
+                  : undefined
+              }
               onSessionReady={handleSessionReady}
               onTitleChange={onTitleChange}
               onOscTitleChange={onOscTitleChange}

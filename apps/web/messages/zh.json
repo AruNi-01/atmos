@@ -5069,6 +5069,24 @@
       }
     },
     "terminalSection": {
+      "groups": {
+        "behavior": {
+          "title": "行为",
+          "description": "终端文件链接的打开方式，以及普通分屏如何复用上次选择的 Agent。"
+        },
+        "richInput": {
+          "title": "Rich Input",
+          "description": "覆盖在终端上的悬浮提示输入，支持提及、命令和粘贴。"
+        },
+        "sideChat": {
+          "title": "Side Chat",
+          "description": "注入到 /side Agent prompt 中的终端上下文容量。"
+        },
+        "performance": {
+          "title": "性能",
+          "description": "Warm 工作区与挂载面板上限，用内存换取更快切换。"
+        }
+      },
       "fileLinkOpenMode": {
         "title": "文件链接打开方式",
         "description": "选择点击终端中的文件和目录链接时应如何打开。"

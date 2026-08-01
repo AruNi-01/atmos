@@ -5069,6 +5069,24 @@
       }
     },
     "terminalSection": {
+      "groups": {
+        "behavior": {
+          "title": "Behavior",
+          "description": "How terminal file links open and how plain split reuses the last agent."
+        },
+        "richInput": {
+          "title": "Rich Input",
+          "description": "Floating prompt composer over the terminal for mentions, commands, and paste."
+        },
+        "sideChat": {
+          "title": "Side Chat",
+          "description": "How much terminal context is injected into /side agent prompts."
+        },
+        "performance": {
+          "title": "Performance",
+          "description": "Warm workspace and mounted pane limits that trade memory for switch speed."
+        }
+      },
       "fileLinkOpenMode": {
         "title": "File link open mode",
         "description": "Choose how terminal file and directory links should open when clicked."

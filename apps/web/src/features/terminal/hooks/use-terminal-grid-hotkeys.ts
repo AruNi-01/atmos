@@ -30,7 +30,9 @@ export function useTerminalGridHotkeys({
   toggleFocusedAgentInput,
   togglePinFocusedAgentInput,
 }: UseTerminalGridHotkeysOptions) {
-  const richInputEnabled = useTerminalRichInputSettingsStore((s) => s.enabled);
+  const richInputEnabled = useTerminalRichInputSettingsStore(
+    (s) => s.loaded && s.enabled,
+  );
 
   React.useEffect(() => {
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
