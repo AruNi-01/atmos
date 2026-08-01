@@ -166,8 +166,7 @@ pub(crate) fn provider_config_region(provider_id: &str) -> Option<String> {
 }
 
 pub(crate) fn provider_config_source_label() -> Option<String> {
-    crate::paths::resolve_data_file("provider_config.json")
-        .map(|path| path.display().to_string())
+    crate::paths::resolve_data_file("provider_config.json").map(|path| path.display().to_string())
 }
 
 fn derive_key_id(provider_id: &str, api_key: &str) -> String {

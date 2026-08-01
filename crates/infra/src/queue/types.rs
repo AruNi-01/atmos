@@ -51,6 +51,9 @@ pub enum EnqueueError {
     ShuttingDown,
     #[error("no consumer subscribed for topic")]
     NoConsumer,
+    /// Durable queue persist / I/O failure (not used by in-memory adapter).
+    #[error("queue internal error: {0}")]
+    Internal(String),
 }
 
 #[derive(Debug, Error)]

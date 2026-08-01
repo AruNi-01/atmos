@@ -11,5 +11,6 @@ pub use db::{
 pub use error::{InfraError, Result};
 pub use jobs::{IntervalSpec, JobError, JobId, JobResult, JobsError, LocalScheduler, RetryPolicy};
 pub use queue::{
-    topics as queue_topics, EnqueueError, LocalMemoryQueue, QueueError, QueueMessage, Topic,
+    topics as queue_topics, EnqueueError, LocalMemoryQueue, LocalPersistentQueue, QueueError,
+    QueueMessage, Topic,
 };
