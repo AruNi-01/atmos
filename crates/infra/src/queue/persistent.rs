@@ -191,8 +191,7 @@ impl LocalPersistentQueue {
                             let mut slot = current_handler_for_task.lock().await;
                             *slot = Some(abort.clone());
                         }
-                        let handler_result =
-                            tokio::time::timeout(HANDLER_TIMEOUT, join).await;
+                        let handler_result = tokio::time::timeout(HANDLER_TIMEOUT, join).await;
                         {
                             let mut slot = current_handler_for_task.lock().await;
                             *slot = None;
@@ -216,12 +215,7 @@ impl LocalPersistentQueue {
                                     error = %message,
                                     "queue handler join failed; requeue for retry"
                                 );
-                                finalize_failure(
-                                    &db,
-                                    &model,
-                                    QueueError::Handler(message),
-                                )
-                                .await;
+                                finalize_failure(&db, &model, QueueError::Handler(message)).await;
                             }
                             Err(_) => {
                                 abort.abort();

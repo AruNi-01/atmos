@@ -383,9 +383,7 @@ impl<'a> AutomationRepo<'a> {
             .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
             .filter(automation_github_delivery_claim::Column::Status.eq(GITHUB_DELIVERY_CLAIMED))
             .filter(automation_github_delivery_claim::Column::RunGuid.is_null())
-            .filter(
-                automation_github_delivery_claim::Column::UpdatedAt.eq(expected_updated_at),
-            )
+            .filter(automation_github_delivery_claim::Column::UpdatedAt.eq(expected_updated_at))
             .exec(self.db)
             .await?;
         Ok(result.rows_affected == 1)
