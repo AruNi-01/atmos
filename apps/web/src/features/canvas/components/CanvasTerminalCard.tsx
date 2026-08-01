@@ -22,6 +22,7 @@ import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
 import { useTerminalSideChats } from "@/features/terminal/hooks/use-terminal-side-chats";
 import { deliverPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
   isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
@@ -347,6 +348,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     };
 
     const handleCanvasTerminalAgentInputShortcut = (event: KeyboardEvent) => {
+      if (!useTerminalRichInputSettingsStore.getState().enabled) return;
       if (isTerminalAgentInputPinShortcut(event) && resolveCanvasTerminalTarget(event)) {
         event.preventDefault();
         event.stopImmediatePropagation();

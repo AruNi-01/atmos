@@ -291,6 +291,26 @@ impl<'a> AutomationRepo<'a> {
             .await?)
     }
 
+    /// Best-effort lookup for a run already started for this GitHub delivery
+    /// (crash between start_run and associate_github_delivery_run).
+    pub async fn find_run_by_github_delivery(
+        &self,
+        delivery_id: &str,
+    ) -> Result<Option<automation_run::Model>> {
+        let safe = delivery_id.replace(['%', '_', '"'], "");
+        if safe.is_empty() {
+            return Ok(None);
+        }
+        let needle = format!("\"delivery_id\":\"{safe}\"");
+        Ok(automation_run::Entity::find()
+            .filter(automation_run::Column::IsDeleted.eq(false))
+            .filter(automation_run::Column::TriggerKind.eq("github"))
+            .filter(automation_run::Column::TriggerSourceJson.contains(needle))
+            .order_by_desc(automation_run::Column::StartedAt)
+            .one(self.db)
+            .await?)
+    }
+
     pub async fn create_run(
         &self,
         input: CreateAutomationRunRecord,

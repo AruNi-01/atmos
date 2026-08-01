@@ -5,6 +5,15 @@
 //! [`super::LocalMemoryQueue`] remains available for process-local, droppable buffering.
 //!
 //! DB access goes through [`crate::db::repo::QueueEventRepo`].
+//!
+//! ## Handler idempotency
+//!
+//! Topic handlers **must be idempotent**. After a successful handler run, if the
+//! terminal `succeeded` write keeps failing, the row stays `processing` (not
+//! re-queued) so a non-idempotent handler is not re-executed for a completed job.
+//! Crash recovery reclaims only stale `processing` rows (lease / startup).
+//! `handle_external_trigger` satisfies idempotency via delivery-claim recovery
+//! or `DuplicateDelivery` rejection.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -97,12 +106,15 @@ impl LocalPersistentQueue {
         }
 
         let mut workers = self.workers.lock().await;
+        // Drop finished handles so a panicked worker does not permanently block resubscribe.
+        workers.retain(|_, handle| !handle.is_finished());
         if workers.contains_key(topic.as_str()) {
             return Err(QueueError::ConsumerExists(topic.as_str().to_string()));
         }
 
-        // Crash recovery: reclaim all processing rows for this topic immediately.
-        self.requeue_stale_processing(topic.as_str(), ChronoDuration::zero())
+        // Crash recovery only: reclaim processing rows older than the lease so a
+        // *live* worker is not stolen mid-handler (updated_at lease).
+        self.requeue_stale_processing(topic.as_str(), STALE_PROCESSING_LEASE)
             .await?;
 
         let dyn_handler: DynHandler = Arc::new(move |msg| {
@@ -154,12 +166,29 @@ impl LocalPersistentQueue {
                             payload: model.payload.clone(),
                             enqueued_at: model.created_at.and_utc(),
                         };
-                        match dyn_handler(msg).await {
-                            Ok(()) => {
+                        // Bound handler so a hang cannot block reclaim forever.
+                        let handler_result =
+                            tokio::time::timeout(Duration::from_secs(15 * 60), dyn_handler(msg))
+                                .await;
+                        match handler_result {
+                            Ok(Ok(())) => {
                                 finalize_succeeded(&db, &model.guid).await;
                             }
-                            Err(error) => {
+                            Ok(Err(error)) => {
                                 finalize_failure(&db, &model, error).await;
+                            }
+                            Err(_) => {
+                                warn!(
+                                    guid = %model.guid,
+                                    topic = %topic_for_task,
+                                    "queue handler timed out; requeue for retry"
+                                );
+                                finalize_failure(
+                                    &db,
+                                    &model,
+                                    QueueError::Handler("handler timed out".into()),
+                                )
+                                .await;
                             }
                         }
                     }
@@ -240,8 +269,9 @@ async fn claim_next(
         .map_err(|e| QueueError::Internal(e.to_string()))
 }
 
-/// Retry terminal succeed write; if still failing, release back to pending so the
-/// event is not stuck in `processing` until process restart.
+/// Retry terminal succeed write. On persistent failure leave the row `processing`
+/// so a successful handler is not immediately re-executed (handlers must still
+/// be idempotent for crash-reclaim paths).
 async fn finalize_succeeded(db: &DatabaseConnection, guid: &str) {
     let repo = QueueEventRepo::new(db);
     for attempt in 1..=FINALIZE_RETRIES {
@@ -258,16 +288,12 @@ async fn finalize_succeeded(db: &DatabaseConnection, guid: &str) {
             }
         }
     }
-    if let Err(error) = repo
-        .release_to_pending(guid, "finalize succeed failed after retries")
-        .await
-    {
-        warn!(
-            guid = %guid,
-            error = %error,
-            "failed to release queue event after succeed finalize failure"
-        );
-    }
+    // Do NOT release_to_pending here: that would re-run a completed handler with
+    // no attempt advance. Stale processing reclaim covers process crashes.
+    warn!(
+        guid = %guid,
+        "leaving queue event processing after succeed finalize failures; will reclaim if stale"
+    );
 }
 
 async fn finalize_failure(db: &DatabaseConnection, model: &queue_event::Model, error: QueueError) {

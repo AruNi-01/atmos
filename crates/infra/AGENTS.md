@@ -22,7 +22,7 @@ crates/infra/
     │   ├── repo/            # Repository pattern
     │   └── migration/       # Database migrations
     ├── jobs/                # Local product job scheduler (APP-051 LocalScheduler)
-    ├── queue/               # Local event queue (APP-051 LocalMemoryQueue)
+    ├── queue/               # Local event queue (APP-051 LocalPersistentQueue + LocalMemoryQueue)
     └── utils/               # Utilities
 ```
 

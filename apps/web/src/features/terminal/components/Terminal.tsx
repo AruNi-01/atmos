@@ -896,7 +896,18 @@ const Terminal = ({
           lastOscTitleRef.current,
           pendingOscRawRef.current,
         );
-        if (next === lastOscTitleRef.current) return;
+        if (next === lastOscTitleRef.current) {
+          // Warm remount: local ref may be unhydrated while the pane store still
+          // holds a topic. Shell preexec must still clear the store suffix.
+          if (
+            lastOscTitleRef.current === undefined &&
+            pendingOscRawRef.current != null &&
+            isShellPreexecCommandOscTitle(pendingOscRawRef.current)
+          ) {
+            onOscTitleChangeRef.current?.(undefined);
+          }
+          return;
+        }
         lastOscTitleRef.current = next;
         onOscTitleChangeRef.current?.(next);
       }, OSC_SETTLE_MS);

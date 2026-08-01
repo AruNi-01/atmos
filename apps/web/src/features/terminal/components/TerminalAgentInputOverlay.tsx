@@ -141,9 +141,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   submitMode = "text-enter",
 }, ref) {
   const t = useTranslations("terminal.agentInput");
-  const richInputEnabled = useTerminalRichInputSettingsStore((state) => state.enabled);
-  const triggerBarVisible = useTerminalRichInputSettingsStore((state) => state.triggerBarVisible);
-  const loadRichInputSettings = useTerminalRichInputSettingsStore((state) => state.loadSettings);
+  const {
+    enabled: richInputEnabled,
+    triggerBarVisible,
+    loadSettings: loadRichInputSettings,
+  } = useTerminalRichInputSettingsStore();
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const inputShellRef = React.useRef<HTMLDivElement | null>(null);
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
@@ -936,8 +938,16 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setSlashPopoverView("menu");
   }, []);
 
+  // Rich Input off: keep side-chat dots visible; do not mount the composer overlay.
   if (!richInputEnabled) {
-    return null;
+    if (!sideChatDots) return null;
+    return (
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
+        <div className="pointer-events-auto flex w-full max-w-3xl flex-col items-center">
+          <div className="flex items-end">{sideChatDots}</div>
+        </div>
+      </div>
+    );
   }
 
   return (

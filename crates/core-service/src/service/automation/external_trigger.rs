@@ -145,7 +145,24 @@ impl AutomationService {
             GithubDeliveryClaimResult::AlreadyClaimed(existing)
                 if existing.run_guid.is_none() && existing.status == "claimed" =>
             {
-                // Resume ownership of the incomplete claim.
+                // Resume ownership of the incomplete claim — but if a run was
+                // already started and only associate() failed, do not start again.
+                if let Some(existing_run) =
+                    repo.find_run_by_github_delivery(&event.delivery_id).await?
+                {
+                    repo.associate_github_delivery_run(
+                        &event.delivery_id,
+                        &event.route_id,
+                        &existing_run.guid,
+                    )
+                    .await
+                    .ok();
+                    return Ok(ExternalTriggerOutcome::Accepted {
+                        run: Box::new(AutomationRunDetail {
+                            summary: AutomationRunSummary::from(existing_run),
+                        }),
+                    });
+                }
             }
             GithubDeliveryClaimResult::AlreadyClaimed(_) => {
                 return Ok(local_rejected(

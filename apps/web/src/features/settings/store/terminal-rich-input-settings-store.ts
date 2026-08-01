@@ -63,6 +63,12 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
 
     try {
       const settings = await useFunctionSettingsStore.getState().load();
+      // A setter may have marked loaded while this request was in flight —
+      // do not clobber the user's optimistic toggle with a stale load result.
+      if (get().loaded) {
+        set({ loading: false });
+        return;
+      }
       const enabled = asBoolean(
         settings.terminal?.rich_input_enabled,
         DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
@@ -80,7 +86,11 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
         loading: false,
       });
     } catch {
-      set({ loaded: false, loading: false });
+      if (!get().loaded) {
+        set({ loaded: false, loading: false });
+      } else {
+        set({ loading: false });
+      }
     }
   },
 

@@ -22,6 +22,7 @@ import {
   sideChatTabLabel,
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
   isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
@@ -126,6 +127,7 @@ export function TerminalSideChatModal({
   const handleModalKeyDownCapture = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       markInteraction(event);
+      if (!useTerminalRichInputSettingsStore.getState().enabled) return;
       if (isTerminalAgentInputPinShortcut(event)) {
         event.preventDefault();
         event.stopPropagation();

@@ -8,7 +8,7 @@
 //! Domain matching / start_run runs in the queue worker with internal retries.
 
 use chrono::{DateTime, Utc};
-use core_service::{ExternalTriggerRejectReason, GithubTriggerEvent, ServiceError};
+use core_service::{GithubTriggerEvent, ServiceError};
 use infra::queue::{topics, EnqueueError, Topic};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -218,23 +218,5 @@ fn service_error_code(error: &ServiceError) -> &'static str {
         ServiceError::Engine(_) => "engine_error",
         ServiceError::Repository(_) => "repository_error",
         ServiceError::Processing(_) => "processing_error",
-    }
-}
-
-// Keep reject_reason_code available if domain logging needs it later.
-#[allow(dead_code)]
-fn reject_reason_code(reason: ExternalTriggerRejectReason) -> &'static str {
-    match reason {
-        ExternalTriggerRejectReason::AutomationNotFound => "automation_not_found",
-        ExternalTriggerRejectReason::TriggerKindMismatch => "trigger_kind_mismatch",
-        ExternalTriggerRejectReason::TriggerDisabled => "trigger_disabled",
-        ExternalTriggerRejectReason::TriggerStatusInactive => "trigger_status_inactive",
-        ExternalTriggerRejectReason::TriggerConfigMissing => "trigger_config_missing",
-        ExternalTriggerRejectReason::TriggerConfigInvalid => "trigger_config_invalid",
-        ExternalTriggerRejectReason::RouteMismatch => "route_mismatch",
-        ExternalTriggerRejectReason::RepositoryMismatch => "repository_mismatch",
-        ExternalTriggerRejectReason::EventMismatch => "event_mismatch",
-        ExternalTriggerRejectReason::DuplicateDelivery => "duplicate_delivery",
-        ExternalTriggerRejectReason::AlreadyRunning => "already_running",
     }
 }

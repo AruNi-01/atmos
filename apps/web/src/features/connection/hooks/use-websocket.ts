@@ -99,11 +99,27 @@ const defaultConnectionWaitMs = (): number =>
     ? DEFAULT_DESKTOP_CONNECT_WAIT_MS
     : DEFAULT_WEB_CONNECT_WAIT_MS;
 
+/** Target switch / disconnect aborted an in-flight connect — not a hard failure. */
+export class WebSocketConnectCancelledError extends Error {
+  constructor(message = "WebSocket connect cancelled") {
+    super(message);
+    this.name = "WebSocketConnectCancelledError";
+  }
+}
+
+function isConnectCancelledError(error: unknown): boolean {
+  return (
+    error instanceof WebSocketConnectCancelledError ||
+    (error instanceof Error && error.message === "WebSocket connect cancelled")
+  );
+}
+
 /**
  * Ensure WebSocket is connected. Awaits bootstrap + handshake (not a blind poll).
  *
  * Retries while a prior attempt is cancelled by disconnect/target switch — that is
- * expected during bootstrap races and must not surface as a connection failure.
+ * expected during bootstrap races. Real connection failures use exponential backoff
+ * so we do not hot-loop bootstrap against the session kernel's own reconnect.
  */
 export async function waitForWebSocketConnection(
   timeoutMs = defaultConnectionWaitMs(),
@@ -113,6 +129,7 @@ export async function waitForWebSocketConnection(
   }
 
   const deadline = Date.now() + timeoutMs;
+  let failureAttempt = 0;
 
   while (Date.now() < deadline) {
     if (useWebSocketStore.getState().connectionState === "connected") {
@@ -125,6 +142,7 @@ export async function waitForWebSocketConnection(
     void connectPromise.catch(() => undefined);
 
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastError: unknown = null;
     try {
       await Promise.race([
         connectPromise,
@@ -135,13 +153,13 @@ export async function waitForWebSocketConnection(
         }),
       ]);
     } catch (err) {
+      lastError = err;
       if (useWebSocketStore.getState().connectionState === "connected") {
         return;
       }
       if (Date.now() >= deadline) {
         throw err instanceof Error ? err : new Error(String(err));
       }
-      // Connect aborted or transient failure — retry until deadline.
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -150,8 +168,24 @@ export async function waitForWebSocketConnection(
       return;
     }
 
-    // Brief yield so a concurrent disconnect→connect can start a new generation.
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    const remainingAfter = Math.max(0, deadline - Date.now());
+    if (remainingAfter === 0) break;
+
+    // Cancelled by disconnect/target switch: short yield so a new generation can start.
+    // Real failures: exponential backoff (capped) so we don't thrash bootstrap/handshake.
+    const cancelled = isConnectCancelledError(lastError);
+    if (cancelled) {
+      failureAttempt = 0;
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, Math.min(50, remainingAfter)),
+      );
+    } else {
+      failureAttempt += 1;
+      const backoffMs = Math.min(2_000, 100 * 2 ** Math.min(failureAttempt - 1, 4));
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, Math.min(backoffMs, remainingAfter)),
+      );
+    }
   }
 
   if (useWebSocketStore.getState().connectionState !== "connected") {
@@ -238,10 +272,11 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         } else {
           await ensureLocalAppConnectionBootstrap();
         }
-        // disconnect()/target switch aborted this attempt — expected, not an error.
+        // disconnect()/target switch aborted this attempt — reject so awaiters
+        // (e.g. reconnectForCurrentTarget) do not treat it as a successful handshake.
         if (generation !== connectGeneration) {
           debugLog("ws:connect cancelled after bootstrap (stale generation)");
-          return;
+          throw new WebSocketConnectCancelledError();
         }
         useConnectionStore.getState().syncActiveInstanceFromComputer();
         const clientType = isDesktopRuntime() ? "desktop" : "web";
@@ -257,7 +292,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         }
         if (generation !== connectGeneration) {
           debugLog("ws:connect cancelled after url resolve (stale generation)");
-          return;
+          throw new WebSocketConnectCancelledError();
         }
 
         latestUrl = runtimeUrl;
@@ -276,13 +311,15 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         if (generation !== connectGeneration) {
           s.disconnect();
           debugLog("ws:connect cancelled after socket open (stale generation)");
-          return;
+          throw new WebSocketConnectCancelledError();
         }
         void syncClientSessionFromStore().catch(() => undefined);
       } catch (error) {
-        if (generation !== connectGeneration) {
-          debugLog("ws:connect aborted during error path (stale generation)");
-          return;
+        if (generation !== connectGeneration || isConnectCancelledError(error)) {
+          debugLog("ws:connect aborted (stale generation or cancelled)");
+          throw isConnectCancelledError(error)
+            ? error
+            : new WebSocketConnectCancelledError();
         }
         const msg = error instanceof Error ? error.message : String(error);
         debugLog(`ws:connect catch err=${msg}`);

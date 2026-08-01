@@ -672,9 +672,14 @@ export function isTransientShellCommandOscTitle(osc: string): boolean {
 export function isShellPreexecCommandOscTitle(osc: string): boolean {
   const t = osc.trim();
   if (!t) return false;
-  // Pipeline / chain / redirect / command substitution — classic shell preexec.
-  // Agent topics are natural-language phrases without these operators.
-  if (/[|;&`]|\$\(|\$\{|\s(?:&&|\|\|)\s|[<>]/.test(t)) return true;
+  // Pipeline / chain / command substitution — classic shell preexec.
+  if (/[|`]|\$\(|\$\{|\s(?:&&|\|\|)\s/.test(t)) return true;
+  // Redirects (`> out`, `< in`, `2>&1`) but not language arrows (`->`, `=>`, `<-`).
+  // Strip common arrow spellings, then treat remaining `<`/`>` as shell noise.
+  const withoutArrows = t.replace(/[-=]>/g, " ").replace(/<[-=]/g, " ");
+  if (/[<>]/.test(withoutArrows)) return true;
+  // Background job `&` as a token (not `Q&A`); semicolon command chains.
+  if (/(?:^|\s)&(?:\s|$)/.test(t) || /;\s+\S/.test(t)) return true;
   if (isTransientShellCommandOscTitle(t)) return true;
   return false;
 }
