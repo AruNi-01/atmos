@@ -244,6 +244,7 @@ export function TerminalSettingsSection({
           <Switch
             checked={richInputEnabled}
             onCheckedChange={(value) => void setRichInputEnabled(!!value)}
+            aria-label={t('richInputEnabled.title')}
           />
         </div>
       </div>
@@ -259,6 +260,7 @@ export function TerminalSettingsSection({
             checked={richInputTriggerBarVisible}
             disabled={!richInputEnabled}
             onCheckedChange={(value) => void setRichInputTriggerBarVisible(!!value)}
+            aria-label={t('richInputTriggerBar.title')}
           />
         </div>
       </div>

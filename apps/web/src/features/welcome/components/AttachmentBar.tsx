@@ -63,7 +63,7 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
           </Tooltip>
           <button
             type="button"
-            className="absolute -right-1 -top-1 z-10 flex size-4 items-center justify-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            className="absolute -right-1 -top-1 z-10 flex size-4 items-center justify-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

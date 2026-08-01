@@ -293,22 +293,44 @@ impl<'a> AutomationRepo<'a> {
 
     /// Best-effort lookup for a run already started for this GitHub delivery
     /// (crash between start_run and associate_github_delivery_run).
+    ///
+    /// Scoped by automation + route so multi-route fan-out for the same
+    /// `delivery_id` cannot attach the wrong run.
     pub async fn find_run_by_github_delivery(
         &self,
         delivery_id: &str,
+        automation_guid: &str,
+        route_id: &str,
     ) -> Result<Option<automation_run::Model>> {
-        let safe = delivery_id.replace(['%', '_', '"'], "");
-        if safe.is_empty() {
-            return Ok(None);
-        }
-        let needle = format!("\"delivery_id\":\"{safe}\"");
-        Ok(automation_run::Entity::find()
+        let runs = automation_run::Entity::find()
             .filter(automation_run::Column::IsDeleted.eq(false))
             .filter(automation_run::Column::TriggerKind.eq("github"))
-            .filter(automation_run::Column::TriggerSourceJson.contains(needle))
+            .filter(automation_run::Column::AutomationGuid.eq(automation_guid))
             .order_by_desc(automation_run::Column::StartedAt)
-            .one(self.db)
-            .await?)
+            .limit(32)
+            .all(self.db)
+            .await?;
+
+        for run in runs {
+            let Some(raw) = run.trigger_source_json.as_deref() else {
+                continue;
+            };
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+                continue;
+            };
+            let matches_delivery = value
+                .get("delivery_id")
+                .and_then(|v| v.as_str())
+                .is_some_and(|id| id == delivery_id);
+            let matches_route = value
+                .get("route_id")
+                .and_then(|v| v.as_str())
+                .is_some_and(|id| id == route_id);
+            if matches_delivery && matches_route {
+                return Ok(Some(run));
+            }
+        }
+        Ok(None)
     }
 
     pub async fn create_run(

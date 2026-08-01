@@ -193,8 +193,9 @@ impl<'a> QueueEventRepo<'a> {
 
     /// Requeue `processing` rows that have not been updated within `stale_after`.
     ///
-    /// On worker start, pass a zero/near-zero lease to reclaim everything left by a crash.
-    /// While running, use a longer lease so live handlers are not stolen.
+    /// Pass a zero lease on worker start to reclaim crash leftovers immediately.
+    /// While workers run, pass a lease longer than the handler timeout so live
+    /// handlers are not double-claimed by another process.
     pub async fn requeue_stale_processing(
         &self,
         topic: &str,

@@ -28,6 +28,22 @@ let enabledRequestToken = 0;
 let triggerBarRequestToken = 0;
 let lastPersistedEnabled = DEFAULT_TERMINAL_RICH_INPUT_ENABLED;
 let lastPersistedTriggerBarVisible = DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE;
+/** True once we have applied values from the server at least once. */
+let hydratedFromServer = false;
+/**
+ * Serialize terminal function_settings writes: the server does whole-file RMW,
+ * so concurrent updates for two keys can clobber each other.
+ */
+let terminalSettingsWriteChain: Promise<void> = Promise.resolve();
+
+function enqueueTerminalSettingsWrite(task: () => Promise<void>): Promise<void> {
+  const run = terminalSettingsWriteChain.then(task, task);
+  terminalSettingsWriteChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
@@ -50,6 +66,19 @@ function terminalRichInputSettingsText(
   }
 }
 
+async function hydratePersistedFromServer(): Promise<void> {
+  const settings = await useFunctionSettingsStore.getState().load();
+  lastPersistedEnabled = asBoolean(
+    settings.terminal?.rich_input_enabled,
+    DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
+  );
+  lastPersistedTriggerBarVisible = asBoolean(
+    settings.terminal?.rich_input_trigger_bar_visible,
+    DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
+  );
+  hydratedFromServer = true;
+}
+
 const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((set, get) => ({
   enabled: DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
   triggerBarVisible: DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
@@ -62,26 +91,17 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     set({ loading: true });
 
     try {
-      const settings = await useFunctionSettingsStore.getState().load();
+      await hydratePersistedFromServer();
       // A setter may have marked loaded while this request was in flight —
       // do not clobber the user's optimistic toggle with a stale load result.
+      // Still keep lastPersisted* in sync for correct rollback.
       if (get().loaded) {
         set({ loading: false });
         return;
       }
-      const enabled = asBoolean(
-        settings.terminal?.rich_input_enabled,
-        DEFAULT_TERMINAL_RICH_INPUT_ENABLED,
-      );
-      const triggerBarVisible = asBoolean(
-        settings.terminal?.rich_input_trigger_bar_visible,
-        DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE,
-      );
-      lastPersistedEnabled = enabled;
-      lastPersistedTriggerBarVisible = triggerBarVisible;
       set({
-        enabled,
-        triggerBarVisible,
+        enabled: lastPersistedEnabled,
+        triggerBarVisible: lastPersistedTriggerBarVisible,
         loaded: true,
         loading: false,
       });
@@ -103,12 +123,22 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     });
 
     try {
-      await functionSettingsApi.update('terminal', 'rich_input_enabled', enabled);
+      await enqueueTerminalSettingsWrite(async () => {
+        await functionSettingsApi.update('terminal', 'rich_input_enabled', enabled);
+      });
       if (enabledRequestToken === requestToken) {
         lastPersistedEnabled = enabled;
+        hydratedFromServer = true;
       }
     } catch {
       if (enabledRequestToken === requestToken) {
+        if (!hydratedFromServer) {
+          try {
+            await hydratePersistedFromServer();
+          } catch {
+            /* keep last known defaults */
+          }
+        }
         set({ enabled: lastPersistedEnabled });
       }
       toastManager.add({
@@ -128,12 +158,26 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     });
 
     try {
-      await functionSettingsApi.update('terminal', 'rich_input_trigger_bar_visible', visible);
+      await enqueueTerminalSettingsWrite(async () => {
+        await functionSettingsApi.update(
+          'terminal',
+          'rich_input_trigger_bar_visible',
+          visible,
+        );
+      });
       if (triggerBarRequestToken === requestToken) {
         lastPersistedTriggerBarVisible = visible;
+        hydratedFromServer = true;
       }
     } catch {
       if (triggerBarRequestToken === requestToken) {
+        if (!hydratedFromServer) {
+          try {
+            await hydratePersistedFromServer();
+          } catch {
+            /* keep last known defaults */
+          }
+        }
         set({ triggerBarVisible: lastPersistedTriggerBarVisible });
       }
       toastManager.add({

@@ -147,16 +147,22 @@ impl AutomationService {
             {
                 // Resume ownership of the incomplete claim — but if a run was
                 // already started and only associate() failed, do not start again.
-                if let Some(existing_run) =
-                    repo.find_run_by_github_delivery(&event.delivery_id).await?
+                if let Some(existing_run) = repo
+                    .find_run_by_github_delivery(
+                        &event.delivery_id,
+                        &event.automation_guid,
+                        &event.route_id,
+                    )
+                    .await?
                 {
+                    // Propagate associate failures so the durable queue retries
+                    // instead of ACKing success with an unfinished claim.
                     repo.associate_github_delivery_run(
                         &event.delivery_id,
                         &event.route_id,
                         &existing_run.guid,
                     )
-                    .await
-                    .ok();
+                    .await?;
                     return Ok(ExternalTriggerOutcome::Accepted {
                         run: Box::new(AutomationRunDetail {
                             summary: AutomationRunSummary::from(existing_run),

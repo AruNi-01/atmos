@@ -38,14 +38,17 @@ export function readJson<T>(key: string, fallback: T): T {
   }
 }
 
-export function writeJson(key: string, value: unknown): void {
+/** Returns true when the value was written successfully. */
+export function writeJson(key: string, value: unknown): boolean {
   if (!canUseStorage()) {
-    return;
+    return false;
   }
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     // quota / private mode
+    return false;
   }
 }
 
@@ -57,6 +60,18 @@ export function removeKey(key: string): void {
     localStorage.removeItem(key);
   } catch {
     // ignore
+  }
+}
+
+/** True when `key` exists in localStorage (safe under blocked storage). */
+export function hasStorageKey(key: string): boolean {
+  if (!canUseStorage()) {
+    return false;
+  }
+  try {
+    return localStorage.getItem(key) != null;
+  } catch {
+    return false;
   }
 }
 

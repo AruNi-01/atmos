@@ -35,8 +35,11 @@ use super::types::{EnqueueError, QueueError, QueueMessage, Topic};
 
 const DEFAULT_MAX_ATTEMPTS: i32 = 5;
 const POLL_IDLE: Duration = Duration::from_millis(250);
-/// While a worker is running, reclaim `processing` rows older than this (crash mid-handler).
-const STALE_PROCESSING_LEASE: ChronoDuration = ChronoDuration::minutes(10);
+/// Max time a handler may run before we treat it as failed and requeue.
+const HANDLER_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+/// While a worker is running, reclaim `processing` rows older than this.
+/// Must exceed [`HANDLER_TIMEOUT`] so a live handler is not double-claimed.
+const STALE_PROCESSING_LEASE: ChronoDuration = ChronoDuration::minutes(20);
 /// How often the worker reclaims stale processing rows during idle polls.
 const STALE_RECLAIM_EVERY: Duration = Duration::from_secs(60);
 const FINALIZE_RETRIES: u32 = 5;
@@ -112,9 +115,10 @@ impl LocalPersistentQueue {
             return Err(QueueError::ConsumerExists(topic.as_str().to_string()));
         }
 
-        // Crash recovery only: reclaim processing rows older than the lease so a
-        // *live* worker is not stolen mid-handler (updated_at lease).
-        self.requeue_stale_processing(topic.as_str(), STALE_PROCESSING_LEASE)
+        // On worker start there is no live handler for this process — reclaim all
+        // `processing` leftovers from a prior crash immediately (zero lease).
+        // Periodic reclaim below uses STALE_PROCESSING_LEASE so in-flight work is kept.
+        self.requeue_stale_processing(topic.as_str(), ChronoDuration::zero())
             .await?;
 
         let dyn_handler: DynHandler = Arc::new(move |msg| {
@@ -167,9 +171,9 @@ impl LocalPersistentQueue {
                             enqueued_at: model.created_at.and_utc(),
                         };
                         // Bound handler so a hang cannot block reclaim forever.
+                        // Timeout must stay below STALE_PROCESSING_LEASE.
                         let handler_result =
-                            tokio::time::timeout(Duration::from_secs(15 * 60), dyn_handler(msg))
-                                .await;
+                            tokio::time::timeout(HANDLER_TIMEOUT, dyn_handler(msg)).await;
                         match handler_result {
                             Ok(Ok(())) => {
                                 finalize_succeeded(&db, &model.guid).await;

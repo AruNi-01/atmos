@@ -647,18 +647,31 @@ const TRANSIENT_SHELL_COMMAND_OSC = new Set([
  * Whether OSC text is a bare shell builtin/navigation command from preexec
  * auto-title (e.g. `ls`, `pwd`, `cd`) — not a program CLI or agent topic.
  *
- * Only the first token is checked (so `ls -la` is also treated as transient).
- * Multi-word agent topics (`fix src/api`) and program names (`git`, `npm`)
- * are not in the denylist and still pass.
+ * Only bare commands or command+flags/paths (`ls`, `ls -la`, `find .`) count.
+ * Multi-word natural-language topics (`find memory leak`, `fix src/api`) pass.
  */
 export function isTransientShellCommandOscTitle(osc: string): boolean {
   const t = osc.trim();
   if (!t) return false;
-  const first = t.split(/\s+/)[0]?.toLowerCase() ?? "";
+  const tokens = t.split(/\s+/).filter(Boolean);
+  const first = tokens[0]?.toLowerCase() ?? "";
   if (!first) return false;
   // Drop leading `./` / path wrappers so `./ls` still matches if ever used.
   const base = first.includes("/") ? (first.split("/").pop() ?? first) : first;
-  return TRANSIENT_SHELL_COMMAND_OSC.has(base);
+  if (!TRANSIENT_SHELL_COMMAND_OSC.has(base)) return false;
+  if (tokens.length === 1) return true;
+  // Further tokens must look like shell flags/paths, not prose words.
+  return tokens.slice(1).every((tok) => {
+    return (
+      tok.startsWith("-") ||
+      tok.startsWith("./") ||
+      tok.startsWith("/") ||
+      tok.startsWith("~/") ||
+      tok === "." ||
+      tok === ".." ||
+      tok.includes("/")
+    );
+  });
 }
 
 /**
@@ -674,12 +687,17 @@ export function isShellPreexecCommandOscTitle(osc: string): boolean {
   if (!t) return false;
   // Pipeline / chain / command substitution — classic shell preexec.
   if (/[|`]|\$\(|\$\{|\s(?:&&|\|\|)\s/.test(t)) return true;
-  // Redirects (`> out`, `< in`, `2>&1`) but not language arrows (`->`, `=>`, `<-`).
-  // Strip common arrow spellings, then treat remaining `<`/`>` as shell noise.
-  const withoutArrows = t.replace(/[-=]>/g, " ").replace(/<[-=]/g, " ");
+  // Redirects (`> out`, `< in`, `2>&1`) but not language arrows / comparisons
+  // (`->`, `=>`, `<-`, `>=`, `<=`).
+  const withoutArrows = t
+    .replace(/[-=]>/g, " ")
+    .replace(/<[-=]/g, " ")
+    .replace(/>=/g, " ")
+    .replace(/<=/g, " ");
   if (/[<>]/.test(withoutArrows)) return true;
-  // Background job `&` as a token (not `Q&A`); semicolon command chains.
-  if (/(?:^|\s)&(?:\s|$)/.test(t) || /;\s+\S/.test(t)) return true;
+  // Background job: trailing or token-alone `&` (not `Q&A`, not `X & Y` prose).
+  // Require `&` at end of title or before `;` / another operator-like boundary.
+  if (/(?:^|\s)&\s*$/.test(t) || /(?:^|\s)&\s*[;|]/.test(t)) return true;
   if (isTransientShellCommandOscTitle(t)) return true;
   return false;
 }

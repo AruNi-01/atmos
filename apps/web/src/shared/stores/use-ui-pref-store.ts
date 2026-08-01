@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { instKey, readJson, writeJson } from '@/shared/lib/browser-store';
+import { hasStorageKey, instKey, readJson, removeKey, writeJson } from '@/shared/lib/browser-store';
 import type { ConnectionInstanceId } from '@/features/connection/lib/connection-instance';
 
 export type UiPrefSlice =
@@ -48,17 +48,14 @@ export const useUiPrefStore = create<UiPrefStoreState>((set, get) => ({
     // One-shot migrate pre-rename `usage` → `quota` when quota is absent.
     if (slice === 'quota') {
       const quotaKey = instKey(instanceId, 'quota');
-      const hasQuota =
-        typeof localStorage !== 'undefined' && localStorage.getItem(quotaKey) != null;
-      if (!hasQuota) {
+      if (!hasStorageKey(quotaKey)) {
         const legacyKey = instKey(instanceId, 'usage');
         const legacy = readJson<typeof fallback | null>(legacyKey, null);
         if (legacy != null) {
-          writeJson(quotaKey, legacy);
-          try {
-            localStorage.removeItem(legacyKey);
-          } catch {
-            /* ignore */
+          // Only drop legacy after quota write succeeds — otherwise next reload
+          // loses the preference.
+          if (writeJson(quotaKey, legacy)) {
+            removeKey(legacyKey);
           }
           set(state => ({
             byInstance: {

@@ -341,20 +341,21 @@ export const AttachmentRemove = ({
       aria-label={label}
       className={cn(
         variant === "grid" && [
-          "absolute top-1 right-1 size-5 sm:size-5 min-h-0 min-w-0 rounded-full p-0",
+          "absolute top-1 right-1 size-5 min-h-0 min-w-0 rounded-full p-0",
           "bg-background/80 backdrop-blur-sm",
           "opacity-0 transition-opacity group-hover:opacity-100",
           "hover:bg-background",
-          "after:hidden [&>svg]:size-3",
+          // Keep coarse-pointer 44px hit target; only hide ::after on fine pointers.
+          "pointer-fine:after:hidden [&>svg]:size-3",
         ],
         variant === "inline" && [
-          "size-4 sm:size-4 min-h-0 min-w-0 rounded-full p-0",
+          "size-4 min-h-0 min-w-0 rounded-full p-0",
           "opacity-0 transition-opacity group-hover:opacity-100",
-          "after:hidden [&>svg]:size-2.5",
+          "pointer-fine:after:hidden [&>svg]:size-2.5",
         ],
         variant === "list" && [
-          "size-7 sm:size-7 min-h-0 min-w-0 shrink-0 rounded p-0",
-          "after:hidden [&>svg]:size-3.5",
+          "size-7 min-h-0 min-w-0 shrink-0 rounded p-0",
+          "pointer-fine:after:hidden [&>svg]:size-3.5",
         ],
         className
       )}
