@@ -593,6 +593,54 @@ const TRANSIENT_SHELL_COMMAND_OSC = new Set([
   "hostname",
   "uname",
   "sleep",
+  // Process / network inspection one-shots (oh-my-zsh style auto-title)
+  "ps",
+  "pgrep",
+  "pkill",
+  "lsof",
+  "top",
+  "htop",
+  "btop",
+  "iotop",
+  "vmstat",
+  "iostat",
+  "netstat",
+  "ss",
+  "ifconfig",
+  "ip",
+  "ping",
+  "traceroute",
+  "dig",
+  "nslookup",
+  "curl",
+  "wget",
+  "grep",
+  "egrep",
+  "fgrep",
+  "rg",
+  "ag",
+  "ack",
+  "find",
+  "fd",
+  "locate",
+  "awk",
+  "sed",
+  "cut",
+  "sort",
+  "uniq",
+  "tr",
+  "xargs",
+  "tee",
+  "watch",
+  "man",
+  "info",
+  "open",
+  "xdg-open",
+  "pbcopy",
+  "pbpaste",
+  "clip",
+  "jq",
+  "yq",
 ]);
 
 /**
@@ -614,8 +662,27 @@ export function isTransientShellCommandOscTitle(osc: string): boolean {
 }
 
 /**
+ * Whether OSC text looks like a shell preexec auto-title of the typed command
+ * line (pipelines, chains, redirects, transient builtins) rather than an
+ * agent session topic (`debugging auth`, `fix src/api`).
+ *
+ * Used both to reject noise on ingest and to clear a stale command line when
+ * the shell returns to idle (path OSC / CMD_END) without wiping real topics.
+ */
+export function isShellPreexecCommandOscTitle(osc: string): boolean {
+  const t = osc.trim();
+  if (!t) return false;
+  // Pipeline / chain / redirect / command substitution — classic shell preexec.
+  // Agent topics are natural-language phrases without these operators.
+  if (/[|;&`]|\$\(|\$\{|\s(?:&&|\|\|)\s|[<>]/.test(t)) return true;
+  if (isTransientShellCommandOscTitle(t)) return true;
+  return false;
+}
+
+/**
  * Shell / terminal-integration titles that should not appear as OSC suffixes.
- * Examples: `user@Host:~/path`, pure paths, bare preexec shell cmds (`ls`).
+ * Examples: `user@Host:~/path`, pure paths, bare preexec shell cmds (`ls`),
+ * full preexec command lines (`ps aux | grep foo`).
  *
  * Intentionally keeps program CLIs (`git`, `npm`) and multi-word session topics
  * (`fix src/api`) — those are useful OSC titles.
@@ -629,8 +696,8 @@ export function isNoisyShellOscTitle(osc: string): boolean {
   if (/^[\w.-]+:(?:~|\/)/.test(t)) return true;
   // Entire title is a bare filesystem path (no spaces / not a phrase).
   if (isBareFilesystemOscTitle(t)) return true;
-  // Shell preexec builtins / navigation (ls, pwd, cd, …) — not a session topic.
-  if (isTransientShellCommandOscTitle(t)) return true;
+  // Shell preexec command lines (builtins, inspection tools, pipelines).
+  if (isShellPreexecCommandOscTitle(t)) return true;
   return false;
 }
 
@@ -639,8 +706,9 @@ export function isNoisyShellOscTitle(osc: string): boolean {
  *
  * - `set`: meaningful session topic — store it
  * - `clear`: explicit empty title — wipe stored OSC
- * - `ignore`: shell path/host/command noise — keep the previous topic
- *   (do **not** treat noise as clear, or every prompt would erase agent topics)
+ * - `ignore`: shell path/host/command noise — do not store the noise as the
+ *   new title (callers should use {@link nextOscTitleAfterIncoming} so ignored
+ *   commands still clear a previous suffix)
  */
 export function resolveIncomingOscTitle(
   raw: string | undefined,
@@ -650,6 +718,34 @@ export function resolveIncomingOscTitle(
   if (!cleaned) return { action: "clear" };
   if (isNoisyShellOscTitle(cleaned)) return { action: "ignore" };
   return { action: "set", value: cleaned };
+}
+
+/**
+ * Apply an incoming native OSC update against a previously stored value.
+ *
+ * - `set` / `clear` — take the resolved value
+ * - ignored **shell command** preexec (`ls`, `ps aux | …`) — always clear.
+ *   The command is not a session topic, so the toolbar suffix should be empty
+ *   rather than keeping a stale previous title.
+ * - ignored **path/host** redraw (`user@host:cwd`) — clear a stale preexec
+ *   command line, but keep real agent session topics (agents re-emit slowly;
+ *   prompt redraw must not erase them).
+ */
+export function nextOscTitleAfterIncoming(
+  previous: string | undefined,
+  raw: string | undefined,
+): string | undefined {
+  const resolved = resolveIncomingOscTitle(raw);
+  if (resolved.action === "set") return resolved.value;
+  if (resolved.action === "clear") return undefined;
+
+  // ignore — never paint the noise; decide whether to wipe previous.
+  const cleaned = sanitizeNativeOscTitle(raw);
+  // User ran an ignored shell command → final suffix must be empty.
+  if (cleaned && isShellPreexecCommandOscTitle(cleaned)) return undefined;
+  // Idle path/host noise: drop stuck preexec lines; keep agent topics.
+  if (previous && isShellPreexecCommandOscTitle(previous)) return undefined;
+  return previous;
 }
 
 /** True when the whole OSC string is a path, not a multi-word session topic. */

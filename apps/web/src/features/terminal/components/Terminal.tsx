@@ -62,7 +62,10 @@ import {
 import type { TerminalSelectionSnapshot } from "../types";
 import { createAgentHookInterruptInference } from "@/features/agent/lib/agent-hook-interrupt-inference";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
-import { resolveIncomingOscTitle } from "@atmos/shared/terminal";
+import {
+  isShellPreexecCommandOscTitle,
+  nextOscTitleAfterIncoming,
+} from "@atmos/shared/terminal";
 
 export interface TerminalRef {
   focus: () => void;
@@ -887,10 +890,12 @@ const Terminal = ({
       }
       oscSettleTimerRef.current = setTimeout(() => {
         oscSettleTimerRef.current = null;
-        const resolved = resolveIncomingOscTitle(pendingOscRawRef.current);
-        // Shell path/host/`ls` noise: keep the previous topic (do not flash, do not wipe).
-        if (resolved.action === "ignore") return;
-        const next = resolved.action === "set" ? resolved.value : undefined;
+        // nextOscTitleAfterIncoming keeps agent topics on path noise, but
+        // clears a stale shell preexec command line (`ps aux | …`).
+        const next = nextOscTitleAfterIncoming(
+          lastOscTitleRef.current,
+          pendingOscRawRef.current,
+        );
         if (next === lastOscTitleRef.current) return;
         lastOscTitleRef.current = next;
         onOscTitleChangeRef.current?.(next);
@@ -958,10 +963,17 @@ const Terminal = ({
           clearTimeout(cmdStartTimerRef.current);
           cmdStartTimerRef.current = null;
         }
-        // Do NOT clear OSC here. Reattach injects synthetic CMD_END on every
-        // refresh and was wiping persisted agent session topics before they
-        // could paint. Shell path OSC (user@host:cwd) overwrites via setOscTitle
-        // noise filter; empty OSC 0/2 clears explicitly.
+        // Clear only shell preexec command lines (`ps aux | grep …`) when the
+        // shell returns to idle. Do NOT wipe agent session topics — reattach
+        // injects synthetic CMD_END on every refresh and those topics must
+        // survive. Empty OSC 0/2 still clears explicitly via emitOscTitle.
+        if (
+          lastOscTitleRef.current &&
+          isShellPreexecCommandOscTitle(lastOscTitleRef.current)
+        ) {
+          lastOscTitleRef.current = undefined;
+          onOscTitleChangeRef.current?.(undefined);
+        }
         const title = shortenPath(payload);
         if (title !== lastTitleRef.current) {
           lastTitleRef.current = title;

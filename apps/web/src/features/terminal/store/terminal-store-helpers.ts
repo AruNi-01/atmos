@@ -3,7 +3,7 @@
 import { createTranslator } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
 import type { MosaicDirection, MosaicNode } from "react-mosaic-component";
-import { resolveIncomingOscTitle } from "@atmos/shared/terminal";
+import { nextOscTitleAfterIncoming, resolveIncomingOscTitle } from "@atmos/shared/terminal";
 
 import type { TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/features/terminal/types/index";
@@ -30,19 +30,21 @@ export function normalizeStoredOscTitle(oscTitle: string | undefined): string | 
   const resolved = resolveIncomingOscTitle(oscTitle);
   if (resolved.action === "set") return resolved.value;
   // clear + ignore both map to undefined for the simple helper; store writers
-  // that need ignore-vs-clear semantics call resolveIncomingOscTitle directly.
+  // that need ignore-vs-clear semantics call resolveIncomingOscTitle /
+  // nextOscTitleAfterIncoming directly.
   return undefined;
 }
 
-/** Apply an incoming OSC update: set, clear, or leave previous value untouched. */
+/**
+ * Apply an incoming OSC update: set, clear, or leave previous value untouched.
+ * Stale shell preexec command lines are cleared when idle path noise arrives
+ * (see {@link nextOscTitleAfterIncoming}).
+ */
 export function nextOscTitleFromIncoming(
   previous: string | undefined,
   raw: string | undefined,
 ): string | undefined {
-  const resolved = resolveIncomingOscTitle(raw);
-  if (resolved.action === "ignore") return previous;
-  if (resolved.action === "clear") return undefined;
-  return resolved.value;
+  return nextOscTitleAfterIncoming(previous, raw);
 }
 
 type TerminalMessagesLocale = "en" | "zh";
