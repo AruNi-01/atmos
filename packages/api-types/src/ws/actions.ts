@@ -192,6 +192,7 @@ export const WS_ACTIONS = [
   "github_actions_detail",
   "github_actions_rerun",
   "github_pr_files",
+  "github_commit_detail",
   "settings_bootstrap_get",
   "function_settings_get",
   "function_settings_update",

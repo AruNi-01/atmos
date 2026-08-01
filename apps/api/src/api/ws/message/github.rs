@@ -200,3 +200,10 @@ pub struct GithubActionsDetailRequest {
     pub repo: String,
     pub run_id: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubCommitDetailRequest {
+    pub owner: String,
+    pub repo: String,
+    pub sha: String,
+}

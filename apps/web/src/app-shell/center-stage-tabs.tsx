@@ -57,6 +57,7 @@ export type TabGroupItem = {
     | "conflict"
     | "github-pr"
     | "github-action"
+    | "github-commit"
     | "browser";
   file?: OpenFile;
   /** Center browser instance id (for kind === "browser"). */

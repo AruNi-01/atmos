@@ -10,6 +10,7 @@ import {
   useGithubActionsListQuery,
   useGithubActionsDetailQuery,
   useGithubCiStatusQuery,
+  useGithubCommitDetailQuery,
 } from '@/features/github/hooks/use-github-pr-query';
 import type { PrFile } from '@/features/github/lib/github-query-options';
 import { gitLogQueryOptions } from '@/features/git/lib/git-query-options';
@@ -246,6 +247,21 @@ export function useGithubActionsDetail(owner: string, repo: string, runId: numbe
     };
   }, [isPending, query.refetch]);
 
+  return { data: query.data ?? null, loading: query.isLoading };
+}
+
+export function useGithubCommitDetail(
+  owner: string,
+  repo: string,
+  sha: string | undefined,
+  enabled = true,
+) {
+  const query = useGithubCommitDetailQuery({
+    owner,
+    repo,
+    sha: sha ?? "",
+    enabled: enabled && Boolean(sha),
+  });
   return { data: query.data ?? null, loading: query.isLoading };
 }
 

@@ -584,6 +584,8 @@ pub enum WsAction {
     /// Rerun workflow
     GithubActionsRerun,
     GithubPrFiles,
+    /// 获取 commit 详情 (metadata + changed files with patches)
+    GithubCommitDetail,
 
     // ===== Function Settings =====
     /// Read settings needed by the Settings UI in one payload

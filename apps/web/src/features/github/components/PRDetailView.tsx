@@ -2,9 +2,8 @@ import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Button,
-  Tabs,
-  TabsList,
-  TabsTab,
+  TabsSubtle,
+  TabsSubtleItem,
   Avatar,
   AvatarImage,
   AvatarFallback,
@@ -37,6 +36,7 @@ import {
   Milestone,
   Edit2,
   FileCode,
+  FileText,
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react';
@@ -48,7 +48,8 @@ import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-con
 import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
-import { CommitList } from './CommitList';
+import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
+import { CommitList, type CommitListItem } from './CommitList';
 import { PRFilesTab } from './PRFilesTab';
 import { usePrContextHeader } from './use-pr-context-header';
 import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-actions';
@@ -77,18 +78,31 @@ interface PRDetailViewProps {
 }
 
 type PRMainTab = 'description' | 'discussion' | 'commits' | 'files';
+const PR_MAIN_TABS: PRMainTab[] = ['description', 'discussion', 'commits', 'files'];
+
+// Persist PR tab selection across center tab switches (survives unmount/remount).
+const prMainTabCache = new Map<number, PRMainTab>();
 
 export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestClose, onMerged, onClosed }: PRDetailViewProps) {
   const locale = useLocale();
   const t = useTranslations('github.prDetail');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
+  const { openCommitTab } = useOpenGithubCenterTab();
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber, owner, repo, active);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber, owner, repo, active);
-  const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>('description');
-  const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(false);
-  const [hasVisitedCommits, setHasVisitedCommits] = React.useState(false);
-  const [hasVisitedFiles, setHasVisitedFiles] = React.useState(false);
+  const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>(
+    () => prMainTabCache.get(prNumber) ?? 'description',
+  );
+  const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(
+    () => prMainTabCache.get(prNumber) === 'discussion',
+  );
+  const [hasVisitedCommits, setHasVisitedCommits] = React.useState(
+    () => prMainTabCache.get(prNumber) === 'commits',
+  );
+  const [hasVisitedFiles, setHasVisitedFiles] = React.useState(
+    () => prMainTabCache.get(prNumber) === 'files',
+  );
   const { items: timelineItems, isLoading: timelineLoading, hasMore: timelineHasMore, loadMore: loadMoreTimeline } = useGithubPRTimeline(
     prNumber, owner, repo, hasVisitedDiscussion && active
   );
@@ -372,6 +386,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   const handleMainTabChange = React.useCallback((value: string) => {
     const tab = value as PRMainTab;
     setActiveMainTab(tab);
+    prMainTabCache.set(prNumber, tab);
     resetPrContext();
     if (tab === 'discussion') setHasVisitedDiscussion(true);
     if (tab === 'commits') setHasVisitedCommits(true);
@@ -379,7 +394,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
       setHasVisitedFiles(true);
       setIsSidebarCollapsed(true);
     }
-  }, [resetPrContext]);
+  }, [prNumber, resetPrContext]);
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6 pb-6">
@@ -421,7 +436,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                 >
                   <div
                     ref={prContextRef}
-                    className="sticky top-0 z-20 transform-gpu border-b border-border/50 bg-background pb-3 pt-1 transition-transform duration-200 ease-out will-change-transform"
+                    className="sticky top-0 z-20 transform-gpu bg-background pb-3 pt-1 transition-transform duration-200 ease-out will-change-transform"
                   >
                     <div className="flex min-w-0 flex-col gap-2.5">
                       {/* PR title + meta */}
@@ -473,21 +488,34 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                         </div>
                       </div>
 
-                      {/* Top-level tabs: Description / Discussion / Commits / Files */}
-                      <Tabs
-                        value={activeMainTab}
-                        onValueChange={handleMainTabChange}
-                        className="min-w-0 overflow-x-auto"
-                      >
-                        <TabsList className="w-fit min-w-max gap-0">
-                          <TabsTab value="description" className="text-[12px] px-3 h-8">{t('tabs.description')}</TabsTab>
-                          <TabsTab value="discussion" className="text-[12px] px-3 h-8">
-                            {t('tabs.discussion')}{sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}
-                          </TabsTab>
-                          <TabsTab value="commits" className="text-[12px] px-3 h-8">{t('tabs.commits', { count: pr.commits?.length || 0 })}</TabsTab>
-                          <TabsTab value="files" className="text-[12px] px-3 h-8">{t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}</TabsTab>
-                        </TabsList>
-                      </Tabs>
+                      <div className="mt-4 border-t border-border/40 pt-3">
+                        <TabsSubtle
+                          activeLabel
+                          idPrefix={`pr-${pr.number}`}
+                          selectedIndex={PR_MAIN_TABS.indexOf(activeMainTab)}
+                          onSelect={(index) => {
+                            const tab = PR_MAIN_TABS[index];
+                            if (tab) handleMainTabChange(tab);
+                          }}
+                        >
+                          <TabsSubtleItem index={0} icon={FileText} label={t('tabs.description')} />
+                          <TabsSubtleItem
+                            index={1}
+                            icon={MessageSquare}
+                            label={`${t('tabs.discussion')}${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
+                          />
+                          <TabsSubtleItem
+                            index={2}
+                            icon={GitCommit}
+                            label={t('tabs.commits', { count: pr.commits?.length || 0 })}
+                          />
+                          <TabsSubtleItem
+                            index={3}
+                            icon={FileCode}
+                            label={t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}
+                          />
+                        </TabsSubtle>
+                      </div>
                     </div>
                   </div>
 
@@ -973,7 +1001,20 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                 {/* Commits tab */}
                 {hasVisitedCommits && (
                   <div className={cn("pt-2", activeMainTab !== 'commits' && "hidden")}>
-                    <CommitList commits={prCommitsToListItems(pr.commits ?? [], owner, repo)} owner={owner} repo={repo} />
+                    <CommitList
+                      commits={prCommitsToListItems(pr.commits ?? [], owner, repo)}
+                      owner={owner}
+                      repo={repo}
+                      onCommitClick={(commit) => {
+                        openCommitTab({
+                          owner,
+                          repo,
+                          sha: commit.hash,
+                          subject: commit.subject,
+                          authorName: commit.authorName,
+                        });
+                      }}
+                    />
                   </div>
                 )}
 

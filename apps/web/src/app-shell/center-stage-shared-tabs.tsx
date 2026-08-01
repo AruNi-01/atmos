@@ -19,6 +19,7 @@ import {
   FileCheckCorner,
   GitPullRequest,
   GitMergeIcon,
+  GitCommitHorizontal,
   Globe,
   SquareTerminal as TerminalIcon,
   Workflow,
@@ -51,6 +52,7 @@ export type CenterStageSurfaceTabVariant =
   | "conflict"
   | "github-pr"
   | "github-action"
+  | "github-commit"
   | "browser";
 
 export function CenterStageTabList({
@@ -248,6 +250,8 @@ export function CenterStageSurfaceContentTab({
             <GitPullRequest className="size-3.5 shrink-0" />
           ) : variant === "github-action" ? (
             <Workflow className="size-3.5 shrink-0" />
+          ) : variant === "github-commit" ? (
+            <GitCommitHorizontal className="size-3.5 shrink-0" />
           ) : variant === "browser" ? (
             <BrowserTabFavicon faviconUrl={faviconUrl} />
           ) : (
@@ -361,13 +365,15 @@ export function CenterStageTabGroupItemContent({
     );
   }
 
-  if (tab.kind === "github-pr" || tab.kind === "github-action") {
+  if (tab.kind === "github-pr" || tab.kind === "github-action" || tab.kind === "github-commit") {
     return (
       <>
         {tab.kind === "github-pr" ? (
           <GitPullRequest className="size-3.5 shrink-0" />
-        ) : (
+        ) : tab.kind === "github-action" ? (
           <Workflow className="size-3.5 shrink-0" />
+        ) : (
+          <GitCommitHorizontal className="size-3.5 shrink-0" />
         )}
         {label(tab.label)}
       </>

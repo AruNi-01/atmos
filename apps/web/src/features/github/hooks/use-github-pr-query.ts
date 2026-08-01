@@ -15,6 +15,7 @@ import {
   githubActionsListQueryOptions,
   githubActionsDetailQueryOptions,
   githubCiStatusQueryOptions,
+  githubCommitDetailQueryOptions,
   type RepoPrListParams,
   type BranchPrListParams,
   type GithubPrIdentityParams,
@@ -235,6 +236,20 @@ export function useGithubCiStatusQuery(params: GithubActionsListParams & { enabl
   return useQuery(
     githubCiStatusQueryOptions(scope, connectionState, restParams, {
       enabled: enabled && Boolean(params.owner && params.repo && params.branch),
+    }),
+  );
+}
+
+export function useGithubCommitDetailQuery(
+  params: { owner: string; repo: string; sha: string } & { enabled?: boolean },
+) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+
+  return useQuery(
+    githubCommitDetailQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.sha),
     }),
   );
 }

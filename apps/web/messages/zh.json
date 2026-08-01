@@ -5888,6 +5888,36 @@
         "unknownBranch": "未知分支",
         "atCommit": "提交"
       },
+      "tabs": {
+        "summary": "摘要",
+        "workflow": "工作流文件"
+      },
+      "sections": {
+        "workflow": "工作流",
+        "workflowFile": "工作流文件",
+        "jobSummary": "任务摘要",
+        "annotations": "标注（{count}）",
+        "artifacts": "构件（{count}）"
+      },
+      "jobSummary": {
+        "unnamed": "未命名任务",
+        "empty": "没有可用任务"
+      },
+      "annotations": {
+        "agentFixLabel": "修复注释",
+        "agentFixDisabled": "请在工作区中打开此仓库以使用 Agent Fix。",
+        "agentFixTerminalTab": "Agent Fix - 注释",
+        "agentFixTerminalPane": "注释"
+      },
+      "artifacts": {
+        "unnamed": "未命名构件",
+        "expired": "已过期",
+        "expires": "{time} 后过期",
+        "download": "下载构件"
+      },
+      "workflowFile": {
+        "unavailable": "工作流文件不可用"
+      },
       "statusCard": {
         "unknownStartTime": "开始时间未知",
         "currently": "当前：{status}"
@@ -5940,7 +5970,7 @@
       "agentFix": {
         "fallbackJobName": "未命名任务",
         "label": "用 Agent 修复：{jobName}",
-        "disabledReason": "Agent Fix 仅适用于失败的任务。",
+        "disabledReason": "Agent Fix 仅适用于失败的任务或步骤。",
         "terminalTabTitle": "Agent Fix - {jobName}",
         "terminalPaneLabel": "任务：{jobName}"
       },
@@ -5982,6 +6012,10 @@
       "loading": "正在加载提交...",
       "empty": "还没有提交。",
       "groupTitle": "{date}"
+    },
+    "commitDetail": {
+      "loading": "正在加载提交...",
+      "filesChanged": "{count} 个文件变更"
     },
     "actionsPanel": {
       "summary": {
