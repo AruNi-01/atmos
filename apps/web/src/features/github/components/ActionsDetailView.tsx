@@ -129,29 +129,62 @@ export function ActionsDetailView({
     resetContext();
   }, [effectiveRunId, resetContext]);
 
-  // Merge: prefer the passed-in `run` object; fall back to `detail` (available after fetch on refresh)
-  const effectiveRun: ActionRun | null =
-    run ??
-    (detail
+  // Merge list/PR stub `run` with detail payload. Opening from PR checks only has
+  // runId + partial metadata; github_actions_detail fills event/branch/title.
+  // Prefer non-empty detail fields so stubs do not block the fetched header.
+  const effectiveRun: ActionRun | null = React.useMemo(() => {
+    const pick = (...values: Array<string | null | undefined>) => {
+      for (const value of values) {
+        if (typeof value === "string" && value.trim().length > 0) return value;
+      }
+      return "";
+    };
+
+    const fromDetail = detail
       ? {
-          databaseId: detail.databaseId ?? detail.id ?? effectiveRunId!,
-          workflowName:
-            detail.workflowName ?? detail.workflow_name ?? detail.name ?? "",
-          displayTitle:
-            detail.displayTitle ?? detail.display_title ?? detail.name ?? "",
-          status: detail.status ?? "",
+          databaseId: detail.databaseId ?? detail.id ?? effectiveRunId ?? 0,
+          workflowName: pick(
+            detail.workflowName,
+            detail.workflow_name,
+            detail.name,
+          ),
+          displayTitle: pick(
+            detail.displayTitle,
+            detail.display_title,
+            detail.name,
+          ),
+          status: pick(detail.status),
           conclusion: detail.conclusion ?? "",
-          createdAt:
-            detail.createdAt ??
-            detail.created_at ??
-            detail.run_started_at ??
-            "",
-          url: detail.url ?? detail.html_url ?? "",
-          event: detail.event ?? "",
-          headBranch: detail.headBranch ?? detail.head_branch ?? "",
-          headSha: detail.headSha ?? detail.head_sha ?? "",
+          createdAt: pick(
+            detail.createdAt,
+            detail.created_at,
+            detail.run_started_at,
+          ),
+          url: pick(detail.url, detail.html_url),
+          event: pick(detail.event),
+          headBranch: pick(detail.headBranch, detail.head_branch),
+          headSha: pick(detail.headSha, detail.head_sha),
         }
-      : null);
+      : null;
+
+    if (!run && !fromDetail) return null;
+    if (!run) return fromDetail;
+    if (!fromDetail) return run;
+
+    return {
+      databaseId: fromDetail.databaseId || run.databaseId,
+      workflowName: pick(fromDetail.workflowName, run.workflowName),
+      // Prefer API display title (PR subject) over stub job name from checks.
+      displayTitle: pick(fromDetail.displayTitle, run.displayTitle),
+      status: pick(fromDetail.status, run.status),
+      conclusion: fromDetail.conclusion || run.conclusion,
+      createdAt: pick(fromDetail.createdAt, run.createdAt),
+      url: pick(fromDetail.url, run.url),
+      event: pick(fromDetail.event, run.event),
+      headBranch: pick(fromDetail.headBranch, run.headBranch),
+      headSha: pick(fromDetail.headSha, run.headSha),
+    };
+  }, [detail, effectiveRunId, run]);
 
   const handleRerunAll = async () => {
     if (!effectiveRun) return;
@@ -260,13 +293,19 @@ export function ActionsDetailView({
                 <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
                   <Rocket className="size-3.5" />
                   <span className="font-semibold text-foreground/90">
-                    {effectiveRun.workflowName}
+                    {effectiveRun.workflowName || (detailLoading ? "…" : "—")}
                   </span>
                 </div>
                 <span>{t("metadata.triggeredVia")}</span>
-                <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate shadow-sm capitalize mr-1">
-                  {effectiveRun.event}
-                </span>
+                {detailLoading && !effectiveRun.event ? (
+                  <Skeleton className="mr-1 h-5 w-20 rounded bg-muted-foreground/20" />
+                ) : effectiveRun.event ? (
+                  <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate shadow-sm capitalize mr-1">
+                    {effectiveRun.event}
+                  </span>
+                ) : (
+                  <span className="mr-1 text-muted-foreground/50">—</span>
+                )}
 
                 {detailLoading && !detail?.actor && (
                   <div className="flex items-center gap-1.5 mr-1 bg-muted/20 px-1.5 py-1 rounded-md border border-border/30">
@@ -292,9 +331,13 @@ export function ActionsDetailView({
                 )}
 
                 <span>{t("metadata.targetBranch")}</span>
-                <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
-                  {effectiveRun.headBranch || t("metadata.unknownBranch")}
-                </span>
+                {detailLoading && !effectiveRun.headBranch ? (
+                  <Skeleton className="h-5 w-28 rounded bg-muted-foreground/20" />
+                ) : (
+                  <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
+                    {effectiveRun.headBranch || t("metadata.unknownBranch")}
+                  </span>
+                )}
                 {effectiveRun.headSha && (
                   <>
                     <span>{t("metadata.atCommit")}</span>
