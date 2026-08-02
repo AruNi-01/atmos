@@ -6,7 +6,8 @@
   "header": {
     "docs": "文档",
     "changelog": "更新日志",
-    "build": "开始构建"
+    "build": "开始构建",
+    "menu": "菜单"
   },
   "hero": {
     "line1Primary": "Atmosphere",

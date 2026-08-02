@@ -20,7 +20,7 @@ export default async function LandingPage({ params }: Props) {
 function LandingContent() {
   return (
     <div className="min-h-screen font-sans transition-colors duration-300">
-      <main className='relative flex flex-col overflow-x-clip *:scroll-mt-15.5'>
+      <main className='relative flex flex-col overflow-x-clip *:scroll-mt-16 sm:*:scroll-mt-15.5'>
         <HeroSection />
         <FeatureShowcase />
         <LatestChanges />

@@ -2,14 +2,21 @@
 
 import { useEffect, useState, type MouseEvent } from 'react'
 
-import { Hammer } from 'lucide-react'
+import { Hammer, MenuIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import Link from 'next/link'
 import { Link as IntlLink } from '@atmos/i18n/navigation'
 
 import { Button } from '@workspace/ui/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/ui/tooltip'
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@workspace/ui/components/ui/sheet'
 
 import { cn } from '@/lib/utils'
 
@@ -28,6 +35,7 @@ const Header = ({ className }: HeaderProps) => {
   const t = useTranslations('header')
   const [isScrolled, setIsScrolled] = useState(false)
   const [windowWidth, setWindowWidth] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const { scrollYProgress } = useScroll()
   const scaleX = useSpring(scrollYProgress, {
@@ -53,6 +61,7 @@ const Header = ({ className }: HeaderProps) => {
     if (!el) return
 
     event.preventDefault()
+    setMobileMenuOpen(false)
     el.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -86,14 +95,14 @@ const Header = ({ className }: HeaderProps) => {
       delay={0.05}
       component='header'
       className={cn(
-        'sticky top-0 z-50 h-16 w-full border-b transition-all duration-300',
+        'sticky top-0 z-50 h-14 w-full border-b transition-all duration-300 sm:h-16',
         {
           'bg-card/75 backdrop-blur': isScrolled
         },
         className
       )}
     >
-      <div className='relative mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 min-[1147px]:border-x sm:px-6 lg:px-8'>
+      <div className='relative mx-auto flex h-full max-w-6xl items-center justify-between gap-2 px-4 min-[1147px]:border-x sm:gap-4 sm:px-6 lg:px-8'>
         <motion.div
           className="absolute -left-px top-0 bottom-0 w-px bg-primary origin-bottom hidden min-[1147px]:block"
           style={{ scaleY: leftScaleY }}
@@ -103,12 +112,12 @@ const Header = ({ className }: HeaderProps) => {
           style={{ scaleY: rightScaleY }}
         />
         {/* Logo */}
-        <IntlLink href={{ pathname: '/', hash: 'home' }} className='flex items-center gap-3'>
+        <IntlLink href={{ pathname: '/', hash: 'home' }} className='flex min-w-0 items-center gap-2 sm:gap-3'>
           <Logo animate={!isScrolled} />
         </IntlLink>
 
-        <div className='flex items-center gap-3'>
-          <nav className="flex items-center gap-4 text-sm font-medium text-muted-foreground mr-2 max-sm:hidden">
+        <div className='flex shrink-0 items-center gap-1.5 sm:gap-3'>
+          <nav className="mr-2 hidden items-center gap-4 text-sm font-medium text-muted-foreground sm:flex">
             <Link href="https://docs.atmos.land" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
               {t('docs')}
             </Link>
@@ -120,8 +129,8 @@ const Header = ({ className }: HeaderProps) => {
           <LocaleSwitcher />
           {/* Theme Toggle */}
           <ModeToggle />
-          {/* Actions */}
-          <Button variant='outline' className='rounded-full px-4! max-sm:hidden' asChild>
+          {/* Desktop CTA */}
+          <Button variant='outline' className='hidden rounded-full px-4! sm:inline-flex' asChild>
             <IntlLink
               href={{ pathname: '/', hash: 'ready-download' }}
               onClick={scrollToDownload}
@@ -130,20 +139,54 @@ const Header = ({ className }: HeaderProps) => {
             </IntlLink>
           </Button>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant='outline' size='icon' className='rounded-full px-4! sm:hidden' asChild>
-                <IntlLink
-                  href={{ pathname: '/', hash: 'ready-download' }}
-                  onClick={scrollToDownload}
-                >
-                  <span className='sr-only'>{t('build')}</span>
-                  <Hammer className='size-4' />
-                </IntlLink>
+          {/* Mobile menu */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant='outline'
+                size='icon'
+                className='rounded-full sm:hidden'
+                aria-label={t('menu')}
+              >
+                <MenuIcon className='size-4' />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t('build')}</TooltipContent>
-          </Tooltip>
+            </SheetTrigger>
+            <SheetContent side='right' className='w-[min(100vw-2rem,20rem)] gap-0 p-0'>
+              <SheetHeader className='border-b px-5 py-4 text-left'>
+                <SheetTitle className='text-base'>{t('menu')}</SheetTitle>
+              </SheetHeader>
+              <nav className='flex flex-col gap-1 p-3'>
+                <SheetClose asChild>
+                  <Link
+                    href='https://docs.atmos.land'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='rounded-lg px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted'
+                  >
+                    {t('docs')}
+                  </Link>
+                </SheetClose>
+                <SheetClose asChild>
+                  <IntlLink
+                    href='/changelog'
+                    className='rounded-lg px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted'
+                  >
+                    {t('changelog')}
+                  </IntlLink>
+                </SheetClose>
+                <SheetClose asChild>
+                  <IntlLink
+                    href={{ pathname: '/', hash: 'ready-download' }}
+                    onClick={scrollToDownload}
+                    className='mt-1 inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90'
+                  >
+                    {t('build')}
+                    <Hammer className='size-4' />
+                  </IntlLink>
+                </SheetClose>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
       <motion.div

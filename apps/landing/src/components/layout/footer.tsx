@@ -14,23 +14,23 @@ const Footer = () => {
         blur
         transition={{ duration: 0.5 }}
         delay={0.15}
-        className='group mx-auto max-w-6xl border-x px-4 pb-4 pt-12 md:px-8'
+        className='group mx-auto w-full min-w-0 max-w-6xl px-3 pb-6 pt-10 min-[1147px]:border-x sm:px-4 sm:pb-4 sm:pt-12 md:px-8'
       >
         <Link
           href={{ pathname: '/', hash: 'home' }}
-          className={`flex w-full items-center justify-between ${GeistPixelSquare.className}`}
+          className={`flex w-full min-w-0 items-center justify-between ${GeistPixelSquare.className}`}
         >
-          <span className='text-[26vw] font-black uppercase leading-[0.75] tracking-tighter lg:text-[16rem] xl:text-[19rem]'>
+          <span className='text-[18vw] font-black uppercase leading-[0.75] tracking-tighter sm:text-[22vw] md:text-[26vw] lg:text-[16rem] xl:text-[19rem]'>
             A
           </span>
-          <span className='text-[26vw] font-black uppercase leading-[0.75] tracking-tighter lg:text-[16rem] xl:text-[19rem]'>
+          <span className='text-[18vw] font-black uppercase leading-[0.75] tracking-tighter sm:text-[22vw] md:text-[26vw] lg:text-[16rem] xl:text-[19rem]'>
             t
           </span>
-          <span className='text-[26vw] font-black uppercase leading-[0.75] tracking-tighter lg:text-[16rem] xl:text-[19rem]'>
+          <span className='text-[18vw] font-black uppercase leading-[0.75] tracking-tighter sm:text-[22vw] md:text-[26vw] lg:text-[16rem] xl:text-[19rem]'>
             m
           </span>
-          <LogoSvg className='size-[20vw] shrink-0 transition-transform duration-1000 group-hover:rotate-90 lg:size-52 xl:size-64' />
-          <span className='text-[26vw] font-black uppercase leading-[0.75] tracking-tighter lg:text-[16rem] xl:text-[19rem]'>
+          <LogoSvg className='size-[14vw] shrink-0 transition-transform duration-1000 group-hover:rotate-90 sm:size-[18vw] md:size-[20vw] lg:size-52 xl:size-64' />
+          <span className='text-[18vw] font-black uppercase leading-[0.75] tracking-tighter sm:text-[22vw] md:text-[26vw] lg:text-[16rem] xl:text-[19rem]'>
             s
           </span>
         </Link>

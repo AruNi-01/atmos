@@ -29,14 +29,14 @@ const FAQ = () => {
 
   return (
     <section id='faq'>
-      <div className='bg-background mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-12 min-[1147px]:border-x sm:gap-16 sm:px-6 sm:py-16 lg:px-8 lg:py-24'>
+      <div className='mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-8 bg-background px-4 py-10 min-[1147px]:border-x sm:gap-12 sm:px-6 sm:py-16 lg:gap-16 lg:px-8 lg:py-24'>
         {/* FAQ Header */}
         <MotionPreset
           fade
           slide={{ direction: 'down', offset: 50 }}
           blur
           transition={{ duration: 0.5 }}
-          className='mb-12 space-y-4 text-center sm:mb-16 lg:mb-24'
+          className='space-y-3 text-center sm:space-y-4'
         >
           <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
             <Badge variant='outline' className='rounded-none'>
@@ -44,29 +44,29 @@ const FAQ = () => {
             </Badge>
           </MotionPreset>
 
-          <h2 className='text-2xl font-semibold md:text-3xl lg:text-4xl'>{t('title')}</h2>
+          <h2 className='text-balance text-2xl font-semibold sm:text-3xl lg:text-4xl'>{t('title')}</h2>
 
-          <p className='text-muted-foreground mx-auto max-w-2xl text-xl'>
+          <p className='mx-auto max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg md:text-xl'>
             {t('description')}
           </p>
         </MotionPreset>
 
-        <div className='grid grid-cols-1 gap-8 lg:grid-cols-2'>
-          <Accordion value={activeItem} onValueChange={handleValueChange} type='single' collapsible className='w-full'>
+        <div className='grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-2'>
+          <Accordion value={activeItem} onValueChange={handleValueChange} type='single' collapsible className='w-full min-w-0'>
             {faqItems.map((item, index) => (
               <AccordionItem key={index} value={`item-${index + 1}`}>
-                <AccordionTrigger className='py-5 text-base'>{item.question}</AccordionTrigger>
-                <AccordionContent className='text-muted-foreground pb-5 text-base'>{item.answer}</AccordionContent>
+                <AccordionTrigger className='py-4 text-left text-sm sm:py-5 sm:text-base'>{item.question}</AccordionTrigger>
+                <AccordionContent className='pb-4 text-sm text-muted-foreground sm:pb-5 sm:text-base'>{item.answer}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
 
           {/* Right content */}
-          <div className='group bg-muted relative mx-auto flex h-full max-h-116 w-full max-w-148 items-end justify-center overflow-hidden rounded-xl border lg:max-xl:max-h-95'>
+          <div className='group relative mx-auto flex aspect-[4/3] max-h-72 w-full max-w-148 items-end justify-center overflow-hidden rounded-xl border bg-muted sm:aspect-auto sm:h-full sm:max-h-116 lg:max-xl:max-h-95'>
             <Image
               src={AtmosPreview}
               alt={t('previewAlt')}
-              className='h-full w-full origin-bottom scale-90 rounded-t-md shadow-md transition-transform duration-500 group-hover:scale-100 object-cover object-top'
+              className='h-full w-full origin-bottom scale-90 rounded-t-md object-cover object-top shadow-md transition-transform duration-500 group-hover:scale-100'
             />
 
             {['top-4.5 left-4.5', 'top-4.5 right-4.5', 'bottom-4.5 left-4.5', 'bottom-4.5 right-4.5'].map(

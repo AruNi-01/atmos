@@ -224,7 +224,7 @@ export default function FeatureShowcase() {
       >
         <div className='m-6 w-full shrink-2 max-xl:hidden'></div>
 
-        <div className='mx-auto w-full max-w-6xl shrink-0 space-y-8 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
+        <div className='mx-auto w-full min-w-0 max-w-6xl shrink-0 space-y-6 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
           <div className='space-y-2.5'>
             <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
               <Badge variant='outline' className='rounded-none'>
@@ -232,7 +232,7 @@ export default function FeatureShowcase() {
               </Badge>
             </MotionPreset>
             <MotionPreset delay={0.3} transition={{ duration: 0.5 }}>
-              <h2 className='text-2xl font-semibold sm:text-3xl lg:text-4xl'>
+              <h2 className='text-balance text-2xl font-semibold sm:text-3xl lg:text-4xl'>
                 {t('title')}
               </h2>
             </MotionPreset>
@@ -313,7 +313,7 @@ export default function FeatureShowcase() {
                 </div>
               </div>
 
-              <div className="lg:hidden">
+              <div className="min-w-0 lg:hidden">
                 <FeaturePreview
                   videoUrl={activeVideoUrl}
                   progressEpoch={progressEpoch}
@@ -324,8 +324,9 @@ export default function FeatureShowcase() {
                   onMouseLeave={() => setIsHovering(false)}
                   onTimeUpdate={handleTimeUpdate}
                   onEnded={handleVideoEnded}
+                  alwaysShowChrome
                 />
-                <div className="-mx-2 mt-2 flex snap-x gap-2 overflow-x-auto px-2 pb-1">
+                <div className="-mx-4 mt-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {features.map((feature) => (
                     <FeatureActionButton
                       key={feature.key}
@@ -368,6 +369,7 @@ function FeaturePreview({
   onMouseLeave,
   onTimeUpdate,
   onEnded,
+  alwaysShowChrome = false,
 }: {
   videoUrl: string
   progressEpoch: number
@@ -378,6 +380,7 @@ function FeaturePreview({
   onMouseLeave: () => void
   onTimeUpdate: (currentTime: number, duration: number, epoch: number) => void
   onEnded: () => void
+  alwaysShowChrome?: boolean
 }) {
   const t = useTranslations('featureShowcase')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -591,12 +594,12 @@ function FeaturePreview({
   const layerClassName =
     'absolute inset-0 size-full object-cover object-center transition-opacity ease-out'
 
-  const showChrome = isHovering || isFullscreen
+  const showChrome = alwaysShowChrome || isHovering || isFullscreen
 
   return (
     <div
       ref={containerRef}
-      className="group relative aspect-[1872/1080] min-h-0 w-full overflow-hidden rounded-2xl border border-border/60 bg-zinc-950 shadow-2xl shadow-black/10"
+      className="group relative aspect-[1872/1080] min-h-0 w-full min-w-0 overflow-hidden rounded-xl border border-border/60 bg-zinc-950 shadow-2xl shadow-black/10 sm:rounded-2xl"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -761,8 +764,8 @@ function FeatureActionButton({
         'relative isolate flex cursor-pointer overflow-hidden text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
         toneClass,
         !isActive && 'hover:bg-muted/60 dark:hover:bg-white/[0.07]',
-        isMobile ? 'min-w-[10.5rem] snap-start' : 'w-full',
-        chipThickness,
+        isMobile ? 'min-w-[7.5rem] shrink-0 snap-start sm:min-w-[10.5rem]' : 'w-full',
+        isMobile ? '!h-11' : chipThickness,
         'items-center gap-2 !rounded-md px-3'
       )}
     >

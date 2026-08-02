@@ -6,7 +6,8 @@
   "header": {
     "docs": "Docs",
     "changelog": "Changelog",
-    "build": "Let's Build"
+    "build": "Let's Build",
+    "menu": "Menu"
   },
   "hero": {
     "line1Primary": "Atmosphere",
