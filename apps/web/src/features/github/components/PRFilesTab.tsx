@@ -48,6 +48,14 @@ interface ReviewComment {
   in_reply_to_id?: number;
 }
 
+/** Navigate the multi-file CodeView to a review location (path + optional line). */
+export interface PRFilesFocusTarget {
+  path: string;
+  line?: number | null;
+  /** Monotonic token so the same path/line can be re-focused. */
+  token: number;
+}
+
 interface PRFilesTabProps {
   files: PrFile[];
   loading: boolean;
@@ -61,6 +69,8 @@ interface PRFilesTabProps {
   url?: string | null;
   agentFixContext?: AgentFixContextRef | null;
   onCodeViewTopBoundaryWheel?: (deltaY: number) => void;
+  /** When set, scroll/select the matching file (and line) after the viewer is ready. */
+  focusTarget?: PRFilesFocusTarget | null;
 }
 
 function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComment[][]> {
@@ -224,6 +234,7 @@ export function PRFilesTab({
   agentFixContext = null,
   baseRefName,
   files,
+  focusTarget = null,
   headRefName,
   loading,
   onCodeViewTopBoundaryWheel,
@@ -536,6 +547,41 @@ export function PRFilesTab({
       setSelectedPath(activeId);
     });
   }, [codeViewMountKey, viewerMounted]);
+
+  // Jump to a reviewer's comment location when requested from the sidebar.
+  useEffect(() => {
+    if (!focusTarget?.path || !viewerMounted || loading) return;
+    const path = focusTarget.path;
+    if (!codeViewItems.some((item) => item.id === path)) return;
+
+    setSelectedPath(path);
+    scrollActiveIdRef.current = path;
+
+    // CodeView needs a moment after tab mount to compute item offsets.
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const line =
+      focusTarget.line != null && focusTarget.line > 0
+        ? focusTarget.line
+        : undefined;
+    const runScroll = () => {
+      if (cancelled) return;
+      scrollCodeViewToItem(codeViewRef.current, path, {
+        line,
+        behavior: 'smooth',
+      });
+    };
+    const frame = requestAnimationFrame(() => {
+      runScroll();
+      // Second pass after layout settles (first open of Files tab).
+      retryTimer = setTimeout(runScroll, 120);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      if (retryTimer != null) clearTimeout(retryTimer);
+    };
+  }, [codeViewItems, focusTarget?.token, focusTarget?.path, focusTarget?.line, loading, viewerMounted]);
 
   const totalStats = useMemo(
     () => ({

@@ -51,7 +51,7 @@ import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
 import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 import { CommitList, type CommitListItem } from './CommitList';
-import { PRFilesTab } from './PRFilesTab';
+import { PRFilesTab, type PRFilesFocusTarget } from './PRFilesTab';
 import { usePrContextHeader } from './use-pr-context-header';
 import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-actions';
 import {
@@ -115,6 +115,8 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
+  const [filesFocusTarget, setFilesFocusTarget] = React.useState<PRFilesFocusTarget | null>(null);
+  const reviewerJumpIndexRef = React.useRef<{ login: string; index: number } | null>(null);
   const [branchCopied, setBranchCopied] = React.useState(false);
   const [openReviewAgentFixSourceId, setOpenReviewAgentFixSourceId] = React.useState<string | null>(null);
   const {
@@ -397,6 +399,69 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
       setIsSidebarCollapsed(true);
     }
   }, [prNumber, resetPrContext]);
+
+  const reviewCommentsList = React.useMemo((): ReviewComment[] => {
+    const raw = sidebarData?.review_comments;
+    return Array.isArray(raw) ? (raw as ReviewComment[]) : [];
+  }, [sidebarData?.review_comments]);
+
+  const jumpableReviewerLogins = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const comment of reviewCommentsList) {
+      const login = comment.user?.login;
+      if (login && comment.path) set.add(login);
+    }
+    return set;
+  }, [reviewCommentsList]);
+
+  const handleReviewerClick = React.useCallback(
+    (login: string) => {
+      const locations = reviewCommentsList
+        .filter((comment) => comment.user?.login === login && Boolean(comment.path))
+        .map((comment) => ({
+          path: comment.path as string,
+          line: comment.line ?? comment.original_line ?? null,
+          id: comment.id ?? null,
+        }));
+
+      // Prefer line-anchored comments; fall back to file-level threads.
+      const ordered = [
+        ...locations.filter((loc) => loc.line != null && loc.line > 0),
+        ...locations.filter((loc) => loc.line == null || loc.line <= 0),
+      ];
+      // Dedupe identical path+line pairs while preserving order.
+      const seen = new Set<string>();
+      const unique = ordered.filter((loc) => {
+        const key = `${loc.path}:${loc.line ?? 'file'}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (unique.length === 0) {
+        // No file comments — still open Files changed for context.
+        handleMainTabChange('files');
+        setIsSidebarCollapsed(false);
+        return;
+      }
+
+      const prev = reviewerJumpIndexRef.current;
+      const nextIndex =
+        prev && prev.login === login ? (prev.index + 1) % unique.length : 0;
+      reviewerJumpIndexRef.current = { login, index: nextIndex };
+      const target = unique[nextIndex]!;
+
+      setFilesFocusTarget({
+        path: target.path,
+        line: target.line,
+        token: Date.now(),
+      });
+      handleMainTabChange('files');
+      // Keep the sidebar open so users can cycle other reviewers / comments.
+      setIsSidebarCollapsed(false);
+    },
+    [handleMainTabChange, reviewCommentsList],
+  );
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6 pb-6">
@@ -1053,6 +1118,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                       url={pr.url}
                       agentFixContext={agentFixContext}
                       onCodeViewTopBoundaryWheel={handleFilesCodeViewTopBoundaryWheel}
+                      focusTarget={filesFocusTarget}
                     />
                   </div>
                 )}
@@ -1070,6 +1136,8 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                 onPrMetadataChanged={() => {
                   void fetch?.();
                 }}
+                onReviewerClick={handleReviewerClick}
+                jumpableReviewerLogins={jumpableReviewerLogins}
               />
             </div>
           ) : (

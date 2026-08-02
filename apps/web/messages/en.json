@@ -6360,6 +6360,9 @@
         "labelsFailed": "Could not update labels. Check your GitHub permissions and try again.",
         "assigneesFailed": "Could not update assignees. Check your GitHub permissions and try again."
       },
+      "reviewers": {
+        "jumpToFiles": "Jump to their comments in Files changed"
+      },
       "development": {
         "description": "Successfully merging this pull request may close these issues.",
         "issueFallback": "Issue #{number}",

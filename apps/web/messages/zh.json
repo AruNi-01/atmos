@@ -6360,6 +6360,9 @@
         "labelsFailed": "无法更新标签。请检查 GitHub 权限后重试。",
         "assigneesFailed": "无法更新指派人。请检查 GitHub 权限后重试。"
       },
+      "reviewers": {
+        "jumpToFiles": "跳转到 Files changed 中的评论位置"
+      },
       "development": {
         "description": "成功合并这个 Pull Request 后，可能会关闭以下 issues。",
         "issueFallback": "Issue #{number}",
