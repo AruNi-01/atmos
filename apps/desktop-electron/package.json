@@ -1,7 +1,7 @@
 {
   "name": "desktop-electron",
   "productName": "Atmos",
-  "version": "2026.7.31-beta.1",
+  "version": "2026.8.2-beta.1",
   "private": true,
   "description": "Atmos desktop shell (production). Framework: Electron. Deprecated Tauri shell remains under apps/desktop.",
   "author": "Atmos",
