@@ -79,8 +79,6 @@ interface PRMetadataSidebarProps {
   onPrMetadataChanged?: () => void;
   /** Click a reviewer to jump to their review comments in Files changed. */
   onReviewerClick?: (login: string) => void;
-  /** Logins that have at least one file review comment (enables jump affordance). */
-  jumpableReviewerLogins?: ReadonlySet<string>;
 }
 
 export function PRMetadataSidebar({
@@ -93,7 +91,6 @@ export function PRMetadataSidebar({
   isSidebarCollapsed,
   onPrMetadataChanged,
   onReviewerClick,
-  jumpableReviewerLogins,
 }: PRMetadataSidebarProps) {
   const t = useTranslations('github.prDetailSidebar');
   return (
@@ -107,7 +104,6 @@ export function PRMetadataSidebar({
             <ReviewersList
               pr={pr}
               onReviewerClick={onReviewerClick}
-              jumpableReviewerLogins={jumpableReviewerLogins}
             />
           </SidebarSection>
 
@@ -165,11 +161,9 @@ export function PRMetadataSidebar({
 function ReviewersList({
   pr,
   onReviewerClick,
-  jumpableReviewerLogins,
 }: {
   pr: PRSidebarModel;
   onReviewerClick?: (login: string) => void;
-  jumpableReviewerLogins?: ReadonlySet<string>;
 }) {
   const t = useTranslations('github.prDetailSidebar');
   const reviewers: Reviewer[] = [];
@@ -216,29 +210,20 @@ function ReviewersList({
   }
 
   return reviewers.map((r) => {
-    const canJump = Boolean(onReviewerClick && jumpableReviewerLogins?.has(r.login));
-    const row = (
-      <div
-        className={cn(
-          "flex items-center gap-2 py-0.5 rounded-md px-1 -mx-1 min-w-0",
-          canJump &&
-            "cursor-pointer hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        )}
-      >
-        <Avatar className="size-5 border border-border/50 shrink-0">
-          <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
-          <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-        </Avatar>
-        <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
-        {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
-        {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
-        {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
-        {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
-      </div>
-    );
-
-    if (!canJump) {
-      return <div key={r.login}>{row}</div>;
+    if (!onReviewerClick) {
+      return (
+        <div key={r.login} className="flex items-center gap-2 py-0.5 min-w-0">
+          <Avatar className="size-5 border border-border/50 shrink-0">
+            <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
+            <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
+          {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
+          {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
+          {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
+          {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
+        </div>
+      );
     }
 
     return (
@@ -246,10 +231,22 @@ function ReviewersList({
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="w-full text-left"
-            onClick={() => onReviewerClick?.(r.login)}
+            className={cn(
+              "flex w-full items-center gap-2 py-0.5 rounded-md px-1 -mx-1 min-w-0 text-left",
+              "cursor-pointer hover:bg-muted/60 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            )}
+            onClick={() => onReviewerClick(r.login)}
           >
-            {row}
+            <Avatar className="size-5 border border-border/50 shrink-0">
+              <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
+              <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
+            {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
+            {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
+            {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
+            {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
           </button>
         </TooltipTrigger>
         <TooltipContent side="left" className="text-xs">

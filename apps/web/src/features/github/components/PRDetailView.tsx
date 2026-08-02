@@ -405,19 +405,14 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     return Array.isArray(raw) ? (raw as ReviewComment[]) : [];
   }, [sidebarData?.review_comments]);
 
-  const jumpableReviewerLogins = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const comment of reviewCommentsList) {
-      const login = comment.user?.login;
-      if (login && comment.path) set.add(login);
-    }
-    return set;
-  }, [reviewCommentsList]);
-
   const handleReviewerClick = React.useCallback(
     (login: string) => {
+      const loginNorm = login.trim().toLowerCase();
       const locations = reviewCommentsList
-        .filter((comment) => comment.user?.login === login && Boolean(comment.path))
+        .filter((comment) => {
+          const author = comment.user?.login?.trim().toLowerCase();
+          return Boolean(author && author === loginNorm && comment.path);
+        })
         .map((comment) => ({
           path: comment.path as string,
           line: comment.line ?? comment.original_line ?? null,
@@ -438,24 +433,22 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
         return true;
       });
 
-      if (unique.length === 0) {
-        // No file comments — still open Files changed for context.
-        handleMainTabChange('files');
-        setIsSidebarCollapsed(false);
-        return;
+      if (unique.length > 0) {
+        const prev = reviewerJumpIndexRef.current;
+        const nextIndex =
+          prev && prev.login === loginNorm ? (prev.index + 1) % unique.length : 0;
+        reviewerJumpIndexRef.current = { login: loginNorm, index: nextIndex };
+        const target = unique[nextIndex]!;
+        setFilesFocusTarget({
+          path: target.path,
+          line: target.line,
+          token: Date.now(),
+        });
+      } else {
+        // No file comments for this reviewer — open Files changed without a focus target.
+        setFilesFocusTarget(null);
       }
 
-      const prev = reviewerJumpIndexRef.current;
-      const nextIndex =
-        prev && prev.login === login ? (prev.index + 1) % unique.length : 0;
-      reviewerJumpIndexRef.current = { login, index: nextIndex };
-      const target = unique[nextIndex]!;
-
-      setFilesFocusTarget({
-        path: target.path,
-        line: target.line,
-        token: Date.now(),
-      });
       handleMainTabChange('files');
       // Keep the sidebar open so users can cycle other reviewers / comments.
       setIsSidebarCollapsed(false);
@@ -1137,7 +1130,6 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                   void fetch?.();
                 }}
                 onReviewerClick={handleReviewerClick}
-                jumpableReviewerLogins={jumpableReviewerLogins}
               />
             </div>
           ) : (
