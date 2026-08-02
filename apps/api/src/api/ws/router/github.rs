@@ -9,10 +9,10 @@ use super::{
     GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
     GithubPrCloseRequest, GithubPrCommentRequest, GithubPrConflictFilesRequest,
     GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest,
-    GithubPrGetRequest, GithubPrListRepoRequest,
-    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrPayload,
-    GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest, WsEvent, WsMessage,
-    WsMessageService,
+    GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
+    GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
+    GithubPrTimelinePageRequest, GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest,
+    GithubRepoAssigneesRequest, GithubRepoLabelsRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -590,6 +590,191 @@ impl WsMessageService {
             output = json!({ "success": true });
         }
         Ok(output)
+    }
+
+    pub(super) async fn handle_github_repo_labels(
+        &self,
+        req: GithubRepoLabelsRequest,
+    ) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let limit = req.limit.clamp(1, 500).to_string();
+        let args = vec![
+            "label",
+            "list",
+            "--repo",
+            &repo_arg,
+            "--limit",
+            &limit,
+            "--json",
+            "name,color,description",
+        ];
+        let output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to list repo labels: {}", e)))?;
+
+        let labels = output
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|item| {
+                let name = item.get("name")?.as_str()?.to_string();
+                if name.is_empty() {
+                    return None;
+                }
+                let color = item
+                    .get("color")
+                    .and_then(|v| v.as_str())
+                    .map(|c| c.trim_start_matches('#').to_string());
+                let description = item
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .filter(|s| !s.is_empty());
+                Some(json!({
+                    "name": name,
+                    "color": color,
+                    "description": description,
+                }))
+            })
+            .collect::<Vec<_>>();
+
+        Ok(json!(labels))
+    }
+
+    pub(super) async fn handle_github_repo_assignees(
+        &self,
+        req: GithubRepoAssigneesRequest,
+    ) -> Result<Value> {
+        let endpoint = format!("repos/{}/{}/assignees?per_page=100", req.owner, req.repo);
+        let args = vec!["api", "--paginate", &endpoint];
+        let output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to list repo assignees: {}", e))
+            })?;
+
+        let assignees = output
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|item| {
+                let login = item.get("login")?.as_str()?.to_string();
+                if login.is_empty() {
+                    return None;
+                }
+                let avatar_url = item
+                    .get("avatar_url")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| item.get("avatarUrl").and_then(|v| v.as_str()))
+                    .map(|s| s.to_string());
+                Some(json!({
+                    "login": login,
+                    "avatar_url": avatar_url,
+                }))
+            })
+            .collect::<Vec<_>>();
+
+        Ok(json!(assignees))
+    }
+
+    pub(super) async fn handle_github_pr_update_labels(
+        &self,
+        req: GithubPrUpdateLabelsRequest,
+    ) -> Result<Value> {
+        let add: Vec<String> = req
+            .add
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let remove: Vec<String> = req
+            .remove
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if add.is_empty() && remove.is_empty() {
+            return Ok(json!({ "success": true }));
+        }
+
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let mut owned = vec![
+            "pr".to_string(),
+            "edit".to_string(),
+            pr_num_str,
+            "--repo".to_string(),
+            repo_arg,
+        ];
+        for label in &add {
+            owned.push("--add-label".to_string());
+            owned.push(label.clone());
+        }
+        for label in &remove {
+            owned.push("--remove-label".to_string());
+            owned.push(label.clone());
+        }
+        let args: Vec<&str> = owned.iter().map(String::as_str).collect();
+        self.github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to update PR labels: {}", e)))?;
+        Ok(json!({ "success": true, "added": add, "removed": remove }))
+    }
+
+    pub(super) async fn handle_github_pr_update_assignees(
+        &self,
+        req: GithubPrUpdateAssigneesRequest,
+    ) -> Result<Value> {
+        let add: Vec<String> = req
+            .add
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let remove: Vec<String> = req
+            .remove
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if add.is_empty() && remove.is_empty() {
+            return Ok(json!({ "success": true }));
+        }
+
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let mut owned = vec![
+            "pr".to_string(),
+            "edit".to_string(),
+            pr_num_str,
+            "--repo".to_string(),
+            repo_arg,
+        ];
+        for login in &add {
+            owned.push("--add-assignee".to_string());
+            owned.push(login.clone());
+        }
+        for login in &remove {
+            owned.push("--remove-assignee".to_string());
+            owned.push(login.clone());
+        }
+        let args: Vec<&str> = owned.iter().map(String::as_str).collect();
+        self.github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to update PR assignees: {}", e))
+            })?;
+        Ok(json!({ "success": true, "added": add, "removed": remove }))
     }
 
     pub(super) async fn handle_github_ci_status(

@@ -143,6 +143,47 @@ pub struct GithubPrDraftRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubRepoLabelsRequest {
+    pub owner: String,
+    pub repo: String,
+    /// Max labels to return (clamped server-side).
+    #[serde(default = "default_repo_labels_limit")]
+    pub limit: usize,
+}
+
+fn default_repo_labels_limit() -> usize {
+    200
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubRepoAssigneesRequest {
+    pub owner: String,
+    pub repo: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrUpdateLabelsRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    #[serde(default)]
+    pub add: Vec<String>,
+    #[serde(default)]
+    pub remove: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrUpdateAssigneesRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    #[serde(default)]
+    pub add: Vec<String>,
+    #[serde(default)]
+    pub remove: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrOpenBrowserRequest {
     pub owner: String,
     pub repo: String,

@@ -10,6 +10,8 @@ import {
   branchPrListQueryOptions,
   githubPrDetailQueryOptions,
   githubPrDetailSidebarQueryOptions,
+  githubRepoLabelsQueryOptions,
+  githubRepoAssigneesQueryOptions,
   githubPrFilesQueryOptions,
   githubPrTimelineInfiniteQueryOptions,
   githubActionsListQueryOptions,
@@ -19,6 +21,8 @@ import {
   type RepoPrListParams,
   type BranchPrListParams,
   type GithubPrIdentityParams,
+  type GithubRepoLabelsParams,
+  type GithubRepoAssigneesParams,
   type GithubActionsListParams,
   type GithubActionsDetailParams,
 } from "@/features/github/lib/github-query-options";
@@ -82,6 +86,34 @@ export function useGithubPrDetailSidebarQuery(
   return useQuery(
     githubPrDetailSidebarQueryOptions(scope, connectionState, restParams, {
       enabled: enabled && Boolean(params.owner && params.repo && params.prNumber),
+    }),
+  );
+}
+
+export function useGithubRepoLabelsQuery(
+  params: GithubRepoLabelsParams & { enabled?: boolean },
+) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+
+  return useQuery(
+    githubRepoLabelsQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo),
+    }),
+  );
+}
+
+export function useGithubRepoAssigneesQuery(
+  params: GithubRepoAssigneesParams & { enabled?: boolean },
+) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+
+  return useQuery(
+    githubRepoAssigneesQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo),
     }),
   );
 }

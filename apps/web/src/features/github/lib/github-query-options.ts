@@ -175,6 +175,73 @@ export function githubPrDetailSidebarQueryOptions(
   });
 }
 
+export interface GithubRepoLabel {
+  name: string;
+  color?: string | null;
+  description?: string | null;
+}
+
+export interface GithubRepoAssignee {
+  login: string;
+  avatar_url?: string | null;
+}
+
+export interface GithubRepoLabelsParams {
+  owner: string;
+  repo: string;
+  limit?: number;
+}
+
+export interface GithubRepoAssigneesParams {
+  owner: string;
+  repo: string;
+}
+
+export function githubRepoLabelsQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubRepoLabelsParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, limit = 200 } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubRepoLabels(scope, { owner, repo, limit }),
+    queryFn: (): Promise<GithubRepoLabel[]> =>
+      wsRequest<GithubRepoLabel[]>("github_repo_labels", {
+        owner,
+        repo,
+        limit,
+      }),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo),
+  });
+}
+
+export function githubRepoAssigneesQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubRepoAssigneesParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubRepoAssignees(scope, { owner, repo }),
+    queryFn: (): Promise<GithubRepoAssignee[]> =>
+      wsRequest<GithubRepoAssignee[]>("github_repo_assignees", {
+        owner,
+        repo,
+      }),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo),
+  });
+}
+
 export function githubPrFilesQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,

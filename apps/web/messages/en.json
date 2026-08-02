@@ -6346,6 +6346,20 @@
         "labels": "No labels",
         "participants": "No participants"
       },
+      "edit": {
+        "labelsAria": "Edit labels",
+        "assigneesAria": "Edit assignees",
+        "filterLabels": "Filter labels",
+        "filterAssignees": "Filter people",
+        "loading": "Loading…",
+        "loadFailed": "Failed to load list",
+        "retry": "Retry",
+        "noLabels": "No labels found",
+        "noAssignees": "No people found",
+        "errorTitle": "Update failed",
+        "labelsFailed": "Could not update labels. Check your GitHub permissions and try again.",
+        "assigneesFailed": "Could not update assignees. Check your GitHub permissions and try again."
+      },
       "development": {
         "description": "Successfully merging this pull request may close these issues.",
         "issueFallback": "Issue #{number}",

@@ -563,6 +563,14 @@ pub enum WsAction {
     GithubPrOpenBrowser,
     /// 将 PR 转换为 Draft
     GithubPrDraft,
+    /// 列出仓库 labels（供 PR 侧栏选择）
+    GithubRepoLabels,
+    /// 列出仓库可指派用户（供 PR 侧栏选择）
+    GithubRepoAssignees,
+    /// 更新 PR labels（add/remove）
+    GithubPrUpdateLabels,
+    /// 更新 PR assignees（add/remove）
+    GithubPrUpdateAssignees,
     /// 分页获取 PR timeline
     GithubPrTimelinePage,
     /// 列出仓库 issue

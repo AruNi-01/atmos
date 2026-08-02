@@ -1060,10 +1060,16 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
               </div>
 
               <PRMetadataSidebar
+                owner={owner}
+                repo={repo}
+                prNumber={prNumber}
                 pr={pr}
                 sidebarData={sidebarData}
                 sidebarLoading={sidebarLoading}
                 isSidebarCollapsed={isSidebarCollapsed}
+                onPrMetadataChanged={() => {
+                  void fetch?.();
+                }}
               />
             </div>
           ) : (

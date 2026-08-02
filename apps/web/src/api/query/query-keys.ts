@@ -282,6 +282,33 @@ export const queryKeys = {
         params.prNumber,
       ] as const,
 
+    /** GitHub: repository labels for PR picker */
+    githubRepoLabels: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; limit?: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "repoLabels",
+        params.owner,
+        params.repo,
+        params.limit ?? 200,
+      ] as const,
+
+    /** GitHub: repository assignable users for PR picker */
+    githubRepoAssignees: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "repoAssignees",
+        params.owner,
+        params.repo,
+      ] as const,
+
     /** GitHub: PR changed-files list */
     githubPrFiles: (
       scope: ComputerQueryScope,

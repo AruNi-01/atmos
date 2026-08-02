@@ -775,6 +775,22 @@ impl WsMessageService {
                 self.handle_github_pr_draft(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubRepoLabels => {
+                self.handle_github_repo_labels(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubRepoAssignees => {
+                self.handle_github_repo_assignees(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrUpdateLabels => {
+                self.handle_github_pr_update_labels(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrUpdateAssignees => {
+                self.handle_github_pr_update_assignees(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubIssueList => {
                 self.handle_github_issue_list(parse_request(request.data)?)
                     .await

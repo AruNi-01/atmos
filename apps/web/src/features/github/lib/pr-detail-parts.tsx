@@ -612,12 +612,23 @@ export function ChecksSection({
   );
 }
 
-export function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+export function SidebarSection({
+  title,
+  icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] tracking-wide">
         {icon}
-        <span>{title}</span>
+        <span className="flex-1 min-w-0 truncate">{title}</span>
+        {action ? <div className="shrink-0 ml-auto">{action}</div> : null}
       </div>
       <div className="flex flex-col gap-1">{children}</div>
     </div>

@@ -6346,6 +6346,20 @@
         "labels": "没有标签",
         "participants": "没有参与者"
       },
+      "edit": {
+        "labelsAria": "编辑标签",
+        "assigneesAria": "编辑指派人",
+        "filterLabels": "筛选标签",
+        "filterAssignees": "筛选人员",
+        "loading": "加载中…",
+        "loadFailed": "列表加载失败",
+        "retry": "重试",
+        "noLabels": "未找到标签",
+        "noAssignees": "未找到人员",
+        "errorTitle": "更新失败",
+        "labelsFailed": "无法更新标签。请检查 GitHub 权限后重试。",
+        "assigneesFailed": "无法更新指派人。请检查 GitHub 权限后重试。"
+      },
       "development": {
         "description": "成功合并这个 Pull Request 后，可能会关闭以下 issues。",
         "issueFallback": "Issue #{number}",
