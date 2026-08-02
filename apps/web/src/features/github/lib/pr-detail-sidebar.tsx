@@ -43,6 +43,7 @@ import { wsRequest } from '@/api/ws/request';
 import {
   useGithubRepoAssigneesQuery,
   useGithubRepoLabelsQuery,
+  useGithubIssueListQuery,
 } from '@/features/github/hooks/use-github-pr-query';
 import type {
   GithubRepoAssignee,
@@ -55,6 +56,7 @@ import {
   type Label,
   type Reviewer,
 } from './pr-detail-parts';
+import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 
 interface PRSidebarData {
   participants?: Array<{ login: string; avatar_url?: string }>;
@@ -114,7 +116,8 @@ export function PRMetadataSidebar({
               <AssigneesEditor
                 owner={owner}
                 repo={repo}
-                prNumber={prNumber}
+                number={prNumber}
+                resource="pr"
                 assignees={pr.assignees}
                 onChanged={onPrMetadataChanged}
               />
@@ -130,7 +133,8 @@ export function PRMetadataSidebar({
               <LabelsEditor
                 owner={owner}
                 repo={repo}
-                prNumber={prNumber}
+                number={prNumber}
+                resource="pr"
                 labels={pr.labels}
                 onChanged={onPrMetadataChanged}
               />
@@ -149,8 +153,13 @@ export function PRMetadataSidebar({
               <Skeleton className="h-8 w-full rounded mt-1" />
             </SidebarSection>
           )}
-          {!sidebarLoading && sidebarData?.closingIssuesReferences && Array.isArray(sidebarData.closingIssuesReferences) && sidebarData.closingIssuesReferences.length > 0 && (
-            <DevelopmentIssues issues={sidebarData.closingIssuesReferences} />
+          {!sidebarLoading && (
+            <DevelopmentIssues
+              issues={sidebarData?.closingIssuesReferences ?? []}
+              owner={owner}
+              repo={repo}
+              prNumber={prNumber}
+            />
           )}
         </div>
       </div>
@@ -257,7 +266,7 @@ function ReviewersList({
   });
 }
 
-function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
+export function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
   const t = useTranslations('github.prDetailSidebar');
   if (!assignees || !Array.isArray(assignees) || assignees.length === 0) {
     return <span className="text-muted-foreground/60 italic">{t('empty.assignees')}</span>;
@@ -274,7 +283,7 @@ function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
   ));
 }
 
-function LabelsList({ labels }: { labels?: Label[] }) {
+export function LabelsList({ labels }: { labels?: Label[] }) {
   const t = useTranslations('github.prDetailSidebar');
   if (!labels || !Array.isArray(labels) || labels.length === 0) {
     return <span className="text-muted-foreground/60 italic">{t('empty.labels')}</span>;
@@ -337,24 +346,40 @@ function ParticipantsList({
   );
 }
 
-function DevelopmentIssues({ issues }: { issues: ClosingIssue[] }) {
+function DevelopmentIssues({
+  issues,
+  owner,
+  repo,
+  prNumber,
+}: {
+  issues: ClosingIssue[];
+  owner: string;
+  repo: string;
+  prNumber: number;
+}) {
   const t = useTranslations('github.prDetailSidebar');
+  const { openIssueTab } = useOpenGithubCenterTab();
   return (
-    <SidebarSection title={t('sections.development')} icon={<Code className="size-3.5" />}>
-      <div className="text-[11px] text-muted-foreground mb-1">
-        {t('development.description')}
-      </div>
-      <div className="flex flex-col gap-1.5">
+    <SidebarSection
+      title={t('sections.development')}
+      icon={<Code className="size-3.5" />}
+      action={<LinkedIssuesEditor owner={owner} repo={repo} prNumber={prNumber} issues={issues} />}
+    >
+      {issues.length ? <div className="flex flex-col gap-1.5">
         {issues.map((issue) => {
           const isClosed = issue.state === 'closed' || issue.state === 'CLOSED';
           return (
             <Tooltip key={issue.number}>
               <TooltipTrigger asChild>
-                <a
-                  href={issue.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-start gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => openIssueTab({
+                    owner,
+                    repo,
+                    issueNumber: issue.number,
+                    title: issue.title,
+                  })}
+                  className="flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
                 >
                   <CircleDot className={cn(
                     "size-3.5 shrink-0 mt-0.5",
@@ -368,7 +393,7 @@ function DevelopmentIssues({ issues }: { issues: ClosingIssue[] }) {
                       #{issue.number} · {isClosed ? t('development.closed') : t('development.open')}
                     </div>
                   </div>
-                </a>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="left" className="text-xs max-w-[280px]">
                 <div className="font-semibold">{issue.title || t('development.issueFallback', { number: issue.number })}</div>
@@ -377,8 +402,122 @@ function DevelopmentIssues({ issues }: { issues: ClosingIssue[] }) {
             </Tooltip>
           );
         })}
-      </div>
+      </div> : <span className="text-muted-foreground/60 italic">{t('empty.development')}</span>}
     </SidebarSection>
+  );
+}
+
+function LinkedIssuesEditor({
+  owner,
+  repo,
+  prNumber,
+  issues,
+}: {
+  owner: string;
+  repo: string;
+  prNumber: number;
+  issues: ClosingIssue[];
+}) {
+  const t = useTranslations('github.prDetailSidebar');
+  const scope = useComputerQueryScope();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = React.useState(false);
+  const [pending, setPending] = React.useState<number | null>(null);
+  const openIssues = useGithubIssueListQuery({ owner, repo, state: 'open', limit: 100, enabled: open });
+  const closedIssues = useGithubIssueListQuery({ owner, repo, state: 'closed', limit: 100, enabled: open });
+  const selected = React.useMemo(
+    () => new Set(issues.map((issue) => issue.number)),
+    [issues],
+  );
+  const candidates = React.useMemo(
+    () => [...(openIssues.data ?? []), ...(closedIssues.data ?? [])],
+    [closedIssues.data, openIssues.data],
+  );
+
+  const toggle = async (issueNumber: number) => {
+    if (pending) return;
+    setPending(issueNumber);
+    try {
+      await wsRequest('github_pr_update_linked_issues', {
+        owner,
+        repo,
+        pr_number: prNumber,
+        add: selected.has(issueNumber) ? [] : [issueNumber],
+        remove: selected.has(issueNumber) ? [issueNumber] : [],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.computer.githubPrDetailSidebar(scope, { owner, repo, prNumber }),
+      });
+    } catch (error) {
+      console.error(error);
+      toastManager.add({
+        title: t('edit.errorTitle'),
+        description: t('edit.linkedIssuesFailed'),
+        type: 'error',
+      });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const loading = openIssues.isLoading || closedIssues.isLoading;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <MetadataEditTrigger label={t('edit.linkedIssuesAria')} busy={pending != null} />
+      </PopoverTrigger>
+      <PopoverContent align="end" side="left" className="w-[320px] p-0">
+        <Command>
+          <CommandInput placeholder={t('edit.filterIssues')} />
+          <CommandList className="max-h-[280px]">
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {t('edit.loading')}
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>{t('edit.noIssues')}</CommandEmpty>
+                <CommandGroup>
+                  {candidates.map((issue) => {
+                    const isSelected = selected.has(issue.number);
+                    return (
+                      <CommandItem
+                        key={issue.number}
+                        value={`${issue.number} ${issue.title}`}
+                        disabled={pending != null}
+                        onSelect={() => void toggle(issue.number)}
+                        className="h-auto items-start gap-2 py-2"
+                      >
+                        <CircleDot className={cn(
+                          "size-3.5 shrink-0",
+                          issue.state.toLowerCase() === 'closed' ? 'text-purple-500' : 'text-emerald-500',
+                        )} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-medium">
+                            {issue.title}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                            {owner}/{repo}#{issue.number}
+                          </span>
+                        </span>
+                        {pending === issue.number ? (
+                          <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+                        ) : isSelected ? (
+                          <Check className="size-3.5 shrink-0 text-foreground" />
+                        ) : (
+                          <Plus className="size-3.5 shrink-0 text-muted-foreground/40" />
+                        )}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -411,16 +550,18 @@ const MetadataEditTrigger = React.forwardRef<
   );
 });
 
-function LabelsEditor({
+export function LabelsEditor({
   owner,
   repo,
-  prNumber,
+  number,
+  resource,
   labels,
   onChanged,
 }: {
   owner: string;
   repo: string;
-  prNumber: number;
+  number: number;
+  resource: "pr" | "issue";
   labels?: Label[];
   onChanged?: () => void;
 }) {
@@ -445,7 +586,9 @@ function LabelsEditor({
     if (!label.name || pending) return;
     setPending(label.name);
 
-    const detailKey = queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber });
+    const detailKey = resource === "pr"
+      ? queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber: number })
+      : queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber: number });
     const previous = queryClient.getQueryData(detailKey);
 
     // Optimistic update on PR detail cache
@@ -466,17 +609,19 @@ function LabelsEditor({
     });
 
     try {
-      await wsRequest('github_pr_update_labels', {
+      await wsRequest(resource === "pr" ? 'github_pr_update_labels' : 'github_issue_update_labels', {
         owner,
         repo,
-        pr_number: prNumber,
+        [resource === "pr" ? "pr_number" : "issue_number"]: number,
         add: currentlySelected ? [] : [label.name],
         remove: currentlySelected ? [label.name] : [],
       });
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber }),
+        queryKey: resource === "pr"
+          ? queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber: number })
+          : queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber: number }),
       });
     } catch (error) {
       if (previous !== undefined) {
@@ -566,16 +711,18 @@ function LabelsEditor({
   );
 }
 
-function AssigneesEditor({
+export function AssigneesEditor({
   owner,
   repo,
-  prNumber,
+  number,
+  resource,
   assignees,
   onChanged,
 }: {
   owner: string;
   repo: string;
-  prNumber: number;
+  number: number;
+  resource: "pr" | "issue";
   assignees?: Assignee[];
   onChanged?: () => void;
 }) {
@@ -600,7 +747,9 @@ function AssigneesEditor({
     if (!user.login || pending) return;
     setPending(user.login);
 
-    const detailKey = queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber });
+    const detailKey = resource === "pr"
+      ? queryKeys.computer.githubPrDetail(scope, { owner, repo, prNumber: number })
+      : queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber: number });
     const previous = queryClient.getQueryData(detailKey);
 
     queryClient.setQueryData(detailKey, (old: Record<string, unknown> | undefined) => {
@@ -620,17 +769,19 @@ function AssigneesEditor({
     });
 
     try {
-      await wsRequest('github_pr_update_assignees', {
+      await wsRequest(resource === "pr" ? 'github_pr_update_assignees' : 'github_issue_update_assignees', {
         owner,
         repo,
-        pr_number: prNumber,
+        [resource === "pr" ? "pr_number" : "issue_number"]: number,
         add: currentlySelected ? [] : [user.login],
         remove: currentlySelected ? [user.login] : [],
       });
       onChanged?.();
       void queryClient.invalidateQueries({ queryKey: detailKey });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber }),
+        queryKey: resource === "pr"
+          ? queryKeys.computer.githubPrTimeline(scope, { owner, repo, prNumber: number })
+          : queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber: number }),
       });
     } catch (error) {
       if (previous !== undefined) {

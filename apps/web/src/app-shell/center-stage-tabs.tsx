@@ -56,6 +56,7 @@ export type TabGroupItem = {
     | "review-diff"
     | "conflict"
     | "github-pr"
+    | "github-issue"
     | "github-action"
     | "github-commit"
     | "browser";

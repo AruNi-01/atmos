@@ -3,6 +3,12 @@ import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useComputerQueryScope } from '@/api/query/query-scope';
 import {
   useBranchPrListQuery,
+  useBranchPrPageQuery,
+  useGithubIssueListQuery,
+  useGithubIssuePageQuery,
+  useGithubIssueDetailQuery,
+  useGithubIssueTimelineInfiniteQuery,
+  useGithubIssueLinkedPrsQuery,
   useGithubPrDetailQuery,
   useGithubPrDetailSidebarQuery,
   useGithubPrFilesQuery,
@@ -64,6 +70,75 @@ export function useGithubPRList({
     refreshing: isFetching && !isLoading,
     refresh,
   };
+}
+
+export function useGithubIssueList({
+  owner,
+  repo,
+  state,
+  enabled = true,
+}: Pick<GithubContext, 'owner' | 'repo'> & { state: 'open' | 'closed'; enabled?: boolean }) {
+  const query = useGithubIssueListQuery({
+    owner: owner ?? '', repo: repo ?? '', state, limit: 100,
+    enabled: enabled && Boolean(owner && repo),
+  });
+  const refresh = useCallback(async () => {
+    await query.refetch(FORCE_REFETCH_OPTIONS);
+  }, [query.refetch]);
+  return { data: query.data ?? [], loading: query.isLoading, refreshing: query.isFetching && !query.isLoading, refresh };
+}
+
+export function useGithubIssuePage({
+  owner, repo, state, page, enabled = true,
+}: Pick<GithubContext, 'owner' | 'repo'> & { state: 'open' | 'closed'; page: number; enabled?: boolean }) {
+  const query = useGithubIssuePageQuery({
+    owner: owner ?? '', repo: repo ?? '', state, page, perPage: 20,
+    enabled: enabled && Boolean(owner && repo),
+  });
+  const refresh = useCallback(async () => { await query.refetch(FORCE_REFETCH_OPTIONS); }, [query.refetch]);
+  return { data: query.data ?? { items: [], has_more: false }, loading: query.isLoading, refreshing: query.isFetching && !query.isLoading, refresh };
+}
+
+export function useGithubPRPage({
+  owner, repo, branch, state, page, enabled = true,
+}: GithubContext & { state: string; page: number; enabled?: boolean }) {
+  const query = useBranchPrPageQuery({
+    owner: owner ?? '', repo: repo ?? '', branch: branch ?? '', state, page, perPage: 20,
+    enabled: enabled && Boolean(owner && repo && branch),
+  });
+  const refresh = useCallback(async () => { await query.refetch(FORCE_REFETCH_OPTIONS); }, [query.refetch]);
+  return { data: query.data ?? { items: [], has_more: false }, loading: query.isLoading, refreshing: query.isFetching && !query.isLoading, refresh };
+}
+
+export function useGithubIssueDetail(issueNumber: number, owner?: string, repo?: string, enabled = true) {
+  const query = useGithubIssueDetailQuery({
+    owner: owner ?? '', repo: repo ?? '', issueNumber,
+    enabled: enabled && Boolean(owner && repo && issueNumber),
+  });
+  const fetch = useCallback(async () => {
+    await query.refetch();
+  }, [query.refetch]);
+  return { data: query.data ?? null, loading: query.isLoading, fetch };
+}
+
+export function useGithubIssueTimeline(issueNumber: number, owner?: string, repo?: string, enabled = true) {
+  const query = useGithubIssueTimelineInfiniteQuery({
+    owner: owner ?? '', repo: repo ?? '', issueNumber,
+    enabled: enabled && Boolean(owner && repo && issueNumber),
+  });
+  const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
+  const loadMore = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+  }, [query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
+  return { items, isLoading: query.isLoading || query.isFetchingNextPage, hasMore: Boolean(query.hasNextPage), loadMore };
+}
+
+export function useGithubIssueLinkedPrs(issueNumber: number, owner?: string, repo?: string, enabled = true) {
+  const query = useGithubIssueLinkedPrsQuery({
+    owner: owner ?? "", repo: repo ?? "", issueNumber,
+    enabled: enabled && Boolean(owner && repo && issueNumber),
+  });
+  return { data: query.data ?? [], loading: query.isLoading, fetch: query.refetch };
 }
 
 // CI 状态（in_progress 时自动轮询）

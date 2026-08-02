@@ -1202,7 +1202,9 @@
           "review": "评审",
           "browser": "浏览器",
           "run": "运行",
+          "github": "GitHub",
           "pullRequests": "拉取请求",
+          "issues": "议题",
           "actions": "操作"
         },
         "noContext": "没有仓库上下文",
@@ -1248,7 +1250,13 @@
           "unknownAuthor": "未知",
           "stateOpen": "开启",
           "stateClosed": "关闭",
-          "stateMerged": "已合并"
+          "stateMerged": "已合并",
+          "page": "第 {page} / {total} 页",
+          "previousPage": "上一页",
+          "nextPage": "下一页"
+        },
+        "issues": {
+          "refresh": "刷新议题"
         },
         "notAGitHubRepository": "不是 GitHub 仓库"
       },
@@ -5173,6 +5181,8 @@
       "runDescription": "启动并监控项目运行脚本。",
       "prTitle": "拉取请求",
       "prDescription": "浏览打开和已关闭的拉取请求。隐藏后将停止 PR 查询。",
+      "issuesTitle": "议题",
+      "issuesDescription": "浏览打开和已关闭的 GitHub 议题。隐藏后将停止议题查询。",
       "actionsTitle": "操作",
       "actionsDescription": "浏览 GitHub Actions 工作流运行记录。隐藏后将停止工作流查询。"
     },
@@ -5874,6 +5884,7 @@
   "github": {
     "centerTabs": {
       "pullRequest": "PR #{number}",
+      "issue": "议题 #{number}",
       "actionRun": "Action #{number}"
     },
     "actionsDetail": {
@@ -6188,6 +6199,82 @@
       "nextPage": "下一页",
       "page": "页码"
     },
+    "issuePanel": {
+      "labels": "标签",
+      "assignees": "指派人",
+      "filterLabels": "筛选标签",
+      "filterAssignees": "筛选指派人",
+      "noLabels": "未找到标签",
+      "noAssignees": "未找到指派人",
+      "clearLabels": "清除标签筛选",
+      "clearAssignees": "清除指派人筛选",
+      "empty": "没有符合这些筛选条件的议题。",
+      "statusOpen": "打开",
+      "statusClosed": "关闭",
+      "page": "第 {page} / {total} 页",
+      "previousPage": "上一页",
+      "nextPage": "下一页"
+    },
+    "issueDetail": {
+      "header": "议题 #{issueNumber}",
+      "showSidebar": "显示侧边栏",
+      "hideSidebar": "隐藏侧边栏",
+      "open": "打开",
+      "closed": "关闭",
+      "updated": "{time} 更新",
+      "tabs": {
+        "description": "描述",
+        "discussion": "讨论",
+        "discussionWithCount": "讨论（{count}）"
+      },
+      "emptyDescription": "暂无描述。",
+      "emptyDiscussion": "暂无讨论。",
+      "loadMore": "加载更多时间线事件",
+      "toolbar": {
+        "commentPlaceholder": "留下评论",
+        "comment": "评论",
+        "close": "关闭议题",
+        "reopen": "重新打开议题",
+        "openOnGithub": "在 GitHub 中打开",
+        "showActions": "显示议题操作"
+      },
+      "composer": {
+        "title": "留下评论",
+        "write": "编写",
+        "preview": "预览",
+        "nothingToPreview": "暂无可预览内容",
+        "markdownSupported": "支持 Markdown"
+      },
+      "unknownUser": "未知用户",
+      "commented": "评论了",
+      "activity": "动态",
+      "activityEvents": {
+        "closed": "关闭了此项",
+        "reopened": "重新打开了此项",
+        "assigned": "指派给了 {login}",
+        "unassigned": "取消指派了 {login}",
+        "labeled": "添加了 {label} 标签",
+        "unlabeled": "移除了 {label} 标签",
+        "labelAdded": "添加了",
+        "labelRemoved": "移除了",
+        "referenced": "引用了此项",
+        "crossReferenced": "交叉引用了此项",
+        "linkedPullRequest": "关联了将关闭此 Issue 的拉取请求",
+        "milestoned": "添加到了里程碑 {title}",
+        "demilestoned": "从里程碑中移除了此项 {title}"
+      },
+      "notFound": "未找到详细信息。",
+      "sidebar": {
+        "assignees": "指派人",
+        "labels": "标签",
+        "development": "开发",
+        "editDevelopment": "编辑关联的拉取请求",
+        "filterPullRequests": "筛选拉取请求",
+        "noPullRequests": "未找到拉取请求",
+        "loading": "加载中…",
+        "none": "无"
+      }
+    },
     "prDetail": {
       "agentFix": {
         "openWorkspace": "打开一个工作区或项目后才能运行 Agent Fix。",
@@ -6317,6 +6404,8 @@
         "labelFallback": "标签",
         "addedLabel": "添加了 {label} 标签",
         "removedLabel": "移除了 {label} 标签",
+        "addedLabelShort": "添加了",
+        "removedLabelShort": "移除了",
         "someone": "某人",
         "requestedReview": "向 {login} 请求了评审",
         "removedReviewRequest": "移除了对 {login} 的评审请求",
@@ -6344,7 +6433,8 @@
         "reviewers": "没有评审者",
         "assignees": "没有指派人",
         "labels": "没有标签",
-        "participants": "没有参与者"
+        "participants": "没有参与者",
+        "development": "没有关联的议题"
       },
       "edit": {
         "labelsAria": "编辑标签",
@@ -6356,9 +6446,13 @@
         "retry": "重试",
         "noLabels": "未找到标签",
         "noAssignees": "未找到人员",
+        "linkedIssuesAria": "编辑关联议题",
+        "filterIssues": "筛选议题",
+        "noIssues": "未找到议题",
         "errorTitle": "更新失败",
         "labelsFailed": "无法更新标签。请检查 GitHub 权限后重试。",
-        "assigneesFailed": "无法更新指派人。请检查 GitHub 权限后重试。"
+        "assigneesFailed": "无法更新指派人。请检查 GitHub 权限后重试。",
+        "linkedIssuesFailed": "无法更新关联议题。请检查 GitHub 权限后重试。"
       },
       "reviewers": {
         "jumpToFiles": "打开 Files changed"

@@ -198,6 +198,7 @@ const CenterStage: React.FC = () => {
   const openGithubPullRequest = useGithubCenterTabsStore(
     (state) => state.openPullRequest,
   );
+  const openGithubIssue = useGithubCenterTabsStore((state) => state.openIssue);
   const openGithubActionRun = useGithubCenterTabsStore(
     (state) => state.openActionRun,
   );
@@ -501,6 +502,16 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (target.kind === "github-issue") {
+      openGithubIssue(effectiveContextId, {
+        label: githubTabsT("issue", { number: Number(target.itemId) }),
+        owner: githubOwner,
+        repo: githubRepo,
+        issueNumber: Number(target.itemId),
+      });
+      return;
+    }
+
     if (target.kind === "github-action") {
       openGithubActionRun(effectiveContextId, {
         label: githubTabsT("actionRun", { number: Number(target.itemId) }),
@@ -530,6 +541,7 @@ const CenterStage: React.FC = () => {
     githubTabsT,
     openGithubActionRun,
     openGithubCommit,
+    openGithubIssue,
     openGithubPullRequest,
     tabFromUrl,
   ]);
@@ -1440,7 +1452,7 @@ const CenterStage: React.FC = () => {
       return;
     }
 
-    if (tab.kind === "github-pr" || tab.kind === "github-action") {
+    if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action") {
       handleCloseGithubTab(tab.value);
       return;
     }

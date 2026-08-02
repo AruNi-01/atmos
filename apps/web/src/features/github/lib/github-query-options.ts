@@ -6,7 +6,12 @@ import {
   wsQueryOptions,
 } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import { wsGithubApi, type GithubPrPayload } from "@/api/ws/github-api";
+import {
+  wsGithubApi,
+  type GithubIssuePayload,
+  type GithubPrPayload,
+  type GithubLinkedPrPayload,
+} from "@/api/ws/github-api";
 import { wsRequest } from "@/api/ws/request";
 import type { BranchPr } from "@/features/github/lib/github-pr-cache";
 import type {
@@ -40,12 +45,42 @@ export interface RepoPrListParams {
   limit?: number;
 }
 
+export interface GithubIssueListParams {
+  owner: string;
+  repo: string;
+  state: "open" | "closed";
+  limit?: number;
+}
+
+export interface GithubIssuePageParams {
+  owner: string;
+  repo: string;
+  state: "open" | "closed";
+  page: number;
+  perPage: number;
+}
+
+export interface GithubIssueIdentityParams {
+  owner: string;
+  repo: string;
+  issueNumber: number;
+}
+
 export interface BranchPrListParams {
   owner: string;
   repo: string;
   branch: string;
   state?: string;
   emitBranchStatusRefresh?: boolean;
+}
+
+export interface BranchPrPageParams {
+  owner: string;
+  repo: string;
+  branch: string;
+  state: string;
+  page: number;
+  perPage: number;
 }
 
 export interface GithubPrIdentityParams {
@@ -94,6 +129,102 @@ export function repoPrListQueryOptions(
   });
 }
 
+export function githubIssueListQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubIssueListParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, state, limit = 100 } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubIssueList(scope, { owner, repo, state, limit }),
+    queryFn: (): Promise<GithubIssuePayload[]> =>
+      wsGithubApi.listIssues({ owner, repo, state, limit, sort: "updated", direction: "desc" }),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo),
+  });
+}
+
+export function githubIssuePageQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubIssuePageParams,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubIssuePage(scope, params),
+    queryFn: () => wsGithubApi.listIssuePage(params),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(params.owner && params.repo),
+  });
+}
+
+export function githubIssueDetailQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubIssueIdentityParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, issueNumber } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber }),
+    queryFn: (): Promise<GithubIssuePayload> =>
+      wsGithubApi.getIssue({ owner, repo, issueNumber }),
+    staleTime: 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && issueNumber),
+  });
+}
+
+export function githubIssueTimelineInfiniteQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubIssueIdentityParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, issueNumber } = params;
+  return wsInfiniteQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber }),
+    queryFn: async ({ pageParam }): Promise<GithubPrTimelinePage> => {
+      const result = await wsRequest<GithubPrTimelinePage>("github_issue_timeline_page", {
+        owner, repo, issue_number: issueNumber, page: pageParam, per_page: GITHUB_PR_TIMELINE_PER_PAGE,
+      });
+      return { items: Array.isArray(result?.items) ? result.items : [], has_more: Boolean(result?.has_more) };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, _pages, lastPageParam) => lastPage.has_more ? lastPageParam + 1 : undefined,
+    staleTime: 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && issueNumber),
+  });
+}
+
+export function githubIssueLinkedPrsQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubIssueIdentityParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, issueNumber } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubIssueLinkedPrs(scope, { owner, repo, issueNumber }),
+    queryFn: (): Promise<GithubLinkedPrPayload[]> =>
+      wsGithubApi.listIssueLinkedPrs({ owner, repo, issueNumber }),
+    staleTime: 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && issueNumber),
+  });
+}
+
 export function branchPrListQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
@@ -122,6 +253,23 @@ export function branchPrListQueryOptions(
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
+  });
+}
+
+export function branchPrPageQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: BranchPrPageParams,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubBranchPrPage(scope, params),
+    queryFn: () => wsGithubApi.listBranchPrPage(params),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(params.owner && params.repo && params.branch),
   });
 }
 

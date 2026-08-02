@@ -543,6 +543,8 @@ pub enum WsAction {
     // ===== GitHub 操作 =====
     /// 获取分支关联的所有 PR 列表
     GithubPrList,
+    /// 分页获取分支关联的 PR
+    GithubPrBranchPage,
     /// 获取单个 PR 详情（核心数据，快速返回）
     GithubPrDetail,
     /// 获取 PR 详情侧边栏数据（review comments, participants, closing issues）
@@ -571,12 +573,30 @@ pub enum WsAction {
     GithubPrUpdateLabels,
     /// 更新 PR assignees（add/remove）
     GithubPrUpdateAssignees,
+    /// 更新 PR 关联的关闭 issue
+    GithubPrUpdateLinkedIssues,
     /// 分页获取 PR timeline
     GithubPrTimelinePage,
     /// 列出仓库 issue
     GithubIssueList,
+    /// 分页获取仓库 issue
+    GithubIssuePage,
+    /// 更新 issue labels（add/remove）
+    GithubIssueUpdateLabels,
+    /// 更新 issue assignees（add/remove）
+    GithubIssueUpdateAssignees,
+    /// Add a comment to an issue
+    GithubIssueComment,
+    /// Close an issue
+    GithubIssueClose,
+    /// Reopen an issue
+    GithubIssueReopen,
     /// 获取单个 issue 详情或通过 URL 解析 issue
     GithubIssueGet,
+    /// 分页获取 issue timeline
+    GithubIssueTimelinePage,
+    /// 获取关联到 issue 的 pull request
+    GithubIssueLinkedPrs,
     /// 列出仓库的 PR（不依赖分支过滤）
     GithubPrListRepo,
     /// 获取单个 PR 详情或通过 URL 解析 PR

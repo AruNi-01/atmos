@@ -6,6 +6,11 @@ export type GithubIssueLabelPayload = {
   description: string | null;
 };
 
+export type GithubIssueAssigneePayload = {
+  login: string;
+  avatar_url?: string | null;
+};
+
 export type GithubIssuePayload = {
   owner: string;
   repo: string;
@@ -16,7 +21,11 @@ export type GithubIssuePayload = {
   state: string;
   created_at?: string;
   updated_at?: string;
+  comments_count: number;
   labels: GithubIssueLabelPayload[];
+  /** Issue opener (author), not assignees. */
+  author?: GithubIssueAssigneePayload | null;
+  assignees: GithubIssueAssigneePayload[];
 };
 
 export type GithubPrPayload = {

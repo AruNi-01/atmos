@@ -26,6 +26,12 @@ pub struct GithubIssueLabel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueAssignee {
+    pub login: String,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubIssue {
     pub owner: String,
     pub repo: String,
@@ -36,7 +42,11 @@ pub struct GithubIssue {
     pub state: String,
     pub created_at: String,
     pub updated_at: String,
+    pub comments_count: u64,
     pub labels: Vec<GithubIssueLabel>,
+    /// Issue opener (gh `author` / REST `user`).
+    pub author: Option<GithubIssueAssignee>,
+    pub assignees: Vec<GithubIssueAssignee>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -310,7 +320,7 @@ impl GithubEngine {
             "--limit",
             &limit_value,
             "--json",
-            "number,title,body,url,state,createdAt,updatedAt,labels",
+            "number,title,body,url,state,createdAt,updatedAt,comments,labels,assignees,author",
         ];
         if let Some(search_query) = options.search.filter(|value| !value.trim().is_empty()) {
             args.push("--search");
@@ -335,7 +345,7 @@ impl GithubEngine {
             "--repo",
             &repo_arg,
             "--json",
-            "number,title,body,url,state,createdAt,updatedAt,labels",
+            "number,title,body,url,state,createdAt,updatedAt,comments,labels,assignees,author",
         ];
         let output = self.run_gh(&args).await?;
         parse_issue_value(owner, repo, &output)
@@ -499,6 +509,15 @@ fn parse_issue_value(
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let comments_count = value
+        .get("comments")
+        .map(|comments| {
+            comments
+                .as_u64()
+                .or_else(|| comments.as_array().map(|items| items.len() as u64))
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
     let body = value
         .get("body")
         .and_then(|v| v.as_str())
@@ -528,6 +547,21 @@ fn parse_issue_value(
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    let assignees = value
+        .get("assignees")
+        .and_then(|v| v.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|assignee| parse_issue_user(assignee))
+                .collect()
+        })
+        .unwrap_or_default();
+    // gh CLI uses `author`; REST /issues uses `user`.
+    let author = value
+        .get("author")
+        .or_else(|| value.get("user"))
+        .and_then(parse_issue_user);
 
     Ok(GithubIssue {
         owner: owner.to_string(),
@@ -539,7 +573,22 @@ fn parse_issue_value(
         state,
         created_at,
         updated_at,
+        comments_count,
         labels,
+        author,
+        assignees,
+    })
+}
+
+fn parse_issue_user(value: &serde_json::Value) -> Option<GithubIssueAssignee> {
+    let login = value.get("login").and_then(|v| v.as_str())?;
+    Some(GithubIssueAssignee {
+        login: login.to_string(),
+        avatar_url: value
+            .get("avatar_url")
+            .or_else(|| value.get("avatarUrl"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
     })
 }
 

@@ -95,6 +95,13 @@ const PRDetailView = dynamic(
     import("@/features/github/components/PRDetailView").then((mod) => mod.PRDetailView),
   { ssr: false },
 );
+const IssueDetailView = dynamic(
+  () =>
+    import("@/features/github/components/IssueDetailView").then(
+      (mod) => mod.IssueDetailView,
+    ),
+  { ssr: false },
+);
 const ActionsDetailView = dynamic(
   () =>
     import("@/features/github/components/ActionsDetailView").then(
@@ -535,6 +542,20 @@ function WorkspaceCenterFrameImpl({
                 }
                 owner={tab.owner}
                 prNumber={tab.prNumber}
+                repo={tab.repo}
+              />
+            ) : tab.kind === "github-issue" ? (
+              <IssueDetailView
+                active={
+                  isActiveContext &&
+                  isFramePanelVisible({
+                    isActiveFrame: isActiveContext,
+                    frameActiveTab,
+                    panelTabId: tab.value,
+                  })
+                }
+                owner={tab.owner}
+                issueNumber={tab.issueNumber}
                 repo={tab.repo}
               />
             ) : tab.kind === "github-action" ? (

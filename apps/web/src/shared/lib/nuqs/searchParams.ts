@@ -179,7 +179,9 @@ export type RightSidebarTab =
   | "files"
   | "changes"
   | "pr"
+  | "issues"
   | "actions"
+  | "github"
   | "review"
   | "browser"
   | "run";
@@ -189,7 +191,9 @@ export const rightSidebarParams = {
     "files",
     "changes",
     "pr",
+    "issues",
     "actions",
+    "github",
     "review",
     "browser",
     "run",

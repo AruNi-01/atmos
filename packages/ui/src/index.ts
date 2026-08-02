@@ -15,6 +15,7 @@ export * from "./components/theme-toggle";
 export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
 export * from "./components/ui/popover";
+export * from "./components/ui/pagination";
 export {
   ColorPicker,
   ColorPickerPopover,

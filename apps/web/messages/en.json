@@ -1202,7 +1202,9 @@
           "review": "Review",
           "browser": "Browser",
           "run": "Run",
+          "github": "GitHub",
           "pullRequests": "Pull Requests",
+          "issues": "Issues",
           "actions": "Actions"
         },
         "noContext": "No repository context",
@@ -1248,7 +1250,13 @@
           "unknownAuthor": "unknown",
           "stateOpen": "open",
           "stateClosed": "closed",
-          "stateMerged": "merged"
+          "stateMerged": "merged",
+          "page": "Page {page} of {total}",
+          "previousPage": "Previous",
+          "nextPage": "Next"
+        },
+        "issues": {
+          "refresh": "Refresh issues"
         },
         "notAGitHubRepository": "Not a GitHub repository"
       },
@@ -5173,6 +5181,8 @@
       "runDescription": "Start and monitor project run scripts.",
       "prTitle": "Pull Requests",
       "prDescription": "Browse open and closed pull requests. Hiding this stops PR lookups.",
+      "issuesTitle": "Issues",
+      "issuesDescription": "Browse open and closed GitHub issues. Hiding this stops issue lookups.",
       "actionsTitle": "Actions",
       "actionsDescription": "Browse GitHub Actions workflow runs. Hiding this stops workflow lookups."
     },
@@ -5874,6 +5884,7 @@
   "github": {
     "centerTabs": {
       "pullRequest": "PR #{number}",
+      "issue": "Issue #{number}",
       "actionRun": "Action #{number}"
     },
     "actionsDetail": {
@@ -6188,6 +6199,82 @@
       "nextPage": "Next page",
       "page": "PAGE"
     },
+    "issuePanel": {
+      "labels": "Labels",
+      "assignees": "Assignees",
+      "filterLabels": "Filter labels",
+      "filterAssignees": "Filter assignees",
+      "noLabels": "No labels found",
+      "noAssignees": "No assignees found",
+      "clearLabels": "Clear label filter",
+      "clearAssignees": "Clear assignee filter",
+      "empty": "No issues match these filters.",
+      "statusOpen": "Open",
+      "statusClosed": "Closed",
+      "page": "Page {page} of {total}",
+      "previousPage": "Previous",
+      "nextPage": "Next"
+    },
+    "issueDetail": {
+      "header": "Issue #{issueNumber}",
+      "showSidebar": "Show sidebar",
+      "hideSidebar": "Hide sidebar",
+      "open": "Open",
+      "closed": "Closed",
+      "updated": "updated {time}",
+      "tabs": {
+        "description": "Description",
+        "discussion": "Discussion",
+        "discussionWithCount": "Discussion ({count})"
+      },
+      "emptyDescription": "No description provided.",
+      "emptyDiscussion": "No discussion yet.",
+      "loadMore": "Load more timeline events",
+      "toolbar": {
+        "commentPlaceholder": "Leave a comment",
+        "comment": "Comment",
+        "close": "Close issue",
+        "reopen": "Reopen issue",
+        "openOnGithub": "Open on GitHub",
+        "showActions": "Show issue actions"
+      },
+      "composer": {
+        "title": "Leave a comment",
+        "write": "Write",
+        "preview": "Preview",
+        "nothingToPreview": "Nothing to preview",
+        "markdownSupported": "Markdown supported"
+      },
+      "unknownUser": "unknown",
+      "commented": "commented",
+      "activity": "activity",
+      "activityEvents": {
+        "closed": "closed this",
+        "reopened": "reopened this",
+        "assigned": "assigned {login}",
+        "unassigned": "unassigned {login}",
+        "labeled": "added the {label} label",
+        "unlabeled": "removed the {label} label",
+        "labelAdded": "added",
+        "labelRemoved": "removed",
+        "referenced": "referenced this",
+        "crossReferenced": "cross-referenced this",
+        "linkedPullRequest": "linked a pull request that will close this issue",
+        "milestoned": "added to milestone {title}",
+        "demilestoned": "removed from milestone {title}"
+      },
+      "notFound": "Detailed info not found.",
+      "sidebar": {
+        "assignees": "Assignees",
+        "labels": "Labels",
+        "development": "Development",
+        "editDevelopment": "Edit linked pull requests",
+        "filterPullRequests": "Filter pull requests",
+        "noPullRequests": "No pull requests found",
+        "loading": "Loading…",
+        "none": "None"
+      }
+    },
     "prDetail": {
       "agentFix": {
         "openWorkspace": "Open a workspace or project to run Agent Fix.",
@@ -6317,6 +6404,8 @@
         "labelFallback": "label",
         "addedLabel": "added the {label} label",
         "removedLabel": "removed the {label} label",
+        "addedLabelShort": "added",
+        "removedLabelShort": "removed",
         "someone": "someone",
         "requestedReview": "requested a review from {login}",
         "removedReviewRequest": "removed review request for {login}",
@@ -6344,7 +6433,8 @@
         "reviewers": "No reviewers",
         "assignees": "No assignees",
         "labels": "No labels",
-        "participants": "No participants"
+        "participants": "No participants",
+        "development": "No linked issues"
       },
       "edit": {
         "labelsAria": "Edit labels",
@@ -6356,9 +6446,13 @@
         "retry": "Retry",
         "noLabels": "No labels found",
         "noAssignees": "No people found",
+        "linkedIssuesAria": "Edit linked issues",
+        "filterIssues": "Filter issues",
+        "noIssues": "No issues found",
         "errorTitle": "Update failed",
         "labelsFailed": "Could not update labels. Check your GitHub permissions and try again.",
-        "assigneesFailed": "Could not update assignees. Check your GitHub permissions and try again."
+        "assigneesFailed": "Could not update assignees. Check your GitHub permissions and try again.",
+        "linkedIssuesFailed": "Could not update linked issues. Check your GitHub permissions and try again."
       },
       "reviewers": {
         "jumpToFiles": "Open Files changed"

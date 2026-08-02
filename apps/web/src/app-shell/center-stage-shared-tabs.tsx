@@ -51,6 +51,7 @@ export type CenterStageSurfaceTabVariant =
   | "review-diff"
   | "conflict"
   | "github-pr"
+  | "github-issue"
   | "github-action"
   | "github-commit"
   | "browser";
@@ -248,6 +249,8 @@ export function CenterStageSurfaceContentTab({
             <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
           ) : variant === "github-pr" ? (
             <GitPullRequest className="size-3.5 shrink-0" />
+          ) : variant === "github-issue" ? (
+            <Circle className="size-3.5 shrink-0" />
           ) : variant === "github-action" ? (
             <Workflow className="size-3.5 shrink-0" />
           ) : variant === "github-commit" ? (
@@ -365,11 +368,13 @@ export function CenterStageTabGroupItemContent({
     );
   }
 
-  if (tab.kind === "github-pr" || tab.kind === "github-action" || tab.kind === "github-commit") {
+  if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "github-commit") {
     return (
       <>
         {tab.kind === "github-pr" ? (
           <GitPullRequest className="size-3.5 shrink-0" />
+        ) : tab.kind === "github-issue" ? (
+          <Circle className="size-3.5 shrink-0" />
         ) : tab.kind === "github-action" ? (
           <Workflow className="size-3.5 shrink-0" />
         ) : (

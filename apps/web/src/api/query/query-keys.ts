@@ -232,6 +232,32 @@ export const queryKeys = {
         params.limit ?? 50,
       ] as const,
 
+    githubIssueList: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; state: "open" | "closed"; limit: number },
+    ) =>
+      [...queryKeys.computer.root(scope), "github", "issues", params.owner, params.repo, params.state, params.limit] as const,
+    githubIssuePage: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; state: "open" | "closed"; page: number; perPage: number },
+    ) =>
+      [...queryKeys.computer.root(scope), "github", "issues", params.owner, params.repo, params.state, params.page, params.perPage] as const,
+    githubIssueDetail: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; issueNumber: number },
+    ) =>
+      [...queryKeys.computer.root(scope), "github", "issueDetail", params.owner, params.repo, params.issueNumber] as const,
+    githubIssueTimeline: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; issueNumber: number },
+    ) =>
+      [...queryKeys.computer.root(scope), "github", "issueTimeline", params.owner, params.repo, params.issueNumber] as const,
+    githubIssueLinkedPrs: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; issueNumber: number },
+    ) =>
+      [...queryKeys.computer.root(scope), "github", "issueLinkedPrs", params.owner, params.repo, params.issueNumber] as const,
+
     /** GitHub: branch-level PR list */
     githubBranchPrList: (
       scope: ComputerQueryScope,
@@ -253,6 +279,11 @@ export const queryKeys = {
         params.state ?? "open",
         Boolean(params.emitBranchStatusRefresh),
       ] as const,
+    githubBranchPrPage: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; branch: string; state: string; page: number; perPage: number },
+    ) =>
+      [...queryKeys.computer.root(scope), "github", "branchPrs", params.owner, params.repo, params.branch, params.state, params.page, params.perPage] as const,
 
     /** GitHub: single PR detail (conversation + commits summary) */
     githubPrDetail: (

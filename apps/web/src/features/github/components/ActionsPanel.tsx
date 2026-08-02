@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
-import { Clock, Loader2, Workflow, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
+import { Clock, Loader2, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
 import { formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';
@@ -113,9 +113,8 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }
 
   if (loading && !runs) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin opacity-50 mb-4" />
-        <span className="text-xs">{t('loading')}</span>
+      <div className="flex min-h-40 items-center justify-center text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
       </div>
     );
   }
@@ -123,9 +122,8 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
       {latestRuns.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground/50 py-10">
-          <Workflow className="size-8 opacity-20 mb-2" />
-          <span className="text-xs text-center">{t('empty')}</span>
+        <div className="flex min-h-40 items-center justify-center text-xs text-muted-foreground">
+          {t('empty')}
         </div>
       ) : (
         <>

@@ -154,6 +154,15 @@ export interface TimelineItem {
   deployment_status?: { target_url?: string };
   environment?: string;
   createdAt?: string;
+  source?: {
+    type?: string;
+    issue?: {
+      number?: number;
+      title?: string;
+      html_url?: string;
+      pull_request?: unknown;
+    };
+  };
 }
 
 export interface ReviewComment {

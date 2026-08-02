@@ -14,6 +14,13 @@ pub struct GithubIssueLabelPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueAssigneePayload {
+    pub login: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubIssuePayload {
     pub owner: String,
     pub repo: String,
@@ -28,7 +35,14 @@ pub struct GithubIssuePayload {
     #[serde(default)]
     pub updated_at: Option<String>,
     #[serde(default)]
+    pub comments_count: u64,
+    #[serde(default)]
     pub labels: Vec<GithubIssueLabelPayload>,
+    /// Issue opener (author), not assignees.
+    #[serde(default)]
+    pub author: Option<GithubIssueAssigneePayload>,
+    #[serde(default)]
+    pub assignees: Vec<GithubIssueAssigneePayload>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

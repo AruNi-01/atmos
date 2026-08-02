@@ -16,6 +16,7 @@ export function useOpenGithubCenterTab() {
   const openPullRequest = useGithubCenterTabsStore(
     (state) => state.openPullRequest,
   );
+  const openIssue = useGithubCenterTabsStore((state) => state.openIssue);
   const openActionRun = useGithubCenterTabsStore(
     (state) => state.openActionRun,
   );
@@ -124,5 +125,22 @@ export function useOpenGithubCenterTab() {
     [activateTab, effectiveContextId, openCommit],
   );
 
-  return { openActionRunTab, openPullRequestTab, openCommitTab };
+  const openIssueTab = React.useCallback(
+    ({ owner, repo, issueNumber, title }: {
+      owner: string;
+      repo: string;
+      issueNumber: number;
+      title?: string | null;
+    }) => {
+      if (!effectiveContextId) return;
+      const tab = openIssue(effectiveContextId, {
+        label: t("issue", { number: issueNumber }),
+        owner, repo, issueNumber, description: title ?? undefined,
+      });
+      activateTab(tab.value);
+    },
+    [activateTab, effectiveContextId, openIssue, t],
+  );
+
+  return { openActionRunTab, openPullRequestTab, openIssueTab, openCommitTab };
 }

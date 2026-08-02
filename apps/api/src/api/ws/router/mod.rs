@@ -731,6 +731,10 @@ impl WsMessageService {
                 self.handle_github_pr_list(conn_id, parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubPrBranchPage => {
+                self.handle_github_pr_branch_page(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubPrDetail => {
                 self.handle_github_pr_detail(parse_request(request.data)?)
                     .await
@@ -791,12 +795,48 @@ impl WsMessageService {
                 self.handle_github_pr_update_assignees(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubPrUpdateLinkedIssues => {
+                self.handle_github_pr_update_linked_issues(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubIssueList => {
                 self.handle_github_issue_list(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubIssuePage => {
+                self.handle_github_issue_page(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueUpdateLabels => {
+                self.handle_github_issue_update_labels(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueUpdateAssignees => {
+                self.handle_github_issue_update_assignees(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueComment => {
+                self.handle_github_issue_comment(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueClose => {
+                self.handle_github_issue_close(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueReopen => {
+                self.handle_github_issue_reopen(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubIssueGet => {
                 self.handle_github_issue_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueTimelinePage => {
+                self.handle_github_issue_timeline_page(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueLinkedPrs => {
+                self.handle_github_issue_linked_prs(parse_request(request.data)?)
                     .await
             }
             WsAction::GithubPrListRepo => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import {
   buildGithubActionTabValue,
+  buildGithubIssueTabValue,
   buildGithubPullRequestTabValue,
   parseGithubCenterTabValue,
   useGithubCenterTabsStore,
@@ -17,10 +18,31 @@ describe("GitHub center tabs", () => {
     expect(parseGithubCenterTabValue(value)).toEqual({
       kind: "github-pr",
       contextId: "workspace:one",
-      itemId: 42,
+      itemId: "42",
     });
     expect(parseGithubCenterTabValue("github-pr:broken")).toBeNull();
     expect(parseGithubCenterTabValue("github-pr:%E0%A4%A:42")).toBeNull();
+  });
+
+  it("builds and opens issue tabs", () => {
+    const store = useGithubCenterTabsStore.getState();
+    const value = buildGithubIssueTabValue("workspace-1", 17);
+
+    expect(parseGithubCenterTabValue(value)).toEqual({
+      kind: "github-issue",
+      contextId: "workspace-1",
+      itemId: "17",
+    });
+
+    store.openIssue("workspace-1", {
+      label: "Issue #17",
+      owner: "atmos",
+      repo: "atmos",
+      issueNumber: 17,
+    });
+
+    expect(useGithubCenterTabsStore.getState().tabsByContext["workspace-1"]?.[0])
+      .toMatchObject({ kind: "github-issue", issueNumber: 17, value });
   });
 
   it("keeps one tab per item and updates repeated action opens", () => {

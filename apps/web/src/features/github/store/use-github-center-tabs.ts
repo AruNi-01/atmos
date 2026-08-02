@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 
 const GITHUB_PR_TAB_PREFIX = "github-pr:";
+const GITHUB_ISSUE_TAB_PREFIX = "github-issue:";
 const GITHUB_ACTION_TAB_PREFIX = "github-action:";
 const GITHUB_COMMIT_TAB_PREFIX = "github-commit:";
 
@@ -27,6 +28,11 @@ export type GithubPullRequestCenterTab = GithubCenterTabBase & {
   prNumber: number;
 };
 
+export type GithubIssueCenterTab = GithubCenterTabBase & {
+  kind: "github-issue";
+  issueNumber: number;
+};
+
 export type GithubActionCenterTab = GithubCenterTabBase & {
   kind: "github-action";
   runId: number;
@@ -42,6 +48,7 @@ export type GithubCommitCenterTab = GithubCenterTabBase & {
 
 export type GithubCenterTab =
   | GithubPullRequestCenterTab
+  | GithubIssueCenterTab
   | GithubActionCenterTab
   | GithubCommitCenterTab;
 
@@ -51,6 +58,10 @@ type GithubCenterTabsStore = {
     contextId: string,
     params: Omit<GithubPullRequestCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
   ) => GithubPullRequestCenterTab;
+  openIssue: (
+    contextId: string,
+    params: Omit<GithubIssueCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
+  ) => GithubIssueCenterTab;
   openActionRun: (
     contextId: string,
     params: Omit<GithubActionCenterTab, "contextId" | "id" | "kind" | "value" | "openedAt">,
@@ -63,13 +74,15 @@ type GithubCenterTabsStore = {
 };
 
 function buildGithubCenterTabValue(
-  kind: "github-pr" | "github-action" | "github-commit",
+  kind: "github-pr" | "github-issue" | "github-action" | "github-commit",
   contextId: string,
   itemId: string,
 ) {
   const prefix =
     kind === "github-pr"
       ? GITHUB_PR_TAB_PREFIX
+      : kind === "github-issue"
+        ? GITHUB_ISSUE_TAB_PREFIX
       : kind === "github-action"
         ? GITHUB_ACTION_TAB_PREFIX
         : GITHUB_COMMIT_TAB_PREFIX;
@@ -81,6 +94,10 @@ export function buildGithubPullRequestTabValue(
   prNumber: number,
 ) {
   return buildGithubCenterTabValue("github-pr", contextId, String(prNumber));
+}
+
+export function buildGithubIssueTabValue(contextId: string, issueNumber: number) {
+  return buildGithubCenterTabValue("github-issue", contextId, String(issueNumber));
 }
 
 export function buildGithubActionTabValue(contextId: string, runId: number) {
@@ -100,6 +117,7 @@ export function isGithubCenterTabValue(
   return (
     !!value &&
     (value.startsWith(GITHUB_PR_TAB_PREFIX) ||
+      value.startsWith(GITHUB_ISSUE_TAB_PREFIX) ||
       value.startsWith(GITHUB_ACTION_TAB_PREFIX) ||
       value.startsWith(GITHUB_COMMIT_TAB_PREFIX))
   );
@@ -109,7 +127,7 @@ export function parseGithubCenterTabValue(
   value: string | null | undefined,
 ):
   | {
-      kind: "github-pr" | "github-action" | "github-commit";
+      kind: "github-pr" | "github-issue" | "github-action" | "github-commit";
       contextId: string;
       itemId: string;
     }
@@ -118,12 +136,16 @@ export function parseGithubCenterTabValue(
 
   const kind = value.startsWith(GITHUB_PR_TAB_PREFIX)
     ? "github-pr"
+    : value.startsWith(GITHUB_ISSUE_TAB_PREFIX)
+      ? "github-issue"
     : value.startsWith(GITHUB_ACTION_TAB_PREFIX)
       ? "github-action"
       : "github-commit";
   const prefix =
     kind === "github-pr"
       ? GITHUB_PR_TAB_PREFIX
+      : kind === "github-issue"
+        ? GITHUB_ISSUE_TAB_PREFIX
       : kind === "github-action"
         ? GITHUB_ACTION_TAB_PREFIX
         : GITHUB_COMMIT_TAB_PREFIX;
@@ -141,7 +163,7 @@ export function parseGithubCenterTabValue(
 
   // Validate numeric IDs for PR and action tabs
   if (
-    (kind === "github-pr" || kind === "github-action") &&
+    (kind === "github-pr" || kind === "github-issue" || kind === "github-action") &&
     (!Number.isSafeInteger(Number(itemId)) || Number(itemId) <= 0)
   )
     return null;
@@ -192,6 +214,24 @@ export const useGithubCenterTabsStore = create<GithubCenterTabsStore>()(
           contextId,
           id: value,
           kind: "github-pr",
+          value,
+          openedAt: Date.now(),
+        };
+        set((state) => ({
+          tabsByContext: {
+            ...state.tabsByContext,
+            [contextId]: upsertTab(state.tabsByContext[contextId] ?? [], tab),
+          },
+        }));
+        return tab;
+      },
+      openIssue: (contextId, params) => {
+        const value = buildGithubIssueTabValue(contextId, params.issueNumber);
+        const tab: GithubIssueCenterTab = {
+          ...params,
+          contextId,
+          id: value,
+          kind: "github-issue",
           value,
           openedAt: Date.now(),
         };
