@@ -260,9 +260,10 @@ interface TabsSubtleItemProps extends HTMLAttributes<HTMLButtonElement> {
   index: number;
 }
 
-/** Split trailing "(…)" so inactive activeLabel tabs can keep the badge visible. */
+/** Split trailing "(…)" / fullwidth "（…）" so inactive activeLabel tabs keep the badge. */
 function splitTrailingParen(label: string): { title: string; meta: string | null } {
-  const match = label.match(/^(.*?)\s*(\([^)]*\))\s*$/);
+  // Halfwidth: Checks (3)  |  Fullwidth (zh): Checks（3）/ 提交（3）
+  const match = label.match(/^(.*?)\s*([(\uFF08][^)\uFF09]*[)\uFF09])\s*$/u);
   if (!match) return { title: label, meta: null };
   const title = match[1]?.trim() ?? "";
   const meta = match[2] ?? null;
