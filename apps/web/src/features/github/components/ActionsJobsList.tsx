@@ -5,6 +5,7 @@ import {
   Box,
   CheckCircle2,
   ChevronDown,
+  Clock,
   ExternalLink,
   HelpCircle,
   Loader2,
@@ -740,8 +741,18 @@ function StepStatusIcon({
       <div className="size-3.5 rounded-full border-2 border-muted-foreground/40" />
     );
   }
-  if (status === "in_progress" || status === "queued") {
+  if (status === "in_progress") {
     return <Loader2 className="size-3.5 animate-spin text-blue-500" />;
+  }
+  if (
+    status === "queued" ||
+    status === "pending" ||
+    status === "waiting" ||
+    status === "requested" ||
+    status === "waiting_for_runner" ||
+    status === "expected"
+  ) {
+    return <Clock className="size-3.5 text-amber-500" />;
   }
   return <HelpCircle className="size-3.5 text-muted-foreground" />;
 }

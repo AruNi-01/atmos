@@ -1,10 +1,17 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
-import { Loader2, Workflow, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
+import { Clock, Loader2, Workflow, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
 import { formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';
+import {
+  actionRunBadgeClassName,
+  getActionRunBadgeTone,
+  isActionInProgress,
+  isActionQueuedOrPending,
+  normalizeActionStatus,
+} from '@/features/github/lib/action-run-status';
 import type { GithubActionsRunPayload } from '@atmos/api-types/ws/dto/github';
 
 export type ActionRun = GithubActionsRunPayload;
@@ -124,9 +131,14 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }
         <>
           <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
             {latestRuns.map((run) => {
-              const isSuccess = run.conclusion === 'success';
-              const isFailure = run.conclusion === 'failure';
-              const isCompleted = run.status === 'completed';
+              const isCompleted = normalizeActionStatus(run.status) === 'completed';
+              const badgeTone = getActionRunBadgeTone({
+                status: run.status,
+                conclusion: run.conclusion,
+              });
+              const showProgressIcon = isActionInProgress(run.status);
+              const showPendingIcon =
+                !isCompleted && isActionQueuedOrPending(run.status);
               const createdAtTimeAgo = formatActionTimeAgo(run.createdAt);
               const createdAtTimestamp = formatActionTimestamp(run.createdAt);
 
@@ -149,13 +161,14 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }
                           <TooltipTrigger asChild>
                             <span className={cn(
                               "text-[10px] font-bold px-1.5 py-0.5 rounded-sm capitalize flex items-center gap-1",
-                              isCompleted ? (
-                                isSuccess ? 'bg-emerald-500/10 text-emerald-500' :
-                                  isFailure ? 'bg-red-500/10 text-red-500' :
-                                    'bg-zinc-500/10 text-zinc-500'
-                              ) : "bg-blue-500/10 text-blue-500"
+                              actionRunBadgeClassName(badgeTone),
                             )}>
-                              {!isCompleted && <Loader2 className="size-3 animate-spin" />}
+                              {showProgressIcon && (
+                                <Loader2 className="size-3 animate-spin" />
+                              )}
+                              {showPendingIcon && (
+                                <Clock className="size-3" />
+                              )}
                               {formatGithubActionState(isCompleted ? run.conclusion : run.status, t)}
                             </span>
                           </TooltipTrigger>
