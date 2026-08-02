@@ -99,7 +99,7 @@ export function PRMetadataSidebar({
         "shrink-0 hidden lg:flex flex-col overflow-y-auto no-scrollbar overflow-x-hidden transition-[max-width,opacity] duration-200 ease-out",
         isSidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100"
       )}>
-        <div className="flex flex-col gap-5 text-xs pr-2 pt-1 pb-16 w-[240px]">
+        <div className="flex flex-col gap-5 text-xs pl-2 pr-2 pt-1 pb-16 w-[240px]">
           <SidebarSection title={t('sections.reviewers')} icon={<Eye className="size-3.5" />}>
             <ReviewersList
               pr={pr}
