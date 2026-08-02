@@ -4,7 +4,9 @@
 
 /* Import UI package global styles */
 @import "@workspace/ui/globals.css";
-@import "@xyflow/react/dist/style.css";
+/* React Flow base styles: source(none) so Tailwind v4 does not scan/strip them.
+   Component also imports the same file via JS as a reliable fallback. */
+@import "@xyflow/react/dist/style.css" source(none);
 
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
