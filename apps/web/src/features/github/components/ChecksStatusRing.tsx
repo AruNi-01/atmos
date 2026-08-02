@@ -4,17 +4,18 @@ import React from "react";
 import { cn } from "@/shared/lib/utils";
 import type { StatusCheck } from "@/features/github/lib/pr-detail-parts";
 
-type SegmentTone = "success" | "failure" | "pending" | "skipped" | "empty";
+/** Only three visual tones, ordered for drawing: green → gray → red. */
+type RingTone = "success" | "neutral" | "failure";
 
-const TONE_COLOR: Record<SegmentTone, string> = {
+const TONE_COLOR: Record<RingTone, string> = {
   success: "#10b981",
+  neutral: "#71717a",
   failure: "#ef4444",
-  pending: "#f59e0b",
-  skipped: "#71717a",
-  empty: "#3f3f46",
 };
 
-function toneForCheck(check: StatusCheck): SegmentTone {
+const DRAW_ORDER: RingTone[] = ["success", "neutral", "failure"];
+
+function toneForCheck(check: StatusCheck): RingTone {
   const state = (check.state || "").toUpperCase();
   const conclusion = (check.conclusion || "").toUpperCase();
   const status = (check.status || "").toUpperCase();
@@ -33,28 +34,26 @@ function toneForCheck(check: StatusCheck): SegmentTone {
   if (state === "SUCCESS" || conclusion === "SUCCESS") {
     return "success";
   }
+  // Skipped / pending / in-progress / neutral → gray band (only 3 colors total)
   if (
     conclusion === "SKIPPED" ||
     conclusion === "NEUTRAL" ||
     conclusion === "CANCELLED" ||
-    conclusion === "STALE"
-  ) {
-    return "skipped";
-  }
-  if (
+    conclusion === "STALE" ||
     state === "PENDING" ||
     state === "IN_PROGRESS" ||
     state === "EXPECTED" ||
     state === "QUEUED" ||
     (status && status !== "COMPLETED")
   ) {
-    return "pending";
+    return "neutral";
   }
-  return "skipped";
+  return "neutral";
 }
 
 /**
- * GitHub-style multi-segment status ring: one arc per check, colored by outcome.
+ * GitHub-style status ring: same colors are grouped into continuous arcs.
+ * Draw order: green (success) → gray (skipped/pending) → red (failure).
  */
 export function ChecksStatusRing({
   checks,
@@ -69,23 +68,59 @@ export function ChecksStatusRing({
   strokeWidth?: number;
   hasConflicts?: boolean;
 }) {
-  const tones = React.useMemo(() => {
-    if (checks.length === 0) return ["empty" as SegmentTone];
-    return checks.map(toneForCheck);
-  }, [checks]);
+  const counts = React.useMemo(() => {
+    const next: Record<RingTone, number> = {
+      success: 0,
+      neutral: 0,
+      failure: 0,
+    };
+    if (checks.length === 0) {
+      next.neutral = 1;
+      return next;
+    }
+    for (const check of checks) {
+      next[toneForCheck(check)] += 1;
+    }
+    // Conflicts tip the ring toward failure if there were no failing checks yet.
+    if (hasConflicts && next.failure === 0) {
+      next.failure = 1;
+    }
+    return next;
+  }, [checks, hasConflicts]);
+
+  const total = Math.max(
+    counts.success + counts.neutral + counts.failure,
+    1,
+  );
 
   const cx = size / 2;
   const cy = size / 2;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const n = Math.max(tones.length, 1);
-  const gapPx = n > 1 ? Math.min(2.5, circumference / n / 5) : 0;
-  const segmentLen = (circumference - gapPx * n) / n;
 
-  const hasFailure = tones.includes("failure") || hasConflicts;
-  const hasPending = tones.includes("pending");
-  const allSuccess =
-    tones.length > 0 && tones.every((t) => t === "success" || t === "skipped");
+  // Gap between color groups (only between non-empty bands)
+  const nonEmpty = DRAW_ORDER.filter((tone) => counts[tone] > 0);
+  const gapPx =
+    nonEmpty.length > 1
+      ? Math.min(2.5, circumference / nonEmpty.length / 8)
+      : 0;
+  const usable = circumference - gapPx * nonEmpty.length;
+
+  // Build contiguous arcs in draw order
+  const arcs = React.useMemo(() => {
+    const result: Array<{ tone: RingTone; length: number; rotation: number }> =
+      [];
+    let cursorDeg = 0;
+    for (const tone of DRAW_ORDER) {
+      const count = counts[tone];
+      if (count <= 0) continue;
+      const length = (count / total) * usable;
+      result.push({ tone, length, rotation: cursorDeg });
+      const spanDeg = ((length + gapPx) / circumference) * 360;
+      cursorDeg += spanDeg;
+    }
+    return result;
+  }, [counts, total, usable, gapPx, circumference]);
 
   return (
     <svg
@@ -95,6 +130,7 @@ export function ChecksStatusRing({
       className={cn("shrink-0 -rotate-90", className)}
       aria-hidden
     >
+      {/* Track */}
       <circle
         cx={cx}
         cy={cy}
@@ -102,47 +138,22 @@ export function ChecksStatusRing({
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="text-border/50"
+        className="text-border/40"
       />
-      {tones.map((tone, index) => {
-        const color =
-          hasConflicts && tone !== "failure"
-            ? TONE_COLOR.pending
-            : TONE_COLOR[tone];
-        const rotation = (index / n) * 360;
-        return (
-          <circle
-            key={`${tone}-${index}`}
-            cx={cx}
-            cy={cy}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="butt"
-            strokeDasharray={`${segmentLen} ${circumference - segmentLen}`}
-            transform={`rotate(${rotation} ${cx} ${cy})`}
-          />
-        );
-      })}
-      <circle
-        cx={cx}
-        cy={cy}
-        r={Math.max(1.5, radius - strokeWidth - 1)}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={0.75}
-        className={cn(
-          "rotate-90 origin-center",
-          hasFailure
-            ? "text-red-500/25"
-            : hasPending || hasConflicts
-              ? "text-amber-500/25"
-              : allSuccess
-                ? "text-emerald-500/25"
-                : "text-border/30",
-        )}
-      />
+      {arcs.map(({ tone, length, rotation }) => (
+        <circle
+          key={tone}
+          cx={cx}
+          cy={cy}
+          r={radius}
+          fill="none"
+          stroke={TONE_COLOR[tone]}
+          strokeWidth={strokeWidth}
+          strokeLinecap="butt"
+          strokeDasharray={`${length} ${Math.max(circumference - length, 0)}`}
+          transform={`rotate(${rotation} ${cx} ${cy})`}
+        />
+      ))}
     </svg>
   );
 }
