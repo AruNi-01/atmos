@@ -260,6 +260,53 @@ interface TabsSubtleItemProps extends HTMLAttributes<HTMLButtonElement> {
   index: number;
 }
 
+/** Split trailing "(…)" so inactive activeLabel tabs can keep the badge visible. */
+function splitTrailingParen(label: string): { title: string; meta: string | null } {
+  const match = label.match(/^(.*?)\s*(\([^)]*\))\s*$/);
+  if (!match) return { title: label, meta: null };
+  const title = match[1]?.trim() ?? "";
+  const meta = match[2] ?? null;
+  if (!title || !meta) return { title: label, meta: null };
+  return { title, meta };
+}
+
+function DualWeightLabel({
+  text,
+  isActive,
+  isSelected,
+}: {
+  text: string;
+  isActive: boolean;
+  isSelected: boolean;
+}) {
+  // Both stacked spans carry the text-box trim so the invisible bold
+  // sizer and the visible label keep identical boxes.
+  return (
+    <span className="inline-grid text-[13px] whitespace-nowrap">
+      <span
+        className="col-start-1 row-start-1 invisible [text-box:trim-both_cap_alphabetic]"
+        style={{ fontVariationSettings: fontWeights.semibold }}
+        aria-hidden="true"
+      >
+        {text}
+      </span>
+      <span
+        className={cn(
+          "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
+          isActive ? "text-foreground" : "text-muted-foreground"
+        )}
+        style={{
+          fontVariationSettings: isSelected
+            ? fontWeights.semibold
+            : fontWeights.normal,
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
   ({ icon: Icon, label, index, className, ...props }, ref) => {
     const internalRef = useRef<HTMLButtonElement | null>(null);
@@ -275,33 +322,12 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
     const isSelected = selectedIndex === index;
     const isActive = hoveredIndex === index || isSelected;
     const collapseLabel = activeLabel && !!Icon;
-    const showLabel = !collapseLabel || isSelected;
+    // In activeLabel mode: always show trailing "(meta)"; expand title when selected.
+    const { title, meta } = splitTrailingParen(label);
+    const showTitle = !collapseLabel || isSelected;
 
-    const labelContent = (
-      // Both stacked spans carry the text-box trim so the invisible bold
-      // sizer and the visible label keep identical boxes.
-      <span className="inline-grid text-[13px] whitespace-nowrap">
-        <span
-          className="col-start-1 row-start-1 invisible [text-box:trim-both_cap_alphabetic]"
-          style={{ fontVariationSettings: fontWeights.semibold }}
-          aria-hidden="true"
-        >
-          {label}
-        </span>
-        <span
-          className={cn(
-            "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
-            isActive ? "text-foreground" : "text-muted-foreground"
-          )}
-          style={{
-            fontVariationSettings: isSelected
-              ? fontWeights.semibold
-              : fontWeights.normal,
-          }}
-        >
-          {label}
-        </span>
-      </span>
+    const fullLabelContent = (
+      <DualWeightLabel text={label} isActive={isActive} isSelected={isSelected} />
     );
 
     return (
@@ -320,7 +346,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
         data-proximity-index={index}
         id={idPrefix ? `${idPrefix}-tab-${index}` : undefined}
         aria-controls={idPrefix ? `${idPrefix}-panel-${index}` : undefined}
-        aria-label={collapseLabel && !showLabel ? label : undefined}
+        aria-label={collapseLabel && !isSelected ? label : undefined}
         className={cn(
           // Fixed heights (was py-2 around a 19.5px line box ≈ 35.5px) so the
           // text-box trim on the label doesn't shrink the tab.
@@ -342,25 +368,51 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
           />
         )}
         {collapseLabel ? (
-          <AnimatePresence initial={false}>
-            {showLabel && (
-              <motion.span
-                key="label"
-                className="overflow-hidden"
-                initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                animate={{ width: "auto", opacity: 1, marginLeft: 8 }}
-                exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                transition={{
-                  ...spring.fast,
-                  opacity: { duration: 0.06 },
+          <span className="flex min-w-0 items-center overflow-hidden">
+            {/* Title expands only when selected; meta "(n)" stays visible always. */}
+            <AnimatePresence initial={false}>
+              {showTitle && (
+                <motion.span
+                  key="title"
+                  className="overflow-hidden"
+                  initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                  animate={{ width: "auto", opacity: 1, marginLeft: 8 }}
+                  exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                  transition={{
+                    ...spring.fast,
+                    opacity: { duration: 0.06 },
+                  }}
+                >
+                  <DualWeightLabel
+                    text={meta ? title : label}
+                    isActive={isActive}
+                    isSelected={isSelected}
+                  />
+                </motion.span>
+              )}
+            </AnimatePresence>
+            {meta ? (
+              <span
+                className={cn(
+                  "shrink-0 text-[13px] whitespace-nowrap transition-colors duration-80",
+                  // When title is hidden, keep a small gap after the icon.
+                  !showTitle && "ml-1.5",
+                  // When title is shown, a thin space before the paren reads naturally.
+                  showTitle && "ml-1",
+                  isActive ? "text-foreground" : "text-muted-foreground",
+                )}
+                style={{
+                  fontVariationSettings: isSelected
+                    ? fontWeights.semibold
+                    : fontWeights.normal,
                 }}
               >
-                {labelContent}
-              </motion.span>
-            )}
-          </AnimatePresence>
+                {meta}
+              </span>
+            ) : null}
+          </span>
         ) : (
-          labelContent
+          fullLabelContent
         )}
       </Tabs.Tab>
     );
