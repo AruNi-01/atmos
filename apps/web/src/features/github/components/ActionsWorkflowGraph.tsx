@@ -14,6 +14,10 @@ import {
   useReactFlow,
   useUpdateNodeInternals,
 } from "@xyflow/react";
+// Load via the JS module graph so Next always emits the stylesheet.
+// A CSS @import through Tailwind's pipeline can fail the style-loaded check
+// (error #013: .react-flow__pane z-index !== 1) and leave the graph blank.
+import "@xyflow/react/dist/style.css";
 import { useTranslations } from "next-intl";
 import { parse } from "yaml";
 import {
@@ -377,9 +381,9 @@ export function ActionsWorkflowGraph({
       <h4 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
         {t("sections.workflow")}
       </h4>
-      <div className="h-80 overflow-hidden rounded-xl border bg-muted/10">
+      <div className="relative h-80 w-full overflow-hidden rounded-xl border bg-muted/10">
         <ReactFlow
-          className="actions-workflow-flow"
+          className="actions-workflow-flow h-full w-full"
           edges={edges}
           maxZoom={1.5}
           minZoom={0.4}
@@ -390,6 +394,7 @@ export function ActionsWorkflowGraph({
           nodesFocusable={false}
           panOnDrag={[0, 1, 2]}
           proOptions={{ hideAttribution: true }}
+          style={{ width: "100%", height: "100%" }}
           zoomOnDoubleClick={false}
         >
           <WorkflowViewportFitter nodes={nodes} />
