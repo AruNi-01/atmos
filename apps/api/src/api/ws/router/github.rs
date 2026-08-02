@@ -7,8 +7,9 @@ use super::{
     GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubCommitDetailRequest,
     GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
-    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
-    GithubPrDraftRequest, GithubPrFilesRequest, GithubPrGetRequest, GithubPrListRepoRequest,
+    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrConflictFilesRequest,
+    GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest,
+    GithubPrGetRequest, GithubPrListRepoRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrPayload,
     GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest, WsEvent, WsMessage,
     WsMessageService,
@@ -701,6 +702,161 @@ impl WsMessageService {
             .await
             .map_err(|e| ServiceError::Validation(format!("Failed to get PR files: {}", e)))?;
         Ok(result)
+    }
+
+    /// Resolve conflict file paths for a PR using local `git merge-tree`.
+    ///
+    /// GitHub's public API only exposes `mergeable` / `mergeStateStatus`, not the
+    /// conflicting path list. When the client provides a local clone path, we
+    /// fetch base/head SHAs and run merge-tree without touching the worktree.
+    pub(super) async fn handle_github_pr_conflict_files(
+        &self,
+        req: GithubPrConflictFilesRequest,
+    ) -> Result<Value> {
+        let repo_path = match req.repo_path.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
+            Some(path) => std::path::PathBuf::from(path),
+            None => {
+                return Ok(json!({
+                    "files": [],
+                    "source": "unavailable",
+                    "reason": "missing_repo_path",
+                }));
+            }
+        };
+
+        if !repo_path.is_dir() {
+            return Ok(json!({
+                "files": [],
+                "source": "unavailable",
+                "reason": "repo_path_not_found",
+            }));
+        }
+
+        let pr_num = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec![
+            "pr",
+            "view",
+            &pr_num,
+            "--repo",
+            &repo_arg,
+            "--json",
+            "baseRefOid,headRefOid,baseRefName,headRefName,mergeable,mergeStateStatus",
+        ];
+        let meta = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to get PR refs: {}", e)))?;
+
+        let base_oid = meta
+            .get("baseRefOid")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let head_oid = meta
+            .get("headRefOid")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let base_ref = meta
+            .get("baseRefName")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let head_ref = meta
+            .get("headRefName")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+
+        if base_oid.is_empty() || head_oid.is_empty() {
+            return Ok(json!({
+                "files": [],
+                "source": "unavailable",
+                "reason": "missing_oids",
+            }));
+        }
+
+        let mergeable = meta.get("mergeable").and_then(Value::as_str).unwrap_or("");
+        let merge_state = meta
+            .get("mergeStateStatus")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let is_conflicting = mergeable.eq_ignore_ascii_case("CONFLICTING")
+            || merge_state.eq_ignore_ascii_case("DIRTY");
+
+        // Best-effort fetch so oids exist in the local object store.
+        let path_for_git = repo_path.clone();
+        let base_ref_fetch = base_ref.clone();
+        let head_ref_fetch = head_ref.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            let _ = std::process::Command::new("git")
+                .current_dir(&path_for_git)
+                .args([
+                    "fetch",
+                    "--no-tags",
+                    "--depth",
+                    "1",
+                    "origin",
+                    &base_ref_fetch,
+                    &head_ref_fetch,
+                ])
+                .output();
+        })
+        .await;
+
+        let path_for_tree = repo_path.clone();
+        let base_for_tree = base_oid.clone();
+        let head_for_tree = head_oid.clone();
+        let merge_tree_output = tokio::task::spawn_blocking(move || {
+            std::process::Command::new("git")
+                .current_dir(&path_for_tree)
+                .args([
+                    "merge-tree",
+                    "--write-tree",
+                    "--name-only",
+                    "--no-messages",
+                    &base_for_tree,
+                    &head_for_tree,
+                ])
+                .output()
+        })
+        .await
+        .map_err(|e| ServiceError::Validation(format!("merge-tree join failed: {}", e)))?
+        .map_err(|e| ServiceError::Validation(format!("merge-tree spawn failed: {}", e)))?;
+
+        // Exit 0 = clean merge (no conflicts). Exit 1 = conflicts listed.
+        // Output: first line may be a tree oid; subsequent lines are paths.
+        let stdout = String::from_utf8_lossy(&merge_tree_output.stdout);
+        let mut files: Vec<String> = Vec::new();
+        for (i, line) in stdout.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            // Skip the merge result tree oid line.
+            if i == 0 && line.len() == 40 && line.chars().all(|c| c.is_ascii_hexdigit()) {
+                continue;
+            }
+            // Defensive: skip any pure oid-looking lines.
+            if line.len() == 40 && line.chars().all(|c| c.is_ascii_hexdigit()) {
+                continue;
+            }
+            files.push(line.to_string());
+        }
+        files.sort();
+        files.dedup();
+
+        Ok(json!({
+            "files": files,
+            "source": "merge_tree",
+            "is_conflicting": is_conflicting || !merge_tree_output.status.success(),
+            "base_ref": base_ref,
+            "head_ref": head_ref,
+            "base_oid": base_oid,
+            "head_oid": head_oid,
+        }))
     }
 
     pub(super) async fn handle_github_commit_detail(

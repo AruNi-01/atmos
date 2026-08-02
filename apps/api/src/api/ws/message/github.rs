@@ -194,6 +194,18 @@ pub struct GithubPrFilesRequest {
     pub pr_number: u64,
 }
 
+/// List files that would conflict when merging a PR into its base.
+/// Uses local `git merge-tree` against the PR base/head SHAs when `repo_path` is a clone.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrConflictFilesRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    /// Absolute path to a local git worktree/clone for this repository (optional).
+    #[serde(default)]
+    pub repo_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubActionsDetailRequest {
     pub owner: String,

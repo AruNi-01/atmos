@@ -338,6 +338,21 @@ export const queryKeys = {
         params.runId,
       ] as const,
 
+    /** GitHub: PR merge-conflict file paths (local merge-tree) */
+    githubPrConflictFiles: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; prNumber: number; repoPath?: string | null },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "prConflictFiles",
+        params.owner,
+        params.repo,
+        params.prNumber,
+        params.repoPath ?? "",
+      ] as const,
+
     /** GitHub: CI Status for a branch */
     githubCiStatus: (
       scope: ComputerQueryScope,

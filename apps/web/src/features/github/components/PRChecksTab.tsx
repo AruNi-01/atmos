@@ -44,6 +44,11 @@ import {
   useEditorStore,
 } from "@/features/editor/store/use-editor-store";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { queryKeys } from "@/api/query/query-keys";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { wsRequest } from "@/api/ws/request";
+import { useQuery } from "@tanstack/react-query";
 
 type CheckBucket = "failing" | "pending" | "skipped" | "successful";
 
@@ -205,6 +210,8 @@ export function PRChecksTab({
   const openEditorFile = useEditorStore((s) => s.openFile);
   const currentRepoPath = useGitStore((s) => s.currentRepoPath);
   const worktreeQuery = useGitChangedFilesQuery(currentRepoPath);
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
   const [openAgentFixId, setOpenAgentFixId] = React.useState<string | null>(
     null,
   );
@@ -231,7 +238,8 @@ export function PRChecksTab({
       mergeable === undefined ||
       mergeStateStatus === "UNKNOWN");
 
-  const conflictFilePaths = React.useMemo(() => {
+  // Local worktree unmerged paths (only when user already has a merge in progress).
+  const localConflictPaths = React.useMemo(() => {
     const CONFLICT_STATUSES = new Set([
       "DD",
       "AU",
@@ -250,8 +258,52 @@ export function PRChecksTab({
         paths.add(file.path);
       }
     }
-    return Array.from(paths).sort((a, b) => a.localeCompare(b));
+    return Array.from(paths);
   }, [worktreeQuery.data?.staged_files, worktreeQuery.data?.unstaged_files]);
+
+  // GitHub does not expose conflict paths via API — compute with local git merge-tree.
+  const conflictFilesQuery = useQuery({
+    queryKey: queryKeys.computer.githubPrConflictFiles(scope, {
+      owner,
+      repo,
+      prNumber,
+      repoPath: currentRepoPath,
+    }),
+    queryFn: async (): Promise<{ files: string[]; source?: string; reason?: string }> => {
+      const result = await wsRequest<{
+        files?: string[];
+        source?: string;
+        reason?: string;
+      }>("github_pr_conflict_files", {
+        owner,
+        repo,
+        pr_number: prNumber,
+        repo_path: currentRepoPath,
+      });
+      return {
+        files: Array.isArray(result?.files) ? result.files : [],
+        source: result?.source,
+        reason: result?.reason,
+      };
+    },
+    enabled:
+      hasConflicts &&
+      connectionState === "connected" &&
+      Boolean(owner && repo && prNumber && currentRepoPath),
+    staleTime: 60_000,
+  });
+
+  const conflictFilePaths = React.useMemo(() => {
+    const fromApi = conflictFilesQuery.data?.files ?? [];
+    const merged = new Set<string>([...localConflictPaths, ...fromApi]);
+    return Array.from(merged).sort((a, b) => a.localeCompare(b));
+  }, [conflictFilesQuery.data?.files, localConflictPaths]);
+
+  const conflictFilesLoading =
+    hasConflicts &&
+    Boolean(currentRepoPath) &&
+    conflictFilesQuery.isLoading &&
+    conflictFilePaths.length === 0;
 
   const openConflictFile = React.useCallback(
     async (relativePath?: string) => {
@@ -651,7 +703,12 @@ export function PRChecksTab({
               ) : null}
             </div>
 
-            {conflictFilePaths.length > 0 ? (
+            {conflictFilesLoading ? (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {t("conflicts.loading")}
+              </div>
+            ) : conflictFilePaths.length > 0 ? (
               <div className="overflow-hidden rounded-lg border border-border/50 bg-background/60 divide-y divide-border/40">
                 {conflictFilePaths.map((path) => {
                   const name = path.split("/").pop() || path;
@@ -690,7 +747,11 @@ export function PRChecksTab({
               </div>
             ) : (
               <p className="text-[11px] text-muted-foreground">
-                {t("conflicts.noLocalFiles")}
+                {!currentRepoPath
+                  ? t("conflicts.noLocalFiles")
+                  : conflictFilesQuery.isError
+                    ? t("conflicts.loadFailed")
+                    : t("conflicts.noFilesFound")}
               </p>
             )}
           </div>

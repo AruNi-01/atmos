@@ -815,6 +815,10 @@ impl WsMessageService {
                 self.handle_github_pr_files(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubPrConflictFiles => {
+                self.handle_github_pr_conflict_files(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubCommitDetail => {
                 self.handle_github_commit_detail(parse_request(request.data)?)
                     .await

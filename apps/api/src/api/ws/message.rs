@@ -584,6 +584,8 @@ pub enum WsAction {
     /// Rerun workflow
     GithubActionsRerun,
     GithubPrFiles,
+    /// List PR merge-conflict file paths via local git merge-tree
+    GithubPrConflictFiles,
     /// 获取 commit 详情 (metadata + changed files with patches)
     GithubCommitDetail,
 

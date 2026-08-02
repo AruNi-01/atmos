@@ -6255,7 +6255,10 @@
           "description": "合并前需解决冲突。点击文件可在 Atmos 中只读查看冲突内容。",
           "resolve": "解决冲突",
           "openAll": "打开全部冲突",
-          "noLocalFiles": "当工作区中该分支存在本地合并冲突时，会显示冲突文件列表。",
+          "loading": "正在计算冲突文件…",
+          "noLocalFiles": "请打开对应仓库的工作区以列出冲突文件（GitHub API 不提供冲突文件列表）。",
+          "noFilesFound": "merge-tree 未找到冲突路径。可尝试拉取最新的 base/head 分支后再试。",
+          "loadFailed": "计算冲突文件失败。请检查本地仓库路径与 git 权限。",
           "agentFixLabel": "修复冲突",
           "agentFixTerminalTab": "PR #{prNumber} 冲突修复",
           "agentFixTerminalPane": "解决冲突"
