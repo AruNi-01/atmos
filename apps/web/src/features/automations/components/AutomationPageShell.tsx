@@ -45,25 +45,27 @@ export function AutomationPageShell({
   const newAutomationDisabled = loading || supportedAgentCount === 0;
 
   return (
-    <AutomationListPanel
-      automations={automations}
-      agents={agents}
-      loading={loading}
-      error={error}
-      supportedAgentCount={supportedAgentCount}
-      createDisabled={newAutomationDisabled}
-      busyAction={busyAction}
-      projects={projects}
-      targetFilter={targetFilter}
-      searchQuery={searchQuery}
-      onReload={onReload}
-      onCreate={onCreate}
-      onEdit={onEdit}
-      onOpenHistory={onOpenHistory}
-      onTargetFilterChange={onTargetFilterChange}
-      onSearchQueryChange={onSearchQueryChange}
-      onRunAction={onRunAction}
-      onToggleEnabled={onToggleEnabled}
-    />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <AutomationListPanel
+        automations={automations}
+        agents={agents}
+        loading={loading}
+        error={error}
+        supportedAgentCount={supportedAgentCount}
+        createDisabled={newAutomationDisabled}
+        busyAction={busyAction}
+        projects={projects}
+        targetFilter={targetFilter}
+        searchQuery={searchQuery}
+        onReload={onReload}
+        onCreate={onCreate}
+        onEdit={onEdit}
+        onOpenHistory={onOpenHistory}
+        onTargetFilterChange={onTargetFilterChange}
+        onSearchQueryChange={onSearchQueryChange}
+        onRunAction={onRunAction}
+        onToggleEnabled={onToggleEnabled}
+      />
+    </div>
   );
 }

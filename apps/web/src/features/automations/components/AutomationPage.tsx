@@ -101,7 +101,7 @@ export function AutomationPage() {
         ) : (
           <motion.div
             key="dashboard"
-            className="absolute inset-0"
+            className="absolute inset-0 flex min-h-0 flex-col overflow-hidden"
             initial={
               shouldReduceMotion
                 ? { opacity: 1 }
