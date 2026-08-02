@@ -704,11 +704,11 @@ impl WsMessageService {
         Ok(result)
     }
 
-    /// Resolve conflict file paths for a PR using local `git merge-tree`.
+    /// Resolve conflict file paths (and optional conflict-marked contents) for a PR.
     ///
-    /// GitHub's public API only exposes `mergeable` / `mergeStateStatus`, not the
-    /// conflicting path list. When the client provides a local clone path, we
-    /// fetch base/head SHAs and run merge-tree without touching the worktree.
+    /// GitHub's public API only exposes `mergeable` / `mergeStateStatus`, not paths.
+    /// We match GitHub's mergeability by merging the **current tip of the base branch**
+    /// into the PR head via local `git merge-tree` (no worktree changes).
     pub(super) async fn handle_github_pr_conflict_files(
         &self,
         req: GithubPrConflictFilesRequest,
@@ -718,6 +718,7 @@ impl WsMessageService {
             None => {
                 return Ok(json!({
                     "files": [],
+                    "contents": {},
                     "source": "unavailable",
                     "reason": "missing_repo_path",
                 }));
@@ -727,6 +728,7 @@ impl WsMessageService {
         if !repo_path.is_dir() {
             return Ok(json!({
                 "files": [],
+                "contents": {},
                 "source": "unavailable",
                 "reason": "repo_path_not_found",
             }));
@@ -749,7 +751,7 @@ impl WsMessageService {
             .await
             .map_err(|e| ServiceError::Validation(format!("Failed to get PR refs: {}", e)))?;
 
-        let base_oid = meta
+        let pr_base_oid = meta
             .get("baseRefOid")
             .and_then(Value::as_str)
             .unwrap_or("")
@@ -770,9 +772,10 @@ impl WsMessageService {
             .unwrap_or("")
             .to_string();
 
-        if base_oid.is_empty() || head_oid.is_empty() {
+        if head_oid.is_empty() || base_ref.is_empty() {
             return Ok(json!({
                 "files": [],
+                "contents": {},
                 "source": "unavailable",
                 "reason": "missing_oids",
             }));
@@ -786,76 +789,103 @@ impl WsMessageService {
         let is_conflicting = mergeable.eq_ignore_ascii_case("CONFLICTING")
             || merge_state.eq_ignore_ascii_case("DIRTY");
 
-        // Ensure base/head objects (and enough ancestry for merge-base) exist.
-        // Shallow clones + `--depth 1` produce "unrelated histories" and empty conflict lists.
-        let path_for_prepare = repo_path.clone();
-        let base_ref_fetch = base_ref.clone();
-        let head_ref_fetch = head_ref.clone();
-        let base_for_prepare = base_oid.clone();
-        let head_for_prepare = head_oid.clone();
-        let prepare = tokio::task::spawn_blocking(move || {
-            Self::prepare_repo_for_merge_tree(
-                &path_for_prepare,
-                &base_ref_fetch,
-                &head_ref_fetch,
-                &base_for_prepare,
-                &head_for_prepare,
+        let include_contents = req.include_contents;
+        let path_for_job = repo_path.clone();
+        let base_ref_job = base_ref.clone();
+        let head_ref_job = head_ref.clone();
+        let head_oid_job = head_oid.clone();
+        let pr_base_oid_job = pr_base_oid.clone();
+
+        let job_result = tokio::task::spawn_blocking(move || {
+            Self::compute_pr_conflict_files(
+                &path_for_job,
+                &base_ref_job,
+                &head_ref_job,
+                &head_oid_job,
+                &pr_base_oid_job,
+                include_contents,
             )
         })
         .await
-        .map_err(|e| ServiceError::Validation(format!("prepare join failed: {}", e)))?;
+        .map_err(|e| ServiceError::Validation(format!("conflict job join failed: {}", e)))?;
 
-        if let Err(reason) = prepare {
-            return Ok(json!({
+        match job_result {
+            Ok(payload) => {
+                let mut out = payload;
+                if let Some(obj) = out.as_object_mut() {
+                    obj.insert("is_conflicting".to_string(), json!(is_conflicting));
+                    obj.insert("base_ref".to_string(), json!(base_ref));
+                    obj.insert("head_ref".to_string(), json!(head_ref));
+                    obj.insert("pr_base_oid".to_string(), json!(pr_base_oid));
+                    obj.insert("head_oid".to_string(), json!(head_oid));
+                }
+                Ok(out)
+            }
+            Err(reason) => Ok(json!({
                 "files": [],
+                "contents": {},
                 "source": "unavailable",
                 "reason": reason,
                 "base_ref": base_ref,
                 "head_ref": head_ref,
-                "base_oid": base_oid,
+                "pr_base_oid": pr_base_oid,
                 "head_oid": head_oid,
-            }));
+            })),
+        }
+    }
+
+    /// Core merge-tree + optional merge-file content generation (blocking).
+    fn compute_pr_conflict_files(
+        repo_path: &std::path::Path,
+        base_ref: &str,
+        head_ref: &str,
+        head_oid: &str,
+        pr_base_oid: &str,
+        include_contents: bool,
+    ) -> std::result::Result<Value, &'static str> {
+        // Prefer current tip of base branch (matches GitHub's mergeability UI).
+        Self::prepare_repo_for_merge_tree(repo_path, base_ref, head_ref, pr_base_oid, head_oid)?;
+
+        let base_tip = Self::git_rev_parse(repo_path, &format!("refs/remotes/origin/{base_ref}"))
+            .or_else(|| Self::git_rev_parse(repo_path, base_ref))
+            .or_else(|| {
+                if !pr_base_oid.is_empty() {
+                    Some(pr_base_oid.to_string())
+                } else {
+                    None
+                }
+            })
+            .ok_or("missing_base_tip")?;
+
+        // Ensure merge-base against the tip we will actually use.
+        if !Self::git_merge_base_ok(repo_path, &base_tip, head_oid) {
+            // Re-run prepare using the resolved tip oid as "base_oid".
+            Self::prepare_repo_for_merge_tree(repo_path, base_ref, head_ref, &base_tip, head_oid)?;
+            if !Self::git_merge_base_ok(repo_path, &base_tip, head_oid) {
+                return Err("no_merge_base");
+            }
         }
 
-        let path_for_tree = repo_path.clone();
-        let base_for_tree = base_oid.clone();
-        let head_for_tree = head_oid.clone();
-        let merge_tree_output = tokio::task::spawn_blocking(move || {
-            std::process::Command::new("git")
-                .current_dir(&path_for_tree)
-                .args([
-                    "merge-tree",
-                    "--write-tree",
-                    "--name-only",
-                    "--no-messages",
-                    &base_for_tree,
-                    &head_for_tree,
-                ])
-                .output()
-        })
-        .await
-        .map_err(|e| ServiceError::Validation(format!("merge-tree join failed: {}", e)))?
-        .map_err(|e| ServiceError::Validation(format!("merge-tree spawn failed: {}", e)))?;
+        let merge_tree_output = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args([
+                "merge-tree",
+                "--write-tree",
+                "--name-only",
+                "--no-messages",
+                &base_tip,
+                head_oid,
+            ])
+            .output()
+            .map_err(|_| "merge_tree_spawn_failed")?;
 
         let stderr = String::from_utf8_lossy(&merge_tree_output.stderr).trim().to_string();
-        // Exit 0 = clean merge (no conflicts). Exit 1 = conflicts listed.
-        // "unrelated histories" / missing objects → empty stdout, non-zero exit.
         if !merge_tree_output.status.success()
             && stderr.to_ascii_lowercase().contains("unrelated histories")
         {
-            return Ok(json!({
-                "files": [],
-                "source": "unavailable",
-                "reason": "unrelated_histories",
-                "detail": stderr,
-                "base_ref": base_ref,
-                "head_ref": head_ref,
-                "base_oid": base_oid,
-                "head_oid": head_oid,
-            }));
+            return Err("unrelated_histories");
         }
 
-        // Output: first line may be a tree oid; subsequent lines are conflict paths.
         let stdout = String::from_utf8_lossy(&merge_tree_output.stdout);
         let mut files: Vec<String> = Vec::new();
         for (i, line) in stdout.lines().enumerate() {
@@ -863,11 +893,9 @@ impl WsMessageService {
             if line.is_empty() {
                 continue;
             }
-            // Skip the merge result tree oid line.
             if i == 0 && line.len() == 40 && line.chars().all(|c| c.is_ascii_hexdigit()) {
                 continue;
             }
-            // Defensive: skip any pure oid-looking lines.
             if line.len() == 40 && line.chars().all(|c| c.is_ascii_hexdigit()) {
                 continue;
             }
@@ -876,15 +904,24 @@ impl WsMessageService {
         files.sort();
         files.dedup();
 
+        let mut contents = serde_json::Map::new();
+        if include_contents && !files.is_empty() {
+            let merge_base = Self::git_merge_base(repo_path, &base_tip, head_oid).unwrap_or_default();
+            for path in &files {
+                if let Some(text) =
+                    Self::build_conflict_marked_content(repo_path, &merge_base, &base_tip, head_oid, path)
+                {
+                    contents.insert(path.clone(), json!(text));
+                }
+            }
+        }
+
         Ok(json!({
             "files": files,
+            "contents": contents,
             "source": "merge_tree",
-            "is_conflicting": is_conflicting || (!merge_tree_output.status.success() && !files.is_empty()),
-            "base_ref": base_ref,
-            "head_ref": head_ref,
-            "base_oid": base_oid,
-            "head_oid": head_oid,
-            "stderr": if stderr.is_empty() { Value::Null } else { json!(stderr) },
+            "base_oid": base_tip,
+            "merge_base_oid": Self::git_merge_base(repo_path, &base_tip, head_oid),
         }))
     }
 
@@ -905,26 +942,57 @@ impl WsMessageService {
         }
 
         // Also request the exact PR SHAs (works when the server allows sha fetch).
-        let _ = std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["fetch", "--no-tags", "origin", base_oid, head_oid])
-            .output();
-
-        // Ensure objects exist at all.
-        for oid in [base_oid, head_oid] {
-            let ok = std::process::Command::new("git")
+        let mut sha_args = vec!["fetch", "--no-tags", "origin"];
+        if !base_oid.is_empty() {
+            sha_args.push(base_oid);
+        }
+        if !head_oid.is_empty() {
+            sha_args.push(head_oid);
+        }
+        if sha_args.len() > 3 {
+            let _ = std::process::Command::new("git")
                 .current_dir(repo_path)
-                .args(["cat-file", "-e", &format!("{}^{{commit}}", oid)])
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false);
-            if !ok {
-                return Err("missing_commit_objects");
-            }
+                .args(&sha_args)
+                .output();
         }
 
-        if Self::git_merge_base_ok(repo_path, base_oid, head_oid) {
-            return Ok(());
+        // Prefer checking head always; base tip may be resolved after fetch.
+        let head_ok = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["cat-file", "-e", &format!("{}^{{commit}}", head_oid)])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !head_ok {
+            return Err("missing_commit_objects");
+        }
+
+        let base_candidates: Vec<String> = [
+            if !base_ref.is_empty() {
+                Some(format!("refs/remotes/origin/{base_ref}"))
+            } else {
+                None
+            },
+            if !base_ref.is_empty() {
+                Some(base_ref.to_string())
+            } else {
+                None
+            },
+            if !base_oid.is_empty() {
+                Some(base_oid.to_string())
+            } else {
+                None
+            },
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        for base in &base_candidates {
+            let base_resolved = Self::git_rev_parse(repo_path, base).unwrap_or_else(|| base.clone());
+            if Self::git_merge_base_ok(repo_path, &base_resolved, head_oid) {
+                return Ok(());
+            }
         }
 
         let is_shallow = std::process::Command::new("git")
@@ -937,23 +1005,29 @@ impl WsMessageService {
             .unwrap_or(false);
 
         if is_shallow {
-            // Progressive deepen — enough for typical PR divergence without full unshallow.
             for deepen in [100u32, 500, 2000] {
                 let _ = std::process::Command::new("git")
                     .current_dir(repo_path)
                     .args(["fetch", "--no-tags", &format!("--deepen={deepen}"), "origin"])
                     .output();
-                if Self::git_merge_base_ok(repo_path, base_oid, head_oid) {
-                    return Ok(());
+                for base in &base_candidates {
+                    let base_resolved =
+                        Self::git_rev_parse(repo_path, base).unwrap_or_else(|| base.clone());
+                    if Self::git_merge_base_ok(repo_path, &base_resolved, head_oid) {
+                        return Ok(());
+                    }
                 }
             }
-            // Last resort for very old PR bases on shallow clones.
             let _ = std::process::Command::new("git")
                 .current_dir(repo_path)
                 .args(["fetch", "--no-tags", "--unshallow", "origin"])
                 .output();
-            if Self::git_merge_base_ok(repo_path, base_oid, head_oid) {
-                return Ok(());
+            for base in &base_candidates {
+                let base_resolved =
+                    Self::git_rev_parse(repo_path, base).unwrap_or_else(|| base.clone());
+                if Self::git_merge_base_ok(repo_path, &base_resolved, head_oid) {
+                    return Ok(());
+                }
             }
             return Err("shallow_no_merge_base");
         }
@@ -962,12 +1036,131 @@ impl WsMessageService {
     }
 
     fn git_merge_base_ok(repo_path: &std::path::Path, a: &str, b: &str) -> bool {
-        std::process::Command::new("git")
+        Self::git_merge_base(repo_path, a, b).is_some()
+    }
+
+    fn git_merge_base(repo_path: &std::path::Path, a: &str, b: &str) -> Option<String> {
+        let output = std::process::Command::new("git")
             .current_dir(repo_path)
             .args(["merge-base", a, b])
             .output()
-            .map(|o| o.status.success() && !o.stdout.is_empty())
-            .unwrap_or(false)
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
+    }
+
+    fn git_rev_parse(repo_path: &std::path::Path, rev: &str) -> Option<String> {
+        let output = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "--verify", rev])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
+    }
+
+    fn git_show_blob(repo_path: &std::path::Path, rev_path: &str) -> Option<Vec<u8>> {
+        let output = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["show", rev_path])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        Some(output.stdout)
+    }
+
+    /// Build conflict-marked file text via three-way `git merge-file` (no worktree write).
+    fn build_conflict_marked_content(
+        repo_path: &std::path::Path,
+        merge_base: &str,
+        base_tip: &str,
+        head_oid: &str,
+        path: &str,
+    ) -> Option<String> {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("atmos-pr-conflict-{stamp}"));
+        std::fs::create_dir_all(&dir).ok()?;
+        let base_path = dir.join("base");
+        let ours_path = dir.join("ours");
+        let theirs_path = dir.join("theirs");
+
+        let base_blob = if merge_base.is_empty() {
+            None
+        } else {
+            Self::git_show_blob(repo_path, &format!("{merge_base}:{path}"))
+        };
+        let ours_blob = Self::git_show_blob(repo_path, &format!("{base_tip}:{path}"));
+        let theirs_blob = Self::git_show_blob(repo_path, &format!("{head_oid}:{path}"));
+
+        // If neither side has the file, nothing to show.
+        if ours_blob.is_none() && theirs_blob.is_none() {
+            let _ = std::fs::remove_dir_all(&dir);
+            return None;
+        }
+
+        if std::fs::write(&base_path, base_blob.as_deref().unwrap_or(b"")).is_err()
+            || std::fs::write(&ours_path, ours_blob.as_deref().unwrap_or(b"")).is_err()
+            || std::fs::write(&theirs_path, theirs_blob.as_deref().unwrap_or(b"")).is_err()
+        {
+            let _ = std::fs::remove_dir_all(&dir);
+            return None;
+        }
+
+        let output = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args([
+                "merge-file",
+                "-p",
+                "-L",
+                "base",
+                "-L",
+                "ours",
+                "-L",
+                "theirs",
+                ours_path.to_str()?,
+                base_path.to_str()?,
+                theirs_path.to_str()?,
+            ])
+            .output();
+
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let output = output.ok()?;
+
+        // merge-file writes merged result to stdout with -p; exit 0 clean, 1 conflicts.
+        let mut text = String::from_utf8_lossy(&output.stdout).to_string();
+        if !text.contains("<<<<<<<") {
+            // modify/delete or clean resolution of one side — still present a synthetic conflict
+            // so the read-only viewer has something meaningful to show.
+            let ours = String::from_utf8_lossy(ours_blob.as_deref().unwrap_or(b""));
+            let theirs = String::from_utf8_lossy(theirs_blob.as_deref().unwrap_or(b""));
+            if ours == theirs {
+                return Some(ours.into_owned());
+            }
+            text = format!(
+                "<<<<<<< ours (base branch)\n{ours}=======\n{theirs}>>>>>>> theirs (pull request)\n"
+            );
+        }
+        Some(text)
     }
 
     pub(super) async fn handle_github_commit_detail(

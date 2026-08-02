@@ -81,16 +81,50 @@ export function isConflictResolveReadOnlyPath(path: string): boolean {
   );
 }
 
-/** Build a conflict-resolve editor path (optional read-only, optional single file). */
+export type ConflictResolvePrRef = {
+  owner: string;
+  repo: string;
+  prNumber: number;
+};
+
+/** Build a conflict-resolve editor path (optional read-only, optional single file, optional PR context). */
 export function buildConflictResolveEditorPath(
   sourcePath: string = 'merge-conflicts',
-  options?: { readOnly?: boolean },
+  options?: { readOnly?: boolean; pr?: ConflictResolvePrRef },
 ): string {
   const normalized = sourcePath.replace(/^\/+/, '') || 'merge-conflicts';
+  if (options?.pr) {
+    const { owner, repo, prNumber } = options.pr;
+    // git-conflict-resolve://ro/pr/{owner}/{repo}/{n}/[file path | merge-conflicts]
+    const body = `pr/${owner}/${repo}/${prNumber}/${normalized}`;
+    return options.readOnly
+      ? `${EDITOR_CONFLICT_RESOLVE_PREFIX}${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/${body}`
+      : `${EDITOR_CONFLICT_RESOLVE_PREFIX}${body}`;
+  }
   if (options?.readOnly) {
     return `${EDITOR_CONFLICT_RESOLVE_PREFIX}${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/${normalized}`;
   }
   return `${EDITOR_CONFLICT_RESOLVE_PREFIX}${normalized}`;
+}
+
+/** Parse PR context encoded in a conflict-resolve path, if any. */
+export function parseConflictResolvePrRef(
+  path: string,
+): (ConflictResolvePrRef & { filePath: string }) | null {
+  if (!isConflictResolveEditorPath(path)) return null;
+  let rest = path.slice(EDITOR_CONFLICT_RESOLVE_PREFIX.length);
+  if (rest.startsWith(`${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/`)) {
+    rest = rest.slice(EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT.length + 1);
+  }
+  if (!rest.startsWith('pr/')) return null;
+  const parts = rest.slice(3).split('/');
+  // owner / repo / prNumber / ...file
+  if (parts.length < 4) return null;
+  const [owner, repo, prStr, ...fileParts] = parts;
+  const prNumber = Number(prStr);
+  if (!owner || !repo || !Number.isFinite(prNumber) || prNumber <= 0) return null;
+  const filePath = fileParts.join('/') || 'merge-conflicts';
+  return { owner, repo, prNumber, filePath };
 }
 
 export function getEditorSourcePath(path: string): string {
@@ -112,6 +146,11 @@ export function getEditorSourcePath(path: string): string {
     let rest = path.slice(EDITOR_CONFLICT_RESOLVE_PREFIX.length);
     if (rest.startsWith(`${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/`)) {
       rest = rest.slice(EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT.length + 1);
+    }
+    // Strip pr/{owner}/{repo}/{n}/ prefix so tab labels use the real file path.
+    const prMatch = rest.match(/^pr\/[^/]+\/[^/]+\/\d+\/(.+)$/);
+    if (prMatch?.[1]) {
+      return prMatch[1];
     }
     return rest;
   }

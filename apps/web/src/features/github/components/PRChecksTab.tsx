@@ -49,6 +49,7 @@ import { queryKeys } from "@/api/query/query-keys";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { wsRequest } from "@/api/ws/request";
 import { useQuery } from "@tanstack/react-query";
+import { usePrConflictPreviewStore } from "@/features/github/store/use-pr-conflict-preview-store";
 
 type CheckBucket = "failing" | "pending" | "skipped" | "successful";
 
@@ -212,6 +213,7 @@ export function PRChecksTab({
   const worktreeQuery = useGitChangedFilesQuery(currentRepoPath);
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
+  const setConflictPreview = usePrConflictPreviewStore((s) => s.setPreview);
   const [openAgentFixId, setOpenAgentFixId] = React.useState<string | null>(
     null,
   );
@@ -269,21 +271,51 @@ export function PRChecksTab({
       prNumber,
       repoPath: currentRepoPath,
     }),
-    queryFn: async (): Promise<{ files: string[]; source?: string; reason?: string }> => {
+    queryFn: async (): Promise<{
+      files: string[];
+      contents: Record<string, string>;
+      source?: string;
+      reason?: string;
+      base_oid?: string;
+      head_oid?: string;
+    }> => {
       const result = await wsRequest<{
         files?: string[];
+        contents?: Record<string, string>;
         source?: string;
         reason?: string;
+        base_oid?: string;
+        head_oid?: string;
       }>("github_pr_conflict_files", {
         owner,
         repo,
         pr_number: prNumber,
         repo_path: currentRepoPath,
+        include_contents: true,
+      });
+      const files = Array.isArray(result?.files) ? result.files : [];
+      const contents =
+        result?.contents && typeof result.contents === "object"
+          ? result.contents
+          : {};
+      // Seed read-only conflict viewer (does not touch worktree).
+      setConflictPreview({
+        owner,
+        repo,
+        prNumber,
+        files,
+        contents,
+        baseOid: result?.base_oid,
+        headOid: result?.head_oid,
+        updatedAt: Date.now(),
       });
       return {
-        files: Array.isArray(result?.files) ? result.files : [],
+        files,
+        contents,
         source: result?.source,
         reason: result?.reason,
+        base_oid: result?.base_oid,
+        head_oid: result?.head_oid,
       };
     },
     enabled:
@@ -308,13 +340,38 @@ export function PRChecksTab({
   const openConflictFile = React.useCallback(
     async (relativePath?: string) => {
       const source = relativePath?.trim() || "merge-conflicts";
+      // Ensure preview cache is populated before opening the tab.
+      const data = conflictFilesQuery.data;
+      if (data?.files?.length) {
+        setConflictPreview({
+          owner,
+          repo,
+          prNumber,
+          files: data.files,
+          contents: data.contents ?? {},
+          baseOid: data.base_oid,
+          headOid: data.head_oid,
+          updatedAt: Date.now(),
+        });
+      }
       await openEditorFile(
-        buildConflictResolveEditorPath(source, { readOnly: true }),
+        buildConflictResolveEditorPath(source, {
+          readOnly: true,
+          pr: { owner, repo, prNumber },
+        }),
         effectiveContextId || undefined,
         { preview: false },
       );
     },
-    [effectiveContextId, openEditorFile],
+    [
+      conflictFilesQuery.data,
+      effectiveContextId,
+      openEditorFile,
+      owner,
+      prNumber,
+      repo,
+      setConflictPreview,
+    ],
   );
 
   const conflictAgentFixSource = React.useMemo((): AgentFixPromptSource | null => {

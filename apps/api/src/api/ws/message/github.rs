@@ -195,7 +195,9 @@ pub struct GithubPrFilesRequest {
 }
 
 /// List files that would conflict when merging a PR into its base.
-/// Uses local `git merge-tree` against the PR base/head SHAs when `repo_path` is a clone.
+/// Uses local `git merge-tree` against the **current** base-branch tip and PR head
+/// when `repo_path` is a clone. Optionally includes three-way merged contents with
+/// conflict markers (for read-only PR conflict preview).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrConflictFilesRequest {
     pub owner: String,
@@ -204,6 +206,13 @@ pub struct GithubPrConflictFilesRequest {
     /// Absolute path to a local git worktree/clone for this repository (optional).
     #[serde(default)]
     pub repo_path: Option<String>,
+    /// When true, also return a `contents` map of path → conflict-marked text.
+    #[serde(default = "default_true")]
+    pub include_contents: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

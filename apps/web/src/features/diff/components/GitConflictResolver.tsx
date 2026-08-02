@@ -6,7 +6,12 @@ import { getFileIconProps, Loader2, toastManager } from "@workspace/ui";
 import { useTheme } from "next-themes";
 import { fsApi } from "@/api/ws-api";
 import { useGitStore } from "@/features/git/store/use-git-store";
-import { useGitChangedFilesQuery, invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
+import {
+  useGitChangedFilesQuery,
+  invalidateGitQueries,
+} from "@/features/git/hooks/use-git-changed-files-query";
+import { parseConflictResolvePrRef } from "@/features/editor/store/use-editor-store";
+import { usePrConflictPreviewStore } from "@/features/github/store/use-pr-conflict-preview-store";
 
 const CONFLICT_STATUSES = new Set([
   "DD",
@@ -41,7 +46,10 @@ function ConflictFileRenderer({
   onResolved,
 }: ConflictFileRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const fileName = useMemo(() => file.name.split("/").pop() || file.name, [file.name]);
+  const fileName = useMemo(
+    () => file.name.split("/").pop() || file.name,
+    [file.name],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -93,11 +101,14 @@ function ConflictFileRenderer({
 export function GitConflictResolver({
   readOnly = false,
   focusPath,
+  editorPath,
 }: {
   /** Hide accept/reject actions (view conflict markers only). */
   readOnly?: boolean;
   /** When set (and not merge-conflicts), only render this relative path. */
   focusPath?: string | null;
+  /** Full editor path (keeps PR encoding for read-only preview). */
+  editorPath?: string | null;
 } = {}) {
   const { resolvedTheme } = useTheme();
   const { currentRepoPath, stageFiles } = useGitStore();
@@ -105,21 +116,61 @@ export function GitConflictResolver({
   const stagedFiles = worktreeQuery.data?.staged_files ?? [];
   const unstagedFiles = worktreeQuery.data?.unstaged_files ?? [];
 
-  const conflictedFilePaths = useMemo(() => {
+  // Prefer PR preview contents (merge-tree / merge-file) for read-only PR checks.
+  const prPreview = usePrConflictPreviewStore((s) => s.preview);
+  const prContext = editorPath ? parseConflictResolvePrRef(editorPath) : null;
+
+  const previewMatchesPr =
+    prPreview &&
+    prContext &&
+    prPreview.owner === prContext.owner &&
+    prPreview.repo === prContext.repo &&
+    prPreview.prNumber === prContext.prNumber
+      ? prPreview
+      : prPreview && readOnly
+        ? prPreview
+        : null;
+
+  const worktreeConflictPaths = useMemo(() => {
     const paths = new Set<string>();
     for (const file of [...stagedFiles, ...unstagedFiles]) {
       if (CONFLICT_STATUSES.has(file.status)) {
         paths.add(file.path);
       }
     }
-    let list = Array.from(paths);
+    return Array.from(paths);
+  }, [stagedFiles, unstagedFiles]);
+
+  const conflictedFilePaths = useMemo(() => {
+    // Read-only PR mode: prefer server-provided conflict path list.
+    if (readOnly && previewMatchesPr && previewMatchesPr.files.length > 0) {
+      const filePath =
+        prContext?.filePath && prContext.filePath !== "merge-conflicts"
+          ? prContext.filePath
+          : focusPath && focusPath !== "merge-conflicts"
+            ? focusPath
+            : null;
+      if (filePath) {
+        return previewMatchesPr.files.includes(filePath)
+          ? [filePath]
+          : [filePath];
+      }
+      return [...previewMatchesPr.files];
+    }
+
+    let list = [...worktreeConflictPaths];
     if (focusPath && focusPath !== "merge-conflicts") {
       list = list.filter((p) => p === focusPath);
-      // Still show the focused path even if status map is empty (best-effort).
-      if (list.length === 0) list = [focusPath];
+      if (list.length === 0 && readOnly) list = [focusPath];
     }
     return list;
-  }, [focusPath, stagedFiles, unstagedFiles]);
+  }, [
+    focusPath,
+    prContext?.filePath,
+    previewMatchesPr,
+    readOnly,
+    worktreeConflictPaths,
+  ]);
 
   const [files, setFiles] = useState<Record<string, FileContents>>({});
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
@@ -132,11 +183,44 @@ export function GitConflictResolver({
   );
 
   useEffect(() => {
-    if (!currentRepoPath || conflictedFilePaths.length === 0) {
+    if (conflictedFilePaths.length === 0) {
       setFiles({});
       setLoadingPaths(new Set());
       setSavingPaths(new Set());
       setErrorByPath({});
+      return;
+    }
+
+    // Prefer merge-tree contents for read-only PR preview (no local merge required).
+    if (readOnly && previewMatchesPr) {
+      const loaded: Record<string, FileContents> = {};
+      const errors: Record<string, string> = {};
+      for (const relativePath of conflictedFilePaths) {
+        const content = previewMatchesPr.contents[relativePath];
+        if (typeof content === "string" && content.length > 0) {
+          loaded[relativePath] = { name: relativePath, contents: content };
+        } else {
+          errors[relativePath] =
+            "No conflict content available for this file (merge-tree did not produce markers).";
+        }
+      }
+      setFiles(loaded);
+      setErrorByPath(errors);
+      setLoadingPaths(new Set());
+      return;
+    }
+
+    if (!currentRepoPath) {
+      setFiles({});
+      setErrorByPath(
+        Object.fromEntries(
+          conflictedFilePaths.map((p) => [
+            p,
+            "Open a repository workspace to load conflict files.",
+          ]),
+        ),
+      );
+      setLoadingPaths(new Set());
       return;
     }
 
@@ -179,7 +263,9 @@ export function GitConflictResolver({
       } catch (error) {
         if (!active) return;
         const message =
-          error instanceof Error ? error.message : "Failed to read conflicted files";
+          error instanceof Error
+            ? error.message
+            : "Failed to read conflicted files";
         setErrorByPath(
           Object.fromEntries(
             conflictedFilePaths.map((relativePath) => [relativePath, message]),
@@ -195,7 +281,7 @@ export function GitConflictResolver({
     return () => {
       active = false;
     };
-  }, [conflictedFilePaths, currentRepoPath]);
+  }, [conflictedFilePaths, currentRepoPath, previewMatchesPr, readOnly]);
 
   const handleMergeConflictResolve = useCallback(
     (relativePath: string, resolvedFile: FileContents) => {
@@ -220,7 +306,9 @@ export function GitConflictResolver({
           }
         } catch (error) {
           const description =
-            error instanceof Error ? error.message : "Failed to write resolved content";
+            error instanceof Error
+              ? error.message
+              : "Failed to write resolved content";
           toastManager.add({
             title: "Failed to save conflict resolution",
             description,
@@ -238,20 +326,16 @@ export function GitConflictResolver({
     [currentRepoPath, readOnly, stageFiles],
   );
 
-  if (!currentRepoPath) {
-    return (
-      <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-        {readOnly
-          ? "Open a repository workspace to inspect merge conflicts."
-          : "Open a repository workspace to resolve merge conflicts."}
-      </div>
-    );
-  }
-
   if (conflictedFilePaths.length === 0) {
     return (
       <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-        No unresolved merge conflicts.
+        {readOnly
+          ? previewMatchesPr
+            ? "No conflict files in this preview."
+            : "No conflict preview data. Re-open the file from the PR Checks tab."
+          : !currentRepoPath
+            ? "Open a repository workspace to resolve merge conflicts."
+            : "No unresolved merge conflicts."}
       </div>
     );
   }
@@ -261,8 +345,9 @@ export function GitConflictResolver({
       <div className="mx-auto w-full max-w-[1200px] px-5 py-4 space-y-4">
         {readOnly && (
           <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-            Read-only conflict view — accept/reject is disabled because this may not
-            be the current workspace branch.
+            Read-only conflict view — accept/reject is disabled because this may
+            not be the current workspace branch. Content is generated via
+            merge-tree (does not modify your working tree).
           </div>
         )}
         {conflictedFilePaths.map((relativePath) => {
@@ -295,7 +380,10 @@ export function GitConflictResolver({
           }
 
           return (
-            <div key={relativePath} className="rounded-md border border-border/60 overflow-hidden">
+            <div
+              key={relativePath}
+              className="rounded-md border border-border/60 overflow-hidden"
+            >
               {isSaving && !readOnly && (
                 <div className="px-3 py-1.5 text-xs text-muted-foreground border-b border-border/60 bg-muted/40">
                   Saving resolution...

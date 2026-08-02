@@ -53,6 +53,7 @@ export {
   isConflictResolveReadOnlyPath,
   isDiffEditorPath,
   isReviewGroupEditorPath,
+  parseConflictResolvePrRef,
 } from './editor-store-paths';
 
 const pendingFileSaves = new Map<string, Promise<void>>();

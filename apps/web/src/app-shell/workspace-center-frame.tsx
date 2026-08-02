@@ -476,6 +476,7 @@ function WorkspaceCenterFrameImpl({
               <GitConflictResolver
                 readOnly={isConflictResolveReadOnlyPath(file.path)}
                 focusPath={getEditorSourcePath(file.path)}
+                editorPath={file.path}
               />
             ) : (
               <FileViewer
