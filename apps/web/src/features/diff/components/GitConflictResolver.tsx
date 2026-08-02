@@ -341,7 +341,13 @@ export function GitConflictResolver({
   }
 
   return (
-    <div className="h-full w-full overflow-auto bg-background">
+    <div className="atmos-git-conflict-resolver h-full w-full overflow-auto bg-background">
+      {/* Hide Pierre's default change-type SVG; we already inject file-type icons via renderHeaderPrefix. */}
+      <style>{`
+        .atmos-git-conflict-resolver [data-change-icon] {
+          display: none !important;
+        }
+      `}</style>
       <div className="mx-auto w-full max-w-[1200px] px-5 py-4 space-y-4">
         {readOnly && (
           <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
