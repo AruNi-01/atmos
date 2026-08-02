@@ -41,13 +41,16 @@ export type {
 export {
   EDITOR_CONFLICT_RESOLVE_ALL_PATH,
   EDITOR_CONFLICT_RESOLVE_PREFIX,
+  EDITOR_CONFLICT_RESOLVE_READONLY_ALL_PATH,
   EDITOR_DIFF_PREFIX,
   EDITOR_REVIEW_DIFF_PREFIX,
   EDITOR_REVIEW_GROUP_PREFIX,
+  buildConflictResolveEditorPath,
   getEditorSourcePath,
   getReviewDiffSnapshotGuid,
   getReviewGroupRevisionGuid,
   isConflictResolveEditorPath,
+  isConflictResolveReadOnlyPath,
   isDiffEditorPath,
   isReviewGroupEditorPath,
 } from './editor-store-paths';

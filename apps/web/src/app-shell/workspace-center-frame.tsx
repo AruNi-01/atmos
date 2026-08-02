@@ -19,6 +19,7 @@ import {
   getEditorSourcePath,
   getReviewGroupRevisionGuid,
   isConflictResolveEditorPath,
+  isConflictResolveReadOnlyPath,
   isReviewGroupEditorPath,
   useEditorStore,
 } from "@/features/editor/store/use-editor-store";
@@ -472,7 +473,10 @@ function WorkspaceCenterFrameImpl({
                 />
               </ReviewContextProvider>
             ) : isConflictResolveEditorPath(file.path) && isUrlSyncedActive ? (
-              <GitConflictResolver />
+              <GitConflictResolver
+                readOnly={isConflictResolveReadOnlyPath(file.path)}
+                focusPath={getEditorSourcePath(file.path)}
+              />
             ) : (
               <FileViewer
                 file={file}

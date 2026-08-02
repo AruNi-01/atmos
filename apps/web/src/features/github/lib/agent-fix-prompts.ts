@@ -184,6 +184,44 @@ export function buildPrReviewFixPrompt(
   ]);
 }
 
+/** Fix prompt for PR merge conflicts listed on the Checks tab. */
+export function buildPrMergeConflictsFixPrompt(args: {
+  owner: string;
+  repo: string;
+  pr: {
+    number: number;
+    title?: string | null;
+    headRefName?: string | null;
+    baseRefName?: string | null;
+    url?: string | null;
+  };
+  conflictFiles: string[];
+}): string {
+  const fileLines =
+    args.conflictFiles.length > 0
+      ? args.conflictFiles.map((path, index) => `${index + 1}. ${path}`)
+      : ["- Conflict file list was not available in Atmos. Inspect the merge against the base branch."];
+
+  return compactLines([
+    "Resolve the merge conflicts for this pull request. Make the smallest relevant changes so the PR can merge cleanly into the base branch.",
+    "",
+    "Scope:",
+    `- Repository: ${args.owner}/${args.repo}`,
+    `- Pull request: #${args.pr.number}${args.pr.title ? ` — ${args.pr.title}` : ""}`,
+    args.pr.url ? `- PR URL: ${args.pr.url}` : null,
+    args.pr.headRefName ? `- Head branch: ${args.pr.headRefName}` : null,
+    args.pr.baseRefName ? `- Base branch: ${args.pr.baseRefName}` : null,
+    "",
+    "Conflicted files:",
+    ...fileLines,
+    "",
+    "Instructions:",
+    "- Resolve conflicts only; do not rewrite unrelated code.",
+    "- Prefer keeping intentional PR changes while integrating base-branch updates.",
+    "- After resolving, ensure the result builds/tests when practical.",
+  ]);
+}
+
 /** Fix prompt for a single failed PR status check (from Checks tab). */
 export function buildGithubActionsCheckFixPrompt(args: {
   owner: string;

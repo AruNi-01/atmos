@@ -6252,8 +6252,13 @@
         "empty": "此 Pull Request 暂无状态检查。",
         "conflicts": {
           "title": "此分支存在必须解决的冲突",
-          "description": "合并前请使用命令行或 GitHub 解决冲突。",
-          "resolve": "解决冲突"
+          "description": "合并前需解决冲突。点击文件可在 Atmos 中只读查看冲突内容。",
+          "resolve": "解决冲突",
+          "openAll": "打开全部冲突",
+          "noLocalFiles": "当工作区中该分支存在本地合并冲突时，会显示冲突文件列表。",
+          "agentFixLabel": "修复冲突",
+          "agentFixTerminalTab": "PR #{prNumber} 冲突修复",
+          "agentFixTerminalPane": "解决冲突"
         },
         "merge": {
           "hint": "也可以使用底部工具栏合并。"

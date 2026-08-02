@@ -6,16 +6,17 @@ import {
   AlertCircle,
   CheckCircle2,
   CircleDashed,
+  FileCode2,
   Loader2,
   SquareArrowOutUpRight,
   XCircle,
 } from "lucide-react";
 import {
-  Button,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  getFileIconProps,
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
@@ -25,13 +26,24 @@ import {
   parseGithubActionsRunId,
   type StatusCheck,
 } from "@/features/github/lib/pr-detail-parts";
-import { buildGithubActionsCheckFixPrompt } from "@/features/github/lib/agent-fix-prompts";
+import {
+  buildGithubActionsCheckFixPrompt,
+  buildPrMergeConflictsFixPrompt,
+} from "@/features/github/lib/agent-fix-prompts";
 import {
   PRMergeControls,
   type PRMergeStrategy,
 } from "@/features/github/lib/pr-detail-actions";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
+import { ChecksStatusRing } from "@/features/github/components/ChecksStatusRing";
+import { useGitStore } from "@/features/git/store/use-git-store";
+import { useGitChangedFilesQuery } from "@/features/git/hooks/use-git-changed-files-query";
+import {
+  buildConflictResolveEditorPath,
+  useEditorStore,
+} from "@/features/editor/store/use-editor-store";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 
 type CheckBucket = "failing" | "pending" | "skipped" | "successful";
 
@@ -189,6 +201,10 @@ export function PRChecksTab({
   const tStatus = useTranslations("github.prDetail.status");
   const agentFixContext = useAgentFixContext();
   const { openActionRunTab } = useOpenGithubCenterTab();
+  const { effectiveContextId } = useContextParams();
+  const openEditorFile = useEditorStore((s) => s.openFile);
+  const currentRepoPath = useGitStore((s) => s.currentRepoPath);
+  const worktreeQuery = useGitChangedFilesQuery(currentRepoPath);
   const [openAgentFixId, setOpenAgentFixId] = React.useState<string | null>(
     null,
   );
@@ -214,6 +230,79 @@ export function PRChecksTab({
     (mergeable === "UNKNOWN" ||
       mergeable === undefined ||
       mergeStateStatus === "UNKNOWN");
+
+  const conflictFilePaths = React.useMemo(() => {
+    const CONFLICT_STATUSES = new Set([
+      "DD",
+      "AU",
+      "UD",
+      "UA",
+      "DU",
+      "AA",
+      "UU",
+      "U",
+    ]);
+    const staged = worktreeQuery.data?.staged_files ?? [];
+    const unstaged = worktreeQuery.data?.unstaged_files ?? [];
+    const paths = new Set<string>();
+    for (const file of [...staged, ...unstaged]) {
+      if (CONFLICT_STATUSES.has(file.status)) {
+        paths.add(file.path);
+      }
+    }
+    return Array.from(paths).sort((a, b) => a.localeCompare(b));
+  }, [worktreeQuery.data?.staged_files, worktreeQuery.data?.unstaged_files]);
+
+  const openConflictFile = React.useCallback(
+    async (relativePath?: string) => {
+      const source = relativePath?.trim() || "merge-conflicts";
+      await openEditorFile(
+        buildConflictResolveEditorPath(source, { readOnly: true }),
+        effectiveContextId || undefined,
+        { preview: false },
+      );
+    },
+    [effectiveContextId, openEditorFile],
+  );
+
+  const conflictAgentFixSource = React.useMemo((): AgentFixPromptSource | null => {
+    if (!hasConflicts) return null;
+    return {
+      id: `pr-conflicts:${owner}/${repo}#${prNumber}`,
+      family: "pr_review",
+      context: agentFixContext,
+      label: t("conflicts.agentFixLabel"),
+      disabledReason: agentFixContext ? null : t("agentFix.disabledReason"),
+      getPrompt: () => ({
+        prompt: buildPrMergeConflictsFixPrompt({
+          owner,
+          repo,
+          pr: {
+            number: prNumber,
+            title: prTitle,
+            headRefName,
+            baseRefName,
+            url: prUrl,
+          },
+          conflictFiles: conflictFilePaths,
+        }),
+        terminalTabTitle: t("conflicts.agentFixTerminalTab", { prNumber }),
+        terminalPaneLabel: t("conflicts.agentFixTerminalPane"),
+      }),
+    };
+  }, [
+    agentFixContext,
+    baseRefName,
+    conflictFilePaths,
+    hasConflicts,
+    headRefName,
+    owner,
+    prNumber,
+    prTitle,
+    prUrl,
+    repo,
+    t,
+  ]);
 
   const summary = React.useMemo(() => {
     const failing = buckets.failing.length;
@@ -345,24 +434,6 @@ export function PRChecksTab({
     ],
   );
 
-  const SummaryIcon =
-    summary.tone === "success"
-      ? CheckCircle2
-      : summary.tone === "danger"
-        ? XCircle
-        : summary.tone === "pending"
-          ? Loader2
-          : AlertCircle;
-
-  const summaryIconClass =
-    summary.tone === "success"
-      ? "text-emerald-500"
-      : summary.tone === "danger"
-        ? "text-red-500"
-        : summary.tone === "pending"
-          ? "text-amber-500 animate-spin"
-          : "text-amber-500";
-
   const sections: Array<{
     key: CheckBucket;
     title: string;
@@ -395,7 +466,7 @@ export function PRChecksTab({
   return (
     <TooltipProvider delayDuration={250}>
       <div className="flex flex-col gap-4 pt-4">
-        {/* Summary */}
+        {/* Summary — GitHub-style multi-segment status ring */}
         <div
           className={cn(
             "flex items-start gap-3 rounded-xl border px-4 py-3 shadow-sm",
@@ -406,7 +477,13 @@ export function PRChecksTab({
             summary.tone === "neutral" && "border-border bg-muted/30",
           )}
         >
-          <SummaryIcon className={cn("mt-0.5 size-5 shrink-0", summaryIconClass)} />
+          <ChecksStatusRing
+            checks={checks}
+            hasConflicts={hasConflicts}
+            size={32}
+            strokeWidth={3.5}
+            className="mt-0.5"
+          />
           <div className="min-w-0 flex-1">
             <h4 className="text-sm font-semibold text-foreground">
               {summary.title}
@@ -471,29 +548,8 @@ export function PRChecksTab({
                           ) : null}
                         </div>
 
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          {agentFixSource ? (
-                            <span
-                              className="shrink-0"
-                              data-agent-fix-action-host="true"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <AgentFixButton
-                                source={agentFixSource}
-                                mode="label"
-                                appearance="subtle"
-                                onSettingsOpenChange={(open) => {
-                                  setOpenAgentFixId((current) => {
-                                    if (open) return agentFixSource.id;
-                                    return current === agentFixSource.id
-                                      ? null
-                                      : current;
-                                  });
-                                }}
-                              />
-                            </span>
-                          ) : null}
-
+                        <div className="flex shrink-0 items-center gap-1">
+                          {/* Open (hover) sits left of Agent Fix on failing rows */}
                           {canOpen ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -523,6 +579,28 @@ export function PRChecksTab({
                               </TooltipContent>
                             </Tooltip>
                           ) : null}
+
+                          {agentFixSource ? (
+                            <span
+                              className="shrink-0"
+                              data-agent-fix-action-host="true"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <AgentFixButton
+                                source={agentFixSource}
+                                mode="label"
+                                appearance="subtle"
+                                onSettingsOpenChange={(open) => {
+                                  setOpenAgentFixId((current) => {
+                                    if (open) return agentFixSource.id;
+                                    return current === agentFixSource.id
+                                      ? null
+                                      : current;
+                                  });
+                                }}
+                              />
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -537,7 +615,7 @@ export function PRChecksTab({
           </div>
         )}
 
-        {/* Conflicts */}
+        {/* Conflicts — file list opens Atmos read-only conflict tab; Agent Fix replaces GitHub jump */}
         {prState === "OPEN" && hasConflicts && (
           <div className="flex flex-col gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
             <div className="flex items-start gap-3">
@@ -550,23 +628,71 @@ export function PRChecksTab({
                   {t("conflicts.description")}
                 </p>
               </div>
-              {prUrl ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 shrink-0 text-xs"
-                  onClick={() =>
-                    window.open(
-                      `${prUrl.replace(/\/$/, "")}/conflicts`,
-                      "_blank",
-                      "noopener,noreferrer",
-                    )
-                  }
+              {conflictAgentFixSource ? (
+                <span
+                  className="shrink-0"
+                  data-agent-fix-action-host="true"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {t("conflicts.resolve")}
-                </Button>
+                  <AgentFixButton
+                    source={conflictAgentFixSource}
+                    mode="label"
+                    appearance="subtle"
+                    onSettingsOpenChange={(open) => {
+                      setOpenAgentFixId((current) => {
+                        if (open) return conflictAgentFixSource.id;
+                        return current === conflictAgentFixSource.id
+                          ? null
+                          : current;
+                      });
+                    }}
+                  />
+                </span>
               ) : null}
             </div>
+
+            {conflictFilePaths.length > 0 ? (
+              <div className="overflow-hidden rounded-lg border border-border/50 bg-background/60 divide-y divide-border/40">
+                {conflictFilePaths.map((path) => {
+                  const name = path.split("/").pop() || path;
+                  const iconProps = getFileIconProps({
+                    name,
+                    isDir: false,
+                    className: "size-3.5 shrink-0",
+                  });
+                  return (
+                    <button
+                      key={path}
+                      type="button"
+                      onClick={() => void openConflictFile(path)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] hover:bg-muted/40 transition-colors"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={iconProps.src}
+                        alt={iconProps.alt || ""}
+                        className="size-3.5 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1 truncate font-mono text-foreground/90">
+                        {path}
+                      </span>
+                      <FileCode2 className="size-3.5 shrink-0 text-muted-foreground" />
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => void openConflictFile()}
+                  className="flex w-full items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                >
+                  {t("conflicts.openAll")}
+                </button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                {t("conflicts.noLocalFiles")}
+              </p>
+            )}
           </div>
         )}
 

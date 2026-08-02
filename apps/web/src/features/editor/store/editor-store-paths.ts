@@ -11,6 +11,9 @@ export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
 export const EDITOR_REVIEW_GROUP_PREFIX = 'review-group://';
 export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
+/** Read-only conflict viewer (no accept/reject), e.g. PR Checks for a non-local PR. */
+export const EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT = 'ro';
+export const EDITOR_CONFLICT_RESOLVE_READONLY_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/merge-conflicts`;
 
 type EditorPathSuffixKind = 'diff' | 'review' | 'conflict';
 
@@ -72,6 +75,24 @@ export function isConflictResolveEditorPath(path: string): boolean {
   return path.startsWith(EDITOR_CONFLICT_RESOLVE_PREFIX);
 }
 
+export function isConflictResolveReadOnlyPath(path: string): boolean {
+  return path.startsWith(
+    `${EDITOR_CONFLICT_RESOLVE_PREFIX}${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/`,
+  );
+}
+
+/** Build a conflict-resolve editor path (optional read-only, optional single file). */
+export function buildConflictResolveEditorPath(
+  sourcePath: string = 'merge-conflicts',
+  options?: { readOnly?: boolean },
+): string {
+  const normalized = sourcePath.replace(/^\/+/, '') || 'merge-conflicts';
+  if (options?.readOnly) {
+    return `${EDITOR_CONFLICT_RESOLVE_PREFIX}${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/${normalized}`;
+  }
+  return `${EDITOR_CONFLICT_RESOLVE_PREFIX}${normalized}`;
+}
+
 export function getEditorSourcePath(path: string): string {
   if (path.startsWith(EDITOR_REVIEW_GROUP_PREFIX)) {
     return path.slice(EDITOR_REVIEW_GROUP_PREFIX.length);
@@ -88,7 +109,11 @@ export function getEditorSourcePath(path: string): string {
   }
 
   if (isConflictResolveEditorPath(path)) {
-    return path.slice(EDITOR_CONFLICT_RESOLVE_PREFIX.length);
+    let rest = path.slice(EDITOR_CONFLICT_RESOLVE_PREFIX.length);
+    if (rest.startsWith(`${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/`)) {
+      rest = rest.slice(EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT.length + 1);
+    }
+    return rest;
   }
 
   return path;

@@ -30,12 +30,14 @@ function toAbsolutePath(repoPath: string, relativePath: string): string {
 interface ConflictFileRendererProps {
   file: FileContents;
   theme: "pierre-dark" | "pierre-light";
+  readOnly?: boolean;
   onResolved: (nextFile: FileContents) => void;
 }
 
 function ConflictFileRenderer({
   file,
   theme,
+  readOnly = false,
   onResolved,
 }: ConflictFileRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -66,12 +68,15 @@ function ConflictFileRenderer({
 
     const instance = new UnresolvedFile({
       theme,
-      mergeConflictActionsType: "default",
+      // Read-only for PR Checks when the PR may not be the current workspace.
+      mergeConflictActionsType: readOnly ? "none" : "default",
       maxContextLines: 16,
       renderHeaderPrefix: headerPrefix,
-      onMergeConflictResolve: (nextFile) => {
-        onResolved(nextFile);
-      },
+      onMergeConflictResolve: readOnly
+        ? undefined
+        : (nextFile) => {
+            onResolved(nextFile);
+          },
     });
 
     instance.render({ file, containerWrapper: container });
@@ -80,12 +85,20 @@ function ConflictFileRenderer({
       instance.cleanUp();
       container.innerHTML = "";
     };
-  }, [file, fileName, onResolved, theme]);
+  }, [file, fileName, onResolved, readOnly, theme]);
 
   return <div ref={containerRef} className="w-full" />;
 }
 
-export function GitConflictResolver() {
+export function GitConflictResolver({
+  readOnly = false,
+  focusPath,
+}: {
+  /** Hide accept/reject actions (view conflict markers only). */
+  readOnly?: boolean;
+  /** When set (and not merge-conflicts), only render this relative path. */
+  focusPath?: string | null;
+} = {}) {
   const { resolvedTheme } = useTheme();
   const { currentRepoPath, stageFiles } = useGitStore();
   const worktreeQuery = useGitChangedFilesQuery(currentRepoPath);
@@ -99,8 +112,14 @@ export function GitConflictResolver() {
         paths.add(file.path);
       }
     }
-    return Array.from(paths);
-  }, [stagedFiles, unstagedFiles]);
+    let list = Array.from(paths);
+    if (focusPath && focusPath !== "merge-conflicts") {
+      list = list.filter((p) => p === focusPath);
+      // Still show the focused path even if status map is empty (best-effort).
+      if (list.length === 0) list = [focusPath];
+    }
+    return list;
+  }, [focusPath, stagedFiles, unstagedFiles]);
 
   const [files, setFiles] = useState<Record<string, FileContents>>({});
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
@@ -180,7 +199,7 @@ export function GitConflictResolver() {
 
   const handleMergeConflictResolve = useCallback(
     (relativePath: string, resolvedFile: FileContents) => {
-      if (!currentRepoPath) {
+      if (readOnly || !currentRepoPath) {
         return;
       }
 
@@ -216,13 +235,15 @@ export function GitConflictResolver() {
         }
       })();
     },
-    [currentRepoPath, stageFiles],
+    [currentRepoPath, readOnly, stageFiles],
   );
 
   if (!currentRepoPath) {
     return (
       <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-        Open a repository workspace to resolve merge conflicts.
+        {readOnly
+          ? "Open a repository workspace to inspect merge conflicts."
+          : "Open a repository workspace to resolve merge conflicts."}
       </div>
     );
   }
@@ -238,6 +259,12 @@ export function GitConflictResolver() {
   return (
     <div className="h-full w-full overflow-auto bg-background">
       <div className="mx-auto w-full max-w-[1200px] px-5 py-4 space-y-4">
+        {readOnly && (
+          <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+            Read-only conflict view — accept/reject is disabled because this may not
+            be the current workspace branch.
+          </div>
+        )}
         {conflictedFilePaths.map((relativePath) => {
           const file = files[relativePath];
           const isLoading = loadingPaths.has(relativePath);
@@ -269,7 +296,7 @@ export function GitConflictResolver() {
 
           return (
             <div key={relativePath} className="rounded-md border border-border/60 overflow-hidden">
-              {isSaving && (
+              {isSaving && !readOnly && (
                 <div className="px-3 py-1.5 text-xs text-muted-foreground border-b border-border/60 bg-muted/40">
                   Saving resolution...
                 </div>
@@ -277,6 +304,7 @@ export function GitConflictResolver() {
               <ConflictFileRenderer
                 file={file}
                 theme={diffTheme}
+                readOnly={readOnly}
                 onResolved={(nextFile) =>
                   handleMergeConflictResolve(relativePath, nextFile)
                 }

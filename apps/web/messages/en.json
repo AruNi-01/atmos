@@ -6252,8 +6252,13 @@
         "empty": "No status checks reported for this pull request.",
         "conflicts": {
           "title": "This branch has conflicts that must be resolved",
-          "description": "Use the command line or GitHub to resolve conflicts before merging.",
-          "resolve": "Resolve conflicts"
+          "description": "Resolve conflicts before merging. Click a file to open a read-only conflict view in Atmos.",
+          "resolve": "Resolve conflicts",
+          "openAll": "Open all conflicts",
+          "noLocalFiles": "Conflict file list is available when this workspace has a local merge conflict for the branch.",
+          "agentFixLabel": "Fix conflicts",
+          "agentFixTerminalTab": "PR #{prNumber} conflict fix",
+          "agentFixTerminalPane": "Resolve conflicts"
         },
         "merge": {
           "hint": "You can also merge from the bottom toolbar."
